@@ -1,17 +1,22 @@
-import re
-import sys
-import importlib
-import types
-import inspect
 import enum
+import importlib
+import inspect
+import re
+import socket as stdlib_socket
+import sys
+import types
+from pathlib import Path
+from types import ModuleType
+from typing import Any, Iterable
 
 import pytest
 
 import trio
 import trio.testing
+from trio.tests.conftest import RUN_SLOW
 
-from .. import _core
-from .. import _util
+from .. import _core, _util
+from .._core.tests.tutil import slow
 
 
 def test_core_is_properly_reexported():
@@ -40,7 +45,7 @@ def public_modules(module):
             continue
         if not class_.__name__.startswith(module.__name__):  # pragma: no cover
             continue
-        if class_ is module:
+        if class_ is module:  # pragma: no cover
             continue
         # We should rename the trio.tests module (#274), but until then we use
         # a special-case hack:
@@ -65,12 +70,12 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
     reason="skip static introspection tools on Python dev/alpha releases",
 )
 @pytest.mark.parametrize("modname", PUBLIC_MODULE_NAMES)
-@pytest.mark.parametrize("tool", ["pylint", "jedi"])
+@pytest.mark.parametrize("tool", ["pylint", "jedi", "mypy"])
 @pytest.mark.filterwarnings(
     # https://github.com/pypa/setuptools/issues/3274
     "ignore:module 'sre_constants' is deprecated:DeprecationWarning",
 )
-def test_static_tool_sees_all_symbols(tool, modname):
+def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
     module = importlib.import_module(modname)
 
     def no_underscores(symbols):
@@ -96,6 +101,37 @@ def test_static_tool_sees_all_symbols(tool, modname):
         script = jedi.Script(f"import {modname}; {modname}.")
         completions = script.complete()
         static_names = no_underscores(c.name for c in completions)
+    elif tool == "mypy":
+        if not RUN_SLOW:  # pragma: no cover
+            pytest.skip("use --run-slow to check against mypy")
+        if sys.implementation.name != "cpython":
+            pytest.skip("mypy not installed in tests on pypy")
+
+        # create py.typed file
+        py_typed_path = Path(trio.__file__).parent / "py.typed"
+        py_typed_exists = py_typed_path.exists()
+        if not py_typed_exists:  # pragma: no cover
+            py_typed_path.write_text("")
+
+        # mypy behaves strangely when passed a huge semicolon-separated line with `-c`
+        # so we use a tmpfile
+        tmpfile = tmpdir / "check_mypy.py"
+        tmpfile.write_text(
+            f"import {modname}\n"
+            + "".join(f"{modname}.{name}\n" for name in runtime_names),
+            encoding="utf8",
+        )
+        from mypy.api import run
+
+        res = run(["--config-file=", "--follow-imports=silent", str(tmpfile)])
+
+        # clean up created py.typed file
+        if not py_typed_exists:  # pragma: no cover
+            py_typed_path.unlink()
+
+        # check that there were no errors (exit code 0), otherwise print the errors
+        assert res[2] == 0, res[0]
+        return
     else:  # pragma: no cover
         assert False
 
@@ -112,6 +148,196 @@ def test_static_tool_sees_all_symbols(tool, modname):
         for name in sorted(missing_names):
             print(f"    {name}")
         assert False
+
+
+# this could be sped up by only invoking mypy once per module, or even once for all
+# modules, instead of once per class.
+@slow
+# see comment on test_static_tool_sees_all_symbols
+@pytest.mark.redistributors_should_skip
+# pylint/jedi often have trouble with alpha releases, where Python's internals
+# are in flux, grammar may not have settled down, etc.
+@pytest.mark.skipif(
+    sys.version_info.releaselevel == "alpha",
+    reason="skip static introspection tools on Python dev/alpha releases",
+)
+@pytest.mark.parametrize("module_name", PUBLIC_MODULE_NAMES)
+@pytest.mark.parametrize("tool", ["jedi", "mypy"])
+def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
+    module = PUBLIC_MODULES[PUBLIC_MODULE_NAMES.index(module_name)]
+
+    # ignore hidden, but not dunder, symbols
+    def no_hidden(symbols):
+        return {
+            symbol
+            for symbol in symbols
+            if (not symbol.startswith("_")) or symbol.startswith("__")
+        }
+
+    py_typed_path = Path(trio.__file__).parent / "py.typed"
+    py_typed_exists = py_typed_path.exists()
+
+    if tool == "mypy":
+        if sys.implementation.name != "cpython":
+            pytest.skip("mypy not installed in tests on pypy")
+        # create py.typed file
+        # not marked with no-cover pragma, remove this logic when trio is marked
+        # with py.typed proper
+        if not py_typed_exists:
+            py_typed_path.write_text("")
+
+    errors: dict[str, object] = {}
+    for class_name, class_ in module.__dict__.items():
+        if not isinstance(class_, type):
+            continue
+        if module_name == "trio.socket" and class_name in dir(stdlib_socket):
+            continue
+        # Deprecated classes are exported with a leading underscore
+        # We don't care about errors in _MultiError as that's on its way out anyway
+        if class_name.startswith("_"):  # pragma: no cover
+            continue
+
+        # dir() and inspect.getmembers doesn't display properties from the metaclass
+        # also ignore some dunder methods that tend to differ but are of no consequence
+        ignore_names = set(dir(type(class_))) | {
+            "__annotations__",
+            "__attrs_attrs__",
+            "__attrs_own_setattr__",
+            "__class_getitem__",
+            "__getstate__",
+            "__match_args__",
+            "__order__",
+            "__orig_bases__",
+            "__parameters__",
+            "__setstate__",
+            "__slots__",
+            "__weakref__",
+        }
+
+        # pypy seems to have some additional dunders that differ
+        if sys.implementation.name == "pypy":
+            ignore_names |= {
+                "__basicsize__",
+                "__dictoffset__",
+                "__itemsize__",
+                "__sizeof__",
+                "__weakrefoffset__",
+                "__unicode__",
+            }
+
+        # inspect.getmembers sees `name` and `value` in Enums, otherwise
+        # it behaves the same way as `dir`
+        # runtime_names = no_underscores(dir(class_))
+        runtime_names = (
+            no_hidden(x[0] for x in inspect.getmembers(class_)) - ignore_names
+        )
+
+        if tool == "jedi":
+            import jedi
+
+            script = jedi.Script(
+                f"from {module_name} import {class_name}; {class_name}."
+            )
+            completions = script.complete()
+            static_names = no_hidden(c.name for c in completions) - ignore_names
+
+            missing = runtime_names - static_names
+            extra = static_names - runtime_names
+            if BaseException in class_.__mro__ and sys.version_info > (3, 11):
+                missing.remove("add_note")
+
+            # TODO: why is this? Is it a problem?
+            # see https://github.com/python-trio/trio/pull/2631#discussion_r1185615916
+            if class_ == trio.StapledStream:
+                extra.remove("receive_stream")
+                extra.remove("send_stream")
+
+            # intentionally hidden behind type guard
+            if class_ == trio.Path:
+                missing.remove("__getattr__")
+
+            if missing or extra:  # pragma: no cover
+                errors[f"{module_name}.{class_name}"] = {
+                    "missing": missing,
+                    "extra": extra,
+                }
+        elif tool == "mypy":
+            tmpfile = tmpdir / "check_mypy.py"
+            sorted_runtime_names = list(sorted(runtime_names))
+            content = f"from {module_name} import {class_name}\n" + "".join(
+                f"{class_name}.{name}\n" for name in sorted_runtime_names
+            )
+            tmpfile.write_text(content, encoding="utf8")
+            from mypy.api import run
+
+            res = run(
+                [
+                    "--config-file=",
+                    "--follow-imports=silent",
+                    "--disable-error-code=operator",
+                    "--soft-error-limit=-1",
+                    "--no-error-summary",
+                    str(tmpfile),
+                ]
+            )
+            # no errors
+            if res[2] == 0:
+                continue
+
+            # get each line of output, containing an error for a symbol,
+            # stripping of trailing newline
+            it = iter(res[0].split("\n")[:-1])
+            for output_line in it:
+                # split out the three last fields to not have problems with windows
+                # drives or other paths with any `:`
+                _, line, error_type, message = output_line.rsplit(":", 3)
+
+                # -2 due to lines being 1-indexed and to skip the import line
+                symbol = (
+                    f"{module_name}.{class_name}." + sorted_runtime_names[int(line) - 2]
+                )
+
+                # The POSIX-only attributes get listed in `dir(trio.Path)` since
+                # they're in `dir(pathlib.Path)` on win32 cpython. This should *maybe*
+                # be fixed in the future, but for now we ignore it.
+                if (
+                    symbol
+                    in ("trio.Path.group", "trio.Path.owner", "trio.Path.is_mount")
+                    and sys.platform == "win32"
+                    and sys.implementation.name == "cpython"
+                ):
+                    continue
+
+                # intentionally hidden from type checkers, lest they accept any attribute
+                if symbol == "trio.Path.__getattr__":
+                    continue
+
+                # a bunch of symbols have this error, e.g. trio.lowlevel.Task.context
+                # It's not a problem: it's just complaining we're accessing
+                # instance-only attributes on a class!
+                # See this test for a minimized version that causes this error:
+                # https://github.com/python/mypy/blob/c517b86b9ba7487e7758f187cf31478e7aeaad47/test-data/unit/check-slots.test#L515-L523.
+
+                if "conflicts with class variable access" in message:
+                    continue
+
+                errors[symbol] = error_type + ":" + message  # pragma: no cover
+
+        else:  # pragma: no cover
+            assert False, "unknown tool"
+
+    # clean up created py.typed file
+    if tool == "mypy" and not py_typed_exists:
+        py_typed_path.unlink()
+
+    # `assert not errors` will not print the full content of errors, even with
+    # `--verbose`, so we manually print it
+    if errors:  # pragma: no cover
+        from pprint import pprint
+
+        print(f"\n{tool} can't see the following symbols in {module_name}:")
+        pprint(errors)
+    assert not errors
 
 
 def test_classes_are_final():
