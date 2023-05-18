@@ -243,13 +243,29 @@ def test_module_with_deprecations(recwarn_always):
         module_with_deprecations.asdf
 
 
-def test_tests_is_deprecated() -> None:
-    from trio import tests
+def test_tests_is_deprecated1() -> None:
+    from trio import tests  # no warning on import
 
+    # warning on access of any member
     with pytest.warns(TrioDeprecationWarning):
-        tests.test_abc  # type: ignore[attr-defined]
+        assert tests.test_abc  # type: ignore[attr-defined]
 
+
+def test_tests_is_deprecated2() -> None:
+    # warning on direct import of test since that accesses `__spec__`
     with pytest.warns(TrioDeprecationWarning):
         import trio.tests
 
-        trio.tests.test_deprecate  # type: ignore[attr-defined]
+    with pytest.warns(TrioDeprecationWarning):
+        assert trio.tests.test_deprecate  # type: ignore[attr-defined]
+
+
+def test_tests_is_deprecated3() -> None:
+    import trio
+
+    # no warning on accessing the submodule
+    assert trio.tests
+
+    # only when accessing a submodule member
+    with pytest.warns(TrioDeprecationWarning):
+        assert trio.tests.test_abc  # type: ignore[attr-defined]
