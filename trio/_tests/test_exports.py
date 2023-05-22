@@ -79,6 +79,10 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
 
     runtime_names = no_underscores(dir(module))
 
+    # ignore deprecated module `tests` being invisible
+    if modname == "trio":
+        runtime_names.discard("tests")
+
     if tool == "pylint":
         from pylint.lint import PyLinter
 
@@ -133,6 +137,10 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
     #   static analysis (e.g. in trio.socket or trio.lowlevel)
     # So we check that the runtime names are a subset of the static names.
     missing_names = runtime_names - static_names
+
+    # ignore warnings about deprecated module tests
+    missing_names -= {"tests"}
+
     if missing_names:  # pragma: no cover
         print(f"{tool} can't see the following names in {modname}:")
         print()

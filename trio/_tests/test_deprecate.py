@@ -244,7 +244,8 @@ def test_module_with_deprecations(recwarn_always):
 
 
 def test_tests_is_deprecated1() -> None:
-    from trio import tests  # no warning on import
+    with pytest.warns(TrioDeprecationWarning):
+        from trio import tests  # warning on import
 
     # warning on access of any member
     with pytest.warns(TrioDeprecationWarning):

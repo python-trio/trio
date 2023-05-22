@@ -5,6 +5,13 @@ from typing import Any
 from . import _tests
 from ._deprecate import warn_deprecated
 
+warn_deprecated(
+    "trio.tests",
+    "0.24.0",
+    instead="trio._tests",
+    issue="https://github.com/python-trio/trio/issues/274",
+)
+
 
 # This won't give deprecation warning on import, but will give a warning on use of any
 # attribute in tests, and static analysis tools will also not see any content inside.
