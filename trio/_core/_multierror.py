@@ -213,6 +213,13 @@ class MultiError(BaseExceptionGroup):
 
             return super().__new__(cls, "multiple tasks failed", exceptions)
 
+    def __reduce__(self):
+        return (
+            self.__new__,
+            (self.__class__, list(self.exceptions)),
+            {"collapse": self.collapse},
+        )
+
     def __str__(self):
         return ", ".join(repr(exc) for exc in self.exceptions)
 
