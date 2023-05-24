@@ -13,10 +13,10 @@ import pytest
 
 import trio
 import trio.testing
-from trio.tests.conftest import RUN_SLOW
 
 from .. import _core, _util
-from .._core.tests.tutil import slow
+from .._core._tests.tutil import slow
+from .pytest_plugin import RUN_SLOW
 
 
 def test_core_is_properly_reexported():
@@ -24,7 +24,7 @@ def test_core_is_properly_reexported():
     # three modules:
     sources = [trio, trio.lowlevel, trio.testing]
     for symbol in dir(_core):
-        if symbol.startswith("_") or symbol == "tests":
+        if symbol.startswith("_"):
             continue
         found = 0
         for source in sources:
@@ -46,10 +46,6 @@ def public_modules(module):
         if not class_.__name__.startswith(module.__name__):  # pragma: no cover
             continue
         if class_ is module:  # pragma: no cover
-            continue
-        # We should rename the trio.tests module (#274), but until then we use
-        # a special-case hack:
-        if class_.__name__ == "trio.tests":
             continue
         yield from public_modules(class_)
 
@@ -83,10 +79,9 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
 
     runtime_names = no_underscores(dir(module))
 
-    # We should rename the trio.tests module (#274), but until then we use a
-    # special-case hack:
+    # ignore deprecated module `tests` being invisible
     if modname == "trio":
-        runtime_names.remove("tests")
+        runtime_names.discard("tests")
 
     if tool == "pylint":
         from pylint.lint import PyLinter
@@ -142,6 +137,10 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
     #   static analysis (e.g. in trio.socket or trio.lowlevel)
     # So we check that the runtime names are a subset of the static names.
     missing_names = runtime_names - static_names
+
+    # ignore warnings about deprecated module tests
+    missing_names -= {"tests"}
+
     if missing_names:  # pragma: no cover
         print(f"{tool} can't see the following names in {modname}:")
         print()

@@ -26,7 +26,7 @@ from .. import socket as tsocket
 from .._ssl import SSLStream, SSLListener, NeedHandshakeError, _is_eof
 from .._util import ConflictDetector
 
-from .._core.tests.tutil import slow
+from .._core._tests.tutil import slow
 
 from ..testing import (
     assert_checkpoints,

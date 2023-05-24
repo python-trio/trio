@@ -11,7 +11,7 @@ import trustme
 from OpenSSL import SSL
 
 from trio.testing._fake_net import FakeNet
-from .._core.tests.tutil import slow, binds_ipv6, gc_collect_harder
+from .._core._tests.tutil import slow, binds_ipv6, gc_collect_harder
 
 ca = trustme.CA()
 server_cert = ca.issue_cert("example.com")
