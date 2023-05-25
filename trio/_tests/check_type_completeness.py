@@ -105,6 +105,9 @@ def main(args: argparse.Namespace) -> int:
         del current_result["time"]
         del current_result["summary"]["timeInSec"]
 
+        # don't fail on version diff so pyright updates can be automerged
+        del current_result["version"]
+
         for key in (
             # don't save huge file for now
             "symbols",

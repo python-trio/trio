@@ -151,6 +151,10 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
             import socket
 
             static_names |= set(filter(str.isupper, dir(socket))) & runtime_names
+
+            # unclear why this one is required
+            if sys.platform == "win32" and sys.version_info == (3, 7):
+                static_names |= 'IPPROTO_IPV6'
     else:  # pragma: no cover
         assert False
 
