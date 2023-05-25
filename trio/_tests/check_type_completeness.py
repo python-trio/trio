@@ -121,6 +121,8 @@ def main(args: argparse.Namespace) -> int:
 
         with open(RES_FILE, "w") as file:
             json.dump(current_result, file, sort_keys=True, indent=2)
+            # add newline at end of file so it's easier to manually modify
+            file.write("\n")
 
     print("*" * 20)
 
