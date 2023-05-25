@@ -1,13 +1,10 @@
 import enum
 import importlib
 import inspect
-import re
 import socket as stdlib_socket
 import sys
-import types
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Iterable
 
 import pytest
 
@@ -41,7 +38,7 @@ def public_modules(module):
     for name, class_ in module.__dict__.items():
         if name.startswith("_"):  # pragma: no cover
             continue
-        if not isinstance(class_, types.ModuleType):
+        if not isinstance(class_, ModuleType):
             continue
         if not class_.__name__.startswith(module.__name__):  # pragma: no cover
             continue
@@ -109,7 +106,6 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         if sys.implementation.name != "cpython":
             pytest.skip("mypy not installed in tests on pypy")
 
-
         # mypy behaves strangely when passed a huge semicolon-separated line with `-c`
         # so we use a tmpfile
         tmpfile = tmpdir / "check_mypy.py"
@@ -136,11 +132,11 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         end_index = res.stdout.find(b"Other referenced symbols: ", start_index)
         assert start_index != -1, (res.stdout, res.stderr)
         assert end_index != -1, res.stdout
-        static_names = set(
+        static_names = {
             x.strip().decode()[len(modname) + 1 :]
             for x in res.stdout[start_index:end_index].split(b"\n")
             if modname + "." in x.decode()
-        )
+        }
 
         # don't require verifytypes to see reexported constants from socket
         if modname == "trio.socket":
@@ -290,7 +286,7 @@ def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
                 }
         elif tool == "mypy":
             tmpfile = tmpdir / "check_mypy.py"
-            sorted_runtime_names = list(sorted(runtime_names))
+            sorted_runtime_names = sorted(runtime_names)
             content = f"from {module_name} import {class_name}\n" + "".join(
                 f"{class_name}.{name}\n" for name in sorted_runtime_names
             )
