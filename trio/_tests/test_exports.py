@@ -118,14 +118,14 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         )
         from mypy.api import run
 
-        res = run(["--config-file=", "--follow-imports=silent", str(tmpfile)])
+        mypy_res = run(["--config-file=", "--follow-imports=silent", str(tmpfile)])
 
         # clean up created py.typed file
         if not py_typed_exists:  # pragma: no cover
             py_typed_path.unlink()
 
         # check that there were no errors (exit code 0), otherwise print the errors
-        assert res[2] == 0, res[0]
+        assert mypy_res[2] == 0, mypy_res[0]
         return
     elif tool == "pyright_verifytypes":
         import subprocess
