@@ -34,10 +34,13 @@ def main(args: argparse.Namespace) -> int:
             failed = True
             print("ERROR: ", end="")
         if isinstance(current, float):
-            current = f"{current:.4}"
-            last = f"{last:.4}"
+            strcurrent = f"{current:.4}"
+            strlast = f"{last:.4}"
+        else:
+            strcurrent = str(current)
+            strlast = str(last)
         print(
-            f"{key} has gone {'down' if current<last else 'up'} from {last} to {current}"
+            f"{key} has gone {'down' if current<last else 'up'} from {strlast} to {strcurrent}"
         )
 
     def check_zero(key):

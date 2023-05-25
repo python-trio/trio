@@ -2,28 +2,28 @@
   "generalDiagnostics": [],
   "summary": {
     "errorCount": 0,
-    "filesAnalyzed": 43,
+    "filesAnalyzed": 8,
     "informationCount": 0,
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.1997703788748565,
+    "completenessScore": 0.28662420382165604,
     "exportedSymbolCounts": {
-      "withAmbiguousType": 46,
-      "withKnownType": 174,
-      "withUnknownType": 651
+      "withAmbiguousType": 1,
+      "withKnownType": 45,
+      "withUnknownType": 111
     },
     "ignoreUnknownTypesFromImports": true,
-    "missingClassDocStringCount": 20,
+    "missingClassDocStringCount": 1,
     "missingDefaultParamCount": 0,
-    "missingFunctionDocStringCount": 436,
+    "missingFunctionDocStringCount": 4,
     "moduleName": "trio",
     "otherSymbolCounts": {
-      "withAmbiguousType": 13,
-      "withKnownType": 222,
-      "withUnknownType": 293
+      "withAmbiguousType": 15,
+      "withKnownType": 231,
+      "withUnknownType": 236
     },
     "packageName": "trio"
   },
-  "version": "1.1.302"
+  "version": "1.1.310"
 }
