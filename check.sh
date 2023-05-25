@@ -38,7 +38,7 @@ if git status --porcelain | grep -q "requirements.txt"; then
 fi
 
 python trio/_tests/check_type_completeness.py --overwrite-file || EXIT_STATUS=$?
-if git status --porcelain trio/_tests/verify_types.json; then
+if git status --porcelain trio/_tests/verify_types.json | grep -q "M"; then
     echo "Type completeness changed, please update!"
     git diff trio/_tests/verify_types.json
     EXIT_STATUS=1

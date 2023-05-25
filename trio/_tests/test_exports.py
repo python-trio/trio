@@ -154,7 +154,7 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
 
             # unclear why this one is required
             if sys.platform == "win32" and sys.version_info[:2] == (3, 7):
-                runtime_names |= 'IPPROTO_IPV6'
+                runtime_names.add('IPPROTO_IPV6')
     else:  # pragma: no cover
         assert False
 
