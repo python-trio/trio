@@ -83,6 +83,13 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
     if modname == "trio":
         runtime_names.discard("tests")
 
+    if tool in ("mypy", "pyright_verifytypes"):
+        # create py.typed file
+        py_typed_path = Path(trio.__file__).parent / "py.typed"
+        py_typed_exists = py_typed_path.exists()
+        if not py_typed_exists:
+            py_typed_path.write_text("")
+
     if tool == "pylint":
         from pylint.lint import PyLinter
 
@@ -102,11 +109,6 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         if sys.implementation.name != "cpython":
             pytest.skip("mypy not installed in tests on pypy")
 
-        # create py.typed file
-        py_typed_path = Path(trio.__file__).parent / "py.typed"
-        py_typed_exists = py_typed_path.exists()
-        if not py_typed_exists:  # pragma: no cover
-            py_typed_path.write_text("")
 
         # mypy behaves strangely when passed a huge semicolon-separated line with `-c`
         # so we use a tmpfile
@@ -120,17 +122,11 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
 
         mypy_res = run(["--config-file=", "--follow-imports=silent", str(tmpfile)])
 
-        # clean up created py.typed file
-        if not py_typed_exists:  # pragma: no cover
-            py_typed_path.unlink()
-
         # check that there were no errors (exit code 0), otherwise print the errors
         assert mypy_res[2] == 0, mypy_res[0]
         return
     elif tool == "pyright_verifytypes":
         import subprocess
-
-        (Path(trio.__file__).parent / "py.typed").write_text("")
 
         res = subprocess.run(
             ["pyright", f"--verifytypes={modname}", "--verbose"],
@@ -154,9 +150,14 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
 
             # unclear why this one is required
             if sys.platform == "win32" and sys.version_info[:2] == (3, 7):
-                runtime_names.add('IPPROTO_IPV6')
+                static_names.add("IPPROTO_IPV6")
+
     else:  # pragma: no cover
         assert False
+
+    # remove py.typed file
+    if tool in ("mypy", "pyright_verifytypes") and not py_typed_exists:
+        py_typed_path.unlink()
 
     # It's expected that the static set will contain more names than the
     # runtime set:
@@ -208,8 +209,7 @@ def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
         if sys.implementation.name != "cpython":
             pytest.skip("mypy not installed in tests on pypy")
         # create py.typed file
-        # not marked with no-cover pragma, remove this logic when trio is marked
-        # with py.typed proper
+        # remove this logic when trio is marked with py.typed proper
         if not py_typed_exists:
             py_typed_path.write_text("")
 
