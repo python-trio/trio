@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 # this file is not run as part of the tests, instead it's run standalone from check.sh
-# pragma: no cover
 import subprocess
 import json
 from pathlib import Path
