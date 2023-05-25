@@ -6,7 +6,7 @@ import sys
 
 import pytest
 
-from .._core.tests.tutil import gc_collect_harder, skip_if_fbsd_pipes_broken
+from .._core._tests.tutil import gc_collect_harder, skip_if_fbsd_pipes_broken
 from .. import _core, move_on_after
 from ..testing import wait_all_tasks_blocked, check_one_way_stream
 

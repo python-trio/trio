@@ -1,12 +1,12 @@
-# type: ignore
-
-from functools import wraps, partial
 import os
-import types
 import pathlib
+import sys
+import types
+from functools import partial, wraps
+from typing import TYPE_CHECKING, Awaitable, Callable, TypeVar, Any
 
 import trio
-from trio._util import async_wraps, Final
+from trio._util import Final, async_wraps
 
 
 # re-wrap return value from methods that return new instances of pathlib.Path
@@ -156,11 +156,16 @@ class Path(metaclass=AsyncAutoWrapperType):
     def __init__(self, *args):
         self._wrapped = pathlib.Path(*args)
 
-    def __getattr__(self, name):
-        if name in self._forward:
-            value = getattr(self._wrapped, name)
-            return rewrap_path(value)
-        raise AttributeError(name)
+    # type checkers allow accessing any attributes on class instances with `__getattr__`
+    # so we hide it behind a type guard forcing it to rely on the hardcoded attribute
+    # list below.
+    if not TYPE_CHECKING:
+
+        def __getattr__(self, name):
+            if name in self._forward:
+                value = getattr(self._wrapped, name)
+                return rewrap_path(value)
+            raise AttributeError(name)
 
     def __dir__(self):
         return super().__dir__() + self._forward
@@ -181,6 +186,74 @@ class Path(metaclass=AsyncAutoWrapperType):
         func = partial(self._wrapped.open, *args, **kwargs)
         value = await trio.to_thread.run_sync(func)
         return trio.wrap_file(value)
+
+    if TYPE_CHECKING:
+        # the dunders listed in _forward_magic that aren't seen otherwise
+        __bytes__ = pathlib.Path.__bytes__
+        __truediv__ = pathlib.Path.__truediv__
+        __rtruediv__ = pathlib.Path.__rtruediv__
+
+        # These should be fully typed, either manually or with some magic wrapper
+        # function that copies the type of pathlib.Path except sticking an async in
+        # front of all of them. The latter is unfortunately not trivial, see attempts in
+        # https://github.com/python-trio/trio/issues/2630
+
+        # wrapped methods handled by __getattr__
+        absolute: Any
+        as_posix: Any
+        as_uri: Any
+        chmod: Any
+        cwd: Any
+        exists: Any
+        expanduser: Any
+        glob: Any
+        home: Any
+        is_absolute: Any
+        is_block_device: Any
+        is_char_device: Any
+        is_dir: Any
+        is_fifo: Any
+        is_file: Any
+        is_reserved: Any
+        is_socket: Any
+        is_symlink: Any
+        iterdir: Any
+        joinpath: Any
+        lchmod: Any
+        lstat: Any
+        match: Any
+        mkdir: Any
+        read_bytes: Any
+        read_text: Any
+        relative_to: Any
+        rename: Any
+        replace: Any
+        resolve: Any
+        rglob: Any
+        rmdir: Any
+        samefile: Any
+        stat: Any
+        symlink_to: Any
+        touch: Any
+        unlink: Any
+        with_name: Any
+        with_suffix: Any
+        write_bytes: Any
+        write_text: Any
+
+        if sys.platform != "win32":
+            group: Any
+            is_mount: Any
+            owner: Any
+
+        if sys.version_info >= (3, 8):
+            link_to: Any
+        if sys.version_info >= (3, 9):
+            is_relative_to: Any
+            with_stem: Any
+            readlink: Any
+        if sys.version_info >= (3, 10):
+            hardlink_to: Any
 
 
 Path.iterdir.__doc__ = """
@@ -203,4 +276,6 @@ Path.iterdir.__doc__ = """
 # sense than inventing our own special docstring for this.
 del Path.absolute.__doc__
 
+# TODO: This is likely not supported by all the static tools out there, see discussion in
+# https://github.com/python-trio/trio/pull/2631#discussion_r1185612528
 os.PathLike.register(Path)

@@ -20,7 +20,7 @@ from .. import (
     sleep,
     sleep_forever,
 )
-from .._core.tests.tutil import skip_if_fbsd_pipes_broken, slow
+from .._core._tests.tutil import skip_if_fbsd_pipes_broken, slow
 from ..lowlevel import open_process
 from ..testing import assert_no_checkpoints, wait_all_tasks_blocked
 

@@ -1,9 +1,3 @@
-# XX this does not belong here -- b/c it's here, these things only apply to
-# the tests in trio/_core/tests, not in trio/tests. For now there's some
-# copy-paste...
-#
-# this stuff should become a proper pytest plugin
-
 import pytest
 import inspect
 

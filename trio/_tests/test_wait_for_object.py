@@ -6,7 +6,7 @@ on_windows = os.name == "nt"
 # Mark all the tests in this file as being windows-only
 pytestmark = pytest.mark.skipif(not on_windows, reason="windows only")
 
-from .._core.tests.tutil import slow
+from .._core._tests.tutil import slow
 import trio
 from .. import _core
 from .. import _timeouts

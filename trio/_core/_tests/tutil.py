@@ -12,8 +12,8 @@ from contextlib import contextmanager, closing
 
 import gc
 
-# See trio/tests/conftest.py for the other half of this
-from trio.tests.conftest import RUN_SLOW
+# See trio/_tests/conftest.py for the other half of this
+from trio._tests.pytest_plugin import RUN_SLOW
 
 slow = pytest.mark.skipif(not RUN_SLOW, reason="use --run-slow to run slow tests")
 

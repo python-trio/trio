@@ -14,8 +14,8 @@ from sniffio import current_async_library_cvar
 from trio._core import TrioToken, current_trio_token
 
 from .. import CapacityLimiter, Event, _core, sleep
-from .._core.tests.test_ki import ki_self
-from .._core.tests.tutil import buggy_pypy_asyncgens
+from .._core._tests.test_ki import ki_self
+from .._core._tests.tutil import buggy_pypy_asyncgens
 from .._threads import (
     current_default_thread_limiter,
     from_thread_run,
@@ -168,7 +168,7 @@ def test_await_in_trio_thread_while_main_exits():
 
 
 async def test_named_thread():
-    ending = " from trio.tests.test_threads.test_named_thread"
+    ending = " from trio._tests.test_threads.test_named_thread"
 
     def inner(name="inner" + ending) -> threading.Thread:
         assert threading.current_thread().name == name
@@ -248,7 +248,7 @@ async def test_named_thread_os():
         return partial(inner, name)
 
     # test defaults
-    default = "None from trio.tests.test_threads.test_named_thread"
+    default = "None from trio._tests.test_threads.test_named_thread"
     await to_thread_run_sync(f(default))
     await to_thread_run_sync(f(default), thread_name=None)
 

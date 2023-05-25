@@ -5,7 +5,7 @@ import pytest
 
 import trio
 from .. import _core
-from .._core.tests.tutil import (
+from .._core._tests.tutil import (
     ignore_coroutine_never_awaited_warnings,
     create_asyncio_future_in_new_loop,
 )

@@ -2,7 +2,7 @@ import outcome
 import pytest
 import time
 
-from .._core.tests.tutil import slow
+from .._core._tests.tutil import slow
 from .. import _core
 from ..testing import assert_checkpoints
 from .._timeouts import *
