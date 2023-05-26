@@ -1,5 +1,4 @@
 import gc
-import logging
 import os
 import subprocess
 from pathlib import Path
@@ -11,7 +10,6 @@ import pytest
 from traceback import (
     extract_tb,
     print_exception,
-    format_exception,
 )
 from traceback import _cause_message  # type: ignore
 import sys
@@ -578,7 +576,7 @@ def test_pickle_multierror(protocol) -> None:
         (MultiError, [BaseException(), my_except]),
     ):
         with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
+            warnings.simplefilter("ignore", TrioDeprecationWarning)
             me = trio.MultiError(errors)  # type: ignore[attr-defined]
             dump = pickle.dumps(me, protocol=protocol)
             load = pickle.loads(dump)
