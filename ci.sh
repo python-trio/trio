@@ -6,10 +6,6 @@ set -ex -o pipefail
 uname -a
 env | sort
 
-if [ "$JOB_NAME" = "" ]; then
-    JOB_NAME="${TRAVIS_OS_NAME}-${TRAVIS_PYTHON_VERSION:-unknown}"
-fi
-
 # Curl's built-in retry system is not very robust; it gives up on lots of
 # network errors that we want to retry on. Wget might work better, but it's
 # not installed on azure pipelines's windows boxes. So... let's try some good
@@ -102,11 +98,7 @@ else
 
     INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
     cp ../pyproject.toml $INSTALLDIR
-    # We have to copy .coveragerc into this directory, rather than passing
-    # --cov-config=../.coveragerc to pytest, because codecov.sh will run
-    # 'coverage xml' to generate the report that it uses, and that will only
-    # apply the ignore patterns in the current directory's .coveragerc.
-    cp ../.coveragerc .
+
     if pytest -r a -p trio._tests.pytest_plugin --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --cov="$INSTALLDIR" --cov-report=xml --verbose; then
         PASSED=true
     else

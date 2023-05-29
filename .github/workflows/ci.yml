@@ -73,8 +73,6 @@ jobs:
         env:
           LSP: '${{ matrix.lsp }}'
           LSP_EXTRACT_FILE: '${{ matrix.lsp_extract_file }}'
-          # Should match 'name:' up above
-          JOB_NAME: 'Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})'
       - uses: codecov/codecov-action@v3
         with:
           directory: empty
@@ -122,8 +120,6 @@ jobs:
         run: ./ci.sh
         env:
           CHECK_FORMATTING: '${{ matrix.check_formatting }}'
-          # Should match 'name:' up above
-          JOB_NAME: 'Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})'
       - uses: codecov/codecov-action@v3
         with:
           directory: empty
@@ -156,9 +152,6 @@ jobs:
           cache-dependency-path: test-requirements.txt
       - name: Run tests
         run: ./ci.sh
-        env:
-          # Should match 'name:' up above
-          JOB_NAME: 'macOS (${{ matrix.python }})'
       - uses: codecov/codecov-action@v3
         with:
           directory: empty
