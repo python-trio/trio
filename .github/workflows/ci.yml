@@ -76,6 +76,7 @@ jobs:
       - uses: codecov/codecov-action@v3
         with:
           directory: empty
+          name: 'Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})'
 
   Ubuntu:
     name: 'Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})'
@@ -123,6 +124,7 @@ jobs:
       - uses: codecov/codecov-action@v3
         with:
           directory: empty
+          name: 'Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})'
 
   macOS:
     name: 'macOS (${{ matrix.python }})'
@@ -155,6 +157,7 @@ jobs:
       - uses: codecov/codecov-action@v3
         with:
           directory: empty
+          name: 'macOS (${{ matrix.python }})'
 
   # https://github.com/marketplace/actions/alls-green#why
   check:  # This job does nothing and is only used for the branch protection
