@@ -107,7 +107,7 @@ else
     # 'coverage xml' to generate the report that it uses, and that will only
     # apply the ignore patterns in the current directory's .coveragerc.
     cp ../.coveragerc .
-    if pytest -r a -p trio._tests.pytest_plugin --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --cov="$INSTALLDIR" --verbose; then
+    if pytest -r a -p trio._tests.pytest_plugin --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --cov="$INSTALLDIR" --cov-report=xml --verbose; then
         PASSED=true
     else
         PASSED=false
@@ -118,14 +118,6 @@ else
     if [ "$LSP" != "" ]; then
         netsh winsock reset
     fi
-
-    # The codecov docs recommend something like 'bash <(curl ...)' to pipe the
-    # script directly into bash as its being downloaded. But, the codecov
-    # server is flaky, so we instead save to a temp file with retries, and
-    # wait until we've successfully fetched the whole script before trying to
-    # run it.
-    curl-harder -o codecov.sh https://codecov.io/bash
-    bash codecov.sh -n "${JOB_NAME}"
 
     $PASSED
 fi
