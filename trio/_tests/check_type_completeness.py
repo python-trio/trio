@@ -127,11 +127,18 @@ def main(args: argparse.Namespace) -> int:
         ):
             del current_result["typeCompleteness"][key]
 
+        new_symbols = []
         # remove path & line/col references in errors
         for symbol in current_result["typeCompleteness"]["symbols"]:
+            # filter out symbols with no errors
+            if not symbol["diagnostics"]:
+                continue
             for diag in symbol["diagnostics"]:
                 del diag["file"]
                 diag.pop("range", None)
+            new_symbols.append(symbol)
+
+        current_result["typeCompleteness"]["symbols"] = new_symbols
 
         with open(RESULT_FILE, "w") as file:
             json.dump(current_result, file, sort_keys=True, indent=2)

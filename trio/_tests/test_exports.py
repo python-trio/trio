@@ -121,23 +121,28 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         # check that there were no errors (exit code 0), otherwise print the errors
         assert mypy_res[2] == 0, mypy_res[0]
     elif tool == "pyright_verifytypes":
+        if not RUN_SLOW:  # pragma: no cover
+            pytest.skip("use --run-slow to check against mypy")
         import subprocess
+        import json
 
         # uses `--verbose` to also get symbols without errors
         # `--verbose` and `--outputjson` are incompatible, so we do string parsing
         res = subprocess.run(
-            ["pyright", f"--verifytypes={modname}", "--verbose"],
+            ["pyright", f"--verifytypes={modname}", "--outputjson"],
             capture_output=True,
         )
-        start_index = res.stdout.find(b"Public modules: ")
-        end_index = res.stdout.find(b"Other referenced symbols: ", start_index)
-        assert start_index != -1, (res.stdout, res.stderr)
-        assert end_index != -1, res.stdout
+        current_result = json.loads(res.stdout)
+
         static_names = {
-            x.strip().decode()[len(modname) + 1 :]
-            for x in res.stdout[start_index:end_index].split(b"\n")
-            if modname + "." in x.decode()
+            x["name"][len(modname) + 1 :]
+            for x in current_result["typeCompleteness"]["symbols"]
+            if x["name"].startswith(modname)
         }
+
+        # pytest ignores the symbol defined behind `if False`
+        if modname == "trio":
+            static_names.add("testing")
 
         # pytest doesn't show constants re-exported from `socket`, so we manually add
         # them

@@ -52,78 +52,6 @@
     "packageName": "trio",
     "symbols": [
       {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.TrioInternalError",
-        "referenceCount": 1
-      },
-      {
-        "alternateNames": [
-          "trio.TrioInternalError"
-        ],
-        "category": "class",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._exceptions.TrioInternalError",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.RunFinishedError",
-        "referenceCount": 1
-      },
-      {
-        "alternateNames": [
-          "trio.RunFinishedError"
-        ],
-        "category": "class",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._exceptions.RunFinishedError",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.WouldBlock",
-        "referenceCount": 1
-      },
-      {
-        "alternateNames": [
-          "trio.WouldBlock"
-        ],
-        "category": "class",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._exceptions.WouldBlock",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.Cancelled",
-        "referenceCount": 1
-      },
-      {
         "alternateNames": [
           "trio.Cancelled"
         ],
@@ -191,15 +119,6 @@
         "referenceCount": 1
       },
       {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio._util.Final",
-        "referenceCount": 23
-      },
-      {
         "category": "method",
         "diagnostics": [
           {
@@ -223,48 +142,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio._util.Final.__new__",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.BusyResourceError",
-        "referenceCount": 1
-      },
-      {
-        "alternateNames": [
-          "trio.BusyResourceError"
-        ],
-        "category": "class",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._exceptions.BusyResourceError",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.ClosedResourceError",
-        "referenceCount": 1
-      },
-      {
-        "alternateNames": [
-          "trio.ClosedResourceError"
-        ],
-        "category": "class",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._exceptions.ClosedResourceError",
         "referenceCount": 1
       },
       {
@@ -316,15 +193,6 @@
         "referenceCount": 1
       },
       {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.CancelScope",
-        "referenceCount": 1
-      },
-      {
         "alternateNames": [
           "trio.CancelScope"
         ],
@@ -353,15 +221,6 @@
         "isTypeAmbiguous": true,
         "isTypeKnown": false,
         "name": "trio._core._run.CancelScope.cancelled_caught",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._run.CancelScope.__enter__",
         "referenceCount": 1
       },
       {
@@ -427,24 +286,6 @@
         "referenceCount": 1
       },
       {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._run.CancelScope.shield",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._run.CancelScope.cancel",
-        "referenceCount": 1
-      },
-      {
         "category": "variable",
         "diagnostics": [
           {
@@ -460,78 +301,6 @@
       },
       {
         "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._run.CancelScope.__init__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._run.CancelScope.__new__",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._run.CancelScope.__match_args__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._run.CancelScope.__lt__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._run.CancelScope.__le__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._run.CancelScope.__gt__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._run.CancelScope.__ge__",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._run.CancelScope.__dataclass_fields__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
         "diagnostics": [
           {
             "message": "Return type annotation is missing",
@@ -542,27 +311,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio.current_effective_deadline",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.TASK_STATUS_IGNORED",
-        "referenceCount": 1
-      },
-      {
-        "alternateNames": [
-          "trio.TASK_STATUS_IGNORED"
-        ],
-        "category": "class",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio._core._run._TaskStatusIgnored",
         "referenceCount": 1
       },
       {
@@ -609,57 +357,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio.current_time",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.BrokenResourceError",
-        "referenceCount": 1
-      },
-      {
-        "alternateNames": [
-          "trio.BrokenResourceError"
-        ],
-        "category": "class",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._exceptions.BrokenResourceError",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.EndOfChannel",
-        "referenceCount": 1
-      },
-      {
-        "alternateNames": [
-          "trio.EndOfChannel"
-        ],
-        "category": "class",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._exceptions.EndOfChannel",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.Nursery",
         "referenceCount": 1
       },
       {
@@ -796,15 +493,6 @@
         "referenceCount": 1
       },
       {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._run.Nursery.cancel_scope",
-        "referenceCount": 1
-      },
-      {
         "category": "function",
         "diagnostics": [
           {
@@ -892,15 +580,6 @@
       },
       {
         "category": "function",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.fail_at",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
         "diagnostics": [
           {
             "message": "Type annotation for parameter \"seconds\" is missing",
@@ -915,36 +594,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio.fail_after",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.TooSlowError",
-        "referenceCount": 1
-      },
-      {
-        "alternateNames": [
-          "trio.TooSlowError"
-        ],
-        "category": "class",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._timeouts.TooSlowError",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.Event",
         "referenceCount": 1
       },
       {
@@ -979,15 +628,6 @@
         "referenceCount": 1
       },
       {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync.Event.set",
-        "referenceCount": 1
-      },
-      {
         "category": "method",
         "diagnostics": [
           {
@@ -1013,87 +653,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio._sync.Event.statistics",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync.Event.__init__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync.Event.__new__",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync.Event.__match_args__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync.Event.__lt__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync.Event.__le__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync.Event.__gt__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync.Event.__ge__",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync.Event.__dataclass_fields__",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.CapacityLimiter",
         "referenceCount": 1
       },
       {
@@ -1192,60 +751,6 @@
         "referenceCount": 1
       },
       {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync.CapacityLimiter.acquire_nowait",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync.CapacityLimiter.acquire_on_behalf_of_nowait",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync.CapacityLimiter.acquire",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync.CapacityLimiter.acquire_on_behalf_of",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync.CapacityLimiter.release",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync.CapacityLimiter.release_on_behalf_of",
-        "referenceCount": 1
-      },
-      {
         "category": "method",
         "diagnostics": [
           {
@@ -1257,42 +762,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio._sync.CapacityLimiter.statistics",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync.AsyncContextManagerMixin",
-        "referenceCount": 4
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync.AsyncContextManagerMixin.__aenter__",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync.AsyncContextManagerMixin.__aexit__",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.Semaphore",
         "referenceCount": 1
       },
       {
@@ -1373,33 +842,6 @@
         "referenceCount": 1
       },
       {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync.Semaphore.acquire_nowait",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync.Semaphore.acquire",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync.Semaphore.release",
-        "referenceCount": 1
-      },
-      {
         "category": "method",
         "diagnostics": [
           {
@@ -1411,15 +853,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio._sync.Semaphore.statistics",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.Lock",
         "referenceCount": 1
       },
       {
@@ -1442,15 +875,6 @@
         "isTypeKnown": false,
         "name": "trio._sync.Lock",
         "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio._sync._LockImpl",
-        "referenceCount": 2
       },
       {
         "category": "method",
@@ -1481,33 +905,6 @@
         "referenceCount": 1
       },
       {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync._LockImpl.acquire_nowait",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync._LockImpl.acquire",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync._LockImpl.release",
-        "referenceCount": 1
-      },
-      {
         "category": "method",
         "diagnostics": [
           {
@@ -1519,87 +916,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio._sync._LockImpl.statistics",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync._LockImpl.__init__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync._LockImpl.__new__",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync._LockImpl.__match_args__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync._LockImpl.__lt__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync._LockImpl.__le__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync._LockImpl.__gt__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync._LockImpl.__ge__",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync._LockImpl.__dataclass_fields__",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.StrictFIFOLock",
         "referenceCount": 1
       },
       {
@@ -1621,15 +937,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio._sync.StrictFIFOLock",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.Condition",
         "referenceCount": 1
       },
       {
@@ -1720,15 +1027,6 @@
         "referenceCount": 1
       },
       {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._sync.Condition.wait",
-        "referenceCount": 1
-      },
-      {
         "category": "method",
         "diagnostics": [
           {
@@ -1790,15 +1088,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio.aclose_forcefully",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.StapledStream",
         "referenceCount": 1
       },
       {
@@ -1929,78 +1218,6 @@
         "referenceCount": 1
       },
       {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._highlevel_generic.StapledStream.__init__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._highlevel_generic.StapledStream.__new__",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._highlevel_generic.StapledStream.__match_args__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._highlevel_generic.StapledStream.__lt__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._highlevel_generic.StapledStream.__le__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._highlevel_generic.StapledStream.__gt__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._highlevel_generic.StapledStream.__ge__",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._highlevel_generic.StapledStream.__dataclass_fields__",
-        "referenceCount": 1
-      },
-      {
         "alternateNames": [
           "trio.abc.HalfCloseableStream"
         ],
@@ -2100,18 +1317,6 @@
         "isTypeKnown": false,
         "name": "trio._abc.SendStream.wait_send_all_might_not_block",
         "referenceCount": 1
-      },
-      {
-        "alternateNames": [
-          "trio.abc.AsyncResource"
-        ],
-        "category": "class",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio._abc.AsyncResource",
-        "referenceCount": 7
       },
       {
         "category": "method",
@@ -2223,54 +1428,6 @@
         "referenceCount": 1
       },
       {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.open_memory_channel",
-        "referenceCount": 1
-      },
-      {
-        "alternateNames": [
-          "trio.open_memory_channel"
-        ],
-        "category": "class",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.open_memory_channel",
-        "referenceCount": 1
-      },
-      {
-        "category": "method",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.open_memory_channel.__new__",
-        "referenceCount": 1
-      },
-      {
-        "category": "method",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.open_memory_channel.__init__",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.MemorySendChannel",
-        "referenceCount": 1
-      },
-      {
         "alternateNames": [
           "trio.MemorySendChannel"
         ],
@@ -2292,321 +1449,6 @@
         "referenceCount": 1
       },
       {
-        "category": "method",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemorySendChannel.__attrs_post_init__",
-        "referenceCount": 1
-      },
-      {
-        "category": "method",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemorySendChannel.__repr__",
-        "referenceCount": 1
-      },
-      {
-        "category": "method",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemorySendChannel.statistics",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryChannelStats",
-        "referenceCount": 2
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryChannelStats.current_buffer_used",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryChannelStats.max_buffer_size",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryChannelStats.open_send_channels",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryChannelStats.open_receive_channels",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryChannelStats.tasks_waiting_send",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryChannelStats.tasks_waiting_receive",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryChannelStats.__init__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryChannelStats.__new__",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryChannelStats.__match_args__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryChannelStats.__eq__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryChannelStats.__lt__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryChannelStats.__le__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryChannelStats.__gt__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryChannelStats.__ge__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryChannelStats.__hash__",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryChannelStats.__dataclass_fields__",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemorySendChannel.send_nowait",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemorySendChannel.send",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemorySendChannel.clone",
-        "referenceCount": 1
-      },
-      {
-        "category": "method",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemorySendChannel.__enter__",
-        "referenceCount": 1
-      },
-      {
-        "category": "method",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemorySendChannel.__exit__",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemorySendChannel.close",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemorySendChannel.aclose",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemorySendChannel.__init__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemorySendChannel.__new__",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemorySendChannel.__match_args__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemorySendChannel.__lt__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemorySendChannel.__le__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemorySendChannel.__gt__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemorySendChannel.__ge__",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemorySendChannel.__dataclass_fields__",
-        "referenceCount": 1
-      },
-      {
         "alternateNames": [
           "trio.abc.SendChannel"
         ],
@@ -2622,24 +1464,6 @@
         "isTypeKnown": false,
         "name": "trio._abc.SendChannel",
         "referenceCount": 3
-      },
-      {
-        "category": "method",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._abc.SendChannel.send",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.MemoryReceiveChannel",
-        "referenceCount": 1
       },
       {
         "alternateNames": [
@@ -2663,168 +1487,6 @@
         "referenceCount": 1
       },
       {
-        "category": "method",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryReceiveChannel.__attrs_post_init__",
-        "referenceCount": 1
-      },
-      {
-        "category": "method",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryReceiveChannel.statistics",
-        "referenceCount": 1
-      },
-      {
-        "category": "method",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryReceiveChannel.__repr__",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryReceiveChannel.receive_nowait",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryReceiveChannel.receive",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryReceiveChannel.clone",
-        "referenceCount": 1
-      },
-      {
-        "category": "method",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryReceiveChannel.__enter__",
-        "referenceCount": 1
-      },
-      {
-        "category": "method",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryReceiveChannel.__exit__",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryReceiveChannel.close",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryReceiveChannel.aclose",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryReceiveChannel.__init__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryReceiveChannel.__new__",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryReceiveChannel.__match_args__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryReceiveChannel.__lt__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryReceiveChannel.__le__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryReceiveChannel.__gt__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryReceiveChannel.__ge__",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._channel.MemoryReceiveChannel.__dataclass_fields__",
-        "referenceCount": 1
-      },
-      {
         "alternateNames": [
           "trio.abc.ReceiveChannel"
         ],
@@ -2843,15 +1505,6 @@
       },
       {
         "category": "method",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._abc.ReceiveChannel.receive",
-        "referenceCount": 1
-      },
-      {
-        "category": "method",
         "diagnostics": [
           {
             "message": "Return type annotation is missing",
@@ -2862,33 +1515,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio._abc.ReceiveChannel.__aiter__",
-        "referenceCount": 1
-      },
-      {
-        "category": "method",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._abc.ReceiveChannel.__anext__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.open_signal_receiver",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.SocketStream",
         "referenceCount": 1
       },
       {
@@ -3057,45 +1683,6 @@
         "referenceCount": 1
       },
       {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._highlevel_socket.SocketStream.socket",
-        "referenceCount": 1
-      },
-      {
-        "alternateNames": [
-          "trio.socket.SocketType"
-        ],
-        "category": "class",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._socket.SocketType",
-        "referenceCount": 3
-      },
-      {
-        "category": "method",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._socket.SocketType.__init__",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.SocketListener",
-        "referenceCount": 1
-      },
-      {
         "alternateNames": [
           "trio.SocketListener"
         ],
@@ -3156,15 +1743,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio._highlevel_socket.SocketListener.aclose",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._highlevel_socket.SocketListener.socket",
         "referenceCount": 1
       },
       {
@@ -3260,15 +1838,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio.wrap_file",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.Path",
         "referenceCount": 1
       },
       {
@@ -3401,411 +1970,6 @@
         "referenceCount": 1
       },
       {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.absolute",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.as_posix",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.as_uri",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.chmod",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.cwd",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.exists",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.expanduser",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.glob",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.home",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.is_absolute",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.is_block_device",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.is_char_device",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.is_dir",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.is_fifo",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.is_file",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.is_reserved",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.is_socket",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.is_symlink",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.iterdir",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.joinpath",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.lchmod",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.lstat",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.match",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.mkdir",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.read_bytes",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.read_text",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.relative_to",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.rename",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.replace",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.resolve",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.rglob",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.rmdir",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.samefile",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.stat",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.symlink_to",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.touch",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.unlink",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.with_name",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.with_suffix",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.write_bytes",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.write_text",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.group",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.is_mount",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.owner",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._path.Path.link_to",
-        "referenceCount": 1
-      },
-      {
         "category": "class",
         "diagnostics": [
           {
@@ -3914,15 +2078,6 @@
         "referenceCount": 1
       },
       {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.Process",
-        "referenceCount": 1
-      },
-      {
         "alternateNames": [
           "trio.Process"
         ],
@@ -3941,15 +2096,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio._subprocess.Process",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._subprocess.Process.universal_newlines",
         "referenceCount": 1
       },
       {
@@ -4138,42 +2284,6 @@
       },
       {
         "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio._subprocess.Process.stdin",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio._subprocess.Process.stdout",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio._subprocess.Process.stderr",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio._subprocess.Process.stdio",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
         "diagnostics": [
           {
             "message": "Type unknown for variable \"trio._subprocess.Process.args\"",
@@ -4244,15 +2354,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio.run_process",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.SSLStream",
         "referenceCount": 1
       },
       {
@@ -4471,15 +2572,6 @@
         "referenceCount": 1
       },
       {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.SSLListener",
-        "referenceCount": 1
-      },
-      {
         "alternateNames": [
           "trio.SSLListener"
         ],
@@ -4548,45 +2640,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio._ssl.SSLListener.aclose",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._ssl.SSLListener.transport_listener",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.NeedHandshakeError",
-        "referenceCount": 1
-      },
-      {
-        "alternateNames": [
-          "trio.NeedHandshakeError"
-        ],
-        "category": "class",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._ssl.NeedHandshakeError",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.DTLSEndpoint",
         "referenceCount": 1
       },
       {
@@ -4766,15 +2819,6 @@
         "isTypeAmbiguous": true,
         "isTypeKnown": false,
         "name": "trio._dtls.DTLSEndpoint.incoming_packets_buffer",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.DTLSChannel",
         "referenceCount": 1
       },
       {
@@ -4974,24 +3018,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio._dtls.DTLSChannel.statistics",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._dtls.DTLSChannel.endpoint",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._dtls.DTLSChannel.peer_address",
         "referenceCount": 1
       },
       {
@@ -5272,72 +3298,6 @@
         "referenceCount": 1
       },
       {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.TrioDeprecationWarning",
-        "referenceCount": 1
-      },
-      {
-        "alternateNames": [
-          "trio.TrioDeprecationWarning"
-        ],
-        "category": "class",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._deprecate.TrioDeprecationWarning",
-        "referenceCount": 1
-      },
-      {
-        "category": "module",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.lowlevel",
-        "referenceCount": 2
-      },
-      {
-        "category": "module",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.socket",
-        "referenceCount": 2
-      },
-      {
-        "category": "module",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.abc",
-        "referenceCount": 2
-      },
-      {
-        "category": "module",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.from_thread",
-        "referenceCount": 2
-      },
-      {
-        "category": "module",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.to_thread",
-        "referenceCount": 2
-      },
-      {
         "category": "variable",
         "diagnostics": [
           {
@@ -5350,27 +3310,6 @@
         "isTypeKnown": false,
         "name": "trio.__deprecated_attributes__",
         "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.abc.Clock",
-        "referenceCount": 1
-      },
-      {
-        "alternateNames": [
-          "trio.abc.Clock"
-        ],
-        "category": "class",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio._abc.Clock",
-        "referenceCount": 2
       },
       {
         "category": "method",
@@ -5417,27 +3356,6 @@
         "isTypeKnown": false,
         "name": "trio._abc.Clock.deadline_to_sleep_time",
         "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.abc.Instrument",
-        "referenceCount": 1
-      },
-      {
-        "alternateNames": [
-          "trio.abc.Instrument"
-        ],
-        "category": "class",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio._abc.Instrument",
-        "referenceCount": 3
       },
       {
         "category": "method",
@@ -5594,72 +3512,6 @@
         "referenceCount": 1
       },
       {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.abc.AsyncResource",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.abc.SendStream",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.abc.ReceiveStream",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.abc.Stream",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.abc.HalfCloseableStream",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.abc.SocketFactory",
-        "referenceCount": 1
-      },
-      {
-        "alternateNames": [
-          "trio.abc.SocketFactory"
-        ],
-        "category": "class",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio._abc.SocketFactory",
-        "referenceCount": 1
-      },
-      {
         "category": "method",
         "diagnostics": [
           {
@@ -5683,27 +3535,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio._abc.SocketFactory.socket",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.abc.HostnameResolver",
-        "referenceCount": 1
-      },
-      {
-        "alternateNames": [
-          "trio.abc.HostnameResolver"
-        ],
-        "category": "class",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio._abc.HostnameResolver",
         "referenceCount": 1
       },
       {
@@ -5764,42 +3595,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio._abc.HostnameResolver.getnameinfo",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.abc.Listener",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.abc.SendChannel",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.abc.ReceiveChannel",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.abc.Channel",
         "referenceCount": 1
       },
       {
@@ -5869,81 +3664,6 @@
         "referenceCount": 1
       },
       {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.lowlevel.Abort",
-        "referenceCount": 1
-      },
-      {
-        "alternateNames": [
-          "trio.lowlevel.Abort"
-        ],
-        "category": "class",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._traps.Abort",
-        "referenceCount": 3
-      },
-      {
-        "category": "constant",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._traps.Abort.SUCCEEDED",
-        "referenceCount": 1
-      },
-      {
-        "category": "constant",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._traps.Abort.FAILED",
-        "referenceCount": 1
-      },
-      {
-        "category": "type alias",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.lowlevel.RaiseCancelT",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.lowlevel.wait_task_rescheduled",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.lowlevel.enable_ki_protection",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.lowlevel.disable_ki_protection",
-        "referenceCount": 1
-      },
-      {
         "category": "function",
         "diagnostics": [
           {
@@ -5955,15 +3675,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio.lowlevel.currently_ki_protected",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.lowlevel.Task",
         "referenceCount": 1
       },
       {
@@ -6111,78 +3822,6 @@
       },
       {
         "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._run.Task.__init__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._run.Task.__new__",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._run.Task.__match_args__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._run.Task.__lt__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._run.Task.__le__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._run.Task.__gt__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._run.Task.__ge__",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._run.Task.__dataclass_fields__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
         "diagnostics": [
           {
             "message": "Return type annotation is missing",
@@ -6207,15 +3846,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio.lowlevel.current_task",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.lowlevel.ParkingLot",
         "referenceCount": 1
       },
       {
@@ -6264,24 +3894,6 @@
         "referenceCount": 1
       },
       {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._parking_lot.ParkingLot.park",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._parking_lot.ParkingLot.unpark",
-        "referenceCount": 1
-      },
-      {
         "category": "method",
         "diagnostics": [
           {
@@ -6293,15 +3905,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio._core._parking_lot.ParkingLot.unpark_all",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._parking_lot.ParkingLot.repark",
         "referenceCount": 1
       },
       {
@@ -6337,87 +3940,6 @@
         "referenceCount": 1
       },
       {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._parking_lot.ParkingLot.__init__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._parking_lot.ParkingLot.__new__",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._parking_lot.ParkingLot.__match_args__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._parking_lot.ParkingLot.__lt__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._parking_lot.ParkingLot.__le__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._parking_lot.ParkingLot.__gt__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._parking_lot.ParkingLot.__ge__",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._parking_lot.ParkingLot.__dataclass_fields__",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.lowlevel.UnboundedQueue",
-        "referenceCount": 1
-      },
-      {
         "alternateNames": [
           "trio.lowlevel.UnboundedQueue"
         ],
@@ -6432,15 +3954,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio._core._unbounded_queue.UnboundedQueue",
-        "referenceCount": 1
-      },
-      {
-        "category": "method",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._unbounded_queue.UnboundedQueue.__init__",
         "referenceCount": 1
       },
       {
@@ -6483,15 +3996,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio._core._unbounded_queue.UnboundedQueue.empty",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._unbounded_queue.UnboundedQueue.put_nowait",
         "referenceCount": 1
       },
       {
@@ -6562,15 +4066,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio._core._unbounded_queue.UnboundedQueue.__anext__",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.lowlevel.RunVar",
         "referenceCount": 1
       },
       {
@@ -6659,87 +4154,6 @@
         "referenceCount": 1
       },
       {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._local.RunVar.__init__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._local.RunVar.__new__",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._local.RunVar.__match_args__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._local.RunVar.__lt__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._local.RunVar.__le__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._local.RunVar.__gt__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._local.RunVar.__ge__",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._local.RunVar.__dataclass_fields__",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.lowlevel.TrioToken",
-        "referenceCount": 1
-      },
-      {
         "alternateNames": [
           "trio.lowlevel.TrioToken"
         ],
@@ -6780,78 +4194,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio._core._entry_queue.TrioToken.run_sync_soon",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._entry_queue.TrioToken.__init__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._entry_queue.TrioToken.__new__",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._entry_queue.TrioToken.__match_args__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._entry_queue.TrioToken.__lt__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._entry_queue.TrioToken.__le__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._entry_queue.TrioToken.__gt__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._entry_queue.TrioToken.__ge__",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._core._entry_queue.TrioToken.__dataclass_fields__",
         "referenceCount": 1
       },
       {
@@ -7223,15 +4565,6 @@
         "referenceCount": 1
       },
       {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.lowlevel.FdStream",
-        "referenceCount": 1
-      },
-      {
         "alternateNames": [
           "trio.lowlevel.FdStream"
         ],
@@ -7250,69 +4583,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio._unix_pipes.FdStream",
-        "referenceCount": 1
-      },
-      {
-        "category": "method",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._unix_pipes.FdStream.__init__",
-        "referenceCount": 1
-      },
-      {
-        "category": "method",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._unix_pipes.FdStream.send_all",
-        "referenceCount": 1
-      },
-      {
-        "category": "method",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._unix_pipes.FdStream.wait_send_all_might_not_block",
-        "referenceCount": 1
-      },
-      {
-        "category": "method",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._unix_pipes.FdStream.receive_some",
-        "referenceCount": 1
-      },
-      {
-        "category": "method",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._unix_pipes.FdStream.close",
-        "referenceCount": 1
-      },
-      {
-        "category": "method",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._unix_pipes.FdStream.aclose",
-        "referenceCount": 1
-      },
-      {
-        "category": "method",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio._unix_pipes.FdStream.fileno",
         "referenceCount": 1
       },
       {
@@ -7494,150 +4764,6 @@
         "referenceCount": 1
       },
       {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.socket.SocketType",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.socket.gaierror",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.socket.herror",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.socket.gethostname",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.socket.ntohs",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.socket.htonl",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.socket.htons",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.socket.inet_aton",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.socket.inet_ntoa",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.socket.inet_pton",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.socket.inet_ntop",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.socket.sethostname",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.socket.if_nameindex",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.socket.if_nametoindex",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.socket.if_indextoname",
-        "referenceCount": 1
-      },
-      {
-        "category": "constant",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.socket.IP_BIND_ADDRESS_NO_PORT",
-        "referenceCount": 1
-      },
-      {
         "category": "function",
         "diagnostics": [
           {
@@ -7653,15 +4779,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio.testing.wait_all_tasks_blocked",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.testing.MockClock",
         "referenceCount": 1
       },
       {
@@ -7876,15 +4993,6 @@
         "referenceCount": 1
       },
       {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.testing.Sequencer",
-        "referenceCount": 1
-      },
-      {
         "alternateNames": [
           "trio.testing.Sequencer"
         ],
@@ -7899,87 +5007,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio.testing._sequencer.Sequencer",
-        "referenceCount": 1
-      },
-      {
-        "category": "method",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.testing._sequencer.Sequencer.__call__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.testing._sequencer.Sequencer.__init__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.testing._sequencer.Sequencer.__new__",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.testing._sequencer.Sequencer.__match_args__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.testing._sequencer.Sequencer.__lt__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.testing._sequencer.Sequencer.__le__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.testing._sequencer.Sequencer.__gt__",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.testing._sequencer.Sequencer.__ge__",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": false,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.testing._sequencer.Sequencer.__dataclass_fields__",
         "referenceCount": 1
       },
       {
@@ -8046,15 +5073,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio.testing.check_half_closeable_stream",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.testing.MemorySendStream",
         "referenceCount": 1
       },
       {
@@ -8248,15 +5266,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": false,
         "name": "trio.testing._memory_streams.MemorySendStream.close_hook",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": false,
-        "name": "trio.testing.MemoryReceiveStream",
         "referenceCount": 1
       },
       {
@@ -8524,33 +5533,6 @@
         "isTypeAmbiguous": false,
         "isTypeKnown": true,
         "name": "trio.tests.TestsDeprecationWrapper",
-        "referenceCount": 1
-      },
-      {
-        "category": "variable",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.tests.TestsDeprecationWrapper.__name__",
-        "referenceCount": 1
-      },
-      {
-        "category": "method",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.tests.TestsDeprecationWrapper.__getattr__",
-        "referenceCount": 1
-      },
-      {
-        "category": "type variable",
-        "diagnostics": [],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.to_thread.run_sync",
         "referenceCount": 1
       },
       {
