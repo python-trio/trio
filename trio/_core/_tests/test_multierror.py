@@ -1,15 +1,15 @@
 import gc
-import logging
 import os
 import subprocess
 from pathlib import Path
+import pickle
+import warnings
 
 import pytest
 
 from traceback import (
     extract_tb,
     print_exception,
-    format_exception,
 )
 from traceback import _cause_message  # type: ignore
 import sys
@@ -555,3 +555,36 @@ def test_apport_excepthook_monkeypatch_interaction():
         ["--- 1 ---", "KeyError", "--- 2 ---", "ValueError"],
         stdout,
     )
+
+
+@pytest.mark.parametrize("protocol", range(0, pickle.HIGHEST_PROTOCOL + 1))
+def test_pickle_multierror(protocol) -> None:
+    # use trio.MultiError to make sure that pickle works through the deprecation layer
+    import trio
+
+    my_except = ZeroDivisionError()
+
+    try:
+        1 / 0
+    except ZeroDivisionError as e:
+        my_except = e
+
+    # MultiError will collapse into different classes depending on the errors
+    for cls, errors in (
+        (ZeroDivisionError, [my_except]),
+        (NonBaseMultiError, [my_except, ValueError()]),
+        (MultiError, [BaseException(), my_except]),
+    ):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", TrioDeprecationWarning)
+            me = trio.MultiError(errors)  # type: ignore[attr-defined]
+            dump = pickle.dumps(me, protocol=protocol)
+            load = pickle.loads(dump)
+        assert repr(me) == repr(load)
+        assert me.__class__ == load.__class__ == cls
+
+        assert me.__dict__.keys() == load.__dict__.keys()
+        for me_val, load_val in zip(me.__dict__.values(), load.__dict__.values()):
+            # tracebacks etc are not preserved through pickling for the default
+            # exceptions, so we only check that the repr stays the same
+            assert repr(me_val) == repr(load_val)
