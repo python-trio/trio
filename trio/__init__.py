@@ -12,10 +12,11 @@
 #
 # This file pulls together the friendly public API, by re-exporting the more
 # innocuous bits of the _core API + the higher-level tools from trio/*.py.
-
+#
 # Uses `from x import y as y` for compatibility with `pyright --verifytypes` (#2625)
 
-from ._version import __version__
+# This seems to be ignored by pytest
+from ._version import __version__ as __version__
 
 from ._core import (
     TrioInternalError as TrioInternalError,

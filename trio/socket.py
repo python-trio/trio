@@ -8,7 +8,7 @@
 
 
 # Uses `from x import y as y` for compatibility with `pyright --verifytypes` (#2625)
-# It ignores CONSTANTS From socket though.
+# constants re-exported from `socket` gets ignored by pytest.
 
 from . import _socket
 import sys

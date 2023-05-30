@@ -3,55 +3,58 @@
 import subprocess
 import json
 from pathlib import Path
-from typing import Any
 import sys
 import argparse
 
-RES_FILE = Path(__file__).parent / "verify_types.json"
+# the result file is not marked in MANIFEST.in so it's not included in the package
+RESULT_FILE = Path(__file__).parent / "verify_types.json"
 failed = False
 
 
 def run_pyright():
+    # --ignoreexternal is so we don't get errors that are because of external libraries
+    # outside of our control. Later on we could disable this to contribute to them.
     return subprocess.run(
         ["pyright", "--verifytypes=trio", "--outputjson", "--ignoreexternal"],
         capture_output=True,
     )
 
 
+def check_less_than(key, current_dict, last_dict, /, invert=False):
+    global failed
+    current = current_dict[key]
+    last = last_dict[key]
+    assert isinstance(current, (float, int))
+    assert isinstance(last, (float, int))
+    if current == last:
+        return
+    if (current > last) ^ invert:
+        failed = True
+        print("ERROR: ", end="")
+    if isinstance(current, float):
+        strcurrent = f"{current:.4}"
+        strlast = f"{last:.4}"
+    else:
+        strcurrent = str(current)
+        strlast = str(last)
+    print(
+        f"{key} has gone {'down' if current<last else 'up'} from {strlast} to {strcurrent}"
+    )
+
+
+def check_zero(key, current_dict):
+    if current_dict[key] != 0:
+        global failed
+        failed = True
+        print(f"ERROR: {key} is {current_dict[key]}")
+
+
 def main(args: argparse.Namespace) -> int:
     print("*" * 20, "\nChecking type completeness hasn't gone down...")
-    current_dict: dict[str, Any] = {}
-    last_dict: dict[str, Any] = {}
-
-    def check_less_than(key, /, invert=False):
-        global failed
-        current = current_dict[key]
-        last = last_dict[key]
-        assert isinstance(current, (float, int))
-        assert isinstance(last, (float, int))
-        if current == last:
-            return
-        if (current > last) ^ invert:
-            failed = True
-            print("ERROR: ", end="")
-        if isinstance(current, float):
-            strcurrent = f"{current:.4}"
-            strlast = f"{last:.4}"
-        else:
-            strcurrent = str(current)
-            strlast = str(last)
-        print(
-            f"{key} has gone {'down' if current<last else 'up'} from {strlast} to {strcurrent}"
-        )
-
-    def check_zero(key):
-        if current_dict[key] != 0:
-            global failed
-            failed = True
-            print(f"ERROR: {key} is {current_dict[key]}")
 
     res = run_pyright()
     current_result = json.loads(res.stdout)
+    py_typed_file: Path | None = None
 
     # check if py.typed file was missing
     if (
@@ -72,32 +75,39 @@ def main(args: argparse.Namespace) -> int:
     if res.stderr:
         print(res.stderr)
 
-    last_result = json.loads(RES_FILE.read_text())
-    current_dict = current_result["summary"]
+    last_result = json.loads(RESULT_FILE.read_text())
 
     for key in "errorCount", "warningCount", "informationCount":
-        check_zero(key)
+        check_zero(key, current_result["summary"])
 
-    current_dict = current_result["typeCompleteness"]
-    last_dict = last_result["typeCompleteness"]
-    for key in (
-        "missingFunctionDocStringCount",
-        "missingClassDocStringCount",
-        "missingDefaultParamCount",
+    for key, invert in (
+        ("missingFunctionDocStringCount", False),
+        ("missingClassDocStringCount", False),
+        ("missingDefaultParamCount", False),
+        ("completenessScore", True),
     ):
-        check_less_than(key)
-    check_less_than("completenessScore", invert=True)
+        check_less_than(
+            key,
+            current_result["typeCompleteness"],
+            last_result["typeCompleteness"],
+            invert=invert,
+        )
 
-    current_dict = current_dict["exportedSymbolCounts"]
-    last_dict = last_dict["exportedSymbolCounts"]
-
-    for key in "withUnknownType", "withAmbiguousType":
-        check_less_than(key)
-    check_less_than("withKnownType", invert=True)
+    for key, invert in (
+        ("withUnknownType", False),
+        ("withAmbiguousType", False),
+        ("withKnownType", True),
+    ):
+        check_less_than(
+            key,
+            current_result["typeCompleteness"]["exportedSymbolCounts"],
+            last_result["typeCompleteness"]["exportedSymbolCounts"],
+            invert=invert,
+        )
 
     assert (
         res.returncode != 0
-    ), "Fully type complete! Replace this script with running pyright --verifytypes directly in CI and checking exit code."
+    ), "Fully type complete! Delete this script and instead directly run `pyright --verifytypes=trio --ignoreexternal` in CI and checking exit code."
 
     if args.overwrite_file:
         print("Overwriting file")
@@ -110,20 +120,21 @@ def main(args: argparse.Namespace) -> int:
         del current_result["version"]
 
         for key in (
-            # don't save huge file for now
-            "symbols",
-            "modules",
-            # don't save path
+            # don't save path (because that varies between machines)
             "moduleRootDirectory",
             "packageRootDirectory",
             "pyTypedPath",
         ):
             del current_result["typeCompleteness"][key]
 
-        with open(RES_FILE, "w") as file:
+        with open(RESULT_FILE, "w") as file:
             json.dump(current_result, file, sort_keys=True, indent=2)
             # add newline at end of file so it's easier to manually modify
             file.write("\n")
+
+    if py_typed_file is not None:
+        print("deleting py.typed")
+        py_typed_file.unlink()
 
     print("*" * 20)
 

@@ -14,7 +14,7 @@ def move_on_at(deadline):
     return trio.CancelScope(deadline=deadline)
 
 
-def move_on_after(seconds: float):
+def move_on_after(seconds):
     """Use as a context manager to create a cancel scope whose deadline is
     set to now + *seconds*.
 
@@ -31,7 +31,7 @@ def move_on_after(seconds: float):
     return move_on_at(trio.current_time() + seconds)
 
 
-async def sleep_forever() -> None:
+async def sleep_forever():
     """Pause execution of the current task forever (or until cancelled).
 
     Equivalent to calling ``await sleep(math.inf)``.
@@ -40,7 +40,7 @@ async def sleep_forever() -> None:
     await trio.lowlevel.wait_task_rescheduled(lambda _: trio.lowlevel.Abort.SUCCEEDED)
 
 
-async def sleep_until(deadline: float) -> None:
+async def sleep_until(deadline):
     """Pause execution of the current task until the given time.
 
     The difference between :func:`sleep` and :func:`sleep_until` is that the

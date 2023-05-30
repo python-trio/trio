@@ -120,10 +120,11 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
 
         # check that there were no errors (exit code 0), otherwise print the errors
         assert mypy_res[2] == 0, mypy_res[0]
-        return
     elif tool == "pyright_verifytypes":
         import subprocess
 
+        # uses `--verbose` to also get symbols without errors
+        # `--verbose` and `--outputjson` are incompatible, so we do string parsing
         res = subprocess.run(
             ["pyright", f"--verifytypes={modname}", "--verbose"],
             capture_output=True,
@@ -138,13 +139,15 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
             if modname + "." in x.decode()
         }
 
-        # don't require verifytypes to see reexported constants from socket
+        # pytest doesn't show constants re-exported from `socket`, so we manually add
+        # them
         if modname == "trio.socket":
             import socket
 
             static_names |= set(filter(str.isupper, dir(socket))) & runtime_names
 
-            # unclear why this one is required
+            # Before Python 3.8, Windows is missing IPPROTO_IPV6
+            # https://bugs.python.org/issue29515
             if sys.platform == "win32" and sys.version_info[:2] == (3, 7):
                 static_names.add("IPPROTO_IPV6")
 
@@ -154,6 +157,10 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
     # remove py.typed file
     if tool in ("mypy", "pyright_verifytypes") and not py_typed_exists:
         py_typed_path.unlink()
+
+    # mypy handles errors with an `assert` in its branch
+    if tool == "mypy":
+        return
 
     # It's expected that the static set will contain more names than the
     # runtime set:
