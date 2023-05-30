@@ -127,6 +127,12 @@ def main(args: argparse.Namespace) -> int:
         ):
             del current_result["typeCompleteness"][key]
 
+        # remove path & line/col references in errors
+        for symbol in current_result["typeCompleteness"]["symbols"]:
+            for diag in symbol["diagnostics"]:
+                del diag["file"]
+                diag.pop("range", None)
+
         with open(RESULT_FILE, "w") as file:
             json.dump(current_result, file, sort_keys=True, indent=2)
             # add newline at end of file so it's easier to manually modify
