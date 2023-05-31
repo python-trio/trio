@@ -105,7 +105,7 @@ del sys
 # going on. There's a test in test_exports.py to make sure that the list is
 # kept up to date.
 try:
-    from socket import (
+    from socket import (  # type: ignore[attr-defined]
         CMSG_LEN as CMSG_LEN,
         CMSG_SPACE as CMSG_SPACE,
         CAPI as CAPI,
