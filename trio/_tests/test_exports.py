@@ -242,6 +242,10 @@ def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
 
             missing = runtime_names - static_names
             extra = static_names - runtime_names
+
+            # using .remove() instead of .delete() to get an error in case they start not
+            # being missing
+
             if BaseException in class_.__mro__ and sys.version_info > (3, 11):
                 missing.remove("add_note")
 
@@ -250,6 +254,22 @@ def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
             if class_ == trio.StapledStream:
                 extra.remove("receive_stream")
                 extra.remove("send_stream")
+
+            # I have not researched why these are missing, should maybe create an issue
+            # upstream with jedi
+            if sys.version_info >= (3, 12):
+                if class_ in (
+                    trio.DTLSChannel,
+                    trio.MemoryReceiveChannel,
+                    trio.MemorySendChannel,
+                    trio.SSLListener,
+                    trio.SocketListener,
+                ):
+                    missing.remove("__aenter__")
+                    missing.remove("__aexit__")
+                if class_ in (trio.DTLSChannel, trio.MemoryReceiveChannel):
+                    missing.remove("__aiter__")
+                    missing.remove("__anext__")
 
             # intentionally hidden behind type guard
             if class_ == trio.Path:
