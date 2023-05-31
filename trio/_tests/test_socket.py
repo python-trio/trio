@@ -356,7 +356,7 @@ async def test_SocketType_basics():
     # type family proto
     stdlib_sock = stdlib_socket.socket()
     sock = tsocket.from_stdlib_socket(stdlib_sock)
-    assert sock.type == _tsocket.real_socket_type(stdlib_sock.type)
+    assert sock.type == stdlib_sock.type
     assert sock.family == stdlib_sock.family
     assert sock.proto == stdlib_sock.proto
     sock.close()
