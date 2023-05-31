@@ -84,7 +84,7 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         # create py.typed file
         py_typed_path = Path(trio.__file__).parent / "py.typed"
         py_typed_exists = py_typed_path.exists()
-        if not py_typed_exists:
+        if not py_typed_exists:  # pragma: no branch
             py_typed_path.write_text("")
 
     if tool == "pylint":
@@ -206,7 +206,7 @@ def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
             pytest.skip("mypy not installed in tests on pypy")
         # create py.typed file
         # remove this logic when trio is marked with py.typed proper
-        if not py_typed_exists:
+        if not py_typed_exists:  # pragma: no branch
             py_typed_path.write_text("")
 
     errors: dict[str, object] = {}
