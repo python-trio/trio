@@ -144,18 +144,6 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         if modname == "trio":
             static_names.add("testing")
 
-        # pytest doesn't show constants re-exported from `socket`, so we manually add
-        # them
-        if modname == "trio.socket":
-            import socket
-
-            static_names |= set(filter(str.isupper, dir(socket))) & runtime_names
-
-            # Before Python 3.8, Windows is missing IPPROTO_IPV6
-            # https://bugs.python.org/issue29515
-            if sys.platform == "win32" and sys.version_info[:2] == (3, 7):
-                static_names.add("IPPROTO_IPV6")
-
     else:  # pragma: no cover
         assert False
 
