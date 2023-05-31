@@ -15,7 +15,8 @@
 #
 # Uses `from x import y as y` for compatibility with `pyright --verifytypes` (#2625)
 
-# This seems to be ignored by pytest
+# pyright explicitly does not care about `__version__`
+# see https://github.com/microsoft/pyright/blob/main/docs/typed-libraries.md#type-completeness
 from ._version import __version__ as __version__
 
 from ._core import (
