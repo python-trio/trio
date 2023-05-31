@@ -12,10 +12,8 @@ failed = False
 
 
 def run_pyright():
-    # --ignoreexternal is so we don't get errors that are because of external libraries
-    # outside of our control. Later on we could disable this to contribute to them.
     return subprocess.run(
-        ["pyright", "--verifytypes=trio", "--outputjson", "--ignoreexternal"],
+        ["pyright", "--verifytypes=trio", "--outputjson"],
         capture_output=True,
     )
 
@@ -107,7 +105,7 @@ def main(args: argparse.Namespace) -> int:
 
     assert (
         res.returncode != 0
-    ), "Fully type complete! Delete this script and instead directly run `pyright --verifytypes=trio --ignoreexternal` in CI and checking exit code."
+    ), "Fully type complete! Delete this script and instead directly run `pyright --verifytypes=trio` in CI and checking exit code."
 
     if args.overwrite_file:
         print("Overwriting file")
