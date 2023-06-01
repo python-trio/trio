@@ -11,9 +11,11 @@ RESULT_FILE = Path(__file__).parent / "verify_types.json"
 failed = False
 
 
+# consider checking manually without `--ignoreexternal`, and/or
+# removing it from the below call later on.
 def run_pyright():
     return subprocess.run(
-        ["pyright", "--verifytypes=trio", "--outputjson"],
+        ["pyright", "--verifytypes=trio", "--outputjson", "--ignoreexternal"],
         capture_output=True,
     )
 
@@ -105,7 +107,7 @@ def main(args: argparse.Namespace) -> int:
 
     assert (
         res.returncode != 0
-    ), "Fully type complete! Delete this script and instead directly run `pyright --verifytypes=trio` in CI and checking exit code."
+    ), "Fully type complete! Delete this script and instead directly run `pyright --verifytypes=trio` (consider `--ignoreexternal`) in CI and checking exit code."
 
     if args.overwrite_file:
         print("Overwriting file")
@@ -125,16 +127,13 @@ def main(args: argparse.Namespace) -> int:
         ):
             del current_result["typeCompleteness"][key]
 
+        # prune the symbols to only be the name of the symbols with
+        # errors, instead of saving a huge file.
         new_symbols = []
-        # remove path & line/col references in errors
         for symbol in current_result["typeCompleteness"]["symbols"]:
-            # filter out symbols with no errors
-            if not symbol["diagnostics"]:
+            if symbol["diagnostics"]:
+                new_symbols.append(symbol["name"])
                 continue
-            for diag in symbol["diagnostics"]:
-                del diag["file"]
-                diag.pop("range", None)
-            new_symbols.append(symbol)
 
         current_result["typeCompleteness"]["symbols"] = new_symbols
 
