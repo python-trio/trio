@@ -3,7 +3,7 @@ import pathlib
 import sys
 import types
 from functools import partial, wraps
-from typing import TYPE_CHECKING, Awaitable, Callable, TypeVar, Any
+from typing import TYPE_CHECKING, Any
 
 import trio
 from trio._util import Final, async_wraps
@@ -246,7 +246,7 @@ class Path(metaclass=AsyncAutoWrapperType):
             is_mount: Any
             owner: Any
 
-        if sys.version_info >= (3, 8):
+        if sys.version_info >= (3, 8) and sys.version_info < (3, 12):
             link_to: Any
         if sys.version_info >= (3, 9):
             is_relative_to: Any
@@ -254,6 +254,10 @@ class Path(metaclass=AsyncAutoWrapperType):
             readlink: Any
         if sys.version_info >= (3, 10):
             hardlink_to: Any
+        if sys.version_info >= (3, 12):
+            is_junction: Any
+            walk: Any
+            with_segments: Any
 
 
 Path.iterdir.__doc__ = """
