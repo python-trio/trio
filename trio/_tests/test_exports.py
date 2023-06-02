@@ -118,7 +118,16 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         )
         from mypy.api import run
 
-        res = run(["--config-file=", "--follow-imports=silent", str(tmpfile)])
+        res = run(
+            [
+                "--config-file=",
+                "--follow-imports=silent",
+                "--no-site-packages",
+                "--soft-error-limit=-1",
+                "--no-error-summary",
+                str(tmpfile),
+            ]
+        )
 
         # clean up created py.typed file
         if not py_typed_exists:  # pragma: no cover
@@ -294,11 +303,14 @@ def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
                     "--config-file=",
                     "--follow-imports=silent",
                     "--disable-error-code=operator",
+                    "--no-site-packages",
                     "--soft-error-limit=-1",
                     "--no-error-summary",
                     str(tmpfile),
                 ]
             )
+            assert res[2] != 2, f"internal error in mypy {res}"
+
             # no errors
             if res[2] == 0:
                 continue
