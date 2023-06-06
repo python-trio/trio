@@ -53,9 +53,6 @@ async def test_sleep():
 
     await check_takes_about(sleep_2, TARGET)
 
-    with pytest.raises(ValueError):
-        await sleep(-1)
-
     with assert_checkpoints():
         await sleep(0)
     # This also serves as a test of the trivial move_on_at
@@ -66,10 +63,6 @@ async def test_sleep():
 
 @slow
 async def test_move_on_after():
-    with pytest.raises(ValueError):
-        with move_on_after(-1):
-            pass  # pragma: no cover
-
     async def sleep_3():
         with move_on_after(TARGET):
             await sleep(100)
@@ -99,6 +92,29 @@ async def test_fail():
     with fail_after(100):
         await sleep(0)
 
-    with pytest.raises(ValueError):
-        with fail_after(-1):
-            pass  # pragma: no cover
+
+async def test_timeouts_raise_value_error():
+    # deadlines are allowed to be negative, but not delays.
+    # neither delays nor deadlines are allowed to be NaN
+
+    nan = float("nan")
+
+    for fun, val in (
+        (sleep, -1),
+        (sleep, nan),
+        (sleep_until, nan),
+    ):
+        with pytest.raises(ValueError):
+            await fun(val)
+
+    for cm, val in (
+        (fail_after, -1),
+        (fail_after, nan),
+        (fail_at, nan),
+        (move_on_after, -1),
+        (move_on_after, nan),
+        (move_on_at, nan),
+    ):
+        with pytest.raises(ValueError):
+            with cm(val):
+                pass  # pragma: no cover
