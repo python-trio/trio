@@ -7,10 +7,10 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.8061224489795918,
+    "completenessScore": 0.8155339805825242,
     "exportedSymbolCounts": {
       "withAmbiguousType": 1,
-      "withKnownType": 474,
+      "withKnownType": 504,
       "withUnknownType": 113
     },
     "ignoreUnknownTypesFromImports": true,
