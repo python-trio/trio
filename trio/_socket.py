@@ -324,13 +324,6 @@ _SOCK_TYPE_MASK = ~(
 )
 
 
-# This function will modify the given socket to match the behavior in python
-# 3.7. This will become unnecessary and can be removed when support for versions
-# older than 3.7 is dropped.
-def real_socket_type(type_num):
-    return type_num & _SOCK_TYPE_MASK
-
-
 def _make_simple_sock_method_wrapper(methname, wait_fn, maybe_avail=False):
     fn = getattr(_stdlib_socket.socket, methname)
 
@@ -496,10 +489,7 @@ class _SocketType(SocketType):
 
     @property
     def type(self):
-        # Modify the socket type do match what is done on python 3.7. When
-        # support for versions older than 3.7 is dropped, this can be updated
-        # to just return self._sock.type
-        return real_socket_type(self._sock.type)
+        return self._sock.type
 
     @property
     def proto(self):

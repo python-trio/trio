@@ -64,5 +64,8 @@ filterwarnings = [
     'ignore:ast.Str is deprecated:DeprecationWarning',
     'ignore:Attribute s is deprecated and will be removed:DeprecationWarning',
     'ignore:ast.NameConstant is deprecated:DeprecationWarning',
-    'ignore:ast.Num is deprecated:DeprecationWarning'
+    'ignore:ast.Num is deprecated:DeprecationWarning',
+    # https://github.com/python/mypy/issues/15330
+    'ignore:ast.Ellipsis is deprecated:DeprecationWarning',
+    'ignore:ast.Bytes is deprecated:DeprecationWarning',
 ]
