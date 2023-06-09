@@ -17,7 +17,7 @@
 
 # pyright explicitly does not care about `__version__`
 # see https://github.com/microsoft/pyright/blob/main/docs/typed-libraries.md#type-completeness
-from ._version import __version__ as __version__
+from ._version import __version__
 
 from ._core import (
     TrioInternalError as TrioInternalError,

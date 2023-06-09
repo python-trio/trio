@@ -100,11 +100,9 @@ del sys
 # etc., we figure out which constants to re-export dynamically at runtime (see
 # below). But that confuses static analysis tools like jedi and mypy. So this
 # import statement statically lists every constant that *could* be
-# exported. It always fails at runtime, since no single Python build exports
-# all these constants, but it lets static analysis tools understand what's
-# going on. There's a test in test_exports.py to make sure that the list is
+# exported. There's a test in test_exports.py to make sure that the list is
 # kept up to date.
-try:
+if _t.TYPE_CHECKING:
     from socket import (  # type: ignore[attr-defined]
         CMSG_LEN as CMSG_LEN,
         CMSG_SPACE as CMSG_SPACE,
@@ -568,5 +566,3 @@ try:
         TCP_ULP as TCP_ULP,
         TCP_ZEROCOPY_RECEIVE as TCP_ZEROCOPY_RECEIVE,
     )
-except ImportError:
-    pass

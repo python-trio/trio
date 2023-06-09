@@ -11,7 +11,7 @@ RESULT_FILE = Path(__file__).parent / "verify_types.json"
 failed = False
 
 
-# consider checking manually without `--ignoreexternal`, and/or
+# TODO: consider checking manually without `--ignoreexternal`, and/or
 # removing it from the below call later on.
 def run_pyright():
     return subprocess.run(
@@ -43,8 +43,8 @@ def check_less_than(key, current_dict, last_dict, /, invert=False):
 
 
 def check_zero(key, current_dict):
+    global failed
     if current_dict[key] != 0:
-        global failed
         failed = True
         print(f"ERROR: {key} is {current_dict[key]}")
 
