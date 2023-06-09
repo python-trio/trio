@@ -2,6 +2,10 @@
 
 set -ex -o pipefail
 
+# disable warnings about pyright being out of date
+# used in test_exports and in check.sh
+export PYRIGHT_PYTHON_IGNORE_WARNINGS=1
+
 # Log some general info about the environment
 uname -a
 env | sort

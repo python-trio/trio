@@ -37,6 +37,13 @@ if git status --porcelain | grep -q "requirements.txt"; then
     EXIT_STATUS=1
 fi
 
+python trio/_tests/check_type_completeness.py --overwrite-file || EXIT_STATUS=$?
+if git status --porcelain trio/_tests/verify_types.json | grep -q "M"; then
+    echo "Type completeness changed, please update!"
+    git diff trio/_tests/verify_types.json
+    EXIT_STATUS=1
+fi
+
 # Finally, leave a really clear warning of any issues and exit
 if [ $EXIT_STATUS -ne 0 ]; then
     cat <<EOF

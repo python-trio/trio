@@ -75,6 +75,8 @@ mypy-extensions==1.0.0 ; implementation_name == "cpython"
     #   -r test-requirements.in
     #   black
     #   mypy
+nodeenv==1.7.0
+    # via pyright
 outcome==1.2.0
     # via -r test-requirements.in
 packaging==23.1
@@ -116,6 +118,8 @@ pyopenssl==23.2.0
     # via -r test-requirements.in
 pyproject-hooks==1.0.0
     # via build
+pyright==1.1.310
+    # via -r test-requirements.in
 pytest==7.3.1
     # via
     #   -r test-requirements.in

@@ -1,13 +1,10 @@
 import enum
 import importlib
 import inspect
-import re
 import socket as stdlib_socket
 import sys
-import types
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Iterable
 
 import pytest
 
@@ -41,7 +38,7 @@ def public_modules(module):
     for name, class_ in module.__dict__.items():
         if name.startswith("_"):  # pragma: no cover
             continue
-        if not isinstance(class_, types.ModuleType):
+        if not isinstance(class_, ModuleType):
             continue
         if not class_.__name__.startswith(module.__name__):  # pragma: no cover
             continue
@@ -66,7 +63,7 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
     reason="skip static introspection tools on Python dev/alpha releases",
 )
 @pytest.mark.parametrize("modname", PUBLIC_MODULE_NAMES)
-@pytest.mark.parametrize("tool", ["pylint", "jedi", "mypy"])
+@pytest.mark.parametrize("tool", ["pylint", "jedi", "mypy", "pyright_verifytypes"])
 @pytest.mark.filterwarnings(
     # https://github.com/pypa/setuptools/issues/3274
     "ignore:module 'sre_constants' is deprecated:DeprecationWarning",
@@ -82,6 +79,13 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
     # ignore deprecated module `tests` being invisible
     if modname == "trio":
         runtime_names.discard("tests")
+
+    if tool in ("mypy", "pyright_verifytypes"):
+        # create py.typed file
+        py_typed_path = Path(trio.__file__).parent / "py.typed"
+        py_typed_exists = py_typed_path.exists()
+        if not py_typed_exists:  # pragma: no branch
+            py_typed_path.write_text("")
 
     if tool == "pylint":
         from pylint.lint import PyLinter
@@ -102,12 +106,6 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         if sys.implementation.name != "cpython":
             pytest.skip("mypy not installed in tests on pypy")
 
-        # create py.typed file
-        py_typed_path = Path(trio.__file__).parent / "py.typed"
-        py_typed_exists = py_typed_path.exists()
-        if not py_typed_exists:  # pragma: no cover
-            py_typed_path.write_text("")
-
         # mypy behaves strangely when passed a huge semicolon-separated line with `-c`
         # so we use a tmpfile
         tmpfile = tmpdir / "check_mypy.py"
@@ -118,17 +116,44 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         )
         from mypy.api import run
 
-        res = run(["--config-file=", "--follow-imports=silent", str(tmpfile)])
-
-        # clean up created py.typed file
-        if not py_typed_exists:  # pragma: no cover
-            py_typed_path.unlink()
+        mypy_res = run(["--config-file=", "--follow-imports=silent", str(tmpfile)])
 
         # check that there were no errors (exit code 0), otherwise print the errors
-        assert res[2] == 0, res[0]
-        return
+        assert mypy_res[2] == 0, mypy_res[0]
+    elif tool == "pyright_verifytypes":
+        if not RUN_SLOW:  # pragma: no cover
+            pytest.skip("use --run-slow to check against mypy")
+        import subprocess
+        import json
+
+        # uses `--verbose` to also get symbols without errors
+        # `--verbose` and `--outputjson` are incompatible, so we do string parsing
+        res = subprocess.run(
+            ["pyright", f"--verifytypes={modname}", "--outputjson"],
+            capture_output=True,
+        )
+        current_result = json.loads(res.stdout)
+
+        static_names = {
+            x["name"][len(modname) + 1 :]
+            for x in current_result["typeCompleteness"]["symbols"]
+            if x["name"].startswith(modname)
+        }
+
+        # pytest ignores the symbol defined behind `if False`
+        if modname == "trio":
+            static_names.add("testing")
+
     else:  # pragma: no cover
         assert False
+
+    # remove py.typed file
+    if tool in ("mypy", "pyright_verifytypes") and not py_typed_exists:
+        py_typed_path.unlink()
+
+    # mypy handles errors with an `assert` in its branch
+    if tool == "mypy":
+        return
 
     # It's expected that the static set will contain more names than the
     # runtime set:
@@ -180,9 +205,8 @@ def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
         if sys.implementation.name != "cpython":
             pytest.skip("mypy not installed in tests on pypy")
         # create py.typed file
-        # not marked with no-cover pragma, remove this logic when trio is marked
-        # with py.typed proper
-        if not py_typed_exists:
+        # remove this logic when trio is marked with py.typed proper
+        if not py_typed_exists:  # pragma: no branch
             py_typed_path.write_text("")
 
     errors: dict[str, object] = {}
@@ -282,7 +306,7 @@ def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
                 }
         elif tool == "mypy":
             tmpfile = tmpdir / "check_mypy.py"
-            sorted_runtime_names = list(sorted(runtime_names))
+            sorted_runtime_names = sorted(runtime_names)
             content = f"from {module_name} import {class_name}\n" + "".join(
                 f"{class_name}.{name}\n" for name in sorted_runtime_names
             )
