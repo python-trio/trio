@@ -18,6 +18,8 @@ from .. import _core, _util
 from .._core._tests.tutil import slow
 from .pytest_plugin import RUN_SLOW
 
+mypy_cache_updated = False
+
 
 def test_core_is_properly_reexported():
     # Each export from _core should be re-exported by exactly one of these
@@ -59,8 +61,8 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
 # won't be reflected in trio.socket, and this shouldn't cause downstream test
 # runs to start failing.
 @pytest.mark.redistributors_should_skip
-# pylint/jedi often have trouble with alpha releases, where Python's internals
-# are in flux, grammar may not have settled down, etc.
+# Static analysis tools often have trouble with alpha releases, where Python's
+# internals are in flux, grammar may not have settled down, etc.
 @pytest.mark.skipif(
     sys.version_info.releaselevel == "alpha",
     reason="skip static introspection tools on Python dev/alpha releases",
@@ -72,6 +74,7 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
     "ignore:module 'sre_constants' is deprecated:DeprecationWarning",
 )
 def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
+    global mypy_cache_updated
     module = importlib.import_module(modname)
 
     def no_underscores(symbols):
@@ -109,12 +112,20 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         if sys.implementation.name != "cpython":
             pytest.skip("mypy not installed in tests on pypy")
 
-        cache = Path(tmpdir / "cache")
-        cache.mkdir()
+        cache = Path.cwd() / ".mypy_cache"
         from mypy.api import run
 
-        # pollute CWD with `.mypy_cache`? TODO think about it
-        run(["--config-file=", f"--cache-dir={cache}", "-c", f"import {modname}"])
+        # This pollutes the `empty` dir. Should this be changed?
+        if not mypy_cache_updated:
+            run(
+                [
+                    "--config-file=",
+                    "--cache-dir=./.mypy_cache",
+                    "-c",
+                    f"import {modname}",
+                ]
+            )
+            mypy_cache_updated = True
 
         trio_cache = next(cache.glob("*/trio"))
         _, modname = (modname + ".").split(".", 1)
@@ -189,8 +200,8 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
 @slow
 # see comment on test_static_tool_sees_all_symbols
 @pytest.mark.redistributors_should_skip
-# jedi/mypy often have trouble with alpha releases, where Python's internals
-# are in flux, grammar may not have settled down, etc.
+# Static analysis tools often have trouble with alpha releases, where Python's
+# internals are in flux, grammar may not have settled down, etc.
 @pytest.mark.skipif(
     sys.version_info.releaselevel == "alpha",
     reason="skip static introspection tools on Python dev/alpha releases",
@@ -198,6 +209,7 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
 @pytest.mark.parametrize("module_name", PUBLIC_MODULE_NAMES)
 @pytest.mark.parametrize("tool", ["jedi", "mypy"])
 def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
+    global mypy_cache_updated
     module = PUBLIC_MODULES[PUBLIC_MODULE_NAMES.index(module_name)]
 
     # ignore hidden, but not dunder, symbols
@@ -219,12 +231,22 @@ def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
         if not py_typed_exists:  # pragma: no branch
             py_typed_path.write_text("")
 
-        cache = Path(tmpdir / "cache")
-        cache.mkdir()
+        cache = Path.cwd() / ".mypy_cache"
         from mypy.api import run
 
-        # pollute CWD with `.mypy_cache`? TODO think about it
-        run(["--config-file=", f"--cache-dir={cache}", "-c", f"import {module_name}"])
+        # This pollutes the `empty` dir. Should this be changed?
+        if not mypy_cache_updated:  # pragma: no cover
+            # mypy cache was *probably* already updated by the other tests,
+            # but `pytest -k ...` might run just this test on its own
+            run(
+                [
+                    "--config-file=",
+                    "--cache-dir=./.mypy_cache",
+                    "-c",
+                    f"import {module_name}",
+                ]
+            )
+            mypy_cache_updated = True
 
         trio_cache = next(cache.glob("*/trio"))
         modname = module_name
@@ -244,7 +266,7 @@ def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
         @functools.lru_cache()
         def lookup_symbol(symbol):
             topname, *modname, name = symbol.split(".")
-            version = next(cache.glob("*.*/"))
+            version = next(cache.glob("3.*/"))
             mod_cache = version / topname
             if not mod_cache.is_dir():
                 mod_cache = version / (topname + ".data.json")
