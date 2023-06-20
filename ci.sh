@@ -103,11 +103,14 @@ else
     INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
     cp ../pyproject.toml $INSTALLDIR
 
-    if pytest -r a -p trio._tests.pytest_plugin --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --cov="$INSTALLDIR" --cov-report=xml --cov-config=../.coveragerc --verbose; then
+    if coverage run --rcfile=../.coveragerc --source=trio pytest -r a -p trio._tests.pytest_plugin --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --cov="$INSTALLDIR" --verbose; then
         PASSED=true
     else
         PASSED=false
     fi
+
+    coverage report -m --rcfile=../.coveragerc
+    coverage xml --rcfile=../.coveragerc
 
     # Remove the LSP again; again we want to do this ASAP to avoid
     # accidentally breaking other stuff.
