@@ -1,11 +1,14 @@
 import enum
+import functools
 import importlib
 import inspect
+import json
 import socket as stdlib_socket
 import sys
 from pathlib import Path
 from types import ModuleType
 
+import attrs
 import pytest
 
 import trio
@@ -106,28 +109,35 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         if sys.implementation.name != "cpython":
             pytest.skip("mypy not installed in tests on pypy")
 
-        # mypy behaves strangely when passed a huge semicolon-separated line with `-c`
-        # so we use a tmpfile
-        tmpfile = tmpdir / "check_mypy.py"
-        tmpfile.write_text(
-            f"import {modname}\n"
-            + "".join(f"{modname}.{name}\n" for name in runtime_names),
-            encoding="utf8",
-        )
+        cache = Path(tmpdir / "cache")
+        cache.mkdir()
         from mypy.api import run
 
-        mypy_res = run(["--config-file=", "--follow-imports=silent", str(tmpfile)])
+        # pollute CWD with `.mypy_cache`? TODO think about it
+        run(["--config-file=", f"--cache-dir={cache}", "-c", f"import {modname}"])
 
-        # check that there were no errors (exit code 0), otherwise print the errors
-        assert mypy_res[2] == 0, mypy_res[0]
+        trio_cache = next(cache.glob("*/trio"))
+        _, modname = (modname + ".").split(".", 1)
+        modname = modname[:-1]
+        mod_cache = trio_cache / modname if modname else trio_cache
+        if mod_cache.is_dir():
+            mod_cache = mod_cache / "__init__.data.json"
+        else:
+            mod_cache = trio_cache / (modname + ".data.json")
+
+        assert mod_cache.exists() and mod_cache.is_file()
+        with mod_cache.open() as cache_file:
+            cache_json = json.loads(cache_file.read())
+            static_names = no_underscores(
+                key
+                for key, value in cache_json["names"].items()
+                if not key.startswith(".") and value["kind"] == "Gdef"
+            )
     elif tool == "pyright_verifytypes":
         if not RUN_SLOW:  # pragma: no cover
             pytest.skip("use --run-slow to check against mypy")
         import subprocess
-        import json
 
-        # uses `--verbose` to also get symbols without errors
-        # `--verbose` and `--outputjson` are incompatible, so we do string parsing
         res = subprocess.run(
             ["pyright", f"--verifytypes={modname}", "--outputjson"],
             capture_output=True,
@@ -140,7 +150,7 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
             if x["name"].startswith(modname)
         }
 
-        # pytest ignores the symbol defined behind `if False`
+        # pyright ignores the symbol defined behind `if False`
         if modname == "trio":
             static_names.add("testing")
 
@@ -179,7 +189,7 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
 @slow
 # see comment on test_static_tool_sees_all_symbols
 @pytest.mark.redistributors_should_skip
-# pylint/jedi often have trouble with alpha releases, where Python's internals
+# jedi/mypy often have trouble with alpha releases, where Python's internals
 # are in flux, grammar may not have settled down, etc.
 @pytest.mark.skipif(
     sys.version_info.releaselevel == "alpha",
@@ -208,6 +218,48 @@ def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
         # remove this logic when trio is marked with py.typed proper
         if not py_typed_exists:  # pragma: no branch
             py_typed_path.write_text("")
+
+        cache = Path(tmpdir / "cache")
+        cache.mkdir()
+        from mypy.api import run
+
+        # pollute CWD with `.mypy_cache`? TODO think about it
+        run(["--config-file=", f"--cache-dir={cache}", "-c", f"import {module_name}"])
+
+        trio_cache = next(cache.glob("*/trio"))
+        modname = module_name
+        _, modname = (modname + ".").split(".", 1)
+        modname = modname[:-1]
+        mod_cache = trio_cache / modname if modname else trio_cache
+        if mod_cache.is_dir():
+            mod_cache = mod_cache / "__init__.data.json"
+        else:
+            mod_cache = trio_cache / (modname + ".data.json")
+
+        assert mod_cache.exists() and mod_cache.is_file()
+        with mod_cache.open() as cache_file:
+            cache_json = json.loads(cache_file.read())
+
+        # skip a bunch of file-system activity (probably can un-memoize?)
+        @functools.lru_cache()
+        def lookup_symbol(symbol):
+            topname, *modname, name = symbol.split(".")
+            version = next(cache.glob("*.*/"))
+            mod_cache = version / topname
+            if not mod_cache.is_dir():
+                mod_cache = version / (topname + ".data.json")
+
+            if modname:
+                for piece in modname[:-1]:
+                    mod_cache /= piece
+                next_cache = mod_cache / modname[-1]
+                if next_cache.is_dir():
+                    mod_cache = next_cache / "__init__.data.json"
+                else:
+                    mod_cache = mod_cache / (modname[-1] + ".data.json")
+
+            with mod_cache.open() as f:
+                return json.loads(f.read())["names"][name]
 
     errors: dict[str, object] = {}
     for class_name, class_ in module.__dict__.items():
@@ -264,110 +316,115 @@ def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
             completions = script.complete()
             static_names = no_hidden(c.name for c in completions) - ignore_names
 
-            missing = runtime_names - static_names
-            extra = static_names - runtime_names
-
-            # using .remove() instead of .delete() to get an error in case they start not
-            # being missing
-
-            if BaseException in class_.__mro__ and sys.version_info > (3, 11):
-                missing.remove("add_note")
-
-            # TODO: why is this? Is it a problem?
-            # see https://github.com/python-trio/trio/pull/2631#discussion_r1185615916
-            if class_ == trio.StapledStream:
-                extra.remove("receive_stream")
-                extra.remove("send_stream")
-
-            # I have not researched why these are missing, should maybe create an issue
-            # upstream with jedi
-            if sys.version_info >= (3, 12):
-                if class_ in (
-                    trio.DTLSChannel,
-                    trio.MemoryReceiveChannel,
-                    trio.MemorySendChannel,
-                    trio.SSLListener,
-                    trio.SocketListener,
-                ):
-                    missing.remove("__aenter__")
-                    missing.remove("__aexit__")
-                if class_ in (trio.DTLSChannel, trio.MemoryReceiveChannel):
-                    missing.remove("__aiter__")
-                    missing.remove("__anext__")
-
-            # intentionally hidden behind type guard
-            if class_ == trio.Path:
-                missing.remove("__getattr__")
-
-            if missing or extra:  # pragma: no cover
-                errors[f"{module_name}.{class_name}"] = {
-                    "missing": missing,
-                    "extra": extra,
-                }
         elif tool == "mypy":
-            tmpfile = tmpdir / "check_mypy.py"
-            sorted_runtime_names = sorted(runtime_names)
-            content = f"from {module_name} import {class_name}\n" + "".join(
-                f"{class_name}.{name}\n" for name in sorted_runtime_names
-            )
-            tmpfile.write_text(content, encoding="utf8")
-            from mypy.api import run
+            import itertools
 
-            res = run(
-                [
-                    "--config-file=",
-                    "--follow-imports=silent",
-                    "--disable-error-code=operator",
-                    "--soft-error-limit=-1",
-                    "--no-error-summary",
-                    str(tmpfile),
-                ]
-            )
-            # no errors
-            if res[2] == 0:
-                continue
+            # load the cached type information
+            cached_type_info = cache_json["names"][class_name]
+            if "node" not in cached_type_info:
+                cached_type_info = lookup_symbol(cached_type_info["cross_ref"])
 
-            # get each line of output, containing an error for a symbol,
-            # stripping of trailing newline
-            it = iter(res[0].split("\n")[:-1])
-            for output_line in it:
-                # split out the three last fields to not have problems with windows
-                # drives or other paths with any `:`
-                _, line, error_type, message = output_line.rsplit(":", 3)
-
-                # -2 due to lines being 1-indexed and to skip the import line
-                symbol = (
-                    f"{module_name}.{class_name}." + sorted_runtime_names[int(line) - 2]
+            assert "node" in cached_type_info
+            node = cached_type_info["node"]
+            static_names = no_hidden(k for k in node["names"] if not k.startswith("."))
+            for symbol in node["mro"][1:]:
+                node = lookup_symbol(symbol)["node"]
+                static_names |= no_hidden(
+                    k for k in node["names"] if not k.startswith(".")
                 )
-
-                # The POSIX-only attributes get listed in `dir(trio.Path)` since
-                # they're in `dir(pathlib.Path)` on win32 cpython. This should *maybe*
-                # be fixed in the future, but for now we ignore it.
-                if (
-                    symbol
-                    in ("trio.Path.group", "trio.Path.owner", "trio.Path.is_mount")
-                    and sys.platform == "win32"
-                    and sys.implementation.name == "cpython"
-                ):
-                    continue
-
-                # intentionally hidden from type checkers, lest they accept any attribute
-                if symbol == "trio.Path.__getattr__":
-                    continue
-
-                # a bunch of symbols have this error, e.g. trio.lowlevel.Task.context
-                # It's not a problem: it's just complaining we're accessing
-                # instance-only attributes on a class!
-                # See this test for a minimized version that causes this error:
-                # https://github.com/python/mypy/blob/c517b86b9ba7487e7758f187cf31478e7aeaad47/test-data/unit/check-slots.test#L515-L523.
-
-                if "conflicts with class variable access" in message:
-                    continue
-
-                errors[symbol] = error_type + ":" + message  # pragma: no cover
+            static_names -= ignore_names
 
         else:  # pragma: no cover
             assert False, "unknown tool"
+
+        missing = runtime_names - static_names
+        extra = static_names - runtime_names
+
+        # using .remove() instead of .delete() to get an error in case they start not
+        # being missing
+
+        if (
+            tool == "jedi"
+            and BaseException in class_.__mro__
+            and sys.version_info >= (3, 11)
+        ):
+            missing.remove("add_note")
+
+        if (
+            tool == "mypy"
+            and BaseException in class_.__mro__
+            and sys.version_info >= (3, 11)
+        ):
+            extra.remove("__notes__")
+
+        if tool == "mypy" and attrs.has(class_):
+            # e.g. __trio__core__run_CancelScope_AttrsAttributes__
+            before = len(extra)
+            extra = {e for e in extra if not e.endswith("AttrsAttributes__")}
+            assert len(extra) == before - 1
+
+        # TODO: this *should* be visible via `dir`!!
+        if tool == "mypy" and class_ == trio.Nursery:
+            extra.remove("cancel_scope")
+
+        # TODO: I'm not so sure about these, but should still be looked at.
+        EXTRAS = {
+            trio.DTLSChannel: {"peer_address", "endpoint"},
+            trio.DTLSEndpoint: {"socket", "incoming_packets_buffer"},
+            trio.Process: {"args", "pid", "stderr", "stdin", "stdio", "stdout"},
+            trio.SSLListener: {"transport_listener"},
+            trio.SSLStream: {"transport_stream"},
+            trio.SocketListener: {"socket"},
+            trio.SocketStream: {"socket"},
+            trio.testing.MemoryReceiveStream: {"close_hook", "receive_some_hook"},
+            trio.testing.MemorySendStream: {
+                "close_hook",
+                "send_all_hook",
+                "wait_send_all_might_not_block_hook",
+            },
+        }
+        if tool == "mypy" and class_ in EXTRAS:
+            before = len(extra)
+            extra -= EXTRAS[class_]
+            assert len(extra) == before - len(EXTRAS[class_])
+
+        # probably an issue with mypy....
+        if tool == "mypy" and class_ == trio.Path and sys.platform == "win32":
+            before = len(missing)
+            missing -= {"owner", "group", "is_mount"}
+            assert len(missing) == before - 3
+
+        # TODO: why is this? Is it a problem?
+        # see https://github.com/python-trio/trio/pull/2631#discussion_r1185615916
+        if class_ == trio.StapledStream:
+            extra.remove("receive_stream")
+            extra.remove("send_stream")
+
+        # I have not researched why these are missing, should maybe create an issue
+        # upstream with jedi
+        if tool == "jedi" and sys.version_info >= (3, 11):
+            if class_ in (
+                trio.DTLSChannel,
+                trio.MemoryReceiveChannel,
+                trio.MemorySendChannel,
+                trio.SSLListener,
+                trio.SocketListener,
+            ):
+                missing.remove("__aenter__")
+                missing.remove("__aexit__")
+            if class_ in (trio.DTLSChannel, trio.MemoryReceiveChannel):
+                missing.remove("__aiter__")
+                missing.remove("__anext__")
+
+        # intentionally hidden behind type guard
+        if class_ == trio.Path:
+            missing.remove("__getattr__")
+
+        if missing or extra:  # pragma: no cover
+            errors[f"{module_name}.{class_name}"] = {
+                "missing": missing,
+                "extra": extra,
+            }
 
     # clean up created py.typed file
     if tool == "mypy" and not py_typed_exists:
