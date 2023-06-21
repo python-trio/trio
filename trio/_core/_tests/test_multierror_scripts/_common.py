@@ -6,5 +6,5 @@ except ImportError:  # pragma: no cover
 else:
     import os
     print(os.environ["COVERAGE_PROCESS_START"])
-    # raise Exception("this *is* executing, right?")
+    raise Exception("this *is* executing, right?")
     coverage.process_startup()
