@@ -109,8 +109,9 @@ else
         PASSED=false
     fi
 
-    coverage report -m --rcfile ../.coveragerc --data-file ./.coverage*
-    coverage xml --rcfile ../.coveragerc --data-file ./.coverage*
+    coverage combine --rcfile ../.coveragerc ./.coverage*
+    coverage report -m --rcfile ../.coveragerc --data-file ./.coverage
+    coverage xml --rcfile ../.coveragerc --data-file ./.coverage
 
     # Remove the LSP again; again we want to do this ASAP to avoid
     # accidentally breaking other stuff.
