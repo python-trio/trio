@@ -104,7 +104,8 @@ else
     cp ../pyproject.toml $INSTALLDIR
 
     # support subprocess spawning with coverage.py
-    echo "import coverage; coverage.process_startup()" >> $(python -c "import sys; print(sys.path[0])")
+    PARTOFPYTHONPATH=$(python -c "import sys; print(sys.path[0])")
+    echo "import coverage; coverage.process_startup()" >> $PARTOFPYTHONPATH/sitecustomize.py
 
     if coverage run --rcfile=../.coveragerc -m pytest -r a -p trio._tests.pytest_plugin --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --verbose; then
         PASSED=true
