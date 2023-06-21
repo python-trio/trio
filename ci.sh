@@ -103,6 +103,9 @@ else
     INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
     cp ../pyproject.toml $INSTALLDIR
 
+    # support subprocess spawning with coverage.py
+    echo "import coverage; coverage.process_startup()" >> $(python -c "import sys; print(sys.path[0])")
+
     if coverage run --rcfile=../.coveragerc -m pytest -r a -p trio._tests.pytest_plugin --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --verbose; then
         PASSED=true
     else
