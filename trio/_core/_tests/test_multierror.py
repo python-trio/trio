@@ -455,9 +455,6 @@ def run_script(name, use_ipython=False):
 
         cmd = [
             sys.executable,
-            "-m",
-            "coverage",
-            "run",
             "-u",
             "-m",
             "IPython",
@@ -466,7 +463,7 @@ def run_script(name, use_ipython=False):
             "--TerminalIPythonApp.code_to_run=" + "\n".join(lines),
         ]
     else:
-        cmd = [sys.executable, "-m", "coverage", "run", "-u", str(script_path)]
+        cmd = [sys.executable, "-u", str(script_path)]
     print("running:", cmd)
     completed = subprocess.run(
         cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
