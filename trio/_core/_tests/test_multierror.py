@@ -451,7 +451,11 @@ def run_script(name, use_ipython=False):
     print("subprocess PYTHONPATH:", env.get("PYTHONPATH"))
 
     if use_ipython:
-        lines = ["import runpy", f"runpy.run_path(r'{script_path}', run_name='trio.fake')", "exit()"]
+        lines = [
+            "import runpy",
+            f"runpy.run_path(r'{script_path}', run_name='trio.fake')",
+            "exit()",
+        ]
 
         cmd = [
             sys.executable,
