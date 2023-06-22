@@ -103,15 +103,18 @@ else
     INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
     cp ../pyproject.toml $INSTALLDIR
 
+    # support subprocess spawning with coverage.py
+    echo "import coverage; coverage.process_startup()" | tee -a "$INSTALLDIR/../sitecustomize.py"
+
     if COVERAGE_PROCESS_START=$(pwd)/../.coveragerc coverage run --rcfile=../.coveragerc -m pytest -r a -p trio._tests.pytest_plugin --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --verbose; then
         PASSED=true
     else
         PASSED=false
     fi
 
-    coverage combine --rcfile ../.coveragerc ./.coverage*
-    coverage report -m --rcfile ../.coveragerc --data-file ./.coverage
-    coverage xml --rcfile ../.coveragerc --data-file ./.coverage
+    coverage combine --rcfile ../.coveragerc
+    coverage report -m --rcfile ../.coveragerc
+    coverage xml --rcfile ../.coveragerc
 
     # Remove the LSP again; again we want to do this ASAP to avoid
     # accidentally breaking other stuff.
