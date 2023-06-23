@@ -67,12 +67,6 @@ if hasattr(ssl, "OP_IGNORE_UNEXPECTED_EOF"):
 TRIO_TEST_1_CERT.configure_cert(SERVER_CTX)
 
 
-skip_on_broken_openssl: MarkDecorator = pytest.mark.skipif(
-    sys.version_info < (3, 8) and ssl.OPENSSL_VERSION_INFO[0] > 1,
-    reason="Python 3.7 does not work with OpenSSL versions higher than 1.X",
-)
-
-
 # TLS 1.3 has a lot of changes from previous versions. So we want to run tests
 # with both TLS 1.3, and TLS 1.2.
 # "tls13" means that we're willing to negotiate TLS 1.3. Usually that's
@@ -821,7 +815,6 @@ async def test_send_all_empty_string(client_ctx):
         await s.aclose()
 
 
-@skip_on_broken_openssl
 @pytest.mark.parametrize("https_compatible", [False, True])
 async def test_SSLStream_generic(client_ctx, https_compatible):
     async def stream_maker():
@@ -1037,7 +1030,6 @@ async def test_ssl_bad_shutdown(client_ctx):
     await server.aclose()
 
 
-@skip_on_broken_openssl
 async def test_ssl_bad_shutdown_but_its_ok(client_ctx):
     client, server = ssl_memory_stream_pair(
         client_ctx,
@@ -1102,7 +1094,6 @@ async def test_ssl_only_closes_stream_once(client_ctx):
     assert transport_close_count == 1
 
 
-@skip_on_broken_openssl
 async def test_ssl_https_compatibility_disagreement(client_ctx):
     client, server = ssl_memory_stream_pair(
         client_ctx,
@@ -1127,7 +1118,6 @@ async def test_ssl_https_compatibility_disagreement(client_ctx):
         nursery.start_soon(receive_and_expect_error)
 
 
-@skip_on_broken_openssl
 async def test_https_mode_eof_before_handshake(client_ctx):
     client, server = ssl_memory_stream_pair(
         client_ctx,
