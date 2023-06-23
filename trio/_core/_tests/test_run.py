@@ -2279,6 +2279,10 @@ async def test_cancel_scope_exit_doesnt_create_cyclic_garbage():
         gc.garbage.clear()
 
 
+@pytest.mark.xfail(
+    sys.version_info >= (3, 12),
+    reason="Waiting on https://github.com/python/cpython/issues/100964",
+)
 @pytest.mark.skipif(
     sys.implementation.name != "cpython", reason="Only makes sense with refcounting GC"
 )
