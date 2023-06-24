@@ -479,9 +479,7 @@ def run_script(name, use_ipython=False):
 def check_simple_excepthook(completed, uses_ipython):
     assert_match_in_seq(
         [
-            "in <cell line: "
-            if uses_ipython and sys.version_info >= (3, 8)
-            else "in <module>",
+            "in <cell line: " if uses_ipython else "in <module>",
             "MultiError",
             "--- 1 ---",
             "in exc1_fn",

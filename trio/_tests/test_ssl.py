@@ -109,22 +109,6 @@ def ssl_echo_serve_sync(sock, *, expect_fail=False):
                         wrapped.unwrap()
                     except exceptions:
                         pass
-                    except ssl.SSLWantWriteError:  # pragma: no cover
-                        # Under unclear conditions, CPython sometimes raises
-                        # SSLWantWriteError here. This is a bug (bpo-32219),
-                        # but it's not our bug.  Christian Heimes thinks
-                        # it's fixed in 'recent' CPython versions so we fail
-                        # the test for those and ignore it for earlier
-                        # versions.
-                        if (
-                            sys.implementation.name != "cpython"
-                            or sys.version_info >= (3, 8)
-                        ):
-                            pytest.fail(
-                                "still an issue on recent python versions "
-                                "add a comment to "
-                                "https://bugs.python.org/issue32219"
-                            )
                     return
                 wrapped.sendall(data)
     # This is an obscure workaround for an openssl bug. In server mode, in
