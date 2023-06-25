@@ -18,10 +18,8 @@ if ! black --check setup.py trio; then
     black --diff setup.py trio
 fi
 
-# Run flake8 without pycodestyle and import-related errors
-flake8 trio/ \
-    --ignore=D,E,W,F401,F403,F405,F821,F822\
-    || EXIT_STATUS=$?
+# Run flake8, configured in .flake8
+flake8 trio/ || EXIT_STATUS=$?
 
 # Run mypy on all supported platforms
 mypy -m trio -m trio.testing --platform linux || EXIT_STATUS=$?

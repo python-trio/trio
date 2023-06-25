@@ -1,0 +1,11 @@
+[flake8]
+extend-ignore = D,E,W,F403,F405,F821,F822
+per-file-ignores =
+    trio/__init__.py: F401
+    trio/_core/__init__.py: F401
+    trio/_core/_generated*.py: F401
+    trio/_core/_tests/test_multierror_scripts/*: F401
+    trio/abc.py: F401
+    trio/lowlevel.py: F401
+    trio/socket.py: F401
+    trio/testing/__init__.py: F401

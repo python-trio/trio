@@ -1,15 +1,10 @@
-import errno
-import select
-
-import os
 import sys
 from typing import Any
 from typing import Tuple
 
 import pytest
 
-from .._core._tests.tutil import gc_collect_harder
-from .. import _core, move_on_after
+from .. import _core
 from ..testing import wait_all_tasks_blocked, check_one_way_stream
 
 if sys.platform == "win32":

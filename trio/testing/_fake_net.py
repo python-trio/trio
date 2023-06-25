@@ -9,12 +9,9 @@
 import trio
 import attr
 import ipaddress
-from collections import deque
 import errno
 import os
-from typing import Union, List, Optional
-import enum
-from contextlib import contextmanager
+from typing import Union, Optional
 
 from trio._util import Final, NoPublicConstructor
 

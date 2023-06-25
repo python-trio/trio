@@ -11,7 +11,6 @@ from traceback import (
     extract_tb,
     print_exception,
 )
-from traceback import _cause_message  # type: ignore
 import sys
 import re
 
@@ -496,7 +495,7 @@ def check_simple_excepthook(completed, uses_ipython):
 
 
 try:
-    import IPython
+    import IPython  # noqa: F401
 except ImportError:  # pragma: no cover
     have_ipython = False
 else:

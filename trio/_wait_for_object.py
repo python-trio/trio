@@ -1,5 +1,4 @@
 import math
-from . import _timeouts
 import trio
 from ._core._windows_cffi import (
     ffi,

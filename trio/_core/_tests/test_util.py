@@ -1,1 +1,1 @@
-import pytest
+import pytest  # noqa: F401

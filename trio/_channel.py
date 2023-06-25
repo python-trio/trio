@@ -1,14 +1,11 @@
 from __future__ import annotations
 
 from collections import deque, OrderedDict
-from collections.abc import Callable
 from math import inf
 
 from types import TracebackType
 from typing import (
-    Any,
     Generic,
-    NoReturn,
     TypeVar,
     TYPE_CHECKING,
     Tuple,  # only needed for typechecking on <3.9
@@ -17,7 +14,7 @@ from typing import (
 import attr
 from outcome import Error, Value
 
-from ._abc import SendChannel, ReceiveChannel, Channel, ReceiveType, SendType, T
+from ._abc import SendChannel, ReceiveChannel, ReceiveType, SendType, T
 from ._util import generic_function, NoPublicConstructor
 
 import trio
