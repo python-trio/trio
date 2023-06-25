@@ -95,19 +95,6 @@ def restore_unraisablehook():
         sys.unraisablehook = prev
 
 
-@contextmanager
-def disable_threading_excepthook():  # pragma: no cover # not used
-    if sys.version_info >= (3, 10):
-        threading.excepthook, prev = threading.__excepthook__, threading.excepthook
-    else:
-        threading.excepthook, prev = _noop, threading.excepthook
-
-    try:
-        yield
-    finally:
-        threading.excepthook = prev
-
-
 # template is like:
 #   [1, {2.1, 2.2}, 3] -> matches [1, 2.1, 2.2, 3] or [1, 2.2, 2.1, 3]
 def check_sequence_matches(seq, template):
