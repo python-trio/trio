@@ -75,8 +75,8 @@ def main(args: argparse.Namespace) -> int:
     if res.stderr:
         print(res.stderr)
 
-    if args.full_output_file is not None:
-        with open(args.full_output_file, "w") as file:
+    if args.full_diagnostics_file is not None:
+        with open(args.full_diagnostics_file, "w") as file:
             json.dump(
                 [
                     sym
@@ -166,7 +166,7 @@ def main(args: argparse.Namespace) -> int:
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--overwrite-file", action="store_true", default=False)
-parser.add_argument("--full-output-file", type=Path, default=None)
+parser.add_argument("--full-diagnostics-file", type=Path, default=None)
 args = parser.parse_args()
 
 assert __name__ == "__main__", "This script should be run standalone"
