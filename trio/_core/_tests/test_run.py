@@ -1594,8 +1594,6 @@ async def test_asyncio_function_inside_nursery_does_not_explode():
     # Regression test for https://github.com/python-trio/trio/issues/552
     with pytest.raises(TypeError) as excinfo:
         async with _core.open_nursery() as nursery:
-            # import asyncio
-
             nursery.start_soon(sleep_forever)
             await create_asyncio_future_in_new_loop()
     assert "asyncio" in str(excinfo.value)
