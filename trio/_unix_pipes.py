@@ -10,7 +10,7 @@ from ._util import ConflictDetector, Final
 import trio
 
 if TYPE_CHECKING:
-    from typing_extensions import Final as FinalType
+    from typing import Final as FinalType
 
 if os.name != "posix":
     # We raise an error here rather than gating the import in lowlevel.py

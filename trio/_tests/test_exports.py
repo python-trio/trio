@@ -263,7 +263,7 @@ def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
             cache_json = json.loads(cache_file.read())
 
         # skip a bunch of file-system activity (probably can un-memoize?)
-        @functools.lru_cache()
+        @functools.lru_cache
         def lookup_symbol(symbol):
             topname, *modname, name = symbol.split(".")
             version = next(cache.glob("3.*/"))

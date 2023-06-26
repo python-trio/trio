@@ -96,7 +96,7 @@ def _open_memory_channel(
 if TYPE_CHECKING:
     # written as a class so you can say open_memory_channel[int](5)
     # Need to use Tuple instead of tuple due to CI check running on 3.8
-    class open_memory_channel(Tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]):
+    class open_memory_channel(tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]):
         def __new__(  # type: ignore[misc]  # "must return a subtype"
             cls, max_buffer_size: int
         ) -> tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]:
@@ -215,7 +215,7 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
 
     # Return type must be stringified or use a TypeVar
     @enable_ki_protection
-    def clone(self) -> "MemorySendChannel[SendType]":
+    def clone(self) -> MemorySendChannel[SendType]:
         """Clone this send channel object.
 
         This returns a new `MemorySendChannel` object, which acts as a
@@ -358,7 +358,7 @@ class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstr
         return await trio.lowlevel.wait_task_rescheduled(abort_fn)  # type: ignore[no-any-return]
 
     @enable_ki_protection
-    def clone(self) -> "MemoryReceiveChannel[ReceiveType]":
+    def clone(self) -> MemoryReceiveChannel[ReceiveType]:
         """Clone this receive channel object.
 
         This returns a new `MemoryReceiveChannel` object, which acts as a
