@@ -81,7 +81,8 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           directory: empty
-          name: 'Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})'
+          token: 87cefb17-c44b-4f2f-8b30-1fff5769ce46
+          name: Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})
           flags: Windows,${{ matrix.python }}
 
   Ubuntu:
@@ -131,7 +132,8 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           directory: empty
-          name: 'Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})'
+          token: 87cefb17-c44b-4f2f-8b30-1fff5769ce46
+          name: Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})
           flags: Ubuntu,${{ matrix.python }}
 
   macOS:
@@ -166,7 +168,8 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           directory: empty
-          name: 'macOS (${{ matrix.python }})'
+          token: 87cefb17-c44b-4f2f-8b30-1fff5769ce46
+          name: macOS (${{ matrix.python }})
           flags: macOS,${{ matrix.python }}
 
   # https://github.com/marketplace/actions/alls-green#why
