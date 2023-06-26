@@ -1,6 +1,7 @@
 import math
 from contextlib import contextmanager
-from typing import Iterator, ContextManager
+from typing import ContextManager
+from collections.abc import Iterator
 
 import trio
 

@@ -16,8 +16,9 @@ from contextvars import copy_context
 from heapq import heapify, heappop, heappush
 from math import inf
 from time import perf_counter
-from typing import TYPE_CHECKING, Any, NoReturn, TypeVar, AsyncContextManager, Iterator
+from typing import TYPE_CHECKING, Any, NoReturn, TypeVar, AsyncContextManager
 from types import TracebackType
+from collections.abc import Iterator
 
 import attr
 from outcome import Error, Outcome, Value, capture
