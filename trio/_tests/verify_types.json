@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.8252427184466019,
+    "completenessScore": 0.8317152103559871,
     "exportedSymbolCounts": {
       "withAmbiguousType": 1,
-      "withKnownType": 510,
-      "withUnknownType": 107
+      "withKnownType": 514,
+      "withUnknownType": 103
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -45,19 +45,13 @@
       }
     ],
     "otherSymbolCounts": {
-      "withAmbiguousType": 15,
-      "withKnownType": 238,
-      "withUnknownType": 229
+      "withAmbiguousType": 14,
+      "withKnownType": 244,
+      "withUnknownType": 224
     },
     "packageName": "trio",
     "symbols": [
       "trio.run",
-      "trio.open_nursery",
-      "trio._core._run.CancelScope.cancelled_caught",
-      "trio._core._run.CancelScope.__exit__",
-      "trio._core._run.CancelScope.__repr__",
-      "trio._core._run.CancelScope.deadline",
-      "trio._core._run.CancelScope.cancel_called",
       "trio.current_effective_deadline",
       "trio._core._run._TaskStatusIgnored.__repr__",
       "trio._core._run._TaskStatusIgnored.started",
@@ -68,8 +62,6 @@
       "trio._core._run.Nursery.start_soon",
       "trio._core._run.Nursery.start",
       "trio._core._run.Nursery.__del__",
-      "trio.move_on_at",
-      "trio.move_on_after",
       "trio._sync.Event.is_set",
       "trio._sync.Event.wait",
       "trio._sync.Event.statistics",

@@ -77,8 +77,16 @@ def main(args: argparse.Namespace) -> int:
 
     if args.full_output_file is not None:
         with open(args.full_output_file, "w") as file:
-            print(f"Writing full output to {args.full_output_file}")
-            json.dump(current_result, file, sort_keys=True, indent=2)
+            json.dump(
+                [
+                    sym
+                    for sym in current_result["typeCompleteness"]["symbols"]
+                    if sym["diagnostics"]
+                ],
+                file,
+                sort_keys=True,
+                indent=2,
+            )
 
     last_result = json.loads(RESULT_FILE.read_text())
 

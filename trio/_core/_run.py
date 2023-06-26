@@ -16,7 +16,8 @@ from contextvars import copy_context
 from heapq import heapify, heappop, heappush
 from math import inf
 from time import perf_counter
-from typing import TYPE_CHECKING, Any, NoReturn, TypeVar
+from typing import TYPE_CHECKING, Any, NoReturn, TypeVar, AsyncContextManager, Iterator
+from types import TracebackType
 
 import attr
 from outcome import Error, Outcome, Value, capture
@@ -475,15 +476,15 @@ class CancelScope(metaclass=Final):
     has been entered yet, and changes take immediate effect.
     """
 
-    _cancel_status = attr.ib(default=None, init=False)
-    _has_been_entered = attr.ib(default=False, init=False)
-    _registered_deadline = attr.ib(default=inf, init=False)
-    _cancel_called = attr.ib(default=False, init=False)
-    cancelled_caught = attr.ib(default=False, init=False)
+    _cancel_status: CancelStatus | None = attr.ib(default=None, init=False)
+    _has_been_entered: bool = attr.ib(default=False, init=False)
+    _registered_deadline: float = attr.ib(default=inf, init=False)
+    _cancel_called: bool = attr.ib(default=False, init=False)
+    cancelled_caught: bool = attr.ib(default=False, init=False)
 
     # Constructor arguments:
-    _deadline = attr.ib(default=inf, kw_only=True)
-    _shield = attr.ib(default=False, kw_only=True)
+    _deadline: float = attr.ib(default=inf, kw_only=True)
+    _shield: bool = attr.ib(default=False, kw_only=True)
 
     @enable_ki_protection
     def __enter__(self):
@@ -573,7 +574,12 @@ class CancelScope(metaclass=Final):
             self._cancel_status = None
         return exc
 
-    def __exit__(self, etype, exc, tb):
+    def __exit__(
+        self,
+        etype: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> bool:
         # NB: NurseryManager calls _close() directly rather than __exit__(),
         # so __exit__() must be just _close() plus this logic for adapting
         # the exception-filtering result to the context manager API.
@@ -607,7 +613,7 @@ class CancelScope(metaclass=Final):
                 # TODO: check if PEP558 changes the need for this call
                 # https://github.com/python/cpython/pull/3640
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self._cancel_status is not None:
             binding = "active"
         elif self._has_been_entered:
@@ -634,7 +640,7 @@ class CancelScope(metaclass=Final):
 
     @contextmanager
     @enable_ki_protection
-    def _might_change_registered_deadline(self):
+    def _might_change_registered_deadline(self) -> Iterator[None]:
         try:
             yield
         finally:
@@ -658,7 +664,7 @@ class CancelScope(metaclass=Final):
                         runner.force_guest_tick_asap()
 
     @property
-    def deadline(self):
+    def deadline(self) -> float:
         """Read-write, :class:`float`. An absolute time on the current
         run's clock at which this scope will automatically become
         cancelled. You can adjust the deadline by modifying this
@@ -684,12 +690,12 @@ class CancelScope(metaclass=Final):
         return self._deadline
 
     @deadline.setter
-    def deadline(self, new_deadline):
+    def deadline(self, new_deadline: float) -> None:
         with self._might_change_registered_deadline():
             self._deadline = float(new_deadline)
 
     @property
-    def shield(self):
+    def shield(self) -> bool:
         """Read-write, :class:`bool`, default :data:`False`. So long as
         this is set to :data:`True`, then the code inside this scope
         will not receive :exc:`~trio.Cancelled` exceptions from scopes
@@ -714,7 +720,7 @@ class CancelScope(metaclass=Final):
 
     @shield.setter
     @enable_ki_protection
-    def shield(self, new_value):
+    def shield(self, new_value: bool) -> None:
         if not isinstance(new_value, bool):
             raise TypeError("shield must be a bool")
         self._shield = new_value
@@ -722,7 +728,7 @@ class CancelScope(metaclass=Final):
             self._cancel_status.recalculate()
 
     @enable_ki_protection
-    def cancel(self):
+    def cancel(self) -> None:
         """Cancels this scope immediately.
 
         This method is idempotent, i.e., if the scope was already
@@ -736,7 +742,7 @@ class CancelScope(metaclass=Final):
             self._cancel_status.recalculate()
 
     @property
-    def cancel_called(self):
+    def cancel_called(self) -> bool:
         """Readonly :class:`bool`. Records whether cancellation has been
         requested for this scope, either by an explicit call to
         :meth:`cancel` or by the deadline expiring.
@@ -890,7 +896,9 @@ class NurseryManager:
         assert False, """Never called, but should be defined"""
 
 
-def open_nursery(strict_exception_groups=None):
+def open_nursery(
+    strict_exception_groups: bool | None = None,
+) -> AsyncContextManager[Nursery]:
     """Returns an async context manager which must be used to create a
     new `Nursery`.
 
