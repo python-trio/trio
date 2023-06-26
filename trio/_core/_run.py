@@ -16,9 +16,10 @@ from contextvars import copy_context
 from heapq import heapify, heappop, heappush
 from math import inf
 from time import perf_counter
-from typing import TYPE_CHECKING, Any, NoReturn, TypeVar, AsyncContextManager
+from typing import TYPE_CHECKING, Any, NoReturn, TypeVar
 from types import TracebackType
 from collections.abc import Iterator
+from contextlib import AbstractAsyncContextManager
 
 import attr
 from outcome import Error, Outcome, Value, capture
@@ -899,7 +900,7 @@ class NurseryManager:
 
 def open_nursery(
     strict_exception_groups: bool | None = None,
-) -> AsyncContextManager[Nursery]:
+) -> AbstractAsyncContextManager[Nursery]:
     """Returns an async context manager which must be used to create a
     new `Nursery`.
 

@@ -1,6 +1,6 @@
+from __future__ import annotations
 import math
-from contextlib import contextmanager
-from typing import ContextManager
+from contextlib import contextmanager, AbstractContextManager
 from collections.abc import Iterator
 
 import trio
@@ -122,7 +122,7 @@ def fail_at(deadline: float) -> Iterator[trio.CancelScope]:
         raise TooSlowError
 
 
-def fail_after(seconds: float) -> ContextManager[trio.CancelScope]:
+def fail_after(seconds: float) -> AbstractContextManager[trio.CancelScope]:
     """Creates a cancel scope with the given timeout, and raises an error if
     it is actually cancelled.
 
