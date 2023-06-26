@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.8155339805825242,
+    "completenessScore": 0.8220064724919094,
     "exportedSymbolCounts": {
       "withAmbiguousType": 1,
-      "withKnownType": 504,
-      "withUnknownType": 113
+      "withKnownType": 508,
+      "withUnknownType": 109
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -77,10 +77,6 @@
       "trio._core._run.Nursery.__del__",
       "trio.move_on_at",
       "trio.move_on_after",
-      "trio.sleep_forever",
-      "trio.sleep_until",
-      "trio.sleep",
-      "trio.fail_after",
       "trio._sync.Event",
       "trio._sync.Event.is_set",
       "trio._sync.Event.wait",

@@ -1,10 +1,11 @@
 import math
 from contextlib import contextmanager
+from typing import Iterator, ContextManager
 
 import trio
 
 
-def move_on_at(deadline):
+def move_on_at(deadline: float) -> trio.CancelScope:
     """Use as a context manager to create a cancel scope with the given
     absolute deadline.
 
@@ -20,7 +21,7 @@ def move_on_at(deadline):
     return trio.CancelScope(deadline=deadline)
 
 
-def move_on_after(seconds):
+def move_on_after(seconds: float) -> trio.CancelScope:
     """Use as a context manager to create a cancel scope whose deadline is
     set to now + *seconds*.
 
@@ -36,7 +37,7 @@ def move_on_after(seconds):
     return move_on_at(trio.current_time() + seconds)
 
 
-async def sleep_forever():
+async def sleep_forever() -> None:
     """Pause execution of the current task forever (or until cancelled).
 
     Equivalent to calling ``await sleep(math.inf)``.
@@ -45,7 +46,7 @@ async def sleep_forever():
     await trio.lowlevel.wait_task_rescheduled(lambda _: trio.lowlevel.Abort.SUCCEEDED)
 
 
-async def sleep_until(deadline):
+async def sleep_until(deadline: float) -> None:
     """Pause execution of the current task until the given time.
 
     The difference between :func:`sleep` and :func:`sleep_until` is that the
@@ -65,7 +66,7 @@ async def sleep_until(deadline):
         await sleep_forever()
 
 
-async def sleep(seconds):
+async def sleep(seconds: float) -> None:
     """Pause execution of the current task for the given number of seconds.
 
     Args:
@@ -92,7 +93,7 @@ class TooSlowError(Exception):
 
 
 @contextmanager
-def fail_at(deadline):
+def fail_at(deadline: float) -> Iterator[trio.CancelScope]:
     """Creates a cancel scope with the given deadline, and raises an error if it
     is actually cancelled.
 
@@ -120,7 +121,7 @@ def fail_at(deadline):
         raise TooSlowError
 
 
-def fail_after(seconds):
+def fail_after(seconds: float) -> ContextManager[trio.CancelScope]:
     """Creates a cancel scope with the given timeout, and raises an error if
     it is actually cancelled.
 
