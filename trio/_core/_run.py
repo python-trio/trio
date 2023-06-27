@@ -17,7 +17,7 @@ from heapq import heapify, heappop, heappush
 from math import inf
 from time import perf_counter
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, NoReturn, TypeVar
+from typing import TYPE_CHECKING, Any, NoReturn, overload, Protocol, TypeVar
 
 import attr
 from outcome import Error, Outcome, Value, capture
@@ -58,6 +58,7 @@ DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: FinalT = 1000
 _NO_SEND: FinalT = object()
 
 FnT = TypeVar("FnT", bound="Callable[..., Any]")
+StatusT = TypeVar("StatusT", contravariant=True)
 
 
 # Decorator to mark methods public. This does nothing by itself, but
@@ -780,19 +781,32 @@ class CancelScope(metaclass=Final):
 ################################################################
 
 
+class TaskStatus(Protocol[StatusT]):
+    """Defines the behaviour for the parameter passed to Nursery.start() functions."""
+    @overload
+    def started(self: TaskStatus[None]) -> None: ...
+    @overload
+    def started(self, value: StatusT) -> None: ...
+
+
 # This code needs to be read alongside the code from Nursery.start to make
 # sense.
 @attr.s(eq=False, hash=False, repr=False)
-class TaskStatus(metaclass=Final):
-    _old_nursery = attr.ib()
-    _new_nursery = attr.ib()
-    _called_started = attr.ib(default=False)
-    _value = attr.ib(default=None)
+class _TaskStatus(metaclass=Final, TaskStatus[StatusT]):
+    _old_nursery: Nursery = attr.ib()
+    _new_nursery: Nursery = attr.ib()
+    _called_started: bool = attr.ib(default=False)
+    _value: StatusT | None = attr.ib(default=None)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Task status object at {id(self):#x}>"
 
-    def started(self, value=None):
+    @overload
+    def started(self: TaskStatus[None]) -> None: ...
+    @overload
+    def started(self, value: StatusT) -> None: ...
+
+    def started(self, value: StatusT | None = None) -> None:
         if self._called_started:
             raise RuntimeError("called 'started' twice on the same task status")
         self._called_started = True
@@ -1137,7 +1151,7 @@ class Nursery(metaclass=NoPublicConstructor):
         try:
             self._pending_starts += 1
             async with open_nursery() as old_nursery:
-                task_status = TaskStatus(old_nursery, self)
+                task_status = _TaskStatus(old_nursery, self)
                 thunk = functools.partial(async_fn, task_status=task_status)
                 task = GLOBAL_RUN_CONTEXT.runner.spawn_impl(
                     thunk, args, old_nursery, name
@@ -2461,15 +2475,15 @@ def unrolled_run(
 ################################################################
 
 
-class _TaskStatusIgnored:
+class _TaskStatusIgnored(TaskStatus[Any]):
     def __repr__(self) -> str:
         return "TASK_STATUS_IGNORED"
 
-    def started(self, value: object = None) -> None:
+    def started(self, value: Any = None) -> None:
         pass
 
 
-TASK_STATUS_IGNORED: FinalT = _TaskStatusIgnored()
+TASK_STATUS_IGNORED: FinalT[TaskStatus[Any]] = _TaskStatusIgnored()
 
 
 def current_task() -> Task:
