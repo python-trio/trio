@@ -1,3 +1,4 @@
+import math
 from contextlib import contextmanager
 
 import trio
@@ -10,7 +11,12 @@ def move_on_at(deadline):
     Args:
       deadline (float): The deadline.
 
+    Raises:
+      ValueError: if deadline is NaN.
+
     """
+    if math.isnan(deadline):
+        raise ValueError("deadline must not be NaN")
     return trio.CancelScope(deadline=deadline)
 
 
@@ -22,10 +28,9 @@ def move_on_after(seconds):
       seconds (float): The timeout.
 
     Raises:
-      ValueError: if timeout is less than zero.
+      ValueError: if timeout is less than zero or NaN.
 
     """
-
     if seconds < 0:
         raise ValueError("timeout must be non-negative")
     return move_on_at(trio.current_time() + seconds)
@@ -52,6 +57,9 @@ async def sleep_until(deadline):
             the past, in which case this function executes a checkpoint but
             does not block.
 
+    Raises:
+      ValueError: if deadline is NaN.
+
     """
     with move_on_at(deadline):
         await sleep_forever()
@@ -65,7 +73,7 @@ async def sleep(seconds):
             insert a checkpoint without actually blocking.
 
     Raises:
-        ValueError: if *seconds* is negative.
+        ValueError: if *seconds* is negative or NaN.
 
     """
     if seconds < 0:
@@ -96,9 +104,13 @@ def fail_at(deadline):
     :func:`fail_at`, then it's caught and :exc:`TooSlowError` is raised in its
     place.
 
+    Args:
+      deadline (float): The deadline.
+
     Raises:
       TooSlowError: if a :exc:`Cancelled` exception is raised in this scope
         and caught by the context manager.
+      ValueError: if deadline is NaN.
 
     """
 
@@ -119,10 +131,13 @@ def fail_after(seconds):
     it's caught and discarded. When it reaches :func:`fail_after`, then it's
     caught and :exc:`TooSlowError` is raised in its place.
 
+    Args:
+      seconds (float): The timeout.
+
     Raises:
       TooSlowError: if a :exc:`Cancelled` exception is raised in this scope
         and caught by the context manager.
-      ValueError: if *seconds* is less than zero.
+      ValueError: if *seconds* is less than zero or NaN.
 
     """
     if seconds < 0:
