@@ -14,8 +14,9 @@ failed = False
 # TODO: consider checking manually without `--ignoreexternal`, and/or
 # removing it from the below call later on.
 def run_pyright():
+    # Specify a platform to keep imported modules consistent.
     return subprocess.run(
-        ["pyright", "--verifytypes=trio", "--outputjson", "--ignoreexternal"],
+        ["pyright", "--pythonplatform=Linux", "--verifytypes=trio", "--outputjson", "--ignoreexternal"],
         capture_output=True,
     )
 
