@@ -149,7 +149,13 @@ def main(args: argparse.Namespace) -> int:
                 new_symbols.append(symbol["name"])
                 continue
 
+        # Ensure order of arrays does not affect result.
+        new_symbols.sort()
+        current_result["generalDiagnostics"].sort()
+        current_result["typeCompleteness"]["modules"].sort(key=lambda module: module.get('name', ''))
+
         current_result["typeCompleteness"]["symbols"] = new_symbols
+
 
         with open(RESULT_FILE, "w") as file:
             json.dump(current_result, file, sort_keys=True, indent=2)
