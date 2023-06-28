@@ -73,6 +73,7 @@ setup(
     version=__version__,
     description="A friendly Python library for async concurrency and I/O",
     long_description=LONG_DESC,
+    long_description_content_type="text/x-rst",
     author="Nathaniel J. Smith",
     author_email="njs@pobox.com",
     url="https://github.com/python-trio/trio",
