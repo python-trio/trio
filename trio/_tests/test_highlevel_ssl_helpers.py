@@ -7,6 +7,8 @@ import attr
 import trio
 from trio.socket import AF_INET, SOCK_STREAM, IPPROTO_TCP
 import trio.testing
+
+# noqa is needed because flake8 doesn't understand how pytest fixtures work.
 from .test_ssl import client_ctx, SERVER_CTX  # noqa: F401
 
 from .._highlevel_ssl_helpers import (

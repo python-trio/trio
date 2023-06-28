@@ -44,6 +44,9 @@ exceptiongroup==1.1.1 ; python_version < "3.11"
     #   pytest
 flake8==5.0.4
     # via -r test-requirements.in
+    #   flake8-pyproject
+flake8-pyproject==1.2.3
+    # via -r test-requirements.in
 idna==3.4
     # via
     #   -r test-requirements.in
