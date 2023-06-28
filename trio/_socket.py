@@ -434,7 +434,7 @@ class _SocketType(SocketType):
             # For example, ssl.SSLSocket subclasses socket.socket, but we
             # certainly don't want to blindly wrap one of those.
             raise TypeError(
-                "expected object of type 'socket.socket', not '{}".format(
+                "expected object of type 'socket.socket', not '{}'".format(
                     type(sock).__name__
                 )
             )
