@@ -18,7 +18,7 @@ if ! black --check setup.py trio; then
     black --diff setup.py trio
 fi
 
-# Run flake8, configured in .flake8
+# Run flake8, configured in pyproject.toml
 flake8 trio/ || EXIT_STATUS=$?
 
 # Run mypy on all supported platforms

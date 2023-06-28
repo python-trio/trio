@@ -133,6 +133,7 @@ tomli==2.0.1
     # via
     #   black
     #   build
+    #   flake8-pyproject
     #   mypy
     #   pylint
     #   pytest
