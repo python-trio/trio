@@ -1,14 +1,14 @@
 [run]
 branch=True
 source=trio
-# For some reason coverage recording doesn't work for ipython_custom_exc.py,
-# so leave it out of reports
 omit=
   setup.py
-  */ipython_custom_exc.py
+# These are run in subprocesses, but still don't work. We follow
+# coverage's documentation to no avail.
+  */trio/_core/_tests/test_multierror_scripts/*
 # Omit the generated files in trio/_core starting with _generated_
   */trio/_core/_generated_*
-# script used to check type completeness that isn't run in tests
+# Script used to check type completeness that isn't run in tests
   */trio/_tests/check_type_completeness.py
 # The test suite spawns subprocesses to test some stuff, so make sure
 # this doesn't corrupt the coverage files

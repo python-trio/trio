@@ -1,6 +1,6 @@
 # For tests
 pytest >= 5.0         # for faulthandler in core
-pytest-cov >= 2.6.0
+coverage >= 7.2.5
 async_generator >= 1.9
 pyright
 # ipython 7.x is the last major version supporting Python 3.7

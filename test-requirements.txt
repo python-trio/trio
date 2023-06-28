@@ -26,8 +26,8 @@ click==8.1.3
     # via
     #   black
     #   pip-tools
-coverage[toml]==7.2.7
-    # via pytest-cov
+coverage==7.2.7
+    # via -r test-requirements.in
 cryptography==39.0.2
     # via
     #   -r test-requirements.in
@@ -121,10 +121,6 @@ pyproject-hooks==1.0.0
 pyright==1.1.310
     # via -r test-requirements.in
 pytest==7.3.1
-    # via
-    #   -r test-requirements.in
-    #   pytest-cov
-pytest-cov==4.1.0
     # via -r test-requirements.in
 sniffio==1.3.0
     # via -r test-requirements.in
@@ -134,7 +130,6 @@ tomli==2.0.1
     # via
     #   black
     #   build
-    #   coverage
     #   mypy
     #   pylint
     #   pytest
