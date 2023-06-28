@@ -5,7 +5,7 @@ omit=
   setup.py
 # These are run in subprocesses, but still don't work. We follow
 # coverage's documentation to no avail.
-  trio/_core/_tests/test_multierror_scripts/*
+  */trio/_core/_tests/test_multierror_scripts/*
 # Omit the generated files in trio/_core starting with _generated_
   */trio/_core/_generated_*
 # Script used to check type completeness that isn't run in tests
