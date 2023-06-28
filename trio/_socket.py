@@ -433,7 +433,9 @@ class _SocketType(SocketType):
         if type(sock) is not _stdlib_socket.socket:
             # For example, ssl.SSLSocket subclasses socket.socket, but we
             # certainly don't want to blindly wrap one of those.
-            raise TypeError(f"expected object of type 'socket.socket', not '{type(sock).__name__}'")
+            raise TypeError(
+                f"expected object of type 'socket.socket', not '{type(sock).__name__}'"
+            )
         self._sock = sock
         self._sock.setblocking(False)
         self._did_shutdown_SHUT_WR = False
