@@ -39,3 +39,6 @@ isort < 5.12.0
 
 # cryptography 40.0.2 (and presumably prior) segfaults on PyPy 3.7
 cryptography < 40.0.0
+
+# typing_extensions 4.7.0 breaks pylint on pypy 3.7
+typing_extensions < 4.7.0
