@@ -1,7 +1,9 @@
 from __future__ import annotations
+
 import math
-from contextlib import contextmanager, AbstractContextManager
 from collections.abc import Iterator
+from contextlib import AbstractContextManager, contextmanager
+from typing import TYPE_CHECKING
 
 import trio
 
@@ -94,7 +96,7 @@ class TooSlowError(Exception):
 
 
 @contextmanager
-def fail_at(deadline: float) -> Iterator[trio.CancelScope]:
+def _fail_at(deadline: float) -> Iterator[trio.CancelScope]:
     """Creates a cancel scope with the given deadline, and raises an error if it
     is actually cancelled.
 
@@ -120,6 +122,17 @@ def fail_at(deadline: float) -> Iterator[trio.CancelScope]:
         yield scope
     if scope.cancelled_caught:
         raise TooSlowError
+
+
+# workaround for PyCharm not being able to infer return type from @contextmanager
+# see https://youtrack.jetbrains.com/issue/PY-36444/PyCharm-doesnt-infer-types-when-using-contextlib.contextmanager-decorator
+if TYPE_CHECKING:
+
+    def fail_at(deadline: float) -> AbstractContextManager[trio.CancelScope]:
+        return _fail_at(deadline)
+
+else:
+    fail_at = _fail_at
 
 
 def fail_after(seconds: float) -> AbstractContextManager[trio.CancelScope]:
