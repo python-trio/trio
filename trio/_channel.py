@@ -96,7 +96,7 @@ def _open_memory_channel(
 if TYPE_CHECKING:
     # written as a class so you can say open_memory_channel[int](5)
     # Need to use Tuple instead of tuple due to CI check running on 3.8
-    class open_memory_channel(tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]):
+    class open_memory_channel(Tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]):
         def __new__(  # type: ignore[misc]  # "must return a subtype"
             cls, max_buffer_size: int
         ) -> tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]:
