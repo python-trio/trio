@@ -2118,6 +2118,16 @@ def start_guest_run(
     the host loop and then immediately starts the guest run, and then shuts
     down the host when the guest run completes.
 
+    Once :func:`start_guest_run` returns successfully, the guest run
+    has been set up enough that you can invoke sync-colored Trio
+    functions such as :func:`current_time`, :func:`spawn_system_task`,
+    and :func:`current_trio_token`. If a `TrioInternalError` occurs
+    during this early setup of the guest run, it will be raised out of
+    :func:`start_guest_run`.  All other errors, including all errors
+    raised by the *async_fn*, will be delivered to your
+    *done_callback* at some point after :func:`start_guest_run` returns
+    successfully.
+
     Args:
 
       run_sync_soon_threadsafe: An arbitrary callable, which will be passed a
@@ -2178,6 +2188,39 @@ def start_guest_run(
             host_uses_signal_set_wakeup_fd=host_uses_signal_set_wakeup_fd,
         ),
     )
+
+    # Run a few ticks of the guest run synchronously, so that by the
+    # time we return, the system nursery exists and callers can use
+    # spawn_system_task. We don't actually run any user code during
+    # this time, so it shouldn't be possible to get an exception here,
+    # except for a TrioInternalError.
+    next_send = None
+    for tick in range(5):  # expected need is 2 iterations + leave some wiggle room
+        if runner.system_nursery is not None:
+            # We're initialized enough to switch to async guest ticks
+            break
+        try:
+            timeout = guest_state.unrolled_run_gen.send(next_send)
+        except StopIteration:  # pragma: no cover
+            raise TrioInternalError(
+                "Guest runner exited before system nursery was initialized"
+            )
+        if timeout != 0:  # pragma: no cover
+            guest_state.unrolled_run_gen.throw(
+                TrioInternalError(
+                    "Guest runner blocked before system nursery was initialized"
+                )
+            )
+        next_send = ()
+    else:  # pragma: no cover
+        guest_state.unrolled_run_gen.throw(
+            TrioInternalError(
+                "Guest runner yielded too many times before "
+                "system nursery was initialized"
+            )
+        )
+
+    guest_state.unrolled_run_next_send = Value(next_send)
     run_sync_soon_not_threadsafe(guest_state.guest_tick)
 
 
