@@ -23,7 +23,7 @@ pip-tools >= 6.13.0
 # typed_ast is deprecated as of 3.8, and straight up doesn't compile on 3.10-dev as of 2021-12-13
 typed_ast; implementation_name == "cpython" and python_version < "3.8"
 mypy-extensions; implementation_name == "cpython"
-typing-extensions; implementation_name == "cpython"
+typing-extensions < 4.7.0
 
 # Trio's own dependencies
 cffi; os_name == "nt"
