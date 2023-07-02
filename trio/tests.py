@@ -7,7 +7,7 @@ from ._deprecate import warn_deprecated
 
 warn_deprecated(
     "trio.tests",
-    "0.24.0",
+    "0.22.1",
     instead="trio._tests",
     issue="https://github.com/python-trio/trio/issues/274",
 )
@@ -21,7 +21,7 @@ class TestsDeprecationWrapper:
     def __getattr__(self, attr: str) -> Any:
         warn_deprecated(
             f"trio.tests.{attr}",
-            "0.24.0",
+            "0.22.1",
             instead=f"trio._tests.{attr}",
             issue="https://github.com/python-trio/trio/issues/274",
         )
