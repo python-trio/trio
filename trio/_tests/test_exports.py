@@ -75,14 +75,6 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
 )
 def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
     global mypy_cache_updated
-
-    if (
-        tool == "pylint"
-        and sys.version_info < (3, 8)
-        and sys.implementation.name == "pypy"
-    ):
-        pytest.xfail("typing_extensions 4.7.0 is broken on pypy 3.7")
-
     module = importlib.import_module(modname)
 
     def no_underscores(symbols):
