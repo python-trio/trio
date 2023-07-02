@@ -1,6 +1,5 @@
 import sys
 import warnings
-from typing import Sequence
 
 import attr
 

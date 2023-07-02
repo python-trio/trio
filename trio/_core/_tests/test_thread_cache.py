@@ -2,10 +2,9 @@ import pytest
 import threading
 from queue import Queue
 import time
-import sys
 from contextlib import contextmanager
 
-from .tutil import slow, gc_collect_harder, disable_threading_excepthook
+from .tutil import slow, gc_collect_harder
 from .. import _thread_cache
 from .._thread_cache import start_thread_soon, ThreadCache
 

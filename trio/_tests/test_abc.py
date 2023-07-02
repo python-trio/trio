@@ -2,7 +2,6 @@ import pytest
 
 import attr
 
-from ..testing import assert_checkpoints
 from .. import abc as tabc
 
 

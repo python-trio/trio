@@ -74,7 +74,8 @@ try:
     elif sys.platform != "linux" and (TYPE_CHECKING or hasattr(_core, "wait_kevent")):
         from .kqueue import wait_child_exiting  # noqa: F811
     else:
-        from .waitid import wait_child_exiting  # noqa: F811
+        # noqa'd as it's an exported symbol
+        from .waitid import wait_child_exiting  # noqa: F811, F401
 except ImportError as ex:  # pragma: no cover
     _wait_child_exiting_error = ex
 

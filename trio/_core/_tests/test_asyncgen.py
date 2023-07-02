@@ -3,7 +3,6 @@ import weakref
 import pytest
 import contextlib
 from math import inf
-from functools import partial
 
 from ... import _core
 from .tutil import gc_collect_harder, buggy_pypy_asyncgens, restore_unraisablehook

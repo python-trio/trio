@@ -11,7 +11,7 @@ import trio
 from trio import open_tcp_listeners, serve_tcp, SocketListener, open_tcp_stream
 from trio.testing import open_stream_to_socket_listener
 from .. import socket as tsocket
-from .._core._tests.tutil import slow, creates_ipv6, binds_ipv6
+from .._core._tests.tutil import binds_ipv6
 
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
