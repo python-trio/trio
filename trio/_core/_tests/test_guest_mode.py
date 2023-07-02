@@ -142,6 +142,35 @@ def test_host_altering_deadlines_wakes_trio_up():
     assert trivial_guest_run(trio_main) == "ok"
 
 
+def test_guest_mode_sniffio_integration():
+    from sniffio import current_async_library, thread_local as sniffio_library
+
+    async def trio_main(in_host):
+        async def synchronize():
+            """Wait for all in_host() calls issued so far to complete."""
+            evt = trio.Event()
+            in_host(evt.set)
+            await evt.wait()
+
+        # Host and guest have separate sniffio_library contexts
+        in_host(partial(setattr, sniffio_library, "name", "nullio"))
+        await synchronize()
+        assert current_async_library() == "trio"
+
+        record = []
+        in_host(lambda: record.append(current_async_library()))
+        await synchronize()
+        assert record == ["nullio"]
+        assert current_async_library() == "trio"
+
+        return "ok"
+
+    try:
+        assert trivial_guest_run(trio_main) == "ok"
+    finally:
+        sniffio_library.name = None
+
+
 def test_warn_set_wakeup_fd_overwrite():
     assert signal.set_wakeup_fd(-1) == -1
 
@@ -527,8 +556,6 @@ def test_guest_mode_asyncgens():
             record.add((label, library))
 
     async def iterate_in_aio():
-        # "trio" gets inherited from our Trio caller if we don't set this
-        sniffio.current_async_library_cvar.set("asyncio")
         await agen("asyncio").asend(None)
 
     async def trio_main():
