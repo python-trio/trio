@@ -148,7 +148,7 @@ trustme==1.0.0
     # via -r test-requirements.in
 types-pyopenssl==23.1.0.3 ; implementation_name == "cpython"
     # via -r test-requirements.in
-typing-extensions==4.6.2 ; implementation_name == "cpython"
+typing-extensions==4.6.2
     # via
     #   -r test-requirements.in
     #   astroid
