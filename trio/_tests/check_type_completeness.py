@@ -75,6 +75,19 @@ def main(args: argparse.Namespace) -> int:
     if res.stderr:
         print(res.stderr)
 
+    if args.full_diagnostics_file is not None:
+        with open(args.full_diagnostics_file, "w") as file:
+            json.dump(
+                [
+                    sym
+                    for sym in current_result["typeCompleteness"]["symbols"]
+                    if sym["diagnostics"]
+                ],
+                file,
+                sort_keys=True,
+                indent=2,
+            )
+
     last_result = json.loads(RESULT_FILE.read_text())
 
     for key in "errorCount", "warningCount", "informationCount":
@@ -153,6 +166,7 @@ def main(args: argparse.Namespace) -> int:
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--overwrite-file", action="store_true", default=False)
+parser.add_argument("--full-diagnostics-file", type=Path, default=None)
 args = parser.parse_args()
 
 assert __name__ == "__main__", "This script should be run standalone"

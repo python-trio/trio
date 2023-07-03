@@ -1,4 +1,5 @@
 # Little utilities we use internally
+from __future__ import annotations
 
 from abc import ABCMeta
 import os
@@ -280,7 +281,9 @@ class Final(ABCMeta):
     - TypeError if a subclass is created
     """
 
-    def __new__(cls, name, bases, cls_namespace):
+    def __new__(
+        cls, name: str, bases: tuple[type, ...], cls_namespace: dict[str, object]
+    ) -> Final:
         for base in bases:
             if isinstance(base, Final):
                 raise TypeError(
@@ -312,12 +315,12 @@ class NoPublicConstructor(Final):
     - TypeError if a subclass or an instance is created.
     """
 
-    def __call__(cls, *args, **kwargs):
+    def __call__(cls, *args: object, **kwargs: object) -> None:
         raise TypeError(
             f"{cls.__module__}.{cls.__qualname__} has no public constructor"
         )
 
-    def _create(cls: t.Type[T], *args: t.Any, **kwargs: t.Any) -> T:
+    def _create(cls: t.Type[T], *args: object, **kwargs: object) -> T:
         return super().__call__(*args, **kwargs)  # type: ignore
 
 
