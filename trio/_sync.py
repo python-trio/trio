@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
 import math
 
 import attr
@@ -8,10 +11,14 @@ from . import _core
 from ._core import enable_ki_protection, ParkingLot
 from ._util import Final
 
+if TYPE_CHECKING:
+    from ._core import Task
+    from ._core._parking_lot import _ParkingLotStatistics
+
 
 @attr.s(frozen=True)
 class _EventStatistics:
-    tasks_waiting = attr.ib()
+    tasks_waiting: int = attr.ib()
 
 
 @attr.s(repr=False, eq=False, hash=False, slots=True)
@@ -41,15 +48,15 @@ class Event(metaclass=Final):
 
     """
 
-    _tasks = attr.ib(factory=set, init=False)
-    _flag = attr.ib(default=False, init=False)
+    _tasks: set[Task] = attr.ib(factory=set, init=False)
+    _flag: bool = attr.ib(default=False, init=False)
 
-    def is_set(self):
+    def is_set(self) -> bool:
         """Return the current value of the internal flag."""
         return self._flag
 
     @enable_ki_protection
-    def set(self):
+    def set(self) -> None:
         """Set the internal flag value to True, and wake any waiting tasks."""
         if not self._flag:
             self._flag = True
@@ -57,7 +64,7 @@ class Event(metaclass=Final):
                 _core.reschedule(task)
             self._tasks.clear()
 
-    async def wait(self):
+    async def wait(self) -> None:
         """Block until the internal flag value becomes True.
 
         If it's already True, then this method returns immediately.
@@ -75,7 +82,7 @@ class Event(metaclass=Final):
 
             await _core.wait_task_rescheduled(abort_fn)
 
-    def statistics(self):
+    def statistics(self) -> _EventStatistics:
         """Return an object containing debugging information.
 
         Currently the following fields are defined:
@@ -89,20 +96,20 @@ class Event(metaclass=Final):
 
 class AsyncContextManagerMixin:
     @enable_ki_protection
-    async def __aenter__(self):
-        await self.acquire()
+    async def __aenter__(self) -> None:
+        await self.acquire()  # type: ignore[attr-defined]
 
     @enable_ki_protection
-    async def __aexit__(self, *args):
-        self.release()
+    async def __aexit__(self, *args: object) -> None:
+        self.release()  # type: ignore[attr-defined]
 
 
 @attr.s(frozen=True)
 class _CapacityLimiterStatistics:
-    borrowed_tokens = attr.ib()
-    total_tokens = attr.ib()
-    borrowers = attr.ib()
-    tasks_waiting = attr.ib()
+    borrowed_tokens: int = attr.ib()
+    total_tokens: int | float = attr.ib()
+    borrowers: list[Task] = attr.ib()
+    tasks_waiting: int = attr.ib()
 
 
 class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
@@ -159,22 +166,23 @@ class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
 
     """
 
-    def __init__(self, total_tokens):
+    # total_tokens would ideally be int|Literal[math.inf] - but that's not valid typing
+    def __init__(self, total_tokens: int | float):
         self._lot = ParkingLot()
-        self._borrowers = set()
+        self._borrowers: set[Task] = set()
         # Maps tasks attempting to acquire -> borrower, to handle on-behalf-of
-        self._pending_borrowers = {}
+        self._pending_borrowers: dict[Task, Task] = {}
         # invoke the property setter for validation
-        self.total_tokens = total_tokens
+        self.total_tokens: int | float = total_tokens
         assert self._total_tokens == total_tokens
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<trio.CapacityLimiter at {:#x}, {}/{} with {} waiting>".format(
             id(self), len(self._borrowers), self._total_tokens, len(self._lot)
         )
 
     @property
-    def total_tokens(self):
+    def total_tokens(self) -> int | float:
         """The total capacity available.
 
         You can change :attr:`total_tokens` by assigning to this attribute. If
@@ -189,7 +197,7 @@ class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
         return self._total_tokens
 
     @total_tokens.setter
-    def total_tokens(self, new_total_tokens):
+    def total_tokens(self, new_total_tokens: int | float) -> None:
         if not isinstance(new_total_tokens, int) and new_total_tokens != math.inf:
             raise TypeError("total_tokens must be an int or math.inf")
         if new_total_tokens < 1:
@@ -197,23 +205,23 @@ class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
         self._total_tokens = new_total_tokens
         self._wake_waiters()
 
-    def _wake_waiters(self):
+    def _wake_waiters(self) -> None:
         available = self._total_tokens - len(self._borrowers)
         for woken in self._lot.unpark(count=available):
             self._borrowers.add(self._pending_borrowers.pop(woken))
 
     @property
-    def borrowed_tokens(self):
+    def borrowed_tokens(self) -> int:
         """The amount of capacity that's currently in use."""
         return len(self._borrowers)
 
     @property
-    def available_tokens(self):
+    def available_tokens(self) -> int | float:
         """The amount of capacity that's available to use."""
         return self.total_tokens - self.borrowed_tokens
 
     @enable_ki_protection
-    def acquire_nowait(self):
+    def acquire_nowait(self) -> None:
         """Borrow a token from the sack, without blocking.
 
         Raises:
@@ -225,7 +233,7 @@ class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
         self.acquire_on_behalf_of_nowait(trio.lowlevel.current_task())
 
     @enable_ki_protection
-    def acquire_on_behalf_of_nowait(self, borrower):
+    def acquire_on_behalf_of_nowait(self, borrower: Task) -> None:
         """Borrow a token from the sack on behalf of ``borrower``, without
         blocking.
 
@@ -253,7 +261,7 @@ class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
             raise trio.WouldBlock
 
     @enable_ki_protection
-    async def acquire(self):
+    async def acquire(self) -> None:
         """Borrow a token from the sack, blocking if necessary.
 
         Raises:
@@ -264,7 +272,7 @@ class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
         await self.acquire_on_behalf_of(trio.lowlevel.current_task())
 
     @enable_ki_protection
-    async def acquire_on_behalf_of(self, borrower):
+    async def acquire_on_behalf_of(self, borrower: Task) -> None:
         """Borrow a token from the sack on behalf of ``borrower``, blocking if
         necessary.
 
@@ -293,7 +301,7 @@ class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
             await trio.lowlevel.cancel_shielded_checkpoint()
 
     @enable_ki_protection
-    def release(self):
+    def release(self) -> None:
         """Put a token back into the sack.
 
         Raises:
@@ -304,7 +312,7 @@ class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
         self.release_on_behalf_of(trio.lowlevel.current_task())
 
     @enable_ki_protection
-    def release_on_behalf_of(self, borrower):
+    def release_on_behalf_of(self, borrower: Task) -> None:
         """Put a token back into the sack on behalf of ``borrower``.
 
         Raises:
@@ -319,7 +327,7 @@ class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
         self._borrowers.remove(borrower)
         self._wake_waiters()
 
-    def statistics(self):
+    def statistics(self) -> _CapacityLimiterStatistics:
         """Return an object containing debugging information.
 
         Currently the following fields are defined:
@@ -373,7 +381,7 @@ class Semaphore(AsyncContextManagerMixin, metaclass=Final):
 
     """
 
-    def __init__(self, initial_value, *, max_value=None):
+    def __init__(self, initial_value: int, *, max_value: int | None = None):
         if not isinstance(initial_value, int):
             raise TypeError("initial_value must be an int")
         if initial_value < 0:
@@ -391,7 +399,7 @@ class Semaphore(AsyncContextManagerMixin, metaclass=Final):
         self._value = initial_value
         self._max_value = max_value
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self._max_value is None:
             max_value_str = ""
         else:
@@ -401,17 +409,17 @@ class Semaphore(AsyncContextManagerMixin, metaclass=Final):
         )
 
     @property
-    def value(self):
+    def value(self) -> int:
         """The current value of the semaphore."""
         return self._value
 
     @property
-    def max_value(self):
+    def max_value(self) -> int | None:
         """The maximum allowed value. May be None to indicate no limit."""
         return self._max_value
 
     @enable_ki_protection
-    def acquire_nowait(self):
+    def acquire_nowait(self) -> None:
         """Attempt to decrement the semaphore value, without blocking.
 
         Raises:
@@ -425,7 +433,7 @@ class Semaphore(AsyncContextManagerMixin, metaclass=Final):
             raise trio.WouldBlock
 
     @enable_ki_protection
-    async def acquire(self):
+    async def acquire(self) -> None:
         """Decrement the semaphore value, blocking if necessary to avoid
         letting it drop below zero.
 
@@ -439,7 +447,7 @@ class Semaphore(AsyncContextManagerMixin, metaclass=Final):
             await trio.lowlevel.cancel_shielded_checkpoint()
 
     @enable_ki_protection
-    def release(self):
+    def release(self) -> None:
         """Increment the semaphore value, possibly waking a task blocked in
         :meth:`acquire`.
 
@@ -456,7 +464,7 @@ class Semaphore(AsyncContextManagerMixin, metaclass=Final):
                 raise ValueError("semaphore released too many times")
             self._value += 1
 
-    def statistics(self):
+    def statistics(self) -> _ParkingLotStatistics:
         """Return an object containing debugging information.
 
         Currently the following fields are defined:
@@ -470,17 +478,17 @@ class Semaphore(AsyncContextManagerMixin, metaclass=Final):
 
 @attr.s(frozen=True)
 class _LockStatistics:
-    locked = attr.ib()
-    owner = attr.ib()
-    tasks_waiting = attr.ib()
+    locked: bool = attr.ib()
+    owner: Task | None = attr.ib()
+    tasks_waiting: int = attr.ib()
 
 
 @attr.s(eq=False, hash=False, repr=False)
 class _LockImpl(AsyncContextManagerMixin):
-    _lot = attr.ib(factory=ParkingLot, init=False)
-    _owner = attr.ib(default=None, init=False)
+    _lot: ParkingLot = attr.ib(factory=ParkingLot, init=False)
+    _owner: Task | None = attr.ib(default=None, init=False)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self.locked():
             s1 = "locked"
             s2 = f" with {len(self._lot)} waiters"
@@ -491,7 +499,7 @@ class _LockImpl(AsyncContextManagerMixin):
             s1, self.__class__.__name__, id(self), s2
         )
 
-    def locked(self):
+    def locked(self) -> bool:
         """Check whether the lock is currently held.
 
         Returns:
@@ -501,7 +509,7 @@ class _LockImpl(AsyncContextManagerMixin):
         return self._owner is not None
 
     @enable_ki_protection
-    def acquire_nowait(self):
+    def acquire_nowait(self) -> None:
         """Attempt to acquire the lock, without blocking.
 
         Raises:
@@ -519,7 +527,7 @@ class _LockImpl(AsyncContextManagerMixin):
             raise trio.WouldBlock
 
     @enable_ki_protection
-    async def acquire(self):
+    async def acquire(self) -> None:
         """Acquire the lock, blocking if necessary."""
         await trio.lowlevel.checkpoint_if_cancelled()
         try:
@@ -533,7 +541,7 @@ class _LockImpl(AsyncContextManagerMixin):
             await trio.lowlevel.cancel_shielded_checkpoint()
 
     @enable_ki_protection
-    def release(self):
+    def release(self) -> None:
         """Release the lock.
 
         Raises:
@@ -548,7 +556,7 @@ class _LockImpl(AsyncContextManagerMixin):
         else:
             self._owner = None
 
-    def statistics(self):
+    def statistics(self) -> _LockStatistics:
         """Return an object containing debugging information.
 
         Currently the following fields are defined:
@@ -644,8 +652,8 @@ class StrictFIFOLock(_LockImpl, metaclass=Final):
 
 @attr.s(frozen=True)
 class _ConditionStatistics:
-    tasks_waiting = attr.ib()
-    lock_statistics = attr.ib()
+    tasks_waiting: int = attr.ib()
+    lock_statistics: _LockStatistics = attr.ib()
 
 
 class Condition(AsyncContextManagerMixin, metaclass=Final):
@@ -663,7 +671,7 @@ class Condition(AsyncContextManagerMixin, metaclass=Final):
 
     """
 
-    def __init__(self, lock=None):
+    def __init__(self, lock: Lock | None = None):
         if lock is None:
             lock = Lock()
         if not type(lock) is Lock:
@@ -671,7 +679,7 @@ class Condition(AsyncContextManagerMixin, metaclass=Final):
         self._lock = lock
         self._lot = trio.lowlevel.ParkingLot()
 
-    def locked(self):
+    def locked(self) -> bool:
         """Check whether the underlying lock is currently held.
 
         Returns:
@@ -680,7 +688,7 @@ class Condition(AsyncContextManagerMixin, metaclass=Final):
         """
         return self._lock.locked()
 
-    def acquire_nowait(self):
+    def acquire_nowait(self) -> None:
         """Attempt to acquire the underlying lock, without blocking.
 
         Raises:
@@ -689,16 +697,16 @@ class Condition(AsyncContextManagerMixin, metaclass=Final):
         """
         return self._lock.acquire_nowait()
 
-    async def acquire(self):
+    async def acquire(self) -> None:
         """Acquire the underlying lock, blocking if necessary."""
         await self._lock.acquire()
 
-    def release(self):
+    def release(self) -> None:
         """Release the underlying lock."""
         self._lock.release()
 
     @enable_ki_protection
-    async def wait(self):
+    async def wait(self) -> None:
         """Wait for another task to call :meth:`notify` or
         :meth:`notify_all`.
 
@@ -733,7 +741,7 @@ class Condition(AsyncContextManagerMixin, metaclass=Final):
                 await self.acquire()
             raise
 
-    def notify(self, n=1):
+    def notify(self, n: int = 1) -> None:
         """Wake one or more tasks that are blocked in :meth:`wait`.
 
         Args:
@@ -747,7 +755,7 @@ class Condition(AsyncContextManagerMixin, metaclass=Final):
             raise RuntimeError("must hold the lock to notify")
         self._lot.repark(self._lock._lot, count=n)
 
-    def notify_all(self):
+    def notify_all(self) -> None:
         """Wake all tasks that are currently blocked in :meth:`wait`.
 
         Raises:
@@ -758,7 +766,7 @@ class Condition(AsyncContextManagerMixin, metaclass=Final):
             raise RuntimeError("must hold the lock to notify")
         self._lot.repark_all(self._lock._lot)
 
-    def statistics(self):
+    def statistics(self) -> _ConditionStatistics:
         r"""Return an object containing debugging information.
 
         Currently the following fields are defined:

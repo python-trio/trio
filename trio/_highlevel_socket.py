@@ -1,12 +1,17 @@
 # "High-level" networking interface
+from __future__ import annotations
 
 import errno
 from contextlib import contextmanager
+from typing import TYPE_CHECKING
 
 import trio
 from . import socket as tsocket
 from ._util import ConflictDetector, Final
 from .abc import HalfCloseableStream, Listener
+
+if TYPE_CHECKING:
+    from ._socket import _SocketType as SocketType
 
 # XX TODO: this number was picked arbitrarily. We should do experiments to
 # tune it. (Or make it dynamic -- one idea is to start small and increase it
@@ -57,7 +62,7 @@ class SocketStream(HalfCloseableStream, metaclass=Final):
 
     """
 
-    def __init__(self, socket):
+    def __init__(self, socket: SocketType):
         if not isinstance(socket, tsocket.SocketType):
             raise TypeError("SocketStream requires a Trio socket object")
         if socket.type != tsocket.SOCK_STREAM:
@@ -108,14 +113,14 @@ class SocketStream(HalfCloseableStream, metaclass=Final):
                             sent = await self.socket.send(remaining)
                         total_sent += sent
 
-    async def wait_send_all_might_not_block(self):
+    async def wait_send_all_might_not_block(self) -> None:
         with self._send_conflict_detector:
             if self.socket.fileno() == -1:
                 raise trio.ClosedResourceError
             with _translate_socket_errors_to_stream_errors():
                 await self.socket.wait_writable()
 
-    async def send_eof(self):
+    async def send_eof(self) -> None:
         with self._send_conflict_detector:
             await trio.lowlevel.checkpoint()
             # On macOS, calling shutdown a second time raises ENOTCONN, but
@@ -125,7 +130,7 @@ class SocketStream(HalfCloseableStream, metaclass=Final):
             with _translate_socket_errors_to_stream_errors():
                 self.socket.shutdown(tsocket.SHUT_WR)
 
-    async def receive_some(self, max_bytes=None):
+    async def receive_some(self, max_bytes: int | None = None):
         if max_bytes is None:
             max_bytes = DEFAULT_RECEIVE_SIZE
         if max_bytes < 1:
@@ -133,7 +138,7 @@ class SocketStream(HalfCloseableStream, metaclass=Final):
         with _translate_socket_errors_to_stream_errors():
             return await self.socket.recv(max_bytes)
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         self.socket.close()
         await trio.lowlevel.checkpoint()
 
@@ -330,7 +335,7 @@ class SocketListener(Listener[SocketStream], metaclass=Final):
 
     """
 
-    def __init__(self, socket):
+    def __init__(self, socket: SocketType):
         if not isinstance(socket, tsocket.SocketType):
             raise TypeError("SocketListener requires a Trio socket object")
         if socket.type != tsocket.SOCK_STREAM:
@@ -346,7 +351,7 @@ class SocketListener(Listener[SocketStream], metaclass=Final):
 
         self.socket = socket
 
-    async def accept(self):
+    async def accept(self) -> SocketStream:
         """Accept an incoming connection.
 
         Returns:
@@ -374,7 +379,7 @@ class SocketListener(Listener[SocketStream], metaclass=Final):
             else:
                 return SocketStream(sock)
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         """Close this listener and its underlying socket."""
         self.socket.close()
         await trio.lowlevel.checkpoint()
