@@ -32,3 +32,6 @@ idna
 outcome
 sniffio
 exceptiongroup >= 1.0.0rc9; python_version < "3.11"
+
+
+cryptography<41

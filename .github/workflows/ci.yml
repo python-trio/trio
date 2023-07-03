@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.8', '3.9', '3.10', 'pypy-3.8-nightly', 'pypy-3.9-nightly']
+        python: ['3.8', '3.9', '3.10', 'pypy-3.8-nightly', 'pypy-3.9-nightly', 'pypy-3.10-nightly']
         arch: ['x86', 'x64']
         lsp: ['']
         lsp_extract_file: ['']
