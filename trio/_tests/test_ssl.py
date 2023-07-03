@@ -35,9 +35,6 @@ from ..testing import (
     check_two_way_stream,
 )
 
-if TYPE_CHECKING:
-    from _pytest.mark import MarkDecorator
-
 
 # We have two different kinds of echo server fixtures we use for testing. The
 # first is a real server written using the stdlib ssl module and blocking

@@ -1,7 +1,6 @@
 # Utilities for testing
 import asyncio
 import socket as stdlib_socket
-import threading
 import os
 import sys
 from typing import TYPE_CHECKING
