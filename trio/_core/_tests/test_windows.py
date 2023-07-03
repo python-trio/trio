@@ -9,7 +9,7 @@ on_windows = os.name == "nt"
 pytestmark = pytest.mark.skipif(not on_windows, reason="windows only")
 
 from .tutil import slow, gc_collect_harder, restore_unraisablehook
-from ... import _core, sleep, move_on_after
+from ... import _core, sleep
 from ...testing import wait_all_tasks_blocked
 
 if on_windows:

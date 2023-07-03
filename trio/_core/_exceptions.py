@@ -1,5 +1,3 @@
-import attr
-
 from trio._util import NoPublicConstructor
 
 

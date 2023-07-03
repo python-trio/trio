@@ -1,13 +1,11 @@
 import pytest
 
 import socket as stdlib_socket
-import select
 import random
-import errno
 from contextlib import suppress
 
 from ... import _core
-from ...testing import wait_all_tasks_blocked, Sequencer, assert_checkpoints
+from ...testing import wait_all_tasks_blocked, assert_checkpoints
 import trio
 
 # Cross-platform tests for IO handling

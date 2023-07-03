@@ -339,8 +339,6 @@ def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
             static_names = no_hidden(c.name for c in completions) - ignore_names
 
         elif tool == "mypy":
-            import itertools
-
             # load the cached type information
             cached_type_info = cache_json["names"][class_name]
             if "node" not in cached_type_info:

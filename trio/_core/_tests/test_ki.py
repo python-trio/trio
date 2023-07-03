@@ -1,11 +1,8 @@
 import outcome
 import pytest
-import sys
-import os
 import signal
 import threading
 import contextlib
-import time
 import inspect
 
 try:
@@ -15,9 +12,8 @@ except ImportError:  # pragma: no cover
 
 from ... import _core
 from ...testing import wait_all_tasks_blocked
-from ..._util import signal_raise, is_main_thread
+from ..._util import signal_raise
 from ..._timeouts import sleep
-from .tutil import slow
 
 
 def ki_self():

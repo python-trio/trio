@@ -5,8 +5,7 @@ import weakref
 from ..testing import wait_all_tasks_blocked, assert_checkpoints
 
 from .. import _core
-from .. import _timeouts
-from .._timeouts import sleep_forever, move_on_after
+from .._timeouts import sleep_forever
 from .._sync import *
 
 

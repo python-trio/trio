@@ -1,19 +1,51 @@
 [tool.black]
 target-version = ['py37']
 
+[tool.flake8]
+extend-ignore = ['D', 'E', 'W', 'F403', 'F405', 'F821', 'F822']
+per-file-ignores = [
+  'trio/__init__.py: F401',
+  'trio/_core/__init__.py: F401',
+  'trio/_core/_generated*.py: F401',
+  'trio/_core/_tests/test_multierror_scripts/*: F401',
+  'trio/abc.py: F401',
+  'trio/lowlevel.py: F401',
+  'trio/socket.py: F401',
+  'trio/testing/__init__.py: F401'
+]
+
+[tool.pytest.ini_options]
+addopts = ["--strict-markers", "--strict-config"]
+faulthandler_timeout = 60
+filterwarnings = [
+  "error",
+  # https://gitter.im/python-trio/general?at=63bb8d0740557a3d5c688d67
+  'ignore:You are using cryptography on a 32-bit Python on a 64-bit Windows Operating System. Cryptography will be significantly faster if you switch to using a 64-bit Python.:UserWarning',
+  # this should remain until https://github.com/pytest-dev/pytest/pull/10894 is merged
+  'ignore:ast.Str is deprecated:DeprecationWarning',
+  'ignore:Attribute s is deprecated and will be removed:DeprecationWarning',
+  'ignore:ast.NameConstant is deprecated:DeprecationWarning',
+  'ignore:ast.Num is deprecated:DeprecationWarning',
+  # https://github.com/python/mypy/issues/15330
+  'ignore:ast.Ellipsis is deprecated:DeprecationWarning',
+  'ignore:ast.Bytes is deprecated:DeprecationWarning'
+]
+junit_family = "xunit2"
+markers = ["redistributors_should_skip: tests that should be skipped by downstream redistributors"]
+xfail_strict = true
 
 [tool.towncrier]
+directory = "newsfragments"
+filename = "docs/source/history.rst"
+issue_format = "`#{issue} <https://github.com/python-trio/trio/issues/{issue}>`__"
 # Usage:
 # - PRs should drop a file like "issuenumber.feature" in newsfragments
-#   (or "bugfix", "doc", "removal", "misc"; misc gets no text, we can
-#    customize this)
+# (or "bugfix", "doc", "removal", "misc"; misc gets no text, we can
+# customize this)
 # - At release time after bumping version number, run: towncrier
-#   (or towncrier --draft)
+# (or towncrier --draft)
 package = "trio"
-filename = "docs/source/history.rst"
-directory = "newsfragments"
 underlines = ["-", "~", "^"]
-issue_format = "`#{issue} <https://github.com/python-trio/trio/issues/{issue}>`__"
 
 [[tool.towncrier.type]]
 directory = "headline"
@@ -49,23 +81,3 @@ showcontent = true
 directory = "misc"
 name = "Miscellaneous internal changes"
 showcontent = true
-
-[tool.pytest.ini_options]
-addopts = ["--strict-markers", "--strict-config"]
-xfail_strict = true
-faulthandler_timeout = 60
-markers = ["redistributors_should_skip: tests that should be skipped by downstream redistributors"]
-junit_family = "xunit2"
-filterwarnings = [
-    "error",
-    # https://gitter.im/python-trio/general?at=63bb8d0740557a3d5c688d67
-    'ignore:You are using cryptography on a 32-bit Python on a 64-bit Windows Operating System. Cryptography will be significantly faster if you switch to using a 64-bit Python.:UserWarning',
-    # this should remain until https://github.com/pytest-dev/pytest/pull/10894 is merged
-    'ignore:ast.Str is deprecated:DeprecationWarning',
-    'ignore:Attribute s is deprecated and will be removed:DeprecationWarning',
-    'ignore:ast.NameConstant is deprecated:DeprecationWarning',
-    'ignore:ast.Num is deprecated:DeprecationWarning',
-    # https://github.com/python/mypy/issues/15330
-    'ignore:ast.Ellipsis is deprecated:DeprecationWarning',
-    'ignore:ast.Bytes is deprecated:DeprecationWarning',
-]
