@@ -841,7 +841,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
     def __exit__(
         self,
         exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
+        exc_value: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
         return self.close()
@@ -1199,7 +1199,7 @@ class DTLSEndpoint(metaclass=Final):
     def __exit__(
         self,
         exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
+        exc_value: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
         return self.close()

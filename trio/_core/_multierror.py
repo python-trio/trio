@@ -137,13 +137,13 @@ class MultiErrorCatcher:
     def __exit__(
         self,
         exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
+        exc_value: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> bool | None:
-        if exc_val is not None:
-            filtered_exc = _filter_impl(self._handler, exc_val)
+        if exc_value is not None:
+            filtered_exc = _filter_impl(self._handler, exc_value)
 
-            if filtered_exc is exc_val:
+            if filtered_exc is exc_value:
                 # Let the interpreter re-raise it
                 return False
             if filtered_exc is None:

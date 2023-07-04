@@ -906,7 +906,7 @@ class NurseryManager:
     def __exit__(
         self,  # pragma: no cover
         exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
+        exc_value: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> bool:
         assert False, """Never called, but should be defined"""
