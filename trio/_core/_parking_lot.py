@@ -86,7 +86,7 @@ if TYPE_CHECKING:
 
 
 @attr.s(frozen=True, slots=True)
-class _ParkingLotStatistics:
+class ParkingLotStatistics:
     tasks_waiting: int = attr.ib()
 
 
@@ -213,7 +213,7 @@ class ParkingLot(metaclass=Final):
         """
         return self.repark(new_lot, count=len(self))
 
-    def statistics(self) -> _ParkingLotStatistics:
+    def statistics(self) -> ParkingLotStatistics:
         """Return an object containing debugging information.
 
         Currently the following fields are defined:
@@ -222,4 +222,4 @@ class ParkingLot(metaclass=Final):
           :meth:`park` method.
 
         """
-        return _ParkingLotStatistics(tasks_waiting=len(self._parked))
+        return ParkingLotStatistics(tasks_waiting=len(self._parked))

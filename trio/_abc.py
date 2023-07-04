@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, TYPE_CHECKING
 import trio
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
 
 # We use ABCMeta instead of ABC, plus set __slots__=(), so as not to force a
@@ -414,7 +417,7 @@ class ReceiveStream(AsyncResource):
 
         """
 
-    def __aiter__(self) -> ReceiveStream:
+    def __aiter__(self) -> Self:
         return self
 
     async def __anext__(self) -> bytes | bytearray:
@@ -633,7 +636,7 @@ class ReceiveChannel(AsyncResource, Generic[ReceiveType]):
 
         """
 
-    def __aiter__(self) -> ReceiveChannel[ReceiveType]:
+    def __aiter__(self) -> Self:
         return self
 
     async def __anext__(self) -> ReceiveType:

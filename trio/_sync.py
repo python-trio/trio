@@ -13,11 +13,11 @@ from ._util import Final
 
 if TYPE_CHECKING:
     from ._core import Task
-    from ._core._parking_lot import _ParkingLotStatistics
+    from ._core._parking_lot import ParkingLotStatistics
 
 
 @attr.s(frozen=True)
-class _EventStatistics:
+class EventStatistics:
     tasks_waiting: int = attr.ib()
 
 
@@ -82,7 +82,7 @@ class Event(metaclass=Final):
 
             await _core.wait_task_rescheduled(abort_fn)
 
-    def statistics(self) -> _EventStatistics:
+    def statistics(self) -> EventStatistics:
         """Return an object containing debugging information.
 
         Currently the following fields are defined:
@@ -91,7 +91,7 @@ class Event(metaclass=Final):
           :meth:`wait` method.
 
         """
-        return _EventStatistics(tasks_waiting=len(self._tasks))
+        return EventStatistics(tasks_waiting=len(self._tasks))
 
 
 class AsyncContextManagerMixin:
@@ -105,7 +105,7 @@ class AsyncContextManagerMixin:
 
 
 @attr.s(frozen=True)
-class _CapacityLimiterStatistics:
+class CapacityLimiterStatistics:
     borrowed_tokens: int = attr.ib()
     total_tokens: int | float = attr.ib()
     borrowers: list[Task] = attr.ib()
@@ -327,7 +327,7 @@ class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
         self._borrowers.remove(borrower)
         self._wake_waiters()
 
-    def statistics(self) -> _CapacityLimiterStatistics:
+    def statistics(self) -> CapacityLimiterStatistics:
         """Return an object containing debugging information.
 
         Currently the following fields are defined:
@@ -344,7 +344,7 @@ class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
           :meth:`acquire_on_behalf_of` methods.
 
         """
-        return _CapacityLimiterStatistics(
+        return CapacityLimiterStatistics(
             borrowed_tokens=len(self._borrowers),
             total_tokens=self._total_tokens,
             # Use a list instead of a frozenset just in case we start to allow
@@ -464,7 +464,7 @@ class Semaphore(AsyncContextManagerMixin, metaclass=Final):
                 raise ValueError("semaphore released too many times")
             self._value += 1
 
-    def statistics(self) -> _ParkingLotStatistics:
+    def statistics(self) -> ParkingLotStatistics:
         """Return an object containing debugging information.
 
         Currently the following fields are defined:
@@ -477,7 +477,7 @@ class Semaphore(AsyncContextManagerMixin, metaclass=Final):
 
 
 @attr.s(frozen=True)
-class _LockStatistics:
+class LockStatistics:
     locked: bool = attr.ib()
     owner: Task | None = attr.ib()
     tasks_waiting: int = attr.ib()
@@ -556,7 +556,7 @@ class _LockImpl(AsyncContextManagerMixin):
         else:
             self._owner = None
 
-    def statistics(self) -> _LockStatistics:
+    def statistics(self) -> LockStatistics:
         """Return an object containing debugging information.
 
         Currently the following fields are defined:
@@ -568,7 +568,7 @@ class _LockImpl(AsyncContextManagerMixin):
           :meth:`acquire` method.
 
         """
-        return _LockStatistics(
+        return LockStatistics(
             locked=self.locked(), owner=self._owner, tasks_waiting=len(self._lot)
         )
 
@@ -651,9 +651,9 @@ class StrictFIFOLock(_LockImpl, metaclass=Final):
 
 
 @attr.s(frozen=True)
-class _ConditionStatistics:
+class ConditionStatistics:
     tasks_waiting: int = attr.ib()
-    lock_statistics: _LockStatistics = attr.ib()
+    lock_statistics: LockStatistics = attr.ib()
 
 
 class Condition(AsyncContextManagerMixin, metaclass=Final):
@@ -766,7 +766,7 @@ class Condition(AsyncContextManagerMixin, metaclass=Final):
             raise RuntimeError("must hold the lock to notify")
         self._lot.repark_all(self._lock._lot)
 
-    def statistics(self) -> _ConditionStatistics:
+    def statistics(self) -> ConditionStatistics:
         r"""Return an object containing debugging information.
 
         Currently the following fields are defined:
@@ -777,6 +777,6 @@ class Condition(AsyncContextManagerMixin, metaclass=Final):
           :class:`Lock`\s  :meth:`~Lock.statistics` method.
 
         """
-        return _ConditionStatistics(
+        return ConditionStatistics(
             tasks_waiting=len(self._lot), lock_statistics=self._lock.statistics()
         )

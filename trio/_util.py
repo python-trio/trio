@@ -12,6 +12,9 @@ import inspect
 
 import trio
 
+if t.TYPE_CHECKING:
+    from types import TracebackType
+
 # Equivalent to the C function raise(), which Python doesn't wrap
 if os.name == "nt":
     # On Windows, os.kill exists but is really weird.
@@ -188,7 +191,12 @@ class ConflictDetector:
         else:
             self._held = True
 
-    def __exit__(self, *args):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         self._held = False
 
 

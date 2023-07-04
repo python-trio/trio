@@ -15,6 +15,7 @@ from . import _core
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from typing_extensions import Self
+    from types import TracebackType
 
 
 # Usage:
@@ -485,8 +486,13 @@ class _SocketType(SocketType):
     def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, *exc_info: object) -> None:
-        return self._sock.__exit__(*exc_info)
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        return self._sock.__exit__(exc_type, exc_val, exc_tb)
 
     @property
     def family(self) -> _stdlib_socket.AddressFamily:

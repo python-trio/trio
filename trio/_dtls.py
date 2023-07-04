@@ -6,6 +6,7 @@
 # Hopefully they fix this before implementing DTLS 1.3, because it's a very different
 # protocol, and it's probably impossible to pull tricks like we do here.
 
+from __future__ import annotations
 import struct
 import hmac
 import os
@@ -14,11 +15,15 @@ from itertools import count
 import weakref
 import errno
 import warnings
+from typing import TYPE_CHECKING
 
 import attr
 
 import trio
 from trio._util import NoPublicConstructor, Final
+
+if TYPE_CHECKING:
+    from types import TracebackType
 
 MAX_UDP_PACKET_SIZE = 65527
 
@@ -809,7 +814,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
     # DTLS where packets are all independent and can be lost anyway. We do at least need
     # to handle receiving it properly though, which might be easier if we send it...
 
-    def close(self):
+    def close(self) -> None:
         """Close this connection.
 
         `DTLSChannel`\\s don't actually own any OS-level resources – the
@@ -833,8 +838,13 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
     def __enter__(self):
         return self
 
-    def __exit__(self, *args):
-        self.close()
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        return self.close()
 
     async def aclose(self):
         """Close this connection, but asynchronously.
@@ -1167,12 +1177,16 @@ class DTLSEndpoint(metaclass=Final):
                 f"unclosed DTLS endpoint {self!r}", ResourceWarning, source=self
             )
 
-    def close(self):
+    def close(self) -> None:
         """Close this socket, and all associated DTLS connections.
 
         This object can also be used as a context manager.
 
         """
+        # Do nothing if this object was never fully constructed
+        if self.socket is None:
+            return
+
         self._closed = True
         self.socket.close()
         for stream in list(self._streams.values()):
@@ -1182,8 +1196,13 @@ class DTLSEndpoint(metaclass=Final):
     def __enter__(self):
         return self
 
-    def __exit__(self, *args):
-        self.close()
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        return self.close()
 
     def _check_closed(self):
         if self._closed:

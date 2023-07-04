@@ -1,15 +1,19 @@
+from __future__ import annotations
 import sys
 import warnings
 
 import attr
 
 from trio._deprecate import warn_deprecated
+from typing import TYPE_CHECKING
 
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup, ExceptionGroup, print_exception
 else:
     from traceback import print_exception
 
+if TYPE_CHECKING:
+    from types import TracebackType
 ################################################################
 # MultiError
 ################################################################
@@ -130,11 +134,16 @@ class MultiErrorCatcher:
     def __enter__(self):
         pass
 
-    def __exit__(self, etype, exc, tb):
-        if exc is not None:
-            filtered_exc = _filter_impl(self._handler, exc)
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> bool | None:
+        if exc_val is not None:
+            filtered_exc = _filter_impl(self._handler, exc_val)
 
-            if filtered_exc is exc:
+            if filtered_exc is exc_val:
                 # Let the interpreter re-raise it
                 return False
             if filtered_exc is None:
@@ -154,6 +163,7 @@ class MultiErrorCatcher:
                 # delete references from locals to avoid creating cycles
                 # see test_MultiError_catch_doesnt_create_cyclic_garbage
                 del _, filtered_exc, value
+        return False
 
 
 class MultiError(BaseExceptionGroup):

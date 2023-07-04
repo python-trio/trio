@@ -903,13 +903,18 @@ class NurseryManager:
             "use 'async with open_nursery(...)', not 'with open_nursery(...)'"
         )
 
-    def __exit__(self) -> None:  # pragma: no cover
+    def __exit__(
+        self,  # pragma: no cover
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> bool:
         assert False, """Never called, but should be defined"""
 
 
 def open_nursery(
     strict_exception_groups: bool | None = None,
-) -> NurseryManager:
+) -> AbstractAsyncContextManager[Nursery]:
     """Returns an async context manager which must be used to create a
     new `Nursery`.
 
@@ -2456,7 +2461,7 @@ class _TaskStatusIgnored:
     def __repr__(self) -> str:
         return "TASK_STATUS_IGNORED"
 
-    def started(self, value: None = None):
+    def started(self, value: Any = None):
         pass
 
 

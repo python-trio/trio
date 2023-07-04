@@ -46,8 +46,8 @@
     ],
     "otherSymbolCounts": {
       "withAmbiguousType": 8,
-      "withKnownType": 441,
-      "withUnknownType": 143
+      "withKnownType": 430,
+      "withUnknownType": 138
     },
     "packageName": "trio",
     "symbols": [
@@ -70,7 +70,6 @@
       "trio._socket._SocketType.sendto",
       "trio._socket._SocketType.sendmsg",
       "trio._highlevel_socket.SocketStream.send_all",
-      "trio._highlevel_socket.SocketStream.receive_some",
       "trio._highlevel_socket.SocketStream.setsockopt",
       "trio._highlevel_socket.SocketStream.getsockopt",
       "trio._highlevel_socket.SocketListener",
@@ -124,17 +123,13 @@
       "trio._ssl.SSLListener.aclose",
       "trio._dtls.DTLSEndpoint.__init__",
       "trio._dtls.DTLSEndpoint.__del__",
-      "trio._dtls.DTLSEndpoint.close",
       "trio._dtls.DTLSEndpoint.__enter__",
-      "trio._dtls.DTLSEndpoint.__exit__",
       "trio._dtls.DTLSEndpoint.serve",
       "trio._dtls.DTLSEndpoint.connect",
       "trio._dtls.DTLSEndpoint.socket",
       "trio._dtls.DTLSEndpoint.incoming_packets_buffer",
       "trio._dtls.DTLSChannel.__init__",
-      "trio._dtls.DTLSChannel.close",
       "trio._dtls.DTLSChannel.__enter__",
-      "trio._dtls.DTLSChannel.__exit__",
       "trio._dtls.DTLSChannel.aclose",
       "trio._dtls.DTLSChannel.do_handshake",
       "trio._dtls.DTLSChannel.send",
