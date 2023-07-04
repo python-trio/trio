@@ -250,7 +250,7 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
         self,
         exc_type: type[BaseException] | None,
         exc_value: BaseException | None,
-        exc_tb: TracebackType | None,
+        traceback: TracebackType | None,
     ) -> None:
         self.close()
 
@@ -396,7 +396,7 @@ class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstr
         self,
         exc_type: type[BaseException] | None,
         exc_value: BaseException | None,
-        exc_tb: TracebackType | None,
+        traceback: TracebackType | None,
     ) -> None:
         self.close()
 

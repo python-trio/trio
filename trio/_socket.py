@@ -43,7 +43,7 @@ class _try_sync:
         self,
         exc_type: type[BaseException] | None,
         exc_value: BaseException | None,
-        exc_tb: TracebackType | None,
+        traceback: TracebackType | None,
     ) -> bool:
         if exc_value is not None and self._is_blocking_io_error(exc_value):
             # Discard the exception and fall through to the code below the
@@ -495,9 +495,9 @@ class _SocketType(SocketType):
         self,
         exc_type: type[BaseException] | None,
         exc_value: BaseException | None,
-        exc_tb: TracebackType | None,
+        traceback: TracebackType | None,
     ) -> None:
-        return self._sock.__exit__(exc_type, exc_value, exc_tb)
+        return self._sock.__exit__(exc_type, exc_value, traceback)
 
     @property
     def family(self) -> _stdlib_socket.AddressFamily:

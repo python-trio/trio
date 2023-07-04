@@ -25,7 +25,7 @@ class _ForceCloseBoth:
         self,
         exc_type: type[BaseException] | None,
         exc_value: BaseException | None,
-        exc_tb: TracebackType | None,
+        traceback: TracebackType | None,
     ) -> None:
         try:
             await aclose_forcefully(self._both[0])

@@ -265,7 +265,7 @@ class AsyncResource(metaclass=ABCMeta):
         self,
         exc_type: type[BaseException] | None,
         exc_value: BaseException | None,
-        exc_tb: TracebackType | None,
+        traceback: TracebackType | None,
     ) -> None:
         await self.aclose()
 

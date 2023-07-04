@@ -907,7 +907,7 @@ class NurseryManager:
         self,  # pragma: no cover
         exc_type: type[BaseException] | None,
         exc_value: BaseException | None,
-        exc_tb: TracebackType | None,
+        traceback: TracebackType | None,
     ) -> bool:
         assert False, """Never called, but should be defined"""
 

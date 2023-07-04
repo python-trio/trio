@@ -138,7 +138,7 @@ class MultiErrorCatcher:
         self,
         exc_type: type[BaseException] | None,
         exc_value: BaseException | None,
-        exc_tb: TracebackType | None,
+        traceback: TracebackType | None,
     ) -> bool | None:
         if exc_value is not None:
             filtered_exc = _filter_impl(self._handler, exc_value)
