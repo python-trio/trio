@@ -69,7 +69,6 @@
 # unpark is called.
 #
 # See: https://github.com/python-trio/trio/issues/53
-
 from __future__ import annotations
 
 import attr
@@ -138,13 +137,13 @@ class ParkingLot(metaclass=Final):
 
     def _pop_several(self, count: int | float) -> Iterator[Task]:
         if isinstance(count, float):
-            assert math.isinf(count)
+            assert math.isinf(count), "Cannot pop a non-integer number of tasks."
         for _ in range(cast(int, min(count, len(self._parked)))):
             task, _ = self._parked.popitem(last=False)
             yield task
 
     @_core.enable_ki_protection
-    def unpark(self, *, count: int | float) -> list[Task]:
+    def unpark(self, *, count: int | float = 1) -> list[Task]:
         """Unpark one or more tasks.
 
         This wakes up ``count`` tasks that are blocked in :meth:`park`. If
