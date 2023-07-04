@@ -5,7 +5,7 @@ import sys
 import select
 import socket as _stdlib_socket
 from functools import wraps as _wraps
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import idna as _idna
 
