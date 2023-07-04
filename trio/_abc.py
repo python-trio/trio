@@ -6,6 +6,7 @@ import trio
 
 if TYPE_CHECKING:
     from typing_extensions import Self
+    from types import TracebackType
 
 
 # We use ABCMeta instead of ABC, plus set __slots__=(), so as not to force a
@@ -260,7 +261,12 @@ class AsyncResource(metaclass=ABCMeta):
     async def __aenter__(self) -> AsyncResource:
         return self
 
-    async def __aexit__(self, *args: object) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         await self.aclose()
 
 

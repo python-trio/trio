@@ -14,6 +14,7 @@ from ._util import Final
 if TYPE_CHECKING:
     from ._core import Task
     from ._core._parking_lot import ParkingLotStatistics
+    from types import TracebackType
 
 
 @attr.s(frozen=True)
@@ -100,7 +101,12 @@ class AsyncContextManagerMixin:
         await self.acquire()  # type: ignore[attr-defined]
 
     @enable_ki_protection
-    async def __aexit__(self, *args: object) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         self.release()  # type: ignore[attr-defined]
 
 

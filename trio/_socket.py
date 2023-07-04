@@ -39,8 +39,13 @@ class _try_sync:
     async def __aenter__(self):
         await trio.lowlevel.checkpoint_if_cancelled()
 
-    async def __aexit__(self, etype, value, tb):
-        if value is not None and self._is_blocking_io_error(value):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> bool:
+        if exc_val is not None and self._is_blocking_io_error(exc_val):
             # Discard the exception and fall through to the code below the
             # block
             return True
@@ -522,7 +527,7 @@ class _SocketType(SocketType):
             trio.lowlevel.notify_closing(self._sock)
             self._sock.close()
 
-    async def bind(self, address: tuple[Any, ...] | str | bytes) -> None:
+    async def bind(self, address: tuple[object, ...] | str | bytes) -> None:
         address = await self._resolve_address_nocp(address, local=True)
         if (
             hasattr(_stdlib_socket, "AF_UNIX")
