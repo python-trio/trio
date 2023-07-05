@@ -898,18 +898,21 @@ class NurseryManager:
                 # see test_simple_cancel_scope_usage_doesnt_create_cyclic_garbage
                 del _, combined_error_from_nursery, value, new_exc
 
-    def __enter__(self) -> None:
-        raise RuntimeError(
-            "use 'async with open_nursery(...)', not 'with open_nursery(...)'"
-        )
+    # make sure these raise errors in static analysis if called
+    if not TYPE_CHECKING:
 
-    def __exit__(
-        self,  # pragma: no cover
-        exc_type: type[BaseException] | None,
-        exc_value: BaseException | None,
-        traceback: TracebackType | None,
-    ) -> bool:
-        assert False, """Never called, but should be defined"""
+        def __enter__(self) -> NoReturn:
+            raise RuntimeError(
+                "use 'async with open_nursery(...)', not 'with open_nursery(...)'"
+            )
+
+        def __exit__(
+            self,  # pragma: no cover
+            exc_type: type[BaseException] | None,
+            exc_value: BaseException | None,
+            traceback: TracebackType | None,
+        ) -> NoReturn:
+            raise AssertionError("Never called, but should be defined")
 
 
 def open_nursery(

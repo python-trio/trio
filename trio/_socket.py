@@ -701,7 +701,13 @@ class _SocketType(SocketType):
     # recv
     ################################################################
 
-    recv = _make_simple_sock_method_wrapper("recv", _core.wait_readable)
+    if TYPE_CHECKING:
+
+        async def recv(self, buffersize: int, flags: int = 0) -> bytes:
+            ...
+
+    else:
+        recv = _make_simple_sock_method_wrapper("recv", _core.wait_readable)
 
     ################################################################
     # recv_into

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import errno
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import trio
 from . import socket as tsocket
@@ -130,7 +130,7 @@ class SocketStream(HalfCloseableStream, metaclass=Final):
             with _translate_socket_errors_to_stream_errors():
                 self.socket.shutdown(tsocket.SHUT_WR)
 
-    async def receive_some(self, max_bytes: int | None = None) -> Any:
+    async def receive_some(self, max_bytes: int | None = None) -> bytes:
         if max_bytes is None:
             max_bytes = DEFAULT_RECEIVE_SIZE
         if max_bytes < 1:

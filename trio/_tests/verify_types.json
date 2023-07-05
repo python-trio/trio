@@ -46,8 +46,8 @@
     ],
     "otherSymbolCounts": {
       "withAmbiguousType": 8,
-      "withKnownType": 430,
-      "withUnknownType": 138
+      "withKnownType": 431,
+      "withUnknownType": 137
     },
     "packageName": "trio",
     "symbols": [
@@ -60,7 +60,6 @@
       "trio._socket._SocketType.__getattr__",
       "trio._socket._SocketType.accept",
       "trio._socket._SocketType.connect",
-      "trio._socket._SocketType.recv",
       "trio._socket._SocketType.recv_into",
       "trio._socket._SocketType.recvfrom",
       "trio._socket._SocketType.recvfrom_into",
