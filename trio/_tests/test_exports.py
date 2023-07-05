@@ -21,6 +21,28 @@ from .pytest_plugin import RUN_SLOW
 mypy_cache_updated = False
 
 
+def _ensure_mypy_cache_updated():
+    # This pollutes the `empty` dir. Should this be changed?
+    from mypy.api import run
+
+    global mypy_cache_updated
+    if not mypy_cache_updated:
+        # mypy cache was *probably* already updated by the other tests,
+        # but `pytest -k ...` might run just this test on its own
+        result = run(
+            [
+                "--config-file=",
+                "--cache-dir=./.mypy_cache",
+                "--no-error-summary",
+                "-c",
+                "import trio",
+            ]
+        )
+        assert not result[1]  # stderr
+        assert not result[0]  # stdout
+        mypy_cache_updated = True
+
+
 def test_core_is_properly_reexported():
     # Each export from _core should be re-exported by exactly one of these
     # three modules:
@@ -74,7 +96,6 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
     "ignore:module 'sre_constants' is deprecated:DeprecationWarning",
 )
 def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
-    global mypy_cache_updated
     module = importlib.import_module(modname)
 
     def no_underscores(symbols):
@@ -113,19 +134,8 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
             pytest.skip("mypy not installed in tests on pypy")
 
         cache = Path.cwd() / ".mypy_cache"
-        from mypy.api import run
 
-        # This pollutes the `empty` dir. Should this be changed?
-        if not mypy_cache_updated:
-            run(
-                [
-                    "--config-file=",
-                    "--cache-dir=./.mypy_cache",
-                    "-c",
-                    f"import {modname}",
-                ]
-            )
-            mypy_cache_updated = True
+        _ensure_mypy_cache_updated()
 
         trio_cache = next(cache.glob("*/trio"))
         _, modname = (modname + ".").split(".", 1)
@@ -209,7 +219,6 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
 @pytest.mark.parametrize("module_name", PUBLIC_MODULE_NAMES)
 @pytest.mark.parametrize("tool", ["jedi", "mypy"])
 def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
-    global mypy_cache_updated
     module = PUBLIC_MODULES[PUBLIC_MODULE_NAMES.index(module_name)]
 
     # ignore hidden, but not dunder, symbols
@@ -232,21 +241,8 @@ def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
             py_typed_path.write_text("")
 
         cache = Path.cwd() / ".mypy_cache"
-        from mypy.api import run
 
-        # This pollutes the `empty` dir. Should this be changed?
-        if not mypy_cache_updated:  # pragma: no cover
-            # mypy cache was *probably* already updated by the other tests,
-            # but `pytest -k ...` might run just this test on its own
-            run(
-                [
-                    "--config-file=",
-                    "--cache-dir=./.mypy_cache",
-                    "-c",
-                    f"import {module_name}",
-                ]
-            )
-            mypy_cache_updated = True
+        _ensure_mypy_cache_updated()
 
         trio_cache = next(cache.glob("*/trio"))
         modname = module_name
