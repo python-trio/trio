@@ -50,9 +50,7 @@ if sys.version_info < (3, 11):
 if TYPE_CHECKING:
     # An unfortunate name collision here with trio._util.Final
     from typing_extensions import Final as FinalT
-    from collections.abc import Coroutine
     from types import FrameType
-    import outcome
     import contextvars
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: FinalT = 1000
@@ -1169,7 +1167,10 @@ class Nursery(metaclass=NoPublicConstructor):
 @attr.s(eq=False, hash=False, repr=False, slots=True)
 class Task(metaclass=NoPublicConstructor):
     _parent_nursery: Nursery | None = attr.ib()
-    coro: Coroutine[Any, outcome.Outcome[object], Any] = attr.ib()
+    # could be typed as `Coroutine[Any, outcome.Outcome[object], Any]` but
+    # the code does a lot of dynamic introspection on it and as long as it passes
+    # those it's fine.
+    coro: Any = attr.ib()
     _runner = attr.ib()
     name: str = attr.ib()
     context: contextvars.Context = attr.ib()
@@ -1191,8 +1192,10 @@ class Task(metaclass=NoPublicConstructor):
     _abort_func: Callable[[Callable[[], NoReturn]], Abort] | None = attr.ib(
         default=None
     )
-    # could possible be set with a TypeVar
-    custom_sleep_data: Any = attr.ib(default=None)
+    # Typed as `object`, forcing users to do an isinstance check each time. Since
+    # anything touching the task could have set this, it's not really going to be
+    # safe to assume that this had the value you saw it with last.
+    custom_sleep_data: object = attr.ib(default=None)
 
     # For introspection and nursery.start()
     _child_nurseries: list[Nursery] = attr.ib(factory=list)
@@ -1264,11 +1267,11 @@ class Task(metaclass=NoPublicConstructor):
             if hasattr(coro, "cr_frame"):
                 # A real coroutine
                 yield coro.cr_frame, coro.cr_frame.f_lineno
-                coro = coro.cr_await  # type: ignore # TODO
+                coro = coro.cr_await
             elif hasattr(coro, "gi_frame"):
                 # A generator decorated with @types.coroutine
                 yield coro.gi_frame, coro.gi_frame.f_lineno
-                coro = coro.gi_yieldfrom  # type: ignore # TODO
+                coro = coro.gi_yieldfrom
             elif coro.__class__.__name__ in [
                 "async_generator_athrow",
                 "async_generator_asend",
