@@ -861,7 +861,7 @@ class NurseryManager:
     strict_exception_groups: bool = attr.ib(default=False)
 
     @enable_ki_protection
-    async def __aenter__(self):
+    async def __aenter__(self) -> Nursery:
         self._scope = CancelScope()
         self._scope.__enter__()
         self._nursery = Nursery._create(

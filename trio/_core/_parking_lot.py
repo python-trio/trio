@@ -137,8 +137,13 @@ class ParkingLot(metaclass=Final):
 
     def _pop_several(self, count: int | float) -> Iterator[Task]:
         if isinstance(count, float):
-            assert math.isinf(count), "Cannot pop a non-integer number of tasks."
-        for _ in range(cast(int, min(count, len(self._parked)))):
+            if math.isinf(count):
+                count = len(self._parked)
+            else:
+                raise ValueError("Cannot pop a non-integer number of tasks.")
+        else:
+            count = min(count, len(self._parked))
+        for _ in range(count):
             task, _ = self._parked.popitem(last=False)
             yield task
 
