@@ -50,11 +50,15 @@ from ._timeouts import (
 
 from ._sync import (
     Event as Event,
+    EventStatistics as EventStatistics,
     CapacityLimiter as CapacityLimiter,
     Semaphore as Semaphore,
     Lock as Lock,
     StrictFIFOLock as StrictFIFOLock,
     Condition as Condition,
+    ConditionStatistics as ConditionStatistics,
+    CapacityLimiterStatistics as CapacityLimiterStatistics,
+    LockStatistics as LockStatistics,
 )
 
 from ._highlevel_generic import (

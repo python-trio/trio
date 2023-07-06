@@ -25,6 +25,7 @@ from ._core import (
     checkpoint as checkpoint,
     current_task as current_task,
     ParkingLot as ParkingLot,
+    ParkingLotStatistics as ParkingLotStatistics,
     UnboundedQueue as UnboundedQueue,
     RunVar as RunVar,
     TrioToken as TrioToken,

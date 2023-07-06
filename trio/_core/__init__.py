@@ -64,7 +64,7 @@ from ._traps import (
 
 from ._entry_queue import TrioToken
 
-from ._parking_lot import ParkingLot
+from ._parking_lot import ParkingLot, ParkingLotStatistics
 
 from ._unbounded_queue import UnboundedQueue
 

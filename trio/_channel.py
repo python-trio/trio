@@ -178,7 +178,7 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
         if self._state.receive_tasks:
             assert not self._state.data
             task, _ = self._state.receive_tasks.popitem(last=False)
-            task.custom_sleep_data._tasks.remove(task)
+            task.custom_sleep_data._tasks.remove(task)  # type: ignore[attr-defined]
             trio.lowlevel.reschedule(task, Value(value))
         elif len(self._state.data) < self._state.max_buffer_size:
             self._state.data.append(value)
@@ -278,7 +278,7 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
         if self._state.open_send_channels == 0:
             assert not self._state.send_tasks
             for task in self._state.receive_tasks:
-                task.custom_sleep_data._tasks.remove(task)
+                task.custom_sleep_data._tasks.remove(task)  # type: ignore[attr-defined]
                 trio.lowlevel.reschedule(task, Error(trio.EndOfChannel()))
             self._state.receive_tasks.clear()
 
@@ -315,7 +315,7 @@ class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstr
             raise trio.ClosedResourceError
         if self._state.send_tasks:
             task, value = self._state.send_tasks.popitem(last=False)
-            task.custom_sleep_data._tasks.remove(task)
+            task.custom_sleep_data._tasks.remove(task)  # type: ignore[attr-defined]
             trio.lowlevel.reschedule(task)
             self._state.data.append(value)
             # Fall through
@@ -424,7 +424,7 @@ class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstr
         if self._state.open_receive_channels == 0:
             assert not self._state.receive_tasks
             for task in self._state.send_tasks:
-                task.custom_sleep_data._tasks.remove(task)
+                task.custom_sleep_data._tasks.remove(task)  # type: ignore[attr-defined]
                 trio.lowlevel.reschedule(task, Error(trio.BrokenResourceError()))
             self._state.send_tasks.clear()
             self._state.data.clear()

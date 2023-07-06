@@ -47,10 +47,11 @@ from ._traps import (
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
 
+from types import FrameType
+
 if TYPE_CHECKING:
     # An unfortunate name collision here with trio._util.Final
     from typing_extensions import Final as FinalT
-    from types import FrameType
     import contextvars
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: FinalT = 1000
