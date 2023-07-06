@@ -976,6 +976,7 @@ accessing it.
 
 To solve this problem, Python has a module in the standard
 library: :mod:`contextvars`.
+
 Here's a toy example demonstrating how to use :mod:`contextvars`:
 
 .. literalinclude:: reference-core/contextvar-example.py
