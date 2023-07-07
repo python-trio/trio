@@ -17,8 +17,9 @@ def run_pyright():
     return subprocess.run(
         [
             "pyright",
-            # Specify a platform to keep imported modules consistent.
+            # Specify a platform and version to keep imported modules consistent.
             "--pythonplatform=Linux",
+            "--pythonversion=3.8",
             "--verifytypes=trio",
             "--outputjson",
             "--ignoreexternal",
