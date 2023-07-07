@@ -14,6 +14,11 @@ per-file-ignores = [
   'trio/testing/__init__.py: F401'
 ]
 
+[tool.isort]
+combine_as_imports = true
+profile = "black"
+skip_gitignore = true
+
 [tool.pytest.ini_options]
 addopts = ["--strict-markers", "--strict-config"]
 faulthandler_timeout = 60
