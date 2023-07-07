@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import os
 import errno
+import os
 from typing import TYPE_CHECKING
+
+import trio
 
 from ._abc import Stream
 from ._util import ConflictDetector, Final
-
-import trio
 
 if TYPE_CHECKING:
     from typing_extensions import Final as FinalType

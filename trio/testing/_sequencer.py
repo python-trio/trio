@@ -6,9 +6,7 @@ from typing import TYPE_CHECKING
 
 import attr
 
-from .. import _core
-from .. import _util
-from .. import Event
+from .. import Event, _core, _util
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator

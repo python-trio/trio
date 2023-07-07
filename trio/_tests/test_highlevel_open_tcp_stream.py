@@ -1,17 +1,17 @@
-import pytest
-import sys
 import socket
+import sys
 
 import attr
+import pytest
 
 import trio
-from trio.socket import AF_INET, AF_INET6, SOCK_STREAM, IPPROTO_TCP
 from trio._highlevel_open_tcp_stream import (
-    reorder_for_rfc_6555_section_5_4,
     close_all,
-    open_tcp_stream,
     format_host_port,
+    open_tcp_stream,
+    reorder_for_rfc_6555_section_5_4,
 )
+from trio.socket import AF_INET, AF_INET6, IPPROTO_TCP, SOCK_STREAM
 
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup

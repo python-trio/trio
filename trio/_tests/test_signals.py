@@ -3,9 +3,10 @@ import signal
 import pytest
 
 import trio
+
 from .. import _core
+from .._signals import _signal_handler, open_signal_receiver
 from .._util import signal_raise
-from .._signals import open_signal_receiver, _signal_handler
 
 
 async def test_open_signal_receiver():

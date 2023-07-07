@@ -155,10 +155,10 @@ from enum import Enum as _Enum
 
 import trio
 
-from .abc import Stream, Listener
-from ._highlevel_generic import aclose_forcefully
 from . import _sync
+from ._highlevel_generic import aclose_forcefully
 from ._util import ConflictDetector, Final
+from .abc import Listener, Stream
 
 ################################################################
 # SSLStream

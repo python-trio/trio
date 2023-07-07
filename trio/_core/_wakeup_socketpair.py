@@ -1,5 +1,5 @@
-import socket
 import signal
+import socket
 import warnings
 
 from .. import _core

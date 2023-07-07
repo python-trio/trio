@@ -2,7 +2,7 @@ import os
 from contextlib import contextmanager
 
 import trio
-from trio.socket import socket, SOCK_STREAM
+from trio.socket import SOCK_STREAM, socket
 
 try:
     from trio.socket import AF_UNIX
