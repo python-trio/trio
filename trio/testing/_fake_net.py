@@ -7,13 +7,15 @@
 # - UDP broadcast
 
 from __future__ import annotations
-import trio
-import attr
-import ipaddress
-import errno
-import os
-from typing import Union, Optional, TYPE_CHECKING
 
+import errno
+import ipaddress
+import os
+from typing import TYPE_CHECKING, Optional, Union
+
+import attr
+
+import trio
 from trio._util import Final, NoPublicConstructor
 
 if TYPE_CHECKING:

@@ -1,5 +1,6 @@
 import contextvars
 import functools
+import gc
 import sys
 import threading
 import time
@@ -7,31 +8,25 @@ import types
 import weakref
 from contextlib import ExitStack
 from math import inf
-import gc
 
 import outcome
-import sniffio
 import pytest
-
-from .tutil import (
-    slow,
-    check_sequence_matches,
-    gc_collect_harder,
-    ignore_coroutine_never_awaited_warnings,
-    buggy_pypy_asyncgens,
-    restore_unraisablehook,
-    create_asyncio_future_in_new_loop,
-)
+import sniffio
 
 from ... import _core
 from ..._core._multierror import MultiError, NonBaseMultiError
-from .._run import DEADLINE_HEAP_MIN_PRUNE_THRESHOLD
 from ..._threads import to_thread_run_sync
-from ..._timeouts import sleep, fail_after
-from ...testing import (
-    wait_all_tasks_blocked,
-    Sequencer,
-    assert_checkpoints,
+from ..._timeouts import fail_after, sleep
+from ...testing import Sequencer, assert_checkpoints, wait_all_tasks_blocked
+from .._run import DEADLINE_HEAP_MIN_PRUNE_THRESHOLD
+from .tutil import (
+    buggy_pypy_asyncgens,
+    check_sequence_matches,
+    create_asyncio_future_in_new_loop,
+    gc_collect_harder,
+    ignore_coroutine_never_awaited_warnings,
+    restore_unraisablehook,
+    slow,
 )
 
 if sys.version_info < (3, 11):

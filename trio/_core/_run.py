@@ -10,16 +10,14 @@ import sys
 import threading
 import warnings
 from collections import deque
-from collections.abc import Callable
-from contextlib import contextmanager
+from collections.abc import Callable, Iterator
+from contextlib import AbstractAsyncContextManager, contextmanager
 from contextvars import copy_context
 from heapq import heapify, heappop, heappush
 from math import inf
 from time import perf_counter
-from typing import TYPE_CHECKING, Any, NoReturn, TypeVar
 from types import TracebackType
-from collections.abc import Iterator
-from contextlib import AbstractAsyncContextManager
+from typing import TYPE_CHECKING, Any, NoReturn, TypeVar
 
 import attr
 from outcome import Error, Outcome, Value, capture
@@ -51,8 +49,9 @@ from types import FrameType
 
 if TYPE_CHECKING:
     # An unfortunate name collision here with trio._util.Final
-    from typing_extensions import Final as FinalT
     import contextvars
+
+    from typing_extensions import Final as FinalT
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: FinalT = 1000
 

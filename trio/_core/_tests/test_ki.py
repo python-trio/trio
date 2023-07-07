@@ -1,19 +1,20 @@
-import outcome
-import pytest
-import signal
-import threading
 import contextlib
 import inspect
+import signal
+import threading
+
+import outcome
+import pytest
 
 try:
-    from async_generator import yield_, async_generator
+    from async_generator import async_generator, yield_
 except ImportError:  # pragma: no cover
     async_generator = yield_ = None
 
 from ... import _core
-from ...testing import wait_all_tasks_blocked
-from ..._util import signal_raise
 from ..._timeouts import sleep
+from ..._util import signal_raise
+from ...testing import wait_all_tasks_blocked
 
 
 def ki_self():

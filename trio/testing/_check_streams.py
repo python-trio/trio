@@ -1,14 +1,14 @@
 # Generic stream tests
 from __future__ import annotations
 
-from contextlib import contextmanager
 import random
+from contextlib import contextmanager
+from typing import TYPE_CHECKING
 
 from .. import _core
+from .._abc import HalfCloseableStream, ReceiveStream, SendStream, Stream
 from .._highlevel_generic import aclose_forcefully
-from .._abc import SendStream, ReceiveStream, Stream, HalfCloseableStream
 from ._checkpoints import assert_checkpoints
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from types import TracebackType

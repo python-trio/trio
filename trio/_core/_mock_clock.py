@@ -2,9 +2,9 @@ import time
 from math import inf
 
 from .. import _core
-from ._run import GLOBAL_RUN_CONTEXT
 from .._abc import Clock
 from .._util import Final
+from ._run import GLOBAL_RUN_CONTEXT
 
 ################################################################
 # The glorious MockClock

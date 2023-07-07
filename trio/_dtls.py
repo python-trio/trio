@@ -7,20 +7,21 @@
 # protocol, and it's probably impossible to pull tricks like we do here.
 
 from __future__ import annotations
-import struct
+
+import enum
+import errno
 import hmac
 import os
-import enum
-from itertools import count
-import weakref
-import errno
+import struct
 import warnings
+import weakref
+from itertools import count
 from typing import TYPE_CHECKING
 
 import attr
 
 import trio
-from trio._util import NoPublicConstructor, Final
+from trio._util import Final, NoPublicConstructor
 
 if TYPE_CHECKING:
     from types import TracebackType

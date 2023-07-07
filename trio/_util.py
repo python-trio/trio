@@ -1,14 +1,14 @@
 # Little utilities we use internally
 from __future__ import annotations
 
-from abc import ABCMeta
-import os
-import signal
-from functools import update_wrapper
-import typing as t
-import threading
 import collections
 import inspect
+import os
+import signal
+import threading
+import typing as t
+from abc import ABCMeta
+from functools import update_wrapper
 
 import trio
 

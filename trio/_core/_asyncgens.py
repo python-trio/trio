@@ -1,12 +1,13 @@
-import attr
 import logging
 import sys
 import warnings
 import weakref
 
+import attr
+
+from .. import _core
 from .._util import name_asyncgen
 from . import _run
-from .. import _core
 
 # Used to log exceptions in async generator finalizers
 ASYNCGEN_LOGGER = logging.getLogger("trio.async_generator_errors")

@@ -4,15 +4,13 @@ import tempfile
 
 import pytest
 
+from .. import _core, sleep, socket as tsocket
 from .._core._tests.tutil import can_bind_ipv6
-from .. import sleep
-from .. import _core
 from .._highlevel_generic import aclose_forcefully
+from .._highlevel_socket import SocketListener
 from ..testing import *
 from ..testing._check_streams import _assert_raises
 from ..testing._memory_streams import _UnboundedByteQueue
-from .. import socket as tsocket
-from .._highlevel_socket import SocketListener
 
 
 async def test_wait_all_tasks_blocked():

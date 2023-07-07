@@ -1,11 +1,12 @@
-import outcome
-import pytest
 import time
 
-from .._core._tests.tutil import slow
+import outcome
+import pytest
+
 from .. import _core
-from ..testing import assert_checkpoints
+from .._core._tests.tutil import slow
 from .._timeouts import *
+from ..testing import assert_checkpoints
 
 
 async def check_takes_about(f, expected_dur):

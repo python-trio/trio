@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 import trio
+
 from . import socket as tsocket
 from ._util import ConflictDetector, Final
 from .abc import HalfCloseableStream, Listener

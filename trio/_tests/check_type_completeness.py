@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # this file is not run as part of the tests, instead it's run standalone from check.sh
-import subprocess
-import json
-from pathlib import Path
-import sys
 import argparse
+import json
+import subprocess
+import sys
+from pathlib import Path
 
 # the result file is not marked in MANIFEST.in so it's not included in the package
 RESULT_FILE = Path(__file__).parent / "verify_types.json"

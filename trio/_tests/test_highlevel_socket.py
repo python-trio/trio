@@ -1,17 +1,16 @@
+import errno
+import socket as stdlib_socket
+import sys
+
 import pytest
 
-import sys
-import socket as stdlib_socket
-import errno
-
-from .. import _core
+from .. import _core, socket as tsocket
+from .._highlevel_socket import *
 from ..testing import (
+    assert_checkpoints,
     check_half_closeable_stream,
     wait_all_tasks_blocked,
-    assert_checkpoints,
 )
-from .._highlevel_socket import *
-from .. import socket as tsocket
 
 
 async def test_SocketStream_basics():

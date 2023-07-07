@@ -1,6 +1,5 @@
-import pytest
-
 import attr
+import pytest
 
 from .. import abc as tabc
 

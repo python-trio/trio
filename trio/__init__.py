@@ -15,112 +15,93 @@
 #
 # Uses `from x import y as y` for compatibility with `pyright --verifytypes` (#2625)
 
-# pyright explicitly does not care about `__version__`
-# see https://github.com/microsoft/pyright/blob/main/docs/typed-libraries.md#type-completeness
-from ._version import __version__
+# must be imported early to avoid circular import
+from ._core import TASK_STATUS_IGNORED as TASK_STATUS_IGNORED  # isort: skip
 
+# Submodules imported by default
+from . import abc, from_thread, lowlevel, socket, to_thread
+from ._channel import (
+    MemoryReceiveChannel as MemoryReceiveChannel,
+    MemorySendChannel as MemorySendChannel,
+    open_memory_channel as open_memory_channel,
+)
 from ._core import (
-    TrioInternalError as TrioInternalError,
-    RunFinishedError as RunFinishedError,
-    WouldBlock as WouldBlock,
-    Cancelled as Cancelled,
-    BusyResourceError as BusyResourceError,
-    ClosedResourceError as ClosedResourceError,
-    run as run,
-    open_nursery as open_nursery,
-    CancelScope as CancelScope,
-    current_effective_deadline as current_effective_deadline,
-    TASK_STATUS_IGNORED as TASK_STATUS_IGNORED,
-    current_time as current_time,
     BrokenResourceError as BrokenResourceError,
+    BusyResourceError as BusyResourceError,
+    Cancelled as Cancelled,
+    CancelScope as CancelScope,
+    ClosedResourceError as ClosedResourceError,
     EndOfChannel as EndOfChannel,
     Nursery as Nursery,
+    RunFinishedError as RunFinishedError,
+    TrioInternalError as TrioInternalError,
+    WouldBlock as WouldBlock,
+    current_effective_deadline as current_effective_deadline,
+    current_time as current_time,
+    open_nursery as open_nursery,
+    run as run,
 )
-
-from ._timeouts import (
-    move_on_at as move_on_at,
-    move_on_after as move_on_after,
-    sleep_forever as sleep_forever,
-    sleep_until as sleep_until,
-    sleep as sleep,
-    fail_at as fail_at,
-    fail_after as fail_after,
-    TooSlowError as TooSlowError,
+from ._core._multierror import (
+    MultiError as _MultiError,
+    NonBaseMultiError as _NonBaseMultiError,
 )
-
-from ._sync import (
-    Event as Event,
-    EventStatistics as EventStatistics,
-    CapacityLimiter as CapacityLimiter,
-    Semaphore as Semaphore,
-    Lock as Lock,
-    StrictFIFOLock as StrictFIFOLock,
-    Condition as Condition,
-    ConditionStatistics as ConditionStatistics,
-    CapacityLimiterStatistics as CapacityLimiterStatistics,
-    LockStatistics as LockStatistics,
-)
-
-from ._highlevel_generic import (
-    aclose_forcefully as aclose_forcefully,
-    StapledStream as StapledStream,
-)
-
-from ._channel import (
-    open_memory_channel as open_memory_channel,
-    MemorySendChannel as MemorySendChannel,
-    MemoryReceiveChannel as MemoryReceiveChannel,
-)
-
-from ._signals import open_signal_receiver as open_signal_receiver
-
-from ._highlevel_socket import (
-    SocketStream as SocketStream,
-    SocketListener as SocketListener,
-)
-
+from ._deprecate import TrioDeprecationWarning as TrioDeprecationWarning
+from ._dtls import DTLSChannel as DTLSChannel, DTLSEndpoint as DTLSEndpoint
 from ._file_io import open_file as open_file, wrap_file as wrap_file
-
-from ._path import Path as Path
-
-from ._subprocess import Process as Process, run_process as run_process
-
-from ._ssl import (
-    SSLStream as SSLStream,
-    SSLListener as SSLListener,
-    NeedHandshakeError as NeedHandshakeError,
+from ._highlevel_generic import (
+    StapledStream as StapledStream,
+    aclose_forcefully as aclose_forcefully,
 )
-
-from ._dtls import DTLSEndpoint as DTLSEndpoint, DTLSChannel as DTLSChannel
-
-from ._highlevel_serve_listeners import serve_listeners as serve_listeners
-
-from ._highlevel_open_tcp_stream import open_tcp_stream as open_tcp_stream
-
 from ._highlevel_open_tcp_listeners import (
     open_tcp_listeners as open_tcp_listeners,
     serve_tcp as serve_tcp,
 )
-
+from ._highlevel_open_tcp_stream import open_tcp_stream as open_tcp_stream
 from ._highlevel_open_unix_stream import open_unix_socket as open_unix_socket
-
+from ._highlevel_serve_listeners import serve_listeners as serve_listeners
+from ._highlevel_socket import (
+    SocketListener as SocketListener,
+    SocketStream as SocketStream,
+)
 from ._highlevel_ssl_helpers import (
-    open_ssl_over_tcp_stream as open_ssl_over_tcp_stream,
     open_ssl_over_tcp_listeners as open_ssl_over_tcp_listeners,
+    open_ssl_over_tcp_stream as open_ssl_over_tcp_stream,
     serve_ssl_over_tcp as serve_ssl_over_tcp,
 )
+from ._path import Path as Path
+from ._signals import open_signal_receiver as open_signal_receiver
+from ._ssl import (
+    NeedHandshakeError as NeedHandshakeError,
+    SSLListener as SSLListener,
+    SSLStream as SSLStream,
+)
+from ._subprocess import Process as Process, run_process as run_process
+from ._sync import (
+    CapacityLimiter as CapacityLimiter,
+    CapacityLimiterStatistics as CapacityLimiterStatistics,
+    Condition as Condition,
+    ConditionStatistics as ConditionStatistics,
+    Event as Event,
+    EventStatistics as EventStatistics,
+    Lock as Lock,
+    LockStatistics as LockStatistics,
+    Semaphore as Semaphore,
+    StrictFIFOLock as StrictFIFOLock,
+)
+from ._timeouts import (
+    TooSlowError as TooSlowError,
+    fail_after as fail_after,
+    fail_at as fail_at,
+    move_on_after as move_on_after,
+    move_on_at as move_on_at,
+    sleep as sleep,
+    sleep_forever as sleep_forever,
+    sleep_until as sleep_until,
+)
 
-from ._core._multierror import MultiError as _MultiError
-from ._core._multierror import NonBaseMultiError as _NonBaseMultiError
-
-from ._deprecate import TrioDeprecationWarning as TrioDeprecationWarning
-
-# Submodules imported by default
-from . import lowlevel
-from . import socket
-from . import abc
-from . import from_thread
-from . import to_thread
+# pyright explicitly does not care about `__version__`
+# see https://github.com/microsoft/pyright/blob/main/docs/typed-libraries.md#type-completeness
+from ._version import __version__
 
 # Not imported by default, but mentioned here so static analysis tools like
 # pylint will know that it exists.

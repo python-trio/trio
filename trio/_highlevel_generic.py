@@ -1,14 +1,16 @@
 from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import attr
 
 import trio
-from .abc import HalfCloseableStream
-
 from trio._util import Final
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .abc import SendStream, ReceiveStream, AsyncResource
+
+from .abc import HalfCloseableStream
 
 
 async def aclose_forcefully(resource: AsyncResource) -> None:

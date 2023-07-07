@@ -1,16 +1,16 @@
 import sys
-from typing import Any
-from typing import Tuple
+from typing import Any, Tuple
 
 import pytest
 
 from .. import _core
-from ..testing import wait_all_tasks_blocked, check_one_way_stream
+from ..testing import check_one_way_stream, wait_all_tasks_blocked
 
 if sys.platform == "win32":
-    from .._windows_pipes import PipeSendStream, PipeReceiveStream
-    from .._core._windows_cffi import _handle, kernel32
     from asyncio.windows_utils import pipe
+
+    from .._core._windows_cffi import _handle, kernel32
+    from .._windows_pipes import PipeReceiveStream, PipeSendStream
 else:
     pytestmark = pytest.mark.skip(reason="windows only")
     pipe: Any = None
