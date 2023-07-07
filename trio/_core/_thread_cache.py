@@ -45,7 +45,7 @@ def get_os_thread_name_func() -> Optional[Callable[[Optional[int], str], None]]:
     # https://github.com/python-trio/trio/issues/2688
     try:
         libpthread = ctypes.CDLL(libpthread_path)
-    except Exception:
+    except Exception:  # pragma: no cover
         return None
 
     # get the setname method from it
