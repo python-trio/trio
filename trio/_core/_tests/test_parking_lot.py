@@ -72,7 +72,7 @@ async def test_parking_lot_basic():
         )
         lot.unpark_all()
 
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError):
         lot.unpark(count=1.5)
 
 
