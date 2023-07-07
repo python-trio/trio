@@ -904,8 +904,8 @@ class NurseryManager:
                 "use 'async with open_nursery(...)', not 'with open_nursery(...)'"
             )
 
-        def __exit__(
-            self,  # pragma: no cover
+        def __exit__(  # pragma: no cover
+            self,
             exc_type: type[BaseException] | None,
             exc_value: BaseException | None,
             traceback: TracebackType | None,

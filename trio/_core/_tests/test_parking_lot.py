@@ -72,6 +72,9 @@ async def test_parking_lot_basic():
         )
         lot.unpark_all()
 
+    with pytest.raises(TypeError):
+        lot.unpark(count=1.5)
+
 
 async def cancellable_waiter(name, lot, scopes, record):
     with _core.CancelScope() as scope:

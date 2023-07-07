@@ -1185,7 +1185,7 @@ class DTLSEndpoint(metaclass=Final):
 
         """
         # Do nothing if this object was never fully constructed
-        if self.socket is None:
+        if self.socket is None:  # pragma: no cover
             return
 
         self._closed = True

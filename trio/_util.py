@@ -9,11 +9,9 @@ import threading
 import typing as t
 from abc import ABCMeta
 from functools import update_wrapper
+from types import TracebackType
 
 import trio
-
-if t.TYPE_CHECKING:
-    from types import TracebackType
 
 # Equivalent to the C function raise(), which Python doesn't wrap
 if os.name == "nt":
