@@ -904,12 +904,12 @@ class NurseryManager:
                 "use 'async with open_nursery(...)', not 'with open_nursery(...)'"
             )
 
-        def __exit__(  # pragma: no cover
+        def __exit__(
             self,
             exc_type: type[BaseException] | None,
             exc_value: BaseException | None,
             traceback: TracebackType | None,
-        ) -> NoReturn:
+        ) -> NoReturn:  # pragma: no cover
             raise AssertionError("Never called, but should be defined")
 
 
