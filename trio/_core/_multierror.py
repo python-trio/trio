@@ -1,11 +1,12 @@
 from __future__ import annotations
+
 import sys
 import warnings
+from typing import TYPE_CHECKING
 
 import attr
 
 from trio._deprecate import warn_deprecated
-from typing import TYPE_CHECKING
 
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup, ExceptionGroup, print_exception
