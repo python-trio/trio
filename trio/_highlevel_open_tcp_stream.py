@@ -3,7 +3,7 @@ from contextlib import contextmanager
 
 import trio
 from trio._core._multierror import MultiError
-from trio.socket import getaddrinfo, SOCK_STREAM, socket
+from trio.socket import SOCK_STREAM, getaddrinfo, socket
 
 if sys.version_info < (3, 11):
     from exceptiongroup import ExceptionGroup

@@ -1,25 +1,19 @@
 from __future__ import annotations
 
-from collections import deque, OrderedDict
+from collections import OrderedDict, deque
 from math import inf
-
 from types import TracebackType
-from typing import (
-    Generic,
-    TypeVar,
-    TYPE_CHECKING,
-    Tuple,  # only needed for typechecking on <3.9
-)
+from typing import Tuple  # only needed for typechecking on <3.9
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 import attr
 from outcome import Error, Value
 
-from ._abc import SendChannel, ReceiveChannel, ReceiveType, SendType, T
-from ._util import generic_function, NoPublicConstructor
-
 import trio
-from ._core import enable_ki_protection, Task, Abort, RaiseCancelT
 
+from ._abc import ReceiveChannel, ReceiveType, SendChannel, SendType, T
+from ._core import Abort, RaiseCancelT, Task, enable_ki_protection
+from ._util import NoPublicConstructor, generic_function
 
 # Temporary TypeVar needed until mypy release supports Self as a type
 SelfT = TypeVar("SelfT")

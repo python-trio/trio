@@ -1,23 +1,19 @@
 import gc
 import os
-import subprocess
-from pathlib import Path
 import pickle
+import re
+import subprocess
+import sys
 import warnings
+from pathlib import Path
+from traceback import extract_tb, print_exception
 
 import pytest
 
-from traceback import (
-    extract_tb,
-    print_exception,
-)
-import sys
-import re
-
-from .tutil import slow
-from .._multierror import MultiError, concat_tb, NonBaseMultiError
 from ... import TrioDeprecationWarning
 from ..._core import open_nursery
+from .._multierror import MultiError, NonBaseMultiError, concat_tb
+from .tutil import slow
 
 if sys.version_info < (3, 11):
     from exceptiongroup import ExceptionGroup

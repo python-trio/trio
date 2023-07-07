@@ -1,14 +1,13 @@
 # These are the only functions that ever yield back to the task runner.
 
-import types
 import enum
+import types
+from typing import Any, Callable, NoReturn
 
 import attr
 import outcome
 
 from . import _run
-
-from typing import Callable, NoReturn, Any
 
 
 # Helper for the bottommost 'yield'. You can't use 'yield' inside an async

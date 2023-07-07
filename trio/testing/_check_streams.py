@@ -1,11 +1,11 @@
 # Generic stream tests
 
-from contextlib import contextmanager
 import random
+from contextlib import contextmanager
 
 from .. import _core
+from .._abc import HalfCloseableStream, ReceiveStream, SendStream, Stream
 from .._highlevel_generic import aclose_forcefully
-from .._abc import SendStream, ReceiveStream, Stream, HalfCloseableStream
 from ._checkpoints import assert_checkpoints
 
 

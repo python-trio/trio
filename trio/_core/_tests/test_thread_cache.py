@@ -1,12 +1,13 @@
-import pytest
 import threading
-from queue import Queue
 import time
 from contextlib import contextmanager
+from queue import Queue
 
-from .tutil import slow, gc_collect_harder
+import pytest
+
 from .. import _thread_cache
-from .._thread_cache import start_thread_soon, ThreadCache
+from .._thread_cache import ThreadCache, start_thread_soon
+from .tutil import gc_collect_harder, slow
 
 
 def test_thread_cache_basics():

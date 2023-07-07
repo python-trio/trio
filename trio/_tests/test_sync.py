@@ -1,12 +1,11 @@
-import pytest
-
 import weakref
 
-from ..testing import wait_all_tasks_blocked, assert_checkpoints
+import pytest
 
 from .. import _core
-from .._timeouts import sleep_forever
 from .._sync import *
+from .._timeouts import sleep_forever
+from ..testing import assert_checkpoints, wait_all_tasks_blocked
 
 
 async def test_Event():
@@ -400,8 +399,8 @@ async def test_Condition():
                 assert c.locked()
 
 
-from .._sync import AsyncContextManagerMixin
 from .._channel import open_memory_channel
+from .._sync import AsyncContextManagerMixin
 
 # Three ways of implementing a Lock in terms of a channel. Used to let us put
 # the channel through the generic lock tests.

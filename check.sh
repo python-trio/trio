@@ -18,6 +18,11 @@ if ! black --check setup.py trio; then
     black --diff setup.py trio
 fi
 
+if ! isort --check setup.py trio; then
+    EXIT_STATUS=1
+    isort --diff setup.py trio
+fi
+
 # Run flake8, configured in pyproject.toml
 flake8 trio/ || EXIT_STATUS=$?
 
@@ -54,6 +59,7 @@ To fix formatting and see remaining errors, run
 
     pip install -r test-requirements.txt
     black setup.py trio
+    isort setup.py trio
     ./check.sh
 
 in your local checkout.

@@ -1,39 +1,34 @@
 from __future__ import annotations
 
 import os
-import sys
-
-import pytest
-
-import threading
 import socket as stdlib_socket
 import ssl
+import sys
+import threading
 from contextlib import asynccontextmanager, contextmanager
 from functools import partial
 
-from OpenSSL import SSL
+import pytest
 import trustme
+from OpenSSL import SSL
 
 import trio
-from .. import _core
-from .._highlevel_socket import SocketStream, SocketListener
-from .._highlevel_generic import aclose_forcefully
-from .._core import ClosedResourceError, BrokenResourceError
-from .._highlevel_open_tcp_stream import open_tcp_stream
-from .. import socket as tsocket
-from .._ssl import SSLStream, SSLListener, NeedHandshakeError, _is_eof
-from .._util import ConflictDetector
 
+from .. import _core, socket as tsocket
+from .._core import BrokenResourceError, ClosedResourceError
 from .._core._tests.tutil import slow
-
+from .._highlevel_generic import aclose_forcefully
+from .._highlevel_open_tcp_stream import open_tcp_stream
+from .._highlevel_socket import SocketListener, SocketStream
+from .._ssl import NeedHandshakeError, SSLListener, SSLStream, _is_eof
+from .._util import ConflictDetector
 from ..testing import (
-    assert_checkpoints,
     Sequencer,
-    memory_stream_pair,
-    lockstep_stream_pair,
+    assert_checkpoints,
     check_two_way_stream,
+    lockstep_stream_pair,
+    memory_stream_pair,
 )
-
 
 # We have two different kinds of echo server fixtures we use for testing. The
 # first is a real server written using the stdlib ssl module and blocking

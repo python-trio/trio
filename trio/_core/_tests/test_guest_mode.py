@@ -1,21 +1,23 @@
-import pytest
 import asyncio
 import contextvars
-import sys
-import traceback
 import queue
-from functools import partial
-from math import inf
 import signal
 import socket
+import sys
 import threading
 import time
+import traceback
 import warnings
+from functools import partial
+from math import inf
+
+import pytest
 
 import trio
 import trio.testing
-from .tutil import gc_collect_harder, buggy_pypy_asyncgens, restore_unraisablehook
+
 from ..._util import signal_raise
+from .tutil import buggy_pypy_asyncgens, gc_collect_harder, restore_unraisablehook
 
 
 # The simplest possible "host" loop.

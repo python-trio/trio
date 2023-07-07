@@ -1,13 +1,14 @@
 import os
-import sys
 import select
 import socket as _stdlib_socket
+import sys
 from functools import wraps as _wraps
 from typing import TYPE_CHECKING
 
 import idna as _idna
 
 import trio
+
 from . import _core
 
 
@@ -282,7 +283,7 @@ def _sniff_sockopts_for_fileno(family, type, proto, fileno):
     # and then we'll throw it away and construct a new one with the correct metadata.
     if sys.platform != "linux":
         return family, type, proto
-    from socket import SO_DOMAIN, SO_PROTOCOL, SOL_SOCKET, SO_TYPE
+    from socket import SO_DOMAIN, SO_PROTOCOL, SO_TYPE, SOL_SOCKET
 
     sockobj = _stdlib_socket.socket(family, type, proto, fileno=fileno)
     try:

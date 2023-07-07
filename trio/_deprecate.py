@@ -1,7 +1,7 @@
 import sys
+import warnings
 from functools import wraps
 from types import ModuleType
-import warnings
 
 import attr
 

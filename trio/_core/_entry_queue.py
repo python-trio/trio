@@ -1,5 +1,5 @@
-from collections import deque
 import threading
+from collections import deque
 
 import attr
 

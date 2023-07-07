@@ -1,31 +1,30 @@
-import itertools
-from contextlib import contextmanager
 import enum
+import itertools
 import socket
 import sys
+from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 import attr
 from outcome import Value
 
 from .. import _core
-from ._run import _public
 from ._io_common import wake_all
-
+from ._run import _public
 from ._windows_cffi import (
+    INVALID_HANDLE_VALUE,
+    AFDPollFlags,
+    CompletionModes,
+    ErrorCodes,
+    FileFlags,
+    IoControlCodes,
+    WSAIoctls,
+    _handle,
     ffi,
     kernel32,
     ntdll,
-    ws2_32,
-    INVALID_HANDLE_VALUE,
     raise_winerror,
-    _handle,
-    ErrorCodes,
-    FileFlags,
-    AFDPollFlags,
-    WSAIoctls,
-    CompletionModes,
-    IoControlCodes,
+    ws2_32,
 )
 
 assert not TYPE_CHECKING or sys.platform == "win32"
