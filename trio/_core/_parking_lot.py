@@ -71,11 +71,12 @@
 # See: https://github.com/python-trio/trio/issues/53
 from __future__ import annotations
 
-import attr
-from collections import OrderedDict
-from typing import TYPE_CHECKING
-from collections.abc import Iterator
 import math
+from collections import OrderedDict
+from collections.abc import Iterator
+from typing import TYPE_CHECKING
+
+import attr
 
 from .. import _core
 from .._util import Final
@@ -91,7 +92,7 @@ class ParkingLotStatistics:
     Currently the following fields are defined:
 
     * ``tasks_waiting`` (int): The number of tasks blocked on this lot's
-      :meth:`park` method.
+      :meth:`trio.lowlevel.ParkingLot.park` method.
 
     """
 

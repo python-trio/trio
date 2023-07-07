@@ -1096,6 +1096,8 @@ Broadcasting an event with :class:`Event`
 .. autoclass:: Event
    :members:
 
+.. autoclass:: EventStatistics
+   :members:
 
 .. _channels:
 
@@ -1456,6 +1458,16 @@ don't have any special access to Trio's internals.)
 .. autoclass:: Condition
    :members:
 
+These primitives return statistics objects that can be inspected.
+
+.. autoclass:: CapacityLimiterStatistics
+   :members:
+
+.. autoclass:: LockStatistics
+   :members:
+
+.. autoclass:: ConditionStatistics
+   :members:
 
 .. _async-generators:
 

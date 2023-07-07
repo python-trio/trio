@@ -62,9 +62,21 @@ nitpick_ignore = [
     ("py:obj", "trio._abc.SendType"),
     ("py:obj", "trio._abc.T"),
     ("py:obj", "trio._abc.T_resource"),
+    ("py:class", "types.FrameType"),
 ]
 autodoc_inherit_docstrings = False
 default_role = "obj"
+
+# These have incorrect __module__ set in stdlib and give the error
+# `py:class reference target not found`
+# Some of the nitpick_ignore's above can probably be fixed with this.
+# See https://github.com/sphinx-doc/sphinx/issues/8315#issuecomment-751335798
+autodoc_type_aliases = {
+    # aliasing doesn't actually fix the warning for types.FrameType, but displaying
+    # "types.FrameType" is more helpfun than just "frame"
+    "FrameType": "types.FrameType",
+}
+
 
 # XX hack the RTD theme until
 #   https://github.com/rtfd/sphinx_rtd_theme/pull/382

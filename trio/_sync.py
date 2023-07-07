@@ -1,23 +1,24 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
 
 import math
+from typing import TYPE_CHECKING
 
 import attr
 
 import trio
 
 from . import _core
-from ._core import enable_ki_protection, ParkingLot
+from ._core import ParkingLot, enable_ki_protection
 from ._util import Final
 
 if TYPE_CHECKING:
-    from ._core import Task
-    from ._core._parking_lot import ParkingLotStatistics
     from types import TracebackType
 
+    from ._core import Task
+    from ._core._parking_lot import ParkingLotStatistics
 
-@attr.s(frozen=True)
+
+@attr.s(frozen=True, slots=True)
 class EventStatistics:
     tasks_waiting: int = attr.ib()
 
@@ -110,7 +111,7 @@ class AsyncContextManagerMixin:
         self.release()  # type: ignore[attr-defined]
 
 
-@attr.s(frozen=True)
+@attr.s(frozen=True, slots=True)
 class CapacityLimiterStatistics:
     borrowed_tokens: int = attr.ib()
     total_tokens: int | float = attr.ib()
@@ -482,7 +483,7 @@ class Semaphore(AsyncContextManagerMixin, metaclass=Final):
         return self._lot.statistics()
 
 
-@attr.s(frozen=True)
+@attr.s(frozen=True, slots=True)
 class LockStatistics:
     """An object containing debugging information for a Lock.
 
@@ -492,7 +493,7 @@ class LockStatistics:
     * ``owner``: the :class:`trio.lowlevel.Task` currently holding the lock,
       or None if the lock is not held.
     * ``tasks_waiting`` (int): The number of tasks blocked on this lock's
-      :meth:`acquire` method.
+      :meth:`trio.Lock.acquire` method.
 
     """
 
@@ -668,14 +669,14 @@ class StrictFIFOLock(_LockImpl, metaclass=Final):
     """
 
 
-@attr.s(frozen=True)
+@attr.s(frozen=True, slots=True)
 class ConditionStatistics:
     r"""Return an object containing debugging information for a Condition.
 
     Currently the following fields are defined:
 
     * ``tasks_waiting`` (int): The number of tasks blocked on this condition's
-      :meth:`wait` method.
+      :meth:`trio.Condition.wait` method.
     * ``lock_statistics``: The result of calling the underlying
       :class:`Lock`\s  :meth:`~Lock.statistics` method.
 
