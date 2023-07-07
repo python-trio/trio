@@ -1,12 +1,13 @@
-import pytest
-
-import socket as stdlib_socket
 import random
+import socket as stdlib_socket
 from contextlib import suppress
 
-from ... import _core
-from ...testing import wait_all_tasks_blocked, assert_checkpoints
+import pytest
+
 import trio
+
+from ... import _core
+from ...testing import assert_checkpoints, wait_all_tasks_blocked
 
 # Cross-platform tests for IO handling
 

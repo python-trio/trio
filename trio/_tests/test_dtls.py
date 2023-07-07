@@ -1,17 +1,18 @@
-import pytest
-import trio
-import trio.testing
-from trio import DTLSEndpoint
 import random
-import attr
 from contextlib import asynccontextmanager
 from itertools import count
 
+import attr
+import pytest
 import trustme
 from OpenSSL import SSL
 
+import trio
+import trio.testing
+from trio import DTLSEndpoint
 from trio.testing._fake_net import FakeNet
-from .._core._tests.tutil import slow, binds_ipv6, gc_collect_harder
+
+from .._core._tests.tutil import binds_ipv6, gc_collect_harder, slow
 
 ca = trustme.CA()
 server_cert = ca.issue_cert("example.com")
@@ -335,13 +336,13 @@ async def test_server_socket_doesnt_crash_on_garbage(autojump_clock):
     fn.enable()
 
     from trio._dtls import (
-        Record,
-        encode_record,
-        HandshakeFragment,
-        encode_handshake_fragment,
         ContentType,
+        HandshakeFragment,
         HandshakeType,
         ProtocolVersion,
+        Record,
+        encode_handshake_fragment,
+        encode_record,
     )
 
     client_hello = encode_record(
@@ -446,7 +447,7 @@ async def test_invalid_cookie_rejected(autojump_clock):
     fn = FakeNet()
     fn.enable()
 
-    from trio._dtls import decode_client_hello_untrusted, BadPacket
+    from trio._dtls import BadPacket, decode_client_hello_untrusted
 
     with trio.CancelScope() as cscope:
         # the first 11 bytes of ClientHello aren't protected by the cookie, so only test

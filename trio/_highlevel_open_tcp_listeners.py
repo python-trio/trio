@@ -3,6 +3,7 @@ import sys
 from math import inf
 
 import trio
+
 from . import socket as tsocket
 
 if sys.version_info < (3, 11):

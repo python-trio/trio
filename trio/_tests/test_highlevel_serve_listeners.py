@@ -1,9 +1,8 @@
-import pytest
-
-from functools import partial
 import errno
+from functools import partial
 
 import attr
+import pytest
 
 import trio
 from trio.testing import memory_stream_pair, wait_all_tasks_blocked

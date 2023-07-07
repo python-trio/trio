@@ -1,24 +1,24 @@
 import os
 import subprocess
 import sys
-from contextlib import ExitStack
-from typing import Optional
-from functools import partial
 import warnings
-from typing import TYPE_CHECKING
+from contextlib import ExitStack
+from functools import partial
+from typing import TYPE_CHECKING, Optional
 
-from ._abc import AsyncResource, SendStream, ReceiveStream
-from ._core import ClosedResourceError
-from ._highlevel_generic import StapledStream
-from ._sync import Lock
-from ._subprocess_platform import (
-    wait_child_exiting,
-    create_pipe_to_child_stdin,
-    create_pipe_from_child_output,
-)
-from ._deprecate import deprecated
-from ._util import NoPublicConstructor
 import trio
+
+from ._abc import AsyncResource, ReceiveStream, SendStream
+from ._core import ClosedResourceError
+from ._deprecate import deprecated
+from ._highlevel_generic import StapledStream
+from ._subprocess_platform import (
+    create_pipe_from_child_output,
+    create_pipe_to_child_stdin,
+    wait_child_exiting,
+)
+from ._sync import Lock
+from ._util import NoPublicConstructor
 
 # Linux-specific, but has complex lifetime management stuff so we hard-code it
 # here instead of hiding it behind the _subprocess_platform abstraction

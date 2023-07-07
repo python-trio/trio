@@ -1,6 +1,7 @@
 import attr
 import pytest
-from ... import _core, _abc
+
+from ... import _abc, _core
 from .tutil import check_sequence_matches
 
 

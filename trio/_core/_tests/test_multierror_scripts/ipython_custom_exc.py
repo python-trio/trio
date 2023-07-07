@@ -1,9 +1,9 @@
-import _common
-
 # Override the regular excepthook too -- it doesn't change anything either way
 # because ipython doesn't use it, but we want to make sure Trio doesn't warn
 # about it.
 import sys
+
+import _common
 
 
 def custom_excepthook(*args):

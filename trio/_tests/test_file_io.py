@@ -1,13 +1,13 @@
 import io
 import os
-
-import pytest
 from unittest import mock
 from unittest.mock import sentinel
 
+import pytest
+
 import trio
 from trio import _core
-from trio._file_io import AsyncIOWrapper, _FILE_SYNC_ATTRS, _FILE_ASYNC_METHODS
+from trio._file_io import _FILE_ASYNC_METHODS, _FILE_SYNC_ATTRS, AsyncIOWrapper
 
 
 @pytest.fixture

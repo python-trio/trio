@@ -1,11 +1,11 @@
+import errno
 import select
 import sys
+from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
-import outcome
-from contextlib import contextmanager
 import attr
-import errno
+import outcome
 
 from .. import _core
 from ._run import _public

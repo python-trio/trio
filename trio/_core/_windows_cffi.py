@@ -1,6 +1,7 @@
-import cffi
-import re
 import enum
+import re
+
+import cffi
 
 ################################################################
 # Functions and types
