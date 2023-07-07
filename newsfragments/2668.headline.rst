@@ -1,0 +1,1 @@
+Drop support for python3.7, pypy3.7 and pypy3.8.

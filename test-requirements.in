@@ -21,7 +21,7 @@ pip-tools >= 6.13.0
 
 # https://github.com/python-trio/trio/pull/654#issuecomment-420518745
 mypy-extensions; implementation_name == "cpython"
-typing-extensions < 4.7.0
+typing-extensions
 
 # Trio's own dependencies
 cffi; os_name == "nt"
