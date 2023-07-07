@@ -1,9 +1,10 @@
 import signal
-from contextlib import contextmanager
 from collections import OrderedDict
+from contextlib import contextmanager
 
 import trio
-from ._util import signal_raise, is_main_thread, ConflictDetector
+
+from ._util import ConflictDetector, is_main_thread, signal_raise
 
 # Discussion of signal handling strategies:
 #

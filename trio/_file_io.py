@@ -1,10 +1,10 @@
-from functools import partial
 import io
-
-from .abc import AsyncResource
-from ._util import async_wraps
+from functools import partial
 
 import trio
+
+from ._util import async_wraps
+from .abc import AsyncResource
 
 # This list is also in the docs, make sure to keep them in sync
 _FILE_SYNC_ATTRS = {

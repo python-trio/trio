@@ -1,5 +1,6 @@
-import trio
 import ssl
+
+import trio
 
 from ._highlevel_open_tcp_stream import DEFAULT_DELAY
 

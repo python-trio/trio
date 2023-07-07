@@ -6,19 +6,19 @@
 # Hopefully they fix this before implementing DTLS 1.3, because it's a very different
 # protocol, and it's probably impossible to pull tricks like we do here.
 
-import struct
+import enum
+import errno
 import hmac
 import os
-import enum
-from itertools import count
-import weakref
-import errno
+import struct
 import warnings
+import weakref
+from itertools import count
 
 import attr
 
 import trio
-from trio._util import NoPublicConstructor, Final
+from trio._util import Final, NoPublicConstructor
 
 MAX_UDP_PACKET_SIZE = 65527
 

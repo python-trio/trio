@@ -1,13 +1,13 @@
-import sys
-import traceback
-from threading import Thread, Lock
-import outcome
 import ctypes
 import ctypes.util
-from itertools import count
-
-from typing import Callable, Optional, Tuple
+import sys
+import traceback
 from functools import partial
+from itertools import count
+from threading import Lock, Thread
+from typing import Callable, Optional, Tuple
+
+import outcome
 
 
 def _to_os_thread_name(name: str) -> bytes:

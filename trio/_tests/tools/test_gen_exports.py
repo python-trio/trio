@@ -1,11 +1,8 @@
 import ast
+
 import pytest
 
-from trio._tools.gen_exports import (
-    get_public_methods,
-    create_passthrough_args,
-    process,
-)
+from trio._tools.gen_exports import create_passthrough_args, get_public_methods, process
 
 SOURCE = '''from _run import _public
 
