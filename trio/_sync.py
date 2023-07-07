@@ -484,6 +484,18 @@ class Semaphore(AsyncContextManagerMixin, metaclass=Final):
 
 @attr.s(frozen=True)
 class LockStatistics:
+    """An object containing debugging information for a Lock.
+
+    Currently the following fields are defined:
+
+    * ``locked`` (boolean): indicating whether the lock is held.
+    * ``owner``: the :class:`trio.lowlevel.Task` currently holding the lock,
+      or None if the lock is not held.
+    * ``tasks_waiting`` (int): The number of tasks blocked on this lock's
+      :meth:`acquire` method.
+
+    """
+
     locked: bool = attr.ib()
     owner: Task | None = attr.ib()
     tasks_waiting: int = attr.ib()
@@ -658,6 +670,16 @@ class StrictFIFOLock(_LockImpl, metaclass=Final):
 
 @attr.s(frozen=True)
 class ConditionStatistics:
+    r"""Return an object containing debugging information for a Condition.
+
+    Currently the following fields are defined:
+
+    * ``tasks_waiting`` (int): The number of tasks blocked on this condition's
+      :meth:`wait` method.
+    * ``lock_statistics``: The result of calling the underlying
+      :class:`Lock`\s  :meth:`~Lock.statistics` method.
+
+    """
     tasks_waiting: int = attr.ib()
     lock_statistics: LockStatistics = attr.ib()
 

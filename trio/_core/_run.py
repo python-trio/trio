@@ -1196,7 +1196,7 @@ class Task(metaclass=NoPublicConstructor):
     # Typed as `object`, forcing users to do an isinstance check each time. Since
     # anything touching the task could have set this, it's not really going to be
     # safe to assume that this had the value you saw it with last.
-    custom_sleep_data: object = attr.ib(default=None)
+    custom_sleep_data: Any = attr.ib(default=None)
 
     # For introspection and nursery.start()
     _child_nurseries: list[Nursery] = attr.ib(factory=list)

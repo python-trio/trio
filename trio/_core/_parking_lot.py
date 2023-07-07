@@ -73,7 +73,7 @@ from __future__ import annotations
 
 import attr
 from collections import OrderedDict
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 from collections.abc import Iterator
 import math
 
@@ -86,6 +86,15 @@ if TYPE_CHECKING:
 
 @attr.s(frozen=True, slots=True)
 class ParkingLotStatistics:
+    """An object containing debugging information for a ParkingLot.
+
+    Currently the following fields are defined:
+
+    * ``tasks_waiting`` (int): The number of tasks blocked on this lot's
+      :meth:`park` method.
+
+    """
+
     tasks_waiting: int = attr.ib()
 
 
