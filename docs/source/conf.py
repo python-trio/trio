@@ -73,7 +73,7 @@ default_role = "obj"
 # See https://github.com/sphinx-doc/sphinx/issues/8315#issuecomment-751335798
 autodoc_type_aliases = {
     # aliasing doesn't actually fix the warning for types.FrameType, but displaying
-    # "types.FrameType" is more helpfun than just "frame"
+    # "types.FrameType" is more helpful than just "frame"
     "FrameType": "types.FrameType",
 }
 

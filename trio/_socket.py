@@ -487,8 +487,7 @@ class _SocketType(SocketType):
         raise AttributeError(name)
 
     def __dir__(self) -> Iterable[str]:
-        yield from super().__dir__()
-        yield from self._forward
+        return [*super().__dir__(), *self._forward]
 
     def __enter__(self) -> Self:
         return self
@@ -538,6 +537,7 @@ class _SocketType(SocketType):
         ):
             # Use a thread for the filesystem traversal (unless it's an
             # abstract domain socket)
+            # remove the `type: ignore` when run.sync is typed.
             return await trio.to_thread.run_sync(self._sock.bind, address)  # type: ignore[no-any-return]
         else:
             # POSIX actually says that bind can return EWOULDBLOCK and

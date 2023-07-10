@@ -10,7 +10,7 @@ import sys
 import threading
 import warnings
 from collections import deque
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Coroutine, Iterator
 from contextlib import AbstractAsyncContextManager, contextmanager
 from contextvars import copy_context
 from heapq import heapify, heappop, heappush
@@ -1167,10 +1167,7 @@ class Nursery(metaclass=NoPublicConstructor):
 @attr.s(eq=False, hash=False, repr=False, slots=True)
 class Task(metaclass=NoPublicConstructor):
     _parent_nursery: Nursery | None = attr.ib()
-    # could be typed as `Coroutine[Any, outcome.Outcome[object], Any]` but
-    # the code does a lot of dynamic introspection on it and as long as it passes
-    # those it's fine.
-    coro: Any = attr.ib()
+    coro: Coroutine[Any, Outcome[object], Any] = attr.ib()
     _runner = attr.ib()
     name: str = attr.ib()
     context: contextvars.Context = attr.ib()
@@ -1262,7 +1259,8 @@ class Task(metaclass=NoPublicConstructor):
                 print("".join(ss.format()))
 
         """
-        coro = self.coro
+        # ignore static typing as we're doing lots of dynamic introspection
+        coro: Any = self.coro
         while coro is not None:
             if hasattr(coro, "cr_frame"):
                 # A real coroutine
@@ -1297,7 +1295,7 @@ class Task(metaclass=NoPublicConstructor):
     # Don't change this directly; instead, use _activate_cancel_status().
     _cancel_status: CancelStatus = attr.ib(default=None, repr=False)
 
-    def _activate_cancel_status(self, cancel_status: CancelStatus):
+    def _activate_cancel_status(self, cancel_status: CancelStatus) -> None:
         if self._cancel_status is not None:
             self._cancel_status._tasks.remove(self)
         self._cancel_status = cancel_status
@@ -1312,8 +1310,11 @@ class Task(metaclass=NoPublicConstructor):
         # rescheduling itself (hopefully eventually calling reraise to raise
         # the given exception, but not necessarily).
 
-        # TODO: what happens if _abort_func is None?
-        success = self._abort_func(raise_cancel)  # type: ignore
+        # This is only called by the functions immediately below, which both check
+        # `self.abort_func is not None`.
+        assert self._abort_func is not None, "FATAL INTERNAL ERROR"
+
+        success = self._abort_func(raise_cancel)
         if type(success) is not Abort:
             raise TrioInternalError("abort function must return Abort enum")
         # We only attempt to abort once per blocking call, regardless of

@@ -102,7 +102,8 @@ class StapledStream(HalfCloseableStream, metaclass=Final):
         else:
             return await self.send_stream.aclose()
 
-    async def receive_some(self, max_bytes: int | None = None) -> bytes | bytearray:
+    # we intentionally accept more types from the caller than we support returning
+    async def receive_some(self, max_bytes: int | None = None) -> bytes:
         """Calls ``self.receive_stream.receive_some``."""
         return await self.receive_stream.receive_some(max_bytes)
 
