@@ -15,7 +15,15 @@ failed = False
 # removing it from the below call later on.
 def run_pyright():
     return subprocess.run(
-        ["pyright", "--verifytypes=trio", "--outputjson", "--ignoreexternal"],
+        [
+            "pyright",
+            # Specify a platform and version to keep imported modules consistent.
+            "--pythonplatform=Linux",
+            "--pythonversion=3.8",
+            "--verifytypes=trio",
+            "--outputjson",
+            "--ignoreexternal",
+        ],
         capture_output=True,
     )
 
@@ -147,6 +155,13 @@ def main(args: argparse.Namespace) -> int:
             if symbol["diagnostics"]:
                 new_symbols.append(symbol["name"])
                 continue
+
+        # Ensure order of arrays does not affect result.
+        new_symbols.sort()
+        current_result["generalDiagnostics"].sort()
+        current_result["typeCompleteness"]["modules"].sort(
+            key=lambda module: module.get("name", "")
+        )
 
         current_result["typeCompleteness"]["symbols"] = new_symbols
 
