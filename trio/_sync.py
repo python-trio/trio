@@ -25,7 +25,7 @@ class EventStatistics:
     Currently the following fields are defined:
 
     * ``tasks_waiting``: The number of tasks blocked on this event's
-      :meth:`wait` method.
+      :meth:`trio.Event.wait` method.
 
     """
 
@@ -132,12 +132,12 @@ class CapacityLimiterStatistics:
       the sack.
     * ``total_tokens``: The total number of tokens in the sack. Usually
       this will be larger than ``borrowed_tokens``, but it's possibly for
-      it to be smaller if :attr:`total_tokens` was recently decreased.
+      it to be smaller if :attr:`trio.CapacityLimiter.total_tokens` was recently decreased.
     * ``borrowers``: A list of all tasks or other entities that currently
       hold a token.
     * ``tasks_waiting``: The number of tasks blocked on this
-      :class:`CapacityLimiter`\'s :meth:`acquire` or
-      :meth:`acquire_on_behalf_of` methods.
+      :class:`CapacityLimiter`\'s :meth:`trio.CapacityLimiter.acquire` or
+      :meth:`trio.CapacityLimiter.acquire_on_behalf_of` methods.
 
     """
 
