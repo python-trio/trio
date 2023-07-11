@@ -2120,8 +2120,8 @@ def start_guest_run(
 
     Once :func:`start_guest_run` returns successfully, the guest run
     has been set up enough that you can invoke sync-colored Trio
-    functions such as :func:`current_time`, :func:`spawn_system_task`,
-    and :func:`current_trio_token`. If a `TrioInternalError` occurs
+    functions such as :func:`~trio.current_time`, :func:`spawn_system_task`,
+    and :func:`current_trio_token`. If a `~trio.TrioInternalError` occurs
     during this early setup of the guest run, it will be raised out of
     :func:`start_guest_run`.  All other errors, including all errors
     raised by the *async_fn*, will be delivered to your
@@ -2211,7 +2211,7 @@ def start_guest_run(
                     "Guest runner blocked before system nursery was initialized"
                 )
             )
-        next_send = ()
+        next_send = 0 if sys.platform == "win32" else ()
     else:  # pragma: no cover
         guest_state.unrolled_run_gen.throw(
             TrioInternalError(

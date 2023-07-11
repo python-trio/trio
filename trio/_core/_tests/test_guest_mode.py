@@ -141,6 +141,7 @@ def test_guest_is_initialized_when_start_returns():
     # Errors during initialization (which can only be TrioInternalErrors)
     # are raised out of start_guest_run, not out of the done_callback
     with pytest.raises(trio.TrioInternalError):
+
         class BadClock:
             def start_clock(self):
                 raise ValueError("whoops")
