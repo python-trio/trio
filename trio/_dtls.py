@@ -1132,6 +1132,8 @@ class DTLSEndpoint(metaclass=Final):
         global SSL
         from OpenSSL import SSL
 
+        # TODO: create a `self._initialized` for `__del__`, so self.socket can be typed
+        # as trio.socket.SocketType and `is not None` checks can be removed.
         self.socket = None  # for __del__, in case the next line raises
         if socket.type != trio.socket.SOCK_DGRAM:
             raise ValueError("DTLS requires a SOCK_DGRAM socket")

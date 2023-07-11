@@ -260,7 +260,7 @@ class AsyncResource(metaclass=ABCMeta):
 
         """
 
-    async def __aenter__(self) -> AsyncResource:
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(

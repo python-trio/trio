@@ -48,9 +48,9 @@ if sys.version_info < (3, 11):
 from types import FrameType
 
 if TYPE_CHECKING:
-    # An unfortunate name collision here with trio._util.Final
     import contextvars
 
+    # An unfortunate name collision here with trio._util.Final
     from typing_extensions import Final as FinalT
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: FinalT = 1000
@@ -1189,9 +1189,6 @@ class Task(metaclass=NoPublicConstructor):
     _abort_func: Callable[[Callable[[], NoReturn]], Abort] | None = attr.ib(
         default=None
     )
-    # Typed as `object`, forcing users to do an isinstance check each time. Since
-    # anything touching the task could have set this, it's not really going to be
-    # safe to assume that this had the value you saw it with last.
     custom_sleep_data: Any = attr.ib(default=None)
 
     # For introspection and nursery.start()
@@ -2468,7 +2465,7 @@ class _TaskStatusIgnored:
     def __repr__(self) -> str:
         return "TASK_STATUS_IGNORED"
 
-    def started(self, value: Any = None):
+    def started(self, value: object = None) -> None:
         pass
 
 

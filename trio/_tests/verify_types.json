@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.8747993579454254,
+    "completenessScore": 0.8764044943820225,
     "exportedSymbolCounts": {
       "withAmbiguousType": 1,
-      "withKnownType": 545,
-      "withUnknownType": 77
+      "withKnownType": 546,
+      "withUnknownType": 76
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -46,8 +46,8 @@
     ],
     "otherSymbolCounts": {
       "withAmbiguousType": 8,
-      "withKnownType": 431,
-      "withUnknownType": 137
+      "withKnownType": 433,
+      "withUnknownType": 135
     },
     "packageName": "trio",
     "symbols": [
@@ -73,7 +73,6 @@
       "trio._core._mock_clock.MockClock.jump",
       "trio._core._run.Nursery.start",
       "trio._core._run.Nursery.start_soon",
-      "trio._core._run._TaskStatusIgnored.started",
       "trio._core._unbounded_queue.UnboundedQueue.__aiter__",
       "trio._core._unbounded_queue.UnboundedQueue.__anext__",
       "trio._core._unbounded_queue.UnboundedQueue.__repr__",

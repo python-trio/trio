@@ -98,7 +98,9 @@ class StapledStream(HalfCloseableStream, metaclass=Final):
 
         """
         if hasattr(self.send_stream, "send_eof"):
-            return await self.send_stream.send_eof()  # type: ignore
+            # send_stream.send_eof() is not defined in Trio, this should maybe be
+            # redesigned so it's possible to type it.
+            return await self.send_stream.send_eof()  # type: ignore[no-any-return]
         else:
             return await self.send_stream.aclose()
 

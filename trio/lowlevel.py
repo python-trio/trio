@@ -8,7 +8,6 @@ import sys
 import typing as _t
 
 # Generally available symbols
-# Generally available symbols
 from ._core import (
     Abort as Abort,
     ParkingLot as ParkingLot,

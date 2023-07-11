@@ -179,7 +179,7 @@ class ParkingLot(metaclass=Final):
         return self.unpark(count=len(self))
 
     @_core.enable_ki_protection
-    def repark(self, new_lot: ParkingLot, *, count: int = 1) -> None:
+    def repark(self, new_lot: ParkingLot, *, count: int | float = 1) -> None:
         """Move parked tasks from one :class:`ParkingLot` object to another.
 
         This dequeues ``count`` tasks from one lot, and requeues them on
@@ -209,7 +209,7 @@ class ParkingLot(metaclass=Final):
 
         Args:
           new_lot (ParkingLot): the parking lot to move tasks to.
-          count (int): the number of tasks to move.
+          count (int|math.inf): the number of tasks to move.
 
         """
         if not isinstance(new_lot, ParkingLot):

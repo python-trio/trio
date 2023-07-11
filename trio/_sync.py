@@ -20,6 +20,15 @@ if TYPE_CHECKING:
 
 @attr.s(frozen=True, slots=True)
 class EventStatistics:
+    """An object containing debugging information.
+
+    Currently the following fields are defined:
+
+    * ``tasks_waiting``: The number of tasks blocked on this event's
+      :meth:`wait` method.
+
+    """
+
     tasks_waiting: int = attr.ib()
 
 
@@ -96,6 +105,8 @@ class Event(metaclass=Final):
         return EventStatistics(tasks_waiting=len(self._tasks))
 
 
+# TODO: type this with a Protocol to get rid of type: ignore, see
+# https://github.com/python-trio/trio/pull/2682#discussion_r1259097422
 class AsyncContextManagerMixin:
     @enable_ki_protection
     async def __aenter__(self) -> None:
@@ -113,6 +124,23 @@ class AsyncContextManagerMixin:
 
 @attr.s(frozen=True, slots=True)
 class CapacityLimiterStatistics:
+    """An object containing debugging information.
+
+    Currently the following fields are defined:
+
+    * ``borrowed_tokens``: The number of tokens currently borrowed from
+      the sack.
+    * ``total_tokens``: The total number of tokens in the sack. Usually
+      this will be larger than ``borrowed_tokens``, but it's possibly for
+      it to be smaller if :attr:`total_tokens` was recently decreased.
+    * ``borrowers``: A list of all tasks or other entities that currently
+      hold a token.
+    * ``tasks_waiting``: The number of tasks blocked on this
+      :class:`CapacityLimiter`\'s :meth:`acquire` or
+      :meth:`acquire_on_behalf_of` methods.
+
+    """
+
     borrowed_tokens: int = attr.ib()
     total_tokens: int | float = attr.ib()
     borrowers: list[Task] = attr.ib()
@@ -671,7 +699,7 @@ class StrictFIFOLock(_LockImpl, metaclass=Final):
 
 @attr.s(frozen=True, slots=True)
 class ConditionStatistics:
-    r"""Return an object containing debugging information for a Condition.
+    r"""An object containing debugging information for a Condition.
 
     Currently the following fields are defined:
 
