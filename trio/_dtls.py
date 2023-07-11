@@ -16,7 +16,7 @@ import struct
 import warnings
 import weakref
 from itertools import count
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Awaitable, Callable
 
 import attr
 
@@ -25,6 +25,11 @@ from trio._util import Final, NoPublicConstructor
 
 if TYPE_CHECKING:
     from types import TracebackType
+
+    from OpenSSL.SSL import Context
+    from typing_extensions import Self
+
+    from trio._socket import _SocketType
 
 MAX_UDP_PACKET_SIZE = 65527
 
@@ -1126,17 +1131,17 @@ class DTLSEndpoint(metaclass=Final):
 
     """
 
-    def __init__(self, socket, *, incoming_packets_buffer=10):
+    def __init__(self, socket: _SocketType, *, incoming_packets_buffer: int = 10):
         # We do this lazily on first construction, so only people who actually use DTLS
         # have to install PyOpenSSL.
         global SSL
         from OpenSSL import SSL
 
-        # TODO: create a `self._initialized` for `__del__`, so self.socket can be typed
-        # as trio.socket.SocketType and `is not None` checks can be removed.
-        self.socket = None  # for __del__, in case the next line raises
+        # for __del__, in case the next line raises
+        self._initialized: bool = False
         if socket.type != trio.socket.SOCK_DGRAM:
             raise ValueError("DTLS requires a SOCK_DGRAM socket")
+        self._initialized = True
         self.socket = socket
 
         self.incoming_packets_buffer = incoming_packets_buffer
@@ -1146,8 +1151,8 @@ class DTLSEndpoint(metaclass=Final):
         # as a peer provides a valid cookie, we can immediately tear down the
         # old connection.
         # {remote address: DTLSChannel}
-        self._streams = weakref.WeakValueDictionary()
-        self._listening_context = None
+        self._streams: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
+        self._listening_context: Context | None = None
         self._listening_key = None
         self._incoming_connections_q = _Queue(float("inf"))
         self._send_lock = trio.Lock()
@@ -1164,9 +1169,9 @@ class DTLSEndpoint(metaclass=Final):
             )
             self._receive_loop_spawned = True
 
-    def __del__(self):
+    def __del__(self) -> None:
         # Do nothing if this object was never fully constructed
-        if self.socket is None:
+        if not self._initialized:
             return
         # Close the socket in Trio context (if our Trio context still exists), so that
         # the background task gets notified about the closure and can exit.
@@ -1186,17 +1191,13 @@ class DTLSEndpoint(metaclass=Final):
         This object can also be used as a context manager.
 
         """
-        # Do nothing if this object was never fully constructed
-        if self.socket is None:  # pragma: no cover
-            return
-
         self._closed = True
         self.socket.close()
         for stream in list(self._streams.values()):
             stream.close()
         self._incoming_connections_q.s.close()
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(
@@ -1207,13 +1208,17 @@ class DTLSEndpoint(metaclass=Final):
     ) -> None:
         return self.close()
 
-    def _check_closed(self):
+    def _check_closed(self) -> None:
         if self._closed:
             raise trio.ClosedResourceError
 
-    async def serve(
-        self, ssl_context, async_fn, *args, task_status=trio.TASK_STATUS_IGNORED
-    ):
+    async def serve(  # type: ignore[no-untyped-def]
+        self,
+        ssl_context: Context,
+        async_fn: Callable[..., Awaitable],
+        *args,
+        task_status=trio.TASK_STATUS_IGNORED,  # type: ignore[has-type] # ???
+    ) -> None:
         """Listen for incoming connections, and spawn a handler for each using an
         internal nursery.
 

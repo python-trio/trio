@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import subprocess
 import sys
@@ -117,11 +119,17 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
     # arbitrarily many threads if wait() keeps getting cancelled.
     _wait_for_exit_data = None
 
-    def __init__(self, popen, stdin, stdout, stderr):
+    def __init__(
+        self,
+        popen: subprocess.Popen,
+        stdin: Optional[SendStream],
+        stdout: Optional[ReceiveStream],
+        stderr: Optional[ReceiveStream],
+    ):
         self._proc = popen
-        self.stdin: Optional[SendStream] = stdin
-        self.stdout: Optional[ReceiveStream] = stdout
-        self.stderr: Optional[ReceiveStream] = stderr
+        self.stdin = stdin
+        self.stdout = stdout
+        self.stderr = stderr
 
         self.stdio: Optional[StapledStream] = None
         if self.stdin is not None and self.stdout is not None:
@@ -294,8 +302,17 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         self._proc.kill()
 
 
+from typing import Any
+
+
+# TODO: replace Any with a ParamSpec from Popen?? Or just type them out
 async def open_process(
-    command, *, stdin=None, stdout=None, stderr=None, **options
+    command: list[str] | str,
+    *,
+    stdin: int | None = None,
+    stdout: int | None = None,
+    stderr: int | None = None,
+    **options: Any,
 ) -> Process:
     r"""Execute a child program in a new process.
 

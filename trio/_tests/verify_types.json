@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.8764044943820225,
+    "completenessScore": 0.8812199036918138,
     "exportedSymbolCounts": {
       "withAmbiguousType": 1,
-      "withKnownType": 546,
-      "withUnknownType": 76
+      "withKnownType": 549,
+      "withUnknownType": 73
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -46,8 +46,8 @@
     ],
     "otherSymbolCounts": {
       "withAmbiguousType": 8,
-      "withKnownType": 433,
-      "withUnknownType": 135
+      "withKnownType": 438,
+      "withUnknownType": 130
     },
     "packageName": "trio",
     "symbols": [
@@ -70,7 +70,6 @@
       "trio._core._local.RunVar.get",
       "trio._core._local.RunVar.reset",
       "trio._core._local.RunVar.set",
-      "trio._core._mock_clock.MockClock.jump",
       "trio._core._run.Nursery.start",
       "trio._core._run.Nursery.start_soon",
       "trio._core._unbounded_queue.UnboundedQueue.__aiter__",
@@ -90,13 +89,9 @@
       "trio._dtls.DTLSChannel.send",
       "trio._dtls.DTLSChannel.set_ciphertext_mtu",
       "trio._dtls.DTLSChannel.statistics",
-      "trio._dtls.DTLSEndpoint.__del__",
-      "trio._dtls.DTLSEndpoint.__enter__",
       "trio._dtls.DTLSEndpoint.__init__",
       "trio._dtls.DTLSEndpoint.connect",
-      "trio._dtls.DTLSEndpoint.incoming_packets_buffer",
       "trio._dtls.DTLSEndpoint.serve",
-      "trio._dtls.DTLSEndpoint.socket",
       "trio._highlevel_socket.SocketListener",
       "trio._highlevel_socket.SocketListener.__init__",
       "trio._highlevel_socket.SocketStream.__init__",
@@ -168,14 +163,12 @@
       "trio.lowlevel.current_trio_token",
       "trio.lowlevel.currently_ki_protected",
       "trio.lowlevel.notify_closing",
-      "trio.lowlevel.open_process",
       "trio.lowlevel.permanently_detach_coroutine_object",
       "trio.lowlevel.reattach_detached_coroutine_object",
       "trio.lowlevel.remove_instrument",
       "trio.lowlevel.reschedule",
       "trio.lowlevel.spawn_system_task",
       "trio.lowlevel.start_guest_run",
-      "trio.lowlevel.start_thread_soon",
       "trio.lowlevel.temporarily_detach_coroutine_object",
       "trio.lowlevel.wait_readable",
       "trio.lowlevel.wait_writable",

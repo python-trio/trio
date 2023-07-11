@@ -1168,7 +1168,7 @@ class Nursery(metaclass=NoPublicConstructor):
 class Task(metaclass=NoPublicConstructor):
     _parent_nursery: Nursery | None = attr.ib()
     coro: Coroutine[Any, Outcome[object], Any] = attr.ib()
-    _runner = attr.ib()
+    _runner: Runner = attr.ib()
     name: str = attr.ib()
     context: contextvars.Context = attr.ib()
     _counter: int = attr.ib(init=False, factory=itertools.count().__next__)
@@ -1184,8 +1184,8 @@ class Task(metaclass=NoPublicConstructor):
     #   tracebacks with extraneous frames.
     # - for scheduled tasks, custom_sleep_data is None
     # Tasks start out unscheduled.
-    _next_send_fn = attr.ib(default=None)
-    _next_send = attr.ib(default=None)
+    _next_send_fn: Callable[[Outcome | None], None] = attr.ib(default=None)
+    _next_send: Outcome | None = attr.ib(default=None)
     _abort_func: Callable[[Callable[[], NoReturn]], Abort] | None = attr.ib(
         default=None
     )
@@ -1386,13 +1386,13 @@ class _RunStatistics:
 # worker thread.
 @attr.s(eq=False, hash=False, slots=True)
 class GuestState:
-    runner = attr.ib()
-    run_sync_soon_threadsafe = attr.ib()
-    run_sync_soon_not_threadsafe = attr.ib()
-    done_callback = attr.ib()
+    runner: Runner = attr.ib()
+    run_sync_soon_threadsafe: Callable = attr.ib()
+    run_sync_soon_not_threadsafe: Callable = attr.ib()
+    done_callback: Callable = attr.ib()
     unrolled_run_gen = attr.ib()
     _value_factory: Callable[[], Value] = lambda: Value(None)
-    unrolled_run_next_send = attr.ib(factory=_value_factory, type=Outcome)
+    unrolled_run_next_send: Outcome = attr.ib(factory=_value_factory, type=Outcome)
 
     def guest_tick(self):
         try:

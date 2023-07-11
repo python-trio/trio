@@ -434,6 +434,8 @@ async def _resolve_address_nocp(type, family, proto, *, ipv6_v6only, address, lo
     return normed
 
 
+# TODO: stopping users from initializing this type should be done in a different way,
+# so SocketType can be used as a type.
 class SocketType:
     def __init__(self):
         raise TypeError(
@@ -537,8 +539,7 @@ class _SocketType(SocketType):
         ):
             # Use a thread for the filesystem traversal (unless it's an
             # abstract domain socket)
-            # remove the `type: ignore` when run.sync is typed.
-            return await trio.to_thread.run_sync(self._sock.bind, address)  # type: ignore[no-any-return]
+            return await trio.to_thread.run_sync(self._sock.bind, address)
         else:
             # POSIX actually says that bind can return EWOULDBLOCK and
             # complete asynchronously, like connect. But in practice AFAICT

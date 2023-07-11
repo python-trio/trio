@@ -150,7 +150,7 @@ class MockClock(Clock, metaclass=Final):
         else:
             return 999999999
 
-    def jump(self, seconds) -> None:
+    def jump(self, seconds: float) -> None:
         """Manually advance the clock by the given number of seconds.
 
         Args:

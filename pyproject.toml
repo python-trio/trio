@@ -44,6 +44,10 @@ disallow_untyped_defs = false
 # DO NOT use `ignore_errors`; it doesn't apply
 # downstream and users have to deal with them.
 
+[[tool.mypy.overrides]]
+disallow_incomplete_defs = false
+module = "trio._core._run"
+
 [tool.pytest.ini_options]
 addopts = ["--strict-markers", "--strict-config"]
 faulthandler_timeout = 60

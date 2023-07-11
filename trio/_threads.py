@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import contextvars
 import functools
 import inspect
@@ -57,10 +59,19 @@ class ThreadPlaceholder:
     name = attr.ib()
 
 
+from typing import Any, Callable, TypeVar
+
+T = TypeVar("T")
+
+
 @enable_ki_protection
 async def to_thread_run_sync(
-    sync_fn, *args, thread_name: Optional[str] = None, cancellable=False, limiter=None
-):
+    sync_fn: Callable[..., T],
+    *args: Any,
+    thread_name: Optional[str] = None,
+    cancellable: bool = False,
+    limiter: CapacityLimiter | None = None,
+) -> T:
     """Convert a blocking operation into an async operation using a thread.
 
     These two lines are equivalent::
@@ -152,7 +163,7 @@ async def to_thread_run_sync(
     # Holds a reference to the task that's blocked in this function waiting
     # for the result – or None if this function was cancelled and we should
     # discard the result.
-    task_register = [trio.lowlevel.current_task()]
+    task_register: list[trio.lowlevel.Task | None] = [trio.lowlevel.current_task()]
     name = f"trio.to_thread.run_sync-{next(_thread_counter)}"
     placeholder = ThreadPlaceholder(name)
 
@@ -217,14 +228,17 @@ async def to_thread_run_sync(
         limiter.release_on_behalf_of(placeholder)
         raise
 
-    def abort(_):
+    from trio._core._traps import RaiseCancelT
+
+    def abort(_: RaiseCancelT) -> trio.lowlevel.Abort:
         if cancellable:
             task_register[0] = None
             return trio.lowlevel.Abort.SUCCEEDED
         else:
             return trio.lowlevel.Abort.FAILED
 
-    return await trio.lowlevel.wait_task_rescheduled(abort)
+    # wait_task_rescheduled return value cannot be typed
+    return await trio.lowlevel.wait_task_rescheduled(abort)  # type: ignore[no-any-return]
 
 
 def _run_fn_as_system_task(cb, fn, *args, context, trio_token=None):
