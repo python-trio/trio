@@ -2,12 +2,35 @@ from __future__ import annotations
 
 import io
 from functools import partial
-from typing import TYPE_CHECKING, Any, AnyStr, BinaryIO, Generic, Iterable, TypeVar
+from typing import (
+    IO,
+    TYPE_CHECKING,
+    Any,
+    AnyStr,
+    BinaryIO,
+    Callable,
+    Generic,
+    Iterable,
+    TypeVar,
+    Union,
+    overload,
+)
 
 import trio
 
 from ._util import async_wraps
 from .abc import AsyncResource
+
+if TYPE_CHECKING:
+    from _typeshed import (
+        OpenBinaryMode,
+        OpenBinaryModeReading,
+        OpenBinaryModeUpdating,
+        OpenBinaryModeWriting,
+        OpenTextMode,
+        StrOrBytesPath,
+    )
+    from typing_extensions import Literal
 
 # This list is also in the docs, make sure to keep them in sync
 _FILE_SYNC_ATTRS: set[str] = {
@@ -300,16 +323,102 @@ class AsyncIOWrapper(AsyncResource, Generic[FileT_co]):
         async def peek(self: AsyncIOWrapper[_CanPeek[AnyStr]], __size: int = 0) -> AnyStr: ...
 
 
+# Type hints are copied from builtin open.
+_OpenFile = Union[StrOrBytesPath, int]
+_Opener = Callable[[str, int], int]
+
+
+@overload
 async def open_file(
-    file,
-    mode="r",
-    buffering=-1,
-    encoding=None,
-    errors=None,
-    newline=None,
-    closefd=True,
-    opener=None,
-):
+    file: _OpenFile,
+    mode: OpenTextMode = ...,
+    buffering: int = ...,
+    encoding: str | None = ...,
+    errors: str | None = ...,
+    newline: str | None = ...,
+    closefd: bool = ...,
+    opener: _Opener | None = ...,
+) -> AsyncIOWrapper[io.TextIOWrapper]: ...
+@overload
+async def open_file(
+    file: _OpenFile,
+    mode: OpenBinaryMode,
+    buffering: Literal[0],
+    encoding: None = ...,
+    errors: None = ...,
+    newline: None = ...,
+    closefd: bool = ...,
+    opener: _Opener | None = ...,
+) -> AsyncIOWrapper[io.FileIO]: ...
+@overload
+async def open_file(
+    file: _OpenFile,
+    mode: OpenBinaryModeUpdating,
+    buffering: Literal[-1, 1] = ...,
+    encoding: None = ...,
+    errors: None = ...,
+    newline: None = ...,
+    closefd: bool = ...,
+    opener: _Opener | None = ...,
+) -> AsyncIOWrapper[io.BufferedRandom]: ...
+@overload
+async def open_file(
+    file: _OpenFile,
+    mode: OpenBinaryModeWriting,
+    buffering: Literal[-1, 1] = ...,
+    encoding: None = ...,
+    errors: None = ...,
+    newline: None = ...,
+    closefd: bool = ...,
+    opener: _Opener | None = ...,
+) -> AsyncIOWrapper[io.BufferedWriter]: ...
+@overload
+async def open_file(
+    file: _OpenFile,
+    mode: OpenBinaryModeReading,
+    buffering: Literal[-1, 1] = ...,
+    encoding: None = ...,
+    errors: None = ...,
+    newline: None = ...,
+    closefd: bool = ...,
+    opener: _Opener | None = ...,
+) -> AsyncIOWrapper[io.BufferedReader]: ...
+@overload
+async def open_file(
+    file: _OpenFile,
+    mode: OpenBinaryMode,
+    buffering: int,
+    encoding: None = ...,
+    errors: None = ...,
+    newline: None = ...,
+    closefd: bool = ...,
+    opener: _Opener | None = ...,
+) -> AsyncIOWrapper[BinaryIO]: ...
+
+# Fallback if mode is not specified
+@overload
+async def open_file(
+    file: _OpenFile,
+    mode: str,
+    buffering: int = ...,
+    encoding: str | None = ...,
+    errors: str | None = ...,
+    newline: str | None = ...,
+    closefd: bool = ...,
+    opener: _Opener | None = ...,
+) -> AsyncIOWrapper[IO[Any]]: ...
+
+
+async def open_file(
+    file: _OpenFile,
+    mode: str = "r",
+    buffering: int = -1,
+    encoding: str | None = None,
+    errors: str | None = None,
+    newline: str | None = None,
+    closefd: bool = True,
+    opener: _Opener | None = None,
+) -> AsyncIOWrapper:
     """Asynchronous version of :func:`io.open`.
 
     Returns:
