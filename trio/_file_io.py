@@ -74,18 +74,20 @@ _FILE_ASYNC_METHODS: set[str] = {
 }
 
 
-FileT = TypeVar('FileT')
-FileT_co = TypeVar('FileT_co', covariant=True)
-T = TypeVar('T')
-T_co = TypeVar('T_co', covariant=True)
-T_contra = TypeVar('T_contra', contravariant=True)
-AnyStr_co = TypeVar('AnyStr_co', str, bytes, covariant=True)
-AnyStr_contra = TypeVar('AnyStr_contra', str, bytes, contravariant=True)
+FileT = TypeVar("FileT")
+FileT_co = TypeVar("FileT_co", covariant=True)
+T = TypeVar("T")
+T_co = TypeVar("T_co", covariant=True)
+T_contra = TypeVar("T_contra", contravariant=True)
+AnyStr_co = TypeVar("AnyStr_co", str, bytes, covariant=True)
+AnyStr_contra = TypeVar("AnyStr_contra", str, bytes, contravariant=True)
 
 # Define a protocol for every method/property we expose. Each is effectively a predicate checking
 # whether a class defines this method/property.
 if TYPE_CHECKING:
     from typing_extensions import Buffer, Protocol
+
+    # fmt: off
 
     class _HasClosed(Protocol):
         @property
@@ -217,6 +219,7 @@ class AsyncIOWrapper(AsyncResource, Generic[FileT_co]):
         return self._wrapped
 
     if not TYPE_CHECKING:
+
         def __getattr__(self, name: str) -> object:
             if name in _FILE_SYNC_ATTRS:
                 return getattr(self._wrapped, name)
@@ -276,6 +279,7 @@ class AsyncIOWrapper(AsyncResource, Generic[FileT_co]):
         await trio.lowlevel.checkpoint_if_cancelled()
 
     if TYPE_CHECKING:
+        # fmt: off
         # Based on typing.IO and io stubs.
         # For every method/property we type self, restricting these to only be available if
         # the original also is.
@@ -324,21 +328,24 @@ class AsyncIOWrapper(AsyncResource, Generic[FileT_co]):
 
 
 # Type hints are copied from builtin open.
-_OpenFile = Union[StrOrBytesPath, int]
+_OpenFile = Union['StrOrBytesPath', int]
 _Opener = Callable[[str, int], int]
 
 
 @overload
 async def open_file(
     file: _OpenFile,
-    mode: OpenTextMode = 'r',
+    mode: OpenTextMode = "r",
     buffering: int = -1,
     encoding: str | None = None,
     errors: str | None = None,
     newline: str | None = None,
     closefd: bool = True,
     opener: _Opener | None = None,
-) -> AsyncIOWrapper[io.TextIOWrapper]: ...
+) -> AsyncIOWrapper[io.TextIOWrapper]:
+    ...
+
+
 @overload
 async def open_file(
     file: _OpenFile,
@@ -349,7 +356,10 @@ async def open_file(
     newline: None = None,
     closefd: bool = True,
     opener: _Opener | None = None,
-) -> AsyncIOWrapper[io.FileIO]: ...
+) -> AsyncIOWrapper[io.FileIO]:
+    ...
+
+
 @overload
 async def open_file(
     file: _OpenFile,
@@ -360,7 +370,10 @@ async def open_file(
     newline: None = None,
     closefd: bool = True,
     opener: _Opener | None = None,
-) -> AsyncIOWrapper[io.BufferedRandom]: ...
+) -> AsyncIOWrapper[io.BufferedRandom]:
+    ...
+
+
 @overload
 async def open_file(
     file: _OpenFile,
@@ -371,7 +384,10 @@ async def open_file(
     newline: None = None,
     closefd: bool = True,
     opener: _Opener | None = None,
-) -> AsyncIOWrapper[io.BufferedWriter]: ...
+) -> AsyncIOWrapper[io.BufferedWriter]:
+    ...
+
+
 @overload
 async def open_file(
     file: _OpenFile,
@@ -382,7 +398,10 @@ async def open_file(
     newline: None = None,
     closefd: bool = True,
     opener: _Opener | None = None,
-) -> AsyncIOWrapper[io.BufferedReader]: ...
+) -> AsyncIOWrapper[io.BufferedReader]:
+    ...
+
+
 @overload
 async def open_file(
     file: _OpenFile,
@@ -393,9 +412,10 @@ async def open_file(
     newline: None = None,
     closefd: bool = True,
     opener: _Opener | None = None,
-) -> AsyncIOWrapper[BinaryIO]: ...
+) -> AsyncIOWrapper[BinaryIO]:
+    ...
 
-# Fallback if mode is not specified
+
 @overload
 async def open_file(
     file: _OpenFile,
@@ -406,7 +426,8 @@ async def open_file(
     newline: str | None = None,
     closefd: bool = True,
     opener: _Opener | None = None,
-) -> AsyncIOWrapper[IO[Any]]: ...
+) -> AsyncIOWrapper[IO[Any]]:
+    ...
 
 
 async def open_file(
