@@ -19,6 +19,7 @@ flake8 < 6.0.0  # 6.0.0 drops python 3.7
 flake8-pyproject
 astor          # code generation
 pip-tools >= 6.13.0
+codespell
 
 # https://github.com/python-trio/trio/pull/654#issuecomment-420518745
 # typed_ast is deprecated as of 3.8, and straight up doesn't compile on 3.10-dev as of 2021-12-13

@@ -1,6 +1,9 @@
 [tool.black]
 target-version = ['py37']
 
+[tool.codespell]
+ignore-words-list = 'astroid,crasher,asend'
+
 [tool.flake8]
 extend-ignore = ['D', 'E', 'W', 'F403', 'F405', 'F821', 'F822']
 per-file-ignores = [
