@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import io
 from functools import partial
+from typing import AnyStr, Generic, IO, Iterable, TYPE_CHECKING
 
 import trio
 
@@ -7,7 +10,7 @@ from ._util import async_wraps
 from .abc import AsyncResource
 
 # This list is also in the docs, make sure to keep them in sync
-_FILE_SYNC_ATTRS = {
+_FILE_SYNC_ATTRS: set[str] = {
     "closed",
     "encoding",
     "errors",
@@ -29,7 +32,7 @@ _FILE_SYNC_ATTRS = {
 }
 
 # This list is also in the docs, make sure to keep them in sync
-_FILE_ASYNC_METHODS = {
+_FILE_ASYNC_METHODS: set[str] = {
     "flush",
     "read",
     "read1",
@@ -48,7 +51,7 @@ _FILE_ASYNC_METHODS = {
 }
 
 
-class AsyncIOWrapper(AsyncResource):
+class AsyncIOWrapper(AsyncResource, Generic[AnyStr]):
     """A generic :class:`~io.IOBase` wrapper that implements the :term:`asynchronous
     file object` interface. Wrapped methods that could block are executed in
     :meth:`trio.to_thread.run_sync`.
@@ -58,39 +61,40 @@ class AsyncIOWrapper(AsyncResource):
 
     """
 
-    def __init__(self, file):
+    def __init__(self, file: IO[AnyStr]) -> None:
         self._wrapped = file
 
     @property
-    def wrapped(self):
+    def wrapped(self) -> IO[AnyStr]:
         """object: A reference to the wrapped file object"""
 
         return self._wrapped
 
-    def __getattr__(self, name):
-        if name in _FILE_SYNC_ATTRS:
-            return getattr(self._wrapped, name)
-        if name in _FILE_ASYNC_METHODS:
-            meth = getattr(self._wrapped, name)
+    if not TYPE_CHECKING:
+        def __getattr__(self, name: str) -> object:
+            if name in _FILE_SYNC_ATTRS:
+                return getattr(self._wrapped, name)
+            if name in _FILE_ASYNC_METHODS:
+                meth = getattr(self._wrapped, name)
 
-            @async_wraps(self.__class__, self._wrapped.__class__, name)
-            async def wrapper(*args, **kwargs):
-                func = partial(meth, *args, **kwargs)
-                return await trio.to_thread.run_sync(func)
+                @async_wraps(self.__class__, self._wrapped.__class__, name)
+                async def wrapper(*args, **kwargs):
+                    func = partial(meth, *args, **kwargs)
+                    return await trio.to_thread.run_sync(func)
 
-            # cache the generated method
-            setattr(self, name, wrapper)
-            return wrapper
+                # cache the generated method
+                setattr(self, name, wrapper)
+                return wrapper
 
-        raise AttributeError(name)
+            raise AttributeError(name)
 
-    def __dir__(self):
+    def __dir__(self) -> Iterable[str]:
         attrs = set(super().__dir__())
         attrs.update(a for a in _FILE_SYNC_ATTRS if hasattr(self.wrapped, a))
         attrs.update(a for a in _FILE_ASYNC_METHODS if hasattr(self.wrapped, a))
         return attrs
 
-    def __aiter__(self):
+    def __aiter__(self) -> AsyncIOWrapper[AnyStr]:
         return self
 
     async def __anext__(self):
@@ -100,7 +104,7 @@ class AsyncIOWrapper(AsyncResource):
         else:
             raise StopAsyncIteration
 
-    async def detach(self):
+    async def detach(self) -> AsyncIOWrapper[AnyStr]:
         """Like :meth:`io.BufferedIOBase.detach`, but async.
 
         This also re-wraps the result in a new :term:`asynchronous file object`
@@ -111,7 +115,7 @@ class AsyncIOWrapper(AsyncResource):
         raw = await trio.to_thread.run_sync(self._wrapped.detach)
         return wrap_file(raw)
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         """Like :meth:`io.IOBase.close`, but async.
 
         This is also shielded from cancellation; if a cancellation scope is
@@ -161,7 +165,7 @@ async def open_file(
     return _file
 
 
-def wrap_file(file):
+def wrap_file(file: IO[AnyStr]) -> AsyncIOWrapper[AnyStr]:
     """This wraps any file object in a wrapper that provides an asynchronous
     file object interface.
 
@@ -179,7 +183,7 @@ def wrap_file(file):
 
     """
 
-    def has(attr):
+    def has(attr: str) -> bool:
         return hasattr(file, attr) and callable(getattr(file, attr))
 
     if not (has("close") and (has("read") or has("write"))):
