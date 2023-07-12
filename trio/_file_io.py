@@ -308,15 +308,15 @@ class AsyncIOWrapper(AsyncResource, Generic[FileT_co]):
         def getvalue(self: AsyncIOWrapper[_CanGetValue[AnyStr]]) -> AnyStr: ...
         def getbuffer(self: AsyncIOWrapper[_CanGetBuffer]) -> memoryview: ...
         async def flush(self: AsyncIOWrapper[_CanFlush]) -> None: ...
-        async def read(self: AsyncIOWrapper[_CanRead[AnyStr]], __size: int | None = ...) -> AnyStr: ...
-        async def read1(self: AsyncIOWrapper[_CanRead1], __size: int | None = ...) -> bytes: ...
+        async def read(self: AsyncIOWrapper[_CanRead[AnyStr]], __size: int | None = -1) -> AnyStr: ...
+        async def read1(self: AsyncIOWrapper[_CanRead1], __size: int | None = -1) -> bytes: ...
         async def readall(self: AsyncIOWrapper[_CanReadAll[AnyStr]]) -> AnyStr: ...
         async def readinto(self: AsyncIOWrapper[_CanReadInto], __buf: Buffer) -> int | None: ...
-        async def readline(self: AsyncIOWrapper[_CanReadLine[AnyStr]], __size: int = ...) -> AnyStr: ...
+        async def readline(self: AsyncIOWrapper[_CanReadLine[AnyStr]], __size: int = -1) -> AnyStr: ...
         async def readlines(self: AsyncIOWrapper[_CanReadLines[AnyStr]]) -> list[AnyStr]: ...
         async def seek(self: AsyncIOWrapper[_CanSeek], __target: int, __whence: int = 0) -> int: ...
         async def tell(self: AsyncIOWrapper[_CanTell]) -> int: ...
-        async def truncate(self: AsyncIOWrapper[_CanTruncate], __size: int | None = ...) -> int: ...
+        async def truncate(self: AsyncIOWrapper[_CanTruncate], __size: int | None = None) -> int: ...
         async def write(self: AsyncIOWrapper[_CanWrite[AnyStr]], __data: AnyStr) -> int: ...
         async def writelines(self: AsyncIOWrapper[_CanWriteLines[T]], __lines: Iterable[T]) -> None: ...
         async def readinto1(self: AsyncIOWrapper[_CanReadInto1], __buffer: Buffer) -> int: ...
@@ -331,68 +331,68 @@ _Opener = Callable[[str, int], int]
 @overload
 async def open_file(
     file: _OpenFile,
-    mode: OpenTextMode = ...,
-    buffering: int = ...,
-    encoding: str | None = ...,
-    errors: str | None = ...,
-    newline: str | None = ...,
-    closefd: bool = ...,
-    opener: _Opener | None = ...,
+    mode: OpenTextMode = 'r',
+    buffering: int = -1,
+    encoding: str | None = None,
+    errors: str | None = None,
+    newline: str | None = None,
+    closefd: bool = True,
+    opener: _Opener | None = None,
 ) -> AsyncIOWrapper[io.TextIOWrapper]: ...
 @overload
 async def open_file(
     file: _OpenFile,
     mode: OpenBinaryMode,
     buffering: Literal[0],
-    encoding: None = ...,
-    errors: None = ...,
-    newline: None = ...,
-    closefd: bool = ...,
-    opener: _Opener | None = ...,
+    encoding: None = None,
+    errors: None = None,
+    newline: None = None,
+    closefd: bool = True,
+    opener: _Opener | None = None,
 ) -> AsyncIOWrapper[io.FileIO]: ...
 @overload
 async def open_file(
     file: _OpenFile,
     mode: OpenBinaryModeUpdating,
-    buffering: Literal[-1, 1] = ...,
-    encoding: None = ...,
-    errors: None = ...,
-    newline: None = ...,
-    closefd: bool = ...,
-    opener: _Opener | None = ...,
+    buffering: Literal[-1, 1] = -1,
+    encoding: None = None,
+    errors: None = None,
+    newline: None = None,
+    closefd: bool = True,
+    opener: _Opener | None = None,
 ) -> AsyncIOWrapper[io.BufferedRandom]: ...
 @overload
 async def open_file(
     file: _OpenFile,
     mode: OpenBinaryModeWriting,
-    buffering: Literal[-1, 1] = ...,
-    encoding: None = ...,
-    errors: None = ...,
-    newline: None = ...,
-    closefd: bool = ...,
-    opener: _Opener | None = ...,
+    buffering: Literal[-1, 1] = -1,
+    encoding: None = None,
+    errors: None = None,
+    newline: None = None,
+    closefd: bool = True,
+    opener: _Opener | None = None,
 ) -> AsyncIOWrapper[io.BufferedWriter]: ...
 @overload
 async def open_file(
     file: _OpenFile,
     mode: OpenBinaryModeReading,
-    buffering: Literal[-1, 1] = ...,
-    encoding: None = ...,
-    errors: None = ...,
-    newline: None = ...,
-    closefd: bool = ...,
-    opener: _Opener | None = ...,
+    buffering: Literal[-1, 1] = -1,
+    encoding: None = None,
+    errors: None = None,
+    newline: None = None,
+    closefd: bool = True,
+    opener: _Opener | None = None,
 ) -> AsyncIOWrapper[io.BufferedReader]: ...
 @overload
 async def open_file(
     file: _OpenFile,
     mode: OpenBinaryMode,
     buffering: int,
-    encoding: None = ...,
-    errors: None = ...,
-    newline: None = ...,
-    closefd: bool = ...,
-    opener: _Opener | None = ...,
+    encoding: None = None,
+    errors: None = None,
+    newline: None = None,
+    closefd: bool = True,
+    opener: _Opener | None = None,
 ) -> AsyncIOWrapper[BinaryIO]: ...
 
 # Fallback if mode is not specified
@@ -400,12 +400,12 @@ async def open_file(
 async def open_file(
     file: _OpenFile,
     mode: str,
-    buffering: int = ...,
-    encoding: str | None = ...,
-    errors: str | None = ...,
-    newline: str | None = ...,
-    closefd: bool = ...,
-    opener: _Opener | None = ...,
+    buffering: int = -1,
+    encoding: str | None = None,
+    errors: str | None = None,
+    newline: str | None = None,
+    closefd: bool = True,
+    opener: _Opener | None = None,
 ) -> AsyncIOWrapper[IO[Any]]: ...
 
 
@@ -418,7 +418,7 @@ async def open_file(
     newline: str | None = None,
     closefd: bool = True,
     opener: _Opener | None = None,
-) -> AsyncIOWrapper:
+) -> AsyncIOWrapper[Any]:
     """Asynchronous version of :func:`io.open`.
 
     Returns:
