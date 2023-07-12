@@ -10,8 +10,9 @@ import typing as t
 from abc import ABCMeta
 from functools import update_wrapper
 
-import trio
 from sniffio import thread_local as sniffio_loop
+
+import trio
 
 # Equivalent to the C function raise(), which Python doesn't wrap
 if os.name == "nt":
