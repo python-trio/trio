@@ -328,7 +328,7 @@ class AsyncIOWrapper(AsyncResource, Generic[FileT_co]):
 
 
 # Type hints are copied from builtin open.
-_OpenFile = Union['StrOrBytesPath', int]
+_OpenFile = Union["StrOrBytesPath", int]
 _Opener = Callable[[str, int], int]
 
 
@@ -440,7 +440,7 @@ async def open_file(
     closefd: bool = True,
     opener: _Opener | None = None,
 ) -> AsyncIOWrapper[Any]:
-    """Asynchronous version of :func:`io.open`.
+    """Asynchronous version of :func:`open`.
 
     Returns:
         An :term:`asynchronous file object`
