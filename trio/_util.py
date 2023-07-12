@@ -216,7 +216,7 @@ def async_wraps(cls, wrapped_cls, attr_name):
     return decorator
 
 
-def fixup_module_metadata(module_name, namespace):
+def fixup_module_metadata(module_name: str, namespace: dict[str, object]) -> None:
     seen_ids = set()
 
     def fix_one(qualname, name, obj):

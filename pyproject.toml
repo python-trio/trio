@@ -45,8 +45,8 @@ disallow_untyped_defs = false
 # downstream and users have to deal with them.
 
 [[tool.mypy.overrides]]
-disallow_incomplete_defs = false
 module = "trio._core._run"
+disallow_incomplete_defs = false
 
 [tool.pytest.ini_options]
 addopts = ["--strict-markers", "--strict-config"]

@@ -5,7 +5,7 @@ import select
 import socket as _stdlib_socket
 import sys
 from functools import wraps as _wraps
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, SupportsIndex
 
 import idna as _idna
 
@@ -18,6 +18,8 @@ if TYPE_CHECKING:
     from types import TracebackType
 
     from typing_extensions import Self
+
+    from ._abc import HostnameResolver, SocketFactory
 
 
 # Usage:
@@ -73,11 +75,13 @@ except ImportError:
 # Overrides
 ################################################################
 
-_resolver = _core.RunVar("hostname_resolver")
-_socket_factory = _core.RunVar("socket_factory")
+_resolver: _core.RunVar[HostnameResolver | None] = _core.RunVar("hostname_resolver")
+_socket_factory: _core.RunVar[SocketFactory] = _core.RunVar("socket_factory")
 
 
-def set_custom_hostname_resolver(hostname_resolver):
+def set_custom_hostname_resolver(
+    hostname_resolver: HostnameResolver | None,
+) -> HostnameResolver | None:
     """Set a custom hostname resolver.
 
     By default, Trio's :func:`getaddrinfo` and :func:`getnameinfo` functions
@@ -143,7 +147,22 @@ def set_custom_socket_factory(socket_factory):
 _NUMERIC_ONLY = _stdlib_socket.AI_NUMERICHOST | _stdlib_socket.AI_NUMERICSERV
 
 
-async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+async def getaddrinfo(
+    host: bytes | str | None,
+    port: bytes | str | int | None,
+    family: int = 0,
+    type: int = 0,
+    proto: int = 0,
+    flags: int = 0,
+) -> list[
+    tuple[
+        _stdlib_socket.AddressFamily,
+        _stdlib_socket.SocketKind,
+        int,
+        str,
+        tuple[str, int] | tuple[str, int, int, int],
+    ]
+]:
     """Look up a numeric address given a name.
 
     Arguments and return values are identical to :func:`socket.getaddrinfo`,
@@ -190,7 +209,7 @@ async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
             # idna.encode will error out if the hostname has Capital Letters
             # in it; with uts46=True it will lowercase them instead.
             host = _idna.encode(host, uts46=True)
-    hr = _resolver.get(None)
+    hr: HostnameResolver | None = _resolver.get(None)
     if hr is not None:
         return await hr.getaddrinfo(host, port, family, type, proto, flags)
     else:
@@ -206,7 +225,9 @@ async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
         )
 
 
-async def getnameinfo(sockaddr, flags):
+async def getnameinfo(
+    sockaddr: tuple[str, int] | tuple[str, int, int, int], flags: int
+) -> tuple[str, str]:
     """Look up a name given a numeric address.
 
     Arguments and return values are identical to :func:`socket.getnameinfo`,
@@ -244,7 +265,7 @@ async def getprotobyname(name):
 ################################################################
 
 
-def from_stdlib_socket(sock):
+def from_stdlib_socket(sock: _stdlib_socket.socket) -> _SocketType:
     """Convert a standard library :class:`socket.socket` object into a Trio
     socket object.
 
@@ -253,7 +274,12 @@ def from_stdlib_socket(sock):
 
 
 @_wraps(_stdlib_socket.fromfd, assigned=(), updated=())
-def fromfd(fd, family, type, proto=0):
+def fromfd(
+    fd: SupportsIndex,
+    family: _stdlib_socket.AddressFamily | int = _stdlib_socket.AF_INET,
+    type: _stdlib_socket.SocketKind | int = _stdlib_socket.SOCK_STREAM,
+    proto: int = 0,
+) -> _SocketType:
     """Like :func:`socket.fromfd`, but returns a Trio socket object."""
     family, type, proto = _sniff_sockopts_for_fileno(family, type, proto, fd)
     return from_stdlib_socket(_stdlib_socket.fromfd(fd, family, type, proto))
@@ -280,11 +306,11 @@ def socketpair(*args, **kwargs):
 
 @_wraps(_stdlib_socket.socket, assigned=(), updated=())
 def socket(
-    family=_stdlib_socket.AF_INET,
-    type=_stdlib_socket.SOCK_STREAM,
-    proto=0,
-    fileno=None,
-):
+    family: _stdlib_socket.AddressFamily | int = _stdlib_socket.AF_INET,
+    type: _stdlib_socket.SocketKind | int = _stdlib_socket.SOCK_STREAM,
+    proto: int = 0,
+    fileno: int | None = None,
+) -> _SocketType:
     """Create a new Trio socket, like :class:`socket.socket`.
 
     This function's behavior can be customized using
@@ -483,7 +509,7 @@ class _SocketType(SocketType):
         "share",
     }
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> Any:
         if name in self._forward:
             return getattr(self._sock, name)
         raise AttributeError(name)
@@ -619,9 +645,11 @@ class _SocketType(SocketType):
     # accept
     ################################################################
 
-    _accept = _make_simple_sock_method_wrapper("accept", _core.wait_readable)
+    _accept: Callable[
+        [], Awaitable[tuple[_stdlib_socket.socket, object]]
+    ] = _make_simple_sock_method_wrapper("accept", _core.wait_readable)
 
-    async def accept(self):
+    async def accept(self) -> tuple[_SocketType, object]:
         """Like :meth:`socket.socket.accept`, but async."""
         sock, addr = await self._accept()
         return from_stdlib_socket(sock), addr
@@ -630,7 +658,8 @@ class _SocketType(SocketType):
     # connect
     ################################################################
 
-    async def connect(self, address):
+    # TODO: typing addresses is ... a pain
+    async def connect(self, address: str) -> None:
         # nonblocking connect is weird -- you call it to start things
         # off, then the socket becomes writable as a completion
         # notification. This means it isn't really cancellable... we close the

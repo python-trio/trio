@@ -1,9 +1,14 @@
+from __future__ import annotations
+
 import sys
 import warnings
 from functools import wraps
 from types import ModuleType
+from typing import Callable, TypeVar
 
 import attr
+
+T = TypeVar("T")
 
 
 # We want our warnings to be visible by default (at least for now), but we
@@ -53,7 +58,9 @@ def warn_deprecated(thing, version, *, issue, instead, stacklevel=2):
 
 # @deprecated("0.2.0", issue=..., instead=...)
 # def ...
-def deprecated(version, *, thing=None, issue, instead):
+def deprecated(
+    version: str, *, thing: str | None = None, issue: int, instead: str
+) -> Callable[[T], T]:
     def do_wrap(fn):
         nonlocal thing
 
@@ -124,10 +131,10 @@ class _ModuleWithDeprecations(ModuleType):
         raise AttributeError(msg.format(self.__name__, name))
 
 
-def enable_attribute_deprecations(module_name):
+def enable_attribute_deprecations(module_name: str) -> None:
     module = sys.modules[module_name]
     module.__class__ = _ModuleWithDeprecations
     # Make sure that this is always defined so that
     # _ModuleWithDeprecations.__getattr__ can access it without jumping
     # through hoops or risking infinite recursion.
-    module.__deprecated_attributes__ = {}
+    module.__deprecated_attributes__ = {}  # type: ignore[attr-defined]

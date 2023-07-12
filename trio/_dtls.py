@@ -16,9 +16,10 @@ import struct
 import warnings
 import weakref
 from itertools import count
-from typing import TYPE_CHECKING, Awaitable, Callable
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Iterable, Iterator, cast
 
 import attr
+from OpenSSL import SSL
 
 import trio
 from trio._util import Final, NoPublicConstructor
@@ -31,24 +32,26 @@ if TYPE_CHECKING:
 
     from trio._socket import _SocketType
 
+    from ._core._run import _TaskStatus
+
 MAX_UDP_PACKET_SIZE = 65527
 
 
-def packet_header_overhead(sock):
+def packet_header_overhead(sock: _SocketType) -> int:
     if sock.family == trio.socket.AF_INET:
         return 28
     else:
         return 48
 
 
-def worst_case_mtu(sock):
+def worst_case_mtu(sock: _SocketType) -> int:
     if sock.family == trio.socket.AF_INET:
         return 576 - packet_header_overhead(sock)
     else:
         return 1280 - packet_header_overhead(sock)
 
 
-def best_guess_mtu(sock):
+def best_guess_mtu(sock: _SocketType) -> int:
     return 1500 - packet_header_overhead(sock)
 
 
@@ -110,14 +113,14 @@ class BadPacket(Exception):
 # ChangeCipherSpec is used during the handshake but has its own ContentType.
 #
 # Cannot fail.
-def part_of_handshake_untrusted(packet):
+def part_of_handshake_untrusted(packet: bytes) -> bool:
     # If the packet is too short, then slicing will successfully return a
     # short string, which will necessarily fail to match.
     return packet[3:5] == b"\x00\x00"
 
 
 # Cannot fail
-def is_client_hello_untrusted(packet):
+def is_client_hello_untrusted(packet: bytes) -> bool:
     try:
         return (
             packet[0] == ContentType.handshake
@@ -152,7 +155,7 @@ class Record:
     payload: bytes = attr.ib(repr=to_hex)
 
 
-def records_untrusted(packet):
+def records_untrusted(packet: bytes) -> Iterator[Record]:
     i = 0
     while i < len(packet):
         try:
@@ -170,7 +173,7 @@ def records_untrusted(packet):
         yield Record(ct, version, epoch_seqno, payload)
 
 
-def encode_record(record):
+def encode_record(record: Record) -> bytes:
     header = RECORD_HEADER.pack(
         record.content_type,
         record.version,
@@ -199,7 +202,7 @@ class HandshakeFragment:
     frag: bytes = attr.ib(repr=to_hex)
 
 
-def decode_handshake_fragment_untrusted(payload):
+def decode_handshake_fragment_untrusted(payload: bytes) -> HandshakeFragment:
     # Raises BadPacket if decoding fails
     try:
         (
@@ -229,7 +232,7 @@ def decode_handshake_fragment_untrusted(payload):
     )
 
 
-def encode_handshake_fragment(hsf):
+def encode_handshake_fragment(hsf: HandshakeFragment) -> bytes:
     hs_header = HANDSHAKE_MESSAGE_HEADER.pack(
         hsf.msg_type,
         hsf.msg_len.to_bytes(3, "big"),
@@ -240,7 +243,7 @@ def encode_handshake_fragment(hsf):
     return hs_header + hsf.frag
 
 
-def decode_client_hello_untrusted(packet):
+def decode_client_hello_untrusted(packet: bytes) -> tuple[int, bytes, bytes]:
     # Raises BadPacket if parsing fails
     # Returns (record epoch_seqno, cookie from the packet, data that should be
     # hashed into cookie)
@@ -340,8 +343,12 @@ class OpaqueHandshakeMessage:
 # reconstructs the handshake messages inside it, so that we can repack them
 # into records while retransmitting. So the data ought to be well-behaved --
 # it's not coming from the network.
-def decode_volley_trusted(volley):
-    messages = []
+def decode_volley_trusted(
+    volley: bytes,
+) -> list[HandshakeMessage | OpaqueHandshakeMessage | PseudoHandshakeMessage]:
+    messages: list[
+        HandshakeMessage | OpaqueHandshakeMessage | PseudoHandshakeMessage
+    ] = []
     messages_by_seq = {}
     for record in records_untrusted(volley):
         # ChangeCipherSpec isn't a handshake message, so it can't be fragmented.
@@ -388,10 +395,16 @@ class RecordEncoder:
     def __init__(self):
         self._record_seq = count()
 
-    def set_first_record_number(self, n):
+    def set_first_record_number(self, n: int) -> None:
         self._record_seq = count(n)
 
-    def encode_volley(self, messages, mtu):
+    def encode_volley(
+        self,
+        messages: Iterable[
+            HandshakeMessage | OpaqueHandshakeMessage | PseudoHandshakeMessage
+        ],
+        mtu: int,
+    ) -> list[bytearray]:
         packets = []
         packet = bytearray()
         for message in messages:
@@ -523,13 +536,13 @@ SALT_BYTES = 8
 COOKIE_LENGTH = 32
 
 
-def _current_cookie_tick():
+def _current_cookie_tick() -> int:
     return int(trio.current_time() / COOKIE_REFRESH_INTERVAL)
 
 
 # Simple deterministic and invertible serializer -- i.e., a useful tool for converting
 # structured data into something we can cryptographically sign.
-def _signable(*fields):
+def _signable(*fields: bytes) -> bytes:
     out = []
     for field in fields:
         out.append(struct.pack("!Q", len(field)))
@@ -618,7 +631,7 @@ class _Queue:
         self.s, self.r = trio.open_memory_channel(incoming_packets_buffer)
 
 
-def _read_loop(read_fn):
+def _read_loop(read_fn: Callable[[int], bytes]) -> bytes:
     chunks = []
     while True:
         try:
@@ -778,7 +791,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
 
     """
 
-    def __init__(self, endpoint, peer_address, ctx):
+    def __init__(self, endpoint: DTLSEndpoint, peer_address: str, ctx: Context):
         self.endpoint = endpoint
         self.peer_address = peer_address
         self._packets_dropped_in_trio = 0
@@ -789,9 +802,9 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         # OP_NO_RENEGOTIATION disables renegotiation, which is too complex for us to
         # support and isn't useful anyway -- especially for DTLS where it's equivalent
         # to just performing a new handshake.
-        ctx.set_options(SSL.OP_NO_QUERY_MTU | SSL.OP_NO_RENEGOTIATION)
+        ctx.set_options(SSL.OP_NO_QUERY_MTU | SSL.OP_NO_RENEGOTIATION)  # type: ignore[attr-defined]
         self._ssl = SSL.Connection(ctx)
-        self._handshake_mtu = None
+        self._handshake_mtu: int | None = None
         # This calls self._ssl.set_ciphertext_mtu, which is important, because if you
         # don't call it then openssl doesn't work.
         self.set_ciphertext_mtu(best_guess_mtu(self.endpoint.socket))
@@ -841,7 +854,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         # ClosedResourceError
         self._q.r.close()
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(
@@ -852,7 +865,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
     ) -> None:
         return self.close()
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         """Close this connection, but asynchronously.
 
         This is included to satisfy the `trio.abc.Channel` contract. It's
@@ -873,7 +886,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
     async def _resend_final_volley(self):
         await self._send_volley(self._final_volley)
 
-    async def do_handshake(self, *, initial_retransmit_timeout=1.0):
+    async def do_handshake(self, *, initial_retransmit_timeout: float = 1.0) -> None:
         """Perform the handshake.
 
         Calling this is optional – if you don't, then it will be automatically called
@@ -906,17 +919,23 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                 return
 
             timeout = initial_retransmit_timeout
-            volley_messages = []
+            volley_messages: list[
+                HandshakeMessage | OpaqueHandshakeMessage | PseudoHandshakeMessage
+            ] = []
             volley_failed_sends = 0
 
-            def read_volley():
+            def read_volley() -> (
+                list[HandshakeMessage | OpaqueHandshakeMessage | PseudoHandshakeMessage]
+            ):
                 volley_bytes = _read_loop(self._ssl.bio_read)
                 new_volley_messages = decode_volley_trusted(volley_bytes)
                 if (
                     new_volley_messages
                     and volley_messages
                     and isinstance(new_volley_messages[0], HandshakeMessage)
-                    and new_volley_messages[0].msg_seq == volley_messages[0].msg_seq
+                    # TODO: add isinstance or do a cast?
+                    and new_volley_messages[0].msg_seq
+                    == cast(HandshakeMessage, volley_messages[0]).msg_seq
                 ):
                     # openssl decided to retransmit; discard because we handle
                     # retransmits ourselves
@@ -1000,10 +1019,13 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                         # PMTU estimate is wrong? Let's try dropping it to the minimum
                         # and hope that helps.
                         self._handshake_mtu = min(
-                            self._handshake_mtu, worst_case_mtu(self.endpoint.socket)
+                            self._handshake_mtu or 0,
+                            worst_case_mtu(self.endpoint.socket),
                         )
 
-    async def send(self, data):
+    async def send(
+        self, data: bytes
+    ) -> None:  # or str? SendChannel defines it as bytes
         """Send a packet of data, securely."""
 
         if self._closed:
@@ -1019,7 +1041,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                 _read_loop(self._ssl.bio_read), self.peer_address
             )
 
-    async def receive(self):
+    async def receive(self) -> bytes:  # or str?
         """Fetch the next packet of data from this connection's peer, waiting if
         necessary.
 
@@ -1045,7 +1067,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
             if cleartext:
                 return cleartext
 
-    def set_ciphertext_mtu(self, new_mtu):
+    def set_ciphertext_mtu(self, new_mtu: int) -> None:
         """Tells Trio the `largest amount of data that can be sent in a single packet to
         this peer <https://en.wikipedia.org/wiki/Maximum_transmission_unit>`__.
 
@@ -1080,7 +1102,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         self._handshake_mtu = new_mtu
         self._ssl.set_ciphertext_mtu(new_mtu)
 
-    def get_cleartext_mtu(self):
+    def get_cleartext_mtu(self) -> int:
         """Returns the largest number of bytes that you can pass in a single call to
         `send` while still fitting within the network-level MTU.
 
@@ -1089,9 +1111,9 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         """
         if not self._did_handshake:
             raise trio.NeedHandshakeError
-        return self._ssl.get_cleartext_mtu()
+        return self._ssl.get_cleartext_mtu()  # type: ignore[no-any-return]
 
-    def statistics(self):
+    def statistics(self) -> DTLSChannelStatistics:
         """Returns an object with statistics about this connection.
 
         Currently this has only one attribute:
@@ -1142,7 +1164,7 @@ class DTLSEndpoint(metaclass=Final):
         if socket.type != trio.socket.SOCK_DGRAM:
             raise ValueError("DTLS requires a SOCK_DGRAM socket")
         self._initialized = True
-        self.socket = socket
+        self.socket: _SocketType = socket
 
         self.incoming_packets_buffer = incoming_packets_buffer
         self._token = trio.lowlevel.current_trio_token()
@@ -1212,12 +1234,12 @@ class DTLSEndpoint(metaclass=Final):
         if self._closed:
             raise trio.ClosedResourceError
 
-    async def serve(  # type: ignore[no-untyped-def]
+    async def serve(
         self,
         ssl_context: Context,
         async_fn: Callable[..., Awaitable],
-        *args,
-        task_status=trio.TASK_STATUS_IGNORED,  # type: ignore[has-type] # ???
+        *args: Any,
+        task_status: _TaskStatus = trio.TASK_STATUS_IGNORED,  # type: ignore[has-type] # ???
     ) -> None:
         """Listen for incoming connections, and spawn a handler for each using an
         internal nursery.
@@ -1272,7 +1294,7 @@ class DTLSEndpoint(metaclass=Final):
         finally:
             self._listening_context = None
 
-    def connect(self, address, ssl_context):
+    def connect(self, address: tuple[str, int], ssl_context: Context) -> DTLSChannel:
         """Initiate an outgoing DTLS connection.
 
         Notice that this is a synchronous method. That's because it doesn't actually

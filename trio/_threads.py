@@ -27,7 +27,7 @@ from ._util import coroutine_or_error
 # Global due to Threading API, thread local storage for trio token
 TOKEN_LOCAL = threading.local()
 
-_limiter_local = RunVar("limiter")
+_limiter_local: RunVar[CapacityLimiter] = RunVar("limiter")
 # I pulled this number out of the air; it isn't based on anything. Probably we
 # should make some kind of measurements to pick a good value.
 DEFAULT_LIMIT = 40

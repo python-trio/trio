@@ -789,10 +789,10 @@ class _TaskStatus:
     _called_started = attr.ib(default=False)
     _value = attr.ib(default=None)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Task status object at {id(self):#x}>"
 
-    def started(self, value=None):
+    def started(self, value: Any = None) -> None:
         if self._called_started:
             raise RuntimeError("called 'started' twice on the same task status")
         self._called_started = True

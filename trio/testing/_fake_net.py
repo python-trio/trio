@@ -19,6 +19,7 @@ import trio
 from trio._util import Final, NoPublicConstructor
 
 if TYPE_CHECKING:
+    import socket
     from types import TracebackType
 
 IPAddress = Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
@@ -113,11 +114,27 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
     fake_net: "FakeNet"
 
     async def getaddrinfo(
-        self, host: str, port: Union[int, str], family=0, type=0, proto=0, flags=0
-    ):
+        self,
+        host: bytes | str | None,
+        port: bytes | str | int | None,
+        family: int = 0,
+        type: int = 0,
+        proto: int = 0,
+        flags: int = 0,
+    ) -> list[
+        tuple[
+            socket.AddressFamily,
+            socket.SocketKind,
+            int,
+            str,
+            tuple[str, int] | tuple[str, int, int, int],
+        ]
+    ]:
         raise NotImplementedError("FakeNet doesn't do fake DNS yet")
 
-    async def getnameinfo(self, sockaddr, flags: int):
+    async def getnameinfo(
+        self, sockaddr: tuple[str, int] | tuple[str, int, int, int], flags: int
+    ) -> tuple[str, str]:
         raise NotImplementedError("FakeNet doesn't do fake DNS yet")
 
 
