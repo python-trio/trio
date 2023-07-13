@@ -798,6 +798,19 @@ async def dtls_receive_loop(
 
 @attr.frozen
 class DTLSChannelStatistics:
+    """An object with statistics about this connection.
+
+    Currently this has only one attribute:
+
+    - ``incoming_packets_dropped_in_trio`` (``int``): Gives a count of the number of
+      incoming packets from this peer that Trio successfully received from the
+      network, but then got dropped because the internal channel buffer was full. If
+      this is non-zero, then you might want to call ``receive`` more often, or use a
+      larger ``incoming_packets_buffer``, or just not worry about it because your
+      UDP-based protocol should be able to handle the occasional lost packet, right?
+
+    """
+
     incoming_packets_dropped_in_trio: int
 
 
@@ -1263,7 +1276,7 @@ class DTLSEndpoint(metaclass=Final):
         ssl_context: Context,
         async_fn: Callable[[DTLSChannel], Awaitable],
         *args: Any,
-        task_status: _TaskStatus = trio.TASK_STATUS_IGNORED,
+        task_status: _TaskStatus = trio.TASK_STATUS_IGNORED,  # type: ignore[has-type]
     ) -> None:
         """Listen for incoming connections, and spawn a handler for each using an
         internal nursery.
