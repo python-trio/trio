@@ -63,6 +63,9 @@ nitpick_ignore = [
     ("py:obj", "trio._abc.T"),
     ("py:obj", "trio._abc.T_resource"),
     ("py:class", "types.FrameType"),
+    # these are not defined in https://docs.python.org/3/objects.inv
+    ("py:class", "socket.AddressFamily"),
+    ("py:class", "socket.SocketKind"),
 ]
 autodoc_inherit_docstrings = False
 default_role = "obj"
