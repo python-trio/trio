@@ -1,19 +1,19 @@
 from __future__ import annotations
 
+import socket
 from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING, Generic, TypeVar
 
 import trio
 
 if TYPE_CHECKING:
-    import socket
     from types import TracebackType
 
     from typing_extensions import Self
 
-    from trio.lowlevel import Task
-
+    # both of these introduce circular imports if outside a TYPE_CHECKING guard
     from ._socket import _SocketType
+    from .lowlevel import Task
 
 
 # We use ABCMeta instead of ABC, plus set __slots__=(), so as not to force a
