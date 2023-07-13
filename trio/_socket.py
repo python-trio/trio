@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import select
 import socket as _stdlib_socket
@@ -10,6 +12,12 @@ import idna as _idna
 import trio
 
 from . import _core
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+    from types import TracebackType
+
+    from typing_extensions import Self
 
 
 # Usage:
@@ -33,8 +41,13 @@ class _try_sync:
     async def __aenter__(self):
         await trio.lowlevel.checkpoint_if_cancelled()
 
-    async def __aexit__(self, etype, value, tb):
-        if value is not None and self._is_blocking_io_error(value):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> bool:
+        if exc_value is not None and self._is_blocking_io_error(exc_value):
             # Discard the exception and fall through to the code below the
             # block
             return True
@@ -430,7 +443,7 @@ class SocketType:
 
 
 class _SocketType(SocketType):
-    def __init__(self, sock):
+    def __init__(self, sock: _stdlib_socket.socket):
         if type(sock) is not _stdlib_socket.socket:
             # For example, ssl.SSLSocket subclasses socket.socket, but we
             # certainly don't want to blindly wrap one of those.
@@ -473,44 +486,49 @@ class _SocketType(SocketType):
             return getattr(self._sock, name)
         raise AttributeError(name)
 
-    def __dir__(self):
-        return super().__dir__() + list(self._forward)
+    def __dir__(self) -> Iterable[str]:
+        return [*super().__dir__(), *self._forward]
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, *exc_info):
-        return self._sock.__exit__(*exc_info)
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        return self._sock.__exit__(exc_type, exc_value, traceback)
 
     @property
-    def family(self):
+    def family(self) -> _stdlib_socket.AddressFamily:
         return self._sock.family
 
     @property
-    def type(self):
+    def type(self) -> _stdlib_socket.SocketKind:
         return self._sock.type
 
     @property
-    def proto(self):
+    def proto(self) -> int:
         return self._sock.proto
 
     @property
-    def did_shutdown_SHUT_WR(self):
+    def did_shutdown_SHUT_WR(self) -> bool:
         return self._did_shutdown_SHUT_WR
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return repr(self._sock).replace("socket.socket", "trio.socket.socket")
 
-    def dup(self):
+    def dup(self) -> _SocketType:
         """Same as :meth:`socket.socket.dup`."""
         return _SocketType(self._sock.dup())
 
-    def close(self):
+    def close(self) -> None:
         if self._sock.fileno() != -1:
             trio.lowlevel.notify_closing(self._sock)
             self._sock.close()
 
-    async def bind(self, address):
+    async def bind(self, address: tuple[object, ...] | str | bytes) -> None:
         address = await self._resolve_address_nocp(address, local=True)
         if (
             hasattr(_stdlib_socket, "AF_UNIX")
@@ -519,7 +537,8 @@ class _SocketType(SocketType):
         ):
             # Use a thread for the filesystem traversal (unless it's an
             # abstract domain socket)
-            return await trio.to_thread.run_sync(self._sock.bind, address)
+            # remove the `type: ignore` when run.sync is typed.
+            return await trio.to_thread.run_sync(self._sock.bind, address)  # type: ignore[no-any-return]
         else:
             # POSIX actually says that bind can return EWOULDBLOCK and
             # complete asynchronously, like connect. But in practice AFAICT
@@ -528,14 +547,14 @@ class _SocketType(SocketType):
             await trio.lowlevel.checkpoint()
             return self._sock.bind(address)
 
-    def shutdown(self, flag):
+    def shutdown(self, flag: int) -> None:
         # no need to worry about return value b/c always returns None:
         self._sock.shutdown(flag)
         # only do this if the call succeeded:
         if flag in [_stdlib_socket.SHUT_WR, _stdlib_socket.SHUT_RDWR]:
             self._did_shutdown_SHUT_WR = True
 
-    def is_readable(self):
+    def is_readable(self) -> bool:
         # use select.select on Windows, and select.poll everywhere else
         if sys.platform == "win32":
             rready, _, _ = select.select([self._sock], [], [], 0)
@@ -544,7 +563,7 @@ class _SocketType(SocketType):
         p.register(self._sock, select.POLLIN)
         return bool(p.poll(0))
 
-    async def wait_writable(self):
+    async def wait_writable(self) -> None:
         await _core.wait_writable(self._sock)
 
     async def _resolve_address_nocp(self, address, *, local):
@@ -684,7 +703,13 @@ class _SocketType(SocketType):
     # recv
     ################################################################
 
-    recv = _make_simple_sock_method_wrapper("recv", _core.wait_readable)
+    if TYPE_CHECKING:
+
+        async def recv(self, buffersize: int, flags: int = 0) -> bytes:
+            ...
+
+    else:
+        recv = _make_simple_sock_method_wrapper("recv", _core.wait_readable)
 
     ################################################################
     # recv_into

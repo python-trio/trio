@@ -11,6 +11,7 @@ import typing as _t
 from ._core import (
     Abort as Abort,
     ParkingLot as ParkingLot,
+    ParkingLotStatistics as ParkingLotStatistics,
     RaiseCancelT as RaiseCancelT,
     RunVar as RunVar,
     Task as Task,

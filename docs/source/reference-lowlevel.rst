@@ -378,6 +378,8 @@ Wait queue abstraction
    :members:
    :undoc-members:
 
+.. autoclass:: ParkingLotStatistics
+   :members:
 
 Low-level checkpoint functions
 ------------------------------

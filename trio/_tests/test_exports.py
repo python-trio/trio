@@ -492,4 +492,8 @@ def test_classes_are_final():
                 continue
             # ... insert other special cases here ...
 
+            # don't care about the *Statistics classes
+            if name.endswith("Statistics"):
+                continue
+
             assert isinstance(class_, _util.Final)

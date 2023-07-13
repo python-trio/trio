@@ -10,7 +10,7 @@ import sys
 import threading
 import warnings
 from collections import deque
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Coroutine, Iterator
 from contextlib import AbstractAsyncContextManager, contextmanager
 from contextvars import copy_context
 from heapq import heapify, heappop, heappush
@@ -45,7 +45,11 @@ from ._traps import (
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
 
+from types import FrameType
+
 if TYPE_CHECKING:
+    import contextvars
+
     # An unfortunate name collision here with trio._util.Final
     from typing_extensions import Final as FinalT
 
@@ -272,7 +276,7 @@ class CancelStatus:
     # Our associated cancel scope. Can be any object with attributes
     # `deadline`, `shield`, and `cancel_called`, but in current usage
     # is always a CancelScope object. Must not be None.
-    _scope = attr.ib()
+    _scope: CancelScope = attr.ib()
 
     # True iff the tasks in self._tasks should receive cancellations
     # when they checkpoint. Always True when scope.cancel_called is True;
@@ -282,31 +286,31 @@ class CancelStatus:
     # effectively cancelled due to the cancel scope two levels out
     # becoming cancelled, but then the cancel scope one level out
     # becomes shielded so we're not effectively cancelled anymore.
-    effectively_cancelled = attr.ib(default=False)
+    effectively_cancelled: bool = attr.ib(default=False)
 
     # The CancelStatus whose cancellations can propagate to us; we
     # become effectively cancelled when they do, unless scope.shield
     # is True.  May be None (for the outermost CancelStatus in a call
     # to trio.run(), briefly during TaskStatus.started(), or during
     # recovery from mis-nesting of cancel scopes).
-    _parent = attr.ib(default=None, repr=False)
+    _parent: CancelStatus | None = attr.ib(default=None, repr=False)
 
     # All of the CancelStatuses that have this CancelStatus as their parent.
-    _children = attr.ib(factory=set, init=False, repr=False)
+    _children: set[CancelStatus] = attr.ib(factory=set, init=False, repr=False)
 
     # Tasks whose cancellation state is currently tied directly to
     # the cancellation state of this CancelStatus object. Don't modify
     # this directly; instead, use Task._activate_cancel_status().
     # Invariant: all(task._cancel_status is self for task in self._tasks)
-    _tasks = attr.ib(factory=set, init=False, repr=False)
+    _tasks: set[Task] = attr.ib(factory=set, init=False, repr=False)
 
     # Set to True on still-active cancel statuses that are children
     # of a cancel status that's been closed. This is used to permit
     # recovery from mis-nested cancel scopes (well, at least enough
     # recovery to show a useful traceback).
-    abandoned_by_misnesting = attr.ib(default=False, init=False, repr=False)
+    abandoned_by_misnesting: bool = attr.ib(default=False, init=False, repr=False)
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         if self._parent is not None:
             self._parent._children.add(self)
             self.recalculate()
@@ -314,11 +318,11 @@ class CancelStatus:
     # parent/children/tasks accessors are used by TaskStatus.started()
 
     @property
-    def parent(self):
+    def parent(self) -> CancelStatus | None:
         return self._parent
 
     @parent.setter
-    def parent(self, parent):
+    def parent(self, parent: CancelStatus) -> None:
         if self._parent is not None:
             self._parent._children.remove(self)
         self._parent = parent
@@ -327,14 +331,14 @@ class CancelStatus:
             self.recalculate()
 
     @property
-    def children(self):
+    def children(self) -> frozenset[CancelStatus]:
         return frozenset(self._children)
 
     @property
-    def tasks(self):
+    def tasks(self) -> frozenset[Task]:
         return frozenset(self._tasks)
 
-    def encloses(self, other):
+    def encloses(self, other: CancelStatus | None) -> bool:
         """Returns true if this cancel status is a direct or indirect
         parent of cancel status *other*, or if *other* is *self*.
         """
@@ -344,7 +348,7 @@ class CancelStatus:
             other = other.parent
         return False
 
-    def close(self):
+    def close(self) -> None:
         self.parent = None  # now we're not a child of self.parent anymore
         if self._tasks or self._children:
             # Cancel scopes weren't exited in opposite order of being
@@ -404,7 +408,7 @@ class CancelStatus:
         for child in self._children:
             child._mark_abandoned()
 
-    def effective_deadline(self):
+    def effective_deadline(self) -> float:
         if self.effectively_cancelled:
             return -inf
         if self._parent is None or self._scope.shield:
@@ -852,10 +856,10 @@ class NurseryManager:
 
     """
 
-    strict_exception_groups = attr.ib(default=False)
+    strict_exception_groups: bool = attr.ib(default=False)
 
     @enable_ki_protection
-    async def __aenter__(self):
+    async def __aenter__(self) -> Nursery:
         self._scope = CancelScope()
         self._scope.__enter__()
         self._nursery = Nursery._create(
@@ -864,7 +868,12 @@ class NurseryManager:
         return self._nursery
 
     @enable_ki_protection
-    async def __aexit__(self, etype, exc, tb):
+    async def __aexit__(
+        self,
+        etype: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> bool:
         new_exc = await self._nursery._nested_child_finished(exc)
         # Tracebacks show the 'raise' line below out of context, so let's give
         # this variable a name that makes sense out of context.
@@ -887,13 +896,21 @@ class NurseryManager:
                 # see test_simple_cancel_scope_usage_doesnt_create_cyclic_garbage
                 del _, combined_error_from_nursery, value, new_exc
 
-    def __enter__(self):
-        raise RuntimeError(
-            "use 'async with open_nursery(...)', not 'with open_nursery(...)'"
-        )
+    # make sure these raise errors in static analysis if called
+    if not TYPE_CHECKING:
 
-    def __exit__(self):  # pragma: no cover
-        assert False, """Never called, but should be defined"""
+        def __enter__(self) -> NoReturn:
+            raise RuntimeError(
+                "use 'async with open_nursery(...)', not 'with open_nursery(...)'"
+            )
+
+        def __exit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_value: BaseException | None,
+            traceback: TracebackType | None,
+        ) -> NoReturn:  # pragma: no cover
+            raise AssertionError("Never called, but should be defined")
 
 
 def open_nursery(
@@ -939,7 +956,12 @@ class Nursery(metaclass=NoPublicConstructor):
             in response to some external event.
     """
 
-    def __init__(self, parent_task, cancel_scope, strict_exception_groups):
+    def __init__(
+        self,
+        parent_task: Task,
+        cancel_scope: CancelScope,
+        strict_exception_groups: bool,
+    ):
         self._parent_task = parent_task
         self._strict_exception_groups = strict_exception_groups
         parent_task._child_nurseries.append(self)
@@ -950,8 +972,8 @@ class Nursery(metaclass=NoPublicConstructor):
         # children.
         self.cancel_scope = cancel_scope
         assert self.cancel_scope._cancel_status is self._cancel_status
-        self._children = set()
-        self._pending_excs = []
+        self._children: set[Task] = set()
+        self._pending_excs: list[BaseException] = []
         # The "nested child" is how this code refers to the contents of the
         # nursery's 'async with' block, which acts like a child Task in all
         # the ways we can make it.
@@ -961,17 +983,17 @@ class Nursery(metaclass=NoPublicConstructor):
         self._closed = False
 
     @property
-    def child_tasks(self):
+    def child_tasks(self) -> frozenset[Task]:
         """(`frozenset`): Contains all the child :class:`~trio.lowlevel.Task`
         objects which are still running."""
         return frozenset(self._children)
 
     @property
-    def parent_task(self):
+    def parent_task(self) -> Task:
         "(`~trio.lowlevel.Task`):  The Task that opened this nursery."
         return self._parent_task
 
-    def _add_exc(self, exc):
+    def _add_exc(self, exc: BaseException) -> None:
         self._pending_excs.append(exc)
         self.cancel_scope.cancel()
 
@@ -1133,7 +1155,7 @@ class Nursery(metaclass=NoPublicConstructor):
             self._pending_starts -= 1
             self._check_nursery_closed()
 
-    def __del__(self):
+    def __del__(self) -> None:
         assert not self._children
 
 
@@ -1144,12 +1166,11 @@ class Nursery(metaclass=NoPublicConstructor):
 
 @attr.s(eq=False, hash=False, repr=False, slots=True)
 class Task(metaclass=NoPublicConstructor):
-    _parent_nursery = attr.ib()
-    coro = attr.ib()
+    _parent_nursery: Nursery | None = attr.ib()
+    coro: Coroutine[Any, Outcome[object], Any] = attr.ib()
     _runner = attr.ib()
-    name = attr.ib()
-    # PEP 567 contextvars context
-    context = attr.ib()
+    name: str = attr.ib()
+    context: contextvars.Context = attr.ib()
     _counter: int = attr.ib(init=False, factory=itertools.count().__next__)
 
     # Invariant:
@@ -1165,24 +1186,26 @@ class Task(metaclass=NoPublicConstructor):
     # Tasks start out unscheduled.
     _next_send_fn = attr.ib(default=None)
     _next_send = attr.ib(default=None)
-    _abort_func = attr.ib(default=None)
-    custom_sleep_data = attr.ib(default=None)
+    _abort_func: Callable[[Callable[[], NoReturn]], Abort] | None = attr.ib(
+        default=None
+    )
+    custom_sleep_data: Any = attr.ib(default=None)
 
     # For introspection and nursery.start()
-    _child_nurseries = attr.ib(factory=list)
-    _eventual_parent_nursery = attr.ib(default=None)
+    _child_nurseries: list[Nursery] = attr.ib(factory=list)
+    _eventual_parent_nursery: Nursery | None = attr.ib(default=None)
 
     # these are counts of how many cancel/schedule points this task has
     # executed, for assert{_no,}_checkpoints
     # XX maybe these should be exposed as part of a statistics() method?
-    _cancel_points = attr.ib(default=0)
-    _schedule_points = attr.ib(default=0)
+    _cancel_points: int = attr.ib(default=0)
+    _schedule_points: int = attr.ib(default=0)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Task {self.name!r} at {id(self):#x}>"
 
     @property
-    def parent_nursery(self):
+    def parent_nursery(self) -> Nursery | None:
         """The nursery this task is inside (or None if this is the "init"
         task).
 
@@ -1193,7 +1216,7 @@ class Task(metaclass=NoPublicConstructor):
         return self._parent_nursery
 
     @property
-    def eventual_parent_nursery(self):
+    def eventual_parent_nursery(self) -> Nursery | None:
         """The nursery this task will be inside after it calls
         ``task_status.started()``.
 
@@ -1205,7 +1228,7 @@ class Task(metaclass=NoPublicConstructor):
         return self._eventual_parent_nursery
 
     @property
-    def child_nurseries(self):
+    def child_nurseries(self) -> list[Nursery]:
         """The nurseries this task contains.
 
         This is a list, with outer nurseries before inner nurseries.
@@ -1213,7 +1236,7 @@ class Task(metaclass=NoPublicConstructor):
         """
         return list(self._child_nurseries)
 
-    def iter_await_frames(self):
+    def iter_await_frames(self) -> Iterator[tuple[FrameType, int]]:
         """Iterates recursively over the coroutine-like objects this
         task is waiting on, yielding the frame and line number at each
         frame.
@@ -1233,7 +1256,8 @@ class Task(metaclass=NoPublicConstructor):
                 print("".join(ss.format()))
 
         """
-        coro = self.coro
+        # ignore static typing as we're doing lots of dynamic introspection
+        coro: Any = self.coro
         while coro is not None:
             if hasattr(coro, "cr_frame"):
                 # A real coroutine
@@ -1266,9 +1290,9 @@ class Task(metaclass=NoPublicConstructor):
 
     # The CancelStatus object that is currently active for this task.
     # Don't change this directly; instead, use _activate_cancel_status().
-    _cancel_status = attr.ib(default=None, repr=False)
+    _cancel_status: CancelStatus = attr.ib(default=None, repr=False)
 
-    def _activate_cancel_status(self, cancel_status):
+    def _activate_cancel_status(self, cancel_status: CancelStatus) -> None:
         if self._cancel_status is not None:
             self._cancel_status._tasks.remove(self)
         self._cancel_status = cancel_status
@@ -1277,11 +1301,16 @@ class Task(metaclass=NoPublicConstructor):
             if self._cancel_status.effectively_cancelled:
                 self._attempt_delivery_of_any_pending_cancel()
 
-    def _attempt_abort(self, raise_cancel):
+    def _attempt_abort(self, raise_cancel: Callable[[], NoReturn]) -> None:
         # Either the abort succeeds, in which case we will reschedule the
         # task, or else it fails, in which case it will worry about
         # rescheduling itself (hopefully eventually calling reraise to raise
         # the given exception, but not necessarily).
+
+        # This is only called by the functions immediately below, which both check
+        # `self.abort_func is not None`.
+        assert self._abort_func is not None, "FATAL INTERNAL ERROR"
+
         success = self._abort_func(raise_cancel)
         if type(success) is not Abort:
             raise TrioInternalError("abort function must return Abort enum")
@@ -1291,7 +1320,7 @@ class Task(metaclass=NoPublicConstructor):
         if success is Abort.SUCCEEDED:
             self._runner.reschedule(self, capture(raise_cancel))
 
-    def _attempt_delivery_of_any_pending_cancel(self):
+    def _attempt_delivery_of_any_pending_cancel(self) -> None:
         if self._abort_func is None:
             return
         if not self._cancel_status.effectively_cancelled:
@@ -1302,12 +1331,12 @@ class Task(metaclass=NoPublicConstructor):
 
         self._attempt_abort(raise_cancel)
 
-    def _attempt_delivery_of_pending_ki(self):
+    def _attempt_delivery_of_pending_ki(self) -> None:
         assert self._runner.ki_pending
         if self._abort_func is None:
             return
 
-        def raise_cancel():
+        def raise_cancel() -> NoReturn:
             self._runner.ki_pending = False
             raise KeyboardInterrupt
 
@@ -2433,17 +2462,17 @@ def unrolled_run(
 
 
 class _TaskStatusIgnored:
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "TASK_STATUS_IGNORED"
 
-    def started(self, value=None):
+    def started(self, value: object = None) -> None:
         pass
 
 
 TASK_STATUS_IGNORED: FinalT = _TaskStatusIgnored()
 
 
-def current_task():
+def current_task() -> Task:
     """Return the :class:`Task` object representing the current task.
 
     Returns:
@@ -2457,7 +2486,7 @@ def current_task():
         raise RuntimeError("must be called from async context") from None
 
 
-def current_effective_deadline():
+def current_effective_deadline() -> float:
     """Returns the current effective deadline for the current task.
 
     This function examines all the cancellation scopes that are currently in
@@ -2484,7 +2513,7 @@ def current_effective_deadline():
     return current_task()._cancel_status.effective_deadline()
 
 
-async def checkpoint():
+async def checkpoint() -> None:
     """A pure :ref:`checkpoint <checkpoints>`.
 
     This checks for cancellation and allows other tasks to be scheduled,
@@ -2511,7 +2540,7 @@ async def checkpoint():
             await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
 
 
-async def checkpoint_if_cancelled():
+async def checkpoint_if_cancelled() -> None:
     """Issue a :ref:`checkpoint <checkpoints>` if the calling context has been
     cancelled.
 
