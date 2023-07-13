@@ -33,7 +33,7 @@ warn_return_any = true
 
 # Avoid subtle backsliding
 #disallow_any_decorated = true
-#disallow_incomplete_defs = true
+disallow_incomplete_defs = true
 #disallow_subclassing_any = true
 
 # Enable gradually / for new modules
@@ -47,6 +47,13 @@ disallow_untyped_defs = false
 [[tool.mypy.overrides]]
 module = "trio._core._run"
 disallow_incomplete_defs = false
+
+[[tool.mypy.overrides]]
+module = [
+    "trio._abc",
+    "trio._dtls"
+]
+disallow_untyped_defs = true
 
 [tool.pytest.ini_options]
 addopts = ["--strict-markers", "--strict-config"]

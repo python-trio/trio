@@ -16,23 +16,34 @@ import struct
 import warnings
 import weakref
 from itertools import count
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Iterable, Iterator, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Awaitable,
+    Callable,
+    Generic,
+    Iterable,
+    Iterator,
+    TypeVar,
+    Union,
+    cast,
+)
 
 import attr
 from OpenSSL import SSL
 
 import trio
-from trio._util import Final, NoPublicConstructor
+
+from ._util import Final, NoPublicConstructor
 
 if TYPE_CHECKING:
     from types import TracebackType
 
     from OpenSSL.SSL import Context
-    from typing_extensions import Self
-
-    from trio._socket import _SocketType
+    from typing_extensions import Self, TypeAlias
 
     from ._core._run import _TaskStatus
+    from ._socket import _SocketType
 
 MAX_UDP_PACKET_SIZE = 65527
 
@@ -339,16 +350,20 @@ class OpaqueHandshakeMessage:
     record: Record
 
 
+# for some reason doesn't work with |
+_AnyHandshakeMessage: TypeAlias = Union[
+    HandshakeMessage, PseudoHandshakeMessage, OpaqueHandshakeMessage
+]
+
+
 # This takes a raw outgoing handshake volley that openssl generated, and
 # reconstructs the handshake messages inside it, so that we can repack them
 # into records while retransmitting. So the data ought to be well-behaved --
 # it's not coming from the network.
 def decode_volley_trusted(
     volley: bytes,
-) -> list[HandshakeMessage | OpaqueHandshakeMessage | PseudoHandshakeMessage]:
-    messages: list[
-        HandshakeMessage | OpaqueHandshakeMessage | PseudoHandshakeMessage
-    ] = []
+) -> list[_AnyHandshakeMessage]:
+    messages: list[_AnyHandshakeMessage] = []
     messages_by_seq = {}
     for record in records_untrusted(volley):
         # ChangeCipherSpec isn't a handshake message, so it can't be fragmented.
@@ -392,7 +407,7 @@ def decode_volley_trusted(
 
 
 class RecordEncoder:
-    def __init__(self):
+    def __init__(self) -> None:
         self._record_seq = count()
 
     def set_first_record_number(self, n: int) -> None:
@@ -400,9 +415,7 @@ class RecordEncoder:
 
     def encode_volley(
         self,
-        messages: Iterable[
-            HandshakeMessage | OpaqueHandshakeMessage | PseudoHandshakeMessage
-        ],
+        messages: Iterable[_AnyHandshakeMessage],
         mtu: int,
     ) -> list[bytearray]:
         packets = []
@@ -550,7 +563,9 @@ def _signable(*fields: bytes) -> bytes:
     return b"".join(out)
 
 
-def _make_cookie(key, salt, tick, address, client_hello_bits):
+def _make_cookie(
+    key: bytes, salt: bytes, tick: int, address: Any, client_hello_bits: bytes
+) -> bytes:
     assert len(salt) == SALT_BYTES
     assert len(key) == KEY_BYTES
 
@@ -566,7 +581,9 @@ def _make_cookie(key, salt, tick, address, client_hello_bits):
     return (salt + hmac.digest(key, signable_data, COOKIE_HASH))[:COOKIE_LENGTH]
 
 
-def valid_cookie(key, cookie, address, client_hello_bits):
+def valid_cookie(
+    key: bytes, cookie: bytes, address: Any, client_hello_bits: bytes
+) -> bool:
     if len(cookie) > SALT_BYTES:
         salt = cookie[:SALT_BYTES]
 
@@ -586,7 +603,9 @@ def valid_cookie(key, cookie, address, client_hello_bits):
         return False
 
 
-def challenge_for(key, address, epoch_seqno, client_hello_bits):
+def challenge_for(
+    key: bytes, address: Any, epoch_seqno: int, client_hello_bits: bytes
+) -> bytes:
     salt = os.urandom(SALT_BYTES)
     tick = _current_cookie_tick()
     cookie = _make_cookie(key, salt, tick, address, client_hello_bits)
@@ -626,9 +645,12 @@ def challenge_for(key, address, epoch_seqno, client_hello_bits):
     return packet
 
 
-class _Queue:
-    def __init__(self, incoming_packets_buffer):
-        self.s, self.r = trio.open_memory_channel(incoming_packets_buffer)
+T = TypeVar("T")
+
+
+class _Queue(Generic[T]):
+    def __init__(self, incoming_packets_buffer: int | float):
+        self.s, self.r = trio.open_memory_channel[T](incoming_packets_buffer)
 
 
 def _read_loop(read_fn: Callable[[int], bytes]) -> bytes:
@@ -642,7 +664,9 @@ def _read_loop(read_fn: Callable[[int], bytes]) -> bytes:
     return b"".join(chunks)
 
 
-async def handle_client_hello_untrusted(endpoint, address, packet):
+async def handle_client_hello_untrusted(
+    endpoint: DTLSEndpoint, address: Any, packet: bytes
+) -> None:
     if endpoint._listening_context is None:
         return
 
@@ -715,7 +739,9 @@ async def handle_client_hello_untrusted(endpoint, address, packet):
         endpoint._incoming_connections_q.s.send_nowait(stream)
 
 
-async def dtls_receive_loop(endpoint_ref, sock):
+async def dtls_receive_loop(
+    endpoint_ref: weakref.ReferenceType[DTLSEndpoint], sock: _SocketType
+) -> None:
     try:
         while True:
             try:
@@ -791,7 +817,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
 
     """
 
-    def __init__(self, endpoint: DTLSEndpoint, peer_address: str, ctx: Context):
+    def __init__(self, endpoint: DTLSEndpoint, peer_address: Any, ctx: Context):
         self.endpoint = endpoint
         self.peer_address = peer_address
         self._packets_dropped_in_trio = 0
@@ -804,23 +830,25 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         # to just performing a new handshake.
         ctx.set_options(SSL.OP_NO_QUERY_MTU | SSL.OP_NO_RENEGOTIATION)  # type: ignore[attr-defined]
         self._ssl = SSL.Connection(ctx)
-        self._handshake_mtu: int | None = None
+        self._handshake_mtu = 0
         # This calls self._ssl.set_ciphertext_mtu, which is important, because if you
         # don't call it then openssl doesn't work.
         self.set_ciphertext_mtu(best_guess_mtu(self.endpoint.socket))
         self._replaced = False
         self._closed = False
-        self._q = _Queue(endpoint.incoming_packets_buffer)
+        self._q = _Queue[bytes](endpoint.incoming_packets_buffer)
         self._handshake_lock = trio.Lock()
-        self._record_encoder = RecordEncoder()
+        self._record_encoder: RecordEncoder = RecordEncoder()
 
-    def _set_replaced(self):
+        self._final_volley: list[_AnyHandshakeMessage] = []
+
+    def _set_replaced(self) -> None:
         self._replaced = True
         # Any packets we already received could maybe possibly still be processed, but
         # there are no more coming. So we close this on the sender side.
         self._q.s.close()
 
-    def _check_replaced(self):
+    def _check_replaced(self) -> None:
         if self._replaced:
             raise trio.BrokenResourceError(
                 "peer tore down this connection to start a new one"
@@ -875,7 +903,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         self.close()
         await trio.lowlevel.checkpoint()
 
-    async def _send_volley(self, volley_messages):
+    async def _send_volley(self, volley_messages: list[_AnyHandshakeMessage]) -> None:
         packets = self._record_encoder.encode_volley(
             volley_messages, self._handshake_mtu
         )
@@ -883,7 +911,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
             async with self.endpoint._send_lock:
                 await self.endpoint.socket.sendto(packet, self.peer_address)
 
-    async def _resend_final_volley(self):
+    async def _resend_final_volley(self) -> None:
         await self._send_volley(self._final_volley)
 
     async def do_handshake(self, *, initial_retransmit_timeout: float = 1.0) -> None:
@@ -919,14 +947,10 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                 return
 
             timeout = initial_retransmit_timeout
-            volley_messages: list[
-                HandshakeMessage | OpaqueHandshakeMessage | PseudoHandshakeMessage
-            ] = []
+            volley_messages: list[_AnyHandshakeMessage] = []
             volley_failed_sends = 0
 
-            def read_volley() -> (
-                list[HandshakeMessage | OpaqueHandshakeMessage | PseudoHandshakeMessage]
-            ):
+            def read_volley() -> list[_AnyHandshakeMessage]:
                 volley_bytes = _read_loop(self._ssl.bio_read)
                 new_volley_messages = decode_volley_trusted(volley_bytes)
                 if (
@@ -1019,7 +1043,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                         # PMTU estimate is wrong? Let's try dropping it to the minimum
                         # and hope that helps.
                         self._handshake_mtu = min(
-                            self._handshake_mtu or 0,
+                            self._handshake_mtu,
                             worst_case_mtu(self.endpoint.socket),
                         )
 
@@ -1175,13 +1199,13 @@ class DTLSEndpoint(metaclass=Final):
         # {remote address: DTLSChannel}
         self._streams: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
         self._listening_context: Context | None = None
-        self._listening_key = None
-        self._incoming_connections_q = _Queue(float("inf"))
+        self._listening_key: bytes | None = None
+        self._incoming_connections_q = _Queue[DTLSChannel](float("inf"))
         self._send_lock = trio.Lock()
         self._closed = False
         self._receive_loop_spawned = False
 
-    def _ensure_receive_loop(self):
+    def _ensure_receive_loop(self) -> None:
         # We have to spawn this lazily, because on Windows it will immediately error out
         # if the socket isn't already bound -- which for clients might not happen until
         # after we send our first packet.
@@ -1237,9 +1261,9 @@ class DTLSEndpoint(metaclass=Final):
     async def serve(
         self,
         ssl_context: Context,
-        async_fn: Callable[..., Awaitable],
+        async_fn: Callable[[DTLSChannel], Awaitable],
         *args: Any,
-        task_status: _TaskStatus = trio.TASK_STATUS_IGNORED,  # type: ignore[has-type] # ???
+        task_status: _TaskStatus = trio.TASK_STATUS_IGNORED,  # type: ignore[has-type]
     ) -> None:
         """Listen for incoming connections, and spawn a handler for each using an
         internal nursery.
@@ -1284,7 +1308,7 @@ class DTLSEndpoint(metaclass=Final):
             self._listening_context = ssl_context
             task_status.started()
 
-            async def handler_wrapper(stream):
+            async def handler_wrapper(stream: DTLSChannel) -> None:
                 with stream:
                     await async_fn(stream, *args)
 
