@@ -782,11 +782,20 @@ class CancelScope(metaclass=Final):
 
 
 class TaskStatus(Protocol[StatusT]):
-    """Defines the behaviour for the parameter passed to Nursery.start() functions."""
+    """The interface provided by :meth:`Nursery.start()` to the spawned task.
+
+    This is provided via the ``task_status`` keyword-only parameter.
+    """
     @overload
     def started(self: TaskStatus[None]) -> None: ...
     @overload
     def started(self, value: StatusT) -> None: ...
+
+    def started(self, value: StatusT | None = None) -> None:
+        """Tasks call this method to indicate that they have initialized.
+
+        See `nursery.start() <trio.Nursery.start>` for more information.
+        """
 
 
 # This code needs to be read alongside the code from Nursery.start to make
@@ -1114,7 +1123,7 @@ class Nursery(metaclass=NoPublicConstructor):
 
         The ``async_fn`` must accept a ``task_status`` keyword argument,
         and it must make sure that it (or someone) eventually calls
-        ``task_status.started()``.
+        :meth:`task_status.started() <TaskStatus.started>`.
 
         The conventional way to define ``async_fn`` is like::
 
@@ -1127,24 +1136,23 @@ class Nursery(metaclass=NoPublicConstructor):
         a do-nothing ``started`` method. This way your function supports
         being called either like ``await nursery.start(async_fn, arg1,
         arg2)`` or directly like ``await async_fn(arg1, arg2)``, and
-        either way it can call ``task_status.started()`` without
-        worrying about which mode it's in. Defining your function like
+        either way it can call :meth:`task_status.started() <TaskStatus.started>`
+        without worrying about which mode it's in. Defining your function like
         this will make it obvious to readers that it supports being used
         in both modes.
 
-        Before the child calls ``task_status.started()``, it's
-        effectively run underneath the call to :meth:`start`: if it
+        Before the child calls :meth:`task_status.started() <TaskStatus.started>`,
+        it's effectively run underneath the call to :meth:`start`: if it
         raises an exception then that exception is reported by
         :meth:`start`, and does *not* propagate out of the nursery. If
         :meth:`start` is cancelled, then the child task is also
         cancelled.
 
-        When the child calls ``task_status.started()``, it's moved out
-        from underneath :meth:`start` and into the given nursery.
+        When the child calls :meth:`task_status.started() <TaskStatus.started>`,
+        it's moved out from underneath :meth:`start` and into the given nursery.
 
-        If the child task passes a value to
-        ``task_status.started(value)``, then :meth:`start` returns this
-        value. Otherwise it returns ``None``.
+        If the child task passes a value to :meth:`task_status.started(value) <TaskStatus.started>`,
+        then :meth:`start` returns this value. Otherwise, it returns ``None``.
         """
         if self._closed:
             raise RuntimeError("Nursery is closed to new arrivals")

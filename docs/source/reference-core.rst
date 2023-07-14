@@ -918,7 +918,11 @@ The nursery API
 .. autoclass:: Nursery()
    :members:
 
+.. autoclass:: TaskStatus(Protocol[StatusT])
+   :members:
+
 .. attribute:: TASK_STATUS_IGNORED
+   :type: TaskStatus
 
    See :meth:`~Nursery.start`.
 
