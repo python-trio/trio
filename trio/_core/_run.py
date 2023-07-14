@@ -1392,7 +1392,7 @@ class GuestState:
     done_callback: Callable = attr.ib()
     unrolled_run_gen = attr.ib()
     _value_factory: Callable[[], Value] = lambda: Value(None)
-    unrolled_run_next_send: Outcome = attr.ib(factory=_value_factory, type=Outcome)
+    unrolled_run_next_send = attr.ib(factory=_value_factory, type=Outcome)
 
     def guest_tick(self):
         try:

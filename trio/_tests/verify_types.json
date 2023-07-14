@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.9020866773675762,
+    "completenessScore": 0.9149277688603531,
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 562,
-      "withUnknownType": 61
+      "withKnownType": 570,
+      "withUnknownType": 53
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -46,19 +46,14 @@
     ],
     "otherSymbolCounts": {
       "withAmbiguousType": 8,
-      "withKnownType": 523,
-      "withUnknownType": 89
+      "withKnownType": 546,
+      "withUnknownType": 67
     },
     "packageName": "trio",
     "symbols": [
-      "trio._abc.SocketFactory.socket",
       "trio._core._entry_queue.TrioToken.run_sync_soon",
       "trio._core._run.Nursery.start",
       "trio._core._run.Nursery.start_soon",
-      "trio._dtls.DTLSChannel.__init__",
-      "trio._dtls.DTLSEndpoint.__init__",
-      "trio._highlevel_socket.SocketListener.__init__",
-      "trio._highlevel_socket.SocketStream.__init__",
       "trio._highlevel_socket.SocketStream.getsockopt",
       "trio._highlevel_socket.SocketStream.send_all",
       "trio._highlevel_socket.SocketStream.setsockopt",
@@ -76,14 +71,6 @@
       "trio._path.Path.__rtruediv__",
       "trio._path.Path.__truediv__",
       "trio._path.Path.open",
-      "trio._socket._SocketType.recv_into",
-      "trio._socket._SocketType.recvfrom",
-      "trio._socket._SocketType.recvfrom_into",
-      "trio._socket._SocketType.recvmsg",
-      "trio._socket._SocketType.recvmsg_into",
-      "trio._socket._SocketType.send",
-      "trio._socket._SocketType.sendmsg",
-      "trio._socket._SocketType.sendto",
       "trio._ssl.SSLListener.__init__",
       "trio._ssl.SSLListener.accept",
       "trio._ssl.SSLListener.aclose",
@@ -141,10 +128,6 @@
       "trio.serve_listeners",
       "trio.serve_ssl_over_tcp",
       "trio.serve_tcp",
-      "trio.socket.from_stdlib_socket",
-      "trio.socket.getprotobyname",
-      "trio.socket.set_custom_socket_factory",
-      "trio.socket.socketpair",
       "trio.testing._memory_streams.MemoryReceiveStream.__init__",
       "trio.testing._memory_streams.MemoryReceiveStream.aclose",
       "trio.testing._memory_streams.MemoryReceiveStream.close",

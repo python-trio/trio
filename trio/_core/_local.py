@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, overload
 
 # Runvar implementations
 import attr
@@ -12,12 +12,16 @@ T = TypeVar("T")
 C = TypeVar("C", bound="_RunVarToken")
 
 
+class NoValue(object):
+    ...
+
+
 @attr.s(eq=False, hash=False, slots=True)
 class _RunVarToken(Generic[T]):
-    _no_value = None
+    _no_value = NoValue()
 
     _var: RunVar[T] = attr.ib()
-    previous_value: T | None = attr.ib(default=_no_value)
+    previous_value: T | NoValue = attr.ib(default=_no_value)
     redeemed: bool = attr.ib(default=False, init=False)
 
     @classmethod
@@ -35,11 +39,19 @@ class RunVar(Generic[T], metaclass=Final):
 
     """
 
-    _NO_DEFAULT = None
+    _NO_DEFAULT = NoValue()
     _name: str = attr.ib()
-    _default: T | None = attr.ib(default=_NO_DEFAULT)
+    _default: T | NoValue = attr.ib(default=_NO_DEFAULT)
 
-    def get(self, default: T | None = _NO_DEFAULT) -> T | None:
+    @overload
+    def get(self, default: T) -> T:
+        ...
+
+    @overload
+    def get(self, default: NoValue = _NO_DEFAULT) -> T | NoValue:
+        ...
+
+    def get(self, default: T | NoValue = _NO_DEFAULT) -> T | NoValue:
         """Gets the value of this :class:`RunVar` for the current run call."""
         try:
             # not typed yet
