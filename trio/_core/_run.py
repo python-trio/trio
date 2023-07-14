@@ -2211,6 +2211,10 @@ def start_guest_run(
                     "Guest runner blocked before system nursery was initialized"
                 )
             )
+        # next_send should be the return value of
+        # IOManager.get_events() if no I/O was waiting, which is
+        # platform-dependent. We don't actually check for I/O during
+        # this init phase because no one should be expecting any yet.
         next_send = 0 if sys.platform == "win32" else ()
     else:  # pragma: no cover
         guest_state.unrolled_run_gen.throw(
