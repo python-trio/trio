@@ -1,19 +1,38 @@
+from __future__ import annotations
+
 import os
 import pathlib
 import sys
 import types
+from collections.abc import Iterable
 from functools import partial, wraps
-from typing import TYPE_CHECKING, Any
+from io import BufferedRandom, BufferedReader, BufferedWriter, FileIO, TextIOWrapper
+from typing import IO, TYPE_CHECKING, Any, BinaryIO, ClassVar, TypeVar, overload
 
 import trio
+from trio._file_io import AsyncIOWrapper as _AsyncIOWrapper
 from trio._util import Final, async_wraps
+
+if TYPE_CHECKING:
+    from _typeshed import (
+        OpenBinaryMode,
+        OpenBinaryModeReading,
+        OpenBinaryModeUpdating,
+        OpenBinaryModeWriting,
+        OpenTextMode,
+    )
+    from typing_extensions import Literal, TypeAlias
+
+T = TypeVar("T")
+StrPath: TypeAlias = "str | os.PathLike[str]"
 
 
 # re-wrap return value from methods that return new instances of pathlib.Path
-def rewrap_path(value):
+def rewrap_path(value: T) -> T | Path:
     if isinstance(value, pathlib.Path):
-        value = Path(value)
-    return value
+        return Path(value)
+    else:
+        return value
 
 
 def _forward_factory(cls, attr_name, attr):
@@ -78,7 +97,15 @@ def classmethod_wrapper_factory(cls, meth_name):
 
 
 class AsyncAutoWrapperType(Final):
-    def __init__(cls, name, bases, attrs):
+    _forwards: type
+    _wraps: type
+    _forward_magic: list[str]
+    _wrap_iter: list[str]
+    _forward: list[str]
+
+    def __init__(
+        cls, name: str, bases: tuple[type, ...], attrs: dict[str, Any]
+    ) -> None:
         super().__init__(name, bases, attrs)
 
         cls._forward = []
@@ -87,7 +114,7 @@ class AsyncAutoWrapperType(Final):
         type(cls).generate_magic(cls, attrs)
         type(cls).generate_iter(cls, attrs)
 
-    def generate_forwards(cls, attrs):
+    def generate_forwards(cls, attrs: dict[str, Any]) -> None:
         # forward functions of _forwards
         for attr_name, attr in cls._forwards.__dict__.items():
             if attr_name.startswith("_") or attr_name in attrs:
@@ -101,7 +128,7 @@ class AsyncAutoWrapperType(Final):
             else:
                 raise TypeError(attr_name, type(attr))
 
-    def generate_wraps(cls, attrs):
+    def generate_wraps(cls, attrs: dict[str, Any]) -> None:
         # generate wrappers for functions of _wraps
         for attr_name, attr in cls._wraps.__dict__.items():
             # .z. exclude cls._wrap_iter
@@ -116,14 +143,14 @@ class AsyncAutoWrapperType(Final):
             else:
                 raise TypeError(attr_name, type(attr))
 
-    def generate_magic(cls, attrs):
+    def generate_magic(cls, attrs: dict[str, Any]) -> None:
         # generate wrappers for magic
         for attr_name in cls._forward_magic:
             attr = getattr(cls._forwards, attr_name)
             wrapper = _forward_magic(cls, attr)
             setattr(cls, attr_name, wrapper)
 
-    def generate_iter(cls, attrs):
+    def generate_iter(cls, attrs: dict[str, Any]) -> None:
         # generate wrappers for methods that return iterators
         for attr_name, attr in cls._wraps.__dict__.items():
             if attr_name in cls._wrap_iter:
@@ -137,9 +164,10 @@ class Path(metaclass=AsyncAutoWrapperType):
 
     """
 
-    _wraps = pathlib.Path
-    _forwards = pathlib.PurePath
-    _forward_magic = [
+    _forward: ClassVar[list[str]]
+    _wraps: ClassVar[type] = pathlib.Path
+    _forwards: ClassVar[type] = pathlib.PurePath
+    _forward_magic: ClassVar[list[str]] = [
         "__str__",
         "__bytes__",
         "__truediv__",
@@ -151,9 +179,9 @@ class Path(metaclass=AsyncAutoWrapperType):
         "__ge__",
         "__hash__",
     ]
-    _wrap_iter = ["glob", "rglob", "iterdir"]
+    _wrap_iter: ClassVar[list[str]] = ["glob", "rglob", "iterdir"]
 
-    def __init__(self, *args):
+    def __init__(self, *args: StrPath) -> None:
         self._wrapped = pathlib.Path(*args)
 
     # type checkers allow accessing any attributes on class instances with `__getattr__`
@@ -167,17 +195,94 @@ class Path(metaclass=AsyncAutoWrapperType):
                 return rewrap_path(value)
             raise AttributeError(name)
 
-    def __dir__(self):
-        return super().__dir__() + self._forward
+    def __dir__(self) -> list[str]:
+        return [*super().__dir__(), *self._forward]
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"trio.Path({repr(str(self))})"
 
-    def __fspath__(self):
+    def __fspath__(self) -> str:
         return os.fspath(self._wrapped)
 
-    @wraps(pathlib.Path.open)
-    async def open(self, *args, **kwargs):
+    @overload
+    def open(
+        self,
+        mode: OpenTextMode = "r",
+        buffering: int = -1,
+        encoding: str | None = None,
+        errors: str | None = None,
+        newline: str | None = None,
+    ) -> _AsyncIOWrapper[TextIOWrapper]:
+        ...
+
+    @overload
+    def open(
+        self,
+        mode: OpenBinaryMode,
+        buffering: Literal[0],
+        encoding: None = None,
+        errors: None = None,
+        newline: None = None,
+    ) -> _AsyncIOWrapper[FileIO]:
+        ...
+
+    @overload
+    def open(
+        self,
+        mode: OpenBinaryModeUpdating,
+        buffering: Literal[-1, 1] = -1,
+        encoding: None = None,
+        errors: None = None,
+        newline: None = None,
+    ) -> _AsyncIOWrapper[BufferedRandom]:
+        ...
+
+    @overload
+    def open(
+        self,
+        mode: OpenBinaryModeWriting,
+        buffering: Literal[-1, 1] = -1,
+        encoding: None = None,
+        errors: None = None,
+        newline: None = None,
+    ) -> _AsyncIOWrapper[BufferedWriter]:
+        ...
+
+    @overload
+    def open(
+        self,
+        mode: OpenBinaryModeReading,
+        buffering: Literal[-1, 1] = -1,
+        encoding: None = None,
+        errors: None = None,
+        newline: None = None,
+    ) -> _AsyncIOWrapper[BufferedReader]:
+        ...
+
+    @overload
+    def open(
+        self,
+        mode: OpenBinaryMode,
+        buffering: int = -1,
+        encoding: None = None,
+        errors: None = None,
+        newline: None = None,
+    ) -> _AsyncIOWrapper[BinaryIO]:
+        ...
+
+    @overload
+    def open(
+        self,
+        mode: str,
+        buffering: int = -1,
+        encoding: str | None = None,
+        errors: str | None = None,
+        newline: str | None = None,
+    ) -> _AsyncIOWrapper[IO[Any]]:
+        ...
+
+    @wraps(pathlib.Path.open)  # type: ignore[misc]  # Overload return mismatch.
+    async def open(self, *args: Any, **kwargs: Any) -> _AsyncIOWrapper[IO[Any]]:
         """Open the file pointed to by the path, like the :func:`trio.open_file`
         function does.
 
@@ -189,9 +294,10 @@ class Path(metaclass=AsyncAutoWrapperType):
 
     if TYPE_CHECKING:
         # the dunders listed in _forward_magic that aren't seen otherwise
-        __bytes__ = pathlib.Path.__bytes__
-        __truediv__ = pathlib.Path.__truediv__
-        __rtruediv__ = pathlib.Path.__rtruediv__
+        # fmt: off
+        def __bytes__(self) -> bytes: ...
+        def __truediv__(self, other: StrPath) -> Path: ...
+        def __rtruediv__(self, other: StrPath) -> Path: ...
 
         # These should be fully typed, either manually or with some magic wrapper
         # function that copies the type of pathlib.Path except sticking an async in
@@ -199,65 +305,95 @@ class Path(metaclass=AsyncAutoWrapperType):
         # https://github.com/python-trio/trio/issues/2630
 
         # wrapped methods handled by __getattr__
-        absolute: Any
-        as_posix: Any
-        as_uri: Any
-        chmod: Any
-        cwd: Any
-        exists: Any
-        expanduser: Any
-        glob: Any
-        home: Any
-        is_absolute: Any
-        is_block_device: Any
-        is_char_device: Any
-        is_dir: Any
-        is_fifo: Any
-        is_file: Any
-        is_reserved: Any
-        is_socket: Any
-        is_symlink: Any
-        iterdir: Any
-        joinpath: Any
-        lchmod: Any
-        lstat: Any
-        match: Any
-        mkdir: Any
-        read_bytes: Any
-        read_text: Any
-        relative_to: Any
-        rename: Any
-        replace: Any
-        resolve: Any
-        rglob: Any
-        rmdir: Any
-        samefile: Any
-        stat: Any
-        symlink_to: Any
-        touch: Any
-        unlink: Any
-        with_name: Any
-        with_suffix: Any
-        write_bytes: Any
-        write_text: Any
+        async def absolute(self) -> Path: ...
+        async def as_posix(self) -> str: ...
+        async def as_uri(self) -> str: ...
+
+        if sys.version_info >= (3, 10):
+            async def stat(self, *, follow_symlinks: bool = True) -> os.stat_result: ...
+            async def chmod(self, mode: int, *, follow_symlinks: bool = True) -> None: ...
+        else:
+            async def stat(self) -> os.stat_result: ...
+            async def chmod(self, mode: int) -> None: ...
+
+        @classmethod
+        async def cwd(self) -> Path: ...
+
+        async def exists(self) -> bool: ...
+        async def expanduser(self) -> Path: ...
+        async def glob(self, pattern: str) -> Iterable[Path]: ...
+        async def home(self) -> Path: ...
+        async def is_absolute(self) -> bool: ...
+        async def is_block_device(self) -> bool: ...
+        async def is_char_device(self) -> bool: ...
+        async def is_dir(self) -> bool: ...
+        async def is_fifo(self) -> bool: ...
+        async def is_file(self) -> bool: ...
+        async def is_reserved(self) -> bool: ...
+        async def is_socket(self) -> bool: ...
+        async def is_symlink(self) -> bool: ...
+        async def iterdir(self) -> Iterable[Path]: ...
+        async def joinpath(self, *other: StrPath) -> Path: ...
+        async def lchmod(self, mode: int) -> None: ...
+        async def lstat(self) -> os.stat_result: ...
+        async def match(self, path_pattern: str) -> bool: ...
+        async def mkdir(self, mode: int = 0o777, parents: bool = False, exist_ok: bool = False) -> None: ...
+        async def read_bytes(self) -> bytes: ...
+        async def read_text(self, encoding: str | None = None, errors: str | None = None) -> str: ...
+        async def relative_to(self, *other: StrPath) -> Path: ...
+
+        if sys.version_info >= (3, 8):
+            def rename(self, target: str | pathlib.PurePath) -> Path: ...
+            def replace(self, target: str | pathlib.PurePath) -> Path: ...
+        else:
+            def rename(self, target: str | pathlib.PurePath) -> None: ...
+            def replace(self, target: str | pathlib.PurePath) -> None: ...
+
+        async def resolve(self, strict: bool = False) -> Path: ...
+        async def rglob(self, pattern: str) -> Iterable[Path]: ...
+        async def rmdir(self) -> None: ...
+        async def samefile(self, other_path: str | bytes | int | Path) -> bool: ...
+        async def symlink_to(self, target: str | Path, target_is_directory: bool = False) -> None: ...
+        async def touch(self, mode: int = 0o666, exist_ok: bool = True) -> None: ...
+        if sys.version_info >= (3, 8):
+            def unlink(self, missing_ok: bool = False) -> None: ...
+        else:
+            def unlink(self) -> None: ...
+        async def with_name(self, name: str) -> Path: ...
+        async def with_suffix(self, suffix: str) -> Path: ...
+        async def write_bytes(self, data: bytes) -> int: ...
+
+        if sys.version_info >= (3, 10):
+            async def write_text(
+                self, data: str,
+                encoding: str | None = None,
+                errors: str | None = None,
+                newline: str | None = None,
+            ) -> int: ...
+        else:
+            async def write_text(
+                self, data: str,
+                encoding: str | None = None,
+                errors: str | None = None,
+            ) -> int: ...
 
         if sys.platform != "win32":
-            group: Any
-            is_mount: Any
-            owner: Any
+            async def owner(self) -> str: ...
+            async def group(self) -> str: ...
+            async def is_mount(self) -> bool: ...
 
         if sys.version_info >= (3, 8) and sys.version_info < (3, 12):
-            link_to: Any
+            async def link_to(self, target: StrPath | bytes) -> None: ...
         if sys.version_info >= (3, 9):
-            is_relative_to: Any
-            with_stem: Any
-            readlink: Any
+            async def is_relative_to(self, *other: StrPath) -> bool: ...
+            async def with_stem(self, stem: str) -> Path: ...
+            async def readlink(self) -> Path: ...
         if sys.version_info >= (3, 10):
-            hardlink_to: Any
+            async def hardlink_to(self, target: str | pathlib.Path) -> None: ...
         if sys.version_info >= (3, 12):
-            is_junction: Any
+            async def is_junction(self) -> bool: ...
             walk: Any
-            with_segments: Any
+            async def with_segments(self, *pathsegments: StrPath) -> Path: ...
 
 
 Path.iterdir.__doc__ = """
