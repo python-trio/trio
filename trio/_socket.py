@@ -39,9 +39,10 @@ if TYPE_CHECKING:
     else:
         FileDescriptor: TypeAlias = SupportsInt
 
+    P = ParamSpec("P")
+
 
 T = TypeVar("T")
-P = ParamSpec("P")
 
 # must use old-style typing for TypeAlias
 Address: TypeAlias = Union[
