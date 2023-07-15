@@ -12,7 +12,7 @@ from typing import (
     Awaitable,
     Callable,
     NoReturn,
-    SupportsIndex,
+    SupportsInt,
     Tuple,
     TypeVar,
     Union,
@@ -20,7 +20,6 @@ from typing import (
 )
 
 import idna as _idna
-from typing_extensions import Concatenate, ParamSpec
 
 import trio
 
@@ -30,9 +29,15 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from types import TracebackType
 
-    from typing_extensions import Buffer, Self, TypeAlias
+    from typing_extensions import Buffer, Self, TypeAlias, Concatenate, ParamSpec, SupportsIndex
 
     from ._abc import HostnameResolver, SocketFactory
+
+    # Duplicated from _socket type stubs
+    if sys.version_info >= (3, 8):
+        FileDescriptor: TypeAlias = SupportsIndex
+    else:
+        FileDescriptor: TypeAlias = SupportsInt
 
 
 T = TypeVar("T")
@@ -88,7 +93,7 @@ class _try_sync:
 ################################################################
 
 try:
-    from socket import IPPROTO_IPV6
+    from socket import IPPROTO_IPV6  # type: ignore
 except ImportError:
     # Before Python 3.8, Windows is missing IPPROTO_IPV6
     # https://bugs.python.org/issue29515
@@ -304,7 +309,7 @@ def from_stdlib_socket(sock: _stdlib_socket.socket) -> _SocketType:
 
 @_wraps(_stdlib_socket.fromfd, assigned=(), updated=())
 def fromfd(
-    fd: SupportsIndex,
+    fd: FileDescriptor,
     family: AddressFamily | int = _stdlib_socket.AF_INET,
     type: SocketKind | int = _stdlib_socket.SOCK_STREAM,
     proto: int = 0,
