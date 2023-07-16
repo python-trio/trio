@@ -4,10 +4,10 @@ import os
 import pathlib
 import sys
 import types
-from collections.abc import Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from functools import partial, wraps
 from io import BufferedRandom, BufferedReader, BufferedWriter, FileIO, TextIOWrapper
-from typing import IO, TYPE_CHECKING, Any, BinaryIO, ClassVar, TypeVar, overload
+from typing import IO, TYPE_CHECKING, Any, BinaryIO, ClassVar, TypeVar, cast, overload
 
 import trio
 from trio._file_io import AsyncIOWrapper as _AsyncIOWrapper
@@ -21,7 +21,9 @@ if TYPE_CHECKING:
         OpenBinaryModeWriting,
         OpenTextMode,
     )
-    from typing_extensions import Literal, TypeAlias
+    from typing_extensions import Literal, TypeAlias, ParamSpec, Concatenate
+
+    P = ParamSpec("P")
 
 T = TypeVar("T")
 StrPath: TypeAlias = "str | os.PathLike[str]"
@@ -35,9 +37,13 @@ def rewrap_path(value: T) -> T | Path:
         return value
 
 
-def _forward_factory(cls, attr_name, attr):
+def _forward_factory(
+    cls: AsyncAutoWrapperType,
+    attr_name: str,
+    attr: Callable[Concatenate[pathlib.Path, P], T],
+) -> Callable[Concatenate[Path, P], T | Path]:
     @wraps(attr)
-    def wrapper(self, *args, **kwargs):
+    def wrapper(self: Path, *args: P.args, **kwargs: P.kwargs) -> Path | Any:
         attr = getattr(self._wrapped, attr_name)
         value = attr(*args, **kwargs)
         return rewrap_path(value)
@@ -45,24 +51,28 @@ def _forward_factory(cls, attr_name, attr):
     return wrapper
 
 
-def _forward_magic(cls, attr):
-    sentinel = object()
+def _forward_magic(
+    cls: AsyncAutoWrapperType, attr: Callable[..., object]
+) -> Callable[..., Path | Any]:
+    sentinel: Any = object()
 
     @wraps(attr)
-    def wrapper(self, other=sentinel):
+    def wrapper(self: Path, other: object = sentinel) -> Any:
         if other is sentinel:
             return attr(self._wrapped)
         if isinstance(other, cls):
-            other = other._wrapped
+            other = cast(Path, other)._wrapped
         value = attr(self._wrapped, other)
         return rewrap_path(value)
 
     return wrapper
 
 
-def iter_wrapper_factory(cls, meth_name):
+def iter_wrapper_factory(
+    cls: AsyncAutoWrapperType, meth_name: str
+) -> Callable[Concatenate[Path, P], Awaitable[Iterable[Path]]]:
     @async_wraps(cls, cls._wraps, meth_name)
-    async def wrapper(self, *args, **kwargs):
+    async def wrapper(self: Path, *args: P.args, **kwargs: P.kwargs) -> Iterable[Path]:
         meth = getattr(self._wrapped, meth_name)
         func = partial(meth, *args, **kwargs)
         # Make sure that the full iteration is performed in the thread
@@ -73,9 +83,11 @@ def iter_wrapper_factory(cls, meth_name):
     return wrapper
 
 
-def thread_wrapper_factory(cls, meth_name):
+def thread_wrapper_factory(
+    cls: AsyncAutoWrapperType, meth_name: str
+) -> Callable[Concatenate[Path, P], Awaitable[Path]]:
     @async_wraps(cls, cls._wraps, meth_name)
-    async def wrapper(self, *args, **kwargs):
+    async def wrapper(self: Path, *args: P.args, **kwargs: P.kwargs) -> Path:
         meth = getattr(self._wrapped, meth_name)
         func = partial(meth, *args, **kwargs)
         value = await trio.to_thread.run_sync(func)
@@ -84,16 +96,17 @@ def thread_wrapper_factory(cls, meth_name):
     return wrapper
 
 
-def classmethod_wrapper_factory(cls, meth_name):
-    @classmethod
+def classmethod_wrapper_factory(
+    cls: AsyncAutoWrapperType, meth_name: str
+) -> classmethod:
     @async_wraps(cls, cls._wraps, meth_name)
-    async def wrapper(cls, *args, **kwargs):
+    async def wrapper(cls: type[Path], *args: Any, **kwargs: Any) -> Path:
         meth = getattr(cls._wraps, meth_name)
         func = partial(meth, *args, **kwargs)
         value = await trio.to_thread.run_sync(func)
         return rewrap_path(value)
 
-    return wrapper
+    return classmethod(wrapper)
 
 
 class AsyncAutoWrapperType(Final):
@@ -104,7 +117,7 @@ class AsyncAutoWrapperType(Final):
     _forward: list[str]
 
     def __init__(
-        cls, name: str, bases: tuple[type, ...], attrs: dict[str, Any]
+        cls, name: str, bases: tuple[type, ...], attrs: dict[str, object]
     ) -> None:
         super().__init__(name, bases, attrs)
 
@@ -114,7 +127,7 @@ class AsyncAutoWrapperType(Final):
         type(cls).generate_magic(cls, attrs)
         type(cls).generate_iter(cls, attrs)
 
-    def generate_forwards(cls, attrs: dict[str, Any]) -> None:
+    def generate_forwards(cls, attrs: dict[str, object]) -> None:
         # forward functions of _forwards
         for attr_name, attr in cls._forwards.__dict__.items():
             if attr_name.startswith("_") or attr_name in attrs:
@@ -128,8 +141,9 @@ class AsyncAutoWrapperType(Final):
             else:
                 raise TypeError(attr_name, type(attr))
 
-    def generate_wraps(cls, attrs: dict[str, Any]) -> None:
+    def generate_wraps(cls, attrs: dict[str, object]) -> None:
         # generate wrappers for functions of _wraps
+        wrapper: classmethod | Callable
         for attr_name, attr in cls._wraps.__dict__.items():
             # .z. exclude cls._wrap_iter
             if attr_name.startswith("_") or attr_name in attrs:
@@ -143,15 +157,16 @@ class AsyncAutoWrapperType(Final):
             else:
                 raise TypeError(attr_name, type(attr))
 
-    def generate_magic(cls, attrs: dict[str, Any]) -> None:
+    def generate_magic(cls, attrs: dict[str, object]) -> None:
         # generate wrappers for magic
         for attr_name in cls._forward_magic:
             attr = getattr(cls._forwards, attr_name)
             wrapper = _forward_magic(cls, attr)
             setattr(cls, attr_name, wrapper)
 
-    def generate_iter(cls, attrs: dict[str, Any]) -> None:
+    def generate_iter(cls, attrs: dict[str, object]) -> None:
         # generate wrappers for methods that return iterators
+        wrapper: Callable
         for attr_name, attr in cls._wraps.__dict__.items():
             if attr_name in cls._wrap_iter:
                 wrapper = iter_wrapper_factory(cls, attr_name)
