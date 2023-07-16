@@ -21,6 +21,7 @@ exclude_lines =
   abc.abstractmethod
   if TYPE_CHECKING:
   if _t.TYPE_CHECKING:
+  @overload
 
 partial_branches =
   pragma: no branch
