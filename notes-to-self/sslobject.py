@@ -15,6 +15,7 @@ sinb = ssl.MemoryBIO()
 soutb = ssl.MemoryBIO()
 sso = server_ctx.wrap_bio(sinb, soutb, server_side=True)
 
+
 @contextmanager
 def expect(etype):
     try:
@@ -22,7 +23,8 @@ def expect(etype):
     except etype:
         pass
     else:
-        raise AssertionError("expected {}".format(etype))
+        raise AssertionError(f"expected {etype}")
+
 
 with expect(ssl.SSLWantReadError):
     cso.do_handshake()

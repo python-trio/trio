@@ -246,14 +246,14 @@ class Path(metaclass=AsyncAutoWrapperType):
             is_mount: Any
             owner: Any
 
-        if sys.version_info >= (3, 8) and sys.version_info < (3, 12):
-            link_to: Any
         if sys.version_info >= (3, 9):
             is_relative_to: Any
             with_stem: Any
             readlink: Any
         if sys.version_info >= (3, 10):
             hardlink_to: Any
+        if sys.version_info < (3, 12):
+            link_to: Any
         if sys.version_info >= (3, 12):
             is_junction: Any
             walk: Any

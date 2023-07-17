@@ -32,6 +32,6 @@ for bufsize in [1, None, 0]:
     except BlockingIOError:
         pass
 
-    print("setsockopt bufsize {}: {}".format(bufsize, i))
+    print(f"setsockopt bufsize {bufsize}: {i}")
     a.close()
     b.close()
