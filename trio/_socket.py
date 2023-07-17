@@ -12,7 +12,7 @@ from typing import (
     Awaitable,
     Callable,
     NoReturn,
-    SupportsInt,
+    SupportsIndex,
     Tuple,
     TypeVar,
     Union,
@@ -29,15 +29,9 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from types import TracebackType
 
-    from typing_extensions import Buffer, Self, TypeAlias, Concatenate, ParamSpec, SupportsIndex
+    from typing_extensions import Buffer, Concatenate, ParamSpec, Self, TypeAlias
 
     from ._abc import HostnameResolver, SocketFactory
-
-    # Duplicated from _socket type stubs
-    if sys.version_info >= (3, 8):
-        FileDescriptor: TypeAlias = SupportsIndex
-    else:
-        FileDescriptor: TypeAlias = SupportsInt
 
     P = ParamSpec("P")
 
@@ -93,13 +87,7 @@ class _try_sync:
 # CONSTANTS
 ################################################################
 
-try:
-    from socket import IPPROTO_IPV6  # type: ignore
-except ImportError:
-    # Before Python 3.8, Windows is missing IPPROTO_IPV6
-    # https://bugs.python.org/issue29515
-    if sys.platform == "win32":  # pragma: no branch
-        IPPROTO_IPV6 = 41
+from socket import IPPROTO_IPV6
 
 ################################################################
 # Overrides
@@ -310,7 +298,7 @@ def from_stdlib_socket(sock: _stdlib_socket.socket) -> _SocketType:
 
 @_wraps(_stdlib_socket.fromfd, assigned=(), updated=())
 def fromfd(
-    fd: FileDescriptor,
+    fd: SupportsIndex,
     family: AddressFamily | int = _stdlib_socket.AF_INET,
     type: SocketKind | int = _stdlib_socket.SOCK_STREAM,
     proto: int = 0,
