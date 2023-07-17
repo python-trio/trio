@@ -48,7 +48,10 @@ def _forward_factory(
         attr = getattr(self._wrapped, attr_name)
         value = attr(*args, **kwargs)
         return rewrap_path(value)
+
     # Assigning this makes inspect and therefore Sphinx show the original parameters.
+    # It's not defined on functions normally though, this is a custom attribute.
+    assert isinstance(wrapper, types.FunctionType)
     wrapper.__signature__ = inspect.signature(attr)
 
     return wrapper
@@ -68,6 +71,7 @@ def _forward_magic(
         value = attr(self._wrapped, other)
         return rewrap_path(value)
 
+    assert isinstance(wrapper, types.FunctionType)
     wrapper.__signature__ = inspect.signature(attr)
     return wrapper
 
@@ -110,6 +114,7 @@ def classmethod_wrapper_factory(
         value = await trio.to_thread.run_sync(func)
         return rewrap_path(value)
 
+    assert isinstance(wrapper, types.FunctionType)
     wrapper.__signature__ = inspect.signature(getattr(cls._wraps, meth_name))
     return classmethod(wrapper)
 
@@ -158,6 +163,7 @@ class AsyncAutoWrapperType(Final):
                 setattr(cls, attr_name, wrapper)
             elif isinstance(attr, types.FunctionType):
                 wrapper = thread_wrapper_factory(cls, attr_name)
+                assert isinstance(wrapper, types.FunctionType)
                 wrapper.__signature__ = inspect.signature(attr)
                 setattr(cls, attr_name, wrapper)
             else:
@@ -176,6 +182,7 @@ class AsyncAutoWrapperType(Final):
         for attr_name, attr in cls._wraps.__dict__.items():
             if attr_name in cls._wrap_iter:
                 wrapper = iter_wrapper_factory(cls, attr_name)
+                assert isinstance(wrapper, types.FunctionType)
                 wrapper.__signature__ = inspect.signature(attr)
                 setattr(cls, attr_name, wrapper)
 
