@@ -18,16 +18,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.7', '3.8', '3.9', '3.10', 'pypy-3.8-nightly', 'pypy-3.9-nightly']
+        # pypy-3.10 is failing, see https://github.com/python-trio/trio/issues/2678
+        python: ['3.8', '3.9', '3.10', 'pypy-3.9-nightly'] #, 'pypy-3.10-nightly']
         arch: ['x86', 'x64']
         lsp: ['']
         lsp_extract_file: ['']
         extra_name: ['']
         exclude:
-          - python: 'pypy-3.8-nightly'
-            arch: 'x86'
+          # pypy does not release 32-bit binaries
           - python: 'pypy-3.9-nightly'
             arch: 'x86'
+          #- python: 'pypy-3.10-nightly'
+          #  arch: 'x86'
         include:
           - python: '3.8'
             arch: 'x64'
@@ -65,8 +67,8 @@ jobs:
           # and then finally an actual release version.  actions/setup-python doesn't
           # support this for PyPy presently so we get no help there.
           #
-          # CPython -> 3.9.0-alpha - 3.9.X
-          # PyPy    -> pypy-3.7
+          # 'CPython' -> '3.9.0-alpha - 3.9.X'
+          # 'PyPy'    -> 'pypy-3.9'
           python-version: ${{ fromJSON(format('["{0}", "{1}"]', format('{0}.0-alpha - {0}.X', matrix.python), matrix.python))[startsWith(matrix.python, 'pypy')] }}
           architecture: '${{ matrix.arch }}'
           cache: pip
@@ -92,7 +94,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.7', 'pypy-3.8', 'pypy-3.9', '3.7', '3.8', '3.9', '3.10', '3.11', '3.12-dev', 'pypy-3.8-nightly', 'pypy-3.9-nightly']
+        python: ['pypy-3.9', 'pypy-3.10', '3.8', '3.9', '3.10', '3.11', '3.12-dev', 'pypy-3.9-nightly', 'pypy-3.10-nightly']
         check_formatting: ['0']
         extra_name: ['']
         include:
@@ -143,7 +145,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.7', '3.8', '3.9', '3.10', 'pypy-3.8-nightly', 'pypy-3.9-nightly']
+        python: ['3.8', '3.9', '3.10', 'pypy-3.9-nightly', 'pypy-3.10-nightly']
     continue-on-error: >-
       ${{
         (

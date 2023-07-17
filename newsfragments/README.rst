@@ -14,6 +14,7 @@ Each file should be named like ``<ISSUE>.<TYPE>.rst``, where
   deprecated features after an appropriate time, go in the
   ``deprecated`` category instead)
 * ``feature``: any new feature that doesn't qualify for ``headline``
+* ``removal``: removing support for old python versions, or other removals with no deprecation period.
 * ``bugfix``
 * ``doc``
 * ``deprecated``

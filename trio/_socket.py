@@ -58,18 +58,6 @@ class _try_sync:
 
 
 ################################################################
-# CONSTANTS
-################################################################
-
-try:
-    from socket import IPPROTO_IPV6
-except ImportError:
-    # Before Python 3.8, Windows is missing IPPROTO_IPV6
-    # https://bugs.python.org/issue29515
-    if sys.platform == "win32":  # pragma: no branch
-        IPPROTO_IPV6 = 41
-
-################################################################
 # Overrides
 ################################################################
 
@@ -569,7 +557,7 @@ class _SocketType(SocketType):
     async def _resolve_address_nocp(self, address, *, local):
         if self.family == _stdlib_socket.AF_INET6:
             ipv6_v6only = self._sock.getsockopt(
-                IPPROTO_IPV6, _stdlib_socket.IPV6_V6ONLY
+                _stdlib_socket.IPPROTO_IPV6, _stdlib_socket.IPV6_V6ONLY
             )
         else:
             ipv6_v6only = False

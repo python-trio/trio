@@ -4,7 +4,6 @@ import gc
 import os
 import socket as stdlib_socket
 import sys
-import threading
 import warnings
 from contextlib import closing, contextmanager
 from typing import TYPE_CHECKING
@@ -42,7 +41,7 @@ else:
     with s:
         try:
             s.bind(("::1", 0))
-        except OSError:
+        except OSError:  # pragma: no cover # since support for 3.7 was removed
             can_bind_ipv6 = False
         else:
             can_bind_ipv6 = True
@@ -85,37 +84,13 @@ def _noop(*args, **kwargs):
     pass
 
 
-if sys.version_info >= (3, 8):
-
-    @contextmanager
-    def restore_unraisablehook():
-        sys.unraisablehook, prev = sys.__unraisablehook__, sys.unraisablehook
-        try:
-            yield
-        finally:
-            sys.unraisablehook = prev
-
-    @contextmanager
-    def disable_threading_excepthook():
-        if sys.version_info >= (3, 10):
-            threading.excepthook, prev = threading.__excepthook__, threading.excepthook
-        else:
-            threading.excepthook, prev = _noop, threading.excepthook
-
-        try:
-            yield
-        finally:
-            threading.excepthook = prev
-
-else:
-
-    @contextmanager
-    def restore_unraisablehook():  # pragma: no cover
+@contextmanager
+def restore_unraisablehook():
+    sys.unraisablehook, prev = sys.__unraisablehook__, sys.unraisablehook
+    try:
         yield
-
-    @contextmanager
-    def disable_threading_excepthook():  # pragma: no cover
-        yield
+    finally:
+        sys.unraisablehook = prev
 
 
 # template is like:
