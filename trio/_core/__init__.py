@@ -20,7 +20,7 @@ from ._exceptions import (
 from ._ki import currently_ki_protected, disable_ki_protection, enable_ki_protection
 from ._local import RunVar
 from ._mock_clock import MockClock
-from ._parking_lot import ParkingLot
+from ._parking_lot import ParkingLot, ParkingLotStatistics
 
 # Imports that always exist
 from ._run import (

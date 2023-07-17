@@ -1,7 +1,14 @@
+from __future__ import annotations
+
 from abc import ABCMeta, abstractmethod
-from typing import Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 import trio
+
+if TYPE_CHECKING:
+    from types import TracebackType
+
+    from typing_extensions import Self
 
 
 # We use ABCMeta instead of ABC, plus set __slots__=(), so as not to force a
@@ -12,7 +19,7 @@ class Clock(metaclass=ABCMeta):
     __slots__ = ()
 
     @abstractmethod
-    def start_clock(self):
+    def start_clock(self) -> None:
         """Do any setup this clock might need.
 
         Called at the beginning of the run.
@@ -20,7 +27,7 @@ class Clock(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def current_time(self):
+    def current_time(self) -> float:
         """Return the current time, according to this clock.
 
         This is used to implement functions like :func:`trio.current_time` and
@@ -32,7 +39,7 @@ class Clock(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def deadline_to_sleep_time(self, deadline):
+    def deadline_to_sleep_time(self, deadline: float) -> float:
         """Compute the real time until the given deadline.
 
         This is called before we enter a system-specific wait function like
@@ -225,7 +232,7 @@ class AsyncResource(metaclass=ABCMeta):
     __slots__ = ()
 
     @abstractmethod
-    async def aclose(self):
+    async def aclose(self) -> None:
         """Close this resource, possibly blocking.
 
         IMPORTANT: This method may block in order to perform a "graceful"
@@ -253,10 +260,15 @@ class AsyncResource(metaclass=ABCMeta):
 
         """
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Self:
         return self
 
-    async def __aexit__(self, *args):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         await self.aclose()
 
 
@@ -279,7 +291,7 @@ class SendStream(AsyncResource):
     __slots__ = ()
 
     @abstractmethod
-    async def send_all(self, data):
+    async def send_all(self, data: bytes | bytearray | memoryview) -> None:
         """Sends the given data through the stream, blocking if necessary.
 
         Args:
@@ -305,7 +317,7 @@ class SendStream(AsyncResource):
         """
 
     @abstractmethod
-    async def wait_send_all_might_not_block(self):
+    async def wait_send_all_might_not_block(self) -> None:
         """Block until it's possible that :meth:`send_all` might not block.
 
         This method may return early: it's possible that after it returns,
@@ -385,7 +397,7 @@ class ReceiveStream(AsyncResource):
     __slots__ = ()
 
     @abstractmethod
-    async def receive_some(self, max_bytes=None):
+    async def receive_some(self, max_bytes: int | None = None) -> bytes | bytearray:
         """Wait until there is data available on this stream, and then return
         some of it.
 
@@ -413,10 +425,10 @@ class ReceiveStream(AsyncResource):
 
         """
 
-    def __aiter__(self):
+    def __aiter__(self) -> Self:
         return self
 
-    async def __anext__(self):
+    async def __anext__(self) -> bytes | bytearray:
         data = await self.receive_some()
         if not data:
             raise StopAsyncIteration
@@ -446,7 +458,7 @@ class HalfCloseableStream(Stream):
     __slots__ = ()
 
     @abstractmethod
-    async def send_eof(self):
+    async def send_eof(self) -> None:
         """Send an end-of-file indication on this stream, if possible.
 
         The difference between :meth:`send_eof` and
@@ -632,7 +644,7 @@ class ReceiveChannel(AsyncResource, Generic[ReceiveType]):
 
         """
 
-    def __aiter__(self):
+    def __aiter__(self) -> Self:
         return self
 
     async def __anext__(self) -> ReceiveType:

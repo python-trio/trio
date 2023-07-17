@@ -9,6 +9,7 @@ import threading
 import typing as t
 from abc import ABCMeta
 from functools import update_wrapper
+from types import TracebackType
 
 import trio
 
@@ -189,7 +190,12 @@ class ConflictDetector:
         else:
             self._held = True
 
-    def __exit__(self, *args):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         self._held = False
 
 

@@ -19,6 +19,31 @@ combine_as_imports = true
 profile = "black"
 skip_gitignore = true
 
+[tool.mypy]
+python_version = "3.8"
+
+# Be flexible about dependencies that don't have stubs yet (like pytest)
+ignore_missing_imports = true
+
+# Be strict about use of Mypy
+warn_unused_ignores = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_return_any = true
+
+# Avoid subtle backsliding
+#disallow_any_decorated = true
+#disallow_incomplete_defs = true
+#disallow_subclassing_any = true
+
+# Enable gradually / for new modules
+check_untyped_defs = false
+disallow_untyped_calls = false
+disallow_untyped_defs = false
+
+# DO NOT use `ignore_errors`; it doesn't apply
+# downstream and users have to deal with them.
+
 [tool.pytest.ini_options]
 addopts = ["--strict-markers", "--strict-config"]
 faulthandler_timeout = 60

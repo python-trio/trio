@@ -6,15 +6,20 @@
 # - TCP
 # - UDP broadcast
 
+from __future__ import annotations
+
 import errno
 import ipaddress
 import os
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 import attr
 
 import trio
 from trio._util import Final, NoPublicConstructor
+
+if TYPE_CHECKING:
+    from types import TracebackType
 
 IPAddress = Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
 
@@ -338,7 +343,12 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
     def __enter__(self):
         return self
 
-    def __exit__(self, *exc_info):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         self.close()
 
     async def send(self, data, flags=0):

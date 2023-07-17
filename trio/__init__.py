@@ -78,9 +78,13 @@ from ._ssl import (
 from ._subprocess import Process as Process, run_process as run_process
 from ._sync import (
     CapacityLimiter as CapacityLimiter,
+    CapacityLimiterStatistics as CapacityLimiterStatistics,
     Condition as Condition,
+    ConditionStatistics as ConditionStatistics,
     Event as Event,
+    EventStatistics as EventStatistics,
     Lock as Lock,
+    LockStatistics as LockStatistics,
     Semaphore as Semaphore,
     StrictFIFOLock as StrictFIFOLock,
 )
