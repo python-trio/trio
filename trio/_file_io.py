@@ -82,8 +82,18 @@ T_contra = TypeVar("T_contra", contravariant=True)
 AnyStr_co = TypeVar("AnyStr_co", str, bytes, covariant=True)
 AnyStr_contra = TypeVar("AnyStr_contra", str, bytes, contravariant=True)
 
-# Define a protocol for every method/property we expose. Each is effectively a predicate checking
-# whether a class defines this method/property.
+# This is a little complicated. IO objects have a lot of methods, and which are available on
+# different types varies wildly. We want to match the interface of whatever file we're wrapping.
+# This pile of protocols each has one sync method/property, meaning they're going to be compatible
+# with a file class that supports that method/property. The ones parameterized with AnyStr take
+# either str or bytes depending.
+
+# The wrapper is then a generic class, where the typevar is set to the type of the sync file we're
+# wrapping. For generics, adding a type to self has a special meaning - properties/methods can be
+# conditional - it's only valid to call them if the object you're accessing them on is compatible
+# with that type hint. By using the protocols, the type checker will be checking to see if the
+# wrapped type has that method, and only allow the methods that do to be called. We can then alter
+# the signature however it needs to match runtime behaviour.
 if TYPE_CHECKING:
     from typing_extensions import Buffer, Protocol
 
@@ -187,12 +197,14 @@ if TYPE_CHECKING:
         def write(self, __data: AnyStr_contra) -> int: ...
 
     class _CanWriteLines(Protocol[T_contra]):
+        """The lines parameter varies for bytes/str, so use a typevar to make the async match."""
         def writelines(self, __lines: Iterable[T_contra]) -> None: ...
 
     class _CanPeek(Protocol[AnyStr_co]):
         def peek(self, __size: int = 0) -> AnyStr_co: ...
 
     class _CanDetach(Protocol[T_co]):
+        """The T typevar will be the unbuffered/binary file this file wraps."""
         def detach(self) -> T_co: ...
 
     class _CanClose(Protocol):
@@ -204,11 +216,11 @@ class AsyncIOWrapper(AsyncResource, Generic[FileT_co]):
     file object` interface. Wrapped methods that could block are executed in
     :meth:`trio.to_thread.run_sync`.
 
-    All properties and methods defined in in :mod:`~io` are exposed by this
+    All properties and methods defined in :mod:`~io` are exposed by this
     wrapper, if they exist in the wrapped file object.
-
     """
-
+    # FileT needs to be covariant for the protocol trick to work - the real IO types are a subtype
+    # of the protocols.
     def __init__(self, file: FileT_co) -> None:
         self._wrapped = file
 
@@ -281,8 +293,6 @@ class AsyncIOWrapper(AsyncResource, Generic[FileT_co]):
     if TYPE_CHECKING:
         # fmt: off
         # Based on typing.IO and io stubs.
-        # For every method/property we type self, restricting these to only be available if
-        # the original also is.
         @property
         def closed(self: AsyncIOWrapper[_HasClosed]) -> bool: ...
         @property
