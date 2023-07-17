@@ -13,7 +13,6 @@ from types import TracebackType
 
 import trio
 
-
 CallT = t.TypeVar("CallT", bound=t.Callable[..., t.Any])
 
 

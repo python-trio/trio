@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.869983948635634,
+    "completenessScore": 0.8812199036918138,
     "exportedSymbolCounts": {
       "withAmbiguousType": 1,
-      "withKnownType": 542,
-      "withUnknownType": 80
+      "withKnownType": 549,
+      "withUnknownType": 73
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -46,8 +46,8 @@
     ],
     "otherSymbolCounts": {
       "withAmbiguousType": 5,
-      "withKnownType": 473,
-      "withUnknownType": 137
+      "withKnownType": 487,
+      "withUnknownType": 123
     },
     "packageName": "trio",
     "symbols": [
@@ -73,8 +73,6 @@
       "trio._core._mock_clock.MockClock.jump",
       "trio._core._run.Nursery.start",
       "trio._core._run.Nursery.start_soon",
-      "trio._core._run.Task.eventual_parent_nursery",
-      "trio._core._run.Task.parent_nursery",
       "trio._core._unbounded_queue.UnboundedQueue.__aiter__",
       "trio._core._unbounded_queue.UnboundedQueue.__anext__",
       "trio._core._unbounded_queue.UnboundedQueue.__repr__",
@@ -145,11 +143,6 @@
       "trio._subprocess.Process.send_signal",
       "trio._subprocess.Process.terminate",
       "trio._subprocess.Process.wait",
-      "trio._sync.Condition.__init__",
-      "trio._sync.Condition.statistics",
-      "trio._sync.Lock",
-      "trio._sync.StrictFIFOLock",
-      "trio._sync._LockImpl.statistics",
       "trio.current_time",
       "trio.from_thread.run",
       "trio.from_thread.run_sync",
@@ -158,7 +151,6 @@
       "trio.lowlevel.current_clock",
       "trio.lowlevel.current_root_task",
       "trio.lowlevel.current_statistics",
-      "trio.lowlevel.current_task",
       "trio.lowlevel.current_trio_token",
       "trio.lowlevel.currently_ki_protected",
       "trio.lowlevel.notify_closing",

@@ -21,7 +21,7 @@ if TYPE_CHECKING:
         OpenBinaryModeWriting,
         OpenTextMode,
     )
-    from typing_extensions import Literal, TypeAlias, ParamSpec, Concatenate
+    from typing_extensions import Concatenate, Literal, ParamSpec, TypeAlias
 
     P = ParamSpec("P")
 

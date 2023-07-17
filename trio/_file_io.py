@@ -219,6 +219,7 @@ class AsyncIOWrapper(AsyncResource, Generic[FileT_co]):
     All properties and methods defined in :mod:`~io` are exposed by this
     wrapper, if they exist in the wrapped file object.
     """
+
     # FileT needs to be covariant for the protocol trick to work - the real IO types are a subtype
     # of the protocols.
     def __init__(self, file: FileT_co) -> None:
