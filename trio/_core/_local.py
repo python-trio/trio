@@ -1,32 +1,32 @@
 from __future__ import annotations
 
-from typing import Generic, TypeVar, overload
+from typing import Generic, TypeVar, final
 
 # Runvar implementations
 import attr
 
-from .._util import Final
+from .._util import Final, NoPublicConstructor
 from . import _run
 
+# `type: ignore` awaiting https://github.com/python/mypy/issues/15553 to be fixed & released
+
 T = TypeVar("T")
-C = TypeVar("C", bound="_RunVarToken")
 
 
-class NoValue(object):
+@final
+class _NoValue:
     ...
 
 
-@attr.s(eq=False, hash=False, slots=True)
-class _RunVarToken(Generic[T]):
-    _no_value = NoValue()
-
+@attr.s(eq=False, hash=False, slots=False)
+class RunVarToken(Generic[T], metaclass=NoPublicConstructor):
     _var: RunVar[T] = attr.ib()
-    previous_value: T | NoValue = attr.ib(default=_no_value)
+    previous_value: T | type[_NoValue] = attr.ib(default=_NoValue)
     redeemed: bool = attr.ib(default=False, init=False)
 
     @classmethod
-    def empty(cls: type[C], var: RunVar[T]) -> C:
-        return cls(var)
+    def _empty(cls, var: RunVar[T]) -> RunVarToken[T]:
+        return cls._create(var)
 
 
 @attr.s(eq=False, hash=False, slots=True)
@@ -39,19 +39,10 @@ class RunVar(Generic[T], metaclass=Final):
 
     """
 
-    _NO_DEFAULT = NoValue()
     _name: str = attr.ib()
-    _default: T | NoValue = attr.ib(default=_NO_DEFAULT)
+    _default: T | type[_NoValue] = attr.ib(default=_NoValue)
 
-    @overload
-    def get(self, default: T) -> T:
-        ...
-
-    @overload
-    def get(self, default: NoValue = _NO_DEFAULT) -> T | NoValue:
-        ...
-
-    def get(self, default: T | NoValue = _NO_DEFAULT) -> T | NoValue:
+    def get(self, default: T | type[_NoValue] = _NoValue) -> T:
         """Gets the value of this :class:`RunVar` for the current run call."""
         try:
             # not typed yet
@@ -60,15 +51,15 @@ class RunVar(Generic[T], metaclass=Final):
             raise RuntimeError("Cannot be used outside of a run context") from None
         except KeyError:
             # contextvars consistency
-            if default is not self._NO_DEFAULT:
-                return default
+            if default is not _NoValue:
+                return default  # type: ignore[return-value]
 
-            if self._default is not self._NO_DEFAULT:
-                return self._default
+            if self._default is not _NoValue:
+                return self._default  # type: ignore[return-value]
 
             raise LookupError(self) from None
 
-    def set(self, value: T) -> _RunVarToken[T]:
+    def set(self, value: T) -> RunVarToken[T]:
         """Sets the value of this :class:`RunVar` for this current run
         call.
 
@@ -76,16 +67,16 @@ class RunVar(Generic[T], metaclass=Final):
         try:
             old_value = self.get()
         except LookupError:
-            token: _RunVarToken[T] = _RunVarToken.empty(self)
+            token = RunVarToken[T]._empty(self)
         else:
-            token = _RunVarToken(self, old_value)
+            token = RunVarToken[T]._create(self, old_value)
 
         # This can't fail, because if we weren't in Trio context then the
         # get() above would have failed.
         _run.GLOBAL_RUN_CONTEXT.runner._locals[self] = value  # type: ignore[assignment, index]
         return token
 
-    def reset(self, token: _RunVarToken[T]) -> None:
+    def reset(self, token: RunVarToken[T]) -> None:
         """Resets the value of this :class:`RunVar` to what it was
         previously specified by the token.
 
@@ -101,7 +92,7 @@ class RunVar(Generic[T], metaclass=Final):
 
         previous = token.previous_value
         try:
-            if previous is _RunVarToken._no_value:
+            if previous is _NoValue:
                 _run.GLOBAL_RUN_CONTEXT.runner._locals.pop(self)  # type: ignore[arg-type]
             else:
                 _run.GLOBAL_RUN_CONTEXT.runner._locals[self] = previous  # type: ignore[index, assignment]

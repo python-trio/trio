@@ -16,6 +16,7 @@ from typing import (
     Tuple,
     TypeVar,
     Union,
+    cast,
     overload,
 )
 
@@ -318,13 +319,13 @@ if sys.platform == "win32" or (
 
 
 if sys.platform == "win32":
-    FamilyT = int
-    TypeT = int
+    FamilyT: TypeAlias = int
+    TypeT: TypeAlias = int
     FamilyDefault = _stdlib_socket.AF_INET
 else:
     FamilyDefault = None
-    FamilyT = Union[int, AddressFamily, None]
-    TypeT = Union[_stdlib_socket.socket, int]
+    FamilyT: TypeAlias = Union[int, AddressFamily, None]
+    TypeT: TypeAlias = Union[_stdlib_socket.socket, int]
 
 
 @_wraps(_stdlib_socket.socketpair, assigned=(), updated=())
@@ -414,7 +415,7 @@ _SOCK_TYPE_MASK = ~(
 
 def _make_simple_sock_method_wrapper(
     fn: Callable[Concatenate[_stdlib_socket.socket, P], T],
-    wait_fn: Callable,
+    wait_fn: Callable[[_stdlib_socket.socket], Awaitable[None]],
     maybe_avail: bool = False,
 ) -> Callable[Concatenate[_SocketType, P], Awaitable[T]]:
     @_wraps(fn, assigned=("__name__",), updated=())
@@ -518,7 +519,7 @@ async def _resolve_address_nocp(
         list_normed = list(normed)
         assert len(normed) == 4
         # typechecking certainly doesn't like this logic, but given just how broad
-        # Address is, it's kind of impossible to write the below without type: ignore
+        # Address is, it's quite cumbersome to write the below without type: ignore
         if len(address) >= 3:
             list_normed[2] = address[2]  # type: ignore
         if len(address) >= 4:
@@ -555,36 +556,72 @@ class _SocketType(SocketType):
     # Simple + portable methods and attributes
     ################################################################
 
-    # NB this doesn't work because for loops don't create a scope
-    # for _name in [
-    #         ]:
-    #     _meth = getattr(_stdlib_socket.socket, _name)
-    #     @_wraps(_meth, assigned=("__name__", "__doc__"), updated=())
-    #     def _wrapped(self, *args, **kwargs):
-    #         return getattr(self._sock, _meth)(*args, **kwargs)
-    #     locals()[_meth] = _wrapped
-    # del _name, _meth, _wrapped
+    # forwarded methods
+    def detach(self) -> int:
+        return self._sock.detach()
 
-    _forward = {
-        "detach",
-        "get_inheritable",
-        "set_inheritable",
-        "fileno",
-        "getpeername",
-        "getsockname",
-        "getsockopt",
-        "setsockopt",
-        "listen",
-        "share",
-    }
+    def fileno(self) -> int:
+        return self._sock.fileno()
 
-    def __getattr__(self, name: str) -> Any:
-        if name in self._forward:
-            return getattr(self._sock, name)
-        raise AttributeError(name)
+    def getpeername(self) -> Any:
+        return self._sock.getpeername()
 
-    def __dir__(self) -> Iterable[str]:
-        return [*super().__dir__(), *self._forward]
+    def getsockname(self) -> Any:
+        return self._sock.getsockname()
+
+    @overload
+    def getsockopt(self, __level: int, __optname: int) -> int:
+        ...
+
+    @overload
+    def getsockopt(self, __level: int, __optname: int, __buflen: int) -> bytes:
+        ...
+
+    def getsockopt(
+        self, __level: int, __optname: int, __buflen: int | None = None
+    ) -> int | bytes:
+        if __buflen is None:
+            return self._sock.getsockopt(__level, __optname)
+        return self._sock.getsockopt(__level, __optname, __buflen)
+
+    @overload
+    def setsockopt(self, __level: int, __optname: int, __value: int | Buffer) -> None:
+        ...
+
+    @overload
+    def setsockopt(
+        self, __level: int, __optname: int, __value: None, __optlen: int
+    ) -> None:
+        ...
+
+    def setsockopt(
+        self,
+        __level: int,
+        __optname: int,
+        __value: int | Buffer | None,
+        __optlen: int | None = None,
+    ) -> None:
+        if __optlen is None:
+            return self._sock.setsockopt(
+                __level, __optname, cast("int|Buffer", __value)
+            )
+        return self._sock.setsockopt(__level, __optname, cast(None, __value), __optlen)
+
+    def listen(self, __backlog: int = min(_stdlib_socket.SOMAXCONN, 128)) -> None:
+        return self._sock.listen(__backlog)
+
+    def get_inheritable(self) -> bool:
+        return self._sock.get_inheritable()
+
+    def set_inheritable(self, inheritable: bool) -> None:
+        return self._sock.set_inheritable(inheritable)
+
+    if sys.platform == "win32" or (
+        not TYPE_CHECKING and hasattr(_stdlib_socket.socket, "share")
+    ):
+
+        def share(self, __process_id: int) -> bytes:
+            return self._sock.share(__process_id)
 
     def __enter__(self) -> Self:
         return self
@@ -691,7 +728,7 @@ class _SocketType(SocketType):
 
     async def _nonblocking_helper(
         self,
-        wait_fn: Callable[[_stdlib_socket.socket], Awaitable],
+        wait_fn: Callable[[_stdlib_socket.socket], Awaitable[None]],
         fn: Callable[Concatenate[_stdlib_socket.socket, P], T],
         *args: P.args,
         **kwargs: P.kwargs,

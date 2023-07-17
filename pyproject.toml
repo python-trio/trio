@@ -50,6 +50,7 @@ module = [
     "trio._sync",
 ]
 disallow_untyped_defs = true
+disallow_any_generics = true
 
 [tool.pytest.ini_options]
 addopts = ["--strict-markers", "--strict-config"]
