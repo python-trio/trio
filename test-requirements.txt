@@ -6,8 +6,10 @@
 #
 astor==0.8.1
     # via -r test-requirements.in
-astroid==2.15.5
+astroid==2.15.6
     # via pylint
+asttokens==2.2.1
+    # via stack-data
 async-generator==1.10
     # via -r test-requirements.in
 attrs==23.1.0
@@ -16,19 +18,19 @@ attrs==23.1.0
     #   outcome
 backcall==0.2.0
     # via ipython
-black==23.3.0 ; implementation_name == "cpython"
+black==23.7.0 ; implementation_name == "cpython"
     # via -r test-requirements.in
 build==0.10.0
     # via pip-tools
 cffi==1.15.1
     # via cryptography
-click==8.1.3
+click==8.1.5
     # via
     #   black
     #   pip-tools
 coverage==7.2.7
     # via -r test-requirements.in
-cryptography==39.0.2
+cryptography==41.0.2
     # via
     #   -r test-requirements.in
     #   pyopenssl
@@ -38,11 +40,13 @@ decorator==5.1.1
     # via ipython
 dill==0.3.6
     # via pylint
-exceptiongroup==1.1.1 ; python_version < "3.11"
+exceptiongroup==1.1.2 ; python_version < "3.11"
     # via
     #   -r test-requirements.in
     #   pytest
-flake8==5.0.4
+executing==1.2.0
+    # via stack-data
+flake8==6.0.0
     # via
     #   -r test-requirements.in
     #   flake8-pyproject
@@ -54,12 +58,10 @@ idna==3.4
     #   trustme
 iniconfig==2.0.0
     # via pytest
-ipython==7.34.0
+ipython==8.12.2
     # via -r test-requirements.in
-isort==5.11.5
-    # via
-    #   -r test-requirements.in
-    #   pylint
+isort==5.12.0
+    # via pylint
 jedi==0.18.2
     # via
     #   -r test-requirements.in
@@ -96,23 +98,25 @@ pexpect==4.8.0
     # via ipython
 pickleshare==0.7.5
     # via ipython
-pip-tools==6.14.0
+pip-tools==7.0.0
     # via -r test-requirements.in
-platformdirs==3.8.0
+platformdirs==3.9.1
     # via
     #   black
     #   pylint
 pluggy==1.2.0
     # via pytest
-prompt-toolkit==3.0.38
+prompt-toolkit==3.0.39
     # via ipython
 ptyprocess==0.7.0
     # via pexpect
-pycodestyle==2.9.1
+pure-eval==0.2.2
+    # via stack-data
+pycodestyle==2.10.0
     # via flake8
 pycparser==2.21
     # via cffi
-pyflakes==2.5.0
+pyflakes==3.0.1
     # via flake8
 pygments==2.15.1
     # via ipython
@@ -122,14 +126,18 @@ pyopenssl==23.2.0
     # via -r test-requirements.in
 pyproject-hooks==1.0.0
     # via build
-pyright==1.1.316
+pyright==1.1.317
     # via -r test-requirements.in
 pytest==7.4.0
     # via -r test-requirements.in
+six==1.16.0
+    # via asttokens
 sniffio==1.3.0
     # via -r test-requirements.in
 sortedcontainers==2.4.0
     # via -r test-requirements.in
+stack-data==0.6.2
+    # via ipython
 tomli==2.0.1
     # via
     #   black
@@ -138,6 +146,7 @@ tomli==2.0.1
     #   mypy
     #   pip-tools
     #   pylint
+    #   pyproject-hooks
     #   pytest
 tomlkit==0.11.8
     # via pylint
@@ -145,15 +154,16 @@ traitlets==5.9.0
     # via
     #   ipython
     #   matplotlib-inline
-trustme==1.0.0
+trustme==1.1.0
     # via -r test-requirements.in
 types-pyopenssl==23.2.0.1 ; implementation_name == "cpython"
     # via -r test-requirements.in
-typing-extensions==4.6.3
+typing-extensions==4.7.1
     # via
     #   -r test-requirements.in
     #   astroid
     #   black
+    #   ipython
     #   mypy
     #   pylint
 wcwidth==0.2.6
