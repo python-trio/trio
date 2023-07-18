@@ -8,15 +8,17 @@
 import socket
 from contextlib import contextmanager
 
+
 @contextmanager
 def report_outcome(tagline):
     try:
         yield
     except OSError as exc:
-        print("{}: failed".format(tagline))
-        print("    details: {!r}".format(exc))
+        print(f"{tagline}: failed")
+        print(f"    details: {exc!r}")
     else:
-        print("{}: succeeded".format(tagline))
+        print(f"{tagline}: succeeded")
+
 
 # Set up initial listening socket
 lsock = socket.socket()
