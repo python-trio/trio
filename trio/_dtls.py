@@ -42,7 +42,7 @@ if TYPE_CHECKING:
     from OpenSSL.SSL import Context
     from typing_extensions import Self, TypeAlias
 
-    from ._core._run import _TaskStatus
+    from ._core._run import TaskStatus
     from ._socket import _SocketType
 
 MAX_UDP_PACKET_SIZE = 65527
@@ -1276,7 +1276,7 @@ class DTLSEndpoint(metaclass=Final):
         ssl_context: Context,
         async_fn: Callable[[DTLSChannel], Awaitable],
         *args: Any,
-        task_status: _TaskStatus = trio.TASK_STATUS_IGNORED,  # type: ignore[has-type]
+        task_status: TaskStatus = trio.TASK_STATUS_IGNORED,  # type: ignore[has-type]
     ) -> None:
         """Listen for incoming connections, and spawn a handler for each using an
         internal nursery.

@@ -783,7 +783,7 @@ class CancelScope(metaclass=Final):
 # This code needs to be read alongside the code from Nursery.start to make
 # sense.
 @attr.s(eq=False, hash=False, repr=False)
-class _TaskStatus:
+class TaskStatus:
     _old_nursery = attr.ib()
     _new_nursery = attr.ib()
     _called_started = attr.ib(default=False)
@@ -1137,16 +1137,16 @@ class Nursery(metaclass=NoPublicConstructor):
         try:
             self._pending_starts += 1
             async with open_nursery() as old_nursery:
-                task_status = _TaskStatus(old_nursery, self)
+                task_status = TaskStatus(old_nursery, self)
                 thunk = functools.partial(async_fn, task_status=task_status)
                 task = GLOBAL_RUN_CONTEXT.runner.spawn_impl(
                     thunk, args, old_nursery, name
                 )
                 task._eventual_parent_nursery = self
-                # Wait for either _TaskStatus.started or an exception to
+                # Wait for either TaskStatus.started or an exception to
                 # cancel this nursery:
             # If we get here, then the child either got reparented or exited
-            # normally. The complicated logic is all in _TaskStatus.started().
+            # normally. The complicated logic is all in TaskStatus.started().
             # (Any exceptions propagate directly out of the above.)
             if not task_status._called_started:
                 raise RuntimeError("child exited without calling task_status.started()")

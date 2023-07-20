@@ -28,6 +28,7 @@ from ._run import (
     CancelScope,
     Nursery,
     Task,
+    TaskStatus,
     add_instrument,
     checkpoint,
     checkpoint_if_cancelled,

@@ -63,6 +63,10 @@ nitpick_ignore = [
     ("py:obj", "trio._abc.T"),
     ("py:obj", "trio._abc.T_resource"),
     ("py:class", "types.FrameType"),
+    # TODO: figure out if you can link this to SSL
+    ("py:class", "Context"),
+    # TODO: temporary type
+    ("py:class", "_SocketType"),
 ]
 autodoc_inherit_docstrings = False
 default_role = "obj"
