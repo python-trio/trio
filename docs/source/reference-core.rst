@@ -1167,7 +1167,7 @@ the previous version, and then exits cleanly. The only change is the
 addition of ``async with`` blocks inside the producer and consumer:
 
 .. literalinclude:: reference-core/channels-shutdown.py
-   :emphasize-lines: 10,15
+   :emphasize-lines: 11,17
 
 The really important thing here is the producer's ``async with`` .
 When the producer exits, this closes the ``send_channel``, and that
@@ -1246,7 +1246,7 @@ Fortunately, there's a better way! Here's a fixed version of our
 program above:
 
 .. literalinclude:: reference-core/channels-mpmc-fixed.py
-   :emphasize-lines: 7, 9, 10, 12, 13
+   :emphasize-lines: 8, 10, 11, 13, 14
 
 This example demonstrates using the `MemorySendChannel.clone` and
 `MemoryReceiveChannel.clone` methods. What these do is create copies
