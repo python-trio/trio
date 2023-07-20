@@ -94,6 +94,7 @@ AnyStr_contra = TypeVar("AnyStr_contra", str, bytes, contravariant=True)
 # with that type hint. By using the protocols, the type checker will be checking to see if the
 # wrapped type has that method, and only allow the methods that do to be called. We can then alter
 # the signature however it needs to match runtime behaviour.
+# More info: https://mypy.readthedocs.io/en/stable/more_types.html#advanced-uses-of-self-types
 if TYPE_CHECKING:
     from typing_extensions import Buffer, Protocol
 
@@ -117,9 +118,10 @@ if TYPE_CHECKING:
     class _HasIsATTY(Protocol):
         def isatty(self) -> bool: ...
 
-    class _HasNewlines(Protocol):
+    class _HasNewlines(Protocol[T_co]):
+        # Type varies here - documented to be None, tuple of strings, strings. Typeshed uses Any.
         @property
-        def newlines(self) -> Any: ...  # None, str or tuple
+        def newlines(self) -> T: ...
 
     class _HasReadable(Protocol):
         def readable(self) -> bool: ...
@@ -197,20 +199,22 @@ if TYPE_CHECKING:
         def write(self, data: AnyStr_contra, /) -> int: ...
 
     class _CanWriteLines(Protocol[T_contra]):
-        """The lines parameter varies for bytes/str, so use a typevar to make the async match."""
+        # The lines parameter varies for bytes/str, so use a typevar to make the async match.
         def writelines(self, lines: Iterable[T_contra], /) -> None: ...
 
     class _CanPeek(Protocol[AnyStr_co]):
         def peek(self, size: int = 0, /) -> AnyStr_co: ...
 
     class _CanDetach(Protocol[T_co]):
-        """The T typevar will be the unbuffered/binary file this file wraps."""
+        # The T typevar will be the unbuffered/binary file this file wraps.
         def detach(self) -> T_co: ...
 
     class _CanClose(Protocol):
         def close(self) -> None: ...
 
 
+# FileT needs to be covariant for the protocol trick to work - the real IO types are effectively a
+# subtype of the protocols.
 class AsyncIOWrapper(AsyncResource, Generic[FileT_co]):
     """A generic :class:`~io.IOBase` wrapper that implements the :term:`asynchronous
     file object` interface. Wrapped methods that could block are executed in
@@ -220,8 +224,6 @@ class AsyncIOWrapper(AsyncResource, Generic[FileT_co]):
     wrapper, if they exist in the wrapped file object.
     """
 
-    # FileT needs to be covariant for the protocol trick to work - the real IO types are a subtype
-    # of the protocols.
     def __init__(self, file: FileT_co) -> None:
         self._wrapped = file
 
@@ -301,7 +303,7 @@ class AsyncIOWrapper(AsyncResource, Generic[FileT_co]):
         @property
         def errors(self: AsyncIOWrapper[_HasErrors]) -> str | None: ...
         @property
-        def newlines(self: AsyncIOWrapper[_HasNewlines]) -> Any: ...  # None, str or tuple
+        def newlines(self: AsyncIOWrapper[_HasNewlines[T]]) -> T: ...
         @property
         def buffer(self: AsyncIOWrapper[_HasBuffer]) -> BinaryIO: ...
         @property

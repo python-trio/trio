@@ -44,7 +44,7 @@ def _forward_factory(
     attr: Callable[Concatenate[pathlib.Path, P], T],
 ) -> Callable[Concatenate[Path, P], T | Path]:
     @wraps(attr)
-    def wrapper(self: Path, *args: P.args, **kwargs: P.kwargs) -> Path | Any:
+    def wrapper(self: Path, *args: P.args, **kwargs: P.kwargs) -> T | Path:
         attr = getattr(self._wrapped, attr_name)
         value = attr(*args, **kwargs)
         return rewrap_path(value)
