@@ -693,7 +693,7 @@ Errors in multiple child tasks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Normally, in Python, only one thing happens at a time, which means
-that only one thing can wrong at a time. Trio has no such
+that only one thing can go wrong at a time. Trio has no such
 limitation. Consider code like::
 
     async def broken1():
@@ -974,12 +974,8 @@ work. What we need is something that's *like* a global variable, but
 that can have different values depending on which request handler is
 accessing it.
 
-To solve this problem, Python 3.7 added a new module to the standard
-library: :mod:`contextvars`. And not only does Trio have built-in
-support for :mod:`contextvars`, but if you're using an earlier version
-of Python, then Trio makes sure that a backported version of
-:mod:`contextvars` is installed. So you can assume :mod:`contextvars`
-is there and works regardless of what version of Python you're using.
+To solve this problem, Python has a module in the standard
+library: :mod:`contextvars`.
 
 Here's a toy example demonstrating how to use :mod:`contextvars`:
 
@@ -1009,7 +1005,7 @@ Example output (yours may differ slightly):
    request 0: Request received finished
 
 For more information, read the
-`contextvars docs <https://docs.python.org/3.7/library/contextvars.html>`__.
+`contextvars docs <https://docs.python.org/3/library/contextvars.html>`__.
 
 
 .. _synchronization:

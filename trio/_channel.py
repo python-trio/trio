@@ -209,7 +209,7 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
 
     # Return type must be stringified or use a TypeVar
     @enable_ki_protection
-    def clone(self) -> "MemorySendChannel[SendType]":
+    def clone(self) -> MemorySendChannel[SendType]:
         """Clone this send channel object.
 
         This returns a new `MemorySendChannel` object, which acts as a
@@ -352,7 +352,7 @@ class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstr
         return await trio.lowlevel.wait_task_rescheduled(abort_fn)  # type: ignore[no-any-return]
 
     @enable_ki_protection
-    def clone(self) -> "MemoryReceiveChannel[ReceiveType]":
+    def clone(self) -> MemoryReceiveChannel[ReceiveType]:
         """Clone this receive channel object.
 
         This returns a new `MemoryReceiveChannel` object, which acts as a

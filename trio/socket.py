@@ -79,9 +79,6 @@ if sys.platform != "win32" or not _t.TYPE_CHECKING:
     except ImportError:
         pass
 
-# get names used by Trio that we define on our own
-from ._socket import IPPROTO_IPV6 as IPPROTO_IPV6
-
 if _t.TYPE_CHECKING:
     IP_BIND_ADDRESS_NO_PORT: int
 else:
@@ -297,6 +294,7 @@ if _t.TYPE_CHECKING:
         IPPROTO_IPCOMP as IPPROTO_IPCOMP,
         IPPROTO_IPIP as IPPROTO_IPIP,
         IPPROTO_IPV4 as IPPROTO_IPV4,
+        IPPROTO_IPV6 as IPPROTO_IPV6,
         IPPROTO_L2TP as IPPROTO_L2TP,
         IPPROTO_MAX as IPPROTO_MAX,
         IPPROTO_MOBILE as IPPROTO_MOBILE,

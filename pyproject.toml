@@ -1,5 +1,5 @@
 [tool.black]
-target-version = ['py37']
+target-version = ['py38']
 
 [tool.flake8]
 extend-ignore = ['D', 'E', 'W', 'F403', 'F405', 'F821', 'F822']

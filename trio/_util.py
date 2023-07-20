@@ -141,6 +141,7 @@ def coroutine_or_error(async_fn, *args):
     # function. So we have to just call it and then check whether the
     # return value is a coroutine object.
     # Note: will not be necessary on python>=3.8, see https://bugs.python.org/issue34890
+    # TODO: python3.7 support is now dropped, so the above can be addressed.
     if not isinstance(coro, collections.abc.Coroutine):
         # Give good error for: nursery.start_soon(func_returning_future)
         if _return_value_looks_like_wrong_library(coro):
