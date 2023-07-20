@@ -203,8 +203,8 @@ class ConflictDetector:
 
 
 def async_wraps(
-    cls: type[t.Any],
-    wrapped_cls: type[t.Any],
+    cls: type[object],
+    wrapped_cls: type[object],
     attr_name: str,
 ) -> t.Callable[[CallT], CallT]:
     """Similar to wraps, but for async wrappers of non-async functions."""
