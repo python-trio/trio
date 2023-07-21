@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import socket
 from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING, Generic, TypeVar
 
@@ -9,6 +10,10 @@ if TYPE_CHECKING:
     from types import TracebackType
 
     from typing_extensions import Self
+
+    # both of these introduce circular imports if outside a TYPE_CHECKING guard
+    from ._socket import _SocketType
+    from .lowlevel import Task
 
 
 # We use ABCMeta instead of ABC, plus set __slots__=(), so as not to force a
@@ -73,13 +78,13 @@ class Instrument(metaclass=ABCMeta):
 
     __slots__ = ()
 
-    def before_run(self):
+    def before_run(self) -> None:
         """Called at the beginning of :func:`trio.run`."""
 
-    def after_run(self):
+    def after_run(self) -> None:
         """Called just before :func:`trio.run` returns."""
 
-    def task_spawned(self, task):
+    def task_spawned(self, task: Task) -> None:
         """Called when the given task is created.
 
         Args:
@@ -87,7 +92,7 @@ class Instrument(metaclass=ABCMeta):
 
         """
 
-    def task_scheduled(self, task):
+    def task_scheduled(self, task: Task) -> None:
         """Called when the given task becomes runnable.
 
         It may still be some time before it actually runs, if there are other
@@ -98,7 +103,7 @@ class Instrument(metaclass=ABCMeta):
 
         """
 
-    def before_task_step(self, task):
+    def before_task_step(self, task: Task) -> None:
         """Called immediately before we resume running the given task.
 
         Args:
@@ -106,7 +111,7 @@ class Instrument(metaclass=ABCMeta):
 
         """
 
-    def after_task_step(self, task):
+    def after_task_step(self, task: Task) -> None:
         """Called when we return to the main run loop after a task has yielded.
 
         Args:
@@ -114,7 +119,7 @@ class Instrument(metaclass=ABCMeta):
 
         """
 
-    def task_exited(self, task):
+    def task_exited(self, task: Task) -> None:
         """Called when the given task exits.
 
         Args:
@@ -122,7 +127,7 @@ class Instrument(metaclass=ABCMeta):
 
         """
 
-    def before_io_wait(self, timeout):
+    def before_io_wait(self, timeout: float) -> None:
         """Called before blocking to wait for I/O readiness.
 
         Args:
@@ -130,7 +135,7 @@ class Instrument(metaclass=ABCMeta):
 
         """
 
-    def after_io_wait(self, timeout):
+    def after_io_wait(self, timeout: float) -> None:
         """Called after handling pending I/O.
 
         Args:
@@ -152,7 +157,23 @@ class HostnameResolver(metaclass=ABCMeta):
     __slots__ = ()
 
     @abstractmethod
-    async def getaddrinfo(self, host, port, family=0, type=0, proto=0, flags=0):
+    async def getaddrinfo(
+        self,
+        host: bytes | str | None,
+        port: bytes | str | int | None,
+        family: int = 0,
+        type: int = 0,
+        proto: int = 0,
+        flags: int = 0,
+    ) -> list[
+        tuple[
+            socket.AddressFamily,
+            socket.SocketKind,
+            int,
+            str,
+            tuple[str, int] | tuple[str, int, int, int],
+        ]
+    ]:
         """A custom implementation of :func:`~trio.socket.getaddrinfo`.
 
         Called by :func:`trio.socket.getaddrinfo`.
@@ -169,7 +190,9 @@ class HostnameResolver(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    async def getnameinfo(self, sockaddr, flags):
+    async def getnameinfo(
+        self, sockaddr: tuple[str, int] | tuple[str, int, int, int], flags: int
+    ) -> tuple[str, str]:
         """A custom implementation of :func:`~trio.socket.getnameinfo`.
 
         Called by :func:`trio.socket.getnameinfo`.
@@ -186,7 +209,12 @@ class SocketFactory(metaclass=ABCMeta):
     """
 
     @abstractmethod
-    def socket(self, family=None, type=None, proto=None):
+    def socket(
+        self,
+        family: socket.AddressFamily | int | None = None,
+        type: socket.SocketKind | int | None = None,
+        proto: int | None = None,
+    ) -> _SocketType:
         """Create and return a socket object.
 
         Your socket object must inherit from :class:`trio.socket.SocketType`,
@@ -537,7 +565,7 @@ class Listener(AsyncResource, Generic[T_resource]):
     __slots__ = ()
 
     @abstractmethod
-    async def accept(self):
+    async def accept(self) -> AsyncResource:
         """Wait until an incoming connection arrives, and then return it.
 
         Returns:
