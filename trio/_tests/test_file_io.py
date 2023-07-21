@@ -93,18 +93,18 @@ def test_type_stubs_match_lists() -> None:
     for line in source:
         if "class AsyncIOWrapper" in line:
             break
-    else:  # pragma: no cover
+    else:  # pragma: no cover - should always find this
         pytest.fail("No class definition line?")
 
     for line in source:
         if "if TYPE_CHECKING" in line:
             break
-    else:  # pragma: no cover
+    else:  # pragma: no cover - should always find this
         pytest.fail("No TYPE CHECKING line?")
 
     # Now we should be at the type checking block.
     found: List[Tuple[str, str]] = []
-    for line in source:
+    for line in source:  # pragma: no branch - expected to break early
         if line.strip() and not line.startswith(" " * 8):
             break  # Dedented out of the if TYPE_CHECKING block.
         match = re.match(r"\s*(async )?def ([a-zA-Z0-9_]+)\(", line)
