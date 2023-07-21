@@ -5,6 +5,7 @@ import select
 import socket as _stdlib_socket
 import sys
 from functools import wraps as _wraps
+from operator import index
 from socket import AddressFamily, SocketKind
 from typing import (
     TYPE_CHECKING,
@@ -39,7 +40,7 @@ if TYPE_CHECKING:
 
 T = TypeVar("T")
 
-# must use old-style typing for TypeAlias
+# must use old-style typing because it's evaluated at runtime
 Address: TypeAlias = Union[
     str, bytes, Tuple[str, int], Tuple[str, int, int], Tuple[str, int, int, int]
 ]
@@ -225,10 +226,9 @@ async def getaddrinfo(
             # idna.encode will error out if the hostname has Capital Letters
             # in it; with uts46=True it will lowercase them instead.
             host = _idna.encode(host, uts46=True)
-    hr: HostnameResolver | None = _resolver.get(None)
-    # waiting on ._abc to get typed
+    hr = _resolver.get(None)
     if hr is not None:
-        return await hr.getaddrinfo(host, port, family, type, proto, flags)  # type: ignore
+        return await hr.getaddrinfo(host, port, family, type, proto, flags)
     else:
         return await trio.to_thread.run_sync(
             _stdlib_socket.getaddrinfo,
@@ -256,8 +256,7 @@ async def getnameinfo(
     """
     hr = _resolver.get(None)
     if hr is not None:
-        # waiting on ._abc to get typed
-        return await hr.getnameinfo(sockaddr, flags)  # type: ignore
+        return await hr.getnameinfo(sockaddr, flags)
     else:
         return await trio.to_thread.run_sync(
             _stdlib_socket.getnameinfo, sockaddr, flags, cancellable=True
@@ -299,7 +298,7 @@ def fromfd(
     proto: int = 0,
 ) -> _SocketType:
     """Like :func:`socket.fromfd`, but returns a Trio socket object."""
-    family, type, proto = _sniff_sockopts_for_fileno(family, type, proto, int(fd))
+    family, type, proto = _sniff_sockopts_for_fileno(family, type, proto, index(fd))
     return from_stdlib_socket(_stdlib_socket.fromfd(fd, family, type, proto))
 
 
@@ -352,8 +351,7 @@ def socket(
     if fileno is None:
         sf = _socket_factory.get(None)
         if sf is not None:
-            # waiting on ._abc to get typed
-            return sf.socket(family, type, proto)  # type: ignore
+            return sf.socket(family, type, proto)
     else:
         family, type, proto = _sniff_sockopts_for_fileno(family, type, proto, fileno)
     stdlib_socket = _stdlib_socket.socket(family, type, proto, fileno)

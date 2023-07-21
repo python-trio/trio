@@ -67,7 +67,7 @@ class RunVar(Generic[T], metaclass=Final):
         try:
             old_value = self.get()
         except LookupError:
-            token = RunVarToken[T]._empty(self)
+            token = RunVarToken._empty(self)
         else:
             token = RunVarToken[T]._create(self, old_value)
 
