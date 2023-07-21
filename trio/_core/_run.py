@@ -783,7 +783,7 @@ class CancelScope(metaclass=Final):
 # This code needs to be read alongside the code from Nursery.start to make
 # sense.
 @attr.s(eq=False, hash=False, repr=False)
-class TaskStatus:
+class TaskStatus(metaclass=Final):
     _old_nursery = attr.ib()
     _new_nursery = attr.ib()
     _called_started = attr.ib(default=False)

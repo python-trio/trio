@@ -67,6 +67,9 @@ nitpick_ignore = [
     ("py:class", "Context"),
     # TODO: temporary type
     ("py:class", "_SocketType"),
+    # these are not defined in https://docs.python.org/3/objects.inv
+    ("py:class", "socket.AddressFamily"),
+    ("py:class", "socket.SocketKind"),
 ]
 autodoc_inherit_docstrings = False
 default_role = "obj"

@@ -46,7 +46,8 @@ disallow_untyped_defs = false
 
 [[tool.mypy.overrides]]
 module = [
-    "trio._dtls"
+    "trio._dtls",
+    "trio._abc"
 ]
 disallow_incomplete_defs = true
 disallow_untyped_defs = true

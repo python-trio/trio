@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.8752,
+    "completenessScore": 0.8832,
     "exportedSymbolCounts": {
       "withAmbiguousType": 1,
-      "withKnownType": 547,
-      "withUnknownType": 77
+      "withKnownType": 552,
+      "withUnknownType": 72
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -46,24 +46,12 @@
     ],
     "otherSymbolCounts": {
       "withAmbiguousType": 6,
-      "withKnownType": 460,
-      "withUnknownType": 129
+      "withKnownType": 475,
+      "withUnknownType": 114
     },
     "packageName": "trio",
     "symbols": [
       "trio.__deprecated_attributes__",
-      "trio._abc.HostnameResolver.getaddrinfo",
-      "trio._abc.HostnameResolver.getnameinfo",
-      "trio._abc.Instrument.after_io_wait",
-      "trio._abc.Instrument.after_run",
-      "trio._abc.Instrument.after_task_step",
-      "trio._abc.Instrument.before_io_wait",
-      "trio._abc.Instrument.before_run",
-      "trio._abc.Instrument.before_task_step",
-      "trio._abc.Instrument.task_exited",
-      "trio._abc.Instrument.task_scheduled",
-      "trio._abc.Instrument.task_spawned",
-      "trio._abc.Listener.accept",
       "trio._abc.SocketFactory.socket",
       "trio._core._entry_queue.TrioToken.run_sync_soon",
       "trio._core._local.RunVar.__repr__",
@@ -86,7 +74,6 @@
       "trio._dtls.DTLSChannel.__init__",
       "trio._dtls.DTLSEndpoint.__init__",
       "trio._dtls.DTLSEndpoint.serve",
-      "trio._highlevel_socket.SocketListener",
       "trio._highlevel_socket.SocketListener.__init__",
       "trio._highlevel_socket.SocketStream.__init__",
       "trio._highlevel_socket.SocketStream.getsockopt",
@@ -117,7 +104,6 @@
       "trio._socket._SocketType.send",
       "trio._socket._SocketType.sendmsg",
       "trio._socket._SocketType.sendto",
-      "trio._ssl.SSLListener",
       "trio._ssl.SSLListener.__init__",
       "trio._ssl.SSLListener.accept",
       "trio._ssl.SSLListener.aclose",
@@ -149,7 +135,6 @@
       "trio.current_time",
       "trio.from_thread.run",
       "trio.from_thread.run_sync",
-      "trio.lowlevel.add_instrument",
       "trio.lowlevel.cancel_shielded_checkpoint",
       "trio.lowlevel.current_clock",
       "trio.lowlevel.current_root_task",
@@ -160,7 +145,6 @@
       "trio.lowlevel.open_process",
       "trio.lowlevel.permanently_detach_coroutine_object",
       "trio.lowlevel.reattach_detached_coroutine_object",
-      "trio.lowlevel.remove_instrument",
       "trio.lowlevel.reschedule",
       "trio.lowlevel.spawn_system_task",
       "trio.lowlevel.start_guest_run",
