@@ -52,6 +52,13 @@ module = [
 disallow_untyped_defs = true
 disallow_any_generics = true
 
+[[tool.mypy.overrides]]
+module = [
+    "trio._abc"
+]
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+
 [tool.pytest.ini_options]
 addopts = ["--strict-markers", "--strict-config"]
 faulthandler_timeout = 60

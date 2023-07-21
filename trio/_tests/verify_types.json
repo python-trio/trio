@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.8892455858747994,
+    "completenessScore": 0.9036918138041734,
     "exportedSymbolCounts": {
       "withAmbiguousType": 1,
-      "withKnownType": 554,
-      "withUnknownType": 68
+      "withKnownType": 563,
+      "withUnknownType": 59
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -46,25 +46,12 @@
     ],
     "otherSymbolCounts": {
       "withAmbiguousType": 8,
-      "withKnownType": 473,
-      "withUnknownType": 114
+      "withKnownType": 491,
+      "withUnknownType": 96
     },
     "packageName": "trio",
     "symbols": [
       "trio.__deprecated_attributes__",
-      "trio._abc.HostnameResolver.getaddrinfo",
-      "trio._abc.HostnameResolver.getnameinfo",
-      "trio._abc.Instrument.after_io_wait",
-      "trio._abc.Instrument.after_run",
-      "trio._abc.Instrument.after_task_step",
-      "trio._abc.Instrument.before_io_wait",
-      "trio._abc.Instrument.before_run",
-      "trio._abc.Instrument.before_task_step",
-      "trio._abc.Instrument.task_exited",
-      "trio._abc.Instrument.task_scheduled",
-      "trio._abc.Instrument.task_spawned",
-      "trio._abc.Listener.accept",
-      "trio._abc.SocketFactory.socket",
       "trio._core._entry_queue.TrioToken.run_sync_soon",
       "trio._core._mock_clock.MockClock.jump",
       "trio._core._run.Nursery.start",
@@ -93,7 +80,6 @@
       "trio._dtls.DTLSEndpoint.incoming_packets_buffer",
       "trio._dtls.DTLSEndpoint.serve",
       "trio._dtls.DTLSEndpoint.socket",
-      "trio._highlevel_socket.SocketListener",
       "trio._highlevel_socket.SocketStream.getsockopt",
       "trio._highlevel_socket.SocketStream.send_all",
       "trio._highlevel_socket.SocketStream.setsockopt",
@@ -111,7 +97,6 @@
       "trio._path.Path.__rtruediv__",
       "trio._path.Path.__truediv__",
       "trio._path.Path.open",
-      "trio._ssl.SSLListener",
       "trio._ssl.SSLListener.__init__",
       "trio._ssl.SSLListener.accept",
       "trio._ssl.SSLListener.aclose",
@@ -143,7 +128,6 @@
       "trio.current_time",
       "trio.from_thread.run",
       "trio.from_thread.run_sync",
-      "trio.lowlevel.add_instrument",
       "trio.lowlevel.cancel_shielded_checkpoint",
       "trio.lowlevel.current_clock",
       "trio.lowlevel.current_root_task",
@@ -154,7 +138,6 @@
       "trio.lowlevel.open_process",
       "trio.lowlevel.permanently_detach_coroutine_object",
       "trio.lowlevel.reattach_detached_coroutine_object",
-      "trio.lowlevel.remove_instrument",
       "trio.lowlevel.reschedule",
       "trio.lowlevel.spawn_system_task",
       "trio.lowlevel.start_guest_run",
@@ -173,8 +156,6 @@
       "trio.serve_listeners",
       "trio.serve_ssl_over_tcp",
       "trio.serve_tcp",
-      "trio.socket.set_custom_hostname_resolver",
-      "trio.socket.set_custom_socket_factory",
       "trio.testing._memory_streams.MemoryReceiveStream.__init__",
       "trio.testing._memory_streams.MemoryReceiveStream.aclose",
       "trio.testing._memory_streams.MemoryReceiveStream.close",

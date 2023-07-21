@@ -65,6 +65,7 @@ nitpick_ignore = [
     ("py:class", "trio._threads.T"),
     # why aren't these found in stdlib?
     ("py:class", "types.FrameType"),
+    # these are not defined in https://docs.python.org/3/objects.inv
     ("py:class", "socket.AddressFamily"),
     ("py:class", "socket.SocketKind"),
 ]
