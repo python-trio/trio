@@ -93,13 +93,13 @@ def test_type_stubs_match_lists() -> None:
     for line in source:
         if "class AsyncIOWrapper" in line:
             break
-    else:
+    else:  # pragma: no cover
         pytest.fail("No class definition line?")
 
     for line in source:
         if "if TYPE_CHECKING" in line:
             break
-    else:
+    else:  # pragma: no cover
         pytest.fail("No TYPE CHECKING line?")
 
     # Now we should be at the type checking block.
