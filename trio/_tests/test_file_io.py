@@ -2,6 +2,7 @@ import importlib
 import io
 import os
 import re
+from typing import List, Tuple
 from unittest import mock
 from unittest.mock import sentinel
 
@@ -82,7 +83,12 @@ def test_unsupported_not_forwarded():
 
 def test_type_stubs_match_lists() -> None:
     """Check the manual stubs match the list of wrapped methods."""
-    source = io.StringIO(_file_io.__spec__.loader.get_source("trio._file_io"))
+    # Fetch the module's source code.
+    assert _file_io.__spec__ is not None
+    loader = _file_io.__spec__.loader
+    assert isinstance(loader, importlib.abc.SourceLoader)
+    source = io.StringIO(loader.get_source("trio._file_io"))
+
     # Find the class, then find the TYPE_CHECKING block.
     for line in source:
         if "class AsyncIOWrapper" in line:
@@ -97,7 +103,7 @@ def test_type_stubs_match_lists() -> None:
         pytest.fail("No TYPE CHECKING line?")
 
     # Now we should be at the type checking block.
-    found: list[tuple[str, str]] = []
+    found: List[Tuple[str, str]] = []
     for line in source:
         if line.strip() and not line.startswith(" " * 8):
             break  # Dedented out of the if TYPE_CHECKING block.
