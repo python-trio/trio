@@ -798,9 +798,7 @@ async def dtls_receive_loop(
 
 @attr.frozen
 class DTLSChannelStatistics:
-    """An object with statistics about this connection.
-
-    Currently this has only one attribute:
+    """Currently this has only one attribute:
 
     - ``incoming_packets_dropped_in_trio`` (``int``): Gives a count of the number of
       incoming packets from this peer that Trio successfully received from the
@@ -1060,9 +1058,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                             worst_case_mtu(self.endpoint.socket),
                         )
 
-    async def send(
-        self, data: bytes
-    ) -> None:  # or str? SendChannel defines it as bytes
+    async def send(self, data: bytes) -> None:
         """Send a packet of data, securely."""
 
         if self._closed:
@@ -1078,7 +1074,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                 _read_loop(self._ssl.bio_read), self.peer_address
             )
 
-    async def receive(self) -> bytes:  # or str?
+    async def receive(self) -> bytes:
         """Fetch the next packet of data from this connection's peer, waiting if
         necessary.
 
@@ -1151,18 +1147,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         return self._ssl.get_cleartext_mtu()  # type: ignore[no-any-return]
 
     def statistics(self) -> DTLSChannelStatistics:
-        """Returns an object with statistics about this connection.
-
-        Currently this has only one attribute:
-
-        - ``incoming_packets_dropped_in_trio`` (``int``): Gives a count of the number of
-          incoming packets from this peer that Trio successfully received from the
-          network, but then got dropped because the internal channel buffer was full. If
-          this is non-zero, then you might want to call ``receive`` more often, or use a
-          larger ``incoming_packets_buffer``, or just not worry about it because your
-          UDP-based protocol should be able to handle the occasional lost packet, right?
-
-        """
+        """Returns a `DTLSChannelStatistics` object with statistics about this connection."""
         return DTLSChannelStatistics(self._packets_dropped_in_trio)
 
 
@@ -1271,10 +1256,13 @@ class DTLSEndpoint(metaclass=Final):
         if self._closed:
             raise trio.ClosedResourceError
 
+    # async_fn cannot be typed with ParamSpec, since we don't accept
+    # kwargs. Can be typed with TypeVarTuple once it's fully supported
+    # in mypy.
     async def serve(
         self,
         ssl_context: Context,
-        async_fn: Callable[[DTLSChannel], Awaitable],
+        async_fn: Callable[[...], Awaitable],
         *args: Any,
         task_status: TaskStatus = trio.TASK_STATUS_IGNORED,  # type: ignore[has-type]
     ) -> None:
