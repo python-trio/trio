@@ -26,8 +26,8 @@ from typing import (
     Iterator,
     TypeVar,
     Union,
-    cast,
 )
+from weakref import ReferenceType, WeakValueDictionary
 
 import attr
 from OpenSSL import SSL
@@ -42,8 +42,8 @@ if TYPE_CHECKING:
     from OpenSSL.SSL import Context
     from typing_extensions import Self, TypeAlias
 
-    from ._core._run import _TaskStatus
-    from ._socket import _SocketType
+    from ._core._run import TaskStatus
+    from ._socket import Address, _SocketType
 
 MAX_UDP_PACKET_SIZE = 65527
 
@@ -350,7 +350,7 @@ class OpaqueHandshakeMessage:
     record: Record
 
 
-# for some reason doesn't work with |
+# Needs Union until <3.10 is dropped
 _AnyHandshakeMessage: TypeAlias = Union[
     HandshakeMessage, PseudoHandshakeMessage, OpaqueHandshakeMessage
 ]
@@ -564,7 +564,7 @@ def _signable(*fields: bytes) -> bytes:
 
 
 def _make_cookie(
-    key: bytes, salt: bytes, tick: int, address: Any, client_hello_bits: bytes
+    key: bytes, salt: bytes, tick: int, address: Address, client_hello_bits: bytes
 ) -> bytes:
     assert len(salt) == SALT_BYTES
     assert len(key) == KEY_BYTES
@@ -582,7 +582,7 @@ def _make_cookie(
 
 
 def valid_cookie(
-    key: bytes, cookie: bytes, address: Any, client_hello_bits: bytes
+    key: bytes, cookie: bytes, address: Address, client_hello_bits: bytes
 ) -> bool:
     if len(cookie) > SALT_BYTES:
         salt = cookie[:SALT_BYTES]
@@ -604,7 +604,7 @@ def valid_cookie(
 
 
 def challenge_for(
-    key: bytes, address: Any, epoch_seqno: int, client_hello_bits: bytes
+    key: bytes, address: Address, epoch_seqno: int, client_hello_bits: bytes
 ) -> bytes:
     salt = os.urandom(SALT_BYTES)
     tick = _current_cookie_tick()
@@ -665,7 +665,7 @@ def _read_loop(read_fn: Callable[[int], bytes]) -> bytes:
 
 
 async def handle_client_hello_untrusted(
-    endpoint: DTLSEndpoint, address: Any, packet: bytes
+    endpoint: DTLSEndpoint, address: Address, packet: bytes
 ) -> None:
     if endpoint._listening_context is None:
         return
@@ -740,7 +740,7 @@ async def handle_client_hello_untrusted(
 
 
 async def dtls_receive_loop(
-    endpoint_ref: weakref.ReferenceType[DTLSEndpoint], sock: _SocketType
+    endpoint_ref: ReferenceType[DTLSEndpoint], sock: _SocketType
 ) -> None:
     try:
         while True:
@@ -776,7 +776,8 @@ async def dtls_receive_loop(
                         await stream._resend_final_volley()
                     else:
                         try:
-                            stream._q.s.send_nowait(packet)
+                            # mypy for some reason cannot determine type of _q
+                            stream._q.s.send_nowait(packet)  # type:ignore[has-type]
                         except trio.WouldBlock:
                             stream._packets_dropped_in_trio += 1
                 else:
@@ -798,6 +799,17 @@ async def dtls_receive_loop(
 
 @attr.frozen
 class DTLSChannelStatistics:
+    """Currently this has only one attribute:
+
+    - ``incoming_packets_dropped_in_trio`` (``int``): Gives a count of the number of
+      incoming packets from this peer that Trio successfully received from the
+      network, but then got dropped because the internal channel buffer was full. If
+      this is non-zero, then you might want to call ``receive`` more often, or use a
+      larger ``incoming_packets_buffer``, or just not worry about it because your
+      UDP-based protocol should be able to handle the occasional lost packet, right?
+
+    """
+
     incoming_packets_dropped_in_trio: int
 
 
@@ -817,7 +829,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
 
     """
 
-    def __init__(self, endpoint: DTLSEndpoint, peer_address: Any, ctx: Context):
+    def __init__(self, endpoint: DTLSEndpoint, peer_address: Address, ctx: Context):
         self.endpoint = endpoint
         self.peer_address = peer_address
         self._packets_dropped_in_trio = 0
@@ -828,7 +840,12 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         # OP_NO_RENEGOTIATION disables renegotiation, which is too complex for us to
         # support and isn't useful anyway -- especially for DTLS where it's equivalent
         # to just performing a new handshake.
-        ctx.set_options(SSL.OP_NO_QUERY_MTU | SSL.OP_NO_RENEGOTIATION)  # type: ignore[attr-defined]
+        ctx.set_options(
+            (
+                SSL.OP_NO_QUERY_MTU
+                | SSL.OP_NO_RENEGOTIATION  # type: ignore[attr-defined]
+            )
+        )
         self._ssl = SSL.Connection(ctx)
         self._handshake_mtu = 0
         # This calls self._ssl.set_ciphertext_mtu, which is important, because if you
@@ -957,9 +974,8 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                     new_volley_messages
                     and volley_messages
                     and isinstance(new_volley_messages[0], HandshakeMessage)
-                    # TODO: add isinstance or do a cast?
-                    and new_volley_messages[0].msg_seq
-                    == cast(HandshakeMessage, volley_messages[0]).msg_seq
+                    and isinstance(volley_messages[0], HandshakeMessage)
+                    and new_volley_messages[0].msg_seq == volley_messages[0].msg_seq
                 ):
                     # openssl decided to retransmit; discard because we handle
                     # retransmits ourselves
@@ -1043,13 +1059,10 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                         # PMTU estimate is wrong? Let's try dropping it to the minimum
                         # and hope that helps.
                         self._handshake_mtu = min(
-                            self._handshake_mtu,
-                            worst_case_mtu(self.endpoint.socket),
+                            self._handshake_mtu, worst_case_mtu(self.endpoint.socket)
                         )
 
-    async def send(
-        self, data: bytes
-    ) -> None:  # or str? SendChannel defines it as bytes
+    async def send(self, data: bytes) -> None:
         """Send a packet of data, securely."""
 
         if self._closed:
@@ -1065,7 +1078,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                 _read_loop(self._ssl.bio_read), self.peer_address
             )
 
-    async def receive(self) -> bytes:  # or str?
+    async def receive(self) -> bytes:
         """Fetch the next packet of data from this connection's peer, waiting if
         necessary.
 
@@ -1138,18 +1151,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         return self._ssl.get_cleartext_mtu()  # type: ignore[no-any-return]
 
     def statistics(self) -> DTLSChannelStatistics:
-        """Returns an object with statistics about this connection.
-
-        Currently this has only one attribute:
-
-        - ``incoming_packets_dropped_in_trio`` (``int``): Gives a count of the number of
-          incoming packets from this peer that Trio successfully received from the
-          network, but then got dropped because the internal channel buffer was full. If
-          this is non-zero, then you might want to call ``receive`` more often, or use a
-          larger ``incoming_packets_buffer``, or just not worry about it because your
-          UDP-based protocol should be able to handle the occasional lost packet, right?
-
-        """
+        """Returns a `DTLSChannelStatistics` object with statistics about this connection."""
         return DTLSChannelStatistics(self._packets_dropped_in_trio)
 
 
@@ -1197,7 +1199,7 @@ class DTLSEndpoint(metaclass=Final):
         # as a peer provides a valid cookie, we can immediately tear down the
         # old connection.
         # {remote address: DTLSChannel}
-        self._streams: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
+        self._streams: WeakValueDictionary[Address, DTLSChannel] = WeakValueDictionary()
         self._listening_context: Context | None = None
         self._listening_key: bytes | None = None
         self._incoming_connections_q = _Queue[DTLSChannel](float("inf"))
@@ -1258,12 +1260,15 @@ class DTLSEndpoint(metaclass=Final):
         if self._closed:
             raise trio.ClosedResourceError
 
+    # async_fn cannot be typed with ParamSpec, since we don't accept
+    # kwargs. Can be typed with TypeVarTuple once it's fully supported
+    # in mypy.
     async def serve(
         self,
         ssl_context: Context,
-        async_fn: Callable[[DTLSChannel], Awaitable],
+        async_fn: Callable[..., Awaitable[object]],
         *args: Any,
-        task_status: _TaskStatus = trio.TASK_STATUS_IGNORED,  # type: ignore[has-type]
+        task_status: TaskStatus = trio.TASK_STATUS_IGNORED,  # type: ignore[has-type]
     ) -> None:
         """Listen for incoming connections, and spawn a handler for each using an
         internal nursery.
