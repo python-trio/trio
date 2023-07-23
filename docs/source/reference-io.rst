@@ -304,6 +304,9 @@ unfortunately that's not yet possible.
 
    .. automethod:: statistics
 
+.. autoclass:: DTLSChannelStatistics
+   :members:
+
 .. module:: trio.socket
 
 Low-level networking with :mod:`trio.socket`

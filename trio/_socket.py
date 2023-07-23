@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 P = ParamSpec("P")
 
-# must use old-style typing for TypeAlias
+# must use old-style typing because it's evaluated at runtime
 Address: TypeAlias = Union[
     str, bytes, Tuple[str, int], Tuple[str, int, int], Tuple[str, int, int, int]
 ]
