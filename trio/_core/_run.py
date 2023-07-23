@@ -51,7 +51,7 @@ if TYPE_CHECKING:
     import contextvars
 
     # An unfortunate name collision here with trio._util.Final
-    from typing_extensions import Final as FinalT
+    from typing import Final as FinalT
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: FinalT = 1000
 
@@ -1349,7 +1349,7 @@ class Task(metaclass=NoPublicConstructor):
 
 
 class RunContext(threading.local):
-    runner: "Runner"
+    runner: Runner
     task: Task
 
 

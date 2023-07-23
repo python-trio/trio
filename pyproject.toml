@@ -1,5 +1,5 @@
 [tool.black]
-target-version = ['py37']
+target-version = ['py38']
 
 [tool.flake8]
 extend-ignore = ['D', 'E', 'W', 'F403', 'F405', 'F821', 'F822']
@@ -56,6 +56,8 @@ module = [
     "trio._socket",
 ]
 disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_generic_any = true
 
 [[tool.mypy.overrides]]
 module = [
