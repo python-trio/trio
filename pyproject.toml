@@ -81,7 +81,6 @@ module = [
 "trio/_ssl", # 26
 "trio/_subprocess", # 21
 "trio/_subprocess_platform/waitid", # 2
-"trio/_sync", # 1
 "trio/_threads", # 15
 "trio/_util", # 13
 "trio/_wait_for_object",
