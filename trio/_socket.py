@@ -562,45 +562,42 @@ class _SocketType(SocketType):
         return self._sock.getsockname()
 
     @overload
-    def getsockopt(self, __level: int, __optname: int) -> int:
+    def getsockopt(self, /, level: int, optname: int) -> int:
         ...
 
     @overload
-    def getsockopt(self, __level: int, __optname: int, __buflen: int) -> bytes:
+    def getsockopt(self, /, level: int, optname: int, buflen: int) -> bytes:
         ...
 
     def getsockopt(
-        self, __level: int, __optname: int, __buflen: int | None = None
+        self, /, level: int, optname: int, buflen: int | None = None
     ) -> int | bytes:
-        if __buflen is None:
-            return self._sock.getsockopt(__level, __optname)
-        return self._sock.getsockopt(__level, __optname, __buflen)
+        if buflen is None:
+            return self._sock.getsockopt(level, optname)
+        return self._sock.getsockopt(level, optname, buflen)
 
     @overload
-    def setsockopt(self, __level: int, __optname: int, __value: int | Buffer) -> None:
+    def setsockopt(self, /, level: int, optname: int, value: int | Buffer) -> None:
         ...
 
     @overload
-    def setsockopt(
-        self, __level: int, __optname: int, __value: None, __optlen: int
-    ) -> None:
+    def setsockopt(self, /, level: int, optname: int, value: None, optlen: int) -> None:
         ...
 
     def setsockopt(
         self,
-        __level: int,
-        __optname: int,
-        __value: int | Buffer | None,
-        __optlen: int | None = None,
+        /,
+        level: int,
+        optname: int,
+        value: int | Buffer | None,
+        optlen: int | None = None,
     ) -> None:
-        if __optlen is None:
-            return self._sock.setsockopt(
-                __level, __optname, cast("int|Buffer", __value)
-            )
-        return self._sock.setsockopt(__level, __optname, cast(None, __value), __optlen)
+        if optlen is None:
+            return self._sock.setsockopt(level, optname, cast("int|Buffer", value))
+        return self._sock.setsockopt(level, optname, cast(None, value), optlen)
 
-    def listen(self, __backlog: int = min(_stdlib_socket.SOMAXCONN, 128)) -> None:
-        return self._sock.listen(__backlog)
+    def listen(self, /, backlog: int = min(_stdlib_socket.SOMAXCONN, 128)) -> None:
+        return self._sock.listen(backlog)
 
     def get_inheritable(self) -> bool:
         return self._sock.get_inheritable()
@@ -612,8 +609,8 @@ class _SocketType(SocketType):
         not TYPE_CHECKING and hasattr(_stdlib_socket.socket, "share")
     ):
 
-        def share(self, __process_id: int) -> bytes:
-            return self._sock.share(__process_id)
+        def share(self, /, process_id: int) -> bytes:
+            return self._sock.share(process_id)
 
     def __enter__(self) -> Self:
         return self
@@ -856,7 +853,9 @@ class _SocketType(SocketType):
         def recv(__self, __buflen: int, __flags: int = 0) -> Awaitable[bytes]:
             ...
 
-    # _make_simple_sock_method_wrapper is typed, so this check that the above is correct
+    # _make_simple_sock_method_wrapper is typed, so this checks that the above is correct
+    # this requires that we refrain from using `/` to specify pos-only
+    # args, or mypy thinks the signature differs from typeshed.
     recv = _make_simple_sock_method_wrapper(  # noqa: F811
         _stdlib_socket.socket.recv, _core.wait_readable
     )
