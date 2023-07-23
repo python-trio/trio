@@ -27,6 +27,7 @@ from typing import (
     TypeVar,
     Union,
 )
+from weakref import ReferenceType, WeakValueDictionary
 
 import attr
 from OpenSSL import SSL
@@ -739,7 +740,7 @@ async def handle_client_hello_untrusted(
 
 
 async def dtls_receive_loop(
-    endpoint_ref: weakref.ReferenceType[DTLSEndpoint], sock: _SocketType
+    endpoint_ref: ReferenceType[DTLSEndpoint], sock: _SocketType
 ) -> None:
     try:
         while True:
@@ -1198,7 +1199,7 @@ class DTLSEndpoint(metaclass=Final):
         # as a peer provides a valid cookie, we can immediately tear down the
         # old connection.
         # {remote address: DTLSChannel}
-        self._streams = weakref.WeakValueDictionary[Address, DTLSChannel]()
+        self._streams: WeakValueDictionary[Address, DTLSChannel] = WeakValueDictionary()
         self._listening_context: Context | None = None
         self._listening_key: bytes | None = None
         self._incoming_connections_q = _Queue[DTLSChannel](float("inf"))
