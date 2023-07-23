@@ -5,6 +5,7 @@ import select
 import socket as _stdlib_socket
 import sys
 from functools import wraps as _wraps
+from operator import index
 from socket import AddressFamily, SocketKind
 from typing import (
     TYPE_CHECKING,
@@ -16,11 +17,11 @@ from typing import (
     Tuple,
     TypeVar,
     Union,
+    cast,
     overload,
 )
 
 import idna as _idna
-from typing_extensions import Concatenate, ParamSpec
 
 import trio
 
@@ -30,13 +31,14 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from types import TracebackType
 
-    from typing_extensions import Buffer, Self, TypeAlias
+    from typing_extensions import Buffer, Concatenate, ParamSpec, Self, TypeAlias
 
     from ._abc import HostnameResolver, SocketFactory
 
+    P = ParamSpec("P")
+
 
 T = TypeVar("T")
-P = ParamSpec("P")
 
 # must use old-style typing because it's evaluated at runtime
 Address: TypeAlias = Union[
@@ -224,7 +226,7 @@ async def getaddrinfo(
             # idna.encode will error out if the hostname has Capital Letters
             # in it; with uts46=True it will lowercase them instead.
             host = _idna.encode(host, uts46=True)
-    hr: HostnameResolver | None = _resolver.get(None)
+    hr = _resolver.get(None)
     if hr is not None:
         return await hr.getaddrinfo(host, port, family, type, proto, flags)
     else:
@@ -296,7 +298,7 @@ def fromfd(
     proto: int = 0,
 ) -> _SocketType:
     """Like :func:`socket.fromfd`, but returns a Trio socket object."""
-    family, type, proto = _sniff_sockopts_for_fileno(family, type, proto, int(fd))
+    family, type, proto = _sniff_sockopts_for_fileno(family, type, proto, index(fd))
     return from_stdlib_socket(_stdlib_socket.fromfd(fd, family, type, proto))
 
 
@@ -310,13 +312,13 @@ if sys.platform == "win32" or (
 
 
 if sys.platform == "win32":
-    FamilyT = int
-    TypeT = int
+    FamilyT: TypeAlias = int
+    TypeT: TypeAlias = int
     FamilyDefault = _stdlib_socket.AF_INET
 else:
     FamilyDefault = None
-    FamilyT = Union[int, AddressFamily, None]
-    TypeT = Union[_stdlib_socket.socket, int]
+    FamilyT: TypeAlias = Union[int, AddressFamily, None]
+    TypeT: TypeAlias = Union[_stdlib_socket.socket, int]
 
 
 @_wraps(_stdlib_socket.socketpair, assigned=(), updated=())
@@ -405,7 +407,7 @@ _SOCK_TYPE_MASK = ~(
 
 def _make_simple_sock_method_wrapper(
     fn: Callable[Concatenate[_stdlib_socket.socket, P], T],
-    wait_fn: Callable,
+    wait_fn: Callable[[_stdlib_socket.socket], Awaitable[None]],
     maybe_avail: bool = False,
 ) -> Callable[Concatenate[_SocketType, P], Awaitable[T]]:
     @_wraps(fn, assigned=("__name__",), updated=())
@@ -508,6 +510,8 @@ async def _resolve_address_nocp(
     if family == _stdlib_socket.AF_INET6:
         list_normed = list(normed)
         assert len(normed) == 4
+        # typechecking certainly doesn't like this logic, but given just how broad
+        # Address is, it's quite cumbersome to write the below without type: ignore
         if len(address) >= 3:
             list_normed[2] = address[2]  # type: ignore
         if len(address) >= 4:
@@ -517,7 +521,9 @@ async def _resolve_address_nocp(
 
 
 # TODO: stopping users from initializing this type should be done in a different way,
-# so SocketType can be used as a type.
+# so SocketType can be used as a type. Note that this is *far* from trivial without
+# breaking subclasses of SocketType. Should maybe just add abstract methods to SocketType,
+# or rename _SocketType.
 class SocketType:
     def __init__(self) -> NoReturn:
         raise TypeError(
@@ -542,36 +548,69 @@ class _SocketType(SocketType):
     # Simple + portable methods and attributes
     ################################################################
 
-    # NB this doesn't work because for loops don't create a scope
-    # for _name in [
-    #         ]:
-    #     _meth = getattr(_stdlib_socket.socket, _name)
-    #     @_wraps(_meth, assigned=("__name__", "__doc__"), updated=())
-    #     def _wrapped(self, *args, **kwargs):
-    #         return getattr(self._sock, _meth)(*args, **kwargs)
-    #     locals()[_meth] = _wrapped
-    # del _name, _meth, _wrapped
+    # forwarded methods
+    def detach(self) -> int:
+        return self._sock.detach()
 
-    _forward = {
-        "detach",
-        "get_inheritable",
-        "set_inheritable",
-        "fileno",
-        "getpeername",
-        "getsockname",
-        "getsockopt",
-        "setsockopt",
-        "listen",
-        "share",
-    }
+    def fileno(self) -> int:
+        return self._sock.fileno()
 
-    def __getattr__(self, name: str) -> Any:
-        if name in self._forward:
-            return getattr(self._sock, name)
-        raise AttributeError(name)
+    def getpeername(self) -> Any:
+        return self._sock.getpeername()
 
-    def __dir__(self) -> Iterable[str]:
-        return [*super().__dir__(), *self._forward]
+    def getsockname(self) -> Any:
+        return self._sock.getsockname()
+
+    @overload
+    def getsockopt(self, /, level: int, optname: int) -> int:
+        ...
+
+    @overload
+    def getsockopt(self, /, level: int, optname: int, buflen: int) -> bytes:
+        ...
+
+    def getsockopt(
+        self, /, level: int, optname: int, buflen: int | None = None
+    ) -> int | bytes:
+        if buflen is None:
+            return self._sock.getsockopt(level, optname)
+        return self._sock.getsockopt(level, optname, buflen)
+
+    @overload
+    def setsockopt(self, /, level: int, optname: int, value: int | Buffer) -> None:
+        ...
+
+    @overload
+    def setsockopt(self, /, level: int, optname: int, value: None, optlen: int) -> None:
+        ...
+
+    def setsockopt(
+        self,
+        /,
+        level: int,
+        optname: int,
+        value: int | Buffer | None,
+        optlen: int | None = None,
+    ) -> None:
+        if optlen is None:
+            return self._sock.setsockopt(level, optname, cast("int|Buffer", value))
+        return self._sock.setsockopt(level, optname, cast(None, value), optlen)
+
+    def listen(self, /, backlog: int = min(_stdlib_socket.SOMAXCONN, 128)) -> None:
+        return self._sock.listen(backlog)
+
+    def get_inheritable(self) -> bool:
+        return self._sock.get_inheritable()
+
+    def set_inheritable(self, inheritable: bool) -> None:
+        return self._sock.set_inheritable(inheritable)
+
+    if sys.platform == "win32" or (
+        not TYPE_CHECKING and hasattr(_stdlib_socket.socket, "share")
+    ):
+
+        def share(self, /, process_id: int) -> bytes:
+            return self._sock.share(process_id)
 
     def __enter__(self) -> Self:
         return self
@@ -678,7 +717,7 @@ class _SocketType(SocketType):
 
     async def _nonblocking_helper(
         self,
-        wait_fn: Callable[[_stdlib_socket.socket], Awaitable],
+        wait_fn: Callable[[_stdlib_socket.socket], Awaitable[None]],
         fn: Callable[Concatenate[_stdlib_socket.socket, P], T],
         *args: P.args,
         **kwargs: P.kwargs,
@@ -814,7 +853,9 @@ class _SocketType(SocketType):
         def recv(__self, __buflen: int, __flags: int = 0) -> Awaitable[bytes]:
             ...
 
-    # _make_simple_sock_method_wrapper is typed, so this check that the above is correct
+    # _make_simple_sock_method_wrapper is typed, so this checks that the above is correct
+    # this requires that we refrain from using `/` to specify pos-only
+    # args, or mypy thinks the signature differs from typeshed.
     recv = _make_simple_sock_method_wrapper(  # noqa: F811
         _stdlib_socket.socket.recv, _core.wait_readable
     )

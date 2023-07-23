@@ -53,16 +53,6 @@ disallow_any_generics = false
 
 [[tool.mypy.overrides]]
 module = [
-    "trio._abc",
-    "trio._dtls",
-    "trio._socket",
-]
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-disallow_any_generics = true
-
-[[tool.mypy.overrides]]
-module = [
 "trio/_core/_asyncgens", # 10
 "trio/_core/_entry_queue", # 16
 "trio/_core/_generated_io_epoll", # 3
@@ -74,7 +64,6 @@ module = [
 "trio/_core/_io_windows",
 "trio/_core/_ki", # 14
 "trio/_core/_multierror", # 19
-"trio/_core/_parking_lot", # 1
 "trio/_core/_thread_cache", # 6
 "trio/_core/_traps", # 7
 "trio/_core/_wakeup_socketpair", # 12
