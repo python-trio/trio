@@ -40,6 +40,7 @@ disallow_incomplete_defs = true
 check_untyped_defs = false
 disallow_untyped_calls = false
 disallow_untyped_defs = true
+disallow_any_generics = true
 
 # DO NOT use `ignore_errors`; it doesn't apply
 # downstream and users have to deal with them.
@@ -48,6 +49,7 @@ disallow_untyped_defs = true
 module = "trio._core._run"
 disallow_incomplete_defs = false
 disallow_untyped_defs = false
+disallow_any_generics = false
 
 [[tool.mypy.overrides]]
 module = [
@@ -57,52 +59,51 @@ module = [
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
-disallow_generic_any = true
+disallow_any_generics = true
 
 [[tool.mypy.overrides]]
 module = [
-"trio/_core/_asyncgens",
-"trio/_core/_entry_queue",
-"trio/_core/_generated_io_epoll",
-"trio/_core/_generated_io_kqueue",
+"trio/_core/_asyncgens", # 10
+"trio/_core/_entry_queue", # 16
+"trio/_core/_generated_io_epoll", # 3
 "trio/_core/_generated_io_windows",
-"trio/_core/_generated_run",
-"trio/_core/_io_common",
-"trio/_core/_io_epoll",
-"trio/_core/_io_kqueue",
+"trio/_core/_generated_run", # 8
+"trio/_core/_io_common", # 1
+"trio/_core/_io_epoll", # 21
+"trio/_core/_io_kqueue", # 16
 "trio/_core/_io_windows",
-"trio/_core/_ki",
-"trio/_core/_multierror",
-"trio/_core/_parking_lot",
-"trio/_core/_thread_cache",
-"trio/_core/_traps",
-"trio/_core/_wakeup_socketpair",
+"trio/_core/_ki", # 14
+"trio/_core/_multierror", # 19
+"trio/_core/_parking_lot", # 1
+"trio/_core/_thread_cache", # 6
+"trio/_core/_traps", # 7
+"trio/_core/_wakeup_socketpair", # 12
 "trio/_core/_windows_cffi",
-"trio/_deprecate",
-"trio/_file_io",
-"trio/_highlevel_open_tcp_listeners",
-"trio/_highlevel_open_tcp_stream",
-"trio/_highlevel_open_unix_stream",
-"trio/_highlevel_serve_listeners",
-"trio/_highlevel_socket",
-"trio/_highlevel_ssl_helpers",
-"trio/_path",
-"trio/_signals",
-"trio/_ssl",
-"trio/_subprocess",
-"trio/_subprocess_platform/kqueue",
-"trio/_subprocess_platform/waitid",
-"trio/_sync",
-"trio/_threads",
-"trio/_util",
+"trio/_deprecate", # 12
+"trio/_file_io", # 13
+"trio/_highlevel_open_tcp_listeners", # 3
+"trio/_highlevel_open_tcp_stream", # 5
+"trio/_highlevel_open_unix_stream", # 2
+"trio/_highlevel_serve_listeners", # 3
+"trio/_highlevel_socket", # 4
+"trio/_highlevel_ssl_helpers", # 3
+"trio/_path", # 21
+"trio/_signals", # 13
+"trio/_ssl", # 26
+"trio/_subprocess", # 21
+"trio/_subprocess_platform/waitid", # 2
+"trio/_sync", # 1
+"trio/_threads", # 15
+"trio/_util", # 13
 "trio/_wait_for_object",
-"trio/testing/_check_streams",
-"trio/testing/_checkpoints",
-"trio/testing/_memory_streams",
-"trio/testing/_network",
-"trio/testing/_trio_test",
+"trio/testing/_check_streams", # 27
+"trio/testing/_checkpoints", # 3
+"trio/testing/_memory_streams", # 66
+"trio/testing/_network", # 1
+"trio/testing/_trio_test", # 2
 ]
 disallow_untyped_defs = false
+disallow_any_generics = false
 
 [tool.pytest.ini_options]
 addopts = ["--strict-markers", "--strict-config"]
