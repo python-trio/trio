@@ -51,6 +51,9 @@ module = [
 ]
 disallow_incomplete_defs = true
 disallow_untyped_defs = true
+disallow_any_generics = true
+disallow_any_decorated = true
+disallow_subclassing_any = true
 
 [tool.pytest.ini_options]
 addopts = ["--strict-markers", "--strict-config"]
