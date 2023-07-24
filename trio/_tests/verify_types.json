@@ -7,14 +7,14 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.9152,
+    "completenessScore": 0.92,
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 572,
-      "withUnknownType": 53
+      "withKnownType": 575,
+      "withUnknownType": 50
     },
     "ignoreUnknownTypesFromImports": true,
-    "missingClassDocStringCount": 1,
+    "missingClassDocStringCount": 0,
     "missingDefaultParamCount": 0,
     "missingFunctionDocStringCount": 4,
     "moduleName": "trio",
@@ -159,7 +159,6 @@
       "trio.testing.open_stream_to_socket_listener",
       "trio.testing.trio_test",
       "trio.testing.wait_all_tasks_blocked",
-      "trio.tests.TestsDeprecationWrapper",
       "trio.to_thread.current_default_thread_limiter",
       "trio.wrap_file"
     ]

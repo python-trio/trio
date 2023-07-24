@@ -11,6 +11,8 @@ from .. import _core
 from ._run import _public
 from ._wakeup_socketpair import WakeupSocketpair
 
+if TYPE_CHECKING:
+    from .._core import Abort, RaiseCancelT
 assert not TYPE_CHECKING or (sys.platform != "linux" and sys.platform != "win32")
 
 
@@ -123,11 +125,11 @@ class KqueueIOManager:
             )
         self._registered[key] = _core.current_task()
 
-        def abort(raise_cancel):
+        def abort(raise_cancel: RaiseCancelT) -> Abort:
             r = abort_func(raise_cancel)
             if r is _core.Abort.SUCCEEDED:
                 del self._registered[key]
-            return r
+            return r  # type: ignore[no-any-return]
 
         return await _core.wait_task_rescheduled(abort)
 
@@ -138,7 +140,7 @@ class KqueueIOManager:
         event = select.kevent(fd, filter, flags)
         self._kqueue.control([event], 0)
 
-        def abort(_):
+        def abort(_: RaiseCancelT) -> Abort:
             event = select.kevent(fd, filter, select.KQ_EV_DELETE)
             try:
                 self._kqueue.control([event], 0)

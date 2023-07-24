@@ -53,42 +53,49 @@ disallow_any_generics = false
 
 [[tool.mypy.overrides]]
 module = [
-"trio/_core/_asyncgens", # 10
-"trio/_core/_entry_queue", # 16
-"trio/_core/_generated_io_epoll", # 3
-"trio/_core/_generated_io_windows",
-"trio/_core/_generated_run", # 8
-"trio/_core/_io_common", # 1
-"trio/_core/_io_epoll", # 21
-"trio/_core/_io_kqueue", # 16
-"trio/_core/_io_windows",
-"trio/_core/_ki", # 14
-"trio/_core/_multierror", # 19
-"trio/_core/_thread_cache", # 6
-"trio/_core/_traps", # 7
+#"trio/_core/_io_common", # 1, 24
+"trio/_core/_windows_cffi", # 2, 324
+#"trio/_core/_generated_io_epoll", # 3, 36
+"trio/_core/_thread_cache", # 6, 273
+"trio/_core/_generated_io_kqueue", # 6 (darwin), 60
+"trio/_core/_traps", # 7, 276
+"trio/_core/_generated_run", # 8, 242
+"trio/_core/_generated_io_windows", # 9 (win32), 84
+"trio/_core/_asyncgens", # 10, 194
+
 "trio/_core/_wakeup_socketpair", # 12
-"trio/_core/_windows_cffi",
-"trio/_deprecate", # 12
-"trio/_file_io", # 13
-"trio/_highlevel_open_tcp_listeners", # 3
-"trio/_highlevel_open_tcp_stream", # 5
-"trio/_highlevel_open_unix_stream", # 2
-"trio/_highlevel_serve_listeners", # 3
-"trio/_highlevel_socket", # 4
-"trio/_highlevel_ssl_helpers", # 3
-"trio/_path", # 21
-"trio/_signals", # 13
-"trio/_ssl", # 26
-"trio/_subprocess", # 21
-"trio/_subprocess_platform/waitid", # 2
-"trio/_threads", # 15
-"trio/_util", # 13
-"trio/_wait_for_object",
-"trio/testing/_check_streams", # 27
-"trio/testing/_checkpoints", # 3
-"trio/testing/_memory_streams", # 66
-"trio/testing/_network", # 1
-"trio/testing/_trio_test", # 2
+"trio/_core/_ki", # 14, 210
+"trio/_core/_entry_queue", # 16, 195
+"trio/_core/_io_kqueue", # 16, 198
+"trio/_core/_multierror", # 19, 469
+
+#"trio/_core/_io_epoll", # 21, 323
+"trio/_core/_io_windows", # 47 (win32), 867
+
+
+"trio/testing/_network", # 1, 34
+"trio/testing/_trio_test", # 2, 29
+"trio/testing/_checkpoints", # 3, 62
+"trio/testing/_check_streams", # 27, 522
+"trio/testing/_memory_streams", # 66, 590
+
+"trio/_highlevel_open_unix_stream", # 2, 49 lines
+"trio/_highlevel_open_tcp_listeners", # 3, 227 lines
+"trio/_highlevel_serve_listeners", # 3, 121 lines
+"trio/_highlevel_ssl_helpers", # 3, 155 lines
+"trio/_highlevel_socket", # 4, 386 lines
+"trio/_highlevel_open_tcp_stream", # 5, 379 lines
+
+"trio/_subprocess_platform/waitid", # 2, 107 lines
+"trio/_wait_for_object", # 2 (windows)
+"trio/_deprecate", # 12, 140lines
+"trio/_util", # 13, 348 lines
+"trio/_file_io", # 13, 191 lines
+"trio/_signals", # 13, 168 lines
+"trio/_threads", # 15, 398 lines
+"trio/_path", # 21, 295 lines
+"trio/_subprocess", # 21, 759 lines
+"trio/_ssl", # 26, 929 lines
 ]
 disallow_untyped_defs = false
 disallow_any_generics = false

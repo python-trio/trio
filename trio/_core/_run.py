@@ -37,6 +37,7 @@ from ._traps import (
     Abort,
     CancelShieldedCheckpoint,
     PermanentlyDetachCoroutineObject,
+    RaiseCancelT,
     WaitTaskRescheduled,
     cancel_shielded_checkpoint,
     wait_task_rescheduled,
@@ -1022,7 +1023,7 @@ class Nursery(metaclass=NoPublicConstructor):
             # If we get cancelled (or have an exception injected, like
             # KeyboardInterrupt), then save that, but still wait until our
             # children finish.
-            def aborted(raise_cancel):
+            def abort(raise_cancel: RaiseCancelT) -> Abort:
                 self._add_exc(capture(raise_cancel).error)
                 return Abort.FAILED
 
@@ -1433,7 +1434,7 @@ class GuestState:
 class Runner:
     clock = attr.ib()
     instruments: Instruments = attr.ib()
-    io_manager = attr.ib()
+    io_manager: TheIOManager = attr.ib()
     ki_manager = attr.ib()
     strict_exception_groups = attr.ib()
 
@@ -1905,7 +1906,7 @@ class Runner:
         key = (cushion, id(task))
         self.waiting_for_idle[key] = task
 
-        def abort(_):
+        def abort(_: RaiseCancelT) -> Abort:
             del self.waiting_for_idle[key]
             return Abort.SUCCEEDED
 
