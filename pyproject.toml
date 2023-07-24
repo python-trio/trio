@@ -44,6 +44,14 @@ disallow_any_generics = true
 
 # DO NOT use `ignore_errors`; it doesn't apply
 # downstream and users have to deal with them.
+[[tool.mypy.overrides]]
+module = [
+    "trio._socket",
+    "trio._core._local",
+    "trio._sync",
+]
+disallow_untyped_defs = true
+disallow_any_generics = true
 
 [[tool.mypy.overrides]]
 module = "trio._core._run"

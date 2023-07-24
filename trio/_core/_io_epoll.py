@@ -13,6 +13,8 @@ from ._run import _public
 from ._wakeup_socketpair import WakeupSocketpair
 
 if TYPE_CHECKING:
+    from socket import socket
+
     from .._core import Abort, RaiseCancelT
 
 assert not TYPE_CHECKING or sys.platform == "linux"
@@ -282,7 +284,7 @@ class EpollIOManager:
         if not wanted_flags:
             del self._registered[fd]
 
-    async def _epoll_wait(self, fd: int, attr_name: str) -> None:
+    async def _epoll_wait(self, fd: int | socket, attr_name: str) -> None:
         if not isinstance(fd, int):
             fd = fd.fileno()
         waiters = self._registered[fd]
@@ -301,15 +303,15 @@ class EpollIOManager:
         await _core.wait_task_rescheduled(abort)
 
     @_public
-    async def wait_readable(self, fd: int) -> None:
+    async def wait_readable(self, fd: int | socket) -> None:
         await self._epoll_wait(fd, "read_task")
 
     @_public
-    async def wait_writable(self, fd: int) -> None:
+    async def wait_writable(self, fd: int | socket) -> None:
         await self._epoll_wait(fd, "write_task")
 
     @_public
-    def notify_closing(self, fd: int) -> None:
+    def notify_closing(self, fd: int | socket) -> None:
         if not isinstance(fd, int):
             fd = fd.fileno()
         wake_all(

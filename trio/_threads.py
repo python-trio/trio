@@ -6,13 +6,14 @@ import inspect
 import queue as stdlib_queue
 import threading
 from itertools import count
-from typing import Optional
+from typing import Any, Callable, Optional, TypeVar
 
 import attr
 import outcome
 from sniffio import current_async_library_cvar
 
 import trio
+from trio._core._traps import RaiseCancelT
 
 from ._core import (
     RunVar,
@@ -23,6 +24,8 @@ from ._core import (
 )
 from ._sync import CapacityLimiter
 from ._util import coroutine_or_error
+
+T = TypeVar("T")
 
 # Global due to Threading API, thread local storage for trio token
 TOKEN_LOCAL = threading.local()
@@ -57,11 +60,6 @@ def current_default_thread_limiter():
 @attr.s(frozen=True, eq=False, hash=False)
 class ThreadPlaceholder:
     name = attr.ib()
-
-
-from typing import Any, Callable, TypeVar
-
-T = TypeVar("T")
 
 
 @enable_ki_protection
@@ -227,8 +225,6 @@ async def to_thread_run_sync(
     except:
         limiter.release_on_behalf_of(placeholder)
         raise
-
-    from trio._core._traps import RaiseCancelT
 
     def abort(_: RaiseCancelT) -> trio.lowlevel.Abort:
         if cancellable:
