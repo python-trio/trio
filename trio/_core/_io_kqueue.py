@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import errno
 import select
 import sys
-from contextlib import contextmanager
-from typing import TYPE_CHECKING
+from contextlib import _GeneratorContextManager, contextmanager
+from typing import TYPE_CHECKING, Callable, Iterator
 
 import attr
 import outcome
@@ -12,33 +14,38 @@ from ._run import _public
 from ._wakeup_socketpair import WakeupSocketpair
 
 if TYPE_CHECKING:
-    from .._core import Abort, RaiseCancelT
+    from socket import socket
+
+    from .._core import Abort, RaiseCancelT, Task, UnboundedQueue
 assert not TYPE_CHECKING or (sys.platform != "linux" and sys.platform != "win32")
 
 
 @attr.s(slots=True, eq=False, frozen=True)
 class _KqueueStatistics:
-    tasks_waiting = attr.ib()
-    monitors = attr.ib()
-    backend = attr.ib(default="kqueue")
+    tasks_waiting: int = attr.ib()
+    monitors: int = attr.ib()
+    backend: str = attr.ib(default="kqueue")
 
 
 @attr.s(slots=True, eq=False)
 class KqueueIOManager:
-    _kqueue = attr.ib(factory=select.kqueue)
+    _kqueue: select.kqueue = attr.ib(factory=select.kqueue)
     # {(ident, filter): Task or UnboundedQueue}
-    _registered = attr.ib(factory=dict)
-    _force_wakeup = attr.ib(factory=WakeupSocketpair)
-    _force_wakeup_fd = attr.ib(default=None)
+    # TODO: int, int?
+    _registered: dict[tuple[int, int], Task | UnboundedQueue[select.kevent]] = attr.ib(
+        factory=dict
+    )
+    _force_wakeup: WakeupSocketpair = attr.ib(factory=WakeupSocketpair)
+    _force_wakeup_fd: None = attr.ib(default=None)
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         force_wakeup_event = select.kevent(
             self._force_wakeup.wakeup_sock, select.KQ_FILTER_READ, select.KQ_EV_ADD
         )
         self._kqueue.control([force_wakeup_event], 0)
         self._force_wakeup_fd = self._force_wakeup.wakeup_sock.fileno()
 
-    def statistics(self):
+    def statistics(self) -> _KqueueStatistics:
         tasks_waiting = 0
         monitors = 0
         for receiver in self._registered.values():
@@ -48,14 +55,14 @@ class KqueueIOManager:
                 monitors += 1
         return _KqueueStatistics(tasks_waiting=tasks_waiting, monitors=monitors)
 
-    def close(self):
+    def close(self) -> None:
         self._kqueue.close()
         self._force_wakeup.close()
 
-    def force_wakeup(self):
+    def force_wakeup(self) -> None:
         self._force_wakeup.wakeup_thread_and_signal_safe()
 
-    def get_events(self, timeout):
+    def get_events(self, timeout: float) -> list[select.kevent]:
         # max_events must be > 0 or kqueue gets cranky
         # and we generally want this to be strictly larger than the actual
         # number of events we get, so that we can tell that we've gotten
@@ -72,7 +79,7 @@ class KqueueIOManager:
                 # and loop back to the start
         return events
 
-    def process_events(self, events):
+    def process_events(self, events: list[select.kevent]) -> None:
         for event in events:
             key = (event.ident, event.filter)
             if event.ident == self._force_wakeup_fd:
@@ -81,7 +88,7 @@ class KqueueIOManager:
             receiver = self._registered[key]
             if event.flags & select.KQ_EV_ONESHOT:
                 del self._registered[key]
-            if type(receiver) is _core.Task:
+            if isinstance(receiver, _core.Task):
                 _core.reschedule(receiver, outcome.Value(event))
             else:
                 receiver.put_nowait(event)
@@ -98,18 +105,25 @@ class KqueueIOManager:
     # be more ergonomic...
 
     @_public
-    def current_kqueue(self):
+    def current_kqueue(self) -> select.kqueue:
         return self._kqueue
 
-    @contextmanager
     @_public
-    def monitor_kevent(self, ident, filter):
+    def monitor_kevent(
+        self, ident: int, filter: int
+    ) -> _GeneratorContextManager[_core.UnboundedQueue[select.kevent]]:
+        return self._monitor_kevent(ident, filter)
+
+    @contextmanager
+    def _monitor_kevent(
+        self, ident: int, filter: int
+    ) -> Iterator[_core.UnboundedQueue[select.kevent]]:
         key = (ident, filter)
         if key in self._registered:
             raise _core.BusyResourceError(
                 "attempt to register multiple listeners for same ident/filter pair"
             )
-        q = _core.UnboundedQueue()
+        q = _core.UnboundedQueue[select.kevent]()
         self._registered[key] = q
         try:
             yield q
@@ -117,7 +131,9 @@ class KqueueIOManager:
             del self._registered[key]
 
     @_public
-    async def wait_kevent(self, ident, filter, abort_func):
+    async def wait_kevent(
+        self, ident: int, filter: int, abort_func: Callable[[RaiseCancelT], Abort]
+    ) -> Abort:
         key = (ident, filter)
         if key in self._registered:
             raise _core.BusyResourceError(
@@ -129,11 +145,12 @@ class KqueueIOManager:
             r = abort_func(raise_cancel)
             if r is _core.Abort.SUCCEEDED:
                 del self._registered[key]
-            return r  # type: ignore[no-any-return]
+            return r
 
-        return await _core.wait_task_rescheduled(abort)
+        # wait_task_rescheduled does not have its return type typed
+        return await _core.wait_task_rescheduled(abort)  # type: ignore[no-any-return]
 
-    async def _wait_common(self, fd, filter):
+    async def _wait_common(self, fd: int | socket, filter: int) -> None:
         if not isinstance(fd, int):
             fd = fd.fileno()
         flags = select.KQ_EV_ADD | select.KQ_EV_ONESHOT
@@ -165,15 +182,15 @@ class KqueueIOManager:
         await self.wait_kevent(fd, filter, abort)
 
     @_public
-    async def wait_readable(self, fd):
+    async def wait_readable(self, fd: int | socket) -> None:
         await self._wait_common(fd, select.KQ_FILTER_READ)
 
     @_public
-    async def wait_writable(self, fd):
+    async def wait_writable(self, fd: int | socket) -> None:
         await self._wait_common(fd, select.KQ_FILTER_WRITE)
 
     @_public
-    def notify_closing(self, fd):
+    def notify_closing(self, fd: int | socket) -> None:
         if not isinstance(fd, int):
             fd = fd.fileno()
 

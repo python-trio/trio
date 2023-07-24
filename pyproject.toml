@@ -65,7 +65,7 @@ module = [
 "trio/_core/_windows_cffi", # 2, 324
 #"trio/_core/_generated_io_epoll", # 3, 36
 "trio/_core/_thread_cache", # 6, 273
-"trio/_core/_generated_io_kqueue", # 6 (darwin), 60
+#"trio/_core/_generated_io_kqueue", # 6 (darwin), 60
 "trio/_core/_traps", # 7, 276
 "trio/_core/_generated_run", # 8, 242
 "trio/_core/_generated_io_windows", # 9 (win32), 84
@@ -74,7 +74,7 @@ module = [
 "trio/_core/_wakeup_socketpair", # 12
 "trio/_core/_ki", # 14, 210
 "trio/_core/_entry_queue", # 16, 195
-"trio/_core/_io_kqueue", # 16, 198
+#"trio/_core/_io_kqueue", # 16, 198
 "trio/_core/_multierror", # 19, 469
 
 #"trio/_core/_io_epoll", # 21, 323

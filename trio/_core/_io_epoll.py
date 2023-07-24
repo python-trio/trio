@@ -17,7 +17,15 @@ if TYPE_CHECKING:
 
     from .._core import Abort, RaiseCancelT
 
-assert not TYPE_CHECKING or sys.platform == "linux"
+
+@attr.s(slots=True, eq=False)
+class EpollWaiters:
+    read_task: None = attr.ib(default=None)
+    write_task: None = attr.ib(default=None)
+    current_flags: int = attr.ib(default=0)
+
+
+assert not TYPE_CHECKING or sys.platform == "linux" or sys.platform == "darwin"
 
 
 @attr.s(slots=True, eq=False, frozen=True)
@@ -183,13 +191,6 @@ class _EpollStatistics:
 #
 # So that's why this code is the way it is. And now you know more than you
 # wanted to about how epoll works.
-
-
-@attr.s(slots=True, eq=False)
-class EpollWaiters:
-    read_task: None = attr.ib(default=None)
-    write_task: None = attr.ib(default=None)
-    current_flags: int = attr.ib(default=0)
 
 
 @attr.s(slots=True, eq=False, hash=False)
