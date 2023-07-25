@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from socket import socket
 
     from .._core import Abort, RaiseCancelT, Task, UnboundedQueue
+
 assert not TYPE_CHECKING or (sys.platform != "linux" and sys.platform != "win32")
 
 

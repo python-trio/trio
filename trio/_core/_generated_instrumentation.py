@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Iterator
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Iterator
 
 from ._instrumentation import Instrument
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
@@ -12,12 +12,16 @@ from ._run import _NO_SEND, GLOBAL_RUN_CONTEXT
 
 if TYPE_CHECKING:
     import select
+    import sys
+    from contextvars import Context
     from socket import socket
 
     from _contextlib import _GeneratorContextManager
-    from _core import Abort, RaiseCancelT
+    from _core import Abort, RaiseCancelT, RunStatistics, SystemClock, Task, TrioToken
+    from outcome import Outcome
 
     from .. import _core
+    from .._abc import Clock
 
 # fmt: off
 

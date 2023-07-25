@@ -19,7 +19,7 @@ import trio
 from trio._util import Final, NoPublicConstructor
 
 if TYPE_CHECKING:
-    import socket
+    from socket import AddressFamily, SocketKind
     from types import TracebackType
 
 IPAddress = Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
@@ -105,7 +105,7 @@ class UDPPacket:
 class FakeSocketFactory(trio.abc.SocketFactory):
     fake_net: "FakeNet"
 
-    def socket(self, family: int, type: int, proto: int) -> "FakeSocket":
+    def socket(self, family: int, type: int, proto: int) -> FakeSocket:  # type: ignore[override]
         return FakeSocket._create(self.fake_net, family, type, proto)
 
 
@@ -123,8 +123,8 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
         flags: int = 0,
     ) -> list[
         tuple[
-            socket.AddressFamily,
-            socket.SocketKind,
+            AddressFamily,
+            SocketKind,
             int,
             str,
             tuple[str, int] | tuple[str, int, int, int],
@@ -139,13 +139,13 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
 
 
 class FakeNet(metaclass=Final):
-    def __init__(self):
+    def __init__(self) -> None:
         # When we need to pick an arbitrary unique ip address/port, use these:
         self._auto_ipv4_iter = ipaddress.IPv4Network("1.0.0.0/8").hosts()
-        self._auto_ipv4_iter = ipaddress.IPv6Network("1::/16").hosts()
+        self._auto_ipv4_iter = ipaddress.IPv6Network("1::/16").hosts()  # type: ignore[assignment]
         self._auto_port_iter = iter(range(50000, 65535))
 
-        self._bound: Dict[UDPBinding, FakeSocket] = {}
+        self._bound: dict[UDPBinding, FakeSocket] = {}
 
         self.route_packet = None
 
@@ -193,7 +193,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
 
         self._closed = False
 
-        self._packet_sender, self._packet_receiver = trio.open_memory_channel(
+        self._packet_sender, self._packet_receiver = trio.open_memory_channel[object](
             float("inf")
         )
 
@@ -223,7 +223,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
             local=local,
         )
 
-    def _deliver_packet(self, packet: UDPPacket):
+    def _deliver_packet(self, packet: UDPPacket) -> None:
         try:
             self._packet_sender.send_nowait(packet)
         except trio.BrokenResourceError:

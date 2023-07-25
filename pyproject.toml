@@ -59,15 +59,31 @@ disallow_incomplete_defs = false
 disallow_untyped_defs = false
 disallow_any_generics = false
 
+# TODO: gen_exports add platform checks to specific files
+[[tool.mypy.overrides]]
+module = "trio/_core/_generated_run"
+disable_error_code = ['has-type']
+[[tool.mypy.overrides]]
+module = "trio/_core/_generated_io_kqueue"
+disable_error_code = ['name-defined', 'attr-defined', 'no-any-return']
+[[tool.mypy.overrides]]
+module = "trio/_core/_generated_io_epoll"
+disable_error_code = ['no-any-return']
+
 [[tool.mypy.overrides]]
 module = [
+"trio/_core/_tests/*",
+"trio/_tests/*",
+
+
+"trio/_windows_pipes",
 #"trio/_core/_io_common", # 1, 24
 "trio/_core/_windows_cffi", # 2, 324
 #"trio/_core/_generated_io_epoll", # 3, 36
 "trio/_core/_thread_cache", # 6, 273
-#"trio/_core/_generated_io_kqueue", # 6 (darwin), 60
+"trio/_core/_generated_io_kqueue", # 6 (darwin), 60
 "trio/_core/_traps", # 7, 276
-"trio/_core/_generated_run", # 8, 242
+#"trio/_core/_generated_run", # 8, 242
 "trio/_core/_generated_io_windows", # 9 (win32), 84
 "trio/_core/_asyncgens", # 10, 194
 
@@ -85,6 +101,7 @@ module = [
 "trio/testing/_trio_test", # 2, 29
 "trio/testing/_checkpoints", # 3, 62
 "trio/testing/_check_streams", # 27, 522
+"trio/testing/_fake_net", # 30
 "trio/testing/_memory_streams", # 66, 590
 
 "trio/_highlevel_open_unix_stream", # 2, 49 lines
@@ -107,6 +124,7 @@ module = [
 ]
 disallow_untyped_defs = false
 disallow_any_generics = false
+disallow_incomplete_defs = false
 
 [tool.pytest.ini_options]
 addopts = ["--strict-markers", "--strict-config"]

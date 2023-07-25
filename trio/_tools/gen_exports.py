@@ -3,14 +3,20 @@
 Code generation script for class methods
 to be exported as public API
 """
+from __future__ import annotations
+
 import argparse
 import ast
 import os
 import sys
 from pathlib import Path
 from textwrap import indent
+from typing import TYPE_CHECKING, Iterator, Union
 
 import astor
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeAlias, TypeGuard
 
 PREFIX = "_generated"
 
@@ -20,18 +26,22 @@ HEADER = """# ***********************************************************
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Iterator
+from typing import TYPE_CHECKING, Callable, Iterator, Awaitable, Any
 
 from ._instrumentation import Instrument
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 from ._run import _NO_SEND, GLOBAL_RUN_CONTEXT
 
 if TYPE_CHECKING:
+    import sys
     import select
     from socket import socket
 
     from _contextlib import _GeneratorContextManager
-    from _core import Abort, RaiseCancelT
+    from contextvars import Context
+    from _core import Abort, RaiseCancelT, RunStatistics, Task, SystemClock, TrioToken
+    from outcome import Outcome
+    from .._abc import Clock
 
     from .. import _core
 
@@ -48,8 +58,10 @@ except AttributeError:
     raise RuntimeError("must be called from async context")
 """
 
+AstFun: TypeAlias = Union[ast.FunctionDef, ast.AsyncFunctionDef]
 
-def is_function(node):
+
+def is_function(node: ast.AST) -> TypeGuard[AstFun]:
     """Check if the AST node is either a function
     or an async function
     """
@@ -58,7 +70,7 @@ def is_function(node):
     return False
 
 
-def is_public(node):
+def is_public(node: ast.AST) -> TypeGuard[AstFun]:
     """Check if the AST node has a _public decorator"""
     if not is_function(node):
         return False
@@ -68,7 +80,7 @@ def is_public(node):
     return False
 
 
-def get_public_methods(tree):
+def get_public_methods(tree: ast.AST) -> Iterator[AstFun]:
     """Return a list of methods marked as public.
     The function walks the given tree and extracts
     all objects that are functions which are marked
@@ -79,7 +91,7 @@ def get_public_methods(tree):
             yield node
 
 
-def create_passthrough_args(funcdef):
+def create_passthrough_args(funcdef: AstFun) -> str:
     """Given a function definition, create a string that represents taking all
     the arguments from the function, and passing them through to another
     invocation of the same function.
@@ -143,7 +155,7 @@ def gen_public_wrappers_source(source_path: Path, lookup_path: str) -> str:
     return "\n\n".join(generated)
 
 
-def matches_disk_files(new_files):
+def matches_disk_files(new_files: dict[str, str]) -> bool:
     for new_path, new_source in new_files.items():
         if not os.path.exists(new_path):
             return False
@@ -154,7 +166,7 @@ def matches_disk_files(new_files):
     return True
 
 
-def process(sources_and_lookups, *, do_test):
+def process(sources_and_lookups: list[tuple[Path, str]], *, do_test: bool) -> None:
     new_files = {}
     for source_path, lookup_path in sources_and_lookups:
         print("Scanning:", source_path)
@@ -177,7 +189,7 @@ def process(sources_and_lookups, *, do_test):
 
 # This is in fact run in CI, but only in the formatting check job, which
 # doesn't collect coverage.
-def main():  # pragma: no cover
+def main() -> None:  # pragma: no cover
     parser = argparse.ArgumentParser(
         description="Generate python code for public api wrappers"
     )

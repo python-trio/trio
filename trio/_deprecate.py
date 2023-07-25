@@ -59,7 +59,7 @@ def warn_deprecated(thing, version, *, issue, instead, stacklevel=2):
 # @deprecated("0.2.0", issue=..., instead=...)
 # def ...
 def deprecated(
-    version: str, *, thing: str | None = None, issue: int, instead: str
+    version: str, *, thing: str | None = None, issue: int | None, instead: object
 ) -> Callable[[T], T]:
     def do_wrap(fn):
         nonlocal thing

@@ -25,7 +25,7 @@ class EpollWaiters:
     current_flags: int = attr.ib(default=0)
 
 
-assert not TYPE_CHECKING or sys.platform == "linux" or sys.platform == "darwin"
+assert not TYPE_CHECKING or sys.platform == "linux"
 
 
 @attr.s(slots=True, eq=False, frozen=True)

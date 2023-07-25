@@ -17,7 +17,7 @@ from heapq import heapify, heappop, heappush
 from math import inf
 from time import perf_counter
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, NoReturn, TypeVar
+from typing import TYPE_CHECKING, Any, Awaitable, Iterable, NoReturn, TypeVar
 
 import attr
 from outcome import Error, Outcome, Value, capture
@@ -49,10 +49,13 @@ if sys.version_info < (3, 11):
 from types import FrameType
 
 if TYPE_CHECKING:
-    import contextvars
+    from contextvars import Context
 
     # An unfortunate name collision here with trio._util.Final
     from typing import Final as FinalT
+
+    from .._abc import Clock
+    from ._mock_clock import MockClock
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: FinalT = 1000
 
@@ -120,6 +123,7 @@ def _count_context_run_tb_frames() -> int:
 CONTEXT_RUN_TB_FRAMES: FinalT = _count_context_run_tb_frames()
 
 
+# Why doesn't this inherit from abc.Clock?
 @attr.s(frozen=True, slots=True)
 class SystemClock:
     # Add a large random offset to our clock to ensure that if people
@@ -1171,7 +1175,7 @@ class Task(metaclass=NoPublicConstructor):
     coro: Coroutine[Any, Outcome[object], Any] = attr.ib()
     _runner: Runner = attr.ib()
     name: str = attr.ib()
-    context: contextvars.Context = attr.ib()
+    context: Context = attr.ib()
     _counter: int = attr.ib(init=False, factory=itertools.count().__next__)
 
     # Invariant:
@@ -1358,7 +1362,7 @@ GLOBAL_RUN_CONTEXT: FinalT = RunContext()
 
 
 @attr.s(frozen=True)
-class _RunStatistics:
+class RunStatistics:
     tasks_living = attr.ib()
     tasks_runnable = attr.ib()
     seconds_to_next_deadline = attr.ib()
@@ -1432,7 +1436,7 @@ class GuestState:
 
 @attr.s(eq=False, hash=False, slots=True)
 class Runner:
-    clock = attr.ib()
+    clock: SystemClock | Clock | MockClock = attr.ib()
     instruments: Instruments = attr.ib()
     io_manager: TheIOManager = attr.ib()
     ki_manager = attr.ib()
@@ -1442,18 +1446,18 @@ class Runner:
     _locals = attr.ib(factory=dict)
 
     runq: deque[Task] = attr.ib(factory=deque)
-    tasks = attr.ib(factory=set)
+    tasks: set[Task] = attr.ib(factory=set)
 
     deadlines = attr.ib(factory=Deadlines)
 
-    init_task = attr.ib(default=None)
+    init_task: Task | None = attr.ib(default=None)
     system_nursery = attr.ib(default=None)
     system_context = attr.ib(default=None)
     main_task = attr.ib(default=None)
     main_task_outcome = attr.ib(default=None)
 
     entry_queue = attr.ib(factory=EntryQueue)
-    trio_token = attr.ib(default=None)
+    trio_token: TrioToken | None = attr.ib(default=None)
     asyncgens = attr.ib(factory=AsyncGenerators)
 
     # If everything goes idle for this long, we call clock._autojump()
@@ -1479,7 +1483,7 @@ class Runner:
         self.ki_manager.close()
 
     @_public
-    def current_statistics(self):
+    def current_statistics(self) -> RunStatistics:
         """Returns an object containing run-loop-level debugging information.
 
         Currently the following fields are defined:
@@ -1503,7 +1507,7 @@ class Runner:
 
         """
         seconds_to_next_deadline = self.deadlines.next_deadline() - self.current_time()
-        return _RunStatistics(
+        return RunStatistics(
             tasks_living=len(self.tasks),
             tasks_runnable=len(self.runq),
             seconds_to_next_deadline=seconds_to_next_deadline,
@@ -1512,7 +1516,7 @@ class Runner:
         )
 
     @_public
-    def current_time(self):
+    def current_time(self) -> float:
         """Returns the current time according to Trio's internal clock.
 
         Returns:
@@ -1524,13 +1528,15 @@ class Runner:
         """
         return self.clock.current_time()
 
+    # TODO: abc.Clock or SystemClock? (the latter which doesn't inherit
+    # from abc.Clock)
     @_public
-    def current_clock(self):
+    def current_clock(self) -> SystemClock | Clock:
         """Returns the current :class:`~trio.abc.Clock`."""
         return self.clock
 
     @_public
-    def current_root_task(self):
+    def current_root_task(self) -> Task | None:
         """Returns the current root :class:`Task`.
 
         This is the task that is the ultimate parent of all other tasks.
@@ -1543,7 +1549,7 @@ class Runner:
     ################
 
     @_public
-    def reschedule(self, task, next_send=_NO_SEND):
+    def reschedule(self, task: Task, next_send: Outcome = _NO_SEND) -> None:
         """Reschedule the given task with the given
         :class:`outcome.Outcome`.
 
@@ -1577,8 +1583,15 @@ class Runner:
             self.instruments.call("task_scheduled", task)
 
     def spawn_impl(
-        self, async_fn, args, nursery, name, *, system_task=False, context=None
-    ):
+        self,
+        async_fn: Callable[..., Awaitable[object]],
+        args: Iterable[Any],
+        nursery: Nursery | None,
+        name: str | functools.partial | Callable[..., Awaitable[object]] | None,
+        *,
+        system_task: bool = False,
+        context: Context | None = None,
+    ) -> Task:
         ######
         # Make sure the nursery is in working order
         ######
@@ -1696,7 +1709,13 @@ class Runner:
     ################
 
     @_public
-    def spawn_system_task(self, async_fn, *args, name=None, context=None):
+    def spawn_system_task(
+        self,
+        async_fn: Callable[..., Awaitable[object]],
+        *args: Any,
+        name: str | None = None,
+        context: Context | None = None,
+    ) -> Task:
         """Spawn a "system" task.
 
         System tasks have a few differences from regular tasks:
@@ -1795,7 +1814,7 @@ class Runner:
     ################
 
     @_public
-    def current_trio_token(self):
+    def current_trio_token(self) -> TrioToken:
         """Retrieve the :class:`TrioToken` for the current call to
         :func:`trio.run`.
 
@@ -1844,7 +1863,7 @@ class Runner:
     waiting_for_idle = attr.ib(factory=SortedDict)
 
     @_public
-    async def wait_all_tasks_blocked(self, cushion=0.0):
+    async def wait_all_tasks_blocked(self, cushion: float = 0.0) -> None:
         """Block until there are no runnable tasks.
 
         This is useful in testing code when you want to give other tasks a
@@ -2311,7 +2330,7 @@ def unrolled_run(
                             break
                 else:
                     assert idle_primed is IdlePrimedTypes.AUTOJUMP_CLOCK
-                    runner.clock._autojump()
+                    runner.clock._autojump()  # type: ignore[union-attr]
 
             # Process all runnable tasks, but only the ones that are already
             # runnable now. Anything that becomes runnable during this cycle

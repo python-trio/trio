@@ -33,4 +33,4 @@ import trio
 
 # The custom excepthook should run, because Trio was polite and didn't
 # override it
-raise trio.MultiError([ValueError(), KeyError()])
+raise trio.MultiError([ValueError(), KeyError()])  # type: ignore[attr-defined]

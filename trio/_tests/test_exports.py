@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import enum
 import functools
 import importlib
@@ -175,7 +177,7 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         if modname == "trio":
             static_names.add("testing")
 
-        # these are hidden behind `if sys.plaftorm != "win32" or not TYPE_CHECKING`
+        # these are hidden behind `if sys.platform != "win32" or not TYPE_CHECKING`
         # so presumably pyright is parsing that if statement, in which case we don't
         # care about them being missing.
         if modname == "trio.socket" and sys.platform == "win32":
@@ -226,7 +228,9 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
 )
 @pytest.mark.parametrize("module_name", PUBLIC_MODULE_NAMES)
 @pytest.mark.parametrize("tool", ["jedi", "mypy"])
-def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
+def test_static_tool_sees_class_members(
+    tool: str, module_name: str, tmpdir: Path
+) -> None:
     module = PUBLIC_MODULES[PUBLIC_MODULE_NAMES.index(module_name)]
 
     # ignore hidden, but not dunder, symbols
@@ -483,7 +487,7 @@ def test_classes_are_final():
                 continue
             # These are classes that are conceptually abstract, but
             # inspect.isabstract returns False for boring reasons.
-            if class_ in {trio.abc.Instrument, trio.socket.SocketType}:
+            if class_ in (trio.abc.Instrument, trio.socket.SocketType):
                 continue
             # Enums have their own metaclass, so we can't use our metaclasses.
             # And I don't think there's a lot of risk from people subclassing

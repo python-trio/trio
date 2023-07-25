@@ -12,4 +12,4 @@ apport_python_hook.install()
 
 import trio
 
-raise trio.MultiError([KeyError("key_error"), ValueError("value_error")])
+raise trio.MultiError([KeyError("key_error"), ValueError("value_error")])  # type: ignore[attr-defined]

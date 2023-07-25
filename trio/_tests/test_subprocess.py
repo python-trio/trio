@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import random
 import signal
@@ -6,6 +8,7 @@ import sys
 from contextlib import asynccontextmanager
 from functools import partial
 from pathlib import Path as SyncPath
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -24,8 +27,15 @@ from .._core._tests.tutil import skip_if_fbsd_pipes_broken, slow
 from ..lowlevel import open_process
 from ..testing import assert_no_checkpoints, wait_all_tasks_blocked
 
+if TYPE_CHECKING:
+    ...
+    from signal import Signals
+
 posix = os.name == "posix"
-if posix:
+SIGKILL: Signals | None
+SIGTERM: Signals | None
+SIGUSR1: Signals | None
+if (not TYPE_CHECKING and posix) or sys.platform != "win32":
     from signal import SIGKILL, SIGTERM, SIGUSR1
 else:
     SIGKILL, SIGTERM, SIGUSR1 = None, None, None
@@ -574,7 +584,7 @@ async def test_for_leaking_fds():
 async def test_subprocess_pidfd_unnotified():
     noticed_exit = None
 
-    async def wait_and_tell(proc) -> None:
+    async def wait_and_tell(proc: Process) -> None:
         nonlocal noticed_exit
         noticed_exit = Event()
         await proc.wait()
