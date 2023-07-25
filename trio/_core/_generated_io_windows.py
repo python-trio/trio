@@ -22,11 +22,12 @@ if TYPE_CHECKING:
 
     from .. import _core
     from .._abc import Clock
+    from ._unbounded_queue import UnboundedQueue
 
 # fmt: off
 
 
-async def wait_readable(sock):
+async def wait_readable(sock) ->None:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_readable(sock)
@@ -34,7 +35,7 @@ async def wait_readable(sock):
         raise RuntimeError("must be called from async context")
 
 
-async def wait_writable(sock):
+async def wait_writable(sock) ->None:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_writable(sock)
@@ -42,7 +43,7 @@ async def wait_writable(sock):
         raise RuntimeError("must be called from async context")
 
 
-def notify_closing(handle):
+def notify_closing(handle) ->None:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.notify_closing(handle)
@@ -50,7 +51,7 @@ def notify_closing(handle):
         raise RuntimeError("must be called from async context")
 
 
-def register_with_iocp(handle):
+def register_with_iocp(handle) ->None:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.register_with_iocp(handle)
@@ -82,7 +83,7 @@ async def readinto_overlapped(handle, buffer, file_offset=0):
         raise RuntimeError("must be called from async context")
 
 
-def current_iocp():
+def current_iocp() ->int:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.current_iocp()
@@ -90,7 +91,8 @@ def current_iocp():
         raise RuntimeError("must be called from async context")
 
 
-def monitor_completion_key():
+def monitor_completion_key() ->_GeneratorContextManager[tuple[int,
+    UnboundedQueue[object]]]:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.monitor_completion_key()

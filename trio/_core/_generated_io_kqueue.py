@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
     from .. import _core
     from .._abc import Clock
+    from ._unbounded_queue import UnboundedQueue
 
 # fmt: off
 

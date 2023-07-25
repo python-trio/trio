@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     import select
     from socket import socket
 
+    from ._unbounded_queue import UnboundedQueue
     from _contextlib import _GeneratorContextManager
     from contextvars import Context
     from _core import Abort, RaiseCancelT, RunStatistics, Task, SystemClock, TrioToken

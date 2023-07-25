@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 @attr.s(slots=True, eq=False)
 class EpollWaiters:
+    # TODO: why is nobody complaining about this?
     read_task: None = attr.ib(default=None)
     write_task: None = attr.ib(default=None)
     current_flags: int = attr.ib(default=0)
