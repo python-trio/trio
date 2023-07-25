@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.9328,
+    "completenessScore": 0.9392,
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 583,
-      "withUnknownType": 42
+      "withKnownType": 587,
+      "withUnknownType": 38
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 0,
@@ -101,13 +101,9 @@
       "trio._subprocess.Process.wait",
       "trio.from_thread.run",
       "trio.from_thread.run_sync",
-      "trio.lowlevel.cancel_shielded_checkpoint",
       "trio.lowlevel.currently_ki_protected",
       "trio.lowlevel.notify_closing",
-      "trio.lowlevel.permanently_detach_coroutine_object",
-      "trio.lowlevel.reattach_detached_coroutine_object",
       "trio.lowlevel.start_guest_run",
-      "trio.lowlevel.temporarily_detach_coroutine_object",
       "trio.lowlevel.wait_readable",
       "trio.lowlevel.wait_writable",
       "trio.open_file",

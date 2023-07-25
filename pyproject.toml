@@ -93,7 +93,7 @@ module = [
 #"trio/_core/_io_epoll", # 21, 323
 
 #"trio/_core/_thread_cache", # 6, 273
-"trio/_core/_traps", # 7, 276
+#"trio/_core/_traps", # 7, 276
 "trio/_core/_asyncgens", # 10, 194
 
 "trio/_core/_wakeup_socketpair", # 12
