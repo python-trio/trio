@@ -1028,7 +1028,7 @@ class Nursery(metaclass=NoPublicConstructor):
                 return Abort.FAILED
 
             self._parent_waiting_in_aexit = True
-            await wait_task_rescheduled(aborted)
+            await wait_task_rescheduled(abort)
         else:
             # Nothing to wait for, so just execute a checkpoint -- but we
             # still need to mix any exception (e.g. from an external
