@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import sys
 import warnings
@@ -12,6 +14,16 @@ from . import _run
 # Used to log exceptions in async generator finalizers
 ASYNCGEN_LOGGER = logging.getLogger("trio.async_generator_errors")
 
+from typing import TYPE_CHECKING, AsyncGenerator
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeAlias
+
+    from ._run import Runner
+
+# can this be typed more strictly in any way?
+AGenT: TypeAlias = AsyncGenerator[object, object]
+
 
 @attr.s(eq=False, slots=True)
 class AsyncGenerators:
@@ -22,17 +34,17 @@ class AsyncGenerators:
     # asyncgens after the system nursery has been closed, it's a
     # regular set so we don't have to deal with GC firing at
     # unexpected times.
-    alive = attr.ib(factory=weakref.WeakSet)
+    alive: weakref.WeakSet[AGenT] = attr.ib(factory=weakref.WeakSet)
 
     # This collects async generators that get garbage collected during
     # the one-tick window between the system nursery closing and the
     # init task starting end-of-run asyncgen finalization.
-    trailing_needs_finalize = attr.ib(factory=set)
+    trailing_needs_finalize: set[AGenT] = attr.ib(factory=set)
 
     prev_hooks = attr.ib(init=False)
 
-    def install_hooks(self, runner):
-        def firstiter(agen):
+    def install_hooks(self, runner: Runner) -> None:
+        def firstiter(agen: AGenT) -> None:
             if hasattr(_run.GLOBAL_RUN_CONTEXT, "task"):
                 self.alive.add(agen)
             else:
@@ -46,7 +58,7 @@ class AsyncGenerators:
                 if self.prev_hooks.firstiter is not None:
                     self.prev_hooks.firstiter(agen)
 
-        def finalize_in_trio_context(agen, agen_name):
+        def finalize_in_trio_context(agen: AGenT, agen_name: str) -> None:
             try:
                 runner.spawn_system_task(
                     self._finalize_one,
@@ -61,7 +73,7 @@ class AsyncGenerators:
                 # have hit it.
                 self.trailing_needs_finalize.add(agen)
 
-        def finalizer(agen):
+        def finalizer(agen: AGenT) -> None:
             agen_name = name_asyncgen(agen)
             try:
                 is_ours = not agen.ag_frame.f_locals.get("@trio_foreign_asyncgen")
@@ -99,7 +111,7 @@ class AsyncGenerators:
                     try:
                         # If the next thing is a yield, this will raise RuntimeError
                         # which we allow to propagate
-                        closer.send(None)
+                        closer.send(None)  # type: ignore[attr-defined]
                     except StopIteration:
                         pass
                     else:
@@ -114,7 +126,7 @@ class AsyncGenerators:
         self.prev_hooks = sys.get_asyncgen_hooks()
         sys.set_asyncgen_hooks(firstiter=firstiter, finalizer=finalizer)
 
-    async def finalize_remaining(self, runner):
+    async def finalize_remaining(self, runner: Runner) -> None:
         # This is called from init after shutting down the system nursery.
         # The only tasks running at this point are init and
         # the run_sync_soon task, and since the system nursery is closed,
@@ -125,7 +137,7 @@ class AsyncGenerators:
         # To make async generator finalization easier to reason
         # about, we'll shut down asyncgen garbage collection by turning
         # the alive WeakSet into a regular set.
-        self.alive = set(self.alive)
+        self.alive = set(self.alive)  # type: ignore
 
         # Process all pending run_sync_soon callbacks, in case one of
         # them was an asyncgen finalizer that snuck in under the wire.
@@ -170,14 +182,14 @@ class AsyncGenerators:
         # all are gone.
         while self.alive:
             batch = self.alive
-            self.alive = set()
+            self.alive = set()  # type: ignore
             for agen in batch:
                 await self._finalize_one(agen, name_asyncgen(agen))
 
-    def close(self):
+    def close(self) -> None:
         sys.set_asyncgen_hooks(*self.prev_hooks)
 
-    async def _finalize_one(self, agen, name):
+    async def _finalize_one(self, agen: AGenT, name: str) -> None:
         try:
             # This shield ensures that finalize_asyncgen never exits
             # with an exception, not even a Cancelled. The inside
