@@ -350,7 +350,6 @@ class OpaqueHandshakeMessage:
     record: Record
 
 
-# Needs Union until <3.10 is dropped
 _AnyHandshakeMessage: TypeAlias = Union[
     HandshakeMessage, PseudoHandshakeMessage, OpaqueHandshakeMessage
 ]
