@@ -34,6 +34,7 @@ from ._core import (
     EndOfChannel as EndOfChannel,
     Nursery as Nursery,
     RunFinishedError as RunFinishedError,
+    TaskStatus as TaskStatus,
     TrioInternalError as TrioInternalError,
     WouldBlock as WouldBlock,
     current_effective_deadline as current_effective_deadline,
@@ -46,7 +47,11 @@ from ._core._multierror import (
     NonBaseMultiError as _NonBaseMultiError,
 )
 from ._deprecate import TrioDeprecationWarning as TrioDeprecationWarning
-from ._dtls import DTLSChannel as DTLSChannel, DTLSEndpoint as DTLSEndpoint
+from ._dtls import (
+    DTLSChannel as DTLSChannel,
+    DTLSChannelStatistics as DTLSChannelStatistics,
+    DTLSEndpoint as DTLSEndpoint,
+)
 from ._file_io import open_file as open_file, wrap_file as wrap_file
 from ._highlevel_generic import (
     StapledStream as StapledStream,
@@ -78,9 +83,13 @@ from ._ssl import (
 from ._subprocess import Process as Process, run_process as run_process
 from ._sync import (
     CapacityLimiter as CapacityLimiter,
+    CapacityLimiterStatistics as CapacityLimiterStatistics,
     Condition as Condition,
+    ConditionStatistics as ConditionStatistics,
     Event as Event,
+    EventStatistics as EventStatistics,
     Lock as Lock,
+    LockStatistics as LockStatistics,
     Semaphore as Semaphore,
     StrictFIFOLock as StrictFIFOLock,
 )
