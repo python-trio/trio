@@ -1362,7 +1362,7 @@ GLOBAL_RUN_CONTEXT: FinalT = RunContext()
 
 
 @attr.s(frozen=True)
-class RunStatistics:
+class _RunStatistics:
     tasks_living = attr.ib()
     tasks_runnable = attr.ib()
     seconds_to_next_deadline = attr.ib()
@@ -1483,7 +1483,7 @@ class Runner:
         self.ki_manager.close()
 
     @_public
-    def current_statistics(self) -> RunStatistics:
+    def current_statistics(self) -> _RunStatistics:
         """Returns an object containing run-loop-level debugging information.
 
         Currently the following fields are defined:
@@ -1507,7 +1507,7 @@ class Runner:
 
         """
         seconds_to_next_deadline = self.deadlines.next_deadline() - self.current_time()
-        return RunStatistics(
+        return _RunStatistics(
             tasks_living=len(self.tasks),
             tasks_runnable=len(self.runq),
             seconds_to_next_deadline=seconds_to_next_deadline,

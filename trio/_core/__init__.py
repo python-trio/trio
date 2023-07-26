@@ -27,7 +27,6 @@ from ._run import (
     TASK_STATUS_IGNORED,
     CancelScope,
     Nursery,
-    RunStatistics,
     Task,
     TaskStatus,
     add_instrument,
