@@ -175,7 +175,7 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         if modname == "trio":
             static_names.add("testing")
 
-        # these are hidden behind `if sys.plaftorm != "win32" or not TYPE_CHECKING`
+        # these are hidden behind `if sys.platform != "win32" or not TYPE_CHECKING`
         # so presumably pyright is parsing that if statement, in which case we don't
         # care about them being missing.
         if modname == "trio.socket" and sys.platform == "win32":
