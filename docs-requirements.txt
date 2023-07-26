@@ -16,6 +16,8 @@ babel==2.12.1
     # via sphinx
 certifi==2023.5.7
     # via requests
+cffi==1.15.1
+    # via cryptography
 charset-normalizer==3.2.0
     # via requests
 click==8.1.5
@@ -24,6 +26,8 @@ click==8.1.5
     #   towncrier
 click-default-group==1.2.2
     # via towncrier
+cryptography==41.0.2
+    # via pyopenssl
 docutils==0.18.1
     # via
     #   sphinx
@@ -55,8 +59,12 @@ outcome==1.2.0
     # via -r docs-requirements.in
 packaging==23.1
     # via sphinx
+pycparser==2.21
+    # via cffi
 pygments==2.15.1
     # via sphinx
+pyopenssl==23.2.0
+    # via -r docs-requirements.in
 pytz==2023.3
     # via babel
 requests==2.31.0

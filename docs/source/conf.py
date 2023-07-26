@@ -65,6 +65,10 @@ nitpick_ignore = [
     ("py:class", "trio._threads.T"),
     # why aren't these found in stdlib?
     ("py:class", "types.FrameType"),
+    # TODO: figure out if you can link this to SSL
+    ("py:class", "Context"),
+    # TODO: temporary type
+    ("py:class", "_SocketType"),
     # these are not defined in https://docs.python.org/3/objects.inv
     ("py:class", "socket.AddressFamily"),
     ("py:class", "socket.SocketKind"),
