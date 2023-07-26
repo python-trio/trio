@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.884430176565008,
+    "completenessScore": 0.8832,
     "exportedSymbolCounts": {
       "withAmbiguousType": 1,
-      "withKnownType": 551,
-      "withUnknownType": 71
+      "withKnownType": 552,
+      "withUnknownType": 72
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -45,9 +45,9 @@
       }
     ],
     "otherSymbolCounts": {
-      "withAmbiguousType": 8,
-      "withKnownType": 448,
-      "withUnknownType": 120
+      "withAmbiguousType": 6,
+      "withKnownType": 475,
+      "withUnknownType": 114
     },
     "packageName": "trio",
     "symbols": [
@@ -61,6 +61,8 @@
       "trio._core._mock_clock.MockClock.jump",
       "trio._core._run.Nursery.start",
       "trio._core._run.Nursery.start_soon",
+      "trio._core._run.TaskStatus.__repr__",
+      "trio._core._run.TaskStatus.started",
       "trio._core._unbounded_queue.UnboundedQueue.__aiter__",
       "trio._core._unbounded_queue.UnboundedQueue.__anext__",
       "trio._core._unbounded_queue.UnboundedQueue.__repr__",
@@ -69,22 +71,9 @@
       "trio._core._unbounded_queue.UnboundedQueue.get_batch_nowait",
       "trio._core._unbounded_queue.UnboundedQueue.qsize",
       "trio._core._unbounded_queue.UnboundedQueue.statistics",
-      "trio._dtls.DTLSChannel.__enter__",
       "trio._dtls.DTLSChannel.__init__",
-      "trio._dtls.DTLSChannel.aclose",
-      "trio._dtls.DTLSChannel.do_handshake",
-      "trio._dtls.DTLSChannel.get_cleartext_mtu",
-      "trio._dtls.DTLSChannel.receive",
-      "trio._dtls.DTLSChannel.send",
-      "trio._dtls.DTLSChannel.set_ciphertext_mtu",
-      "trio._dtls.DTLSChannel.statistics",
-      "trio._dtls.DTLSEndpoint.__del__",
-      "trio._dtls.DTLSEndpoint.__enter__",
       "trio._dtls.DTLSEndpoint.__init__",
-      "trio._dtls.DTLSEndpoint.connect",
-      "trio._dtls.DTLSEndpoint.incoming_packets_buffer",
       "trio._dtls.DTLSEndpoint.serve",
-      "trio._dtls.DTLSEndpoint.socket",
       "trio._highlevel_socket.SocketListener.__init__",
       "trio._highlevel_socket.SocketStream.__init__",
       "trio._highlevel_socket.SocketStream.getsockopt",
