@@ -11,6 +11,7 @@ import attr
 from .._util import is_main_thread
 
 if TYPE_CHECKING:
+    from types import FrameType
     from typing import Any, Callable, TypeVar
 
     F = TypeVar("F", bound=Callable[..., Any])
@@ -85,17 +86,17 @@ LOCALS_KEY_KI_PROTECTION_ENABLED = "@TRIO_KI_PROTECTION_ENABLED"
 
 # NB: according to the signal.signal docs, 'frame' can be None on entry to
 # this function:
-def ki_protection_enabled(frame):
+def ki_protection_enabled(frame: FrameType | None) -> bool:
     while frame is not None:
         if LOCALS_KEY_KI_PROTECTION_ENABLED in frame.f_locals:
-            return frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED]
+            return frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED]  # type: ignore[no-any-return]
         if frame.f_code.co_name == "__del__":
             return True
         frame = frame.f_back
     return True
 
 
-def currently_ki_protected():
+def currently_ki_protected() -> bool:
     r"""Check whether the calling code has :exc:`KeyboardInterrupt` protection
     enabled.
 
@@ -115,19 +116,19 @@ def currently_ki_protected():
 # functions decorated @async_generator are given this magic property that's a
 # reference to the object itself
 # see python-trio/async_generator/async_generator/_impl.py
-def legacy_isasyncgenfunction(obj):
+def legacy_isasyncgenfunction(obj: object) -> bool:
     return getattr(obj, "_async_gen_function", None) == id(obj)
 
 
-def _ki_protection_decorator(enabled):
-    def decorator(fn):
+def _ki_protection_decorator(enabled: bool) -> Callable[[F], F]:
+    def decorator(fn):  # type: ignore[no-untyped-def]
         # In some version of Python, isgeneratorfunction returns true for
         # coroutine functions, so we have to check for coroutine functions
         # first.
         if inspect.iscoroutinefunction(fn):
 
             @wraps(fn)
-            def wrapper(*args, **kwargs):
+            def wrapper(*args, **kwargs):  # type: ignore[no-untyped-def]
                 # See the comment for regular generators below
                 coro = fn(*args, **kwargs)
                 coro.cr_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
@@ -137,7 +138,7 @@ def _ki_protection_decorator(enabled):
         elif inspect.isgeneratorfunction(fn):
 
             @wraps(fn)
-            def wrapper(*args, **kwargs):
+            def wrapper(*args, **kwargs):  # type: ignore[no-untyped-def]
                 # It's important that we inject this directly into the
                 # generator's locals, as opposed to setting it here and then
                 # doing 'yield from'. The reason is, if a generator is
@@ -154,7 +155,7 @@ def _ki_protection_decorator(enabled):
         elif inspect.isasyncgenfunction(fn) or legacy_isasyncgenfunction(fn):
 
             @wraps(fn)
-            def wrapper(*args, **kwargs):
+            def wrapper(*args, **kwargs):  # type: ignore[no-untyped-def]
                 # See the comment for regular generators above
                 agen = fn(*args, **kwargs)
                 agen.ag_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
@@ -164,7 +165,7 @@ def _ki_protection_decorator(enabled):
         else:
 
             @wraps(fn)
-            def wrapper(*args, **kwargs):
+            def wrapper(*args, **kwargs):  # type: ignore[no-untyped-def]
                 locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
                 return fn(*args, **kwargs)
 
@@ -182,9 +183,13 @@ disable_ki_protection.__name__ = "disable_ki_protection"
 
 @attr.s
 class KIManager:
-    handler = attr.ib(default=None)
+    handler: Callable[[int, FrameType | None], None] | None = attr.ib(default=None)
 
-    def install(self, deliver_cb, restrict_keyboard_interrupt_to_checkpoints):
+    def install(
+        self,
+        deliver_cb: Callable[[], None],
+        restrict_keyboard_interrupt_to_checkpoints: bool,
+    ) -> None:
         assert self.handler is None
         if (
             not is_main_thread()
@@ -192,7 +197,7 @@ class KIManager:
         ):
             return
 
-        def handler(signum, frame):
+        def handler(signum: int, frame: FrameType | None) -> None:
             assert signum == signal.SIGINT
             protection_enabled = ki_protection_enabled(frame)
             if protection_enabled or restrict_keyboard_interrupt_to_checkpoints:
@@ -203,7 +208,7 @@ class KIManager:
         self.handler = handler
         signal.signal(signal.SIGINT, handler)
 
-    def close(self):
+    def close(self) -> None:
         if self.handler is not None:
             if signal.getsignal(signal.SIGINT) is self.handler:
                 signal.signal(signal.SIGINT, signal.default_int_handler)

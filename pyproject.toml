@@ -98,7 +98,7 @@ module = [
 #"trio/_core/_asyncgens", # 10, 194
 
 #"trio/_core/_wakeup_socketpair", # 12
-"trio/_core/_ki", # 14, 210
+#"trio/_core/_ki", # 14, 210
 "trio/_core/_entry_queue", # 16, 195
 "trio/_core/_multierror", # 19, 469
 
