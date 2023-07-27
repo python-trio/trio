@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     P = ParamSpec("P")
 
 T = TypeVar("T")
-StrPath: TypeAlias = Union[str, os.PathLike[str]]
+StrPath: TypeAlias = Union[str, "os.PathLike[str]"]  # Only subscriptable in 3.9+
 
 
 # re-wrap return value from methods that return new instances of pathlib.Path
