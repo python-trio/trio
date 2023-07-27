@@ -363,8 +363,12 @@ async def test_SocketType_basics():
 async def test_SocketType_setsockopt():
     sock = tsocket.socket()
     with sock as _:
-        # specifying optlen
-        sock.setsockopt(tsocket.SOL_SOCKET, tsocket.SO_BINDTODEVICE, None, 0)
+        # no SO_BINDTODEVICE on other platforms. There's maybe other
+        # options that are if anybody wants to hunt through socket
+        # documentation on different platforms.
+        if sys.platform == "linux":
+            # specifying optlen
+            sock.setsockopt(tsocket.SOL_SOCKET, tsocket.SO_BINDTODEVICE, None, 0)
         # specifying value
         sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, False)
 
