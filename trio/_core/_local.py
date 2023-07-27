@@ -8,8 +8,6 @@ import attr
 from .._util import Final, NoPublicConstructor
 from . import _run
 
-# `type: ignore` awaiting https://github.com/python/mypy/issues/15553 to be fixed & released
-
 T = TypeVar("T")
 
 
@@ -51,6 +49,7 @@ class RunVar(Generic[T], metaclass=Final):
             raise RuntimeError("Cannot be used outside of a run context") from None
         except KeyError:
             # contextvars consistency
+            # `type: ignore` awaiting https://github.com/python/mypy/issues/15553 to be fixed & released
             if default is not _NoValue:
                 return default  # type: ignore[return-value]
 

@@ -360,6 +360,23 @@ async def test_SocketType_basics():
     sock.close()
 
 
+async def test_SocketType_setsockopt():
+    sock = tsocket.socket()
+    with sock as _:
+        # specifying optlen
+        sock.setsockopt(tsocket.SOL_SOCKET, tsocket.SO_BINDTODEVICE, None, 0)
+        # specifying value
+        sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, False)
+
+        # specifying both
+        with pytest.raises(TypeError, match="invalid value for argument 'value'"):
+            sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, False, 5)  # type: ignore[call-overload]
+
+        # specifying neither
+        with pytest.raises(TypeError, match="invalid value for argument 'value'"):
+            sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, None)  # type: ignore[call-overload]
+
+
 async def test_SocketType_dup():
     a, b = tsocket.socketpair()
     with a, b:
