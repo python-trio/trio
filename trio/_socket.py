@@ -5,7 +5,7 @@ import select
 import socket as _stdlib_socket
 import sys
 from functools import wraps as _wraps
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Tuple, Union
 
 import idna as _idna
 
@@ -17,7 +17,12 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from types import TracebackType
 
-    from typing_extensions import Self
+    from typing_extensions import Self, TypeAlias
+
+# must use old-style typing because it's evaluated at runtime
+Address: TypeAlias = Union[
+    str, bytes, Tuple[str, int], Tuple[str, int, int], Tuple[str, int, int, int]
+]
 
 
 # Usage:

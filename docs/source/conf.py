@@ -65,6 +65,13 @@ nitpick_ignore = [
     ("py:class", "types.FrameType"),
     ("py:class", "P.args"),
     ("py:class", "P.kwargs"),
+    # TODO: figure out if you can link this to SSL
+    ("py:class", "Context"),
+    # TODO: temporary type
+    ("py:class", "_SocketType"),
+    # these are not defined in https://docs.python.org/3/objects.inv
+    ("py:class", "socket.AddressFamily"),
+    ("py:class", "socket.SocketKind"),
 ]
 autodoc_inherit_docstrings = False
 default_role = "obj"
