@@ -7,7 +7,7 @@ import traceback
 from functools import partial
 from itertools import count
 from threading import Lock, Thread
-from typing import TYPE_CHECKING, Any, Callable, Optional, Tuple
+from typing import TYPE_CHECKING, Callable, Optional, Tuple
 
 import outcome
 
@@ -121,7 +121,7 @@ class WorkerThread:
     def __init__(self, thread_cache: ThreadCache):
         # should generate stubs for outcome
         self._job: Optional[
-            Tuple[Callable[[None], None], Callable[[Value], None], str | None]
+            Tuple[Callable[[], object], Callable[[Value], None], str | None]
         ] = None
         self._thread_cache = thread_cache
         # This Lock is used in an unconventional way.
@@ -200,7 +200,7 @@ class ThreadCache:
 
     def start_thread_soon(
         self,
-        fn: Callable[[None], Any] | partial[Any],
+        fn: Callable[[], object] | partial[object],
         deliver: Callable[[Value], None],
         name: Optional[str] = None,
     ) -> None:
@@ -216,7 +216,7 @@ THREAD_CACHE = ThreadCache()
 
 
 def start_thread_soon(
-    fn: Callable[[None], None] | partial[Any],
+    fn: Callable[[], object] | partial[object],
     deliver: Callable[[Value], None],
     name: Optional[str] = None,
 ) -> None:

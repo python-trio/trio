@@ -53,11 +53,11 @@ module = [
 disallow_untyped_defs = true
 disallow_any_generics = true
 
-[[tool.mypy.overrides]]
-module = "trio._core._run"
-disallow_incomplete_defs = false
-disallow_untyped_defs = false
-disallow_any_generics = false
+#[[tool.mypy.overrides]]
+#module = "trio._core._run"
+#disallow_incomplete_defs = false
+#disallow_untyped_defs = false
+#disallow_any_generics = false
 
 # TODO: gen_exports add platform checks to specific files
 [[tool.mypy.overrides]]
