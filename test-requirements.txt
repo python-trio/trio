@@ -28,6 +28,8 @@ click==8.1.5
     # via
     #   black
     #   pip-tools
+codespell==2.2.5
+    # via -r test-requirements.in
 coverage==7.2.7
     # via -r test-requirements.in
 cryptography==41.0.2
