@@ -8,7 +8,7 @@ import types
 from collections.abc import Awaitable, Callable, Iterable
 from functools import partial, wraps
 from io import BufferedRandom, BufferedReader, BufferedWriter, FileIO, TextIOWrapper
-from typing import IO, TYPE_CHECKING, Any, BinaryIO, ClassVar, TypeVar, cast, overload
+from typing import IO, TYPE_CHECKING, Any, BinaryIO, ClassVar, TypeVar, Union, cast, overload
 
 import trio
 from trio._file_io import AsyncIOWrapper as _AsyncIOWrapper
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     P = ParamSpec("P")
 
 T = TypeVar("T")
-StrPath: TypeAlias = "str | os.PathLike[str]"
+StrPath: TypeAlias = Union[str, os.PathLike[str]]
 
 
 # re-wrap return value from methods that return new instances of pathlib.Path
@@ -60,7 +60,7 @@ def _forward_factory(
 def _forward_magic(
     cls: AsyncAutoWrapperType, attr: Callable[..., object]
 ) -> Callable[..., Path | Any]:
-    sentinel: Any = object()
+    sentinel = object()
 
     @wraps(attr)
     def wrapper(self: Path, other: object = sentinel) -> Any:
