@@ -1,7 +1,7 @@
 # Little utilities we use internally
 from __future__ import annotations
 
-import collections
+import collections.abc
 import inspect
 import os
 import signal
@@ -14,10 +14,23 @@ from types import TracebackType
 import trio
 
 CallT = t.TypeVar("CallT", bound=t.Callable[..., t.Any])
+T = t.TypeVar("T")
+RetT = t.TypeVar("RetT")
+
+if t.TYPE_CHECKING:
+    from typing_extensions import ParamSpec, Self
+
+    ArgsT = ParamSpec("ArgsT")
+
+
+if t.TYPE_CHECKING:
+
+    def signal_raise(signum: int) -> None:
+        ...  # Don't check the implementation below, pthread_kill does not exist on Windows.
 
 
 # Equivalent to the C function raise(), which Python doesn't wrap
-if os.name == "nt":
+elif os.name == "nt":
     # On Windows, os.kill exists but is really weird.
     #
     # If you give it CTRL_C_EVENT or CTRL_BREAK_EVENT, it tries to deliver
@@ -61,7 +74,7 @@ if os.name == "nt":
     signal_raise = getattr(_lib, "raise")
 else:
 
-    def signal_raise(signum):
+    def signal_raise(signum: int) -> None:
         signal.pthread_kill(threading.get_ident(), signum)
 
 
@@ -73,7 +86,7 @@ else:
 # Trying to use signal out of the main thread will fail, so we can then
 # reliably check if this is the main thread without relying on a
 # potentially modified threading.
-def is_main_thread():
+def is_main_thread() -> bool:
     """Attempt to reliably check if we are in the main thread."""
     try:
         signal.signal(signal.SIGINT, signal.getsignal(signal.SIGINT))
@@ -86,8 +99,11 @@ def is_main_thread():
 # Call the function and get the coroutine object, while giving helpful
 # errors for common mistakes. Returns coroutine object.
 ######
-def coroutine_or_error(async_fn, *args):
-    def _return_value_looks_like_wrong_library(value):
+# TODO: Use TypeVarTuple here.
+def coroutine_or_error(
+    async_fn: t.Callable[..., t.Awaitable[RetT]], *args: t.Any
+) -> t.Awaitable[RetT]:
+    def _return_value_looks_like_wrong_library(value: object) -> bool:
         # Returned by legacy @asyncio.coroutine functions, which includes
         # a surprising proportion of asyncio builtins.
         if isinstance(value, collections.abc.Generator):
@@ -183,11 +199,11 @@ class ConflictDetector:
 
     """
 
-    def __init__(self, msg):
+    def __init__(self, msg: str):
         self._msg = msg
         self._held = False
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         if self._held:
             raise trio.BusyResourceError(self._msg)
         else:
@@ -224,10 +240,10 @@ def async_wraps(
     return decorator
 
 
-def fixup_module_metadata(module_name, namespace):
-    seen_ids = set()
+def fixup_module_metadata(module_name: str, namespace: dict[str, t.Any]) -> None:
+    seen_ids: set[int] = set()
 
-    def fix_one(qualname, name, obj):
+    def fix_one(qualname: str, name: str, obj: t.Any) -> None:
         # avoid infinite recursion (relevant when using
         # typing.Generic, for example)
         if id(obj) in seen_ids:
@@ -252,7 +268,10 @@ def fixup_module_metadata(module_name, namespace):
             fix_one(objname, objname, obj)
 
 
-class generic_function:
+# We need ParamSpec to type this "properly", but that requires a runtime typing_extensions import
+# to use as a class base. This is only used at runtime and isn't correct for type checkers anyway,
+# so don't bother.
+class generic_function(t.Generic[RetT]):
     """Decorator that makes a function indexable, to communicate
     non-inferrable generic type parameters to a static type checker.
 
@@ -269,14 +288,14 @@ class generic_function:
     but at least it becomes possible to write those.
     """
 
-    def __init__(self, fn):
+    def __init__(self, fn: t.Callable[..., RetT]) -> None:
         update_wrapper(self, fn)
         self._fn = fn
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args: t.Any, **kwargs: t.Any) -> RetT:
         return self._fn(*args, **kwargs)
 
-    def __getitem__(self, _):
+    def __getitem__(self, subscript: object) -> Self:
         return self
 
 
@@ -307,9 +326,6 @@ class Final(ABCMeta):
         return super().__new__(cls, name, bases, cls_namespace)
 
 
-T = t.TypeVar("T")
-
-
 class NoPublicConstructor(Final):
     """Metaclass that enforces a class to be final (i.e., subclass not allowed)
     and ensures a private constructor.
@@ -338,7 +354,7 @@ class NoPublicConstructor(Final):
         return super().__call__(*args, **kwargs)  # type: ignore
 
 
-def name_asyncgen(agen):
+def name_asyncgen(agen: t.Any) -> str:
     """Return the fully-qualified name of the async generator function
     that produced the async generator iterator *agen*.
     """
