@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.888,
+    "completenessScore": 0.8896,
     "exportedSymbolCounts": {
       "withAmbiguousType": 1,
-      "withKnownType": 555,
-      "withUnknownType": 69
+      "withKnownType": 556,
+      "withUnknownType": 68
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -46,14 +46,13 @@
     ],
     "otherSymbolCounts": {
       "withAmbiguousType": 3,
-      "withKnownType": 529,
-      "withUnknownType": 102
+      "withKnownType": 531,
+      "withUnknownType": 100
     },
     "packageName": "trio",
     "symbols": [
       "trio.__deprecated_attributes__",
       "trio._abc.SocketFactory.socket",
-      "trio._core._entry_queue.TrioToken.run_sync_soon",
       "trio._core._local.RunVar.__repr__",
       "trio._core._local.RunVar.get",
       "trio._core._local.RunVar.reset",
