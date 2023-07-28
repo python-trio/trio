@@ -1,17 +1,34 @@
+from __future__ import annotations
+
+from typing import Generic, TypeVar
+
 import attr
+from typing_extensions import Self
 
 from .. import _core
 from .._deprecate import deprecated
 from .._util import Final
 
+T = TypeVar("T")
+
 
 @attr.s(frozen=True)
-class _UnboundedQueueStats:
-    qsize = attr.ib()
-    tasks_waiting = attr.ib()
+class UnboundedQueueStats:
+    """An object containing debugging information.
+
+    Currently the following fields are defined:
+
+    * ``qsize``: The number of items currently in the queue.
+    * ``tasks_waiting``: The number of tasks blocked on this queue's
+      :meth:`get_batch` method.
+
+    """
+
+    qsize: int = attr.ib()
+    tasks_waiting: int = attr.ib()
 
 
-class UnboundedQueue(metaclass=Final):
+class UnboundedQueue(Generic[T], metaclass=Final):
     """An unbounded queue suitable for certain unusual forms of inter-task
     communication.
 
@@ -41,26 +58,27 @@ class UnboundedQueue(metaclass=Final):
 
     """
 
+    # deprecated is not typed
     @deprecated(
         "0.9.0",
         issue=497,
         thing="trio.lowlevel.UnboundedQueue",
         instead="trio.open_memory_channel(math.inf)",
     )
-    def __init__(self):
+    def __init__(self) -> None:  # type: ignore[misc]
         self._lot = _core.ParkingLot()
-        self._data = []
+        self._data: list[T] = []
         # used to allow handoff from put to the first task in the lot
         self._can_get = False
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<UnboundedQueue holding {len(self._data)} items>"
 
-    def qsize(self):
+    def qsize(self) -> int:
         """Returns the number of items currently in the queue."""
         return len(self._data)
 
-    def empty(self):
+    def empty(self) -> bool:
         """Returns True if the queue is empty, False otherwise.
 
         There is some subtlety to interpreting this method's return value: see
@@ -70,7 +88,7 @@ class UnboundedQueue(metaclass=Final):
         return not self._data
 
     @_core.enable_ki_protection
-    def put_nowait(self, obj):
+    def put_nowait(self, obj: T) -> None:
         """Put an object into the queue, without blocking.
 
         This always succeeds, because the queue is unbounded. We don't provide
@@ -88,13 +106,13 @@ class UnboundedQueue(metaclass=Final):
                 self._can_get = True
         self._data.append(obj)
 
-    def _get_batch_protected(self):
+    def _get_batch_protected(self) -> list[T]:
         data = self._data.copy()
         self._data.clear()
         self._can_get = False
         return data
 
-    def get_batch_nowait(self):
+    def get_batch_nowait(self) -> list[T]:
         """Attempt to get the next batch from the queue, without blocking.
 
         Returns:
@@ -110,7 +128,7 @@ class UnboundedQueue(metaclass=Final):
             raise _core.WouldBlock
         return self._get_batch_protected()
 
-    async def get_batch(self):
+    async def get_batch(self) -> list[T]:
         """Get the next batch from the queue, blocking as necessary.
 
         Returns:
@@ -128,22 +146,14 @@ class UnboundedQueue(metaclass=Final):
             finally:
                 await _core.cancel_shielded_checkpoint()
 
-    def statistics(self):
-        """Return an object containing debugging information.
-
-        Currently the following fields are defined:
-
-        * ``qsize``: The number of items currently in the queue.
-        * ``tasks_waiting``: The number of tasks blocked on this queue's
-          :meth:`get_batch` method.
-
-        """
-        return _UnboundedQueueStats(
+    def statistics(self) -> UnboundedQueueStats:
+        """Return an UnboundedQueueStats object containing debugging information."""
+        return UnboundedQueueStats(
             qsize=len(self._data), tasks_waiting=self._lot.statistics().tasks_waiting
         )
 
-    def __aiter__(self):
+    def __aiter__(self) -> Self:
         return self
 
-    async def __anext__(self):
+    async def __anext__(self) -> list[T]:
         return await self.get_batch()

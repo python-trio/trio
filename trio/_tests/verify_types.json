@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.888,
+    "completenessScore": 0.8896,
     "exportedSymbolCounts": {
       "withAmbiguousType": 1,
-      "withKnownType": 555,
-      "withUnknownType": 69
+      "withKnownType": 556,
+      "withUnknownType": 68
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -46,8 +46,8 @@
     ],
     "otherSymbolCounts": {
       "withAmbiguousType": 3,
-      "withKnownType": 529,
-      "withUnknownType": 102
+      "withKnownType": 551,
+      "withUnknownType": 93
     },
     "packageName": "trio",
     "symbols": [
@@ -63,14 +63,6 @@
       "trio._core._run.Nursery.start_soon",
       "trio._core._run.TaskStatus.__repr__",
       "trio._core._run.TaskStatus.started",
-      "trio._core._unbounded_queue.UnboundedQueue.__aiter__",
-      "trio._core._unbounded_queue.UnboundedQueue.__anext__",
-      "trio._core._unbounded_queue.UnboundedQueue.__repr__",
-      "trio._core._unbounded_queue.UnboundedQueue.empty",
-      "trio._core._unbounded_queue.UnboundedQueue.get_batch",
-      "trio._core._unbounded_queue.UnboundedQueue.get_batch_nowait",
-      "trio._core._unbounded_queue.UnboundedQueue.qsize",
-      "trio._core._unbounded_queue.UnboundedQueue.statistics",
       "trio._dtls.DTLSChannel.__init__",
       "trio._dtls.DTLSEndpoint.__init__",
       "trio._dtls.DTLSEndpoint.serve",
