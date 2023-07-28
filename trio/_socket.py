@@ -601,6 +601,9 @@ class _SocketType(SocketType):
             raise TypeError(
                 "invalid value for argument 'value': {value!r}, must be None when specifying optlen"
             )
+
+        # Note: PyPy may crash here due to setsockopt only supporting
+        # four parameters.
         return self._sock.setsockopt(level, optname, value, optlen)
 
     def listen(self, /, backlog: int = min(_stdlib_socket.SOMAXCONN, 128)) -> None:

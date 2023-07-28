@@ -363,14 +363,10 @@ async def test_SocketType_basics():
 async def test_SocketType_setsockopt():
     sock = tsocket.socket()
     with sock as _:
-        # specifying optlen
+        # specifying optlen. Not supported on pypy, and I couldn't find
+        # valid calls on darwin or win32.
         if hasattr(tsocket, "SO_BINDTODEVICE"):
             sock.setsockopt(tsocket.SOL_SOCKET, tsocket.SO_BINDTODEVICE, None, 0)
-        # I couldn't find valid calls using optlen on systems other than
-        # linux CPython, so we instead check that we get an
-        # 'Invalid argument' error from the underlying socket.socket
-        with pytest.raises(OSError, match="Invalid argument"):
-            sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, None, 0)
 
         # specifying value
         sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, False)
