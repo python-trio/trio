@@ -645,9 +645,11 @@ Asynchronous path objects
 Asynchronous file objects
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autofunction:: open_file
+.. Suppress type annotations here, they refer to lots of internal types.
+   The normal Python docs go into better detail.
+.. autofunction:: open_file(file, mode='r', buffering=-1, encoding=None, errors=None, newline=None, closefd=None, opener=None)
 
-.. autofunction:: wrap_file
+.. autofunction:: wrap_file(file)
 
 .. interface:: Asynchronous file interface
 

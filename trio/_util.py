@@ -13,6 +13,9 @@ from types import TracebackType
 
 import trio
 
+CallT = t.TypeVar("CallT", bound=t.Callable[..., t.Any])
+
+
 # Equivalent to the C function raise(), which Python doesn't wrap
 if os.name == "nt":
     # On Windows, os.kill exists but is really weird.
@@ -199,10 +202,14 @@ class ConflictDetector:
         self._held = False
 
 
-def async_wraps(cls, wrapped_cls, attr_name):
+def async_wraps(
+    cls: type[object],
+    wrapped_cls: type[object],
+    attr_name: str,
+) -> t.Callable[[CallT], CallT]:
     """Similar to wraps, but for async wrappers of non-async functions."""
 
-    def decorator(func):
+    def decorator(func: CallT) -> CallT:
         func.__name__ = attr_name
         func.__qualname__ = ".".join((cls.__qualname__, attr_name))
 

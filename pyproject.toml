@@ -51,19 +51,22 @@ module = [
     "trio._socket",
     "trio._core._local",
     "trio._sync",
-]
-disallow_untyped_defs = true
-disallow_any_generics = true
-
-[[tool.mypy.overrides]]
-module = [
-    "trio._dtls",
-    "trio._abc"
+    "trio._file_io",
 ]
 disallow_incomplete_defs = true
 disallow_untyped_defs = true
 disallow_any_generics = true
 disallow_any_decorated = true
+disallow_subclassing_any = true
+
+[[tool.mypy.overrides]]
+module = [
+    "trio._path",
+]
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+#disallow_any_generics = true
+#disallow_any_decorated = true
 disallow_subclassing_any = true
 
 [tool.pytest.ini_options]
