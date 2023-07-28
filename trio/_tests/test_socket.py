@@ -2,7 +2,7 @@ import errno
 import inspect
 import os
 import socket as stdlib_socket
-import sys as _sys
+import sys
 import tempfile
 
 import attr
@@ -277,7 +277,7 @@ async def test_socket_v6():
         assert s.family == tsocket.AF_INET6
 
 
-@pytest.mark.skipif(not _sys.platform == "linux", reason="linux only")
+@pytest.mark.skipif(not sys.platform == "linux", reason="linux only")
 async def test_sniff_sockopts():
     from socket import AF_INET, AF_INET6, SOCK_DGRAM, SOCK_STREAM
 
