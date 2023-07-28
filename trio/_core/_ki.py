@@ -5,7 +5,7 @@ import signal
 import sys
 import types
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, TypeVar, Final
 
 import attr
 
@@ -84,7 +84,7 @@ if TYPE_CHECKING:
 # We use this special string as a unique key into the frame locals dictionary.
 # The @ ensures it is not a valid identifier and can't clash with any possible
 # real local name. See: https://github.com/python-trio/trio/issues/469
-LOCALS_KEY_KI_PROTECTION_ENABLED = "@TRIO_KI_PROTECTION_ENABLED"
+LOCALS_KEY_KI_PROTECTION_ENABLED: Final = "@TRIO_KI_PROTECTION_ENABLED"
 
 
 # NB: according to the signal.signal docs, 'frame' can be None on entry to
@@ -92,7 +92,7 @@ LOCALS_KEY_KI_PROTECTION_ENABLED = "@TRIO_KI_PROTECTION_ENABLED"
 def ki_protection_enabled(frame: types.FrameType | None) -> bool:
     while frame is not None:
         if LOCALS_KEY_KI_PROTECTION_ENABLED in frame.f_locals:
-            return frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED]
+            return bool(frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED])
         if frame.f_code.co_name == "__del__":
             return True
         frame = frame.f_back
