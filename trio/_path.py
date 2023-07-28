@@ -8,7 +8,17 @@ import types
 from collections.abc import Awaitable, Callable, Iterable
 from functools import partial, wraps
 from io import BufferedRandom, BufferedReader, BufferedWriter, FileIO, TextIOWrapper
-from typing import IO, TYPE_CHECKING, Any, BinaryIO, ClassVar, TypeVar, Union, cast, overload
+from typing import (
+    IO,
+    TYPE_CHECKING,
+    Any,
+    BinaryIO,
+    ClassVar,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+)
 
 import trio
 from trio._file_io import AsyncIOWrapper as _AsyncIOWrapper
@@ -58,12 +68,12 @@ def _forward_factory(
 
 
 def _forward_magic(
-    cls: AsyncAutoWrapperType, attr: Callable[..., object]
-) -> Callable[..., Path | Any]:
+    cls: AsyncAutoWrapperType, attr: Callable[..., T]
+) -> Callable[..., Path | T]:
     sentinel = object()
 
     @wraps(attr)
-    def wrapper(self: Path, other: object = sentinel) -> Any:
+    def wrapper(self: Path, other: object = sentinel) -> Path | T:
         if other is sentinel:
             return attr(self._wrapped)
         if isinstance(other, cls):
