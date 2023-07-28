@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import threading
 from collections import deque
-from typing import Any, Callable, Iterable, Literal, NoReturn
+from typing import Callable, Iterable, Literal, NoReturn
 
 import attr
 
@@ -20,10 +20,12 @@ class EntryQueue:
     # atomic WRT signal delivery (signal handlers can run on either side, but
     # not *during* a deque operation). dict makes similar guarantees - and
     # it's even ordered!
-    queue: deque[tuple[Callable[..., Any], Iterable[Any]]] = attr.ib(factory=deque)
-    idempotent_queue: dict[tuple[Callable[..., Any], Iterable[Any]], None] = attr.ib(
-        factory=dict
+    queue: deque[tuple[Callable[..., object], Iterable[object]]] = attr.ib(
+        factory=deque
     )
+    idempotent_queue: dict[
+        tuple[Callable[..., object], Iterable[object]], None
+    ] = attr.ib(factory=dict)
 
     wakeup: WakeupSocketpair = attr.ib(factory=WakeupSocketpair)
     done: bool = attr.ib(default=False)
@@ -48,7 +50,9 @@ class EntryQueue:
         #     https://bugs.python.org/issue13697#msg237140
         assert self.lock.__class__.__module__ == "_thread"
 
-        def run_cb(job: tuple[Callable[..., object], Iterable[Any]]) -> Literal[True]:
+        def run_cb(
+            job: tuple[Callable[..., object], Iterable[object]]
+        ) -> Literal[True]:
             # We run this with KI protection enabled; it's the callback's
             # job to disable it if it wants it disabled. Exceptions are
             # treated like system task exceptions (i.e., converted into
