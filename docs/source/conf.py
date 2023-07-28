@@ -63,6 +63,8 @@ nitpick_ignore = [
     ("py:obj", "trio._abc.T"),
     ("py:obj", "trio._abc.T_resource"),
     ("py:class", "types.FrameType"),
+    ("py:class", "P.args"),
+    ("py:class", "P.kwargs"),
     # TODO: figure out if you can link this to SSL
     ("py:class", "Context"),
     # TODO: temporary type
