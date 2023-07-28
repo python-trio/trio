@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from typing import Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 import attr
-from typing_extensions import Self
 
 from .. import _core
 from .._deprecate import deprecated
@@ -11,9 +10,12 @@ from .._util import Final
 
 T = TypeVar("T")
 
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
-@attr.s(frozen=True)
-class UnboundedQueueStats:
+
+@attr.s(slots=True, frozen=True)
+class UnboundedQueueStatistics:
     """An object containing debugging information.
 
     Currently the following fields are defined:
@@ -145,17 +147,7 @@ class UnboundedQueue(Generic[T], metaclass=Final):
             finally:
                 await _core.cancel_shielded_checkpoint()
 
-    def statistics(self) -> UnboundedQueueStats:
-        """Return an object containing debugging information.
-
-        Currently the following fields are defined:
-
-        * ``qsize``: The number of items currently in the queue.
-        * ``tasks_waiting``: The number of tasks blocked on this queue's
-          :meth:`get_batch` method.
-
-        """
-        return UnboundedQueueStats(
+        return UnboundedQueueStatistics(
             qsize=len(self._data), tasks_waiting=self._lot.statistics().tasks_waiting
         )
 

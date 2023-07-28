@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from socket import socket
 
     from _contextlib import _GeneratorContextManager
-    from _core import Abort, RaiseCancelT, RunStatistics, SystemClock, Task, TrioToken
+    from _core import Abort, RaiseCancelT, SystemClock, Task, TrioToken, _RunStatistics
     from outcome import Outcome
 
     from .. import _core
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 # fmt: off
 
 
-def current_statistics() ->RunStatistics:
+def current_statistics() ->_RunStatistics:
     """Returns an object containing run-loop-level debugging information.
 
         Currently the following fields are defined:

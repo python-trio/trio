@@ -72,6 +72,8 @@ if TYPE_CHECKING:
     if sys.platform == "win32":
         from ._io_windows import _WindowsStatistics
     elif sys.platform == "darwin":
+        from select import kevent
+
         from ._io_kqueue import _KqueueStatistics
     elif sys.platform == "linux":
         from ._io_epoll import _EpollStatistics
@@ -1420,6 +1422,14 @@ class _RunStatistics:
     run_sync_soon_queue_size: int = attr.ib()
 
 
+if sys.platform == "linux":
+    GetEventsT: TypeAlias = "list[tuple[int, int]]"
+elif sys.platform == "darwin":
+    GetEventsT: TypeAlias = "list[kevent]"
+else:
+    GetEventsT: TypeAlias = int
+
+
 # This holds all the state that gets trampolined back and forth between
 # callbacks when we're running in guest mode.
 #
@@ -1445,7 +1455,7 @@ class GuestState:
     run_sync_soon_threadsafe: Callable[[Callable[[], None]], None] = attr.ib()
     run_sync_soon_not_threadsafe: Callable[[Callable[[], None]], None] = attr.ib()
     done_callback: Callable[[Outcome], None] = attr.ib()
-    unrolled_run_gen: Generator[float, list[tuple[int, int]], None] = attr.ib()
+    unrolled_run_gen: Generator[float, GetEventsT, None] = attr.ib()
     _value_factory: Callable[[], Value] = lambda: Value(None)
     unrolled_run_next_send = attr.ib(factory=_value_factory, type=Outcome)
 
@@ -1470,7 +1480,7 @@ class GuestState:
             # Need to go into the thread and call get_events() there
             self.runner.guest_tick_scheduled = False
 
-            def get_events() -> list[tuple[int, int]]:
+            def get_events() -> GetEventsT:
                 return self.runner.io_manager.get_events(timeout)
 
             def deliver(events_outcome: Outcome) -> None:
@@ -2302,7 +2312,7 @@ def unrolled_run(
     async_fn: Callable[..., object],
     args: Iterable[object],
     host_uses_signal_set_wakeup_fd: bool = False,
-) -> Generator[float, list[tuple[int, int]], None]:
+) -> Generator[float, GetEventsT, None]:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     __tracebackhide__ = True
 

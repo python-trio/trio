@@ -26,25 +26,25 @@ HEADER = """# ***********************************************************
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Iterator, Awaitable, Any
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Iterator
 
 from ._instrumentation import Instrument
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 from ._run import _NO_SEND, GLOBAL_RUN_CONTEXT
 
 if TYPE_CHECKING:
-    import sys
     import select
+    import sys
+    from contextvars import Context
     from socket import socket
 
-    from ._unbounded_queue import UnboundedQueue
     from _contextlib import _GeneratorContextManager
-    from contextvars import Context
-    from _core import Abort, RaiseCancelT, RunStatistics, Task, SystemClock, TrioToken
+    from _core import Abort, RaiseCancelT, SystemClock, Task, TrioToken, _RunStatistics
     from outcome import Outcome
-    from .._abc import Clock
 
     from .. import _core
+    from .._abc import Clock
+    from ._unbounded_queue import UnboundedQueue
 
 # fmt: off
 """
@@ -118,6 +118,17 @@ def gen_public_wrappers_source(source_path: Path, lookup_path: str) -> str:
 
     """
     generated = [HEADER]
+    if lookup_path == "runner.io_manager":
+        guard = 'assert not TYPE_CHECKING or sys.platform=="{}"'
+        if "windows" in source_path.stem:
+            generated.append(guard.format("win32"))
+        elif "kqueue" in source_path.stem:
+            generated.append(guard.format("darwin"))
+        elif "epoll" in source_path.stem:
+            generated.append(guard.format("linux"))
+        else:
+            assert False
+
     source = astor.code_to_ast.parse_file(source_path)
     for method in get_public_methods(source):
         # Remove self from arguments

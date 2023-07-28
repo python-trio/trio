@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.9472,
+    "completenessScore": 0.952076677316294,
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 592,
-      "withUnknownType": 33
+      "withKnownType": 596,
+      "withUnknownType": 30
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 0,
@@ -45,29 +45,15 @@
       }
     ],
     "otherSymbolCounts": {
-      "withAmbiguousType": 8,
-      "withKnownType": 557,
-      "withUnknownType": 62
+      "withAmbiguousType": 5,
+      "withKnownType": 610,
+      "withUnknownType": 50
     },
     "packageName": "trio",
     "symbols": [
       "trio._highlevel_socket.SocketStream.getsockopt",
       "trio._highlevel_socket.SocketStream.send_all",
       "trio._highlevel_socket.SocketStream.setsockopt",
-      "trio._path.AsyncAutoWrapperType.__init__",
-      "trio._path.AsyncAutoWrapperType.generate_forwards",
-      "trio._path.AsyncAutoWrapperType.generate_iter",
-      "trio._path.AsyncAutoWrapperType.generate_magic",
-      "trio._path.AsyncAutoWrapperType.generate_wraps",
-      "trio._path.Path",
-      "trio._path.Path.__bytes__",
-      "trio._path.Path.__dir__",
-      "trio._path.Path.__fspath__",
-      "trio._path.Path.__init__",
-      "trio._path.Path.__repr__",
-      "trio._path.Path.__rtruediv__",
-      "trio._path.Path.__truediv__",
-      "trio._path.Path.open",
       "trio._ssl.SSLListener.__init__",
       "trio._ssl.SSLListener.accept",
       "trio._ssl.SSLListener.aclose",
@@ -101,7 +87,6 @@
       "trio.lowlevel.notify_closing",
       "trio.lowlevel.wait_readable",
       "trio.lowlevel.wait_writable",
-      "trio.open_file",
       "trio.open_ssl_over_tcp_listeners",
       "trio.open_ssl_over_tcp_stream",
       "trio.open_tcp_listeners",
@@ -141,8 +126,7 @@
       "trio.testing.memory_stream_pump",
       "trio.testing.open_stream_to_socket_listener",
       "trio.testing.trio_test",
-      "trio.to_thread.current_default_thread_limiter",
-      "trio.wrap_file"
+      "trio.to_thread.current_default_thread_limiter"
     ]
   }
 }

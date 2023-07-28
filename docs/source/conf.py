@@ -65,6 +65,8 @@ nitpick_ignore = [
     ("py:class", "trio._threads.T"),
     # why aren't these found in stdlib?
     ("py:class", "types.FrameType"),
+    ("py:class", "P.args"),
+    ("py:class", "P.kwargs"),
     # TODO: figure out if you can link this to SSL
     ("py:class", "Context"),
     # TODO: temporary type
