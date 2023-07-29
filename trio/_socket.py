@@ -17,7 +17,6 @@ from typing import (
     Tuple,
     TypeVar,
     Union,
-    cast,
     overload,
 )
 
@@ -522,7 +521,7 @@ async def _resolve_address_nocp(
 
 # TODO: stopping users from initializing this type should be done in a different way,
 # so SocketType can be used as a type. Note that this is *far* from trivial without
-# breaking subclasses of SocketType. Should maybe just add abstract methods to SocketType,
+# breaking subclasses of SocketType. Can maybe add abstract methods to SocketType,
 # or rename _SocketType.
 class SocketType:
     def __init__(self) -> NoReturn:
@@ -593,8 +592,19 @@ class _SocketType(SocketType):
         optlen: int | None = None,
     ) -> None:
         if optlen is None:
-            return self._sock.setsockopt(level, optname, cast("int|Buffer", value))
-        return self._sock.setsockopt(level, optname, cast(None, value), optlen)
+            if value is None:
+                raise TypeError(
+                    "invalid value for argument 'value', must not be None when specifying optlen"
+                )
+            return self._sock.setsockopt(level, optname, value)
+        if value is not None:
+            raise TypeError(
+                "invalid value for argument 'value': {value!r}, must be None when specifying optlen"
+            )
+
+        # Note: PyPy may crash here due to setsockopt only supporting
+        # four parameters.
+        return self._sock.setsockopt(level, optname, value, optlen)
 
     def listen(self, /, backlog: int = min(_stdlib_socket.SOMAXCONN, 128)) -> None:
         return self._sock.listen(backlog)

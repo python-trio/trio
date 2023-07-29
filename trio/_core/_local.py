@@ -8,13 +8,11 @@ import attr
 from .._util import Final, NoPublicConstructor
 from . import _run
 
-# `type: ignore` awaiting https://github.com/python/mypy/issues/15553 to be fixed & released
-
 T = TypeVar("T")
 
 
 @final
-class _NoValue:
+class _NoValue(metaclass=Final):
     ...
 
 
@@ -45,11 +43,13 @@ class RunVar(Generic[T], metaclass=Final):
     def get(self, default: T | type[_NoValue] = _NoValue) -> T:
         """Gets the value of this :class:`RunVar` for the current run call."""
         try:
+            # not typed yet
             return _run.GLOBAL_RUN_CONTEXT.runner._locals[self]  # type: ignore[no-any-return]
         except AttributeError:
             raise RuntimeError("Cannot be used outside of a run context") from None
         except KeyError:
             # contextvars consistency
+            # `type: ignore` awaiting https://github.com/python/mypy/issues/15553 to be fixed & released
             if default is not _NoValue:
                 return default  # type: ignore[return-value]
 

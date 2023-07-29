@@ -49,12 +49,6 @@ disallow_any_generics = true
 # downstream and users have to deal with them.
 [[tool.mypy.overrides]]
 module = [
-    "trio/_path",
-]
-disallow_any_generics = false
-
-[[tool.mypy.overrides]]
-module = [
 "trio/_core/_tests/*",
 "trio/_tests/*",
 
@@ -93,6 +87,16 @@ module = [
 disallow_untyped_defs = false
 disallow_any_generics = false
 disallow_incomplete_defs = false
+
+[[tool.mypy.overrides]]
+module = [
+    "trio._path",
+]
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+disallow_any_generics = false
+#disallow_any_decorated = true
+disallow_subclassing_any = true
 
 [tool.pytest.ini_options]
 addopts = ["--strict-markers", "--strict-config"]

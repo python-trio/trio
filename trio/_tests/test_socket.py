@@ -2,7 +2,7 @@ import errno
 import inspect
 import os
 import socket as stdlib_socket
-import sys as _sys
+import sys
 import tempfile
 
 import attr
@@ -277,7 +277,7 @@ async def test_socket_v6():
         assert s.family == tsocket.AF_INET6
 
 
-@pytest.mark.skipif(not _sys.platform == "linux", reason="linux only")
+@pytest.mark.skipif(not sys.platform == "linux", reason="linux only")
 async def test_sniff_sockopts():
     from socket import AF_INET, AF_INET6, SOCK_DGRAM, SOCK_STREAM
 
@@ -358,6 +358,26 @@ async def test_SocketType_basics():
     assert sock.family == stdlib_sock.family
     assert sock.proto == stdlib_sock.proto
     sock.close()
+
+
+async def test_SocketType_setsockopt() -> None:
+    sock = tsocket.socket()
+    with sock as _:
+        # specifying optlen. Not supported on pypy, and I couldn't find
+        # valid calls on darwin or win32.
+        if hasattr(tsocket, "SO_BINDTODEVICE"):
+            sock.setsockopt(tsocket.SOL_SOCKET, tsocket.SO_BINDTODEVICE, None, 0)
+
+        # specifying value
+        sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, False)
+
+        # specifying both
+        with pytest.raises(TypeError, match="invalid value for argument 'value'"):
+            sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, False, 5)  # type: ignore[call-overload]
+
+        # specifying neither
+        with pytest.raises(TypeError, match="invalid value for argument 'value'"):
+            sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, None)  # type: ignore[call-overload]
 
 
 async def test_SocketType_dup():
