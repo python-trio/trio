@@ -47,28 +47,36 @@ disallow_untyped_defs = false
 # DO NOT use `ignore_errors`; it doesn't apply
 # downstream and users have to deal with them.
 [[tool.mypy.overrides]]
+# Fully typed, enable stricter checks
 module = [
-    "trio._path",
-    "trio._file_io",
-    "trio._util",
-    "trio._ki",
+    "trio._abc",
+    "trio._core._local",
     "trio._deprecate",
+    "trio._dtls",
+    "trio._file_io",
+    "trio._ki",
+    "trio._socket",
+    "trio._sync",
+    "trio._util",
 ]
 disallow_incomplete_defs = true
 disallow_untyped_defs = true
 disallow_untyped_decorators = true
+disallow_any_generics = true
+disallow_any_decorated = true
 disallow_any_unimported = true
 disallow_subclassing_any = true
 
 [[tool.mypy.overrides]]
+# Needs to use Any due to some complex introspection.
 module = [
-    "trio._dtls",
-    "trio._abc"
+    "trio._path",
 ]
 disallow_incomplete_defs = true
 disallow_untyped_defs = true
-disallow_any_generics = true
-disallow_any_decorated = true
+#disallow_any_generics = true
+#disallow_any_decorated = true
+disallow_any_unimported = true
 disallow_subclassing_any = true
 
 [tool.pytest.ini_options]
