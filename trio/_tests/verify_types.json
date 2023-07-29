@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.9072,
+    "completenessScore": 0.8912,
     "exportedSymbolCounts": {
-      "withAmbiguousType": 1,
-      "withKnownType": 567,
-      "withUnknownType": 57
+      "withAmbiguousType": 0,
+      "withKnownType": 557,
+      "withUnknownType": 68
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -46,12 +46,11 @@
     ],
     "otherSymbolCounts": {
       "withAmbiguousType": 3,
-      "withKnownType": 574,
-      "withUnknownType": 76
+      "withKnownType": 531,
+      "withUnknownType": 100
     },
     "packageName": "trio",
     "symbols": [
-      "trio.__deprecated_attributes__",
       "trio._core._entry_queue.TrioToken.run_sync_soon",
       "trio._core._mock_clock.MockClock.jump",
       "trio._core._run.Nursery.start",
@@ -85,10 +84,8 @@
       "trio._ssl.SSLStream.transport_stream",
       "trio._ssl.SSLStream.unwrap",
       "trio._ssl.SSLStream.wait_send_all_might_not_block",
-      "trio._subprocess.Process.__aenter__",
       "trio._subprocess.Process.__init__",
       "trio._subprocess.Process.__repr__",
-      "trio._subprocess.Process.aclose",
       "trio._subprocess.Process.args",
       "trio._subprocess.Process.encoding",
       "trio._subprocess.Process.errors",
@@ -107,7 +104,6 @@
       "trio.lowlevel.current_root_task",
       "trio.lowlevel.current_statistics",
       "trio.lowlevel.current_trio_token",
-      "trio.lowlevel.currently_ki_protected",
       "trio.lowlevel.notify_closing",
       "trio.lowlevel.open_process",
       "trio.lowlevel.permanently_detach_coroutine_object",
