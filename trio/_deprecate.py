@@ -4,7 +4,7 @@ import sys
 import warnings
 from functools import wraps
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Callable, TypeVar, Union, cast
 
 if TYPE_CHECKING:
     from mypy_extensions import KwArg as _KwArg, VarArg as _VarArg
@@ -168,7 +168,7 @@ class _ModuleWithDeprecations(ModuleType):
 
 def enable_attribute_deprecations(module_name: str) -> None:
     module: ModuleType | _ModuleWithDeprecations = cast(
-        ModuleType | _ModuleWithDeprecations, sys.modules[module_name]
+        Union[ModuleType, _ModuleWithDeprecations], sys.modules[module_name]
     )
     module.__class__ = _ModuleWithDeprecations
     assert isinstance(module, _ModuleWithDeprecations)
