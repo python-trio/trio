@@ -17,12 +17,14 @@ from heapq import heapify, heappop, heappush
 from math import inf
 from time import perf_counter
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, NoReturn, Protocol, TypeVar, overload
+from typing import TYPE_CHECKING, Any, NoReturn, Protocol, TypeVar, cast, overload
 
 import attr
 from outcome import Error, Outcome, Value, capture
 from sniffio import current_async_library_cvar
 from sortedcontainers import SortedDict
+
+import trio._core._ki
 
 from .. import _core
 from .._util import Final, NoPublicConstructor, coroutine_or_error
@@ -53,9 +55,12 @@ if TYPE_CHECKING:
     # An unfortunate name collision here with trio._util.Final
     from typing import Final as FinalT
 
+    from typing_extensions import Self
+
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: FinalT = 1000
 
-_NO_SEND: FinalT = object()
+# Passed as a sentinel
+_NO_SEND: Outcome = cast(Outcome, object())
 
 FnT = TypeVar("FnT", bound="Callable[..., Any]")
 StatusT = TypeVar("StatusT")
@@ -152,7 +157,9 @@ class IdlePrimedTypes(enum.Enum):
 ################################################################
 
 
-def collapse_exception_group(excgroup):
+def collapse_exception_group(
+    excgroup: BaseExceptionGroup[BaseException],
+) -> BaseException:
     """Recursively collapse any single-exception groups into that single contained
     exception.
 
@@ -172,7 +179,8 @@ def collapse_exception_group(excgroup):
         )
         return exceptions[0]
     elif modified:
-        return excgroup.derive(exceptions)
+        # derive() returns Any for some reason.
+        return excgroup.derive(exceptions)  # type: ignore[no-any-return]
     else:
         return excgroup
 
@@ -187,18 +195,18 @@ class Deadlines:
     """
 
     # Heap of (deadline, id(CancelScope), CancelScope)
-    _heap = attr.ib(factory=list)
+    _heap: list[tuple[float, int, CancelScope]] = attr.ib(factory=list)
     # Count of active deadlines (those that haven't been changed)
-    _active = attr.ib(default=0)
+    _active: int = attr.ib(default=0)
 
-    def add(self, deadline, cancel_scope):
+    def add(self, deadline: float, cancel_scope: CancelScope) -> None:
         heappush(self._heap, (deadline, id(cancel_scope), cancel_scope))
         self._active += 1
 
-    def remove(self, deadline, cancel_scope):
+    def remove(self, deadline: float, cancel_scope: CancelScope) -> None:
         self._active -= 1
 
-    def next_deadline(self):
+    def next_deadline(self) -> float:
         while self._heap:
             deadline, _, cancel_scope = self._heap[0]
             if deadline == cancel_scope._registered_deadline:
@@ -208,7 +216,7 @@ class Deadlines:
                 heappop(self._heap)
         return inf
 
-    def _prune(self):
+    def _prune(self) -> None:
         # In principle, it's possible for a cancel scope to toggle back and
         # forth repeatedly between the same two deadlines, and end up with
         # lots of stale entries that *look* like they're still active, because
@@ -229,7 +237,7 @@ class Deadlines:
         heapify(pruned_heap)
         self._heap = pruned_heap
 
-    def expire(self, now):
+    def expire(self, now: float) -> bool:
         did_something = False
         while self._heap and self._heap[0][0] <= now:
             deadline, _, cancel_scope = heappop(self._heap)
@@ -380,14 +388,14 @@ class CancelStatus:
                 child.recalculate()
 
     @property
-    def parent_cancellation_is_visible_to_us(self):
+    def parent_cancellation_is_visible_to_us(self) -> bool:
         return (
             self._parent is not None
             and not self._scope.shield
             and self._parent.effectively_cancelled
         )
 
-    def recalculate(self):
+    def recalculate(self) -> None:
         # This does a depth-first traversal over this and descendent cancel
         # statuses, to ensure their state is up-to-date. It's basically a
         # recursive algorithm, but we use an explicit stack to avoid any
@@ -406,7 +414,7 @@ class CancelStatus:
                         task._attempt_delivery_of_any_pending_cancel()
                 todo.extend(current._children)
 
-    def _mark_abandoned(self):
+    def _mark_abandoned(self) -> None:
         self.abandoned_by_misnesting = True
         for child in self._children:
             child._mark_abandoned()
@@ -494,7 +502,7 @@ class CancelScope(metaclass=Final):
     _shield: bool = attr.ib(default=False, kw_only=True)
 
     @enable_ki_protection
-    def __enter__(self):
+    def __enter__(self) -> Self:
         task = _core.current_task()
         if self._has_been_entered:
             raise RuntimeError(
@@ -508,7 +516,7 @@ class CancelScope(metaclass=Final):
             task._activate_cancel_status(self._cancel_status)
         return self
 
-    def _close(self, exc):
+    def _close(self, exc: BaseException | None) -> BaseException | None:
         if self._cancel_status is None:
             new_exc = RuntimeError(
                 "Cancel scope stack corrupted: attempted to exit {!r} "
@@ -810,8 +818,10 @@ class TaskStatus(Protocol[StatusT_contra]):
 class _TaskStatus(TaskStatus[StatusT]):
     _old_nursery: Nursery = attr.ib()
     _new_nursery: Nursery = attr.ib()
+    # _called_started indicates whether _value can be accessed. The latter can't be Optional[],
+    # since None is a valid value too.
     _called_started: bool = attr.ib(default=False)
-    _value: StatusT | None = attr.ib(default=None)
+    _value: StatusT = attr.ib(default=cast(StatusT, None))
 
     def __repr__(self) -> str:
         return f"<Task status object at {id(self):#x}>"
@@ -824,7 +834,7 @@ class _TaskStatus(TaskStatus[StatusT]):
     def started(self, value: StatusT) -> None:
         ...
 
-    def started(self, value: StatusT | None = None) -> None:
+    def started(self, value: StatusT = None) -> None:  # type: ignore[assignment] # StatusT != None
         if self._called_started:
             raise RuntimeError("called 'started' twice on the same task status")
         self._called_started = True
@@ -880,7 +890,9 @@ class _TaskStatus(TaskStatus[StatusT]):
 class _NurseryStartFunc(Protocol[StatusT_co]):
     """Type of functions passed to Nursery.start()."""
 
-    def __call__(self, *args: Any, task_status: TaskStatus[StatusT_co]) -> object:
+    def __call__(
+        self, *args: Any, task_status: TaskStatus[StatusT_co]
+    ) -> Awaitable[object]:
         ...
 
 
@@ -1090,6 +1102,7 @@ class Nursery(metaclass=NoPublicConstructor):
 
     def start_soon(
         self,
+        # TODO: TypeVarTuple
         async_fn: Callable[..., Awaitable[object]],
         *args: Any,
         name: object = None,
@@ -1335,9 +1348,9 @@ class Task(metaclass=NoPublicConstructor):
 
     # The CancelStatus object that is currently active for this task.
     # Don't change this directly; instead, use _activate_cancel_status().
-    _cancel_status: CancelStatus = attr.ib(default=None, repr=False)
+    _cancel_status: CancelStatus | None = attr.ib(default=None, repr=False)
 
-    def _activate_cancel_status(self, cancel_status: CancelStatus) -> None:
+    def _activate_cancel_status(self, cancel_status: CancelStatus | None) -> None:
         if self._cancel_status is not None:
             self._cancel_status._tasks.remove(self)
         self._cancel_status = cancel_status
@@ -1476,44 +1489,44 @@ class GuestState:
 
 @attr.s(eq=False, hash=False, slots=True)
 class Runner:
-    clock = attr.ib()
+    clock: trio._abc.Clock = attr.ib()
     instruments: Instruments = attr.ib()
-    io_manager = attr.ib()
-    ki_manager = attr.ib()
-    strict_exception_groups = attr.ib()
+    io_manager: TheIOManager = attr.ib()
+    ki_manager: KIManager = attr.ib()
+    strict_exception_groups: bool = attr.ib()
 
     # Run-local values, see _local.py
     _locals = attr.ib(factory=dict)
 
     runq: deque[Task] = attr.ib(factory=deque)
-    tasks = attr.ib(factory=set)
+    tasks: set[Task] = attr.ib(factory=set)
 
     deadlines = attr.ib(factory=Deadlines)
 
-    init_task = attr.ib(default=None)
+    init_task: Task | None = attr.ib(default=None)
     system_nursery = attr.ib(default=None)
     system_context = attr.ib(default=None)
     main_task = attr.ib(default=None)
     main_task_outcome = attr.ib(default=None)
 
-    entry_queue = attr.ib(factory=EntryQueue)
-    trio_token = attr.ib(default=None)
-    asyncgens = attr.ib(factory=AsyncGenerators)
+    entry_queue: EntryQueue = attr.ib(factory=EntryQueue)
+    trio_token: TrioToken | None = attr.ib(default=None)
+    asyncgens: AsyncGenerators = attr.ib(factory=AsyncGenerators)
 
     # If everything goes idle for this long, we call clock._autojump()
     clock_autojump_threshold = attr.ib(default=inf)
 
     # Guest mode stuff
-    is_guest = attr.ib(default=False)
-    guest_tick_scheduled = attr.ib(default=False)
+    is_guest: bool = attr.ib(default=False)
+    guest_tick_scheduled: bool = attr.ib(default=False)
 
-    def force_guest_tick_asap(self):
+    def force_guest_tick_asap(self) -> None:
         if self.guest_tick_scheduled:
             return
         self.guest_tick_scheduled = True
         self.io_manager.force_wakeup()
 
-    def close(self):
+    def close(self) -> None:
         self.io_manager.close()
         self.entry_queue.close()
         self.asyncgens.close()
@@ -1556,7 +1569,7 @@ class Runner:
         )
 
     @_public
-    def current_time(self):
+    def current_time(self) -> float:
         """Returns the current time according to Trio's internal clock.
 
         Returns:
@@ -1569,12 +1582,12 @@ class Runner:
         return self.clock.current_time()
 
     @_public
-    def current_clock(self):
+    def current_clock(self) -> trio._abc.Clock:
         """Returns the current :class:`~trio.abc.Clock`."""
         return self.clock
 
     @_public
-    def current_root_task(self):
+    def current_root_task(self) -> trio.lowlevel.Task | None:
         """Returns the current root :class:`Task`.
 
         This is the task that is the ultimate parent of all other tasks.
@@ -1587,7 +1600,9 @@ class Runner:
     ################
 
     @_public
-    def reschedule(self, task, next_send=_NO_SEND):
+    def reschedule(
+        self, task: trio.lowlevel.Task, next_send: object = _NO_SEND
+    ) -> None:
         """Reschedule the given task with the given
         :class:`outcome.Outcome`.
 
@@ -1621,8 +1636,16 @@ class Runner:
             self.instruments.call("task_scheduled", task)
 
     def spawn_impl(
-        self, async_fn, args, nursery, name, *, system_task=False, context=None
-    ):
+        self,
+        # TODO: TypeVarTuple
+        async_fn: Callable[..., Awaitable[object]],
+        args: tuple[Any, ...],
+        nursery: Nursery | None,
+        name: object,
+        *,
+        system_task: bool = False,
+        context: contextvars.Context | None = None,
+    ) -> Task:
         ######
         # Make sure the nursery is in working order
         ######
@@ -1660,7 +1683,7 @@ class Runner:
             name = name.func
         if not isinstance(name, str):
             try:
-                name = f"{name.__module__}.{name.__qualname__}"
+                name = f"{name.__module__}.{name.__qualname__}"  # type: ignore[attr-defined]
             except AttributeError:
                 name = repr(name)
 
@@ -1691,7 +1714,7 @@ class Runner:
         self.reschedule(task, None)
         return task
 
-    def task_exited(self, task, outcome):
+    def task_exited(self, task: Task, outcome: Outcome) -> None:
         if (
             task._cancel_status is not None
             and task._cancel_status.abandoned_by_misnesting
@@ -1740,7 +1763,14 @@ class Runner:
     ################
 
     @_public
-    def spawn_system_task(self, async_fn, *args, name=None, context=None):
+    def spawn_system_task(
+        self,
+        # TODO: TypeVarTuple
+        async_fn: Callable[..., Awaitable[object]],
+        *args: Any,
+        name: object = None,
+        context: contextvars.Context | None = None,
+    ) -> trio.lowlevel.Task:
         """Spawn a "system" task.
 
         System tasks have a few differences from regular tasks:
@@ -1801,7 +1831,12 @@ class Runner:
             context=context,
         )
 
-    async def init(self, async_fn, args):
+    async def init(
+        # TODO: TypeVarTuple
+        self,
+        async_fn: Callable[..., Awaitable[object]],
+        args: tuple[Any, ...],
+    ) -> None:
         # run_sync_soon task runs here:
         async with open_nursery() as run_sync_soon_nursery:
             # All other system tasks run here:
@@ -1839,7 +1874,7 @@ class Runner:
     ################
 
     @_public
-    def current_trio_token(self):
+    def current_trio_token(self) -> trio.lowlevel.TrioToken:
         """Retrieve the :class:`TrioToken` for the current call to
         :func:`trio.run`.
 
@@ -1888,7 +1923,7 @@ class Runner:
     waiting_for_idle = attr.ib(factory=SortedDict)
 
     @_public
-    async def wait_all_tasks_blocked(self, cushion=0.0):
+    async def wait_all_tasks_blocked(self, cushion: float = 0.0) -> None:
         """Block until there are no runnable tasks.
 
         This is useful in testing code when you want to give other tasks a
@@ -2399,7 +2434,7 @@ def unrolled_run(
                 next_send_fn = task._next_send_fn
                 next_send = task._next_send
                 task._next_send_fn = task._next_send = None
-                final_outcome = None
+                final_outcome: Outcome | None = None
                 try:
                     # We used to unwrap the Outcome object here and send/throw
                     # its contents in directly, but it turns out that .throw()
