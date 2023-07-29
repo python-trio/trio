@@ -358,7 +358,7 @@ class NoPublicConstructor(Final):
         return super().__call__(*args, **kwargs)  # type: ignore
 
 
-def name_asyncgen(agen: t.Any) -> str:
+def name_asyncgen(agen: collections.abc.AsyncGenerator[object, t.NoReturn]) -> str:
     """Return the fully-qualified name of the async generator function
     that produced the async generator iterator *agen*.
     """
@@ -369,7 +369,7 @@ def name_asyncgen(agen: t.Any) -> str:
     except (AttributeError, KeyError):
         module = f"<{agen.ag_code.co_filename}>"
     try:
-        qualname = agen.__qualname__
+        qualname = agen.__qualname__  # type: ignore[attr-defined]
     except AttributeError:
         qualname = agen.ag_code.co_name
     return f"{module}.{qualname}"
