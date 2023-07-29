@@ -1,9 +1,22 @@
+from __future__ import annotations
+
 import sys
 import warnings
 from functools import wraps
 from types import ModuleType
+from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
+
+if TYPE_CHECKING:
+    from mypy_extensions import KwArg as _KwArg, VarArg as _VarArg
+else:
+    _VarArg = lambda x: x
+    _KwArg = lambda x: x
 
 import attr
+
+_T = TypeVar("_T")
+_T1 = TypeVar("_T1")
+_R = TypeVar("_R")
 
 
 # We want our warnings to be visible by default (at least for now), but we
@@ -28,18 +41,27 @@ class TrioDeprecationWarning(FutureWarning):
 
     """
 
+    __slots__ = ()
 
-def _url_for_issue(issue):
+
+def _url_for_issue(issue: int) -> str:
     return f"https://github.com/python-trio/trio/issues/{issue}"
 
 
-def _stringify(thing):
+def _stringify(thing: Callable[..., Any] | str) -> str:
     if hasattr(thing, "__module__") and hasattr(thing, "__qualname__"):
         return f"{thing.__module__}.{thing.__qualname__}"
     return str(thing)
 
 
-def warn_deprecated(thing, version, *, issue, instead, stacklevel=2):
+def warn_deprecated(
+    thing: Callable[..., Any] | str,
+    version: str,
+    *,
+    issue: int,
+    instead: Callable[..., Any] | None,
+    stacklevel: int = 2,
+) -> None:
     stacklevel += 1
     msg = f"{_stringify(thing)} is deprecated since Trio {version}"
     if instead is None:
@@ -53,12 +75,23 @@ def warn_deprecated(thing, version, *, issue, instead, stacklevel=2):
 
 # @deprecated("0.2.0", issue=..., instead=...)
 # def ...
-def deprecated(version, *, thing=None, issue, instead):
-    def do_wrap(fn):
+def deprecated(
+    version: str,
+    *,
+    thing: Callable[..., _R] | None = None,
+    issue: int,
+    instead: Callable[..., _R],
+) -> Callable[
+    [Callable[[_VarArg(_T), _KwArg(_T1)], _R]], Callable[[_VarArg(_T), _KwArg(_T1)], _R]
+]:
+    def do_wrap(
+        fn: Callable[[_VarArg(_T), _KwArg(_T1)], _R]
+    ) -> Callable[[_VarArg(_T), _KwArg(_T1)], _R]:
         nonlocal thing
 
         @wraps(fn)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: _T, **kwargs: _T1) -> _R:
+            assert thing is not None
             warn_deprecated(thing, version, instead=instead, issue=issue)
             return fn(*args, **kwargs)
 
@@ -66,7 +99,8 @@ def deprecated(version, *, thing=None, issue, instead):
         # on that, so we read them off the wrapper object instead of the (now
         # hidden) fn object
         if thing is None:
-            thing = wrapper
+            assert callable(wrapper)
+            thing = cast(Callable[..., _R], wrapper)
 
         if wrapper.__doc__ is not None:
             doc = wrapper.__doc__
@@ -87,10 +121,16 @@ def deprecated(version, *, thing=None, issue, instead):
     return do_wrap
 
 
-def deprecated_alias(old_qualname, new_fn, version, *, issue):
+def deprecated_alias(
+    old_qualname: str,
+    new_fn: Callable[[_VarArg(_T), _KwArg(_T1)], _R],
+    version: str,
+    *,
+    issue: int,
+) -> Callable[[_VarArg(_T), _KwArg(_T1)], _R]:
     @deprecated(version, issue=issue, instead=new_fn)
     @wraps(new_fn, assigned=("__module__", "__annotations__"))
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: _T, **kwargs: _T1) -> _R:
         "Deprecated alias."
         return new_fn(*args, **kwargs)
 
@@ -103,14 +143,16 @@ def deprecated_alias(old_qualname, new_fn, version, *, issue):
 class DeprecatedAttribute:
     _not_set = object()
 
-    value = attr.ib()
-    version = attr.ib()
-    issue = attr.ib()
-    instead = attr.ib(default=_not_set)
+    value: Any = attr.ib()
+    version: str = attr.ib()
+    issue: int = attr.ib()
+    instead: Any = attr.ib(default=_not_set)
 
 
 class _ModuleWithDeprecations(ModuleType):
-    def __getattr__(self, name):
+    __deprecated_attributes__: dict[str, DeprecatedAttribute]
+
+    def __getattr__(self, name: str) -> Any:
         if name in self.__deprecated_attributes__:
             info = self.__deprecated_attributes__[name]
             instead = info.instead
@@ -124,9 +166,12 @@ class _ModuleWithDeprecations(ModuleType):
         raise AttributeError(msg.format(self.__name__, name))
 
 
-def enable_attribute_deprecations(module_name):
-    module = sys.modules[module_name]
+def enable_attribute_deprecations(module_name: str) -> None:
+    module: ModuleType | _ModuleWithDeprecations = cast(
+        ModuleType | _ModuleWithDeprecations, sys.modules[module_name]
+    )
     module.__class__ = _ModuleWithDeprecations
+    assert isinstance(module, _ModuleWithDeprecations)
     # Make sure that this is always defined so that
     # _ModuleWithDeprecations.__getattr__ can access it without jumping
     # through hoops or risking infinite recursion.
