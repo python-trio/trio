@@ -8,7 +8,7 @@ import attr
 import trio
 
 from . import _core
-from ._core import ParkingLot, enable_ki_protection
+from ._core import Abort, ParkingLot, RaiseCancelT, enable_ki_protection
 from ._util import Final
 
 if TYPE_CHECKING:
@@ -87,7 +87,7 @@ class Event(metaclass=Final):
             task = _core.current_task()
             self._tasks.add(task)
 
-            def abort_fn(_):
+            def abort_fn(_: RaiseCancelT) -> Abort:
                 self._tasks.remove(task)
                 return _core.Abort.SUCCEEDED
 
@@ -143,10 +143,13 @@ class CapacityLimiterStatistics:
 
     borrowed_tokens: int = attr.ib()
     total_tokens: int | float = attr.ib()
-    borrowers: list[Task] = attr.ib()
+    borrowers: list[Task | object] = attr.ib()
     tasks_waiting: int = attr.ib()
 
 
+# Can be a generic type with a default of Task if/when PEP 696 is released
+# and implemented in type checkers. Making it fully generic would currently
+# introduce a lot of unnecessary hassle.
 class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
     """An object for controlling access to a resource with limited capacity.
 
@@ -204,9 +207,9 @@ class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
     # total_tokens would ideally be int|Literal[math.inf] - but that's not valid typing
     def __init__(self, total_tokens: int | float):
         self._lot = ParkingLot()
-        self._borrowers: set[Task] = set()
+        self._borrowers: set[Task | object] = set()
         # Maps tasks attempting to acquire -> borrower, to handle on-behalf-of
-        self._pending_borrowers: dict[Task, Task] = {}
+        self._pending_borrowers: dict[Task, Task | object] = {}
         # invoke the property setter for validation
         self.total_tokens: int | float = total_tokens
         assert self._total_tokens == total_tokens
@@ -268,7 +271,7 @@ class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
         self.acquire_on_behalf_of_nowait(trio.lowlevel.current_task())
 
     @enable_ki_protection
-    def acquire_on_behalf_of_nowait(self, borrower: Task) -> None:
+    def acquire_on_behalf_of_nowait(self, borrower: Task | object) -> None:
         """Borrow a token from the sack on behalf of ``borrower``, without
         blocking.
 
@@ -307,7 +310,7 @@ class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
         await self.acquire_on_behalf_of(trio.lowlevel.current_task())
 
     @enable_ki_protection
-    async def acquire_on_behalf_of(self, borrower: Task) -> None:
+    async def acquire_on_behalf_of(self, borrower: Task | object) -> None:
         """Borrow a token from the sack on behalf of ``borrower``, blocking if
         necessary.
 
@@ -347,7 +350,7 @@ class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
         self.release_on_behalf_of(trio.lowlevel.current_task())
 
     @enable_ki_protection
-    def release_on_behalf_of(self, borrower: Task) -> None:
+    def release_on_behalf_of(self, borrower: Task | object) -> None:
         """Put a token back into the sack on behalf of ``borrower``.
 
         Raises:
