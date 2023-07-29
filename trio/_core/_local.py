@@ -12,7 +12,7 @@ T = TypeVar("T")
 
 
 @final
-class _NoValue:
+class _NoValue(metaclass=Final):
     ...
 
 
