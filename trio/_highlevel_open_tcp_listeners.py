@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import errno
 import sys
-from math import inf
+from collections.abc import Awaitable, Callable, Iterable
+from typing import Any
 
 import trio
 
@@ -37,16 +40,18 @@ if sys.version_info < (3, 11):
 # so this is unnecessary -- we can just pass in "infinity" and get the maximum
 # that way. (Verified on Windows, Linux, macOS using
 # notes-to-self/measure-listen-backlog.py)
-def _compute_backlog(backlog):
-    if backlog is None:
-        backlog = inf
+def _compute_backlog(backlog: int | None) -> int:
     # Many systems (Linux, BSDs, ...) store the backlog in a uint16 and are
     # missing overflow protection, so we apply our own overflow protection.
     # https://github.com/golang/go/issues/5030
+    if backlog is None:
+        return 0xFFFF
     return min(backlog, 0xFFFF)
 
 
-async def open_tcp_listeners(port, *, host=None, backlog=None):
+async def open_tcp_listeners(
+    port: int, *, host: str | bytes | None = None, backlog: int | None = None
+) -> list[trio.SocketListener]:
     """Create :class:`SocketListener` objects to listen for TCP connections.
 
     Args:
@@ -62,7 +67,7 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
           :func:`open_tcp_listeners` will bind to both the IPv4 wildcard
           address (``0.0.0.0``) and also the IPv6 wildcard address (``::``).
 
-      host (str, bytes-like, or None): The local interface to bind to. This is
+      host (str, bytes, or None): The local interface to bind to. This is
           passed to :func:`~socket.getaddrinfo` with the ``AI_PASSIVE`` flag
           set.
 
@@ -150,14 +155,14 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
 
 
 async def serve_tcp(
-    handler,
-    port,
+    handler: Callable[[trio.SocketStream], Awaitable[Any]],
+    port: int,
     *,
-    host=None,
-    backlog=None,
-    handler_nursery=None,
-    task_status=trio.TASK_STATUS_IGNORED,
-):
+    host: str | bytes | None = None,
+    backlog: int | None = None,
+    handler_nursery: trio.Nursery | None = None,
+    task_status: trio.lowlevel.Task = trio.TASK_STATUS_IGNORED,  # type: ignore[has-type]  # Cannot determine type of "TASK_STATUS_IGNORED"
+) -> None:
     """Listen for incoming TCP connections, and for each one start a task
     running ``handler(stream)``.
 
