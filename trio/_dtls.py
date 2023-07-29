@@ -101,7 +101,8 @@ class HandshakeType(enum.IntEnum):
     message_hash = 254
 
 
-class ProtocolVersion(enum.Enum):
+class ProtocolVersion:
+    __slots__ = ()
     DTLS10 = bytes([254, 255])
     DTLS12 = bytes([254, 253])
 
