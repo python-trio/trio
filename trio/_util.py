@@ -24,9 +24,9 @@ if t.TYPE_CHECKING:
 
 
 if t.TYPE_CHECKING:
-
+    # Don't type check the implementation below, pthread_kill does not exist on Windows.
     def signal_raise(signum: int) -> None:
-        ...  # Don't check the implementation below, pthread_kill does not exist on Windows.
+        ...
 
 
 # Equivalent to the C function raise(), which Python doesn't wrap
@@ -199,7 +199,7 @@ class ConflictDetector:
 
     """
 
-    def __init__(self, msg: str):
+    def __init__(self, msg: str) -> None:
         self._msg = msg
         self._held = False
 
@@ -243,7 +243,7 @@ def async_wraps(
 def fixup_module_metadata(module_name: str, namespace: dict[str, t.Any]) -> None:
     seen_ids: set[int] = set()
 
-    def fix_one(qualname: str, name: str, obj: t.Any) -> None:
+    def fix_one(qualname: str, name: str, obj: object) -> None:
         # avoid infinite recursion (relevant when using
         # typing.Generic, for example)
         if id(obj) in seen_ids:
@@ -258,7 +258,8 @@ def fixup_module_metadata(module_name: str, namespace: dict[str, t.Any]) -> None
             # rewriting these.
             if hasattr(obj, "__name__") and "." not in obj.__name__:
                 obj.__name__ = name
-                obj.__qualname__ = qualname
+                if hasattr(obj, "__qualname__"):
+                    obj.__qualname__ = qualname
             if isinstance(obj, type):
                 for attr_name, attr_value in obj.__dict__.items():
                     fix_one(objname + "." + attr_name, attr_name, attr_value)
@@ -315,7 +316,10 @@ class Final(ABCMeta):
     """
 
     def __new__(
-        cls, name: str, bases: tuple[type, ...], cls_namespace: dict[str, object]
+        cls,
+        name: str,
+        bases: tuple[type, ...],
+        cls_namespace: dict[str, object],
     ) -> Final:
         for base in bases:
             if isinstance(base, Final):
