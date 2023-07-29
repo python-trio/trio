@@ -101,7 +101,7 @@ class HandshakeType(enum.IntEnum):
     message_hash = 254
 
 
-class ProtocolVersion:
+class ProtocolVersion(enum.Enum):
     DTLS10 = bytes([254, 255])
     DTLS12 = bytes([254, 253])
 
@@ -115,7 +115,7 @@ EPOCH_MASK = 0xFFFF << (6 * 8)
 #   network cannot *only* cause BadPacket to be raised. No IndexError or
 #   struct.error or whatever.
 class BadPacket(Exception):
-    pass
+    __slots__ = ()
 
 
 # This checks that the DTLS 'epoch' field is 0, which is true iff we're in the
@@ -406,6 +406,8 @@ def decode_volley_trusted(
 
 
 class RecordEncoder:
+    __slots__ = ("_record_seq",)
+
     def __init__(self) -> None:
         self._record_seq = count()
 
@@ -648,7 +650,9 @@ _T = TypeVar("_T")
 
 
 class _Queue(Generic[_T]):
-    def __init__(self, incoming_packets_buffer: int | float):
+    __slots__ = ("s", "r")
+
+    def __init__(self, incoming_packets_buffer: int | float) -> None:
         self.s, self.r = trio.open_memory_channel[_T](incoming_packets_buffer)
 
 
@@ -828,7 +832,25 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
 
     """
 
-    def __init__(self, endpoint: DTLSEndpoint, peer_address: Address, ctx: Context):
+    __slots__ = (
+        "endpoint",
+        "peer_address",
+        "_packets_dropped_in_trio",
+        "_client_hello",
+        "_did_handshake",
+        "_ssl",
+        "_handshake_mtu",
+        "_replaced",
+        "_closed",
+        "_q",
+        "_handshake_lock",
+        "_record_encoder",
+        "_final_volley",
+    )
+
+    def __init__(
+        self, endpoint: DTLSEndpoint, peer_address: Address, ctx: Context
+    ) -> None:
         self.endpoint = endpoint
         self.peer_address = peer_address
         self._packets_dropped_in_trio = 0
@@ -1178,7 +1200,23 @@ class DTLSEndpoint(metaclass=Final):
 
     """
 
-    def __init__(self, socket: _SocketType, *, incoming_packets_buffer: int = 10):
+    __slots__ = (
+        "_initialized",
+        "socket",
+        "incoming_packets_buffer",
+        "_token",
+        "_streams",
+        "_listening_context",
+        "_listening_key",
+        "_incoming_connections_q",
+        "_send_lock",
+        "_closed",
+        "_receive_loop_spawned",
+    )
+
+    def __init__(
+        self, socket: _SocketType, *, incoming_packets_buffer: int = 10
+    ) -> None:
         # We do this lazily on first construction, so only people who actually use DTLS
         # have to install PyOpenSSL.
         global SSL
