@@ -1267,7 +1267,7 @@ class DTLSEndpoint(metaclass=Final):
         ssl_context: Context,
         async_fn: Callable[..., Awaitable[object]],
         *args: Any,
-        task_status: TaskStatus = trio.TASK_STATUS_IGNORED,  # type: ignore[has-type]
+        task_status: TaskStatus[None] = trio.TASK_STATUS_IGNORED,
     ) -> None:
         """Listen for incoming connections, and spawn a handler for each using an
         internal nursery.
