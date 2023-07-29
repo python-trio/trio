@@ -31,7 +31,6 @@ from ._core import (
     BusyResourceError as BusyResourceError,
     Cancelled as Cancelled,
     CancelScope as CancelScope,
-    TaskStatus as TaskStatus,
     ClosedResourceError as ClosedResourceError,
     EndOfChannel as EndOfChannel,
     Nursery as Nursery,

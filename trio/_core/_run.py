@@ -10,14 +10,14 @@ import sys
 import threading
 import warnings
 from collections import deque
-from collections.abc import Callable, Coroutine, Iterator
+from collections.abc import Awaitable, Callable, Coroutine, Iterator
 from contextlib import AbstractAsyncContextManager, contextmanager
 from contextvars import copy_context
 from heapq import heapify, heappop, heappush
 from math import inf
 from time import perf_counter
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, NoReturn, overload, Protocol, TypeVar
+from typing import TYPE_CHECKING, Any, NoReturn, Protocol, TypeVar, overload
 
 import attr
 from outcome import Error, Outcome, Value, capture
@@ -58,7 +58,9 @@ DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: FinalT = 1000
 _NO_SEND: FinalT = object()
 
 FnT = TypeVar("FnT", bound="Callable[..., Any]")
-StatusT = TypeVar("StatusT", contravariant=True)
+StatusT = TypeVar("StatusT")
+StatusT_co = TypeVar("StatusT_co", covariant=True)
+StatusT_contra = TypeVar("StatusT_contra", contravariant=True)
 
 
 # Decorator to mark methods public. This does nothing by itself, but
@@ -781,17 +783,21 @@ class CancelScope(metaclass=Final):
 ################################################################
 
 
-class TaskStatus(Protocol[StatusT]):
+class TaskStatus(Protocol[StatusT_contra]):
     """The interface provided by :meth:`Nursery.start()` to the spawned task.
 
     This is provided via the ``task_status`` keyword-only parameter.
     """
-    @overload
-    def started(self: TaskStatus[None]) -> None: ...
-    @overload
-    def started(self, value: StatusT) -> None: ...
 
-    def started(self, value: StatusT | None = None) -> None:
+    @overload
+    def started(self: TaskStatus[None]) -> None:
+        ...
+
+    @overload
+    def started(self, value: StatusT_contra) -> None:
+        ...
+
+    def started(self, value: StatusT_contra | None = None) -> None:
         """Tasks call this method to indicate that they have initialized.
 
         See `nursery.start() <trio.Nursery.start>` for more information.
@@ -801,7 +807,7 @@ class TaskStatus(Protocol[StatusT]):
 # This code needs to be read alongside the code from Nursery.start to make
 # sense.
 @attr.s(eq=False, hash=False, repr=False)
-class _TaskStatus(metaclass=Final, TaskStatus[StatusT]):
+class _TaskStatus(TaskStatus[StatusT]):
     _old_nursery: Nursery = attr.ib()
     _new_nursery: Nursery = attr.ib()
     _called_started: bool = attr.ib(default=False)
@@ -811,9 +817,12 @@ class _TaskStatus(metaclass=Final, TaskStatus[StatusT]):
         return f"<Task status object at {id(self):#x}>"
 
     @overload
-    def started(self: TaskStatus[None]) -> None: ...
+    def started(self: TaskStatus[None]) -> None:
+        ...
+
     @overload
-    def started(self, value: StatusT) -> None: ...
+    def started(self, value: StatusT) -> None:
+        ...
 
     def started(self, value: StatusT | None = None) -> None:
         if self._called_started:
@@ -866,6 +875,13 @@ class _TaskStatus(metaclass=Final, TaskStatus[StatusT]):
         # And finally, poke the old nursery so it notices that all its
         # children have disappeared and can exit.
         self._old_nursery._check_nursery_closed()
+
+
+class _NurseryStartFunc(Protocol[StatusT_co]):
+    """Type of functions passed to Nursery.start()."""
+
+    def __call__(self, *args: Any, task_status: TaskStatus[StatusT_co]) -> object:
+        ...
 
 
 @attr.s
@@ -1072,7 +1088,12 @@ class Nursery(metaclass=NoPublicConstructor):
                 # (see test_nursery_cancel_doesnt_create_cyclic_garbage)
                 del self._pending_excs
 
-    def start_soon(self, async_fn, *args, name=None):
+    def start_soon(
+        self,
+        async_fn: Callable[..., Awaitable[object]],
+        *args: Any,
+        name: object = None,
+    ) -> None:
         """Creates a child task, scheduling ``await async_fn(*args)``.
 
         If you want to run a function and immediately wait for its result,
@@ -1114,7 +1135,9 @@ class Nursery(metaclass=NoPublicConstructor):
         """
         GLOBAL_RUN_CONTEXT.runner.spawn_impl(async_fn, args, self, name)
 
-    async def start(self, async_fn, *args, name=None):
+    async def start(
+        self, async_fn: _NurseryStartFunc[StatusT], *args: Any, name: object = None
+    ) -> StatusT:
         r"""Creates and initializes a child task.
 
         Like :meth:`start_soon`, but blocks until the new task has
@@ -1159,7 +1182,7 @@ class Nursery(metaclass=NoPublicConstructor):
         try:
             self._pending_starts += 1
             async with open_nursery() as old_nursery:
-                task_status = _TaskStatus(old_nursery, self)
+                task_status: _TaskStatus[StatusT] = _TaskStatus(old_nursery, self)
                 thunk = functools.partial(async_fn, task_status=task_status)
                 task = GLOBAL_RUN_CONTEXT.runner.spawn_impl(
                     thunk, args, old_nursery, name
