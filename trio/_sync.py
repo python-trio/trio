@@ -150,8 +150,6 @@ class CapacityLimiterStatistics:
 # Can be a generic type with a default of Task if/when PEP 696 is released
 # and implemented in type checkers. Making it fully generic would currently
 # introduce a lot of unnecessary hassle.
-
-
 class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
     """An object for controlling access to a resource with limited capacity.
 
