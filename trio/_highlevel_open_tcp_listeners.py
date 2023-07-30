@@ -26,7 +26,7 @@ if sys.version_info < (3, 11):
 # backpressure. If a connection gets stuck waiting in the backlog queue, then
 # from the peer's point of view the connection succeeded but then their
 # send/recv will stall until we get to it, possibly for a long time. OTOH if
-# there isn't room in the backlog queue... then their connect stalls, possibly
+# there isn't room in the backlog queue, then their connect stalls, possibly
 # for a long time, which is pretty much the same thing.
 #
 # A large backlog can also use a bit more kernel memory, but this seems fairly
