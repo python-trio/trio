@@ -3,9 +3,9 @@ from __future__ import annotations
 import errno
 import sys
 from collections.abc import Awaitable, Callable
-from typing import Any
 
 import trio
+from trio.lowlevel import TaskStatus
 
 from . import socket as tsocket
 
@@ -155,13 +155,13 @@ async def open_tcp_listeners(
 
 
 async def serve_tcp(
-    handler: Callable[[trio.SocketStream], Awaitable[Any]],
+    handler: Callable[[trio.SocketStream], Awaitable[object]],
     port: int,
     *,
     host: str | bytes | None = None,
     backlog: int | None = None,
     handler_nursery: trio.Nursery | None = None,
-    task_status: trio.lowlevel.Task = trio.TASK_STATUS_IGNORED,  # type: ignore[has-type]  # Cannot determine type of "TASK_STATUS_IGNORED"
+    task_status: TaskStatus = trio.TASK_STATUS_IGNORED,  # type: ignore[assignment]  # default has type "_TaskStatusIgnored", argument has type "TaskStatus"
 ) -> None:
     """Listen for incoming TCP connections, and for each one start a task
     running ``handler(stream)``.
@@ -227,6 +227,7 @@ async def serve_tcp(
 
     """
     listeners = await trio.open_tcp_listeners(port, host=host, backlog=backlog)
+    # typecheck: no-untyped-call error: Call to untyped function "serve_listeners" in typed context
     await trio.serve_listeners(
         handler, listeners, handler_nursery=handler_nursery, task_status=task_status
     )
