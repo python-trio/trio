@@ -46,8 +46,8 @@
     ],
     "otherSymbolCounts": {
       "withAmbiguousType": 3,
-      "withKnownType": 574,
-      "withUnknownType": 76
+      "withKnownType": 576,
+      "withUnknownType": 74
     },
     "packageName": "trio",
     "symbols": [
@@ -85,10 +85,8 @@
       "trio._ssl.SSLStream.transport_stream",
       "trio._ssl.SSLStream.unwrap",
       "trio._ssl.SSLStream.wait_send_all_might_not_block",
-      "trio._subprocess.Process.__aenter__",
       "trio._subprocess.Process.__init__",
       "trio._subprocess.Process.__repr__",
-      "trio._subprocess.Process.aclose",
       "trio._subprocess.Process.args",
       "trio._subprocess.Process.encoding",
       "trio._subprocess.Process.errors",
