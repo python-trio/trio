@@ -5,7 +5,7 @@ import signal
 import sys
 import types
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, TypeVar, Final
+from typing import TYPE_CHECKING, Any, Callable, Final, TypeVar
 
 import attr
 
