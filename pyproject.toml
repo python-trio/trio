@@ -52,6 +52,7 @@ module = [
     "trio._core._local",
     "trio._sync",
     "trio._file_io",
+    "trio._highlevel_open_tcp_stream.py",
 ]
 disallow_incomplete_defs = true
 disallow_untyped_defs = true
