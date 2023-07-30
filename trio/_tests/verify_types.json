@@ -121,7 +121,6 @@
       "trio.lowlevel.wait_writable",
       "trio.open_ssl_over_tcp_listeners",
       "trio.open_ssl_over_tcp_stream",
-      "trio.open_tcp_listeners",
       "trio.open_tcp_stream",
       "trio.open_unix_socket",
       "trio.run",
