@@ -4,14 +4,14 @@ import inspect
 import signal
 import sys
 import types
+from collections.abc import Callable
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Final, TypeVar
+from typing import TYPE_CHECKING, Final, TypeVar
 
 import attr
 
 from .._util import is_main_thread
 
-F = TypeVar("F", bound=Callable[..., Any])
 RetT = TypeVar("RetT")
 
 if TYPE_CHECKING:
