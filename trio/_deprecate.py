@@ -5,7 +5,7 @@ import warnings
 from collections.abc import Callable
 from functools import wraps
 from types import ModuleType
-from typing import TYPE_CHECKING, ClassVar, Optional, TypeVar
+from typing import TYPE_CHECKING, ClassVar, TypeVar
 
 import attr
 
