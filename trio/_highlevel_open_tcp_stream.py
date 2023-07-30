@@ -7,7 +7,7 @@ from socket import AddressFamily, SocketKind
 
 import trio
 from trio._core._multierror import MultiError
-from trio.socket import SOCK_STREAM, getaddrinfo, socket
+from trio.socket import SOCK_STREAM, _SocketType, getaddrinfo, socket
 
 if sys.version_info < (3, 11):
     from exceptiongroup import ExceptionGroup
@@ -113,8 +113,8 @@ DEFAULT_DELAY = 0.250
 
 
 @contextmanager
-def close_all() -> Generator[set[socket], None, None]:
-    sockets_to_close: set[socket] = set()
+def close_all() -> Generator[set[_SocketType], None, None]:
+    sockets_to_close: set[_SocketType] = set()
     try:
         yield sockets_to_close
     finally:
@@ -131,7 +131,15 @@ def close_all() -> Generator[set[socket], None, None]:
 
 
 def reorder_for_rfc_6555_section_5_4(
-    targets: list[tuple[AddressFamily, SocketKind, int, str, tuple[str, int]]]
+    targets: list[
+        tuple[
+            AddressFamily,
+            SocketKind,
+            int,
+            str,
+            tuple[str, int] | tuple[str, int, int, int],
+        ]
+    ]
 ) -> None:
     # RFC 6555 section 5.4 says that if getaddrinfo returns multiple address
     # families (e.g. IPv4 and IPv6), then you should make sure that your first
@@ -182,7 +190,7 @@ async def open_tcp_stream(
     host: str | bytes,
     port: int,
     *,
-    happy_eyeballs_delay: float = DEFAULT_DELAY,
+    happy_eyeballs_delay: float | None = DEFAULT_DELAY,
     local_address: str | None = None,
 ) -> trio.abc.Stream:
     """Connect to the given host and port over TCP.
@@ -222,9 +230,9 @@ async def open_tcp_stream(
 
       port (int): The port to connect to.
 
-      happy_eyeballs_delay (float): How many seconds to wait for each
+      happy_eyeballs_delay (float or None): How many seconds to wait for each
           connection attempt to succeed or fail before getting impatient and
-          starting another one in parallel. Set to `math.inf` if you want
+          starting another one in parallel. Set to `None` if you want
           to limit to only one connection attempt at a time (like
           :func:`socket.create_connection`). Default: 0.25 (250 ms).
 
@@ -284,7 +292,7 @@ async def open_tcp_stream(
 
     # Keeps track of the socket that we're going to complete with,
     # need to make sure this isn't automatically closed
-    winning_socket = None
+    winning_socket: _SocketType | None = None
 
     # Try connecting to the specified address. Possible outcomes:
     # - success: record connected socket in winning_socket and cancel
@@ -293,7 +301,11 @@ async def open_tcp_stream(
     #   the next connection attempt to start early
     # code needs to ensure sockets can be closed appropriately in the
     # face of crash or cancellation
-    async def attempt_connect(socket_args, sockaddr, attempt_failed):
+    async def attempt_connect(
+        socket_args: tuple[AddressFamily, SocketKind],
+        sockaddr: tuple[str, int] | tuple[str, int, int, int],
+        attempt_failed: trio.Event,
+    ) -> None:
         nonlocal winning_socket
 
         try:
