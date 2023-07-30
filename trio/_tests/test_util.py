@@ -234,7 +234,7 @@ def test_fixup_module_metadata():
         (),
         {
             "__init__": lambda self: None,
-            "method": lambda self, a, b: a + b,
+            "method": lambda self: None,
         },
     )
     mod.SomeClass.recursion = mod.SomeClass  # Reference loop is fine.
@@ -256,3 +256,8 @@ def test_fixup_module_metadata():
     assert mod.SomeClass.method.__name__ == "method"
     assert mod.SomeClass.method.__module__ == "trio.somemodule"
     assert mod.SomeClass.method.__qualname__ == "SomeClass.method"
+    # Make coverage happy.
+    non_trio_module.some_func()
+    mod.some_func()
+    mod._private()
+    mod.SomeClass().method()
