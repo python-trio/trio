@@ -1,6 +1,6 @@
 """Trio - A friendly Python library for async concurrency and I/O
 """
-from __future__ import annotations  # isort: skip
+from __future__ import annotations
 
 # General layout:
 #
@@ -17,7 +17,7 @@ from __future__ import annotations  # isort: skip
 # Uses `from x import y as y` for compatibility with `pyright --verifytypes` (#2625)
 
 # must be imported early to avoid circular import
-from ._core import TASK_STATUS_IGNORED as TASK_STATUS_IGNORED  # isort: skip
+from ._core import TASK_STATUS_IGNORED as TASK_STATUS_IGNORED  # isort: split
 
 # Submodules imported by default
 from . import abc, from_thread, lowlevel, socket, to_thread
