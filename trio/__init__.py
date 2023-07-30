@@ -1,5 +1,6 @@
 """Trio - A friendly Python library for async concurrency and I/O
 """
+from __future__ import annotations  # isort: skip
 
 # General layout:
 #
@@ -117,7 +118,7 @@ from . import _deprecate as _deprecate
 
 _deprecate.enable_attribute_deprecations(__name__)
 
-__deprecated_attributes__: "dict[str, _deprecate.DeprecatedAttribute]" = {
+__deprecated_attributes__: dict[str, _deprecate.DeprecatedAttribute] = {
     "open_process": _deprecate.DeprecatedAttribute(
         value=lowlevel.open_process,
         version="0.20.0",
