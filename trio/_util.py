@@ -240,7 +240,7 @@ def async_wraps(
     return decorator
 
 
-def fixup_module_metadata(module_name: str, namespace: dict[str, t.Any]) -> None:
+def fixup_module_metadata(module_name: str, namespace: collections.abc.Mapping[str, object]) -> None:
     seen_ids: set[int] = set()
 
     def fix_one(qualname: str, name: str, obj: object) -> None:
