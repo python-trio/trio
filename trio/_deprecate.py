@@ -117,7 +117,7 @@ def deprecated_alias(
     @deprecated(version, issue=issue, instead=new_fn)
     @wraps(new_fn, assigned=("__module__", "__annotations__"))
     def wrapper(*args: ArgsT.args, **kwargs: ArgsT.kwargs) -> RetT:
-        "Deprecated alias."
+        """Deprecated alias."""
         return new_fn(*args, **kwargs)
 
     wrapper.__qualname__ = old_qualname
