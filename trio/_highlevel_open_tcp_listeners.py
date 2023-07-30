@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import errno
 import sys
-from collections.abc import Awaitable, Callable, Iterable
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 import trio
