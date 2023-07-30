@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from math import inf
 
 import trio
+from trio import SocketListener
 
 try:
     from trio.socket import AF_UNIX
@@ -54,7 +55,7 @@ def _compute_backlog(backlog):
     return min(backlog, 0xFFFF)
 
 
-class UnixSocketListener(trio.SocketListener):
+class UnixSocketListener(SocketListener):
     @staticmethod
     def _inode(filename):
         """Return a (dev, inode) tuple uniquely identifying a file."""
