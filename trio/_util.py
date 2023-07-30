@@ -9,7 +9,7 @@ import threading
 import typing as t
 from abc import ABCMeta
 from functools import update_wrapper
-from types import TracebackType
+from types import AsyncGeneratorType, TracebackType
 
 import trio
 
@@ -358,7 +358,7 @@ class NoPublicConstructor(Final):
         return super().__call__(*args, **kwargs)  # type: ignore
 
 
-def name_asyncgen(agen: collections.abc.AsyncGenerator[object, t.NoReturn]) -> str:
+def name_asyncgen(agen: AsyncGeneratorType[object, t.NoReturn]) -> str:
     """Return the fully-qualified name of the async generator function
     that produced the async generator iterator *agen*.
     """
@@ -369,7 +369,7 @@ def name_asyncgen(agen: collections.abc.AsyncGenerator[object, t.NoReturn]) -> s
     except (AttributeError, KeyError):
         module = f"<{agen.ag_code.co_filename}>"
     try:
-        qualname = agen.__qualname__  # type: ignore[attr-defined]
+        qualname = agen.__qualname__
     except AttributeError:
         qualname = agen.ag_code.co_name
     return f"{module}.{qualname}"
