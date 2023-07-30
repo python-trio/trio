@@ -8,6 +8,13 @@ from math import inf
 
 import trio
 
+try:
+    from trio.socket import AF_UNIX
+
+    HAS_UNIX = True
+except ImportError:
+    HAS_UNIX = False
+
 __all__ = ["open_unix_listeners", "serve_unix"]
 
 
@@ -44,7 +51,7 @@ def _compute_backlog(backlog):
     # Many systems (Linux, BSDs, ...) store the backlog in a uint16 and are
     # missing overflow protection, so we apply our own overflow protection.
     # https://github.com/golang/go/issues/5030
-    return min(backlog, 0xffff)
+    return min(backlog, 0xFFFF)
 
 
 class UnixSocketListener(trio.SocketListener):
@@ -89,6 +96,9 @@ class UnixSocketListener(trio.SocketListener):
 
     @staticmethod
     def _create(path, mode, backlog):
+        if not HAS_UNIX:
+            raise RuntimeError("Unix sockets are not supported on this platform")
+
         # Sanitise and pre-verify socket path
         path = os.path.abspath(path)
         folder = os.path.dirname(path)
@@ -101,7 +111,7 @@ class UnixSocketListener(trio.SocketListener):
             pass
         # Create new socket with a random temporary name
         tmp_path = f"{path}.{secrets.token_urlsafe()}"
-        sock = socket.socket(socket.AF_UNIX)
+        sock = socket.socket(AF_UNIX)
         try:
             # Critical section begins (filename races)
             sock.bind(tmp_path)
@@ -179,7 +189,12 @@ async def open_unix_listeners(path, *, mode=0o666, backlog=None):
     Returns:
       list of :class:`SocketListener`
 
+    Raises:
+      RuntimeError: If AF_UNIX sockets are not supported.
     """
+    if not HAS_UNIX:
+        raise RuntimeError("Unix sockets are not supported on this platform")
+
     return [await UnixSocketListener.create(path, mode=mode, backlog=backlog)]
 
 
@@ -189,7 +204,7 @@ async def serve_unix(
     *,
     backlog=None,
     handler_nursery=None,
-    task_status=trio.TASK_STATUS_IGNORED
+    task_status=trio.TASK_STATUS_IGNORED,
 ):
     """Listen for incoming UNIX connections, and for each one start a task
     running ``handler(stream)``.
@@ -225,11 +240,13 @@ async def serve_unix(
     Returns:
       This function only returns when cancelled.
 
+    Raises:
+      RuntimeError: If AF_UNIX sockets are not supported.
     """
-    listeners = await trio.open_unix_listeners(path, backlog=backlog)
+    if not HAS_UNIX:
+        raise RuntimeError("Unix sockets are not supported on this platform")
+
+    listeners = await open_unix_listeners(path, backlog=backlog)
     await trio.serve_listeners(
-        handler,
-        listeners,
-        handler_nursery=handler_nursery,
-        task_status=task_status
+        handler, listeners, handler_nursery=handler_nursery, task_status=task_status
     )
