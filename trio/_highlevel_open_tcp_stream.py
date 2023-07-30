@@ -7,7 +7,7 @@ from socket import AddressFamily, SocketKind
 
 import trio
 from trio._core._multierror import MultiError
-from trio.socket import SOCK_STREAM, _SocketType, getaddrinfo, socket
+from trio.socket import SOCK_STREAM, _SocketType, getaddrinfo, socket, Address
 
 if sys.version_info < (3, 11):
     from exceptiongroup import ExceptionGroup
@@ -191,7 +191,7 @@ async def open_tcp_stream(
     port: int,
     *,
     happy_eyeballs_delay: float | None = DEFAULT_DELAY,
-    local_address: str | None = None,
+    local_address: Address | None = None,
 ) -> trio.abc.Stream:
     """Connect to the given host and port over TCP.
 
