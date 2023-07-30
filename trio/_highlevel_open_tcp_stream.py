@@ -1,5 +1,9 @@
+from __future__ import annotations
+
 import sys
+from collections.abc import Generator
 from contextlib import contextmanager
+from socket import AddressFamily, SocketKind
 
 import trio
 from trio._core._multierror import MultiError
@@ -109,8 +113,8 @@ DEFAULT_DELAY = 0.250
 
 
 @contextmanager
-def close_all():
-    sockets_to_close = set()
+def close_all() -> Generator[set[socket], None, None]:
+    sockets_to_close: set[socket] = set()
     try:
         yield sockets_to_close
     finally:
@@ -126,7 +130,9 @@ def close_all():
             raise MultiError(errs)
 
 
-def reorder_for_rfc_6555_section_5_4(targets):
+def reorder_for_rfc_6555_section_5_4(
+    targets: list[tuple[AddressFamily, SocketKind, int, str, tuple[str, int]]]
+) -> None:
     # RFC 6555 section 5.4 says that if getaddrinfo returns multiple address
     # families (e.g. IPv4 and IPv6), then you should make sure that your first
     # and second attempts use different families:
@@ -144,7 +150,7 @@ def reorder_for_rfc_6555_section_5_4(targets):
             break
 
 
-def format_host_port(host, port):
+def format_host_port(host: str | bytes, port: int) -> str:
     host = host.decode("ascii") if isinstance(host, bytes) else host
     if ":" in host:
         return f"[{host}]:{port}"
@@ -173,8 +179,12 @@ def format_host_port(host, port):
 #   AF_INET6: "..."}
 # this might be simpler after
 async def open_tcp_stream(
-    host, port, *, happy_eyeballs_delay=DEFAULT_DELAY, local_address=None
-):
+    host: str | bytes,
+    port: int,
+    *,
+    happy_eyeballs_delay: float = DEFAULT_DELAY,
+    local_address: str | None = None,
+) -> trio.abc.Stream:
     """Connect to the given host and port over TCP.
 
     If the given ``host`` has multiple IP addresses associated with it, then
