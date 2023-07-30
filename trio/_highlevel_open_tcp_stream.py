@@ -137,7 +137,7 @@ def reorder_for_rfc_6555_section_5_4(
             SocketKind,
             int,
             str,
-            Address,
+            tuple[str, int] | tuple[str, int, int, int],
         ]
     ]
 ) -> None:
@@ -191,7 +191,7 @@ async def open_tcp_stream(
     port: int,
     *,
     happy_eyeballs_delay: float | None = DEFAULT_DELAY,
-    local_address: Address | None = None,
+    local_address: str | None = None,
 ) -> trio.abc.Stream:
     """Connect to the given host and port over TCP.
 
@@ -265,9 +265,8 @@ async def open_tcp_stream(
     # To keep our public API surface smaller, rule out some cases that
     # getaddrinfo will accept in some circumstances, but that act weird or
     # have non-portable behavior or are just plain not useful.
-    # No type check on host though b/c we want to allow bytes-likes.
-    if host is None:
-        raise ValueError("host cannot be None")
+    if not isinstance(host, (str, bytes)):
+        raise ValueError(f"host must be str or bytes, not {host!r}")
     if not isinstance(port, int):
         raise TypeError(f"port must be int, not {port!r}")
 
@@ -356,7 +355,7 @@ async def open_tcp_stream(
                 except OSError:
                     raise OSError(
                         f"local_address={local_address!r} is incompatible "
-                        f"with remote address {sockaddr}"
+                        f"with remote address {sockaddr!r}"
                     )
 
             await sock.connect(sockaddr)
