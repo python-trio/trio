@@ -1,3 +1,5 @@
+import __future__  # Regular import, not special!
+
 import enum
 import functools
 import importlib
@@ -106,6 +108,11 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
     # ignore deprecated module `tests` being invisible
     if modname == "trio":
         runtime_names.discard("tests")
+
+    # Ignore any __future__ feature objects, if imported under that name.
+    for name in __future__.all_feature_names:
+        if getattr(module, name, None) is getattr(__future__, name):
+            runtime_names.remove(name)
 
     if tool in ("mypy", "pyright_verifytypes"):
         # create py.typed file

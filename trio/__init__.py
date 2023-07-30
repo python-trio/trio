@@ -1,5 +1,6 @@
 """Trio - A friendly Python library for async concurrency and I/O
 """
+from __future__ import annotations
 
 # General layout:
 #
@@ -16,7 +17,7 @@
 # Uses `from x import y as y` for compatibility with `pyright --verifytypes` (#2625)
 
 # must be imported early to avoid circular import
-from ._core import TASK_STATUS_IGNORED as TASK_STATUS_IGNORED  # isort: skip
+from ._core import TASK_STATUS_IGNORED as TASK_STATUS_IGNORED  # isort: split
 
 # Submodules imported by default
 from . import abc, from_thread, lowlevel, socket, to_thread
@@ -117,7 +118,7 @@ from . import _deprecate as _deprecate
 
 _deprecate.enable_attribute_deprecations(__name__)
 
-__deprecated_attributes__ = {
+__deprecated_attributes__: dict[str, _deprecate.DeprecatedAttribute] = {
     "open_process": _deprecate.DeprecatedAttribute(
         value=lowlevel.open_process,
         version="0.20.0",
