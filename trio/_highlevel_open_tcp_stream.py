@@ -7,7 +7,7 @@ from socket import AddressFamily, SocketKind
 
 import trio
 from trio._core._multierror import MultiError
-from trio.socket import SOCK_STREAM, _SocketType, getaddrinfo, socket, Address
+from trio.socket import SOCK_STREAM, Address, _SocketType, getaddrinfo, socket
 
 if sys.version_info < (3, 11):
     from exceptiongroup import ExceptionGroup
@@ -137,7 +137,7 @@ def reorder_for_rfc_6555_section_5_4(
             SocketKind,
             int,
             str,
-            tuple[str, int] | tuple[str, int, int, int],
+            Address,
         ]
     ]
 ) -> None:
@@ -303,7 +303,7 @@ async def open_tcp_stream(
     # face of crash or cancellation
     async def attempt_connect(
         socket_args: tuple[AddressFamily, SocketKind],
-        sockaddr: tuple[str, int] | tuple[str, int, int, int],
+        sockaddr: Address,
         attempt_failed: trio.Event,
     ) -> None:
         nonlocal winning_socket
