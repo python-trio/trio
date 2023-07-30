@@ -847,6 +847,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         "_handshake_lock",
         "_record_encoder",
         "_final_volley",
+        "__weakref__",
     )
 
     def __init__(
@@ -1213,6 +1214,7 @@ class DTLSEndpoint(metaclass=Final):
         "_send_lock",
         "_closed",
         "_receive_loop_spawned",
+        "__weakref__",
     )
 
     def __init__(
