@@ -4,6 +4,7 @@ import sys
 from collections.abc import Generator
 from contextlib import contextmanager
 from socket import AddressFamily, SocketKind
+from typing import TYPE_CHECKING
 
 import trio
 from trio._core._multierror import MultiError
@@ -376,12 +377,20 @@ async def open_tcp_stream(
         # nursery spawns a task for each connection attempt, will be
         # cancelled by the task that gets a successful connection
         async with trio.open_nursery() as nursery:
-            for *sa, _, addr in targets:
+            for address_family, socket_kind, *_, addr in targets:
                 # create an event to indicate connection failure,
                 # allowing the next target to be tried early
                 attempt_failed = trio.Event()
 
-                nursery.start_soon(attempt_connect, sa, addr, attempt_failed)
+                # workaround to check types until typing of nursery.start_soon improved
+                if TYPE_CHECKING:
+                    await attempt_connect(
+                        (address_family, socket_kind), addr, attempt_failed
+                    )
+
+                nursery.start_soon(
+                    attempt_connect, (address_family, socket_kind), addr, attempt_failed
+                )
 
                 # give this attempt at most this time before moving on
                 with trio.move_on_after(happy_eyeballs_delay):
