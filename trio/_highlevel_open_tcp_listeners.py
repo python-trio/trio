@@ -3,6 +3,7 @@ from __future__ import annotations
 import errno
 import sys
 from collections.abc import Awaitable, Callable
+from math import inf
 
 import trio
 from trio.lowlevel import TaskStatus
@@ -40,17 +41,23 @@ if sys.version_info < (3, 11):
 # so this is unnecessary -- we can just pass in "infinity" and get the maximum
 # that way. (Verified on Windows, Linux, macOS using
 # notes-to-self/measure-listen-backlog.py)
-def _compute_backlog(backlog: int | None) -> int:
+def _compute_backlog(backlog: int | float | None) -> int:
     # Many systems (Linux, BSDs, ...) store the backlog in a uint16 and are
     # missing overflow protection, so we apply our own overflow protection.
     # https://github.com/golang/go/issues/5030
+    if isinstance(backlog, float):
+        # TODO: Remove when removing infinity support
+        # https://github.com/python-trio/trio/pull/2724#discussion_r1278541729
+        if backlog != inf:
+            raise ValueError(f"Only accepts infinity, not {backlog!r}")
+        backlog = None
     if backlog is None:
         return 0xFFFF
     return min(backlog, 0xFFFF)
 
 
 async def open_tcp_listeners(
-    port: int, *, host: str | bytes | None = None, backlog: int | None = None
+    port: int, *, host: str | bytes | None = None, backlog: int | float | None = None
 ) -> list[trio.SocketListener]:
     """Create :class:`SocketListener` objects to listen for TCP connections.
 
@@ -83,12 +90,15 @@ async def open_tcp_listeners(
           all interfaces, pass the family-specific wildcard address:
           ``"0.0.0.0"`` for IPv4-only and ``"::"`` for IPv6-only.
 
-      backlog (int or None): The listen backlog to use. If you leave this as
-          ``None`` then Trio will pick a good default. (Currently: whatever
+      backlog (int, math.inf, or None): The listen backlog to use. If you leave this as
+          ``None`` or ``math.inf`` then Trio will pick a good default. (Currently: whatever
           your system has configured as the maximum backlog.)
 
     Returns:
       list of :class:`SocketListener`
+
+    Raises:
+      :class:`TypeError` if invalid arguments.
 
     """
     # getaddrinfo sometimes allows port=None, sometimes not (depending on
@@ -98,7 +108,7 @@ async def open_tcp_listeners(
     if not isinstance(port, int):
         raise TypeError(f"port must be an int not {port!r}")
 
-    backlog = _compute_backlog(backlog)
+    computed_backlog = _compute_backlog(backlog)
 
     addresses = await tsocket.getaddrinfo(
         host, port, type=tsocket.SOCK_STREAM, flags=tsocket.AI_PASSIVE
@@ -131,7 +141,7 @@ async def open_tcp_listeners(
                     sock.setsockopt(tsocket.IPPROTO_IPV6, tsocket.IPV6_V6ONLY, 1)
 
                 await sock.bind(sockaddr)
-                sock.listen(backlog)
+                sock.listen(computed_backlog)
 
                 listeners.append(trio.SocketListener(sock))
             except:
@@ -159,7 +169,7 @@ async def serve_tcp(
     port: int,
     *,
     host: str | bytes | None = None,
-    backlog: int | None = None,
+    backlog: int | float | None = None,
     handler_nursery: trio.Nursery | None = None,
     task_status: TaskStatus = trio.TASK_STATUS_IGNORED,  # type: ignore[assignment]  # default has type "_TaskStatusIgnored", argument has type "TaskStatus"
 ) -> None:
