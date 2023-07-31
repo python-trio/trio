@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.9104,
+    "completenessScore": 0.9121405750798722,
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 569,
-      "withUnknownType": 56
+      "withKnownType": 571,
+      "withUnknownType": 55
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -46,8 +46,8 @@
     ],
     "otherSymbolCounts": {
       "withAmbiguousType": 3,
-      "withKnownType": 576,
-      "withUnknownType": 74
+      "withKnownType": 598,
+      "withUnknownType": 65
     },
     "packageName": "trio",
     "symbols": [
