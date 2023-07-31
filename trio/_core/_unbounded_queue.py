@@ -60,14 +60,13 @@ class UnboundedQueue(Generic[T], metaclass=Final):
 
     """
 
-    # deprecated is not typed
     @deprecated(
         "0.9.0",
         issue=497,
         thing="trio.lowlevel.UnboundedQueue",
         instead="trio.open_memory_channel(math.inf)",
     )
-    def __init__(self) -> None:  # type: ignore[misc]
+    def __init__(self) -> None:
         self._lot = _core.ParkingLot()
         self._data: list[T] = []
         # used to allow handoff from put to the first task in the lot
