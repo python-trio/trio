@@ -51,6 +51,7 @@ disallow_untyped_defs = false
 module = [
     "trio._abc",
     "trio._core._local",
+    "trio._core._unbounded_queue",
     "trio._deprecate",
     "trio._dtls",
     "trio._file_io",
