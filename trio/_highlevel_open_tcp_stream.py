@@ -302,7 +302,7 @@ async def open_tcp_stream(
     # code needs to ensure sockets can be closed appropriately in the
     # face of crash or cancellation
     async def attempt_connect(
-        socket_args: tuple[AddressFamily, SocketKind],
+        socket_args: tuple[AddressFamily, SocketKind, int],
         sockaddr: Address,
         attempt_failed: trio.Event,
     ) -> None:
@@ -377,7 +377,7 @@ async def open_tcp_stream(
         # nursery spawns a task for each connection attempt, will be
         # cancelled by the task that gets a successful connection
         async with trio.open_nursery() as nursery:
-            for address_family, socket_kind, *_, addr in targets:
+            for address_family, socket_type, proto, _, addr in targets:
                 # create an event to indicate connection failure,
                 # allowing the next target to be tried early
                 attempt_failed = trio.Event()
@@ -385,11 +385,14 @@ async def open_tcp_stream(
                 # workaround to check types until typing of nursery.start_soon improved
                 if TYPE_CHECKING:
                     await attempt_connect(
-                        (address_family, socket_kind), addr, attempt_failed
+                        (address_family, socket_type, proto), addr, attempt_failed
                     )
 
                 nursery.start_soon(
-                    attempt_connect, (address_family, socket_kind), addr, attempt_failed
+                    attempt_connect,
+                    (address_family, socket_type, proto),
+                    addr,
+                    attempt_failed,
                 )
 
                 # give this attempt at most this time before moving on
