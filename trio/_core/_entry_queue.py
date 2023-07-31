@@ -2,13 +2,18 @@ from __future__ import annotations
 
 import threading
 from collections import deque
-from typing import Callable, Iterable, Literal, NoReturn
+from typing import Callable, Iterable, NoReturn, Tuple
 
 import attr
 
 from .. import _core
 from .._util import NoPublicConstructor
 from ._wakeup_socketpair import WakeupSocketpair
+
+# TODO: Type with TypeVarTuple, at least to an extent where it makes
+# the public interface safe.
+Function = Callable[..., object]
+Job = Tuple[Function, Iterable[object]]
 
 
 @attr.s(slots=True)
@@ -20,12 +25,8 @@ class EntryQueue:
     # atomic WRT signal delivery (signal handlers can run on either side, but
     # not *during* a deque operation). dict makes similar guarantees - and
     # it's even ordered!
-    queue: deque[tuple[Callable[..., object], Iterable[object]]] = attr.ib(
-        factory=deque
-    )
-    idempotent_queue: dict[
-        tuple[Callable[..., object], Iterable[object]], None
-    ] = attr.ib(factory=dict)
+    queue: deque[Job] = attr.ib(factory=deque)
+    idempotent_queue: dict[Job, None] = attr.ib(factory=dict)
 
     wakeup: WakeupSocketpair = attr.ib(factory=WakeupSocketpair)
     done: bool = attr.ib(default=False)
@@ -50,9 +51,7 @@ class EntryQueue:
         #     https://bugs.python.org/issue13697#msg237140
         assert self.lock.__class__.__module__ == "_thread"
 
-        def run_cb(
-            job: tuple[Callable[..., object], Iterable[object]]
-        ) -> Literal[True]:
+        def run_cb(job: Job) -> None:
             # We run this with KI protection enabled; it's the callback's
             # job to disable it if it wants it disabled. Exceptions are
             # treated like system task exceptions (i.e., converted into
@@ -73,10 +72,11 @@ class EntryQueue:
                     # TODO(2020-06): this is a gross hack and should
                     # be fixed soon when we address #1607.
                     parent_nursery = _core.current_task().parent_nursery
-                    assert parent_nursery is not None
+                    if parent_nursery is None:
+                        raise AssertionError(
+                            "Internal error: `parent_nursery` should never be `None`"
+                        ) from exc
                     parent_nursery.start_soon(kill_everything, exc)
-
-            return True
 
         # This has to be carefully written to be safe in the face of new items
         # being queued while we iterate, and to do a bounded amount of work on
@@ -122,7 +122,7 @@ class EntryQueue:
         return len(self.queue) + len(self.idempotent_queue)
 
     def run_sync_soon(
-        self, sync_fn: Callable[..., object], *args: object, idempotent: bool = False
+        self, sync_fn: Function, *args: object, idempotent: bool = False
     ) -> None:
         with self.lock:
             if self.done:
@@ -162,7 +162,7 @@ class TrioToken(metaclass=NoPublicConstructor):
     _reentry_queue: EntryQueue = attr.ib()
 
     def run_sync_soon(
-        self, sync_fn: Callable[..., object], *args: object, idempotent: bool = False
+        self, sync_fn: Function, *args: object, idempotent: bool = False
     ) -> None:
         """Schedule a call to ``sync_fn(*args)`` to occur in the context of a
         Trio task.
