@@ -72,10 +72,10 @@ class EntryQueue:
                     # TODO(2020-06): this is a gross hack and should
                     # be fixed soon when we address #1607.
                     parent_nursery = _core.current_task().parent_nursery
-                    if parent_nursery is None:  # pragma: no branch
+                    if parent_nursery is None:
                         raise AssertionError(
                             "Internal error: `parent_nursery` should never be `None`"
-                        ) from exc
+                        ) from exc  # pragma: no cover
                     parent_nursery.start_soon(kill_everything, exc)
 
         # This has to be carefully written to be safe in the face of new items
