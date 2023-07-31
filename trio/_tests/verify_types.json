@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.9121405750798722,
+    "completenessScore": 0.9137380191693291,
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 571,
-      "withUnknownType": 55
+      "withKnownType": 572,
+      "withUnknownType": 54
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -46,12 +46,11 @@
     ],
     "otherSymbolCounts": {
       "withAmbiguousType": 3,
-      "withKnownType": 598,
-      "withUnknownType": 65
+      "withKnownType": 600,
+      "withUnknownType": 63
     },
     "packageName": "trio",
     "symbols": [
-      "trio._core._entry_queue.TrioToken.run_sync_soon",
       "trio._core._mock_clock.MockClock.jump",
       "trio._core._run.Nursery.start",
       "trio._core._run.Nursery.start_soon",
