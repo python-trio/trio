@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.9104,
+    "completenessScore": 0.912,
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 569,
-      "withUnknownType": 56
+      "withKnownType": 570,
+      "withUnknownType": 55
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
