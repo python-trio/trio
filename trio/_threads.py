@@ -1,16 +1,19 @@
+from __future__ import annotations
+
 import contextvars
 import functools
 import inspect
 import queue as stdlib_queue
 import threading
 from itertools import count
-from typing import Optional
+from typing import Any, Callable, Optional, TypeVar
 
 import attr
 import outcome
 from sniffio import current_async_library_cvar
 
 import trio
+from trio._core._traps import RaiseCancelT
 
 from ._core import (
     RunVar,
@@ -22,10 +25,12 @@ from ._core import (
 from ._sync import CapacityLimiter
 from ._util import coroutine_or_error
 
+T = TypeVar("T")
+
 # Global due to Threading API, thread local storage for trio token
 TOKEN_LOCAL = threading.local()
 
-_limiter_local = RunVar("limiter")
+_limiter_local: RunVar[CapacityLimiter] = RunVar("limiter")
 # I pulled this number out of the air; it isn't based on anything. Probably we
 # should make some kind of measurements to pick a good value.
 DEFAULT_LIMIT = 40
@@ -59,8 +64,12 @@ class ThreadPlaceholder:
 
 @enable_ki_protection
 async def to_thread_run_sync(
-    sync_fn, *args, thread_name: Optional[str] = None, cancellable=False, limiter=None
-):
+    sync_fn: Callable[..., T],
+    *args: Any,
+    thread_name: Optional[str] = None,
+    cancellable: bool = False,
+    limiter: CapacityLimiter | None = None,
+) -> T:
     """Convert a blocking operation into an async operation using a thread.
 
     These two lines are equivalent::
@@ -152,7 +161,7 @@ async def to_thread_run_sync(
     # Holds a reference to the task that's blocked in this function waiting
     # for the result – or None if this function was cancelled and we should
     # discard the result.
-    task_register = [trio.lowlevel.current_task()]
+    task_register: list[trio.lowlevel.Task | None] = [trio.lowlevel.current_task()]
     name = f"trio.to_thread.run_sync-{next(_thread_counter)}"
     placeholder = ThreadPlaceholder(name)
 
@@ -217,14 +226,15 @@ async def to_thread_run_sync(
         limiter.release_on_behalf_of(placeholder)
         raise
 
-    def abort(_):
+    def abort(_: RaiseCancelT) -> trio.lowlevel.Abort:
         if cancellable:
             task_register[0] = None
             return trio.lowlevel.Abort.SUCCEEDED
         else:
             return trio.lowlevel.Abort.FAILED
 
-    return await trio.lowlevel.wait_task_rescheduled(abort)
+    # wait_task_rescheduled return value cannot be typed
+    return await trio.lowlevel.wait_task_rescheduled(abort)  # type: ignore[no-any-return]
 
 
 def _run_fn_as_system_task(cb, fn, *args, context, trio_token=None):
@@ -313,7 +323,6 @@ def from_thread_run(afn, *args, trio_token=None):
             )
 
     context = contextvars.copy_context()
-    context.run(current_async_library_cvar.set, "trio")
     return _run_fn_as_system_task(
         callback,
         afn,

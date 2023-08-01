@@ -1,12 +1,17 @@
 # Generic stream tests
+from __future__ import annotations
 
-from contextlib import contextmanager
 import random
+from contextlib import contextmanager
+from typing import TYPE_CHECKING
 
 from .. import _core
+from .._abc import HalfCloseableStream, ReceiveStream, SendStream, Stream
 from .._highlevel_generic import aclose_forcefully
-from .._abc import SendStream, ReceiveStream, Stream, HalfCloseableStream
 from ._checkpoints import assert_checkpoints
+
+if TYPE_CHECKING:
+    from types import TracebackType
 
 
 class _ForceCloseBoth:
@@ -16,7 +21,12 @@ class _ForceCloseBoth:
     async def __aenter__(self):
         return self._both
 
-    async def __aexit__(self, *args):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         try:
             await aclose_forcefully(self._both[0])
         finally:

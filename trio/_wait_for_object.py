@@ -1,13 +1,8 @@
 import math
-from . import _timeouts
+
 import trio
-from ._core._windows_cffi import (
-    ffi,
-    kernel32,
-    ErrorCodes,
-    raise_winerror,
-    _handle,
-)
+
+from ._core._windows_cffi import ErrorCodes, _handle, ffi, kernel32, raise_winerror
 
 
 async def WaitForSingleObject(obj):

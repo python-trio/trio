@@ -556,7 +556,8 @@ then we'll figure something out.
 .. Possible references for future additions:
 
    """
-   Jumping into an unfamiliar codebase (or any for that matter) for the first time can be scary. Plus, if it’s your first time contributing to open source, it can even be scarier!
+   Jumping into an unfamiliar codebase (or any for that matter) for the first time can be scary.
+   Plus, if it's your first time contributing to open source, it can even be scarier!
 
    But, we at webpack believe:
 

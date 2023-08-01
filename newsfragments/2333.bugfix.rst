@@ -1,1 +1,0 @@
-Python raises a `TypeError` if you try to (re-)install a C signal handler.

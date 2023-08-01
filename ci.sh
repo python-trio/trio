@@ -2,13 +2,13 @@
 
 set -ex -o pipefail
 
+# disable warnings about pyright being out of date
+# used in test_exports and in check.sh
+export PYRIGHT_PYTHON_IGNORE_WARNINGS=1
+
 # Log some general info about the environment
 uname -a
 env | sort
-
-if [ "$JOB_NAME" = "" ]; then
-    JOB_NAME="${TRAVIS_OS_NAME}-${TRAVIS_PYTHON_VERSION:-unknown}"
-fi
 
 # Curl's built-in retry system is not very robust; it gives up on lots of
 # network errors that we want to retry on. Wget might work better, but it's
@@ -25,40 +25,6 @@ function curl-harder() {
     done
     return 1
 }
-
-################################################################
-# Bootstrap python environment, if necessary
-################################################################
-
-### PyPy nightly ###
-
-if [ "$PYPY_NIGHTLY_BRANCH" != "" ]; then
-    JOB_NAME="pypy_nightly_${PYPY_NIGHTLY_BRANCH}"
-    curl-harder -o pypy.tar.bz2 http://buildbot.pypy.org/nightly/${PYPY_NIGHTLY_BRANCH}/pypy-c-jit-latest-linux64.tar.bz2
-    if [ ! -s pypy.tar.bz2 ]; then
-        # We know:
-        # - curl succeeded (200 response code)
-        # - nonetheless, pypy.tar.bz2 does not exist, or contains no data
-        # This isn't going to work, and the failure is not informative of
-        # anything involving Trio.
-        ls -l
-        echo "PyPy3 nightly build failed to download – something is wrong on their end."
-        echo "Skipping testing against the nightly build for right now."
-        exit 0
-    fi
-    tar xaf pypy.tar.bz2
-    # something like "pypy-c-jit-89963-748aa3022295-linux64"
-    PYPY_DIR=$(echo pypy-c-jit-*)
-    PYTHON_EXE=$PYPY_DIR/bin/pypy3
-
-    if ! ($PYTHON_EXE -m ensurepip \
-              && $PYTHON_EXE -m pip install virtualenv \
-              && $PYTHON_EXE -m virtualenv testenv); then
-        echo "pypy nightly is broken; skipping tests"
-        exit 0
-    fi
-    source testenv/bin/activate
-fi
 
 ################################################################
 # We have a Python environment!
@@ -115,7 +81,7 @@ else
         # when installing, and then running 'certmgr.msc' and exporting the
         # certificate. See:
         #    http://www.migee.com/2010/09/24/solution-for-unattendedsilent-installs-and-would-you-like-to-install-this-device-software/
-        certutil -addstore "TrustedPublisher" .github/workflows/astrill-codesigning-cert.cer
+        certutil -addstore "TrustedPublisher" trio/_tests/astrill-codesigning-cert.cer
         # Double-slashes are how you tell windows-bash that you want a single
         # slash, and don't treat this as a unix-style filename that needs to
         # be replaced by a windows-style filename.
@@ -136,30 +102,31 @@ else
 
     INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
     cp ../pyproject.toml $INSTALLDIR
-    # We have to copy .coveragerc into this directory, rather than passing
-    # --cov-config=../.coveragerc to pytest, because codecov.sh will run
-    # 'coverage xml' to generate the report that it uses, and that will only
-    # apply the ignore patterns in the current directory's .coveragerc.
-    cp ../.coveragerc .
-    if pytest -r a --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --cov="$INSTALLDIR" --verbose; then
+
+    # TODO: remove this once we have a py.typed file
+    touch "$INSTALLDIR/py.typed"
+
+    # get mypy tests a nice cache
+    MYPYPATH=".." mypy --config-file= --cache-dir=./.mypy_cache -c "import trio" >/dev/null 2>/dev/null || true
+
+    # support subprocess spawning with coverage.py
+    echo "import coverage; coverage.process_startup()" | tee -a "$INSTALLDIR/../sitecustomize.py"
+
+    if COVERAGE_PROCESS_START=$(pwd)/../.coveragerc coverage run --rcfile=../.coveragerc -m pytest -r a -p trio._tests.pytest_plugin --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --verbose; then
         PASSED=true
     else
         PASSED=false
     fi
+
+    coverage combine --rcfile ../.coveragerc
+    coverage report -m --rcfile ../.coveragerc
+    coverage xml --rcfile ../.coveragerc
 
     # Remove the LSP again; again we want to do this ASAP to avoid
     # accidentally breaking other stuff.
     if [ "$LSP" != "" ]; then
         netsh winsock reset
     fi
-
-    # The codecov docs recommend something like 'bash <(curl ...)' to pipe the
-    # script directly into bash as its being downloaded. But, the codecov
-    # server is flaky, so we instead save to a temp file with retries, and
-    # wait until we've successfully fetched the whole script before trying to
-    # run it.
-    curl-harder -o codecov.sh https://codecov.io/bash
-    bash codecov.sh -n "${JOB_NAME}"
 
     $PASSED
 fi

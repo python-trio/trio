@@ -1,13 +1,13 @@
-import sys
-import traceback
-from threading import Thread, Lock
-import outcome
 import ctypes
 import ctypes.util
-from itertools import count
-
-from typing import Callable, Optional, Tuple
+import sys
+import traceback
 from functools import partial
+from itertools import count
+from threading import Lock, Thread
+from typing import Callable, Optional, Tuple
+
+import outcome
 
 
 def _to_os_thread_name(name: str) -> bytes:
@@ -39,7 +39,14 @@ def get_os_thread_name_func() -> Optional[Callable[[Optional[int], str], None]]:
     libpthread_path = ctypes.util.find_library("pthread")
     if not libpthread_path:
         return None
-    libpthread = ctypes.CDLL(libpthread_path)
+
+    # Sometimes windows can find the path, but gives a permission error when
+    # accessing it. Catching a wider exception in case of more esoteric errors.
+    # https://github.com/python-trio/trio/issues/2688
+    try:
+        libpthread = ctypes.CDLL(libpthread_path)
+    except Exception:  # pragma: no cover
+        return None
 
     # get the setname method from it
     # afaik this should never fail

@@ -1,12 +1,13 @@
 import select
 import sys
-import attr
 from collections import defaultdict
-from typing import Dict, TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict
+
+import attr
 
 from .. import _core
-from ._run import _public
 from ._io_common import wake_all
+from ._run import _public
 from ._wakeup_socketpair import WakeupSocketpair
 
 assert not TYPE_CHECKING or sys.platform == "linux"

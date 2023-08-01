@@ -1,20 +1,29 @@
-from contextlib import contextmanager
+from __future__ import annotations
+
+import math
+from contextlib import AbstractContextManager, contextmanager
+from typing import TYPE_CHECKING
 
 import trio
 
 
-def move_on_at(deadline):
+def move_on_at(deadline: float) -> trio.CancelScope:
     """Use as a context manager to create a cancel scope with the given
     absolute deadline.
 
     Args:
       deadline (float): The deadline.
 
+    Raises:
+      ValueError: if deadline is NaN.
+
     """
+    if math.isnan(deadline):
+        raise ValueError("deadline must not be NaN")
     return trio.CancelScope(deadline=deadline)
 
 
-def move_on_after(seconds):
+def move_on_after(seconds: float) -> trio.CancelScope:
     """Use as a context manager to create a cancel scope whose deadline is
     set to now + *seconds*.
 
@@ -22,16 +31,15 @@ def move_on_after(seconds):
       seconds (float): The timeout.
 
     Raises:
-      ValueError: if timeout is less than zero.
+      ValueError: if timeout is less than zero or NaN.
 
     """
-
     if seconds < 0:
         raise ValueError("timeout must be non-negative")
     return move_on_at(trio.current_time() + seconds)
 
 
-async def sleep_forever():
+async def sleep_forever() -> None:
     """Pause execution of the current task forever (or until cancelled).
 
     Equivalent to calling ``await sleep(math.inf)``.
@@ -40,7 +48,7 @@ async def sleep_forever():
     await trio.lowlevel.wait_task_rescheduled(lambda _: trio.lowlevel.Abort.SUCCEEDED)
 
 
-async def sleep_until(deadline):
+async def sleep_until(deadline: float) -> None:
     """Pause execution of the current task until the given time.
 
     The difference between :func:`sleep` and :func:`sleep_until` is that the
@@ -52,12 +60,15 @@ async def sleep_until(deadline):
             the past, in which case this function executes a checkpoint but
             does not block.
 
+    Raises:
+      ValueError: if deadline is NaN.
+
     """
     with move_on_at(deadline):
         await sleep_forever()
 
 
-async def sleep(seconds):
+async def sleep(seconds: float) -> None:
     """Pause execution of the current task for the given number of seconds.
 
     Args:
@@ -65,7 +76,7 @@ async def sleep(seconds):
             insert a checkpoint without actually blocking.
 
     Raises:
-        ValueError: if *seconds* is negative.
+        ValueError: if *seconds* is negative or NaN.
 
     """
     if seconds < 0:
@@ -83,8 +94,9 @@ class TooSlowError(Exception):
     """
 
 
-@contextmanager
-def fail_at(deadline):
+# workaround for PyCharm not being able to infer return type from @contextmanager
+# see https://youtrack.jetbrains.com/issue/PY-36444/PyCharm-doesnt-infer-types-when-using-contextlib.contextmanager-decorator
+def fail_at(deadline: float) -> AbstractContextManager[trio.CancelScope]:  # type: ignore[misc]
     """Creates a cancel scope with the given deadline, and raises an error if it
     is actually cancelled.
 
@@ -96,19 +108,26 @@ def fail_at(deadline):
     :func:`fail_at`, then it's caught and :exc:`TooSlowError` is raised in its
     place.
 
+    Args:
+      deadline (float): The deadline.
+
     Raises:
       TooSlowError: if a :exc:`Cancelled` exception is raised in this scope
         and caught by the context manager.
+      ValueError: if deadline is NaN.
 
     """
-
     with move_on_at(deadline) as scope:
         yield scope
     if scope.cancelled_caught:
         raise TooSlowError
 
 
-def fail_after(seconds):
+if not TYPE_CHECKING:
+    fail_at = contextmanager(fail_at)
+
+
+def fail_after(seconds: float) -> AbstractContextManager[trio.CancelScope]:
     """Creates a cancel scope with the given timeout, and raises an error if
     it is actually cancelled.
 
@@ -119,10 +138,13 @@ def fail_after(seconds):
     it's caught and discarded. When it reaches :func:`fail_after`, then it's
     caught and :exc:`TooSlowError` is raised in its place.
 
+    Args:
+      seconds (float): The timeout.
+
     Raises:
       TooSlowError: if a :exc:`Cancelled` exception is raised in this scope
         and caught by the context manager.
-      ValueError: if *seconds* is less than zero.
+      ValueError: if *seconds* is less than zero or NaN.
 
     """
     if seconds < 0:

@@ -2,12 +2,12 @@
 
 import os
 import sys
-from typing import Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Tuple
 
 import trio
-from .. import _core, _subprocess
-from .._abc import SendStream, ReceiveStream
 
+from .. import _core, _subprocess
+from .._abc import ReceiveStream, SendStream
 
 _wait_child_exiting_error: Optional[ImportError] = None
 _create_child_pipe_error: Optional[ImportError] = None
@@ -74,7 +74,8 @@ try:
     elif sys.platform != "linux" and (TYPE_CHECKING or hasattr(_core, "wait_kevent")):
         from .kqueue import wait_child_exiting  # noqa: F811
     else:
-        from .waitid import wait_child_exiting  # noqa: F811
+        # noqa'd as it's an exported symbol
+        from .waitid import wait_child_exiting  # noqa: F811, F401
 except ImportError as ex:  # pragma: no cover
     _wait_child_exiting_error = ex
 
@@ -94,7 +95,7 @@ try:
             return trio.lowlevel.FdStream(rfd), wfd
 
     elif os.name == "nt":
-        from .._windows_pipes import PipeSendStream, PipeReceiveStream
+        import msvcrt
 
         # This isn't exported or documented, but it's also not
         # underscore-prefixed, and seems kosher to use. The asyncio docs
@@ -103,7 +104,8 @@ try:
         # when asyncio.windows_utils.socketpair was removed in 3.7, the
         # removal was mentioned in the release notes.
         from asyncio.windows_utils import pipe as windows_pipe
-        import msvcrt
+
+        from .._windows_pipes import PipeReceiveStream, PipeSendStream
 
         def create_pipe_to_child_stdin():  # noqa: F811
             # for stdin, we want the write end (our end) to use overlapped I/O
