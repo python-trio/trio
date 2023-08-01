@@ -79,7 +79,6 @@ module = [
 "trio/_highlevel_serve_listeners", # 3, 121 lines
 "trio/_highlevel_ssl_helpers", # 3, 155 lines
 "trio/_highlevel_socket", # 4, 386 lines
-"trio/_highlevel_open_tcp_stream", # 5, 379 lines
 
 "trio/_subprocess_platform/waitid", # 2, 107 lines
 "trio/_signals", # 13, 168 lines
