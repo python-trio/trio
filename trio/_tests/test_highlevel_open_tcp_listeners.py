@@ -1,7 +1,7 @@
 import errno
-from math import inf
 import socket as stdlib_socket
 import sys
+from math import inf
 
 import attr
 import pytest
@@ -305,5 +305,7 @@ async def test_open_tcp_listeners_backlog_float_error():
     fsf = FakeSocketFactory(99)
     tsocket.set_custom_socket_factory(fsf)
     for should_fail in (0.0, 2.18, 3.14, 9.75):
-        with pytest.raises(ValueError, match=f"Only accepts infinity, not {should_fail!r}") as exc_info:
+        with pytest.raises(
+            ValueError, match=f"Only accepts infinity, not {should_fail!r}"
+        ) as exc_info:
             await open_tcp_listeners(0, backlog=should_fail)
