@@ -35,19 +35,24 @@ warn_redundant_casts = true
 warn_return_any = true
 
 # Avoid subtle backsliding
-#disallow_any_decorated = true
+disallow_any_decorated = true
+disallow_any_generics = true
 disallow_incomplete_defs = true
-#disallow_subclassing_any = true
+disallow_subclassing_any = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
 
 # Enable gradually / for new modules
 check_untyped_defs = false
 disallow_untyped_calls = false
-disallow_untyped_defs = true
-disallow_any_generics = true
+disallow_any_unimported = false
+
+
 
 # DO NOT use `ignore_errors`; it doesn't apply
 # downstream and users have to deal with them.
 [[tool.mypy.overrides]]
+# Fully typed, enable stricter checks
 module = [
 "trio/_core/_tests/*",
 "trio/_tests/*",
@@ -77,8 +82,6 @@ module = [
 "trio/_highlevel_open_tcp_stream", # 5, 379 lines
 
 "trio/_subprocess_platform/waitid", # 2, 107 lines
-"trio/_deprecate", # 12, 140lines
-"trio/_util", # 13, 348 lines
 "trio/_signals", # 13, 168 lines
 "trio/_threads", # 15, 398 lines
 "trio/_subprocess", # 21, 759 lines
@@ -87,15 +90,18 @@ module = [
 disallow_untyped_defs = false
 disallow_any_generics = false
 disallow_incomplete_defs = false
+disallow_any_decorated = false
 
 [[tool.mypy.overrides]]
+# Needs to use Any due to some complex introspection.
 module = [
     "trio._path",
 ]
 disallow_incomplete_defs = true
 disallow_untyped_defs = true
 disallow_any_generics = false
-#disallow_any_decorated = true
+disallow_any_decorated = true
+disallow_any_unimported = true
 disallow_subclassing_any = true
 
 [tool.pytest.ini_options]

@@ -118,7 +118,7 @@ def classmethod_wrapper_factory(
     cls: AsyncAutoWrapperType, meth_name: str
 ) -> classmethod:
     @async_wraps(cls, cls._wraps, meth_name)
-    async def wrapper(cls: type[Path], *args: Any, **kwargs: Any) -> Path:
+    async def wrapper(cls: type[Path], *args: Any, **kwargs: Any) -> Path:  # type: ignore[misc] # contains Any
         meth = getattr(cls._wraps, meth_name)
         func = partial(meth, *args, **kwargs)
         value = await trio.to_thread.run_sync(func)

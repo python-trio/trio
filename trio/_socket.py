@@ -980,7 +980,7 @@ class _SocketType(SocketType):
         ...
 
     @_wraps(_stdlib_socket.socket.sendto, assigned=(), updated=())
-    async def sendto(self, *args: Any) -> int:
+    async def sendto(self, *args: Any) -> int:  # type: ignore[misc] # Any
         """Similar to :meth:`socket.socket.sendto`, but async."""
         # args is: data[, flags], address)
         # and kwargs are not accepted

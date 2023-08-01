@@ -118,14 +118,19 @@ def gen_public_wrappers_source(source_path: Path, lookup_path: str) -> str:
 
     """
     generated = [HEADER]
-    if lookup_path == "runner.io_manager":
-        guard = 'assert not TYPE_CHECKING or sys.platform=="{}"'
-        if "windows" in source_path.stem:
-            generated.append(guard.format("win32"))
-        elif "kqueue" in source_path.stem:
-            generated.append(guard.format("darwin"))
-        elif "epoll" in source_path.stem:
-            generated.append(guard.format("linux"))
+
+    # This is only triggered by check.sh, not test_gen_exports.py
+    if lookup_path == "runner.io_manager":  # pragma: no coverage
+        for file_indicator, platform in (
+            ("windows", "win32"),
+            ("kqueue", "darwin"),
+            ("epoll", "linux"),
+        ):
+            if file_indicator in source_path.stem:
+                generated.append(
+                    f'assert not TYPE_CHECKING or sys.platform=="{platform}"'
+                )
+                break
         else:
             assert False
 

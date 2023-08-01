@@ -1608,8 +1608,9 @@ class Runner:
     # Core task handling primitives
     ################
 
+    # Outcome is not typed
     @_public
-    def reschedule(self, task: Task, next_send: Outcome = _NO_SEND) -> None:
+    def reschedule(self, task: Task, next_send: Outcome = _NO_SEND) -> None:  # type: ignore[misc]
         """Reschedule the given task with the given
         :class:`outcome.Outcome`.
 
@@ -1682,7 +1683,8 @@ class Runner:
         # Call the function and get the coroutine object, while giving helpful
         # errors for common mistakes.
         ######
-        coro = context.run(coroutine_or_error, async_fn, *args)
+        # TODO: ??
+        coro = context.run(coroutine_or_error, async_fn, *args)  # type: ignore[arg-type]
 
         if name is None:
             name = async_fn
@@ -1770,8 +1772,9 @@ class Runner:
     # System tasks and init
     ################
 
+    # TODO: [misc]typed with Any
     @_public
-    def spawn_system_task(
+    def spawn_system_task(  # type: ignore[misc]
         self,
         async_fn: Callable[..., Awaitable[object]],
         *args: Any,

@@ -14,7 +14,8 @@ from . import _run
 # Used to log exceptions in async generator finalizers
 ASYNCGEN_LOGGER = logging.getLogger("trio.async_generator_errors")
 
-from typing import TYPE_CHECKING, AsyncGenerator
+from types import AsyncGeneratorType
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from typing_extensions import TypeAlias
@@ -22,7 +23,7 @@ if TYPE_CHECKING:
     from ._run import Runner
 
 # can this be typed more strictly in any way?
-AGenT: TypeAlias = AsyncGenerator[object, object]
+AGenT: TypeAlias = AsyncGeneratorType[object, object]
 
 
 @attr.s(eq=False, slots=True)
@@ -111,7 +112,7 @@ class AsyncGenerators:
                     try:
                         # If the next thing is a yield, this will raise RuntimeError
                         # which we allow to propagate
-                        closer.send(None)  # type: ignore[attr-defined]
+                        closer.send(None)
                     except StopIteration:
                         pass
                     else:
@@ -124,7 +125,8 @@ class AsyncGenerators:
                         )
 
         self.prev_hooks = sys.get_asyncgen_hooks()
-        sys.set_asyncgen_hooks(firstiter=firstiter, finalizer=finalizer)
+        # set_asyncgen_hooks wants AsyncGenerator, not AsyncGeneratorType (??)
+        sys.set_asyncgen_hooks(firstiter=firstiter, finalizer=finalizer)  # type: ignore[arg-type]
 
     async def finalize_remaining(self, runner: Runner) -> None:
         # This is called from init after shutting down the system nursery.
