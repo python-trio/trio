@@ -7,10 +7,10 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.9153354632587859,
+    "completenessScore": 0.9154704944178629,
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 573,
+      "withKnownType": 574,
       "withUnknownType": 53
     },
     "ignoreUnknownTypesFromImports": true,
@@ -109,6 +109,7 @@
       "trio.open_ssl_over_tcp_listeners",
       "trio.open_ssl_over_tcp_stream",
       "trio.open_tcp_stream",
+      "trio.open_tcp_listeners",
       "trio.open_unix_socket",
       "trio.run",
       "trio.run_process",

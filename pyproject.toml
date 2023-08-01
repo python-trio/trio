@@ -56,6 +56,7 @@ module = [
     "trio._deprecate",
     "trio._dtls",
     "trio._file_io",
+    "trio._highlevel_open_tcp_stream.py",
     "trio._ki",
     "trio._socket",
     "trio._sync",
