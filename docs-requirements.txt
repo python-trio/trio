@@ -20,7 +20,7 @@ cffi==1.15.1
     # via cryptography
 charset-normalizer==3.2.0
     # via requests
-click==8.1.5
+click==8.1.6
     # via
     #   click-default-group
     #   towncrier
@@ -103,7 +103,7 @@ tomli==2.0.1
     # via towncrier
 towncrier==23.6.0
     # via -r docs-requirements.in
-urllib3==2.0.3
+urllib3==2.0.4
     # via requests
 zipp==3.16.2
     # via
