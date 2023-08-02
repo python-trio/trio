@@ -1,14 +1,30 @@
+from __future__ import annotations
+
 import os
 import secrets
-import socket
 import stat
 import time
+from collections.abc import Awaitable, Callable, Generator
 from contextlib import contextmanager
-from math import inf
+from typing import TYPE_CHECKING
 
 import trio
+import trio.socket as tsocket
 
-__all__ = ["open_unix_listeners", "serve_unix"]
+if TYPE_CHECKING:
+    from typing_extensions import Self
+
+    from trio.lowlevel import TaskStatus
+
+    from ._socket import _SocketType as SocketType
+
+
+try:
+    from trio.socket import AF_UNIX
+
+    HAS_UNIX = True
+except ImportError:
+    HAS_UNIX = False
 
 
 # Default backlog size:
@@ -24,7 +40,7 @@ __all__ = ["open_unix_listeners", "serve_unix"]
 # backpressure. If a connection gets stuck waiting in the backlog queue, then
 # from the peer's point of view the connection succeeded but then their
 # send/recv will stall until we get to it, possibly for a long time. OTOH if
-# there isn't room in the backlog queue... then their connect stalls, possibly
+# there isn't room in the backlog queue, then their connect stalls, possibly
 # for a long time, which is pretty much the same thing.
 #
 # A large backlog can also use a bit more kernel memory, but this seems fairly
@@ -38,82 +54,111 @@ __all__ = ["open_unix_listeners", "serve_unix"]
 # so this is unnecessary -- we can just pass in "infinity" and get the maximum
 # that way. (Verified on Windows, Linux, macOS using
 # notes-to-self/measure-listen-backlog.py)
-def _compute_backlog(backlog):
-    if backlog is None:
-        backlog = inf
+def _compute_backlog(backlog: int | None) -> int:
     # Many systems (Linux, BSDs, ...) store the backlog in a uint16 and are
     # missing overflow protection, so we apply our own overflow protection.
     # https://github.com/golang/go/issues/5030
-    return min(backlog, 0xffff)
+    if backlog is None:
+        return 0xFFFF
+    return min(backlog, 0xFFFF)
+
+
+def _inode(
+    filename: int | str | bytes | os.PathLike[str] | os.PathLike[bytes],
+) -> tuple[int, int]:
+    """Return a (dev, inode) tuple uniquely identifying a file."""
+    stat = os.stat(filename)
+    return stat.st_dev, stat.st_ino
+
+
+@contextmanager
+def _lock(
+    socketname: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+) -> Generator[None, None, None]:
+    """Protect socketname access by a lock file."""
+    name: str | bytes
+    if isinstance(socketname, bytes):
+        name = socketname + b".lock"
+    else:
+        name = f"{socketname}.lock"
+    start_monotonic = time.monotonic()
+    # Atomically acquire the lock file
+    while True:
+        try:
+            os.close(os.open(name, os.O_CREAT | os.O_EXCL))
+            break  # Lock file created!
+        except FileExistsError:
+            pass
+        # Retry but avoid busy polling
+        time.sleep(0.01)
+        try:
+            ctime = os.stat(name).st_ctime
+            if ctime and abs(time.time() - ctime) > 2.0:
+                raise FileExistsError(f"Stale lock file {name!r}")
+        except FileNotFoundError:
+            pass
+        if time.monotonic() - start_monotonic > 1.0:
+            raise FileExistsError(f"Timeout acquiring {name!r}")
+    try:
+        yield
+    finally:
+        os.unlink(name)
 
 
 class UnixSocketListener(trio.SocketListener):
-    @staticmethod
-    def _inode(filename):
-        """Return a (dev, inode) tuple uniquely identifying a file."""
-        s = os.stat(filename)
-        return s.st_dev, s.st_ino
+    __slots__ = ()
 
-    @staticmethod
-    @contextmanager
-    def _lock(socketname):
-        """Protect socketname access by a lock file."""
-        name = f"{socketname}.lock"
-        start_monotonic = time.monotonic()
-        # Atomically acquire the lock file
-        while True:
-            try:
-                os.close(os.open(name, os.O_CREAT | os.O_EXCL))
-                break  # Lock file created!
-            except FileExistsError:
-                pass
-            # Retry but avoid busy polling
-            time.sleep(0.01)
-            try:
-                ctime = os.stat(name).st_ctime
-                if ctime and abs(time.time() - ctime) > 2.0:
-                    raise FileExistsError(f"Stale lock file {name}")
-            except FileNotFoundError:
-                pass
-            if time.monotonic() - start_monotonic > 1.0:
-                raise FileExistsError(f"Timeout acquiring {name}")
-        try:
-            yield
-        finally:
-            os.unlink(name)
-
-    def __init__(self, sock, path, inode):
+    def __init__(
+        self,
+        socket: SocketType,
+        path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        inode: tuple[int, int],
+    ) -> None:
         """Private contructor. Use UnixSocketListener.create instead."""
-        self.path, self.inode = path, inode
-        super().__init__(trio.socket.from_stdlib_socket(sock))
+        if not HAS_UNIX:
+            raise RuntimeError("Unix sockets are not supported on this platform")
+        if not isinstance(socket, tsocket.SocketType):
+            raise TypeError("SocketStream requires a Trio socket object")
+        if socket.type != tsocket.SOCK_STREAM:
+            raise ValueError("SocketStream requires a SOCK_STREAM socket")
 
-    @staticmethod
-    def _create(path, mode, backlog):
+        self.path, self.inode = path, inode
+        super().__init__(socket)
+
+    @classmethod
+    async def _create(
+        cls,
+        path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        mode: int,
+        backlog: int,
+    ) -> Self:
         # Sanitise and pre-verify socket path
         path = os.path.abspath(path)
         folder = os.path.dirname(path)
         if not os.path.isdir(folder):
-            raise FileNotFoundError(f"Socket folder does not exist: {folder}")
+            raise FileNotFoundError(f"Socket folder does not exist: {folder!r}")
         try:
             if not stat.S_ISSOCK(os.stat(path, follow_symlinks=False).st_mode):
-                raise FileExistsError(f"Existing file is not a socket: {path}")
+                raise FileExistsError(f"Existing file is not a socket: {path!r}")
         except FileNotFoundError:
             pass
         # Create new socket with a random temporary name
+        # typecheck: str-bytes-safe error: If x = b'abc' then f"{x}" or "{}".format(x) produces "b'abc'", not "abc". If this is desired behavior, use f"{x!r}" or "{!r}".format(x). Otherwise, decode the bytes
         tmp_path = f"{path}.{secrets.token_urlsafe()}"
-        sock = socket.socket(socket.AF_UNIX)
+        # typecheck: ^^^^^^^^^^^^^
+        sock = tsocket.socket(AF_UNIX, tsocket.SOCK_STREAM)
         try:
             # Critical section begins (filename races)
-            sock.bind(tmp_path)
+            await sock.bind(tmp_path)
             try:
-                inode = UnixSocketListener._inode(tmp_path)
+                inode = _inode(tmp_path)
                 os.chmod(tmp_path, mode)
                 # Start listening before rename to avoid connection failures
                 sock.listen(backlog)
                 # Replace the requested name (atomic overwrite if necessary)
-                with UnixSocketListener._lock(path):
+                with _lock(path):
                     os.rename(tmp_path, path)
-                return UnixSocketListener(sock, path, inode)
+                return cls(sock, path, inode)
             except:  # noqa: E722
                 try:
                     os.unlink(tmp_path)
@@ -125,25 +170,30 @@ class UnixSocketListener(trio.SocketListener):
             finally:
                 raise
 
-    @staticmethod
-    async def create(path, *, mode=0o666, backlog=None):
+    @classmethod
+    async def create(
+        cls,
+        path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        *,
+        mode: int = 0o666,
+        backlog: int | None = None,
+    ) -> Self:
         backlog = _compute_backlog(backlog)
-        return await trio.to_thread.run_sync(
-            UnixSocketListener._create, path, mode, backlog or 0xFFFF
-        )
+        # typecheck: arg-type error: Argument 1 to "to_thread_run_sync" has incompatible type "Callable[[str | bytes | PathLike[str] | PathLike[bytes], int, int], Coroutine[Any, Any, Self]]"; expected "Callable[..., Self]"
+        return await cls._create(path, mode, backlog or 0xFFFF)
 
-    def _close(self):
+    def _close(self) -> None:
         try:
             # Verify that the socket hasn't been replaced by another instance
             # before unlinking. Needs locking to prevent another instance of
             # this program replacing it between stat and unlink.
-            with UnixSocketListener._lock(self.path):
-                if self.inode == UnixSocketListener._inode(self.path):
+            with _lock(self.path):
+                if self.inode == _inode(self.path):
                     os.unlink(self.path)
         except OSError:
             pass
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         """Close the socket and remove the socket file."""
         with trio.fail_after(10) as cleanup:
             cleanup.shield = True
@@ -151,8 +201,13 @@ class UnixSocketListener(trio.SocketListener):
             await trio.to_thread.run_sync(self._close)
 
 
-async def open_unix_listeners(path, *, mode=0o666, backlog=None):
-    """Create :class:`SocketListener` objects to listen for UNIX connections.
+async def open_unix_listeners(
+    path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+    *,
+    mode: int = 0o666,
+    backlog: int | None = None,
+) -> list[UnixSocketListener]:
+    """Create :class:`UnixSocketListener` objects to listen for UNIX connections.
 
     Args:
 
@@ -177,20 +232,28 @@ async def open_unix_listeners(path, *, mode=0o666, backlog=None):
           your system has configured as the maximum backlog.)
 
     Returns:
-      list of :class:`SocketListener`
+      list of :class:`UnixSocketListener`
+
+    Raises:
+      RuntimeError: If AF_UNIX sockets are not supported.
 
     """
+    if not HAS_UNIX:
+        raise RuntimeError("Unix sockets are not supported on this platform")
+
     return [await UnixSocketListener.create(path, mode=mode, backlog=backlog)]
 
 
+# typecheck: no-untyped-def error: Function is missing a return type annotation
+# typecheck: no-untyped-def error: Function is missing a type annotation for one or more arguments
 async def serve_unix(
-    handler,
+    handler: Callable[[trio.SocketStream], Awaitable[object]],
     path,
     *,
-    backlog=None,
-    handler_nursery=None,
-    task_status=trio.TASK_STATUS_IGNORED
-):
+    backlog: int | None = None,
+    handler_nursery: trio.Nursery | None = None,
+    task_status: TaskStatus = trio.TASK_STATUS_IGNORED,  # type: ignore[has-type]  # Cannot determine type of "TASK_STATUS_IGNORED"
+) -> None:
     """Listen for incoming UNIX connections, and for each one start a task
     running ``handler(stream)``.
 
@@ -225,11 +288,15 @@ async def serve_unix(
     Returns:
       This function only returns when cancelled.
 
+    Raises:
+      RuntimeError: If AF_UNIX sockets are not supported.
+
     """
-    listeners = await trio.open_unix_listeners(path, backlog=backlog)
+    if not HAS_UNIX:
+        raise RuntimeError("Unix sockets are not supported on this platform")
+
+    listeners = await open_unix_listeners(path, backlog=backlog)
+    # typecheck: no-untyped-call error: Call to untyped function "serve_listeners" in typed context
     await trio.serve_listeners(
-        handler,
-        listeners,
-        handler_nursery=handler_nursery,
-        task_status=task_status
+        handler, listeners, handler_nursery=handler_nursery, task_status=task_status
     )
