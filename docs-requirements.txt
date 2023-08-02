@@ -6,8 +6,6 @@
 #
 alabaster==0.7.13
     # via sphinx
-async-generator==1.10
-    # via -r docs-requirements.in
 attrs==23.1.0
     # via
     #   -r docs-requirements.in
@@ -90,7 +88,9 @@ sphinxcontrib-devhelp==1.0.2
 sphinxcontrib-htmlhelp==2.0.1
     # via sphinx
 sphinxcontrib-jquery==4.1
-    # via sphinx-rtd-theme
+    # via
+    #   -r docs-requirements.in
+    #   sphinx-rtd-theme
 sphinxcontrib-jsmath==1.0.1
     # via sphinx
 sphinxcontrib-qthelp==1.0.3
