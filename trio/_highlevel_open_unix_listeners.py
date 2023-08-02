@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 import trio
 import trio.socket as tsocket
+from trio import SocketListener
 
 if TYPE_CHECKING:
     from typing_extensions import Self
@@ -105,7 +106,7 @@ def _lock(
         os.unlink(name)
 
 
-class UnixSocketListener(trio.SocketListener):
+class UnixSocketListener(SocketListener):
     __slots__ = ()
 
     def __init__(
