@@ -1,7 +1,8 @@
 # These are the only functions that ever yield back to the task runner.
 
-import types
 import enum
+import types
+from typing import Any, Callable, NoReturn
 
 import attr
 import outcome
@@ -37,7 +38,7 @@ async def cancel_shielded_checkpoint():
     Equivalent to (but potentially more efficient than)::
 
         with trio.CancelScope(shield=True):
-            await trio.hazmat.checkpoint()
+            await trio.lowlevel.checkpoint()
 
     """
     return (await _async_yield(CancelShieldedCheckpoint)).unwrap()
@@ -53,6 +54,7 @@ class Abort(enum.Enum):
               FAILED
 
     """
+
     SUCCEEDED = 1
     FAILED = 2
 
@@ -63,11 +65,16 @@ class WaitTaskRescheduled:
     abort_func = attr.ib()
 
 
-async def wait_task_rescheduled(abort_func):
+RaiseCancelT = Callable[[], NoReturn]  # TypeAlias
+
+
+# Should always return the type a Task "expects", unless you willfully reschedule it
+# with a bad value.
+async def wait_task_rescheduled(abort_func: Callable[[RaiseCancelT], Abort]) -> Any:
     """Put the current task to sleep, with cancellation support.
 
     This is the lowest-level API for blocking in Trio. Every time a
-    :class:`~trio.hazmat.Task` blocks, it does so by calling this function
+    :class:`~trio.lowlevel.Task` blocks, it does so by calling this function
     (usually indirectly via some higher-level API).
 
     This is a tricky interface with no guard rails. If you can use
@@ -96,7 +103,7 @@ async def wait_task_rescheduled(abort_func):
 
            def abort_func(raise_cancel):
                ...
-               return trio.hazmat.Abort.SUCCEEDED  # or FAILED
+               return trio.lowlevel.Abort.SUCCEEDED  # or FAILED
 
        It should attempt to clean up any state associated with this call, and
        in particular, arrange that :func:`reschedule` will *not* be called
@@ -127,7 +134,7 @@ async def wait_task_rescheduled(abort_func):
           # Catch the exception from raise_cancel and inject it into the task.
           # (This is what Trio does automatically for you if you return
           # Abort.SUCCEEDED.)
-          trio.hazmat.reschedule(task, outcome.capture(raise_cancel))
+          trio.lowlevel.reschedule(task, outcome.capture(raise_cancel))
 
           # Option 2:
           # wait to be woken by "someone", and then decide whether to raise
@@ -137,7 +144,7 @@ async def wait_task_rescheduled(abort_func):
               nonlocal outer_raise_cancel
               outer_raise_cancel = inner_raise_cancel
               TRY_TO_CANCEL_OPERATION()
-              return trio.hazmat.Abort.FAILED
+              return trio.lowlevel.Abort.FAILED
           await wait_task_rescheduled(abort)
           if OPERATION_WAS_SUCCESSFULLY_CANCELLED:
               # raises the error

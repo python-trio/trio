@@ -1,19 +1,20 @@
+from __future__ import annotations
+
 import sys
-import traceback
-import textwrap
 import warnings
+from typing import TYPE_CHECKING
 
 import attr
 
-__all__ = ["MultiError"]
+from trio._deprecate import warn_deprecated
 
-# python traceback.TracebackException < 3.6.4 does not support unhashable exceptions
-# see https://github.com/python/cpython/pull/4014 for details
-if sys.version_info < (3, 6, 4):
-    exc_key = lambda exc: exc
+if sys.version_info < (3, 11):
+    from exceptiongroup import BaseExceptionGroup, ExceptionGroup, print_exception
 else:
-    exc_key = id
+    from traceback import print_exception
 
+if TYPE_CHECKING:
+    from types import TracebackType
 ################################################################
 # MultiError
 ################################################################
@@ -116,6 +117,9 @@ def _filter_impl(handler, root_exc):
     preserved = set()
     new_root_exc = filter_tree(root_exc, preserved)
     push_tb_down(None, root_exc, preserved)
+    # Delete the local functions to avoid a reference cycle (see
+    # test_simple_cancel_scope_usage_doesnt_create_cyclic_garbage)
+    del filter_tree, push_tb_down
     return new_root_exc
 
 
@@ -131,10 +135,16 @@ class MultiErrorCatcher:
     def __enter__(self):
         pass
 
-    def __exit__(self, etype, exc, tb):
-        if exc is not None:
-            filtered_exc = MultiError.filter(self._handler, exc)
-            if filtered_exc is exc:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> bool | None:
+        if exc_value is not None:
+            filtered_exc = _filter_impl(self._handler, exc_value)
+
+            if filtered_exc is exc_value:
                 # Let the interpreter re-raise it
                 return False
             if filtered_exc is None:
@@ -151,9 +161,13 @@ class MultiErrorCatcher:
                 _, value, _ = sys.exc_info()
                 assert value is filtered_exc
                 value.__context__ = old_context
+                # delete references from locals to avoid creating cycles
+                # see test_MultiError_catch_doesnt_create_cyclic_garbage
+                del _, filtered_exc, value
+        return False
 
 
-class MultiError(BaseException):
+class MultiError(BaseExceptionGroup):
     """An exception that contains other exceptions; also known as an
     "inception".
 
@@ -175,23 +189,24 @@ class MultiError(BaseException):
           :exc:`BaseException`.
 
     """
-    def __init__(self, exceptions):
-        # Avoid recursion when exceptions[0] returned by __new__() happens
-        # to be a MultiError and subsequently __init__() is called.
-        if hasattr(self, "exceptions"):
-            # __init__ was already called on this object
-            assert len(exceptions) == 1 and exceptions[0] is self
-            return
-        self.exceptions = exceptions
 
-    def __new__(cls, exceptions):
+    def __init__(self, exceptions, *, _collapse=True):
+        self.collapse = _collapse
+
+        # Avoid double initialization when _collapse is True and exceptions[0] returned
+        # by __new__() happens to be a MultiError and subsequently __init__() is called.
+        if _collapse and getattr(self, "exceptions", None) is not None:
+            # This exception was already initialized.
+            return
+
+        super().__init__("multiple tasks failed", exceptions)
+
+    def __new__(cls, exceptions, *, _collapse=True):
         exceptions = list(exceptions)
         for exc in exceptions:
             if not isinstance(exc, BaseException):
-                raise TypeError(
-                    "Expected an exception object, not {!r}".format(exc)
-                )
-        if len(exceptions) == 1:
+                raise TypeError(f"Expected an exception object, not {exc!r}")
+        if _collapse and len(exceptions) == 1:
             # If this lone object happens to itself be a MultiError, then
             # Python will implicitly call our __init__ on it again.  See
             # special handling in __init__.
@@ -203,13 +218,30 @@ class MultiError(BaseException):
             # In an earlier version of the code, we didn't define __init__ and
             # simply set the `exceptions` attribute directly on the new object.
             # However, linters expect attributes to be initialized in __init__.
-            return BaseException.__new__(cls, exceptions)
+            if all(isinstance(exc, Exception) for exc in exceptions):
+                cls = NonBaseMultiError
+
+            return super().__new__(cls, "multiple tasks failed", exceptions)
+
+    def __reduce__(self):
+        return (
+            self.__new__,
+            (self.__class__, list(self.exceptions)),
+            {"collapse": self.collapse},
+        )
 
     def __str__(self):
         return ", ".join(repr(exc) for exc in self.exceptions)
 
     def __repr__(self):
-        return "<MultiError: {}>".format(self)
+        return f"<MultiError: {self}>"
+
+    def derive(self, __excs):
+        # We use _collapse=False here to get ExceptionGroup semantics, since derive()
+        # is part of the PEP 654 API
+        exc = MultiError(__excs, _collapse=False)
+        exc.collapse = self.collapse
+        return exc
 
     @classmethod
     def filter(cls, handler, root_exc):
@@ -227,7 +259,12 @@ class MultiError(BaseException):
           ``handler`` returned None for all the inputs, returns None.
 
         """
-
+        warn_deprecated(
+            "MultiError.filter()",
+            "0.22.0",
+            instead="BaseExceptionGroup.split()",
+            issue=2211,
+        )
         return _filter_impl(handler, root_exc)
 
     @classmethod
@@ -239,12 +276,23 @@ class MultiError(BaseException):
           handler: as for :meth:`filter`
 
         """
+        warn_deprecated(
+            "MultiError.catch",
+            "0.22.0",
+            instead="except* or exceptiongroup.catch()",
+            issue=2211,
+        )
 
         return MultiErrorCatcher(handler)
 
 
+class NonBaseMultiError(MultiError, ExceptionGroup):
+    pass
+
+
 # Clean up exception printing:
 MultiError.__module__ = "trio"
+NonBaseMultiError.__module__ = "trio"
 
 ################################################################
 # concat_tb
@@ -282,16 +330,19 @@ if have_tproxy:
             # no missing test we could add, and no value in coverage nagging
             # us about adding one.
             if operation.opname in [
-                "__getattribute__", "__getattr__"
+                "__getattribute__",
+                "__getattr__",
             ]:  # pragma: no cover
                 if operation.args[0] == "tb_next":
                     return tb_next
             return operation.delegate()
 
         return tputil.make_proxy(controller, type(base_tb), base_tb)
+
 else:
     # ctypes it is
     import ctypes
+
     # How to handle refcounting? I don't want to use ctypes.py_object because
     # I don't understand or trust it, and I don't want to use
     # ctypes.pythonapi.Py_{Inc,Dec}Ref because we might clash with user code
@@ -338,7 +389,12 @@ else:
         c_new_tb.tb_lasti = base_tb.tb_lasti
         c_new_tb.tb_lineno = base_tb.tb_lineno
 
-        return new_tb
+        try:
+            return new_tb
+        finally:
+            # delete references from locals to avoid creating cycles
+            # see test_MultiError_catch_doesnt_create_cyclic_garbage
+            del new_tb, old_tb_frame
 
 
 def concat_tb(head, tail):
@@ -356,118 +412,58 @@ def concat_tb(head, tail):
     return current_head
 
 
-################################################################
-# MultiError traceback formatting
-#
-# What follows is terrible, terrible monkey patching of
-# traceback.TracebackException to add support for handling
-# MultiErrors
-################################################################
-
-traceback_exception_original_init = traceback.TracebackException.__init__
-
-
-def traceback_exception_init(
-    self,
-    exc_type,
-    exc_value,
-    exc_traceback,
-    *,
-    limit=None,
-    lookup_lines=True,
-    capture_locals=False,
-    _seen=None
-):
-    if _seen is None:
-        _seen = set()
-
-    # Capture the original exception and its cause and context as TracebackExceptions
-    traceback_exception_original_init(
-        self,
-        exc_type,
-        exc_value,
-        exc_traceback,
-        limit=limit,
-        lookup_lines=lookup_lines,
-        capture_locals=capture_locals,
-        _seen=_seen
-    )
-
-    # Capture each of the exceptions in the MultiError along with each of their causes and contexts
-    if isinstance(exc_value, MultiError):
-        embedded = []
-        for exc in exc_value.exceptions:
-            if exc_key(exc) not in _seen:
-                embedded.append(
-                    traceback.TracebackException.from_exception(
-                        exc,
-                        limit=limit,
-                        lookup_lines=lookup_lines,
-                        capture_locals=capture_locals,
-                        # copy the set of _seen exceptions so that duplicates
-                        # shared between sub-exceptions are not omitted
-                        _seen=set(_seen)
-                    )
-                )
-        self.embedded = embedded
-    else:
-        self.embedded = []
-
-
-traceback.TracebackException.__init__ = traceback_exception_init
-traceback_exception_original_format = traceback.TracebackException.format
-
-
-def traceback_exception_format(self, *, chain=True):
-    yield from traceback_exception_original_format(self, chain=chain)
-
-    for i, exc in enumerate(self.embedded):
-        yield "\nDetails of embedded exception {}:\n\n".format(i + 1)
-        yield from (
-            textwrap.indent(line, " " * 2) for line in exc.format(chain=chain)
-        )
-
-
-traceback.TracebackException.format = traceback_exception_format
-
-
-def trio_excepthook(etype, value, tb):
-    for chunk in traceback.format_exception(etype, value, tb):
-        sys.stderr.write(chunk)
-
-
-IPython_handler_installed = False
-warning_given = False
+# Remove when IPython gains support for exception groups
+# (https://github.com/ipython/ipython/issues/13753)
 if "IPython" in sys.modules:
     import IPython
+
     ip = IPython.get_ipython()
     if ip is not None:
         if ip.custom_exceptions != ():
             warnings.warn(
                 "IPython detected, but you already have a custom exception "
                 "handler installed. I'll skip installing Trio's custom "
-                "handler, but this means MultiErrors will not show full "
+                "handler, but this means exception groups will not show full "
                 "tracebacks.",
-                category=RuntimeWarning
+                category=RuntimeWarning,
             )
-            warning_given = True
         else:
 
             def trio_show_traceback(self, etype, value, tb, tb_offset=None):
                 # XX it would be better to integrate with IPython's fancy
                 # exception formatting stuff (and not ignore tb_offset)
-                trio_excepthook(etype, value, tb)
+                print_exception(value)
 
-            ip.set_custom_exc((MultiError,), trio_show_traceback)
-            IPython_handler_installed = True
+            ip.set_custom_exc((BaseExceptionGroup,), trio_show_traceback)
 
-if sys.excepthook is sys.__excepthook__:
-    sys.excepthook = trio_excepthook
-else:
-    if not IPython_handler_installed and not warning_given:
-        warnings.warn(
-            "You seem to already have a custom sys.excepthook handler "
-            "installed. I'll skip installing Trio's custom handler, but this "
-            "means MultiErrors will not show full tracebacks.",
-            category=RuntimeWarning
-        )
+
+# Ubuntu's system Python has a sitecustomize.py file that import
+# apport_python_hook and replaces sys.excepthook.
+#
+# The custom hook captures the error for crash reporting, and then calls
+# sys.__excepthook__ to actually print the error.
+#
+# We don't mind it capturing the error for crash reporting, but we want to
+# take over printing the error. So we monkeypatch the apport_python_hook
+# module so that instead of calling sys.__excepthook__, it calls our custom
+# hook.
+#
+# More details: https://github.com/python-trio/trio/issues/1065
+if (
+    sys.version_info < (3, 11)
+    and getattr(sys.excepthook, "__name__", None) == "apport_excepthook"
+):
+    from types import ModuleType
+
+    import apport_python_hook
+    from exceptiongroup import format_exception
+
+    assert sys.excepthook is apport_python_hook.apport_excepthook
+
+    def replacement_excepthook(etype, value, tb):
+        sys.stderr.write("".join(format_exception(etype, value, tb)))
+
+    fake_sys = ModuleType("trio_fake_sys")
+    fake_sys.__dict__.update(sys.__dict__)
+    fake_sys.__excepthook__ = replacement_excepthook  # type: ignore
+    apport_python_hook.sys = fake_sys

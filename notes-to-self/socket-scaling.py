@@ -11,14 +11,6 @@
 # On Windows: with the old 'select'-based loop, the cost of scheduling grew
 # with the number of outstanding sockets, which was bad.
 #
-# With the new IOCP-based loop, the cost of scheduling is constant, which is
-# good. But, we find that the cost of cancelling a single wait_readable
-# appears to grow like O(n**2) or so in the number of outstanding
-# wait_readables. This is bad -- it means that cancelling all of the
-# outstanding operations here is something like O(n**3)! To avoid this, we
-# should consider creating multiple AFD helper handles and distributing the
-# AFD_POLL operations across them.
-#
 # To run this on Unix systems, you'll probably first have to run:
 #
 #   ulimit -n 31000
@@ -49,11 +41,11 @@ async def main():
         pt("socket creation")
         async with trio.open_nursery() as nursery:
             for s in sockets:
-                nursery.start_soon(trio.hazmat.wait_readable, s)
+                nursery.start_soon(trio.lowlevel.wait_readable, s)
             await trio.testing.wait_all_tasks_blocked()
             pt("spawning wait tasks")
             for _ in range(1000):
-                await trio.hazmat.cancel_shielded_checkpoint()
+                await trio.lowlevel.cancel_shielded_checkpoint()
             pt("scheduling 1000 times", count=1000, item="schedule")
             nursery.cancel_scope.cancel()
         pt("cancelling wait tasks")

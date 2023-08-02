@@ -1,15 +1,15 @@
+import os
 from contextlib import contextmanager
 
 import trio
-from trio.socket import socket, SOCK_STREAM
+from trio.socket import SOCK_STREAM, socket
 
 try:
     from trio.socket import AF_UNIX
+
     has_unix = True
 except ImportError:
     has_unix = False
-
-__all__ = ["open_unix_socket"]
 
 
 @contextmanager
@@ -21,7 +21,7 @@ def close_on_error(obj):
         raise
 
 
-async def open_unix_socket(filename,):
+async def open_unix_socket(filename):
     """Opens a connection to the specified
     `Unix domain socket <https://en.wikipedia.org/wiki/Unix_domain_socket>`__.
 
@@ -44,6 +44,6 @@ async def open_unix_socket(filename,):
     # possible location to connect to
     sock = socket(AF_UNIX, SOCK_STREAM)
     with close_on_error(sock):
-        await sock.connect(trio._util.fspath(filename))
+        await sock.connect(os.fspath(filename))
 
     return trio.SocketStream(sock)

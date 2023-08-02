@@ -1,7 +1,12 @@
+import sys
+from typing import TYPE_CHECKING
+
 from . import _core
-from ._abc import SendStream, ReceiveStream
-from ._util import ConflictDetector
-from ._core._windows_cffi import _handle, raise_winerror, kernel32, ffi
+from ._abc import ReceiveStream, SendStream
+from ._core._windows_cffi import _handle, kernel32, raise_winerror
+from ._util import ConflictDetector, Final
+
+assert sys.platform == "win32" or not TYPE_CHECKING
 
 # XX TODO: don't just make this up based on nothing.
 DEFAULT_RECEIVE_SIZE = 65536
@@ -21,7 +26,7 @@ class _HandleHolder:
     def closed(self):
         return self.handle == -1
 
-    def _close(self):
+    def close(self):
         if self.closed:
             return
         handle = self.handle
@@ -29,18 +34,15 @@ class _HandleHolder:
         if not kernel32.CloseHandle(_handle(handle)):
             raise_winerror()
 
-    async def aclose(self):
-        self._close()
-        await _core.checkpoint()
-
     def __del__(self):
-        self._close()
+        self.close()
 
 
-class PipeSendStream(SendStream):
+class PipeSendStream(SendStream, metaclass=Final):
     """Represents a send stream over a Windows named pipe that has been
     opened in OVERLAPPED mode.
     """
+
     def __init__(self, handle: int) -> None:
         self._handle_holder = _HandleHolder(handle)
         self._conflict_detector = ConflictDetector(
@@ -57,9 +59,7 @@ class PipeSendStream(SendStream):
                 return
 
             try:
-                written = await _core.write_overlapped(
-                    self._handle_holder.handle, data
-                )
+                written = await _core.write_overlapped(self._handle_holder.handle, data)
             except BrokenPipeError as ex:
                 raise _core.BrokenResourceError from ex
             # By my reading of MSDN, this assert is guaranteed to pass so long
@@ -75,12 +75,17 @@ class PipeSendStream(SendStream):
             # not implemented yet, and probably not needed
             await _core.checkpoint()
 
+    def close(self):
+        self._handle_holder.close()
+
     async def aclose(self):
-        await self._handle_holder.aclose()
+        self.close()
+        await _core.checkpoint()
 
 
-class PipeReceiveStream(ReceiveStream):
+class PipeReceiveStream(ReceiveStream, metaclass=Final):
     """Represents a receive stream over an os.pipe object."""
+
     def __init__(self, handle: int) -> None:
         self._handle_holder = _HandleHolder(handle)
         self._conflict_detector = ConflictDetector(
@@ -126,5 +131,9 @@ class PipeReceiveStream(ReceiveStream):
                 del buffer[size:]
                 return buffer
 
+    def close(self):
+        self._handle_holder.close()
+
     async def aclose(self):
-        await self._handle_holder.aclose()
+        self.close()
+        await _core.checkpoint()

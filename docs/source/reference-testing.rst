@@ -16,6 +16,8 @@ Test harness integration
 .. decorator:: trio_test
 
 
+.. _testing-time:
+
 Time and timeouts
 -----------------
 

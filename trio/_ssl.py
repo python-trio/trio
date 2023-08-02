@@ -69,7 +69,7 @@
 # able to use this to figure out the key. Is this a real practical problem? I
 # have no idea, I'm not a cryptographer. In any case, some people worry that
 # it's a problem, so their TLS libraries are designed to automatically trigger
-# a renegotation every once in a while on some sort of timer.
+# a renegotiation every once in a while on some sort of timer.
 #
 # The end result is that you might be going along, minding your own business,
 # and then *bam*! a wild renegotiation appears! And you just have to cope.
@@ -155,11 +155,10 @@ from enum import Enum as _Enum
 
 import trio
 
-from .abc import Stream, Listener
-from ._highlevel_generic import aclose_forcefully
 from . import _sync
-from ._util import ConflictDetector
-from ._deprecate import warn_deprecated
+from ._highlevel_generic import aclose_forcefully
+from ._util import ConflictDetector, Final
+from .abc import Listener, Stream
 
 ################################################################
 # SSLStream
@@ -189,6 +188,16 @@ from ._deprecate import warn_deprecated
 # data will be limited to ~15000 bytes (or a bit less due to IP-level framing
 # overhead), so this is chosen to be larger than that.
 STARTING_RECEIVE_SIZE = 16384
+
+
+def _is_eof(exc):
+    # There appears to be a bug on Python 3.10, where SSLErrors
+    # aren't properly translated into SSLEOFErrors.
+    # This stringly-typed error check is borrowed from the AnyIO
+    # project.
+    return isinstance(exc, _stdlib_ssl.SSLEOFError) or (
+        hasattr(exc, "strerror") and "UNEXPECTED_EOF_WHILE_READING" in exc.strerror
+    )
 
 
 class NeedHandshakeError(Exception):
@@ -224,7 +233,7 @@ class _Once:
 _State = _Enum("_State", ["OK", "BROKEN", "CLOSED"])
 
 
-class SSLStream(Stream):
+class SSLStream(Stream, metaclass=Final):
     r"""Encrypted communication using SSL/TLS.
 
     :class:`SSLStream` wraps an arbitrary :class:`~trio.abc.Stream`, and
@@ -328,14 +337,9 @@ class SSLStream(Stream):
         server_hostname=None,
         server_side=False,
         https_compatible=False,
-        max_refill_bytes="unused and deprecated"
     ):
         self.transport_stream = transport_stream
         self._state = _State.OK
-        if max_refill_bytes != "unused and deprecated":
-            warn_deprecated(
-                "max_refill_bytes=...", "0.12.0", issue=959, instead=None
-            )
         self._https_compatible = https_compatible
         self._outgoing = _stdlib_ssl.MemoryBIO()
         self._delayed_outgoing = None
@@ -344,7 +348,7 @@ class SSLStream(Stream):
             self._incoming,
             self._outgoing,
             server_side=server_side,
-            server_hostname=server_hostname
+            server_hostname=server_hostname,
         )
         # Tracks whether we've already done the initial handshake
         self._handshook = _Once(self._do_handshake)
@@ -398,9 +402,7 @@ class SSLStream(Stream):
     def __getattr__(self, name):
         if name in self._forwarded:
             if name in self._after_handshake and not self._handshook.done:
-                raise NeedHandshakeError(
-                    "call do_handshake() before calling {!r}".format(name)
-                )
+                raise NeedHandshakeError(f"call do_handshake() before calling {name!r}")
 
             return getattr(self._ssl_object, name)
         else:
@@ -429,10 +431,8 @@ class SSLStream(Stream):
     # comments, though, just make sure to think carefully if you ever have to
     # touch it. The big comment at the top of this file will help explain
     # too.
-    async def _retry(
-        self, fn, *args, ignore_want_read=False, is_handshake=False
-    ):
-        await trio.hazmat.checkpoint_if_cancelled()
+    async def _retry(self, fn, *args, ignore_want_read=False, is_handshake=False):
+        await trio.lowlevel.checkpoint_if_cancelled()
         yielded = False
         finished = False
         while not finished:
@@ -495,7 +495,9 @@ class SSLStream(Stream):
             #
             #   https://github.com/python-trio/trio/issues/819#issuecomment-517529763
             if (
-                is_handshake and not want_read and self._ssl_object.server_side
+                is_handshake
+                and not want_read
+                and self._ssl_object.server_side
                 and self._ssl_object.version() == "TLSv1.3"
             ):
                 assert self._delayed_outgoing is None
@@ -544,7 +546,7 @@ class SSLStream(Stream):
             # We could do something tricky to keep track of whether a
             # receive_some happens while we're sending, but the case where
             # we have to do both is very unusual (only during a
-            # renegotation), so it's better to keep things simple. So we
+            # renegotiation), so it's better to keep things simple. So we
             # do just one potentially-blocking operation, then check again
             # for fresh information.
             #
@@ -598,7 +600,7 @@ class SSLStream(Stream):
                             self._incoming.write(data)
                         self._inner_recv_count += 1
         if not yielded:
-            await trio.hazmat.cancel_shielded_checkpoint()
+            await trio.lowlevel.cancel_shielded_checkpoint()
         return ret
 
     async def _do_handshake(self):
@@ -615,7 +617,7 @@ class SSLStream(Stream):
         certificates, select cryptographic keys, and so forth, before any
         actual data can be sent or received. You don't have to call this
         method; if you don't, then :class:`SSLStream` will automatically
-        peform the handshake as needed, the first time you try to send or
+        perform the handshake as needed, the first time you try to send or
         receive data. But if you want to trigger it manually – for example,
         because you want to look at the peer's certificate before you start
         talking to them – then you can call this method.
@@ -664,13 +666,11 @@ class SSLStream(Stream):
                 # For some reason, EOF before handshake sometimes raises
                 # SSLSyscallError instead of SSLEOFError (e.g. on my linux
                 # laptop, but not on appveyor). Thanks openssl.
-                if (
-                    self._https_compatible and isinstance(
-                        exc.__cause__,
-                        (_stdlib_ssl.SSLEOFError, _stdlib_ssl.SSLSyscallError)
-                    )
+                if self._https_compatible and (
+                    isinstance(exc.__cause__, _stdlib_ssl.SSLSyscallError)
+                    or _is_eof(exc.__cause__)
                 ):
-                    await trio.hazmat.checkpoint()
+                    await trio.lowlevel.checkpoint()
                     return b""
                 else:
                     raise
@@ -678,9 +678,7 @@ class SSLStream(Stream):
                 # If we somehow have more data already in our pending buffer
                 # than the estimate receive size, bump up our size a bit for
                 # this read only.
-                max_bytes = max(
-                    self._estimated_receive_size, self._incoming.pending
-                )
+                max_bytes = max(self._estimated_receive_size, self._incoming.pending)
             else:
                 max_bytes = _operator.index(max_bytes)
                 if max_bytes < 1:
@@ -693,11 +691,9 @@ class SSLStream(Stream):
                 # BROKEN. But that's actually fine, because after getting an
                 # EOF on TLS then the only thing you can do is close the
                 # stream, and closing doesn't care about the state.
-                if (
-                    self._https_compatible
-                    and isinstance(exc.__cause__, _stdlib_ssl.SSLEOFError)
-                ):
-                    await trio.hazmat.checkpoint()
+
+                if self._https_compatible and _is_eof(exc.__cause__):
+                    await trio.lowlevel.checkpoint()
                     return b""
                 else:
                     raise
@@ -719,7 +715,7 @@ class SSLStream(Stream):
             # SSLObject interprets write(b"") as an EOF for some reason, which
             # is not what we want.
             if not data:
-                await trio.hazmat.checkpoint()
+                await trio.lowlevel.checkpoint()
                 return
             await self._retry(self._ssl_object.write, data)
 
@@ -740,8 +736,7 @@ class SSLStream(Stream):
           ``transport_stream.receive_some(...)``.
 
         """
-        with self._outer_recv_conflict_detector, \
-                self._outer_send_conflict_detector:
+        with self._outer_recv_conflict_detector, self._outer_send_conflict_detector:
             self._check_status()
             await self._handshook.ensure(checkpoint=False)
             await self._retry(self._ssl_object.unwrap)
@@ -763,7 +758,7 @@ class SSLStream(Stream):
 
         """
         if self._state is _State.CLOSED:
-            await trio.hazmat.checkpoint()
+            await trio.lowlevel.checkpoint()
             return
         if self._state is _State.BROKEN or self._https_compatible:
             self._state = _State.CLOSED
@@ -824,9 +819,7 @@ class SSLStream(Stream):
             # going to be able to do a clean shutdown. If that happens, we'll
             # just do an unclean shutdown.
             try:
-                await self._retry(
-                    self._ssl_object.unwrap, ignore_want_read=True
-                )
+                await self._retry(self._ssl_object.unwrap, ignore_want_read=True)
             except (trio.BrokenResourceError, trio.BusyResourceError):
                 pass
         except:
@@ -840,9 +833,7 @@ class SSLStream(Stream):
             self._state = _State.CLOSED
 
     async def wait_send_all_might_not_block(self):
-        """See :meth:`trio.abc.SendStream.wait_send_all_might_not_block`.
-
-        """
+        """See :meth:`trio.abc.SendStream.wait_send_all_might_not_block`."""
         # This method's implementation is deceptively simple.
         #
         # First, we take the outer send lock, because of Trio's standard
@@ -882,7 +873,7 @@ class SSLStream(Stream):
                 await self.transport_stream.wait_send_all_might_not_block()
 
 
-class SSLListener(Listener[SSLStream]):
+class SSLListener(Listener[SSLStream], metaclass=Final):
     """A :class:`~trio.abc.Listener` for SSL/TLS-encrypted servers.
 
     :class:`SSLListener` wraps around another Listener, and converts
@@ -903,18 +894,14 @@ class SSLListener(Listener[SSLStream]):
           passed to ``__init__``.
 
     """
+
     def __init__(
         self,
         transport_listener,
         ssl_context,
         *,
         https_compatible=False,
-        max_refill_bytes="unused and deprecated"
     ):
-        if max_refill_bytes != "unused and deprecated":
-            warn_deprecated(
-                "max_refill_bytes=...", "0.12.0", issue=959, instead=None
-            )
         self.transport_listener = transport_listener
         self._ssl_context = ssl_context
         self._https_compatible = https_compatible
@@ -934,7 +921,5 @@ class SSLListener(Listener[SSLStream]):
         )
 
     async def aclose(self):
-        """Close the transport listener.
-
-        """
+        """Close the transport listener."""
         await self.transport_listener.aclose()

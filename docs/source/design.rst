@@ -437,8 +437,9 @@ and then the other ``trio.*`` modules are implemented in terms of the
 API it exposes. (If you want to see what this API looks like, then
 ``import trio; print(trio._core.__all__)``). Everything exported from
 ``trio._core`` is *also* exported as part of the ``trio``,
-``trio.hazmat``, or ``trio.testing`` namespaces. (See their respective
-``__init__.py`` files for details; there's a test to enforce this.)
+``trio.lowlevel``, or ``trio.testing`` namespaces. (See their
+respective ``__init__.py`` files for details; there's a test to
+enforce this.)
 
 Rationale: currently, Trio is a new project in a novel part of the
 design space, so we don't make any stability guarantees. But the goal
@@ -460,21 +461,15 @@ of our public APIs without having to modify Trio internals.
 Inside ``trio._core``
 ~~~~~~~~~~~~~~~~~~~~~
 
-There are two notable sub-modules that are largely independent of
-the rest of Trio, and could (possibly should?) be extracted into their
-own independent packages:
-
-* ``_multierror.py``: Implements :class:`MultiError` and associated
-  infrastructure.
-
-* ``_ki.py``: Implements the core infrastructure for safe handling of
-  :class:`KeyboardInterrupt`.
+The ``_ki.py`` module implements the core infrastructure for safe handling
+of :class:`KeyboardInterrupt`.  It's largely independent of the rest of Trio,
+and could (possibly should?) be extracted into its own independent package.
 
 The most important submodule, where everything is integrated, is
 ``_run.py``. (This is also by far the largest submodule; it'd be nice
 to factor bits of it out where possible, but it's tricky because the
 core functionality genuinely is pretty intertwined.) Notably, this is
-where cancel scopes, nurseries, and :class:`~trio.hazmat.Task` are
+where cancel scopes, nurseries, and :class:`~trio.lowlevel.Task` are
 defined; it's also where the scheduler state and :func:`trio.run`
 live.
 
@@ -497,14 +492,14 @@ several reasons:
 
 * Controlling our own fate: I/O handling is pretty core to what Trio
   is about, and :mod:`selectors` is (as of 2017-03-01) somewhat buggy
-  (e.g. `issue 29587 <https://bugs.python.org/issue29256>`__, `issue
+  (e.g. `issue 29256 <https://bugs.python.org/issue29256>`__, `issue
   29255 <https://bugs.python.org/issue29255>`__). Which isn't a big
   deal on its own, but since :mod:`selectors` is part of the standard
   library we can't fix it and ship an updated version; we're stuck
   with whatever we get. We want more control over our users'
   experience than that.
 
-* Impedence mismatch: the :mod:`selectors` API isn't particularly
+* Impedance mismatch: the :mod:`selectors` API isn't particularly
   well-fitted to how we want to use it. For example, kqueue natively
   treats an interest in readability of some fd as a separate thing
   from an interest in that same fd's writability, which neatly matches
@@ -524,7 +519,7 @@ several reasons:
 The ``IOManager`` layer provides a fairly raw exposure of the capabilities
 of each system, with public API functions that vary between different
 backends. (This is somewhat inspired by how :mod:`os` works.) These
-public APIs are then exported as part of :mod:`trio.hazmat`, and
+public APIs are then exported as part of :mod:`trio.lowlevel`, and
 higher-level APIs like :mod:`trio.socket` abstract over these
 system-specific APIs to provide a uniform experience.
 

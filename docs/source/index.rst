@@ -43,9 +43,12 @@ chance to give feedback about any compatibility-breaking changes.
 
 Vital statistics:
 
-* Supported environments: Linux, macOS, or Windows running some kind of Python
-  3.5-or-better (either CPython or PyPy3 is fine). \*BSD and
-  illumos likely work too, but are untested.
+* Supported environments: We test on
+
+  - Python: 3.8+ (CPython and PyPy)
+  - Windows, macOS, Linux (glibc and musl), FreeBSD
+
+  Other environments might also work; give it a try and see.
 
 * Install: ``python3 -m pip install -U trio`` (or on Windows, maybe
   ``py -3 -m pip install -U trio``). No compiler needed.
@@ -77,7 +80,7 @@ Vital statistics:
    reference-core.rst
    reference-io.rst
    reference-testing.rst
-   reference-hazmat.rst
+   reference-lowlevel.rst
    design.rst
    history.rst
    contributing.rst

@@ -1,12 +1,11 @@
-from collections import deque
 import threading
+from collections import deque
 
 import attr
 
 from .. import _core
+from .._util import NoPublicConstructor
 from ._wakeup_socketpair import WakeupSocketpair
-
-__all__ = ["TrioToken"]
 
 
 @attr.s(slots=True)
@@ -16,8 +15,8 @@ class EntryQueue:
     # not signal-safe. deque is implemented in C, so each operation is atomic
     # WRT threads (and this is guaranteed in the docs), AND each operation is
     # atomic WRT signal delivery (signal handlers can run on either side, but
-    # not *during* a deque operation). dict makes similar guarantees - and on
-    # CPython 3.6 and PyPy, it's even ordered!
+    # not *during* a deque operation). dict makes similar guarantees - and
+    # it's even ordered!
     queue = attr.ib(factory=deque)
     idempotent_queue = attr.ib(factory=dict)
 
@@ -57,7 +56,15 @@ class EntryQueue:
                 async def kill_everything(exc):
                     raise exc
 
-                _core.spawn_system_task(kill_everything, exc)
+                try:
+                    _core.spawn_system_task(kill_everything, exc)
+                except RuntimeError:
+                    # We're quite late in the shutdown process and the
+                    # system nursery is already closed.
+                    # TODO(2020-06): this is a gross hack and should
+                    # be fixed soon when we address #1607.
+                    _core.current_task().parent_nursery.start_soon(kill_everything, exc)
+
             return True
 
         # This has to be carefully written to be safe in the face of new items
@@ -103,10 +110,6 @@ class EntryQueue:
     def size(self):
         return len(self.queue) + len(self.idempotent_queue)
 
-    def spawn(self):
-        name = "<TrioToken.run_sync_soon task>"
-        _core.spawn_system_task(self.task, name=name)
-
     def run_sync_soon(self, sync_fn, *args, idempotent=False):
         with self.lock:
             if self.done:
@@ -123,7 +126,8 @@ class EntryQueue:
             self.wakeup.wakeup_thread_and_signal_safe()
 
 
-class TrioToken:
+@attr.s(eq=False, hash=False, slots=True)
+class TrioToken(metaclass=NoPublicConstructor):
     """An opaque object representing a single call to :func:`trio.run`.
 
     It has no public constructor; instead, see :func:`current_trio_token`.
@@ -142,10 +146,7 @@ class TrioToken:
 
     """
 
-    __slots__ = ('_reentry_queue',)
-
-    def __init__(self, reentry_queue):
-        self._reentry_queue = reentry_queue
+    _reentry_queue = attr.ib()
 
     def run_sync_soon(self, sync_fn, *args, idempotent=False):
         """Schedule a call to ``sync_fn(*args)`` to occur in the context of a
@@ -160,12 +161,12 @@ class TrioToken:
         If you need this, you'll have to build your own.
 
         The call is effectively run as part of a system task (see
-        :func:`~trio.hazmat.spawn_system_task`). In particular this means
+        :func:`~trio.lowlevel.spawn_system_task`). In particular this means
         that:
 
         * :exc:`KeyboardInterrupt` protection is *enabled* by default; if
           you want ``sync_fn`` to be interruptible by control-C, then you
-          need to use :func:`~trio.hazmat.disable_ki_protection`
+          need to use :func:`~trio.lowlevel.disable_ki_protection`
           explicitly.
 
         * If ``sync_fn`` raises an exception, then it's converted into a
@@ -178,9 +179,7 @@ class TrioToken:
         If ``idempotent=True``, then ``sync_fn`` and ``args`` must be
         hashable, and Trio will make a best-effort attempt to discard any
         call submission which is equal to an already-pending call. Trio
-        will make an attempt to process these in first-in first-out order,
-        but no guarantees. (Currently processing is FIFO on CPython 3.6 and
-        PyPy, but not CPython 3.5.)
+        will process these in first-in first-out order.
 
         Any ordering guarantees apply separately to ``idempotent=False``
         and ``idempotent=True`` calls; there's no rule for how calls in the
@@ -193,6 +192,4 @@ class TrioToken:
               exits.)
 
         """
-        self._reentry_queue.run_sync_soon(
-            sync_fn, *args, idempotent=idempotent
-        )
+        self._reentry_queue.run_sync_soon(sync_fn, *args, idempotent=idempotent)

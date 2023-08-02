@@ -5,7 +5,7 @@ Contributing to Trio and related projects
 
 So you're interested in contributing to Trio or `one of our associated
 projects <https://github.com/python-trio>`__? That's awesome! Trio is
-is an open-source project maintained by an informal group of
+an open-source project maintained by an informal group of
 volunteers. Our goal is to make async I/O in Python more fun, easy,
 and reliable, and we can't do it without help from people like you. We
 welcome contributions from anyone willing to work in good faith with
@@ -133,7 +133,7 @@ in separate sections below:
   adding a test to make sure it stays fixed.
 
 * :ref:`pull-request-formatting`: If you changed Python code, then did
-  you run ``yapf -rpi setup.py trio``? (Or for other packages, replace
+  you run ``black setup.py trio``? (Or for other packages, replace
   ``trio`` with the package name.)
 
 * :ref:`pull-request-release-notes`: If your change affects
@@ -285,31 +285,30 @@ of eyes can be helpful when trying to come up with devious tricks.
 Code formatting
 ~~~~~~~~~~~~~~~
 
-Instead of wasting time arguing about code formatting, we use `yapf
-<https://github.com/google/yapf>`__ to automatically format all our
+Instead of wasting time arguing about code formatting, we use `black
+<https://github.com/psf/black>`__ to automatically format all our
 code to a standard style. While you're editing code you can be as
 sloppy as you like about whitespace; and then before you commit, just
 run::
 
-    pip install -U yapf
-    yapf -rpi setup.py trio
+    pip install -U black
+    black setup.py trio
 
 to fix it up. (And don't worry if you forget – when you submit a pull
 request then we'll automatically check and remind you.) Hopefully this
 will let you focus on more important style issues like choosing good
 names, writing useful comments, and making sure your docstrings are
-nicely formatted. (Yapf doesn't reformat comments or docstrings.)
+nicely formatted. (black doesn't reformat comments or docstrings.)
 
-Very occasionally, yapf will generate really ugly and unreadable
-formatting (usually for large literal structures like dicts nested
-inside dicts). In these cases, you can add a ``# yapf: disable``
-comment to tell it to leave that particular statement alone.
+Very occasionally, you'll want to override black formatting. To do so,
+you can can add ``# fmt: off`` and ``# fmt: on`` comments.
 
-If you want to see what changes yapf will make, you can use::
+If you want to see what changes black will make, you can use::
 
-  yapf -rpd setup.py trio
+    black --diff setup.py trio
 
-(``-d`` displays a diff, versus ``-i`` which fixes files in-place.)
+(``--diff`` displays a diff, versus the default mode which fixes files
+in-place.)
 
 
 .. _pull-request-release-notes:
@@ -364,7 +363,7 @@ Documentation is hosted at `Read the Docs
 rebuilding it after every commit.
 
 For docstrings, we use `the Google docstring format
-<http://www.sphinx-doc.org/en/stable/ext/example_google.html#example-google>`__.
+<https://www.sphinx-doc.org/en/3.x/usage/extensions/example_google.html#example-google-style-python-docstrings>`__.
 If you add a new function or class, there's no mechanism for
 automatically adding that to the docs: you'll have to at least add a
 line like ``.. autofunction:: <your function>`` in the appropriate
@@ -459,7 +458,7 @@ each PR leads to better quality.
 Beyond that, it all comes down to what you feel up to. If you don't
 feel like you know enough to review a complex code change, then you
 don't have to – you can just look it over and make some comments, even
-if you don't feel up to making the final merge/no-merge decison. Or
+if you don't feel up to making the final merge/no-merge decision. Or
 you can just stick to merging trivial doc fixes and adding tags to
 issues, that's helpful too. If after hanging around for a while you
 start to feel like you have better handle on how things work and want
@@ -557,7 +556,8 @@ then we'll figure something out.
 .. Possible references for future additions:
 
    """
-   Jumping into an unfamiliar codebase (or any for that matter) for the first time can be scary. Plus, if it’s your first time contributing to open source, it can even be scarier!
+   Jumping into an unfamiliar codebase (or any for that matter) for the first time can be scary.
+   Plus, if it's your first time contributing to open source, it can even be scarier!
 
    But, we at webpack believe:
 

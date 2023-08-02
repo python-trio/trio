@@ -1,11 +1,17 @@
+import errno
 import select
-
-import outcome
+import sys
 from contextlib import contextmanager
+from typing import TYPE_CHECKING
+
 import attr
+import outcome
 
 from .. import _core
 from ._run import _public
+from ._wakeup_socketpair import WakeupSocketpair
+
+assert not TYPE_CHECKING or (sys.platform != "linux" and sys.platform != "win32")
 
 
 @attr.s(slots=True, eq=False, frozen=True)
@@ -20,6 +26,15 @@ class KqueueIOManager:
     _kqueue = attr.ib(factory=select.kqueue)
     # {(ident, filter): Task or UnboundedQueue}
     _registered = attr.ib(factory=dict)
+    _force_wakeup = attr.ib(factory=WakeupSocketpair)
+    _force_wakeup_fd = attr.ib(default=None)
+
+    def __attrs_post_init__(self):
+        force_wakeup_event = select.kevent(
+            self._force_wakeup.wakeup_sock, select.KQ_FILTER_READ, select.KQ_EV_ADD
+        )
+        self._kqueue.control([force_wakeup_event], 0)
+        self._force_wakeup_fd = self._force_wakeup.wakeup_sock.fileno()
 
     def statistics(self):
         tasks_waiting = 0
@@ -29,15 +44,16 @@ class KqueueIOManager:
                 tasks_waiting += 1
             else:
                 monitors += 1
-        return _KqueueStatistics(
-            tasks_waiting=tasks_waiting,
-            monitors=monitors,
-        )
+        return _KqueueStatistics(tasks_waiting=tasks_waiting, monitors=monitors)
 
     def close(self):
         self._kqueue.close()
+        self._force_wakeup.close()
 
-    def handle_io(self, timeout):
+    def force_wakeup(self):
+        self._force_wakeup.wakeup_thread_and_signal_safe()
+
+    def get_events(self, timeout):
         # max_events must be > 0 or kqueue gets cranky
         # and we generally want this to be strictly larger than the actual
         # number of events we get, so that we can tell that we've gotten
@@ -52,8 +68,14 @@ class KqueueIOManager:
             else:
                 timeout = 0
                 # and loop back to the start
+        return events
+
+    def process_events(self, events):
         for event in events:
             key = (event.ident, event.filter)
+            if event.ident == self._force_wakeup_fd:
+                self._force_wakeup.drain()
+                continue
             receiver = self._registered[key]
             if event.flags & select.KQ_EV_ONESHOT:
                 del self._registered[key]
@@ -83,8 +105,7 @@ class KqueueIOManager:
         key = (ident, filter)
         if key in self._registered:
             raise _core.BusyResourceError(
-                "attempt to register multiple listeners for same "
-                "ident/filter pair"
+                "attempt to register multiple listeners for same ident/filter pair"
             )
         q = _core.UnboundedQueue()
         self._registered[key] = q
@@ -98,8 +119,7 @@ class KqueueIOManager:
         key = (ident, filter)
         if key in self._registered:
             raise _core.BusyResourceError(
-                "attempt to register multiple listeners for same "
-                "ident/filter pair"
+                "attempt to register multiple listeners for same ident/filter pair"
             )
         self._registered[key] = _core.current_task()
 
@@ -122,16 +142,22 @@ class KqueueIOManager:
             event = select.kevent(fd, filter, select.KQ_EV_DELETE)
             try:
                 self._kqueue.control([event], 0)
-            except FileNotFoundError:
+            except OSError as exc:
                 # kqueue tracks individual fds (*not* the underlying file
                 # object, see _io_epoll.py for a long discussion of why this
                 # distinction matters), and automatically deregisters an event
                 # if the fd is closed. So if kqueue.control says that it
                 # doesn't know about this event, then probably it's because
-                # the fd was closed behind our backs. (Too bad it doesn't tell
-                # us that this happened... oh well, you can't have
-                # everything.)
-                pass
+                # the fd was closed behind our backs. (Too bad we can't ask it
+                # to wake us up when this happens, versus discovering it after
+                # the fact... oh well, you can't have everything.)
+                #
+                # FreeBSD reports this using EBADF. macOS uses ENOENT.
+                if exc.errno in (errno.EBADF, errno.ENOENT):  # pragma: no branch
+                    pass
+                else:  # pragma: no cover
+                    # As far as we know, this branch can't happen.
+                    raise
             return _core.Abort.SUCCEEDED
 
         await self.wait_kevent(fd, filter, abort)

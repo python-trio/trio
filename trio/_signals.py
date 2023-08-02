@@ -1,13 +1,10 @@
 import signal
-from contextlib import contextmanager
 from collections import OrderedDict
+from contextlib import contextmanager
 
 import trio
-from ._util import (
-    signal_raise, aiter_compat, is_main_thread, ConflictDetector
-)
 
-__all__ = ["open_signal_receiver"]
+from ._util import ConflictDetector, is_main_thread, signal_raise
 
 # Discussion of signal handling strategies:
 #
@@ -61,7 +58,7 @@ class SignalReceiver:
     def __init__(self):
         # {signal num: None}
         self._pending = OrderedDict()
-        self._lot = trio.hazmat.ParkingLot()
+        self._lot = trio.lowlevel.ParkingLot()
         self._conflict_detector = ConflictDetector(
             "only one task can iterate on a signal receiver at a time"
         )
@@ -96,7 +93,6 @@ class SignalReceiver:
     def _pending_signal_count(self):
         return len(self._pending)
 
-    @aiter_compat
     def __aiter__(self):
         return self
 
@@ -110,7 +106,7 @@ class SignalReceiver:
             if not self._pending:
                 await self._lot.park()
             else:
-                await trio.hazmat.checkpoint()
+                await trio.lowlevel.checkpoint()
             signum, _ = self._pending.popitem(last=False)
             return signum
 
@@ -134,6 +130,8 @@ def open_signal_receiver(*signals):
       signals: the signals to listen for.
 
     Raises:
+      TypeError: if no signals were provided.
+
       RuntimeError: if you try to use this anywhere except Python's main
           thread. (This is a Python limitation.)
 
@@ -149,12 +147,15 @@ def open_signal_receiver(*signals):
                  reload_configuration()
 
     """
+    if not signals:
+        raise TypeError("No signals were provided")
+
     if not is_main_thread():
         raise RuntimeError(
             "Sorry, open_signal_receiver is only possible when running in "
             "Python interpreter's main thread"
         )
-    token = trio.hazmat.current_trio_token()
+    token = trio.lowlevel.current_trio_token()
     queue = SignalReceiver()
 
     def handler(signum, _):

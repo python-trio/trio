@@ -40,6 +40,7 @@ pip-log.txt
 htmlcov/
 .tox/
 .venv/
+pyvenv.cfg
 .coverage
 .coverage.*
 .cache

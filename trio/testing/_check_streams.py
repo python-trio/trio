@@ -1,18 +1,17 @@
 # Generic stream tests
+from __future__ import annotations
 
-from contextlib import contextmanager
 import random
+from contextlib import contextmanager
+from typing import TYPE_CHECKING
 
 from .. import _core
+from .._abc import HalfCloseableStream, ReceiveStream, SendStream, Stream
 from .._highlevel_generic import aclose_forcefully
-from .._abc import SendStream, ReceiveStream, Stream, HalfCloseableStream
 from ._checkpoints import assert_checkpoints
 
-__all__ = [
-    "check_one_way_stream",
-    "check_two_way_stream",
-    "check_half_closeable_stream",
-]
+if TYPE_CHECKING:
+    from types import TracebackType
 
 
 class _ForceCloseBoth:
@@ -22,7 +21,12 @@ class _ForceCloseBoth:
     async def __aenter__(self):
         return self._both
 
-    async def __aexit__(self, *args):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         try:
             await aclose_forcefully(self._both[0])
         finally:
@@ -37,7 +41,7 @@ def _assert_raises(exc):
     except exc:
         pass
     else:
-        raise AssertionError("expected exception: {}".format(exc))
+        raise AssertionError(f"expected exception: {exc}")
 
 
 async def check_one_way_stream(stream_maker, clogged_stream_maker):
@@ -136,8 +140,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
 
         async with _core.open_nursery() as nursery:
             nursery.start_soon(
-                simple_check_wait_send_all_might_not_block,
-                nursery.cancel_scope
+                simple_check_wait_send_all_might_not_block, nursery.cancel_scope
             )
             nursery.start_soon(do_receive_some, 1)
 
@@ -336,14 +339,15 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
                     nursery.start_soon(s.send_all, b"123")
                     nursery.start_soon(s.send_all, b"123")
 
-        # closing the receiver causes wait_send_all_might_not_block to return
+        # closing the receiver causes wait_send_all_might_not_block to return,
+        # with or without an exception
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
 
             async def sender():
                 try:
                     with assert_checkpoints():
                         await s.wait_send_all_might_not_block()
-                except _core.BrokenResourceError:
+                except _core.BrokenResourceError:  # pragma: no cover
                     pass
 
             async def receiver():
@@ -360,7 +364,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             try:
                 with assert_checkpoints():
                     await s.wait_send_all_might_not_block()
-            except _core.BrokenResourceError:
+            except _core.BrokenResourceError:  # pragma: no cover
                 pass
 
         # Check that if a task is blocked in a send-side method, then closing
@@ -404,11 +408,10 @@ async def check_two_way_stream(stream_maker, clogged_stream_maker):
 
         async def flipped_clogged_stream_maker():
             return reversed(await clogged_stream_maker())
+
     else:
         flipped_clogged_stream_maker = None
-    await check_one_way_stream(
-        flipped_stream_maker, flipped_clogged_stream_maker
-    )
+    await check_one_way_stream(flipped_stream_maker, flipped_clogged_stream_maker)
 
     async with _ForceCloseBoth(await stream_maker()) as (s1, s2):
         assert isinstance(s1, Stream)

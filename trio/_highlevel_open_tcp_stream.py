@@ -1,9 +1,13 @@
+import sys
 from contextlib import contextmanager
 
 import trio
-from trio.socket import getaddrinfo, SOCK_STREAM, socket
+from trio._core._multierror import MultiError
+from trio.socket import SOCK_STREAM, getaddrinfo, socket
 
-__all__ = ["open_tcp_stream"]
+if sys.version_info < (3, 11):
+    from exceptiongroup import ExceptionGroup
+
 
 # Implementation of RFC 6555 "Happy eyeballs"
 # https://tools.ietf.org/html/rfc6555
@@ -116,8 +120,10 @@ def close_all():
                 sock.close()
             except BaseException as exc:
                 errs.append(exc)
-        if errs:
-            raise trio.MultiError(errs)
+        if len(errs) == 1:
+            raise errs[0]
+        elif errs:
+            raise MultiError(errs)
 
 
 def reorder_for_rfc_6555_section_5_4(targets):
@@ -141,9 +147,9 @@ def reorder_for_rfc_6555_section_5_4(targets):
 def format_host_port(host, port):
     host = host.decode("ascii") if isinstance(host, bytes) else host
     if ":" in host:
-        return "[{}]:{}".format(host, port)
+        return f"[{host}]:{port}"
     else:
-        return "{}:{}".format(host, port)
+        return f"{host}:{port}"
 
 
 # Twisted's HostnameEndpoint has a good set of configurables:
@@ -167,11 +173,7 @@ def format_host_port(host, port):
 #   AF_INET6: "..."}
 # this might be simpler after
 async def open_tcp_stream(
-    host,
-    port,
-    *,
-    # No trailing comma b/c bpo-9232 (fixed in py36)
-    happy_eyeballs_delay=DEFAULT_DELAY
+    host, port, *, happy_eyeballs_delay=DEFAULT_DELAY, local_address=None
 ):
     """Connect to the given host and port over TCP.
 
@@ -207,12 +209,29 @@ async def open_tcp_stream(
     Args:
       host (str or bytes): The host to connect to. Can be an IPv4 address,
           IPv6 address, or a hostname.
+
       port (int): The port to connect to.
+
       happy_eyeballs_delay (float): How many seconds to wait for each
           connection attempt to succeed or fail before getting impatient and
           starting another one in parallel. Set to `math.inf` if you want
           to limit to only one connection attempt at a time (like
           :func:`socket.create_connection`). Default: 0.25 (250 ms).
+
+      local_address (None or str): The local IP address or hostname to use as
+          the source for outgoing connections. If ``None``, we let the OS pick
+          the source IP.
+
+          This is useful in some exotic networking configurations where your
+          host has multiple IP addresses, and you want to force the use of a
+          specific one.
+
+          Note that if you pass an IPv4 ``local_address``, then you won't be
+          able to connect to IPv6 hosts, and vice-versa. If you want to take
+          advantage of this to force the use of IPv4 or IPv6 without
+          specifying an exact source address, you can use the IPv4 wildcard
+          address ``local_address="0.0.0.0"``, or the IPv6 wildcard address
+          ``local_address="::"``.
 
     Returns:
       SocketStream: a :class:`~trio.abc.Stream` connected to the given server.
@@ -224,6 +243,7 @@ async def open_tcp_stream(
       open_ssl_over_tcp_stream
 
     """
+
     # To keep our public API surface smaller, rule out some cases that
     # getaddrinfo will accept in some circumstances, but that act weird or
     # have non-portable behavior or are just plain not useful.
@@ -231,7 +251,7 @@ async def open_tcp_stream(
     if host is None:
         raise ValueError("host cannot be None")
     if not isinstance(port, int):
-        raise TypeError("port must be int, not {!r}".format(port))
+        raise TypeError(f"port must be int, not {port!r}")
 
     if happy_eyeballs_delay is None:
         happy_eyeballs_delay = DEFAULT_DELAY
@@ -270,6 +290,53 @@ async def open_tcp_stream(
             sock = socket(*socket_args)
             open_sockets.add(sock)
 
+            if local_address is not None:
+                # TCP connections are identified by a 4-tuple:
+                #
+                #   (local IP, local port, remote IP, remote port)
+                #
+                # So if a single local IP wants to make multiple connections
+                # to the same (remote IP, remote port) pair, then those
+                # connections have to use different local ports, or else TCP
+                # won't be able to tell them apart. OTOH, if you have multiple
+                # connections to different remote IP/ports, then those
+                # connections can share a local port.
+                #
+                # Normally, when you call bind(), the kernel will immediately
+                # assign a specific local port to your socket. At this point
+                # the kernel doesn't know which (remote IP, remote port)
+                # you're going to use, so it has to pick a local port that
+                # *no* other connection is using. That's the only way to
+                # guarantee that this local port will be usable later when we
+                # call connect(). (Alternatively, you can set SO_REUSEADDR to
+                # allow multiple nascent connections to share the same port,
+                # but then connect() might fail with EADDRNOTAVAIL if we get
+                # unlucky and our TCP 4-tuple ends up colliding with another
+                # unrelated connection.)
+                #
+                # So calling bind() before connect() works, but it disables
+                # sharing of local ports. This is inefficient: it makes you
+                # more likely to run out of local ports.
+                #
+                # But on some versions of Linux, we can re-enable sharing of
+                # local ports by setting a special flag. This flag tells
+                # bind() to only bind the IP, and not the port. That way,
+                # connect() is allowed to pick the the port, and it can do a
+                # better job of it because it knows the remote IP/port.
+                try:
+                    sock.setsockopt(
+                        trio.socket.IPPROTO_IP, trio.socket.IP_BIND_ADDRESS_NO_PORT, 1
+                    )
+                except (OSError, AttributeError):
+                    pass
+                try:
+                    await sock.bind((local_address, 0))
+                except OSError:
+                    raise OSError(
+                        f"local_address={local_address!r} is incompatible "
+                        f"with remote address {sockaddr}"
+                    )
+
             await sock.connect(sockaddr)
 
             # Success! Save the winning socket and cancel all outstanding
@@ -305,7 +372,7 @@ async def open_tcp_stream(
             msg = "all attempts to connect to {} failed".format(
                 format_host_port(host, port)
             )
-            raise OSError(msg) from trio.MultiError(oserrors)
+            raise OSError(msg) from ExceptionGroup(msg, oserrors)
         else:
             stream = trio.SocketStream(winning_socket)
             open_sockets.remove(winning_socket)

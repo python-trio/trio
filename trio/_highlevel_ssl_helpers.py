@@ -1,12 +1,8 @@
-import trio
 import ssl
 
-from ._highlevel_open_tcp_stream import DEFAULT_DELAY
+import trio
 
-__all__ = [
-    "open_ssl_over_tcp_stream", "open_ssl_over_tcp_listeners",
-    "serve_ssl_over_tcp"
-]
+from ._highlevel_open_tcp_stream import DEFAULT_DELAY
 
 
 # It might have been nice to take a ssl_protocols= argument here to set up
@@ -14,12 +10,8 @@ __all__ = [
 # if it's one we created, but not OK if it's one that was passed in... and
 # the one major protocol using NPN/ALPN is HTTP/2, which mandates that you use
 # a specially configured SSLContext anyway! I also thought maybe we could copy
-# the given SSLContext and then mutate the copy, but it's no good:
-# copy.copy(SSLContext) seems to succeed, but the state is not transferred!
-# For example, with CPython 3.5, we have:
-#   ctx = ssl.create_default_context()
-#   assert ctx.check_hostname == True
-#   assert copy.copy(ctx).check_hostname == False
+# the given SSLContext and then mutate the copy, but it's no good as SSLContext
+# objects can't be copied: https://bugs.python.org/issue33023.
 # So... let's punt on that for now. Hopefully we'll be getting a new Python
 # TLS API soon and can revisit this then.
 async def open_ssl_over_tcp_stream(
@@ -28,8 +20,7 @@ async def open_ssl_over_tcp_stream(
     *,
     https_compatible=False,
     ssl_context=None,
-    # No trailing comma b/c bpo-9232 (fixed in py36)
-    happy_eyeballs_delay=DEFAULT_DELAY
+    happy_eyeballs_delay=DEFAULT_DELAY,
 ):
     """Make a TLS-encrypted Connection to the given host and port over TCP.
 
@@ -58,17 +49,16 @@ async def open_ssl_over_tcp_stream(
 
     """
     tcp_stream = await trio.open_tcp_stream(
-        host,
-        port,
-        happy_eyeballs_delay=happy_eyeballs_delay,
+        host, port, happy_eyeballs_delay=happy_eyeballs_delay
     )
     if ssl_context is None:
         ssl_context = ssl.create_default_context()
+
+        if hasattr(ssl, "OP_IGNORE_UNEXPECTED_EOF"):
+            ssl_context.options &= ~ssl.OP_IGNORE_UNEXPECTED_EOF
+
     return trio.SSLStream(
-        tcp_stream,
-        ssl_context,
-        server_hostname=host,
-        https_compatible=https_compatible,
+        tcp_stream, ssl_context, server_hostname=host, https_compatible=https_compatible
     )
 
 
@@ -87,15 +77,10 @@ async def open_ssl_over_tcp_listeners(
       backlog (int or None): See :func:`open_tcp_listeners` for details.
 
     """
-    tcp_listeners = await trio.open_tcp_listeners(
-        port, host=host, backlog=backlog
-    )
+    tcp_listeners = await trio.open_tcp_listeners(port, host=host, backlog=backlog)
     ssl_listeners = [
-        trio.SSLListener(
-            tcp_listener,
-            ssl_context,
-            https_compatible=https_compatible,
-        ) for tcp_listener in tcp_listeners
+        trio.SSLListener(tcp_listener, ssl_context, https_compatible=https_compatible)
+        for tcp_listener in tcp_listeners
     ]
     return ssl_listeners
 
@@ -109,7 +94,7 @@ async def serve_ssl_over_tcp(
     https_compatible=False,
     backlog=None,
     handler_nursery=None,
-    task_status=trio.TASK_STATUS_IGNORED
+    task_status=trio.TASK_STATUS_IGNORED,
 ):
     """Listen for incoming TCP connections, and for each one start a task
     running ``handler(stream)``.
@@ -163,11 +148,8 @@ async def serve_ssl_over_tcp(
         ssl_context,
         host=host,
         https_compatible=https_compatible,
-        backlog=backlog
+        backlog=backlog,
     )
     await trio.serve_listeners(
-        handler,
-        listeners,
-        handler_nursery=handler_nursery,
-        task_status=task_status
+        handler, listeners, handler_nursery=handler_nursery, task_status=task_status
     )

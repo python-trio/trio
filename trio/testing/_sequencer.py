@@ -1,20 +1,19 @@
+from __future__ import annotations
+
 from collections import defaultdict
+from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING
 
 import attr
-from async_generator import async_generator, yield_, asynccontextmanager
 
-from .. import _core
-from .. import _util
-from .. import Event
+from .. import Event, _core, _util
 
-if False:
-    from typing import DefaultDict, Set
-
-__all__ = ["Sequencer"]
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 
 @attr.s(eq=False, hash=False)
-class Sequencer:
+class Sequencer(metaclass=_util.Final):
     """A convenience class for forcing code in different tasks to run in an
     explicit linear order.
 
@@ -54,19 +53,16 @@ class Sequencer:
 
     """
 
-    _sequence_points = attr.ib(
+    _sequence_points: defaultdict[int, Event] = attr.ib(
         factory=lambda: defaultdict(Event), init=False
-    )  # type: DefaultDict[int, Event]
-    _claimed = attr.ib(factory=set, init=False)  # type: Set[int]
-    _broken = attr.ib(default=False, init=False)
+    )
+    _claimed: set[int] = attr.ib(factory=set, init=False)
+    _broken: bool = attr.ib(default=False, init=False)
 
     @asynccontextmanager
-    @async_generator
-    async def __call__(self, position: int):
+    async def __call__(self, position: int) -> AsyncIterator[None]:
         if position in self._claimed:
-            raise RuntimeError(
-                "Attempted to re-use sequence point {}".format(position)
-            )
+            raise RuntimeError(f"Attempted to re-use sequence point {position}")
         if self._broken:
             raise RuntimeError("sequence broken!")
         self._claimed.add(position)
@@ -77,13 +73,11 @@ class Sequencer:
                 self._broken = True
                 for event in self._sequence_points.values():
                     event.set()
-                raise RuntimeError(
-                    "Sequencer wait cancelled -- sequence broken"
-                )
+                raise RuntimeError("Sequencer wait cancelled -- sequence broken")
             else:
                 if self._broken:
                     raise RuntimeError("sequence broken!")
         try:
-            await yield_()
+            yield
         finally:
             self._sequence_points[position + 1].set()

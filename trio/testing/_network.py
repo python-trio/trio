@@ -1,7 +1,5 @@
 from .. import socket as tsocket
-from .._highlevel_socket import SocketListener, SocketStream
-
-__all__ = ["open_stream_to_socket_listener"]
+from .._highlevel_socket import SocketStream
 
 
 async def open_stream_to_socket_listener(socket_listener):

@@ -1,10 +1,19 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import attr
 
 import trio
+from trio._util import Final
+
+if TYPE_CHECKING:
+    from .abc import SendStream, ReceiveStream, AsyncResource
+
 from .abc import HalfCloseableStream
 
 
-async def aclose_forcefully(resource):
+async def aclose_forcefully(resource: AsyncResource) -> None:
     """Close an async resource or async generator immediately, without
     blocking to do any graceful cleanup.
 
@@ -35,7 +44,7 @@ async def aclose_forcefully(resource):
 
 
 @attr.s(eq=False, hash=False)
-class StapledStream(HalfCloseableStream):
+class StapledStream(HalfCloseableStream, metaclass=Final):
     """This class `staples <https://en.wikipedia.org/wiki/Staple_(fastener)>`__
     together two unidirectional streams to make single bidirectional stream.
 
@@ -69,22 +78,19 @@ class StapledStream(HalfCloseableStream):
        is delegated to this object.
 
     """
-    send_stream = attr.ib()
-    receive_stream = attr.ib()
 
-    async def send_all(self, data):
-        """Calls ``self.send_stream.send_all``.
+    send_stream: SendStream = attr.ib()
+    receive_stream: ReceiveStream = attr.ib()
 
-        """
+    async def send_all(self, data: bytes | bytearray | memoryview) -> None:
+        """Calls ``self.send_stream.send_all``."""
         return await self.send_stream.send_all(data)
 
-    async def wait_send_all_might_not_block(self):
-        """Calls ``self.send_stream.wait_send_all_might_not_block``.
-
-        """
+    async def wait_send_all_might_not_block(self) -> None:
+        """Calls ``self.send_stream.wait_send_all_might_not_block``."""
         return await self.send_stream.wait_send_all_might_not_block()
 
-    async def send_eof(self):
+    async def send_eof(self) -> None:
         """Shuts down the send side of the stream.
 
         If ``self.send_stream.send_eof`` exists, then calls it. Otherwise,
@@ -92,20 +98,19 @@ class StapledStream(HalfCloseableStream):
 
         """
         if hasattr(self.send_stream, "send_eof"):
-            return await self.send_stream.send_eof()
+            # send_stream.send_eof() is not defined in Trio, this should maybe be
+            # redesigned so it's possible to type it.
+            return await self.send_stream.send_eof()  # type: ignore[no-any-return]
         else:
             return await self.send_stream.aclose()
 
-    async def receive_some(self, max_bytes=None):
-        """Calls ``self.receive_stream.receive_some``.
-
-        """
+    # we intentionally accept more types from the caller than we support returning
+    async def receive_some(self, max_bytes: int | None = None) -> bytes:
+        """Calls ``self.receive_stream.receive_some``."""
         return await self.receive_stream.receive_some(max_bytes)
 
-    async def aclose(self):
-        """Calls ``aclose`` on both underlying streams.
-
-        """
+    async def aclose(self) -> None:
+        """Calls ``aclose`` on both underlying streams."""
         try:
             await self.send_stream.aclose()
         finally:

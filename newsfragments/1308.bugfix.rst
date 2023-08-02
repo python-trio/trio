@@ -1,9 +1,0 @@
-A bug related to the following methods has been introduced in version 0.12.0:
-
-- `trio.Path.iterdir`
-- `trio.Path.glob`
-- `trio.Path.rglob`
-
-The iteration of the blocking generators produced by pathlib was performed in
-the trio thread. With this fix, the previous behavior is restored: the blocking
-generators are converted into lists in a thread dedicated to blocking IO calls.

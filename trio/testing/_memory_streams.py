@@ -1,19 +1,8 @@
 import operator
 
-from .. import _core
+from .. import _core, _util
 from .._highlevel_generic import StapledStream
-from .. import _util
-from ..abc import SendStream, ReceiveStream
-
-__all__ = [
-    "MemorySendStream",
-    "MemoryReceiveStream",
-    "memory_stream_pump",
-    "memory_stream_one_way_pair",
-    "memory_stream_pair",
-    "lockstep_stream_one_way_pair",
-    "lockstep_stream_pair",
-]
+from ..abc import ReceiveStream, SendStream
 
 ################################################################
 # In-memory streams - Unbounded buffer version
@@ -83,7 +72,7 @@ class _UnboundedByteQueue:
             return self._get_impl(max_bytes)
 
 
-class MemorySendStream(SendStream):
+class MemorySendStream(SendStream, metaclass=_util.Final):
     """An in-memory :class:`~trio.abc.SendStream`.
 
     Args:
@@ -103,11 +92,12 @@ class MemorySendStream(SendStream):
        you can change them at any time.
 
     """
+
     def __init__(
         self,
         send_all_hook=None,
         wait_send_all_might_not_block_hook=None,
-        close_hook=None
+        close_hook=None,
     ):
         self._conflict_detector = _util.ConflictDetector(
             "another task is using this stream"
@@ -164,9 +154,7 @@ class MemorySendStream(SendStream):
             self.close_hook()
 
     async def aclose(self):
-        """Same as :meth:`close`, but async.
-
-        """
+        """Same as :meth:`close`, but async."""
         self.close()
         await _core.checkpoint()
 
@@ -198,7 +186,7 @@ class MemorySendStream(SendStream):
         return self._outgoing.get_nowait(max_bytes)
 
 
-class MemoryReceiveStream(ReceiveStream):
+class MemoryReceiveStream(ReceiveStream, metaclass=_util.Final):
     """An in-memory :class:`~trio.abc.ReceiveStream`.
 
     Args:
@@ -214,6 +202,7 @@ class MemoryReceiveStream(ReceiveStream):
        change them at any time.
 
     """
+
     def __init__(self, receive_some_hook=None, close_hook=None):
         self._conflict_detector = _util.ConflictDetector(
             "another task is using this stream"
@@ -257,28 +246,20 @@ class MemoryReceiveStream(ReceiveStream):
             self.close_hook()
 
     async def aclose(self):
-        """Same as :meth:`close`, but async.
-
-        """
+        """Same as :meth:`close`, but async."""
         self.close()
         await _core.checkpoint()
 
     def put_data(self, data):
-        """Appends the given data to the internal buffer.
-
-        """
+        """Appends the given data to the internal buffer."""
         self._incoming.put(data)
 
     def put_eof(self):
-        """Adds an end-of-file marker to the internal buffer.
-
-        """
+        """Adds an end-of-file marker to the internal buffer."""
         self._incoming.close()
 
 
-def memory_stream_pump(
-    memory_send_stream, memory_receive_stream, *, max_bytes=None
-):
+def memory_stream_pump(memory_send_stream, memory_receive_stream, *, max_bytes=None):
     """Take data out of the given :class:`MemorySendStream`'s internal buffer,
     and put it into the given :class:`MemoryReceiveStream`'s internal buffer.
 

@@ -1,10 +1,8 @@
 import attr
 
 from .. import _core
-from .._util import aiter_compat
 from .._deprecate import deprecated
-
-__all__ = ["UnboundedQueue"]
+from .._util import Final
 
 
 @attr.s(frozen=True)
@@ -13,7 +11,7 @@ class _UnboundedQueueStats:
     tasks_waiting = attr.ib()
 
 
-class UnboundedQueue:
+class UnboundedQueue(metaclass=Final):
     """An unbounded queue suitable for certain unusual forms of inter-task
     communication.
 
@@ -42,11 +40,12 @@ class UnboundedQueue:
            ...
 
     """
+
     @deprecated(
         "0.9.0",
         issue=497,
-        thing="trio.hazmat.UnboundedQueue",
-        instead="trio.open_memory_channel(math.inf)"
+        thing="trio.lowlevel.UnboundedQueue",
+        instead="trio.open_memory_channel(math.inf)",
     )
     def __init__(self):
         self._lot = _core.ParkingLot()
@@ -55,12 +54,10 @@ class UnboundedQueue:
         self._can_get = False
 
     def __repr__(self):
-        return "<UnboundedQueue holding {} items>".format(len(self._data))
+        return f"<UnboundedQueue holding {len(self._data)} items>"
 
     def qsize(self):
-        """Returns the number of items currently in the queue.
-
-        """
+        """Returns the number of items currently in the queue."""
         return len(self._data)
 
     def empty(self):
@@ -142,11 +139,9 @@ class UnboundedQueue:
 
         """
         return _UnboundedQueueStats(
-            qsize=len(self._data),
-            tasks_waiting=self._lot.statistics().tasks_waiting
+            qsize=len(self._data), tasks_waiting=self._lot.statistics().tasks_waiting
         )
 
-    @aiter_compat
     def __aiter__(self):
         return self
 

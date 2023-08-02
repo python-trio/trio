@@ -1,15 +1,9 @@
-import socket
-import sys
-from contextlib import contextmanager
 import signal
+import socket
+import warnings
 
 from .. import _core
 from .._util import is_main_thread
-
-if sys.version_info >= (3, 7):
-    HAVE_WARN_ON_FULL_BUFFER = True
-else:
-    HAVE_WARN_ON_FULL_BUFFER = False
 
 
 class WakeupSocketpair:
@@ -25,21 +19,15 @@ class WakeupSocketpair:
         #   Windows 10: 525347
         # Windows you're weird. (And on Windows setting SNDBUF to 0 makes send
         # blocking, even on non-blocking sockets, so don't do that.)
-        #
-        # But, if we're on an old Python and can't control the signal module's
-        # warn-on-full-buffer behavior, then we need to leave things alone, so
-        # the signal module won't spam the console with spurious warnings.
-        if HAVE_WARN_ON_FULL_BUFFER:
-            self.wakeup_sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1)
-            self.write_sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1)
+        self.wakeup_sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1)
+        self.write_sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1)
         # On Windows this is a TCP socket so this might matter. On other
         # platforms this fails b/c AF_UNIX sockets aren't actually TCP.
         try:
-            self.write_sock.setsockopt(
-                socket.IPPROTO_TCP, socket.TCP_NODELAY, 1
-            )
+            self.write_sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         except OSError:
             pass
+        self.old_wakeup_fd = None
 
     def wakeup_thread_and_signal_safe(self):
         try:
@@ -58,21 +46,26 @@ class WakeupSocketpair:
         except BlockingIOError:
             pass
 
-    @contextmanager
     def wakeup_on_signals(self):
+        assert self.old_wakeup_fd is None
         if not is_main_thread():
-            yield
             return
         fd = self.write_sock.fileno()
-        if HAVE_WARN_ON_FULL_BUFFER:
-            old_wakeup_fd = signal.set_wakeup_fd(fd, warn_on_full_buffer=False)
-        else:
-            old_wakeup_fd = signal.set_wakeup_fd(fd)
-        try:
-            yield
-        finally:
-            signal.set_wakeup_fd(old_wakeup_fd)
+        self.old_wakeup_fd = signal.set_wakeup_fd(fd, warn_on_full_buffer=False)
+        if self.old_wakeup_fd != -1:
+            warnings.warn(
+                RuntimeWarning(
+                    "It looks like Trio's signal handling code might have "
+                    "collided with another library you're using. If you're "
+                    "running Trio in guest mode, then this might mean you "
+                    "should set host_uses_signal_set_wakeup_fd=True. "
+                    "Otherwise, file a bug on Trio and we'll help you figure "
+                    "out what's going on."
+                )
+            )
 
     def close(self):
         self.wakeup_sock.close()
         self.write_sock.close()
+        if self.old_wakeup_fd is not None:
+            signal.set_wakeup_fd(self.old_wakeup_fd)

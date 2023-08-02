@@ -17,6 +17,7 @@ except ImportError:
     # pypy doesn't define os.waitid so we need to pull it out ourselves
     # using cffi: https://bitbucket.org/pypy/pypy/issues/2922/
     import cffi
+
     waitid_ffi = cffi.FFI()
 
     # Believe it or not, siginfo_t starts with fields in the
@@ -43,7 +44,7 @@ int waitid(int idtype, int id, siginfo_t* result, int options);
     def sync_wait_reapable(pid):
         P_PID = 1
         WEXITED = 0x00000004
-        if sys.platform == 'darwin':  # pragma: no cover
+        if sys.platform == "darwin":  # pragma: no cover
             # waitid() is not exposed on Python on Darwin but does
             # work through CFFI; note that we typically won't get
             # here since Darwin also defines kqueue
@@ -75,10 +76,7 @@ async def _waitid_system_task(pid: int, event: Event) -> None:
 
     try:
         await to_thread_run_sync(
-            sync_wait_reapable,
-            pid,
-            cancellable=True,
-            limiter=waitid_limiter,
+            sync_wait_reapable, pid, cancellable=True, limiter=waitid_limiter
         )
     except OSError:
         # If waitid fails, waitpid will fail too, so it still makes
@@ -103,6 +101,7 @@ async def wait_child_exiting(process: "_subprocess.Process") -> None:
     #   process.
 
     if process._wait_for_exit_data is None:
-        process._wait_for_exit_data = event = Event()
+        process._wait_for_exit_data = event = Event()  # type: ignore
         _core.spawn_system_task(_waitid_system_task, process.pid, event)
+    assert isinstance(process._wait_for_exit_data, Event)
     await process._wait_for_exit_data.wait()

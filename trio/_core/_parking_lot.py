@@ -69,25 +69,38 @@
 # unpark is called.
 #
 # See: https://github.com/python-trio/trio/issues/53
+from __future__ import annotations
 
-from itertools import count
-import attr
+import math
 from collections import OrderedDict
+from collections.abc import Iterator
+from typing import TYPE_CHECKING
+
+import attr
 
 from .. import _core
+from .._util import Final
 
-__all__ = ["ParkingLot"]
-
-_counter = count()
-
-
-@attr.s(frozen=True)
-class _ParkingLotStatistics:
-    tasks_waiting = attr.ib()
+if TYPE_CHECKING:
+    from ._run import Task
 
 
-@attr.s(eq=False, hash=False)
-class ParkingLot:
+@attr.s(frozen=True, slots=True)
+class ParkingLotStatistics:
+    """An object containing debugging information for a ParkingLot.
+
+    Currently the following fields are defined:
+
+    * ``tasks_waiting`` (int): The number of tasks blocked on this lot's
+      :meth:`trio.lowlevel.ParkingLot.park` method.
+
+    """
+
+    tasks_waiting: int = attr.ib()
+
+
+@attr.s(eq=False, hash=False, slots=True)
+class ParkingLot(metaclass=Final):
     """A fair wait queue with cancellation and requeueing.
 
     This class encapsulates the tricky parts of implementing a wait
@@ -102,18 +115,14 @@ class ParkingLot:
 
     # {task: None}, we just want a deque where we can quickly delete random
     # items
-    _parked = attr.ib(factory=OrderedDict, init=False)
+    _parked: OrderedDict[Task, None] = attr.ib(factory=OrderedDict, init=False)
 
-    def __len__(self):
-        """Returns the number of parked tasks.
-
-        """
+    def __len__(self) -> int:
+        """Returns the number of parked tasks."""
         return len(self._parked)
 
-    def __bool__(self):
-        """True if there are parked tasks, False otherwise.
-
-        """
+    def __bool__(self) -> bool:
+        """True if there are parked tasks, False otherwise."""
         return bool(self._parked)
 
     # XX this currently returns None
@@ -121,7 +130,7 @@ class ParkingLot:
     # line (for false wakeups), then we could have it return a ticket that
     # abstracts the "place in line" concept.
     @_core.enable_ki_protection
-    async def park(self):
+    async def park(self) -> None:
         """Park the current task until woken by a call to :meth:`unpark` or
         :meth:`unpark_all`.
 
@@ -136,13 +145,20 @@ class ParkingLot:
 
         await _core.wait_task_rescheduled(abort_fn)
 
-    def _pop_several(self, count):
-        for _ in range(min(count, len(self._parked))):
+    def _pop_several(self, count: int | float) -> Iterator[Task]:
+        if isinstance(count, float):
+            if math.isinf(count):
+                count = len(self._parked)
+            else:
+                raise ValueError("Cannot pop a non-integer number of tasks.")
+        else:
+            count = min(count, len(self._parked))
+        for _ in range(count):
             task, _ = self._parked.popitem(last=False)
             yield task
 
     @_core.enable_ki_protection
-    def unpark(self, *, count=1):
+    def unpark(self, *, count: int | float = 1) -> list[Task]:
         """Unpark one or more tasks.
 
         This wakes up ``count`` tasks that are blocked in :meth:`park`. If
@@ -150,7 +166,7 @@ class ParkingLot:
         are available and then returns successfully.
 
         Args:
-          count (int): the number of tasks to unpark.
+          count (int | math.inf): the number of tasks to unpark.
 
         """
         tasks = list(self._pop_several(count))
@@ -158,14 +174,12 @@ class ParkingLot:
             _core.reschedule(task)
         return tasks
 
-    def unpark_all(self):
-        """Unpark all parked tasks.
-
-        """
+    def unpark_all(self) -> list[Task]:
+        """Unpark all parked tasks."""
         return self.unpark(count=len(self))
 
     @_core.enable_ki_protection
-    def repark(self, new_lot, *, count=1):
+    def repark(self, new_lot: ParkingLot, *, count: int | float = 1) -> None:
         """Move parked tasks from one :class:`ParkingLot` object to another.
 
         This dequeues ``count`` tasks from one lot, and requeues them on
@@ -177,8 +191,8 @@ class ParkingLot:
                print("woken")
 
            async def main():
-               lot1 = trio.hazmat.ParkingLot()
-               lot2 = trio.hazmat.ParkingLot()
+               lot1 = trio.lowlevel.ParkingLot()
+               lot2 = trio.lowlevel.ParkingLot()
                async with trio.open_nursery() as nursery:
                    nursery.start_soon(parker, lot1)
                    await trio.testing.wait_all_tasks_blocked()
@@ -195,7 +209,7 @@ class ParkingLot:
 
         Args:
           new_lot (ParkingLot): the parking lot to move tasks to.
-          count (int): the number of tasks to move.
+          count (int|math.inf): the number of tasks to move.
 
         """
         if not isinstance(new_lot, ParkingLot):
@@ -204,7 +218,7 @@ class ParkingLot:
             new_lot._parked[task] = None
             task.custom_sleep_data = new_lot
 
-    def repark_all(self, new_lot):
+    def repark_all(self, new_lot: ParkingLot) -> None:
         """Move all parked tasks from one :class:`ParkingLot` object to
         another.
 
@@ -213,7 +227,7 @@ class ParkingLot:
         """
         return self.repark(new_lot, count=len(self))
 
-    def statistics(self):
+    def statistics(self) -> ParkingLotStatistics:
         """Return an object containing debugging information.
 
         Currently the following fields are defined:
@@ -222,4 +236,4 @@ class ParkingLot:
           :meth:`park` method.
 
         """
-        return _ParkingLotStatistics(tasks_waiting=len(self._parked))
+        return ParkingLotStatistics(tasks_waiting=len(self._parked))
