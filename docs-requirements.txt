@@ -20,13 +20,13 @@ cffi==1.15.1
     # via cryptography
 charset-normalizer==3.2.0
     # via requests
-click==8.1.5
+click==8.1.6
     # via
     #   click-default-group
     #   towncrier
 click-default-group==1.2.2
     # via towncrier
-cryptography==41.0.2
+cryptography==41.0.3
     # via pyopenssl
 docutils==0.18.1
     # via
@@ -103,7 +103,7 @@ tomli==2.0.1
     # via towncrier
 towncrier==23.6.0
     # via -r docs-requirements.in
-urllib3==2.0.3
+urllib3==2.0.4
     # via requests
 zipp==3.16.2
     # via

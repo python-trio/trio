@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.9104,
+    "completenessScore": 0.9154704944178629,
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 569,
-      "withUnknownType": 56
+      "withKnownType": 574,
+      "withUnknownType": 53
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -46,25 +46,16 @@
     ],
     "otherSymbolCounts": {
       "withAmbiguousType": 3,
-      "withKnownType": 576,
-      "withUnknownType": 74
+      "withKnownType": 600,
+      "withUnknownType": 63
     },
     "packageName": "trio",
     "symbols": [
-      "trio._core._entry_queue.TrioToken.run_sync_soon",
       "trio._core._mock_clock.MockClock.jump",
       "trio._core._run.Nursery.start",
       "trio._core._run.Nursery.start_soon",
       "trio._core._run.TaskStatus.__repr__",
       "trio._core._run.TaskStatus.started",
-      "trio._core._unbounded_queue.UnboundedQueue.__aiter__",
-      "trio._core._unbounded_queue.UnboundedQueue.__anext__",
-      "trio._core._unbounded_queue.UnboundedQueue.__repr__",
-      "trio._core._unbounded_queue.UnboundedQueue.empty",
-      "trio._core._unbounded_queue.UnboundedQueue.get_batch",
-      "trio._core._unbounded_queue.UnboundedQueue.get_batch_nowait",
-      "trio._core._unbounded_queue.UnboundedQueue.qsize",
-      "trio._core._unbounded_queue.UnboundedQueue.statistics",
       "trio._dtls.DTLSChannel.__init__",
       "trio._dtls.DTLSEndpoint.serve",
       "trio._highlevel_socket.SocketStream.getsockopt",
@@ -118,7 +109,6 @@
       "trio.open_ssl_over_tcp_listeners",
       "trio.open_ssl_over_tcp_stream",
       "trio.open_tcp_listeners",
-      "trio.open_tcp_stream",
       "trio.open_unix_socket",
       "trio.run",
       "trio.run_process",
