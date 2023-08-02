@@ -11,11 +11,13 @@ import typing as _t
 from ._core import (
     Abort as Abort,
     ParkingLot as ParkingLot,
+    ParkingLotStatistics as ParkingLotStatistics,
     RaiseCancelT as RaiseCancelT,
     RunVar as RunVar,
     Task as Task,
     TrioToken as TrioToken,
     UnboundedQueue as UnboundedQueue,
+    UnboundedQueueStatistics as UnboundedQueueStatistics,
     add_instrument as add_instrument,
     cancel_shielded_checkpoint as cancel_shielded_checkpoint,
     checkpoint as checkpoint,

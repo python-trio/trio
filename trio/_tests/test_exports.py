@@ -1,3 +1,5 @@
+import __future__  # Regular import, not special!
+
 import enum
 import functools
 import importlib
@@ -107,6 +109,11 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
     if modname == "trio":
         runtime_names.discard("tests")
 
+    # Ignore any __future__ feature objects, if imported under that name.
+    for name in __future__.all_feature_names:
+        if getattr(module, name, None) is getattr(__future__, name):
+            runtime_names.remove(name)
+
     if tool in ("mypy", "pyright_verifytypes"):
         # create py.typed file
         py_typed_path = Path(trio.__file__).parent / "py.typed"
@@ -175,7 +182,7 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         if modname == "trio":
             static_names.add("testing")
 
-        # these are hidden behind `if sys.plaftorm != "win32" or not TYPE_CHECKING`
+        # these are hidden behind `if sys.platform != "win32" or not TYPE_CHECKING`
         # so presumably pyright is parsing that if statement, in which case we don't
         # care about them being missing.
         if modname == "trio.socket" and sys.platform == "win32":
@@ -267,7 +274,7 @@ def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
             cache_json = json.loads(cache_file.read())
 
         # skip a bunch of file-system activity (probably can un-memoize?)
-        @functools.lru_cache()
+        @functools.lru_cache
         def lookup_symbol(symbol):
             topname, *modname, name = symbol.split(".")
             version = next(cache.glob("3.*/"))
@@ -491,5 +498,9 @@ def test_classes_are_final():
             if issubclass(class_, enum.Enum):
                 continue
             # ... insert other special cases here ...
+
+            # don't care about the *Statistics classes
+            if name.endswith("Statistics"):
+                continue
 
             assert isinstance(class_, _util.Final)

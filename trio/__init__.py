@@ -1,5 +1,6 @@
 """Trio - A friendly Python library for async concurrency and I/O
 """
+from __future__ import annotations
 
 # General layout:
 #
@@ -16,7 +17,7 @@
 # Uses `from x import y as y` for compatibility with `pyright --verifytypes` (#2625)
 
 # must be imported early to avoid circular import
-from ._core import TASK_STATUS_IGNORED as TASK_STATUS_IGNORED  # isort: skip
+from ._core import TASK_STATUS_IGNORED as TASK_STATUS_IGNORED  # isort: split
 
 # Submodules imported by default
 from . import abc, from_thread, lowlevel, socket, to_thread
@@ -34,6 +35,7 @@ from ._core import (
     EndOfChannel as EndOfChannel,
     Nursery as Nursery,
     RunFinishedError as RunFinishedError,
+    TaskStatus as TaskStatus,
     TrioInternalError as TrioInternalError,
     WouldBlock as WouldBlock,
     current_effective_deadline as current_effective_deadline,
@@ -46,7 +48,11 @@ from ._core._multierror import (
     NonBaseMultiError as _NonBaseMultiError,
 )
 from ._deprecate import TrioDeprecationWarning as TrioDeprecationWarning
-from ._dtls import DTLSChannel as DTLSChannel, DTLSEndpoint as DTLSEndpoint
+from ._dtls import (
+    DTLSChannel as DTLSChannel,
+    DTLSChannelStatistics as DTLSChannelStatistics,
+    DTLSEndpoint as DTLSEndpoint,
+)
 from ._file_io import open_file as open_file, wrap_file as wrap_file
 from ._highlevel_generic import (
     StapledStream as StapledStream,
@@ -78,9 +84,13 @@ from ._ssl import (
 from ._subprocess import Process as Process, run_process as run_process
 from ._sync import (
     CapacityLimiter as CapacityLimiter,
+    CapacityLimiterStatistics as CapacityLimiterStatistics,
     Condition as Condition,
+    ConditionStatistics as ConditionStatistics,
     Event as Event,
+    EventStatistics as EventStatistics,
     Lock as Lock,
+    LockStatistics as LockStatistics,
     Semaphore as Semaphore,
     StrictFIFOLock as StrictFIFOLock,
 )
@@ -108,7 +118,7 @@ from . import _deprecate as _deprecate
 
 _deprecate.enable_attribute_deprecations(__name__)
 
-__deprecated_attributes__ = {
+__deprecated_attributes__: dict[str, _deprecate.DeprecatedAttribute] = {
     "open_process": _deprecate.DeprecatedAttribute(
         value=lowlevel.open_process,
         version="0.20.0",

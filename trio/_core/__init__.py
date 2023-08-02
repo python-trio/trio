@@ -20,7 +20,7 @@ from ._exceptions import (
 from ._ki import currently_ki_protected, disable_ki_protection, enable_ki_protection
 from ._local import RunVar
 from ._mock_clock import MockClock
-from ._parking_lot import ParkingLot
+from ._parking_lot import ParkingLot, ParkingLotStatistics
 
 # Imports that always exist
 from ._run import (
@@ -28,6 +28,7 @@ from ._run import (
     CancelScope,
     Nursery,
     Task,
+    TaskStatus,
     add_instrument,
     checkpoint,
     checkpoint_if_cancelled,
@@ -61,7 +62,7 @@ from ._traps import (
     temporarily_detach_coroutine_object,
     wait_task_rescheduled,
 )
-from ._unbounded_queue import UnboundedQueue
+from ._unbounded_queue import UnboundedQueue, UnboundedQueueStatistics
 
 # Windows imports
 if sys.platform == "win32":

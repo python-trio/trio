@@ -1,5 +1,8 @@
 [tool.black]
-target-version = ['py37']
+target-version = ['py38']
+
+[tool.codespell]
+ignore-words-list = 'astroid,crasher,asend'
 
 [tool.flake8]
 extend-ignore = ['D', 'E', 'W', 'F403', 'F405', 'F821', 'F822']
@@ -18,6 +21,66 @@ per-file-ignores = [
 combine_as_imports = true
 profile = "black"
 skip_gitignore = true
+
+[tool.mypy]
+python_version = "3.8"
+
+# Be flexible about dependencies that don't have stubs yet (like pytest)
+ignore_missing_imports = true
+
+# Be strict about use of Mypy
+warn_unused_ignores = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_return_any = true
+
+# Avoid subtle backsliding
+#disallow_any_decorated = true
+#disallow_incomplete_defs = true
+#disallow_subclassing_any = true
+
+# Enable gradually / for new modules
+check_untyped_defs = false
+disallow_untyped_calls = false
+disallow_untyped_defs = false
+
+# DO NOT use `ignore_errors`; it doesn't apply
+# downstream and users have to deal with them.
+[[tool.mypy.overrides]]
+# Fully typed, enable stricter checks
+module = [
+    "trio._abc",
+    "trio._core._entry_queue",
+    "trio._core._local",
+    "trio._core._unbounded_queue",
+    "trio._deprecate",
+    "trio._dtls",
+    "trio._file_io",
+    "trio._highlevel_open_tcp_stream.py",
+    "trio._ki",
+    "trio._socket",
+    "trio._sync",
+    "trio._util",
+]
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+disallow_untyped_decorators = true
+disallow_any_generics = true
+disallow_any_decorated = true
+disallow_any_unimported = true
+disallow_subclassing_any = true
+
+[[tool.mypy.overrides]]
+# Needs to use Any due to some complex introspection.
+module = [
+    "trio._path",
+]
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+#disallow_any_generics = true
+#disallow_any_decorated = true
+disallow_any_unimported = true
+disallow_subclassing_any = true
 
 [tool.pytest.ini_options]
 addopts = ["--strict-markers", "--strict-config"]

@@ -17,3 +17,6 @@ exceptiongroup >= 1.0.0rc9
 
 # See note in test-requirements.in
 immutables >= 0.6
+
+# types used in annotations
+pyOpenSSL

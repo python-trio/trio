@@ -1,9 +1,20 @@
+from __future__ import annotations
+
 import sys
 import warnings
+from collections.abc import Callable
 from functools import wraps
 from types import ModuleType
+from typing import TYPE_CHECKING, ClassVar, TypeVar
 
 import attr
+
+if TYPE_CHECKING:
+    from typing_extensions import ParamSpec
+
+    ArgsT = ParamSpec("ArgsT")
+
+RetT = TypeVar("RetT")
 
 
 # We want our warnings to be visible by default (at least for now), but we
@@ -29,17 +40,24 @@ class TrioDeprecationWarning(FutureWarning):
     """
 
 
-def _url_for_issue(issue):
+def _url_for_issue(issue: int) -> str:
     return f"https://github.com/python-trio/trio/issues/{issue}"
 
 
-def _stringify(thing):
+def _stringify(thing: object) -> str:
     if hasattr(thing, "__module__") and hasattr(thing, "__qualname__"):
         return f"{thing.__module__}.{thing.__qualname__}"
     return str(thing)
 
 
-def warn_deprecated(thing, version, *, issue, instead, stacklevel=2):
+def warn_deprecated(
+    thing: object,
+    version: str,
+    *,
+    issue: int | None,
+    instead: object,
+    stacklevel: int = 2,
+) -> None:
     stacklevel += 1
     msg = f"{_stringify(thing)} is deprecated since Trio {version}"
     if instead is None:
@@ -53,12 +71,14 @@ def warn_deprecated(thing, version, *, issue, instead, stacklevel=2):
 
 # @deprecated("0.2.0", issue=..., instead=...)
 # def ...
-def deprecated(version, *, thing=None, issue, instead):
-    def do_wrap(fn):
+def deprecated(
+    version: str, *, thing: object = None, issue: int | None, instead: object
+) -> Callable[[Callable[ArgsT, RetT]], Callable[ArgsT, RetT]]:
+    def do_wrap(fn: Callable[ArgsT, RetT]) -> Callable[ArgsT, RetT]:
         nonlocal thing
 
         @wraps(fn)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: ArgsT.args, **kwargs: ArgsT.kwargs) -> RetT:
             warn_deprecated(thing, version, instead=instead, issue=issue)
             return fn(*args, **kwargs)
 
@@ -87,11 +107,17 @@ def deprecated(version, *, thing=None, issue, instead):
     return do_wrap
 
 
-def deprecated_alias(old_qualname, new_fn, version, *, issue):
+def deprecated_alias(
+    old_qualname: str,
+    new_fn: Callable[ArgsT, RetT],
+    version: str,
+    *,
+    issue: int | None,
+) -> Callable[ArgsT, RetT]:
     @deprecated(version, issue=issue, instead=new_fn)
     @wraps(new_fn, assigned=("__module__", "__annotations__"))
-    def wrapper(*args, **kwargs):
-        "Deprecated alias."
+    def wrapper(*args: ArgsT.args, **kwargs: ArgsT.kwargs) -> RetT:
+        """Deprecated alias."""
         return new_fn(*args, **kwargs)
 
     wrapper.__qualname__ = old_qualname
@@ -101,16 +127,18 @@ def deprecated_alias(old_qualname, new_fn, version, *, issue):
 
 @attr.s(frozen=True)
 class DeprecatedAttribute:
-    _not_set = object()
+    _not_set: ClassVar[object] = object()
 
-    value = attr.ib()
-    version = attr.ib()
-    issue = attr.ib()
-    instead = attr.ib(default=_not_set)
+    value: object = attr.ib()
+    version: str = attr.ib()
+    issue: int | None = attr.ib()
+    instead: object = attr.ib(default=_not_set)
 
 
 class _ModuleWithDeprecations(ModuleType):
-    def __getattr__(self, name):
+    __deprecated_attributes__: dict[str, DeprecatedAttribute]
+
+    def __getattr__(self, name: str) -> object:
         if name in self.__deprecated_attributes__:
             info = self.__deprecated_attributes__[name]
             instead = info.instead
@@ -124,9 +152,10 @@ class _ModuleWithDeprecations(ModuleType):
         raise AttributeError(msg.format(self.__name__, name))
 
 
-def enable_attribute_deprecations(module_name):
+def enable_attribute_deprecations(module_name: str) -> None:
     module = sys.modules[module_name]
     module.__class__ = _ModuleWithDeprecations
+    assert isinstance(module, _ModuleWithDeprecations)
     # Make sure that this is always defined so that
     # _ModuleWithDeprecations.__getattr__ can access it without jumping
     # through hoops or risking infinite recursion.
