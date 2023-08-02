@@ -4,11 +4,14 @@ import errno
 import sys
 from collections.abc import Awaitable, Callable
 from math import inf
+from typing import TYPE_CHECKING
 
 import trio
-from trio.lowlevel import TaskStatus
 
 from . import socket as tsocket
+
+if TYPE_CHECKING:
+    from trio.lowlevel import TaskStatus
 
 if sys.version_info < (3, 11):
     from exceptiongroup import ExceptionGroup
@@ -237,7 +240,6 @@ async def serve_tcp(
 
     """
     listeners = await trio.open_tcp_listeners(port, host=host, backlog=backlog)
-    # typecheck: no-untyped-call error: Call to untyped function "serve_listeners" in typed context
     await trio.serve_listeners(
         handler, listeners, handler_nursery=handler_nursery, task_status=task_status
     )
