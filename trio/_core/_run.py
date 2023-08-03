@@ -10,7 +10,7 @@ import sys
 import threading
 import warnings
 from collections import deque
-from collections.abc import Coroutine, Iterator
+from collections.abc import Coroutine, Generator, Iterator
 from contextlib import AbstractAsyncContextManager, contextmanager
 from contextvars import copy_context
 from heapq import heapify, heappop, heappush
@@ -55,12 +55,12 @@ if TYPE_CHECKING:
     # An unfortunate name collision here with trio._util.Final
     from typing import Final as FinalT
 
-    from typing_extensions import Self
+    from typing_extensions import Literal, Self
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: FinalT = 1000
 
 # Passed as a sentinel
-_NO_SEND: Outcome = cast(Outcome, object())
+_NO_SEND: Outcome[Any] = cast(Outcome, object())
 
 FnT = TypeVar("FnT", bound="Callable[..., Any]")
 StatusT = TypeVar("StatusT")
@@ -1054,20 +1054,20 @@ class Nursery(metaclass=NoPublicConstructor):
         self._pending_excs.append(exc)
         self.cancel_scope.cancel()
 
-    def _check_nursery_closed(self):
+    def _check_nursery_closed(self) -> None:
         if not any([self._nested_child_running, self._children, self._pending_starts]):
             self._closed = True
             if self._parent_waiting_in_aexit:
                 self._parent_waiting_in_aexit = False
                 GLOBAL_RUN_CONTEXT.runner.reschedule(self._parent_task)
 
-    def _child_finished(self, task, outcome):
+    def _child_finished(self, task: Task, outcome: Outcome[Any]) -> None:
         self._children.remove(task)
         if isinstance(outcome, Error):
             self._add_exc(outcome.error)
         self._check_nursery_closed()
 
-    async def _nested_child_finished(self, nested_child_exc):
+    async def _nested_child_finished(self, nested_child_exc: BaseException) -> BaseException | None:
         # Returns MultiError instance (or any exception if the nursery is in loose mode
         # and there is just one contained exception) if there are pending exceptions
         if nested_child_exc is not None:
@@ -1079,7 +1079,7 @@ class Nursery(metaclass=NoPublicConstructor):
             # If we get cancelled (or have an exception injected, like
             # KeyboardInterrupt), then save that, but still wait until our
             # children finish.
-            def aborted(raise_cancel):
+            def aborted(raise_cancel: Callable[[], NoReturn]) -> Abort:
                 self._add_exc(capture(raise_cancel).error)
                 return Abort.FAILED
 
@@ -1232,7 +1232,7 @@ class Nursery(metaclass=NoPublicConstructor):
 class Task(metaclass=NoPublicConstructor):
     _parent_nursery: Nursery | None = attr.ib()
     coro: Coroutine[Any, Outcome[object], Any] = attr.ib()
-    _runner = attr.ib()
+    _runner: Runner = attr.ib()
     name: str = attr.ib()
     context: contextvars.Context = attr.ib()
     _counter: int = attr.ib(init=False, factory=itertools.count().__next__)
@@ -1248,8 +1248,8 @@ class Task(metaclass=NoPublicConstructor):
     #   tracebacks with extraneous frames.
     # - for scheduled tasks, custom_sleep_data is None
     # Tasks start out unscheduled.
-    _next_send_fn = attr.ib(default=None)
-    _next_send: Outcome | None | BaseException = attr.ib(default=None)
+    _next_send_fn: Callable[[Any], object] = attr.ib(default=None)
+    _next_send: Outcome[Any] | None | BaseException = attr.ib(default=None)
     _abort_func: Callable[[Callable[[], NoReturn]], Abort] | None = attr.ib(
         default=None
     )
@@ -1420,15 +1420,19 @@ class RunContext(threading.local):
 
 GLOBAL_RUN_CONTEXT: FinalT = RunContext()
 
+class _IOStats(Protocol):
+    @property
+    def backend(self) -> str:
+        ...
+
 
 @attr.s(frozen=True)
 class _RunStatistics:
-    tasks_living = attr.ib()
-    tasks_runnable = attr.ib()
-    seconds_to_next_deadline = attr.ib()
-    io_statistics = attr.ib()
-    run_sync_soon_queue_size = attr.ib()
-
+    tasks_living: int = attr.ib()
+    tasks_runnable: int = attr.ib()
+    seconds_to_next_deadline: float = attr.ib()
+    io_statistics: _IOStats = attr.ib()
+    run_sync_soon_queue_size: int = attr.ib()
 
 # This holds all the state that gets trampolined back and forth between
 # callbacks when we're running in guest mode.
@@ -1451,15 +1455,15 @@ class _RunStatistics:
 # worker thread.
 @attr.s(eq=False, hash=False, slots=True)
 class GuestState:
-    runner = attr.ib()
-    run_sync_soon_threadsafe = attr.ib()
-    run_sync_soon_not_threadsafe = attr.ib()
-    done_callback = attr.ib()
-    unrolled_run_gen = attr.ib()
-    _value_factory: Callable[[], Value] = lambda: Value(None)
-    unrolled_run_next_send = attr.ib(factory=_value_factory, type=Outcome)
+    runner: Runner = attr.ib()
+    run_sync_soon_threadsafe: Callable[[Callable[[], object]], object] = attr.ib()
+    run_sync_soon_not_threadsafe: Callable[[Callable[[], object]], object] = attr.ib()
+    done_callback: Callable[[Outcome[Any]], object] = attr.ib()
+    unrolled_run_gen: Generator[None, None, None] = attr.ib()
+    _value_factory: Callable[[], Value[Any]] = lambda: Value(None)
+    unrolled_run_next_send: Outcome[Any] = attr.ib(factory=_value_factory, type=Outcome)
 
-    def guest_tick(self):
+    def guest_tick(self) -> None:
         try:
             timeout = self.unrolled_run_next_send.send(self.unrolled_run_gen)
         except StopIteration:
@@ -1483,8 +1487,8 @@ class GuestState:
             def get_events():
                 return self.runner.io_manager.get_events(timeout)
 
-            def deliver(events_outcome):
-                def in_main_thread():
+            def deliver(events_outcome: Outcome) -> None:
+                def in_main_thread() -> None:
                     self.unrolled_run_next_send = events_outcome
                     self.runner.guest_tick_scheduled = True
                     self.guest_tick()
@@ -1508,20 +1512,20 @@ class Runner:
     runq: deque[Task] = attr.ib(factory=deque)
     tasks: set[Task] = attr.ib(factory=set)
 
-    deadlines = attr.ib(factory=Deadlines)
+    deadlines: Deadlines = attr.ib(factory=Deadlines)
 
     init_task: Task | None = attr.ib(default=None)
-    system_nursery = attr.ib(default=None)
+    system_nursery: Nursery | None = attr.ib(default=None)
     system_context = attr.ib(default=None)
-    main_task = attr.ib(default=None)
-    main_task_outcome = attr.ib(default=None)
+    main_task: Task | None = attr.ib(default=None)
+    main_task_outcome: Outcome[Any] | None = attr.ib(default=None)
 
     entry_queue: EntryQueue = attr.ib(factory=EntryQueue)
     trio_token: TrioToken | None = attr.ib(default=None)
     asyncgens: AsyncGenerators = attr.ib(factory=AsyncGenerators)
 
     # If everything goes idle for this long, we call clock._autojump()
-    clock_autojump_threshold = attr.ib(default=inf)
+    clock_autojump_threshold: float = attr.ib(default=inf)
 
     # Guest mode stuff
     is_guest: bool = attr.ib(default=False)
@@ -1543,10 +1547,10 @@ class Runner:
         self.ki_manager.close()
 
     @_public
-    def current_statistics(self):
+    def current_statistics(self) -> _RunStatistics:
         """Returns an object containing run-loop-level debugging information.
 
-        Currently the following fields are defined:
+        Currently, the following fields are defined:
 
         * ``tasks_living`` (int): The number of tasks that have been spawned
           and not yet exited.
@@ -2312,7 +2316,7 @@ def unrolled_run(
     async_fn,
     args,
     host_uses_signal_set_wakeup_fd: bool = False,
-):
+) -> None:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     __tracebackhide__ = True
 
