@@ -1507,7 +1507,7 @@ class Runner:
     strict_exception_groups: bool = attr.ib()
 
     # Run-local values, see _local.py
-    _locals = attr.ib(factory=dict)
+    _locals: dict[_core.RunVar[Any], Any] = attr.ib(factory=dict)
 
     runq: deque[Task] = attr.ib(factory=deque)
     tasks: set[Task] = attr.ib(factory=set)
