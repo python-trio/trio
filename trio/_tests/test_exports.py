@@ -26,7 +26,7 @@ mypy_cache_updated = False
 
 try:  # If installed, check both versions of this class.
     from typing_extensions import Protocol as Protocol_ext
-except ImportError:
+except ImportError:  # pragma: no cover
     Protocol_ext = Protocol
 
 
