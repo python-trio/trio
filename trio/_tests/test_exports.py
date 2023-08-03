@@ -324,6 +324,8 @@ def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
             "__order__",
             "__orig_bases__",
             "__parameters__",
+            "__callable_proto_members_only__",
+            "__protocol_attrs__",
             "__setstate__",
             "__slots__",
             "__weakref__",
