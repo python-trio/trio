@@ -237,7 +237,6 @@ async def serve_tcp(
 
     """
     listeners = await trio.open_tcp_listeners(port, host=host, backlog=backlog)
-    # typecheck: no-untyped-call error: Call to untyped function "serve_listeners" in typed context
     await trio.serve_listeners(
         handler, listeners, handler_nursery=handler_nursery, task_status=task_status
     )
