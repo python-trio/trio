@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from typing import Any, Callable, Awaitable
+from outcome import Outcome
 import contextvars
 
 from ._instrumentation import Instrument
@@ -84,7 +85,7 @@ def current_root_task() ->(trio.lowlevel.Task | None):
         raise RuntimeError("must be called from async context")
 
 
-def reschedule(task: trio.lowlevel.Task, next_send: object=_NO_SEND) ->None:
+def reschedule(task: trio.lowlevel.Task, next_send: Outcome=_NO_SEND) ->None:
     """Reschedule the given task with the given
         :class:`outcome.Outcome`.
 

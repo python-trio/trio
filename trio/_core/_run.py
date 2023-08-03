@@ -1249,7 +1249,7 @@ class Task(metaclass=NoPublicConstructor):
     # - for scheduled tasks, custom_sleep_data is None
     # Tasks start out unscheduled.
     _next_send_fn = attr.ib(default=None)
-    _next_send = attr.ib(default=None)
+    _next_send: Outcome | None | BaseException = attr.ib(default=None)
     _abort_func: Callable[[Callable[[], NoReturn]], Abort] | None = attr.ib(
         default=None
     )
@@ -1608,7 +1608,7 @@ class Runner:
 
     @_public
     def reschedule(
-        self, task: trio.lowlevel.Task, next_send: object = _NO_SEND
+        self, task: trio.lowlevel.Task, next_send: Outcome = _NO_SEND
     ) -> None:
         """Reschedule the given task with the given
         :class:`outcome.Outcome`.
@@ -1718,7 +1718,7 @@ class Runner:
             self.instruments.call("task_spawned", task)
         # Special case: normally next_send should be an Outcome, but for the
         # very first send we have to send a literal unboxed None.
-        self.reschedule(task, None)
+        self.reschedule(task, None)  # type: ignore[arg-type]
         return task
 
     def task_exited(self, task: Task, outcome: Outcome) -> None:
@@ -2507,7 +2507,7 @@ def unrolled_run(
                         # protocol of unwrapping whatever outcome gets sent in.
                         # Instead, we'll arrange to throw `exc` in directly,
                         # which works for at least asyncio and curio.
-                        runner.reschedule(task, exc)
+                        runner.reschedule(task, exc)  # type: ignore[arg-type]
                         task._next_send_fn = task.coro.throw
                     # prevent long-lived reference
                     # TODO: develop test for this deletion

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from typing import Any, Callable, Awaitable
+from outcome import Outcome
 import contextvars
 
 from ._instrumentation import Instrument
