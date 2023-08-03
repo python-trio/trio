@@ -10,7 +10,8 @@ from typing import TYPE_CHECKING
 
 import trio
 import trio.socket as tsocket
-from trio import SocketListener
+
+from ._highlevel_socket import SocketListener
 
 if TYPE_CHECKING:
     from typing_extensions import Self
