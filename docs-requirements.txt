@@ -6,8 +6,6 @@
 #
 alabaster==0.7.13
     # via sphinx
-async-generator==1.10
-    # via -r docs-requirements.in
 attrs==23.1.0
     # via
     #   -r docs-requirements.in
@@ -20,13 +18,13 @@ cffi==1.15.1
     # via cryptography
 charset-normalizer==3.2.0
     # via requests
-click==8.1.5
+click==8.1.6
     # via
     #   click-default-group
     #   towncrier
 click-default-group==1.2.2
     # via towncrier
-cryptography==41.0.2
+cryptography==41.0.3
     # via pyopenssl
 docutils==0.18.1
     # via
@@ -84,7 +82,9 @@ sphinxcontrib-devhelp==1.0.2
 sphinxcontrib-htmlhelp==2.0.1
     # via sphinx
 sphinxcontrib-jquery==4.1
-    # via sphinx-rtd-theme
+    # via
+    #   -r docs-requirements.in
+    #   sphinx-rtd-theme
 sphinxcontrib-jsmath==1.0.1
     # via sphinx
 sphinxcontrib-qthelp==1.0.3
@@ -95,5 +95,5 @@ sphinxcontrib-trio==1.1.2
     # via -r docs-requirements.in
 towncrier==23.6.0
     # via -r docs-requirements.in
-urllib3==2.0.3
+urllib3==2.0.4
     # via requests
