@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.9154704944178629,
+    "completenessScore": 0.9330143540669856,
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 574,
-      "withUnknownType": 53
+      "withKnownType": 585,
+      "withUnknownType": 42
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -46,18 +46,12 @@
     ],
     "otherSymbolCounts": {
       "withAmbiguousType": 3,
-      "withKnownType": 600,
-      "withUnknownType": 63
+      "withKnownType": 601,
+      "withUnknownType": 52
     },
     "packageName": "trio",
     "symbols": [
       "trio._core._mock_clock.MockClock.jump",
-      "trio._core._run.Nursery.start",
-      "trio._core._run.Nursery.start_soon",
-      "trio._core._run.TaskStatus.__repr__",
-      "trio._core._run.TaskStatus.started",
-      "trio._dtls.DTLSChannel.__init__",
-      "trio._dtls.DTLSEndpoint.serve",
       "trio._highlevel_socket.SocketStream.getsockopt",
       "trio._highlevel_socket.SocketStream.send_all",
       "trio._highlevel_socket.SocketStream.setsockopt",
@@ -87,20 +81,14 @@
       "trio._subprocess.Process.send_signal",
       "trio._subprocess.Process.terminate",
       "trio._subprocess.Process.wait",
-      "trio.current_time",
       "trio.from_thread.run",
       "trio.from_thread.run_sync",
       "trio.lowlevel.cancel_shielded_checkpoint",
-      "trio.lowlevel.current_clock",
-      "trio.lowlevel.current_root_task",
       "trio.lowlevel.current_statistics",
-      "trio.lowlevel.current_trio_token",
       "trio.lowlevel.notify_closing",
       "trio.lowlevel.open_process",
       "trio.lowlevel.permanently_detach_coroutine_object",
       "trio.lowlevel.reattach_detached_coroutine_object",
-      "trio.lowlevel.reschedule",
-      "trio.lowlevel.spawn_system_task",
       "trio.lowlevel.start_guest_run",
       "trio.lowlevel.start_thread_soon",
       "trio.lowlevel.temporarily_detach_coroutine_object",
@@ -145,7 +133,6 @@
       "trio.testing.memory_stream_pump",
       "trio.testing.open_stream_to_socket_listener",
       "trio.testing.trio_test",
-      "trio.testing.wait_all_tasks_blocked",
       "trio.tests.TestsDeprecationWrapper",
       "trio.to_thread.current_default_thread_limiter"
     ]

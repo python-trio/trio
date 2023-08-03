@@ -9,7 +9,7 @@ import contextvars
 
 from ._instrumentation import Instrument
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
-from ._run import _NO_SEND, GLOBAL_RUN_CONTEXT 
+from ._run import _NO_SEND, GLOBAL_RUN_CONTEXT
 import trio
 
 # fmt: off
