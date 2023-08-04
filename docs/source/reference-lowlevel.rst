@@ -49,7 +49,11 @@ attributes, :meth:`trio.Lock.statistics`, etc.). Here are some more.
 Global statistics
 -----------------
 
-.. autofunction:: current_statistics
+.. function:: current_statistics() -> RunStatistics
+
+   Returns an object containing run-loop-level debugging information:
+
+.. autoclass:: trio.RunStatistics()
 
 
 The current clock

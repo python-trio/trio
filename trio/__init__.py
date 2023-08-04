@@ -35,6 +35,7 @@ from ._core import (
     EndOfChannel as EndOfChannel,
     Nursery as Nursery,
     RunFinishedError as RunFinishedError,
+    RunStatistics as RunStatistics,
     TaskStatus as TaskStatus,
     TrioInternalError as TrioInternalError,
     WouldBlock as WouldBlock,

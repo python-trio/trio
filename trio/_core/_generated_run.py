@@ -16,10 +16,10 @@ import trio
 # fmt: off
 
 
-def current_statistics():
-    """Returns an object containing run-loop-level debugging information.
+def current_statistics() ->trio.RunStatistics:
+    """Returns ``RunStatistics``, which contains run-loop-level debugging information.
 
-        Currently the following fields are defined:
+        Currently, the following fields are defined:
 
         * ``tasks_living`` (int): The number of tasks that have been spawned
           and not yet exited.
