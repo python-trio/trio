@@ -505,7 +505,9 @@ class WindowsIOManager:
             if exc.winerror != ErrorCodes.WAIT_TIMEOUT:  # pragma: no cover
                 raise
             return 0
-        return received[0]
+        result = received[0]
+        assert isinstance(result, int)
+        return result
 
     def process_events(self, received: EventResult):
         for i in range(received):
