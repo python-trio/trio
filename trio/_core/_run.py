@@ -467,6 +467,7 @@ https://github.com/python-trio/trio/issues/new
 """
 
 
+@final
 @attr.s(eq=False, repr=False, slots=True)
 class CancelScope(metaclass=Final):
     """A *cancellation scope*: the link between a unit of cancellable
@@ -1004,6 +1005,7 @@ def open_nursery(
     return NurseryManager(strict_exception_groups=strict_exception_groups)
 
 
+@final
 class Nursery(metaclass=NoPublicConstructor):
     """A context which may be used to spawn (or cancel) child tasks.
 
@@ -1245,6 +1247,7 @@ class Nursery(metaclass=NoPublicConstructor):
 ################################################################
 
 
+@final
 @attr.s(eq=False, hash=False, repr=False, slots=True)
 class Task(metaclass=NoPublicConstructor):
     _parent_nursery: Nursery | None = attr.ib()
