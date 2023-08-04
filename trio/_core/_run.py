@@ -17,7 +17,16 @@ from heapq import heapify, heappop, heappush
 from math import inf
 from time import perf_counter
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, NoReturn, Protocol, TypeVar, cast, overload, final
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    NoReturn,
+    Protocol,
+    TypeVar,
+    cast,
+    final,
+    overload,
+)
 
 import attr
 from outcome import Error, Outcome, Value, capture
@@ -2705,15 +2714,15 @@ async def checkpoint_if_cancelled() -> None:
 if sys.platform == "win32":
     from ._generated_io_windows import *
     from ._io_windows import (
-        WindowsIOManager as TheIOManager,
         EventResult as EventResult,
+        WindowsIOManager as TheIOManager,
     )
 elif sys.platform == "linux" or (not TYPE_CHECKING and hasattr(select, "epoll")):
     from ._generated_io_epoll import *
     from ._io_epoll import EpollIOManager as TheIOManager, EventResult as EventResult
 elif TYPE_CHECKING or hasattr(select, "kqueue"):
     from ._generated_io_kqueue import *
-    from ._io_kqueue import KqueueIOManager as TheIOManager, EventResult as EventResult
+    from ._io_kqueue import EventResult as EventResult, KqueueIOManager as TheIOManager
 else:  # pragma: no cover
     raise NotImplementedError("unsupported platform")
 

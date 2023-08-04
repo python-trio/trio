@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.9330143540669856,
+    "completenessScore": 0.9378980891719745,
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 585,
-      "withUnknownType": 42
+      "withKnownType": 589,
+      "withUnknownType": 39
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -46,7 +46,7 @@
     ],
     "otherSymbolCounts": {
       "withAmbiguousType": 3,
-      "withKnownType": 601,
+      "withKnownType": 615,
       "withUnknownType": 52
     },
     "packageName": "trio",
@@ -84,12 +84,10 @@
       "trio.from_thread.run",
       "trio.from_thread.run_sync",
       "trio.lowlevel.cancel_shielded_checkpoint",
-      "trio.lowlevel.current_statistics",
       "trio.lowlevel.notify_closing",
       "trio.lowlevel.open_process",
       "trio.lowlevel.permanently_detach_coroutine_object",
       "trio.lowlevel.reattach_detached_coroutine_object",
-      "trio.lowlevel.start_guest_run",
       "trio.lowlevel.start_thread_soon",
       "trio.lowlevel.temporarily_detach_coroutine_object",
       "trio.lowlevel.wait_readable",
@@ -98,7 +96,6 @@
       "trio.open_ssl_over_tcp_stream",
       "trio.open_tcp_listeners",
       "trio.open_unix_socket",
-      "trio.run",
       "trio.run_process",
       "trio.serve_listeners",
       "trio.serve_ssl_over_tcp",
