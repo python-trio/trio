@@ -3,7 +3,6 @@ from __future__ import annotations
 import errno
 import select
 import sys
-from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
@@ -32,7 +31,9 @@ class _KqueueStatistics:
 class KqueueIOManager:
     _kqueue = attr.ib(factory=select.kqueue)
     # {(ident, filter): Task or UnboundedQueue}
-    _registered: dict[tuple[int, int], _core.Task | _core.UnboundedQueue] = attr.ib(factory=dict)
+    _registered: dict[tuple[int, int], _core.Task | _core.UnboundedQueue] = attr.ib(
+        factory=dict
+    )
     _force_wakeup = attr.ib(factory=WakeupSocketpair)
     _force_wakeup_fd = attr.ib(default=None)
 

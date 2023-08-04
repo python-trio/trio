@@ -65,7 +65,7 @@ if TYPE_CHECKING:
     # An unfortunate name collision here with trio._util.Final
     from typing import Final as FinalT
 
-    from typing_extensions import Literal, Self, TypeAlias
+    from typing_extensions import Self
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: FinalT = 1000
 
