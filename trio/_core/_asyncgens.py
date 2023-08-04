@@ -5,7 +5,7 @@ import sys
 import warnings
 import weakref
 from collections.abc import AsyncGenerator
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any
 
 import attr
 
