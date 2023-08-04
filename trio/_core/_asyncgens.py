@@ -4,17 +4,15 @@ import logging
 import sys
 import warnings
 import weakref
-from collections.abc import AsyncGenerator
-from typing import TYPE_CHECKING, Any
+from collections.abc import MutableSet
+from types import AsyncGeneratorType
+from typing import Any, NoReturn
 
 import attr
 
 from .. import _core
 from .._util import name_asyncgen
 from . import _run
-
-if TYPE_CHECKING:
-    from ._run import Runner
 
 # Used to log exceptions in async generator finalizers
 ASYNCGEN_LOGGER = logging.getLogger("trio.async_generator_errors")
@@ -29,17 +27,21 @@ class AsyncGenerators:
     # asyncgens after the system nursery has been closed, it's a
     # regular set so we don't have to deal with GC firing at
     # unexpected times.
-    alive: weakref.WeakSet[AsyncGenerator[Any, Any]] | set[AsyncGenerator[Any, Any]] = attr.ib(factory=weakref.WeakSet)  # type: ignore[assignment]
+    alive: MutableSet[AsyncGeneratorType[object, NoReturn]] = attr.ib(
+        factory=weakref.WeakSet
+    )
 
     # This collects async generators that get garbage collected during
     # the one-tick window between the system nursery closing and the
     # init task starting end-of-run asyncgen finalization.
-    trailing_needs_finalize: set[AsyncGenerator[Any, Any]] = attr.ib(factory=set)
+    trailing_needs_finalize: set[AsyncGeneratorType[object, NoReturn]] = attr.ib(
+        factory=set
+    )
 
     prev_hooks = attr.ib(init=False)
 
-    def install_hooks(self, runner: Runner) -> None:
-        def firstiter(agen: AsyncGenerator[Any, Any]) -> None:
+    def install_hooks(self, runner: _run.Runner) -> None:
+        def firstiter(agen: AsyncGeneratorType[object, NoReturn]) -> None:
             if hasattr(_run.GLOBAL_RUN_CONTEXT, "task"):
                 self.alive.add(agen)
             else:
@@ -54,7 +56,7 @@ class AsyncGenerators:
                     self.prev_hooks.firstiter(agen)
 
         def finalize_in_trio_context(
-            agen: AsyncGenerator[Any, Any], agen_name: str
+            agen: AsyncGeneratorType[object, NoReturn], agen_name: str
         ) -> None:
             try:
                 runner.spawn_system_task(
@@ -70,7 +72,7 @@ class AsyncGenerators:
                 # have hit it.
                 self.trailing_needs_finalize.add(agen)
 
-        def finalizer(agen: AsyncGenerator[Any, Any]) -> None:
+        def finalizer(agen: AsyncGeneratorType[object, NoReturn]) -> None:
             agen_name = name_asyncgen(agen)
             try:
                 is_ours = not agen.ag_frame.f_locals.get("@trio_foreign_asyncgen")
@@ -121,9 +123,9 @@ class AsyncGenerators:
                         )
 
         self.prev_hooks = sys.get_asyncgen_hooks()
-        sys.set_asyncgen_hooks(firstiter=firstiter, finalizer=finalizer)
+        sys.set_asyncgen_hooks(firstiter=firstiter, finalizer=finalizer)  # type: ignore[arg-type]  # Finalizer doesn't use AsyncGeneratorType
 
-    async def finalize_remaining(self, runner: Runner) -> None:
+    async def finalize_remaining(self, runner: _run.Runner) -> None:
         # This is called from init after shutting down the system nursery.
         # The only tasks running at this point are init and
         # the run_sync_soon task, and since the system nursery is closed,
@@ -187,7 +189,7 @@ class AsyncGenerators:
         sys.set_asyncgen_hooks(*self.prev_hooks)
 
     async def _finalize_one(
-        self, agen: AsyncGenerator[Any, Any], name: str | object
+        self, agen: AsyncGeneratorType[object, NoReturn], name: object
     ) -> None:
         try:
             # This shield ensures that finalize_asyncgen never exits
