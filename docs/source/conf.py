@@ -113,6 +113,7 @@ extensions = [
     "sphinx.ext.coverage",
     "sphinx.ext.napoleon",
     "sphinxcontrib_trio",
+    "sphinxcontrib.jquery",
     "local_customization",
 ]
 

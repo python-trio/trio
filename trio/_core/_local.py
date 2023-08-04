@@ -27,7 +27,7 @@ class RunVarToken(Generic[T], metaclass=NoPublicConstructor):
         return cls._create(var)
 
 
-@attr.s(eq=False, hash=False, slots=True)
+@attr.s(eq=False, hash=False, slots=True, repr=False)
 class RunVar(Generic[T], metaclass=Final):
     """The run-local variant of a context variable.
 
