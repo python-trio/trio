@@ -18,6 +18,7 @@ from . import _run
 ASYNCGEN_LOGGER = logging.getLogger("trio.async_generator_errors")
 
 if TYPE_CHECKING:
+    # TODO: Remove when dropping 3.8 support, __class_getitem__ added in 3.9
     _WEAK_ASYNC_GEN_SET = weakref.WeakSet[AsyncGeneratorType[object, NoReturn]]
     _ASYNC_GEN_SET = set[AsyncGeneratorType[object, NoReturn]]
 else:
