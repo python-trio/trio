@@ -128,7 +128,7 @@ class AsyncGenerators:
         # The only tasks running at this point are init and
         # the run_sync_soon task, and since the system nursery is closed,
         # there's no way for user code to spawn more.
-        assert _core.current_task() is runner.init_task  # type: ignore[attr-defined]
+        assert _core.current_task() is runner.init_task
         assert len(runner.tasks) == 2
 
         # To make async generator finalization easier to reason
@@ -139,8 +139,8 @@ class AsyncGenerators:
         # Process all pending run_sync_soon callbacks, in case one of
         # them was an asyncgen finalizer that snuck in under the wire.
         runner.entry_queue.run_sync_soon(runner.reschedule, runner.init_task)
-        await _core.wait_task_rescheduled(  # type: ignore[attr-defined]
-            lambda _: _core.Abort.FAILED  # noqa
+        await _core.wait_task_rescheduled(
+            lambda _: _core.Abort.FAILED  # pragma: no cover
         )
         self.alive.update(self.trailing_needs_finalize)
         self.trailing_needs_finalize.clear()
@@ -193,7 +193,7 @@ class AsyncGenerators:
             # This shield ensures that finalize_asyncgen never exits
             # with an exception, not even a Cancelled. The inside
             # is cancelled so there's no deadlock risk.
-            with _core.CancelScope(shield=True) as cancel_scope:  # type: ignore[attr-defined]
+            with _core.CancelScope(shield=True) as cancel_scope:
                 cancel_scope.cancel()
                 await agen.aclose()
         except BaseException:
