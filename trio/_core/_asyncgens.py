@@ -4,7 +4,6 @@ import logging
 import sys
 import warnings
 import weakref
-from collections.abc import MutableSet
 from types import AsyncGeneratorType
 from typing import TYPE_CHECKING, NoReturn
 
