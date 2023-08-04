@@ -53,7 +53,7 @@ class KqueueIOManager:
     def force_wakeup(self):
         self._force_wakeup.wakeup_thread_and_signal_safe()
 
-    def get_events(self, timeout):
+    def get_events(self, timeout: float) -> list[select.kevent]:
         # max_events must be > 0 or kqueue gets cranky
         # and we generally want this to be strictly larger than the actual
         # number of events we get, so that we can tell that we've gotten

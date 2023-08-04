@@ -51,11 +51,15 @@ from types import FrameType
 
 if TYPE_CHECKING:
     import contextvars
+    import select
 
     # An unfortunate name collision here with trio._util.Final
     from typing import Final as FinalT
 
-    from typing_extensions import Literal, Self
+    from typing_extensions import Literal, Self, TypeAlias
+
+    # Result of IOManager.get_events() - Windows, Epoll, KQueue
+    EventResult: TypeAlias = 'int | list[tuple[int, int]] | list[select.kevent]'
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: FinalT = 1000
 
@@ -1474,7 +1478,7 @@ class GuestState:
             return
 
         # Optimization: try to skip going into the thread if we can avoid it
-        events_outcome = capture(self.runner.io_manager.get_events, 0)
+        events_outcome: Value[EventResult] | Error = capture(self.runner.io_manager.get_events, 0)
         if timeout <= 0 or isinstance(events_outcome, Error) or events_outcome.value:
             # No need to go into the thread
             self.unrolled_run_next_send = events_outcome
@@ -1484,10 +1488,10 @@ class GuestState:
             # Need to go into the thread and call get_events() there
             self.runner.guest_tick_scheduled = False
 
-            def get_events():
+            def get_events() -> EventResult:
                 return self.runner.io_manager.get_events(timeout)
 
-            def deliver(events_outcome: Outcome) -> None:
+            def deliver(events_outcome: Outcome[EventResult]) -> None:
                 def in_main_thread() -> None:
                     self.unrolled_run_next_send = events_outcome
                     self.runner.guest_tick_scheduled = True
