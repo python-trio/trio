@@ -1,3 +1,4 @@
+from __future__ import annotations
 import select
 import sys
 from collections import defaultdict
@@ -11,6 +12,10 @@ from ._run import _public
 from ._wakeup_socketpair import WakeupSocketpair
 
 assert not TYPE_CHECKING or sys.platform == "linux"
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeAlias
+EventResult: TypeAlias = "list[tuple[int, int]]"
 
 
 @attr.s(slots=True, eq=False, frozen=True)
@@ -222,14 +227,14 @@ class EpollIOManager:
     # Return value must be False-y IFF the timeout expired, NOT if any I/O
     # happened or force_wakeup was called. Otherwise it can be anything; gets
     # passed straight through to process_events.
-    def get_events(self, timeout) -> list[tuple[int, int]]:
+    def get_events(self, timeout) -> EventResult:
         # max_events must be > 0 or epoll gets cranky
         # accessing self._registered from a thread looks dangerous, but it's
         # OK because it doesn't matter if our value is a little bit off.
         max_events = max(1, len(self._registered))
         return self._epoll.poll(timeout, max_events)
 
-    def process_events(self, events):
+    def process_events(self, events: EventResult):
         for fd, flags in events:
             if fd == self._force_wakeup_fd:
                 self._force_wakeup.drain()

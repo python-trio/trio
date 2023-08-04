@@ -51,15 +51,11 @@ from types import FrameType
 
 if TYPE_CHECKING:
     import contextvars
-    import select
 
     # An unfortunate name collision here with trio._util.Final
     from typing import Final as FinalT
 
     from typing_extensions import Literal, Self, TypeAlias
-
-    # Result of IOManager.get_events() - Windows, Epoll, KQueue
-    EventResult: TypeAlias = 'int | list[tuple[int, int]] | list[select.kevent]'
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: FinalT = 1000
 
@@ -2688,13 +2684,13 @@ async def checkpoint_if_cancelled() -> None:
 
 if sys.platform == "win32":
     from ._generated_io_windows import *
-    from ._io_windows import WindowsIOManager as TheIOManager
+    from ._io_windows import WindowsIOManager as TheIOManager, EventResult as EventResult
 elif sys.platform == "linux" or (not TYPE_CHECKING and hasattr(select, "epoll")):
     from ._generated_io_epoll import *
-    from ._io_epoll import EpollIOManager as TheIOManager
+    from ._io_epoll import EpollIOManager as TheIOManager, EventResult as EventResult
 elif TYPE_CHECKING or hasattr(select, "kqueue"):
     from ._generated_io_kqueue import *
-    from ._io_kqueue import KqueueIOManager as TheIOManager
+    from ._io_kqueue import KqueueIOManager as TheIOManager, EventResult as EventResult
 else:  # pragma: no cover
     raise NotImplementedError("unsupported platform")
 

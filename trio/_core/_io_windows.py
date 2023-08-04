@@ -1,3 +1,4 @@
+from __future__ import annotations
 import enum
 import itertools
 import socket
@@ -28,6 +29,10 @@ from ._windows_cffi import (
 )
 
 assert not TYPE_CHECKING or sys.platform == "win32"
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeAlias
+EventResult: TypeAlias = int
 
 # There's a lot to be said about the overall design of a Windows event
 # loop. See
@@ -485,7 +490,7 @@ class WindowsIOManager:
             )
         )
 
-    def get_events(self, timeout):
+    def get_events(self, timeout) -> EventResult:
         received = ffi.new("PULONG")
         milliseconds = round(1000 * timeout)
         if timeout > 0 and milliseconds == 0:
@@ -502,7 +507,7 @@ class WindowsIOManager:
             return 0
         return received[0]
 
-    def process_events(self, received):
+    def process_events(self, received: EventResult):
         for i in range(received):
             entry = self._events[i]
             if entry.lpCompletionKey == CKeys.AFD_POLL:
