@@ -17,7 +17,7 @@ from heapq import heapify, heappop, heappush
 from math import inf
 from time import perf_counter
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, NoReturn, Protocol, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, NoReturn, Protocol, TypeVar, cast, overload, final
 
 import attr
 from outcome import Error, Outcome, Value, capture
@@ -68,6 +68,11 @@ StatusT = TypeVar("StatusT")
 StatusT_co = TypeVar("StatusT_co", covariant=True)
 StatusT_contra = TypeVar("StatusT_contra", contravariant=True)
 RetT = TypeVar("RetT")
+
+
+@final
+class _NoStatus(metaclass=NoPublicConstructor):
+    """Sentinel for unset TaskStatus._value."""
 
 
 # Decorator to mark methods public. This does nothing by itself, but
@@ -825,27 +830,24 @@ class TaskStatus(Protocol[StatusT_contra]):
 class _TaskStatus(TaskStatus[StatusT]):
     _old_nursery: Nursery = attr.ib()
     _new_nursery: Nursery = attr.ib()
-    # _called_started indicates whether _value can be accessed. The latter can't be Optional[],
-    # since None is a valid value too.
-    _called_started: bool = attr.ib(default=False)
-    _value: StatusT = attr.ib(default=cast(StatusT, None))
+    # NoStatus is a sentinel.
+    _value: StatusT | type[_NoStatus] = attr.ib(default=_NoStatus)
 
     def __repr__(self) -> str:
         return f"<Task status object at {id(self):#x}>"
 
     @overload
-    def started(self: TaskStatus[None]) -> None:
+    def started(self: _TaskStatus[None]) -> None:
         ...
 
     @overload
-    def started(self, value: StatusT) -> None:
+    def started(self: _TaskStatus[StatusT], value: StatusT) -> None:
         ...
 
-    def started(self, value: StatusT = None) -> None:  # type: ignore[assignment] # StatusT != None
-        if self._called_started:
+    def started(self, value: StatusT | None = None) -> None:
+        if self._value is not _NoStatus:
             raise RuntimeError("called 'started' twice on the same task status")
-        self._called_started = True
-        self._value = value
+        self._value = cast(StatusT, value)  # If None, StatusT == None
 
         # If the old nursery is cancelled, then quietly quit now; the child
         # will eventually exit on its own, and we don't want to risk moving
@@ -1218,9 +1220,9 @@ class Nursery(metaclass=NoPublicConstructor):
             # If we get here, then the child either got reparented or exited
             # normally. The complicated logic is all in TaskStatus.started().
             # (Any exceptions propagate directly out of the above.)
-            if not task_status._called_started:
+            if task_status._value is _NoStatus:
                 raise RuntimeError("child exited without calling task_status.started()")
-            return task_status._value
+            return task_status._value  # type: ignore[return-value]  # Mypy doesn't narrow yet.
         finally:
             self._pending_starts -= 1
             self._check_nursery_closed()
