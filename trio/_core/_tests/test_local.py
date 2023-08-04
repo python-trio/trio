@@ -8,7 +8,7 @@ def test_runvar_smoketest():
     t1 = _core.RunVar("test1")
     t2 = _core.RunVar("test2", default="catfish")
 
-    assert "RunVar" in repr(t1)
+    assert repr(t1) == "<RunVar name='test1'>"
 
     async def first_check():
         with pytest.raises(LookupError):

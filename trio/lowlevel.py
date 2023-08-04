@@ -17,6 +17,7 @@ from ._core import (
     Task as Task,
     TrioToken as TrioToken,
     UnboundedQueue as UnboundedQueue,
+    UnboundedQueueStatistics as UnboundedQueueStatistics,
     add_instrument as add_instrument,
     cancel_shielded_checkpoint as cancel_shielded_checkpoint,
     checkpoint as checkpoint,
