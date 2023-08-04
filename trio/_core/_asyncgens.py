@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     # TODO: Remove when dropping 3.8 support, __class_getitem__ added in 3.9
     _WEAK_ASYNC_GEN_SET = weakref.WeakSet[AsyncGeneratorType[object, NoReturn]]
     if sys.version_info < (3, 10):
-        from collections.abc import Set
+        from typing import Set
 
         _ASYNC_GEN_SET = Set[AsyncGeneratorType[object, NoReturn]]
     else:
