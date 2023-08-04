@@ -6,7 +6,7 @@ import warnings
 import weakref
 from collections.abc import MutableSet
 from types import AsyncGeneratorType
-from typing import Any, NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 import attr
 
@@ -16,6 +16,13 @@ from . import _run
 
 # Used to log exceptions in async generator finalizers
 ASYNCGEN_LOGGER = logging.getLogger("trio.async_generator_errors")
+
+if TYPE_CHECKING:
+    _WEAK_ASYNC_GEN_SET = weakref.WeakSet[AsyncGeneratorType[object, NoReturn]]
+    _ASYNC_GEN_SET = set[AsyncGeneratorType[object, NoReturn]]
+else:
+    _WEAK_ASYNC_GEN_SET = weakref.WeakSet
+    _ASYNC_GEN_SET = set
 
 
 @attr.s(eq=False, slots=True)
@@ -27,15 +34,15 @@ class AsyncGenerators:
     # asyncgens after the system nursery has been closed, it's a
     # regular set so we don't have to deal with GC firing at
     # unexpected times.
-    alive: MutableSet[AsyncGeneratorType[object, NoReturn]] = attr.ib(
-        factory=weakref.WeakSet
-    )
+    alive: weakref.WeakSet[AsyncGeneratorType[object, NoReturn]] | set[
+        AsyncGeneratorType[object, NoReturn]
+    ] = attr.ib(factory=_WEAK_ASYNC_GEN_SET)
 
     # This collects async generators that get garbage collected during
     # the one-tick window between the system nursery closing and the
     # init task starting end-of-run asyncgen finalization.
     trailing_needs_finalize: set[AsyncGeneratorType[object, NoReturn]] = attr.ib(
-        factory=set
+        factory=_ASYNC_GEN_SET
     )
 
     prev_hooks = attr.ib(init=False)
@@ -181,7 +188,7 @@ class AsyncGenerators:
         # all are gone.
         while self.alive:
             batch = self.alive
-            self.alive = set()
+            self.alive = _ASYNC_GEN_SET()
             for agen in batch:
                 await self._finalize_one(agen, name_asyncgen(agen))
 
