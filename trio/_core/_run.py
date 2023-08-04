@@ -10,7 +10,14 @@ import sys
 import threading
 import warnings
 from collections import deque
-from collections.abc import Callable, Coroutine, Generator, Iterator, Sequence
+from collections.abc import (
+    Awaitable,
+    Callable,
+    Coroutine,
+    Generator,
+    Iterator,
+    Sequence,
+)
 from contextlib import AbstractAsyncContextManager, contextmanager
 from contextvars import copy_context
 from heapq import heapify, heappop, heappush
@@ -1096,7 +1103,7 @@ class Nursery(metaclass=NoPublicConstructor):
             # If we get cancelled (or have an exception injected, like
             # KeyboardInterrupt), then save that, but still wait until our
             # children finish.
-            def aborted(raise_cancel: Callable[[], NoReturn]) -> Abort:
+            def aborted(raise_cancel: _core.RaiseCancelT) -> Abort:
                 # capture() needs an overload for NoReturn -> Error.
                 self._add_exc(capture(raise_cancel).error)  # type: ignore[union-attr]
                 return Abort.FAILED
@@ -1270,7 +1277,7 @@ class Task(metaclass=NoPublicConstructor):
     # Tasks start out unscheduled.
     _next_send_fn: Callable[[Any], object] = attr.ib(default=None)
     _next_send: Outcome[Any] | None | BaseException = attr.ib(default=None)
-    _abort_func: Callable[[Callable[[], NoReturn]], Abort] | None = attr.ib(
+    _abort_func: Callable[[_core.RaiseCancelT], Abort] | None = attr.ib(
         default=None
     )
     custom_sleep_data: Any = attr.ib(default=None)
@@ -1385,7 +1392,7 @@ class Task(metaclass=NoPublicConstructor):
             if self._cancel_status.effectively_cancelled:
                 self._attempt_delivery_of_any_pending_cancel()
 
-    def _attempt_abort(self, raise_cancel: Callable[[], NoReturn]) -> None:
+    def _attempt_abort(self, raise_cancel: _core.RaiseCancelT) -> None:
         # Either the abort succeeds, in which case we will reschedule the
         # task, or else it fails, in which case it will worry about
         # rescheduling itself (hopefully eventually calling reraise to raise
@@ -2046,7 +2053,7 @@ class Runner:
         key = (cushion, id(task))
         self.waiting_for_idle[key] = task
 
-        def abort(_: Callable[[], Any]) -> Abort:
+        def abort(_: _core.RaiseCancelT) -> Abort:
             del self.waiting_for_idle[key]
             return Abort.SUCCEEDED
 
@@ -2267,7 +2274,7 @@ def run(
 
 
 def start_guest_run(
-    async_fn: Callable[..., RetT],
+    async_fn: Callable[..., Awaitable[RetT]],
     *args: Any,
     run_sync_soon_threadsafe: Callable[[Callable[[], object]], object],
     done_callback: Callable[[Outcome[RetT]], object],
@@ -2367,7 +2374,7 @@ _MAX_TIMEOUT: FinalT = 24 * 60 * 60
 def unrolled_run(
     runner: Runner,
     async_fn: Callable[..., object],
-    args: Any,
+    args: tuple[Any, ...],
     host_uses_signal_set_wakeup_fd: bool = False,
 ) -> Generator[float, EventResult, None]:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
