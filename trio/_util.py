@@ -370,5 +370,8 @@ def name_asyncgen(agen: AsyncGeneratorType[object, t.NoReturn]) -> str:
         module = agen.ag_frame.f_globals["__name__"]
     except (AttributeError, KeyError):
         module = f"<{agen.ag_code.co_filename}>"
-    qualname = getattr(agen, "__qualname__", agen.ag_code.co_name)
+    try:
+        qualname = agen.__qualname__
+    except AttributeError:
+        qualname = agen.ag_code.co_name
     return f"{module}.{qualname}"
