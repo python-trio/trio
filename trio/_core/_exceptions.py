@@ -14,6 +14,8 @@ class TrioInternalError(Exception):
 
     """
 
+    __slots__ = ()
+
 
 class RunFinishedError(RuntimeError):
     """Raised by `trio.from_thread.run` and similar functions if the
@@ -21,9 +23,13 @@ class RunFinishedError(RuntimeError):
 
     """
 
+    __slots__ = ()
+
 
 class WouldBlock(Exception):
     """Raised by ``X_nowait`` functions if ``X`` would block."""
+
+    __slots__ = ()
 
 
 class Cancelled(BaseException, metaclass=NoPublicConstructor):
@@ -59,6 +65,8 @@ class Cancelled(BaseException, metaclass=NoPublicConstructor):
 
     """
 
+    __slots__ = ()
+
     def __str__(self) -> str:
         return "Cancelled"
 
@@ -73,6 +81,8 @@ class BusyResourceError(Exception):
 
     """
 
+    __slots__ = ()
+
 
 class ClosedResourceError(Exception):
     """Raised when attempting to use a resource after it has been closed.
@@ -85,6 +95,8 @@ class ClosedResourceError(Exception):
     class, like :exc:`BrokenResourceError` or an :exc:`OSError` subclass.
 
     """
+
+    __slots__ = ()
 
 
 class BrokenResourceError(Exception):
@@ -102,6 +114,8 @@ class BrokenResourceError(Exception):
 
     """
 
+    __slots__ = ()
+
 
 class EndOfChannel(Exception):
     """Raised when trying to receive from a :class:`trio.abc.ReceiveChannel`
@@ -110,3 +124,5 @@ class EndOfChannel(Exception):
     This is analogous to an "end-of-file" condition, but for channels.
 
     """
+
+    __slots__ = ()
