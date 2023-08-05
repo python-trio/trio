@@ -52,6 +52,8 @@ Vital statistics:
 
 * Tutorial and reference manual: https://trio.readthedocs.io
 
+* Changelog: https://trio.readthedocs.io/en/stable/history.html
+
 * Bug tracker and source code: https://github.com/python-trio/trio
 
 * Real-time chat: https://gitter.im/python-trio/general
@@ -118,4 +120,8 @@ setup(
         "Topic :: System :: Networking",
         "Framework :: Trio",
     ],
+    project_urls={
+        "Documentation": "https://trio.readthedocs.io/"
+        "Changelog": "https://trio.readthedocs.io/en/stable/history.html"
+    },
 )
