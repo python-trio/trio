@@ -122,6 +122,6 @@ setup(
     ],
     project_urls={
         "Documentation": "https://trio.readthedocs.io/",
-        "Changelog": "https://trio.readthedocs.io/en/stable/history.html"
+        "Changelog": "https://trio.readthedocs.io/en/stable/history.html",
     },
 )
