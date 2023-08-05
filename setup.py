@@ -121,7 +121,7 @@ setup(
         "Framework :: Trio",
     ],
     project_urls={
-        "Documentation": "https://trio.readthedocs.io/"
+        "Documentation": "https://trio.readthedocs.io/",
         "Changelog": "https://trio.readthedocs.io/en/stable/history.html"
     },
 )
