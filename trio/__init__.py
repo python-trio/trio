@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Trio - A friendly Python library for async concurrency and I/O
 """
 from __future__ import annotations

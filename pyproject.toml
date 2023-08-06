@@ -52,7 +52,6 @@ disallow_any_unimported = false
 # DO NOT use `ignore_errors`; it doesn't apply
 # downstream and users have to deal with them.
 [[tool.mypy.overrides]]
-# Fully typed, enable stricter checks
 module = [
 "trio/_core/_tests/*",
 "trio/_tests/*",
