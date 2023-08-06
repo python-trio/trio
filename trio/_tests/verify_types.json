@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.9250398724082934,
+    "completenessScore": 0.9314194577352473,
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 580,
-      "withUnknownType": 47
+      "withKnownType": 584,
+      "withUnknownType": 43
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -89,19 +89,15 @@
       "trio.current_time",
       "trio.from_thread.run",
       "trio.from_thread.run_sync",
-      "trio.lowlevel.cancel_shielded_checkpoint",
       "trio.lowlevel.current_clock",
       "trio.lowlevel.current_root_task",
       "trio.lowlevel.current_statistics",
       "trio.lowlevel.current_trio_token",
       "trio.lowlevel.notify_closing",
       "trio.lowlevel.open_process",
-      "trio.lowlevel.permanently_detach_coroutine_object",
-      "trio.lowlevel.reattach_detached_coroutine_object",
       "trio.lowlevel.reschedule",
       "trio.lowlevel.spawn_system_task",
       "trio.lowlevel.start_guest_run",
-      "trio.lowlevel.temporarily_detach_coroutine_object",
       "trio.lowlevel.wait_readable",
       "trio.lowlevel.wait_writable",
       "trio.open_ssl_over_tcp_listeners",
