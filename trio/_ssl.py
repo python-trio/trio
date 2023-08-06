@@ -220,7 +220,7 @@ class NeedHandshakeError(Exception):
 class _Once:
     __slots__ = ("_afn", "_args", "started", "_done")
 
-    def __init__(self, afn: Callable[..., Awaitable[Any]], *args: Any) -> None:
+    def __init__(self, afn: Callable[..., Awaitable[object]], *args: object) -> None:
         self._afn = afn
         self._args = args
         self.started = False
@@ -419,7 +419,7 @@ class SSLStream(Stream, metaclass=Final):
         else:
             raise AttributeError(name)
 
-    def __setattr__(self, name: str, value: Any) -> None:
+    def __setattr__(self, name: str, value: object) -> None:
         if name in self._forwarded:
             setattr(self._ssl_object, name, value)
         else:
