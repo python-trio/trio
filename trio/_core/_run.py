@@ -2526,8 +2526,8 @@ def unrolled_run(
                     # more Context.run adds.
                     tb = task_exc.__traceback__
                     for _ in range(1 + CONTEXT_RUN_TB_FRAMES):
-                        assert tb is not None
-                        tb = tb.tb_next
+                        if tb is not None:  # pragma: no branch
+                            tb = tb.tb_next
                     final_outcome = Error(task_exc.with_traceback(tb))
                     # Remove local refs so that e.g. cancelled coroutine locals
                     # are not kept alive by this frame until another exception
