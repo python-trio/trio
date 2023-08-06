@@ -35,16 +35,12 @@ class AsyncGenerators:
     # asyncgens after the system nursery has been closed, it's a
     # regular set so we don't have to deal with GC firing at
     # unexpected times.
-    alive: weakref.WeakSet[AsyncGeneratorType[object, NoReturn]] | set[
-        AsyncGeneratorType[object, NoReturn]
-    ] = attr.ib(factory=_WEAK_ASYNC_GEN_SET)
+    alive: _WEAK_ASYNC_GEN_SET | _ASYNC_GEN_SET = attr.ib(factory=_WEAK_ASYNC_GEN_SET)
 
     # This collects async generators that get garbage collected during
     # the one-tick window between the system nursery closing and the
     # init task starting end-of-run asyncgen finalization.
-    trailing_needs_finalize: set[AsyncGeneratorType[object, NoReturn]] = attr.ib(
-        factory=_ASYNC_GEN_SET
-    )
+    trailing_needs_finalize: _ASYNC_GEN_SET = attr.ib(factory=_ASYNC_GEN_SET)
 
     prev_hooks = attr.ib(init=False)
 
