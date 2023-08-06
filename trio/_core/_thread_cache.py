@@ -7,9 +7,11 @@ import traceback
 from functools import partial
 from itertools import count
 from threading import Lock, Thread
-from typing import Callable, Optional, Tuple
+from typing import Any, Callable, Generic, TypeVar
 
 import outcome
+
+T = TypeVar("T")
 
 
 def _to_os_thread_name(name: str) -> bytes:
@@ -20,7 +22,9 @@ def _to_os_thread_name(name: str) -> bytes:
 # used to construct the method used to set os thread name, or None, depending on platform.
 # called once on import
 def get_os_thread_name_func() -> Callable[[int | None, str], None] | None:
-    def namefunc(setname: Callable[[int, bytes], int], ident: int | None, name: str) -> None:
+    def namefunc(
+        setname: Callable[[int, bytes], int], ident: int | None, name: str
+    ) -> None:
         # Thread.ident is None "if it has not been started". Unclear if that can happen
         # with current usage.
         if ident is not None:  # pragma: no cover
@@ -28,7 +32,9 @@ def get_os_thread_name_func() -> Callable[[int | None, str], None] | None:
 
     # namefunc on Mac also takes an ident, even if pthread_setname_np doesn't/can't use it
     # so the caller don't need to care about platform.
-    def darwin_namefunc(setname: Callable[[bytes], int], ident: int | None, name: str) -> None:
+    def darwin_namefunc(
+        setname: Callable[[bytes], int], ident: int | None, name: str
+    ) -> None:
         # I don't know if Mac can rename threads that hasn't been started, but default
         # to no to be on the safe side.
         if ident is not None:  # pragma: no cover
@@ -110,9 +116,13 @@ IDLE_TIMEOUT = 10  # seconds
 name_counter = count()
 
 
-class WorkerThread:
-    def __init__(self, thread_cache):
-        self._job: Optional[Tuple[Callable, Callable, str]] = None
+class WorkerThread(Generic[T]):
+    def __init__(self, thread_cache: ThreadCache) -> None:
+        self._job: tuple[
+            Callable[[], T],
+            Callable[[outcome.Outcome[T]], object],
+            str | None,
+        ] | None = None
         self._thread_cache = thread_cache
         # This Lock is used in an unconventional way.
         #
@@ -130,7 +140,7 @@ class WorkerThread:
             set_os_thread_name(self._thread.ident, self._default_name)
         self._thread.start()
 
-    def _handle_job(self):
+    def _handle_job(self) -> None:
         # Handle job in a separate method to ensure user-created
         # objects are cleaned up in a consistent manner.
         assert self._job is not None
@@ -161,7 +171,7 @@ class WorkerThread:
             print("Exception while delivering result of thread", file=sys.stderr)
             traceback.print_exception(type(e), e, e.__traceback__)
 
-    def _work(self):
+    def _work(self) -> None:
         while True:
             if self._worker_lock.acquire(timeout=IDLE_TIMEOUT):
                 # We got a job
@@ -185,10 +195,16 @@ class WorkerThread:
 
 
 class ThreadCache:
-    def __init__(self):
-        self._idle_workers = {}
+    def __init__(self) -> None:
+        self._idle_workers: dict[WorkerThread[Any], None] = {}
 
-    def start_thread_soon(self, fn, deliver, name: Optional[str] = None):
+    def start_thread_soon(
+        self,
+        fn: Callable[[], T],
+        deliver: Callable[[outcome.Outcome[T]], object],
+        name: str | None = None,
+    ) -> None:
+        worker: WorkerThread[T]
         try:
             worker, _ = self._idle_workers.popitem()
         except KeyError:
@@ -200,7 +216,11 @@ class ThreadCache:
 THREAD_CACHE = ThreadCache()
 
 
-def start_thread_soon(fn, deliver, name: Optional[str] = None):
+def start_thread_soon(
+    fn: Callable[[], T],
+    deliver: Callable[[outcome.Outcome[T]], object],
+    name: str | None = None,
+) -> None:
     """Runs ``deliver(outcome.capture(fn))`` in a worker thread.
 
     Generally ``fn`` does some blocking work, and ``deliver`` delivers the
