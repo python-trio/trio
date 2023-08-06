@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.9170653907496013,
+    "completenessScore": 0.9186602870813397,
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 575,
-      "withUnknownType": 52
+      "withKnownType": 576,
+      "withUnknownType": 51
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -107,7 +107,6 @@
       "trio.lowlevel.wait_writable",
       "trio.open_ssl_over_tcp_listeners",
       "trio.open_ssl_over_tcp_stream",
-      "trio.open_tcp_listeners",
       "trio.open_unix_socket",
       "trio.run",
       "trio.run_process",
