@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.9537480063795853,
+    "completenessScore": 0.9569377990430622,
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 598,
-      "withUnknownType": 29
+      "withKnownType": 600,
+      "withUnknownType": 27
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 0,
@@ -87,12 +87,10 @@
       "trio.lowlevel.wait_writable",
       "trio.open_ssl_over_tcp_listeners",
       "trio.open_ssl_over_tcp_stream",
-      "trio.open_tcp_listeners",
       "trio.open_unix_socket",
       "trio.run_process",
       "trio.serve_listeners",
       "trio.serve_ssl_over_tcp",
-      "trio.serve_tcp",
       "trio.testing._memory_streams.MemoryReceiveStream.__init__",
       "trio.testing._memory_streams.MemoryReceiveStream.aclose",
       "trio.testing._memory_streams.MemoryReceiveStream.close",
