@@ -62,7 +62,7 @@ class MockClock(Clock, metaclass=Final):
 
     """
 
-    def __init__(self, rate: float = 0.0, autojump_threshold: float = inf):
+    def __init__(self, rate: float = 0.0, autojump_threshold: float = inf) -> None:
         # when the real clock said 'real_base', the virtual time was
         # 'virtual_base', and since then it's advanced at 'rate' virtual
         # seconds per real second.
@@ -150,7 +150,7 @@ class MockClock(Clock, metaclass=Final):
         else:
             return 999999999
 
-    def jump(self, seconds) -> None:
+    def jump(self, seconds: float) -> None:
         """Manually advance the clock by the given number of seconds.
 
         Args:
