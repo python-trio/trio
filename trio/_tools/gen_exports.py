@@ -136,7 +136,7 @@ def gen_public_wrappers_source(source_path: Path | str, lookup_path: str) -> str
         assert method.args.args[0].arg == "self"
         del method.args.args[0]
 
-        for dec in method.decorator_list:
+        for dec in method.decorator_list:  # pragma: no cover
             if isinstance(dec, ast.Name) and dec.id == "contextmanager":
                 is_cm = True
                 break
@@ -159,7 +159,7 @@ def gen_public_wrappers_source(source_path: Path | str, lookup_path: str) -> str
         # Create the function definition including the body
         func = astor.to_source(method, indent_with=" " * 4)
 
-        if is_cm:
+        if is_cm:  # pragma: no cover
             func = func.replace("->Iterator", "->ContextManager")
 
         # Create export function body

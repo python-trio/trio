@@ -108,8 +108,8 @@ class KqueueIOManager:
     def current_kqueue(self) -> select.kqueue:
         return self._kqueue
 
-    @_public
     @contextmanager
+    @_public
     def monitor_kevent(
         self, ident: int, filter: int
     ) -> Iterator[_core.UnboundedQueue[select.kevent]]:
