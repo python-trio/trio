@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import sys
 import warnings
-from typing import TYPE_CHECKING
+from collections.abc import Callable, Iterable
+from typing import TYPE_CHECKING, TypeVar
 
 import attr
 
@@ -15,12 +16,16 @@ else:
 
 if TYPE_CHECKING:
     from types import TracebackType
+
+    from typing_extensions import Self
 ################################################################
 # MultiError
 ################################################################
 
 
-def _filter_impl(handler, root_exc):
+def _filter_impl(
+    handler: Callable[[BaseException], BaseException], root_exc: BaseException
+) -> BaseException | None:
     # We have a tree of MultiError's, like:
     #
     #  MultiError([
@@ -79,7 +84,9 @@ def _filter_impl(handler, root_exc):
 
     # Filters a subtree, ignoring tracebacks, while keeping a record of
     # which MultiErrors were preserved unchanged
-    def filter_tree(exc, preserved):
+    def filter_tree(
+        exc: MultiError | BaseException, preserved: set[int]
+    ) -> MultiError | BaseException | None:
         if isinstance(exc, MultiError):
             new_exceptions = []
             changed = False
@@ -103,7 +110,9 @@ def _filter_impl(handler, root_exc):
                 new_exc.__context__ = exc
             return new_exc
 
-    def push_tb_down(tb, exc, preserved):
+    def push_tb_down(
+        tb: TracebackType | None, exc: BaseException, preserved: set[int]
+    ) -> None:
         if id(exc) in preserved:
             return
         new_tb = concat_tb(tb, exc.__traceback__)
@@ -114,7 +123,7 @@ def _filter_impl(handler, root_exc):
         else:
             exc.__traceback__ = new_tb
 
-    preserved = set()
+    preserved: set[int] = set()
     new_root_exc = filter_tree(root_exc, preserved)
     push_tb_down(None, root_exc, preserved)
     # Delete the local functions to avoid a reference cycle (see
@@ -130,9 +139,9 @@ def _filter_impl(handler, root_exc):
 # frame show up in the traceback; otherwise, we leave no trace.)
 @attr.s(frozen=True)
 class MultiErrorCatcher:
-    _handler = attr.ib()
+    _handler: Callable[[BaseException], BaseException] = attr.ib()
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         pass
 
     def __exit__(
@@ -167,6 +176,51 @@ class MultiErrorCatcher:
         return False
 
 
+# types: type-arg error: Missing type parameters for generic type "BaseExceptionGroup"
+# types: note: Another file has errors: trio/_timeouts.py
+# types: note: Another file has errors: trio/_core/_entry_queue.py
+# types: note: Another file has errors: trio/_signals.py
+# types: note: Another file has errors: trio/_util.py
+# types: note: Another file has errors: trio/_subprocess_platform/waitid.py
+# types: note: Another file has errors: trio/testing/__init__.py
+# types: note: Another file has errors: trio/_core/_thread_cache.py
+# types: note: Another file has errors: trio/_channel.py
+# types: note: Another file has errors: trio/testing/_network.py
+# types: note: Another file has errors: trio/_core/_wakeup_socketpair.py
+# types: note: Another file has errors: trio/_subprocess.py
+# types: note: Another file has errors: trio/_core/_unbounded_queue.py
+# types: note: Another file has errors: trio/_path.py
+# types: note: Another file has errors: trio/testing/_memory_streams.py
+# types: note: Another file has errors: trio/_highlevel_open_unix_stream.py
+# types: note: Another file has errors: trio/testing/_checkpoints.py
+# types: note: Another file has errors: trio/_core/_traps.py
+# types: note: Another file has errors: trio/_highlevel_serve_listeners.py
+# types: note: Another file has errors: trio/_core/_generated_instrumentation.py
+# types: note: Another file has errors: trio/_socket.py
+# types: note: Another file has errors: trio/_core/_io_common.py
+# types: note: Another file has errors: trio/lowlevel.py
+# types: note: Another file has errors: trio/_core/_ki.py
+# types: note: Another file has errors: trio/_core/_asyncgens.py
+# types: note: Another file has errors: trio/_highlevel_ssl_helpers.py
+# types: note: Another file has errors: trio/_ssl.py
+# types: note: Another file has errors: trio/testing/_trio_test.py
+# types: note: Another file has errors: trio/_core/_parking_lot.py
+# types: note: Another file has errors: trio/_highlevel_open_tcp_listeners.py
+# types: note: Another file has errors: trio/testing/_check_streams.py
+# types: note: Another file has errors: trio/_highlevel_open_tcp_stream.py
+# types: note: Another file has errors: trio/_core/_generated_io_epoll.py
+# types: note: Another file has errors: trio/_core/_mock_clock.py
+# types: note: Another file has errors: trio/_sync.py
+# types: note: Another file has errors: trio/_threads.py
+# types: note: Another file has errors: trio/_dtls.py
+# types: note: Another file has errors: trio/_core/_run.py
+# types: note: Another file has errors: trio/__init__.py
+# types: note: Another file has errors: trio/_core/_generated_run.py
+# types: note: Another file has errors: trio/_highlevel_socket.py
+# types: note: Another file has errors: trio/_unix_pipes.py
+# types: note: Another file has errors: trio/_core/_io_epoll.py
+# types: note: Another file has errors: trio/testing/_sequencer.py
+# types: type-arg error: Missing type parameters for generic type "BaseExceptionGroup"
 class MultiError(BaseExceptionGroup):
     """An exception that contains other exceptions; also known as an
     "inception".
@@ -190,7 +244,9 @@ class MultiError(BaseExceptionGroup):
 
     """
 
-    def __init__(self, exceptions, *, _collapse=True):
+    def __init__(
+        self, exceptions: list[BaseException], *, _collapse: bool = True
+    ) -> None:
         self.collapse = _collapse
 
         # Avoid double initialization when _collapse is True and exceptions[0] returned
@@ -201,7 +257,9 @@ class MultiError(BaseExceptionGroup):
 
         super().__init__("multiple tasks failed", exceptions)
 
-    def __new__(cls, exceptions, *, _collapse=True):
+    def __new__(
+        cls, exceptions: Iterable[BaseException], *, _collapse: bool = True
+    ) -> MultiError | Self:
         exceptions = list(exceptions)
         for exc in exceptions:
             if not isinstance(exc, BaseException):
@@ -210,7 +268,9 @@ class MultiError(BaseExceptionGroup):
             # If this lone object happens to itself be a MultiError, then
             # Python will implicitly call our __init__ on it again.  See
             # special handling in __init__.
-            return exceptions[0]
+            single = exceptions[0]
+            assert isinstance(single, MultiError)
+            return single
         else:
             # The base class __new__() implicitly invokes our __init__, which
             # is what we want.
@@ -223,6 +283,58 @@ class MultiError(BaseExceptionGroup):
 
             return super().__new__(cls, "multiple tasks failed", exceptions)
 
+    # types: Error running mypy: Daemon crashed!
+    # types: Traceback (most recent call last):
+    # types:   File "mypy/suggestions.py", line 296, in restore_after
+    # types:   File "mypy/suggestions.py", line 267, in suggest
+    # types:   File "mypy/suggestions.py", line 502, in get_suggestion
+    # types:   File "mypy/suggestions.py", line 444, in find_best
+    # types:   File "mypy/suggestions.py", line 675, in try_type
+    # types:   File "mypy/server/update.py", line 314, in trigger
+    # types:   File "mypy/server/update.py", line 881, in propagate_changes_using_dependencies
+    # types:   File "mypy/server/update.py", line 1010, in reprocess_nodes
+    # types:   File "mypy/semanal_main.py", line 144, in semantic_analysis_for_targets
+    # types:   File "mypy/semanal_main.py", line 291, in process_top_level_function
+    # types:   File "mypy/semanal_main.py", line 349, in semantic_analyze_target
+    # types:   File "mypy/semanal.py", line 603, in refresh_partial
+    # types:   File "mypy/semanal.py", line 6453, in accept
+    # types:   File "mypy/errors.py", line 1177, in report_internal_error
+    # types:   File "mypy/semanal.py", line 6451, in accept
+    # types:   File "mypy/nodes.py", line 786, in accept
+    # types:   File "mypy/semanal.py", line 833, in visit_func_def
+    # types:   File "mypy/semanal.py", line 865, in analyze_func_def
+    # types:   File "mypy/typeanal.py", line 950, in visit_callable_type
+    # types:   File "mypy/typeanal.py", line 1522, in anal_type
+    # types:   File "mypy/types.py", line 2294, in accept
+    # types:   File "mypy/typeanal.py", line 1051, in visit_tuple_type
+    # types:   File "mypy/typeanal.py", line 1512, in anal_array
+    # types:   File "mypy/typeanal.py", line 1522, in anal_type
+    # types:   File "mypy/types.py", line 1917, in accept
+    # types:   File "mypy/typeanal.py", line 931, in visit_callable_type
+    # types:   File "mypy/typeanal.py", line 1469, in bind_function_type_variables
+    # types: AssertionError
+    # types: During handling of the above exception, another exception occurred:
+    # types: Traceback (most recent call last):
+    # types:   File "mypy/dmypy_server.py", line 234, in serve
+    # types:   File "mypy/dmypy_server.py", line 281, in run_command
+    # types:   File "mypy/dmypy_server.py", line 931, in cmd_suggest
+    # types:   File "mypy/suggestions.py", line 265, in suggest
+    # types:   File "/usr/lib/python3.11/contextlib.py", line 155, in __exit__
+    # types:     self.gen.throw(typ, value, traceback)
+    # types:   File "mypy/suggestions.py", line 298, in restore_after
+    # types:   File "mypy/suggestions.py", line 687, in reload
+    # types:   File "mypy/server/update.py", line 267, in update
+    # types:   File "mypy/server/update.py", line 369, in update_one
+    # types:   File "mypy/server/update.py", line 426, in update_module
+    # types:   File "mypy/server/astdiff.py", line 223, in snapshot_symbol_table
+    # types:   File "mypy/server/astdiff.py", line 236, in snapshot_definition
+    # types:   File "mypy/server/astdiff.py", line 315, in snapshot_type
+    # types:   File "mypy/types.py", line 1917, in accept
+    # types:   File "mypy/server/astdiff.py", line 439, in visit_callable_type
+    # types:   File "mypy/types.py", line 1900, in is_type_obj
+    # types:   File "mypy/nodes.py", line 3170, in is_metaclass
+    # types:   File "mypy/nodes.py", line 3180, in has_base
+    # types: AttributeError: attribute 'mro' of 'TypeInfo' undefined
     def __reduce__(self):
         return (
             self.__new__,
@@ -230,12 +342,13 @@ class MultiError(BaseExceptionGroup):
             {"collapse": self.collapse},
         )
 
-    def __str__(self):
+    def __str__(self) -> str:
         return ", ".join(repr(exc) for exc in self.exceptions)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<MultiError: {self}>"
 
+    # types: no-untyped-def error: Function is missing a type annotation
     def derive(self, __excs):
         # We use _collapse=False here to get ExceptionGroup semantics, since derive()
         # is part of the PEP 654 API
@@ -244,7 +357,9 @@ class MultiError(BaseExceptionGroup):
         return exc
 
     @classmethod
-    def filter(cls, handler, root_exc):
+    def filter(
+        cls, handler: Callable[[BaseException], BaseException], root_exc: BaseException
+    ) -> BaseException | None:
         """Apply the given ``handler`` to all the exceptions in ``root_exc``.
 
         Args:
@@ -268,7 +383,9 @@ class MultiError(BaseExceptionGroup):
         return _filter_impl(handler, root_exc)
 
     @classmethod
-    def catch(cls, handler):
+    def catch(
+        cls, handler: Callable[[BaseException], BaseException]
+    ) -> MultiErrorCatcher:
         """Return a context manager that catches and re-throws exceptions
         after running :meth:`filter` on them.
 
@@ -286,6 +403,7 @@ class MultiError(BaseExceptionGroup):
         return MultiErrorCatcher(handler)
 
 
+# types: type-arg error: Missing type parameters for generic type "ExceptionGroup"
 class NonBaseMultiError(MultiError, ExceptionGroup):
     pass
 
@@ -314,6 +432,8 @@ NonBaseMultiError.__module__ = "trio"
 #   https://github.com/pallets/jinja/blob/master/jinja2/debug.py
 
 try:
+    # types: import error: Cannot find implementation or library stub for module named "tputil"
+    # types: note: See https://mypy.readthedocs.io/en/stable/running_mypy.html#missing-imports
     import tputil
 except ImportError:
     have_tproxy = False
@@ -322,7 +442,8 @@ else:
 
 if have_tproxy:
     # http://doc.pypy.org/en/latest/objspace-proxies.html
-    def copy_tb(base_tb, tb_next):
+    def copy_tb(base_tb: TracebackType, tb_next: TracebackType | None) -> tputil:
+        # types: no-untyped-def error: Function is missing a type annotation
         def controller(operation):
             # Rationale for pragma: I looked fairly carefully and tried a few
             # things, and AFAICT it's not actually possible to get any
@@ -397,7 +518,9 @@ else:
             del new_tb, old_tb_frame
 
 
-def concat_tb(head, tail):
+def concat_tb(
+    head: TracebackType | None, tail: TracebackType | None
+) -> TracebackType | None:
     # We have to use an iterative algorithm here, because in the worst case
     # this might be a RecursionError stack that is by definition too deep to
     # process by recursion!
@@ -417,7 +540,9 @@ def concat_tb(head, tail):
 if "IPython" in sys.modules:
     import IPython
 
+    # types: attr-defined error: Module "IPython" does not explicitly export attribute "get_ipython"
     ip = IPython.get_ipython()
+    # types: ^^^^^
     if ip is not None:
         if ip.custom_exceptions != ():
             warnings.warn(
@@ -428,8 +553,15 @@ if "IPython" in sys.modules:
                 category=RuntimeWarning,
             )
         else:
-
-            def trio_show_traceback(self, etype, value, tb, tb_offset=None):
+            # types: name-defined error: Name "Any" is not defined
+            # types: note: Did you forget to import it from "typing"? (Suggestion: "from typing import Any")
+            def trio_show_traceback(
+                self: Any,
+                etype: Any,
+                value: BaseException,
+                tb: TracebackType,
+                tb_offset: Any | None = None,
+            ) -> None:
                 # XX it would be better to integrate with IPython's fancy
                 # exception formatting stuff (and not ignore tb_offset)
                 print_exception(value)
