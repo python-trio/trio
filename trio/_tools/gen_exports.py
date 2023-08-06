@@ -9,7 +9,7 @@ import argparse
 import ast
 import os
 import sys
-from collections.abc import Generator, Iterable
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from textwrap import indent
 from typing import TYPE_CHECKING
@@ -63,7 +63,7 @@ def is_public(node: ast.AST) -> TypeGuard[ast.FunctionDef | ast.AsyncFunctionDef
 
 def get_public_methods(
     tree: ast.AST,
-) -> Generator[ast.FunctionDef | ast.AsyncFunctionDef, None, None]:
+) -> Iterator[ast.FunctionDef | ast.AsyncFunctionDef]:
     """Return a list of methods marked as public.
     The function walks the given tree and extracts
     all objects that are functions which are marked
