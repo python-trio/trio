@@ -761,7 +761,7 @@ class SSLStream(Stream, metaclass=Final):
             await self._retry(self._ssl_object.unwrap)
             transport_stream = self.transport_stream
             self._state = _State.CLOSED
-            self.transport_stream = None  # type: ignore[assignment]  # Messy, but State closed, should not use, should be fine...
+            self.transport_stream = None  # type: ignore[assignment]  # State is CLOSED now, nothing should use
             return (transport_stream, self._incoming.read())
 
     async def aclose(self) -> None:
