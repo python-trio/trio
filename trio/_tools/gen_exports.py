@@ -108,7 +108,7 @@ def create_passthrough_args(funcdef: ast.FunctionDef | ast.AsyncFunctionDef) -> 
     return "({})".format(", ".join(call_args))
 
 
-def gen_public_wrappers_source(source_path: Path, lookup_path: str) -> str:
+def gen_public_wrappers_source(source_path: Path | str, lookup_path: str) -> str:
     """Scan the given .py file for @_public decorators, and generate wrapper
     functions.
 
@@ -116,7 +116,9 @@ def gen_public_wrappers_source(source_path: Path, lookup_path: str) -> str:
     generated = [HEADER]
 
     # This is only triggered by check.sh, not test_gen_exports.py
-    if lookup_path == "runner.io_manager":  # pragma: no coverage
+    if lookup_path == "runner.io_manager" and isinstance(
+        source_path, Path
+    ):  # pragma: no coverage
         for file_indicator, platform in (
             ("windows", "win32"),
             ("kqueue", "darwin"),
@@ -127,8 +129,6 @@ def gen_public_wrappers_source(source_path: Path, lookup_path: str) -> str:
                     f'assert not TYPE_CHECKING or sys.platform=="{platform}"'
                 )
                 break
-        else:
-            assert False
 
     source = astor.code_to_ast.parse_file(source_path)
     for method in get_public_methods(source):
@@ -189,7 +189,9 @@ def matches_disk_files(new_files: dict[str, str]) -> bool:
     return True
 
 
-def process(sources_and_lookups: Iterable[tuple[Path, str]], *, do_test: bool) -> None:
+def process(
+    sources_and_lookups: Iterable[tuple[Path | str, str]], *, do_test: bool
+) -> None:
     new_files = {}
     for source_path, lookup_path in sources_and_lookups:
         print("Scanning:", source_path)
