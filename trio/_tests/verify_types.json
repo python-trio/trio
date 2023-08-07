@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.9378980891719745,
+    "completenessScore": 0.9411764705882353,
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 589,
-      "withUnknownType": 39
+      "withKnownType": 592,
+      "withUnknownType": 37
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -51,7 +51,6 @@
     },
     "packageName": "trio",
     "symbols": [
-      "trio._core._mock_clock.MockClock.jump",
       "trio._highlevel_socket.SocketStream.getsockopt",
       "trio._highlevel_socket.SocketStream.send_all",
       "trio._highlevel_socket.SocketStream.setsockopt",
@@ -94,7 +93,6 @@
       "trio.lowlevel.wait_writable",
       "trio.open_ssl_over_tcp_listeners",
       "trio.open_ssl_over_tcp_stream",
-      "trio.open_tcp_listeners",
       "trio.open_unix_socket",
       "trio.run_process",
       "trio.serve_listeners",

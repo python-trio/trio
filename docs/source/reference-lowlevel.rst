@@ -53,7 +53,7 @@ Global statistics
 
    Returns an object containing run-loop-level debugging information:
 
-.. autoclass:: trio.RunStatistics()
+.. autoclass:: RunStatistics()
 
 
 The current clock

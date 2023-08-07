@@ -1277,9 +1277,7 @@ class Task(metaclass=NoPublicConstructor):
     # Tasks start out unscheduled.
     _next_send_fn: Callable[[Any], object] = attr.ib(default=None)
     _next_send: Outcome[Any] | None | BaseException = attr.ib(default=None)
-    _abort_func: Callable[[_core.RaiseCancelT], Abort] | None = attr.ib(
-        default=None
-    )
+    _abort_func: Callable[[_core.RaiseCancelT], Abort] | None = attr.ib(default=None)
     custom_sleep_data: Any = attr.ib(default=None)
 
     # For introspection and nursery.start()
