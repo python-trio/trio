@@ -2,7 +2,12 @@ import ast
 
 import pytest
 
-from trio._tools.gen_exports import File, create_passthrough_args, get_public_methods, process
+from trio._tools.gen_exports import (
+    File,
+    create_passthrough_args,
+    get_public_methods,
+    process,
+)
 
 SOURCE = '''from _run import _public
 from somewhere import Thing
@@ -25,9 +30,20 @@ class Test:
         pass
 '''
 
-IMPORTS = '''\
+IMPORT_1 = """\
 from somewhere import Thing
-'''
+"""
+
+IMPORT_2 = """\
+from somewhere import Thing
+import os
+"""
+
+IMPORT_3 = """\
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from somewhere import Thing
+"""
 
 
 def test_get_public_methods():
@@ -53,11 +69,12 @@ def test_create_pass_through_args():
         assert create_passthrough_args(func_node) == expected
 
 
-def test_process(tmp_path):
+@pytest.mark.parametrize("imports", ['', IMPORT_1, IMPORT_2, IMPORT_3])
+def test_process(tmp_path, imports):
     modpath = tmp_path / "_module.py"
     genpath = tmp_path / "_generated_module.py"
     modpath.write_text(SOURCE, encoding="utf-8")
-    file = File(modpath, "runner")
+    file = File(modpath, "runner", platform="linux", imports=imports)
     assert not genpath.exists()
     with pytest.raises(SystemExit) as excinfo:
         process([file], do_test=True)
@@ -67,5 +84,12 @@ def test_process(tmp_path):
     process([file], do_test=True)
     # But if we change the lookup path it notices
     with pytest.raises(SystemExit) as excinfo:
-        process([File(modpath, "runner.io_manager")], do_test=True)
+        process(
+            [File(modpath, "runner.io_manager", platform="linux", imports=imports)],
+            do_test=True,
+        )
+    assert excinfo.value.code == 1
+    # Also if the platform is changed.
+    with pytest.raises(SystemExit) as excinfo:
+        process([File(modpath, "runner", imports=imports)], do_test=True)
     assert excinfo.value.code == 1

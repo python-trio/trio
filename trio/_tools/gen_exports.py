@@ -49,8 +49,8 @@ except AttributeError:
 class File:
     path: Path
     modname: str
-    platform: str = attr.field(default='', kw_only=True)
-    imports: str = attr.field(default='', kw_only=True)
+    platform: str = attr.field(default="", kw_only=True)
+    imports: str = attr.field(default="", kw_only=True)
 
 
 def is_function(node: ast.AST) -> TypeGuard[ast.FunctionDef | ast.AsyncFunctionDef]:
@@ -116,15 +116,15 @@ def gen_public_wrappers_source(file: File) -> str:
     if file.platform:
         # Simple checks to avoid repeating imports. If this messes up, type checkers/tests will
         # just give errors.
-        if 'TYPE_CHECKING' not in file.imports:
-            header.append('from typing import TYPE_CHECKING\n')
-        if 'import sys' not in file.imports:
-            header.append('import sys\n')
+        if "TYPE_CHECKING" not in file.imports:
+            header.append("from typing import TYPE_CHECKING\n")
+        if "import sys" not in file.imports:
+            header.append("import sys\n")
         header.append(
             f'\nassert not TYPE_CHECKING or sys.platform=="{file.platform}"\n'
         )
 
-    generated = [''.join(header)]
+    generated = ["".join(header)]
 
     source = astor.code_to_ast.parse_file(file.path)
     for method in get_public_methods(source):
@@ -185,9 +185,7 @@ def matches_disk_files(new_files: dict[str, str]) -> bool:
     return True
 
 
-def process(
-    files: Iterable[File], *, do_test: bool
-) -> None:
+def process(files: Iterable[File], *, do_test: bool) -> None:
     new_files = {}
     for file in files:
         print("Scanning:", file.path)
@@ -225,27 +223,41 @@ def main() -> None:  # pragma: no cover
     core = source_root / "trio/_core"
     to_wrap = [
         File(core / "_run.py", "runner", imports=IMPORTS_RUN),
-        File(core / "_instrumentation.py", "runner.instruments", imports=IMPORTS_INSTRUMENT),
+        File(
+            core / "_instrumentation.py",
+            "runner.instruments",
+            imports=IMPORTS_INSTRUMENT,
+        ),
         File(core / "_io_windows.py", "runner.io_manager", platform="win32"),
-        File(core / "_io_epoll.py", "runner.io_manager", platform="linux", imports=IMPORTS_EPOLL),
-        File(core / "_io_kqueue.py", "runner.io_manager", platform="darwin", imports=IMPORTS_KQUEUE),
+        File(
+            core / "_io_epoll.py",
+            "runner.io_manager",
+            platform="linux",
+            imports=IMPORTS_EPOLL,
+        ),
+        File(
+            core / "_io_kqueue.py",
+            "runner.io_manager",
+            platform="darwin",
+            imports=IMPORTS_KQUEUE,
+        ),
     ]
 
     process(to_wrap, do_test=parsed_args.test)
 
 
-IMPORTS_RUN = '''\
+IMPORTS_RUN = """\
 from ._run import _NO_SEND
-'''
-IMPORTS_INSTRUMENT = '''\
+"""
+IMPORTS_INSTRUMENT = """\
 from ._instrumentation import Instrument
-'''
+"""
 
-IMPORTS_EPOLL = '''\
+IMPORTS_EPOLL = """\
 from socket import socket
-'''
+"""
 
-IMPORTS_KQUEUE = '''\
+IMPORTS_KQUEUE = """\
 from typing import Callable, ContextManager, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -257,7 +269,7 @@ if TYPE_CHECKING:
     from .. import _core
     from ._unbounded_queue import UnboundedQueue
 
-'''
+"""
 
 
 if __name__ == "__main__":  # pragma: no cover
