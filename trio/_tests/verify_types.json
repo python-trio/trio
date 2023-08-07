@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.9186602870813397,
+    "completenessScore": 0.9202551834130781,
     "exportedSymbolCounts": {
-      "withAmbiguousType": 0,
-      "withKnownType": 576,
-      "withUnknownType": 51
+      "withAmbiguousType": 1,
+      "withKnownType": 577,
+      "withUnknownType": 46
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -45,12 +45,13 @@
       }
     ],
     "otherSymbolCounts": {
-      "withAmbiguousType": 3,
-      "withKnownType": 602,
-      "withUnknownType": 61
+      "withAmbiguousType": 4,
+      "withKnownType": 616,
+      "withUnknownType": 63
     },
     "packageName": "trio",
     "symbols": [
+      "trio._core._mock_clock.MockClock.jump",
       "trio._core._run.Nursery.start",
       "trio._core._run.Nursery.start_soon",
       "trio._core._run.TaskStatus.__repr__",
@@ -60,20 +61,7 @@
       "trio._highlevel_socket.SocketStream.getsockopt",
       "trio._highlevel_socket.SocketStream.send_all",
       "trio._highlevel_socket.SocketStream.setsockopt",
-      "trio._ssl.SSLListener.__init__",
-      "trio._ssl.SSLListener.accept",
-      "trio._ssl.SSLListener.aclose",
-      "trio._ssl.SSLStream.__dir__",
-      "trio._ssl.SSLStream.__getattr__",
-      "trio._ssl.SSLStream.__init__",
-      "trio._ssl.SSLStream.__setattr__",
-      "trio._ssl.SSLStream.aclose",
-      "trio._ssl.SSLStream.do_handshake",
-      "trio._ssl.SSLStream.receive_some",
-      "trio._ssl.SSLStream.send_all",
       "trio._ssl.SSLStream.transport_stream",
-      "trio._ssl.SSLStream.unwrap",
-      "trio._ssl.SSLStream.wait_send_all_might_not_block",
       "trio._subprocess.Process.__init__",
       "trio._subprocess.Process.__repr__",
       "trio._subprocess.Process.args",
@@ -107,6 +95,7 @@
       "trio.lowlevel.wait_writable",
       "trio.open_ssl_over_tcp_listeners",
       "trio.open_ssl_over_tcp_stream",
+      "trio.open_tcp_listeners",
       "trio.open_unix_socket",
       "trio.run",
       "trio.run_process",

@@ -6,6 +6,8 @@ from collections.abc import Awaitable, Callable
 from enum import Enum as _Enum
 from typing import TYPE_CHECKING, Any, Final as TFinal, TypeVar
 
+import trio
+
 if TYPE_CHECKING:
     from typing_extensions import TypeGuard
 
@@ -239,7 +241,7 @@ class _Once:
 
     @property
     def done(self) -> bool:
-        return self._done.is_set()
+        return bool(self._done.is_set())
 
 
 _State = _Enum("_State", ["OK", "BROKEN", "CLOSED"])
@@ -702,9 +704,9 @@ class SSLStream(Stream, metaclass=Final):
                 if max_bytes < 1:
                     raise ValueError("max_bytes must be >= 1")
             try:
-                recieved = await self._retry(self._ssl_object.read, max_bytes)
-                assert recieved is not None
-                return recieved
+                received = await self._retry(self._ssl_object.read, max_bytes)
+                assert received is not None
+                return received
             except trio.BrokenResourceError as exc:
                 # This isn't quite equivalent to just returning b"" in the
                 # first place, because we still end up with self._state set to
