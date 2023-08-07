@@ -11,7 +11,7 @@
     "exportedSymbolCounts": {
       "withAmbiguousType": 1,
       "withKnownType": 577,
-      "withUnknownType": 46
+      "withUnknownType": 49
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -47,11 +47,10 @@
     "otherSymbolCounts": {
       "withAmbiguousType": 4,
       "withKnownType": 616,
-      "withUnknownType": 63
+      "withUnknownType": 46
     },
     "packageName": "trio",
     "symbols": [
-      "trio._core._mock_clock.MockClock.jump",
       "trio._core._run.Nursery.start",
       "trio._core._run.Nursery.start_soon",
       "trio._core._run.TaskStatus.__repr__",
@@ -95,7 +94,6 @@
       "trio.lowlevel.wait_writable",
       "trio.open_ssl_over_tcp_listeners",
       "trio.open_ssl_over_tcp_stream",
-      "trio.open_tcp_listeners",
       "trio.open_unix_socket",
       "trio.run",
       "trio.run_process",
