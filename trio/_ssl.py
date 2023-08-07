@@ -4,17 +4,14 @@ import operator as _operator
 import ssl as _stdlib_ssl
 from collections.abc import Awaitable, Callable
 from enum import Enum as _Enum
-from typing import TYPE_CHECKING, Any, Final as TFinal, TypeVar
+from typing import Any, Final as TFinal, TypeVar
 
 import trio
-
-if TYPE_CHECKING:
-    from typing_extensions import TypeGuard
 
 from . import _sync
 from ._highlevel_generic import aclose_forcefully
 from ._util import ConflictDetector, Final
-from .abc import AsyncResource, Listener, Stream
+from .abc import Listener, Stream
 
 # General theory of operation:
 #
