@@ -61,6 +61,7 @@ module = [
     "trio._ki",
     "trio._socket",
     "trio._sync",
+    "trio._tools.gen_exports",
     "trio._util",
 ]
 disallow_incomplete_defs = true

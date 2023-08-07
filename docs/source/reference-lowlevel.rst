@@ -538,6 +538,8 @@ Task API
       putting a task to sleep and then waking it up again. (See
       :func:`wait_task_rescheduled` for details.)
 
+.. autoclass:: TaskStatus
+   :members:
 
 .. _guest-mode:
 

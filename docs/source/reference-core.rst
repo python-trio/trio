@@ -930,7 +930,6 @@ The nursery API
 .. autoclass:: TaskStatus(Protocol[StatusT])
    :members:
 
-
 .. _task-local-storage:
 
 Task-local storage
