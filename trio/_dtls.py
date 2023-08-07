@@ -42,8 +42,8 @@ if TYPE_CHECKING:
     from OpenSSL.SSL import Context
     from typing_extensions import Self, TypeAlias
 
-    from ._core._run import TaskStatus
-    from ._socket import Address, _SocketType
+    from trio.lowlevel import TaskStatus
+    from trio.socket import Address, _SocketType
 
 MAX_UDP_PACKET_SIZE = 65527
 
