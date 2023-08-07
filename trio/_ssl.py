@@ -4,9 +4,10 @@ import operator as _operator
 import ssl as _stdlib_ssl
 from collections.abc import Awaitable, Callable
 from enum import Enum as _Enum
-from typing import Any, Final as TFinal, TypeGuard, TypeVar
+from typing import TYPE_CHECKING, Any, Final as TFinal, TypeVar
 
-import trio
+if TYPE_CHECKING:
+    from typing_extensions import TypeGuard
 
 from . import _sync
 from ._highlevel_generic import aclose_forcefully
@@ -163,8 +164,6 @@ from .abc import AsyncResource, Listener, Stream
 # stream)
 # docs will need to make very clear that this is different from all the other
 # cancellations in core Trio
-
-
 
 
 T = TypeVar("T")
