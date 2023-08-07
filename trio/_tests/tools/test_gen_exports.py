@@ -5,6 +5,7 @@ import pytest
 from trio._tools.gen_exports import File, create_passthrough_args, get_public_methods, process
 
 SOURCE = '''from _run import _public
+from somewhere import Thing
 
 class Test:
     @_public
@@ -14,7 +15,7 @@ class Test:
     @ignore_this
     @_public
     @another_decorator
-    async def public_async_func(self):
+    async def public_async_func(self) -> Thing:
         pass  # no doc string
 
     def not_public(self):
@@ -22,6 +23,10 @@ class Test:
 
     async def not_public_async(self):
         pass
+'''
+
+IMPORTS = '''\
+from somewhere import Thing
 '''
 
 
