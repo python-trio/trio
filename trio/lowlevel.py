@@ -16,7 +16,6 @@ from ._core import (
     RunStatistics as RunStatistics,
     RunVar as RunVar,
     Task as Task,
-    TaskStatus as TaskStatus,
     TrioToken as TrioToken,
     UnboundedQueue as UnboundedQueue,
     UnboundedQueueStatistics as UnboundedQueueStatistics,

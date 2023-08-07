@@ -6,7 +6,7 @@ from collections.abc import Awaitable, Callable
 from math import inf
 
 import trio
-from trio.lowlevel import TaskStatus
+from trio import TaskStatus
 
 from . import socket as tsocket
 
