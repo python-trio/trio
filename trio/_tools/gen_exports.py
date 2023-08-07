@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from typing_extensions import TypeGuard
 
 import astor
+import attr
 
 PREFIX = "_generated"
 
@@ -55,6 +56,13 @@ try:
 except AttributeError:
     raise RuntimeError("must be called from async context")
 """
+
+
+@attr.define
+class File:
+    path: Path
+    modname: str
+    platform: str = attr.field(default='', kw_only=True)
 
 
 def is_function(node: ast.AST) -> TypeGuard[ast.FunctionDef | ast.AsyncFunctionDef]:
@@ -108,29 +116,19 @@ def create_passthrough_args(funcdef: ast.FunctionDef | ast.AsyncFunctionDef) -> 
     return "({})".format(", ".join(call_args))
 
 
-def gen_public_wrappers_source(source_path: Path | str, lookup_path: str) -> str:
+def gen_public_wrappers_source(file: File) -> str:
     """Scan the given .py file for @_public decorators, and generate wrapper
     functions.
 
     """
     generated = [HEADER]
 
-    # This is only triggered by check.sh, not test_gen_exports.py
-    if lookup_path == "runner.io_manager" and isinstance(
-        source_path, Path
-    ):  # pragma: no coverage
-        for file_indicator, platform in (
-            ("windows", "win32"),
-            ("kqueue", "darwin"),
-            ("epoll", "linux"),
-        ):
-            if file_indicator in source_path.stem:
-                generated.append(
-                    f'assert not TYPE_CHECKING or sys.platform=="{platform}"'
-                )
-                break
+    if file.platform:
+        generated.append(
+            f'assert not TYPE_CHECKING or sys.platform=="{file.platform}"'
+        )
 
-    source = astor.code_to_ast.parse_file(source_path)
+    source = astor.code_to_ast.parse_file(file.path)
     for method in get_public_methods(source):
         # Remove self from arguments
         assert method.args.args[0].arg == "self"
@@ -165,7 +163,7 @@ def gen_public_wrappers_source(source_path: Path | str, lookup_path: str) -> str
         # Create export function body
         template = TEMPLATE.format(
             " await " if isinstance(method, ast.AsyncFunctionDef) else " ",
-            lookup_path,
+            file.modname,
             method.name + new_args,
         )
 
@@ -190,13 +188,13 @@ def matches_disk_files(new_files: dict[str, str]) -> bool:
 
 
 def process(
-    sources_and_lookups: Iterable[tuple[Path | str, str]], *, do_test: bool
+    files: Iterable[File], *, do_test: bool
 ) -> None:
     new_files = {}
-    for source_path, lookup_path in sources_and_lookups:
-        print("Scanning:", source_path)
-        new_source = gen_public_wrappers_source(source_path, lookup_path)
-        dirname, basename = os.path.split(source_path)
+    for file in files:
+        print("Scanning:", file.path)
+        new_source = gen_public_wrappers_source(file)
+        dirname, basename = os.path.split(file.path)
         new_path = os.path.join(dirname, PREFIX + basename)
         new_files[new_path] = new_source
     if do_test:
@@ -228,11 +226,11 @@ def main() -> None:  # pragma: no cover
     assert (source_root / "LICENSE").exists()
     core = source_root / "trio/_core"
     to_wrap = [
-        (core / "_run.py", "runner"),
-        (core / "_instrumentation.py", "runner.instruments"),
-        (core / "_io_windows.py", "runner.io_manager"),
-        (core / "_io_epoll.py", "runner.io_manager"),
-        (core / "_io_kqueue.py", "runner.io_manager"),
+        File(core / "_run.py", "runner"),
+        File(core / "_instrumentation.py", "runner.instruments"),
+        File(core / "_io_windows.py", "runner.io_manager", platform="win32"),
+        File(core / "_io_epoll.py", "runner.io_manager", platform="linux"),
+        File(core / "_io_kqueue.py", "runner.io_manager", platform="darwin"),
     ]
 
     process(to_wrap, do_test=parsed_args.test)
