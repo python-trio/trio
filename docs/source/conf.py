@@ -58,6 +58,7 @@ nitpick_ignore = [
     ("py:class", "trio._abc.ReceiveType"),
     ("py:class", "trio._abc.SendType"),
     ("py:class", "trio._abc.T"),
+    ("py:class", "trio._abc.T_resource"),
     ("py:obj", "trio._abc.ReceiveType"),
     ("py:obj", "trio._abc.SendType"),
     ("py:obj", "trio._abc.T"),
