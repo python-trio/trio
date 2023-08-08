@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import random
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Generator
 from contextlib import contextmanager
 from typing import Generic, TYPE_CHECKING, TypeVar
 
@@ -41,7 +41,7 @@ class _ForceCloseBoth(Generic[Res1, Res2]):
 
 
 @contextmanager
-def _assert_raises(exc):
+def _assert_raises(exc: type[BaseException]) -> Generator[None, None, None]:
     __tracebackhide__ = True
     try:
         yield
@@ -55,7 +55,7 @@ async def check_one_way_stream(
     stream_maker: Callable[[], Awaitable[tuple[SendStream, ReceiveStream]]],
     clogged_stream_maker: Callable[[], Awaitable[tuple[SendStream, ReceiveStream]]]
     | None,
-):
+) -> None:
     """Perform a number of generic tests on a custom one-way stream
     implementation.
 
@@ -79,8 +79,8 @@ async def check_one_way_stream(
         assert isinstance(r, ReceiveStream)
 
         async def do_send_all(data: bytes) -> None:
-            with assert_checkpoints():
-                assert await s.send_all(data) is None
+            with assert_checkpoints():  # We're testing that it doesn't return anything.
+                assert await s.send_all(data) is None  # type: ignore[func-returns-value]
 
         async def do_receive_some(max_bytes: int | None = None) -> bytes | bytearray:
             with assert_checkpoints():
@@ -125,7 +125,7 @@ async def check_one_way_stream(
         with _assert_raises(ValueError):
             await r.receive_some(0)
         with _assert_raises(TypeError):
-            await r.receive_some(1.5)
+            await r.receive_some(1.5)  # type: ignore[arg-type]
         # it can also be missing or None
         async with _core.open_nursery() as nursery:
             nursery.start_soon(do_send_all, b"x")
@@ -144,7 +144,9 @@ async def check_one_way_stream(
         # for send_all to wait until receive_some is called to run, though; a
         # stream doesn't *have* to have any internal buffering. That's why we
         # start a concurrent receive_some call, then cancel it.)
-        async def simple_check_wait_send_all_might_not_block(scope):
+        async def simple_check_wait_send_all_might_not_block(
+            scope: CancelScope,
+        ) -> None:
             with assert_checkpoints():
                 await s.wait_send_all_might_not_block()
             scope.cancel()
@@ -157,7 +159,7 @@ async def check_one_way_stream(
 
         # closing the r side leads to BrokenResourceError on the s side
         # (eventually)
-        async def expect_broken_stream_on_send():
+        async def expect_broken_stream_on_send() -> None:
             with _assert_raises(_core.BrokenResourceError):
                 while True:
                     await do_send_all(b"x" * 100)
@@ -200,11 +202,11 @@ async def check_one_way_stream(
 
     async with _ForceCloseBoth(await stream_maker()) as (s, r):
         # if send-then-graceful-close, receiver gets data then b""
-        async def send_then_close():
+        async def send_then_close() -> None:
             await do_send_all(b"y")
             await do_aclose(s)
 
-        async def receive_send_then_close():
+        async def receive_send_then_close() -> None:
             # We want to make sure that if the sender closes the stream before
             # we read anything, then we still get all the data. But some
             # streams might block on the do_send_all call. So we let the
@@ -421,6 +423,8 @@ async def check_two_way_stream(
 
     async def flipped_stream_maker() -> tuple[Stream, Stream]:
         return (await stream_maker())[::-1]
+
+    flipped_clogged_stream_maker: Callable[[], Awaitable[tuple[Stream, Stream]]] | None
 
     if clogged_stream_maker is not None:
 

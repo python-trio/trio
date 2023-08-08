@@ -41,7 +41,8 @@ def trio_test(fn: Callable[ArgsT, Awaitable[RetT]]) -> Callable[ArgsT, RetT]:
         else:
             raise ValueError("too many clocks spoil the broth!")
         instruments = [i for i in kwargs.values() if isinstance(i, Instrument)]
-        return _core.run(
+        # trio.run isn't typed yet.
+        return _core.run(  # type: ignore[no-any-return]
             partial(fn, *args, **kwargs), clock=clock, instruments=instruments
         )
 

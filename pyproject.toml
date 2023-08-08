@@ -63,6 +63,13 @@ module = [
     "trio._sync",
     "trio._tools.gen_exports",
     "trio._util",
+    "trio.testing",
+    "trio.testing._check_streams",
+    "trio.testing._checkpoints",
+    "trio.testing._memory_streams",
+    "trio.testing._network",
+    "trio.testing._sequencer",
+    "trio.testing._trio_test",
 ]
 disallow_incomplete_defs = true
 disallow_untyped_defs = true
