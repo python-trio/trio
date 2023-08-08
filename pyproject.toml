@@ -54,6 +54,7 @@ module = [
     "trio._core._generated_run",
     "trio._core._local",
     "trio._core._unbounded_queue",
+    "trio._core._run",
     "trio._deprecate",
     "trio._dtls",
     "trio._file_io",
@@ -76,7 +77,6 @@ disallow_subclassing_any = true
 # Needs to use Any due to some complex introspection.
 module = [
     "trio._path",
-    "trio._core._run",
 ]
 disallow_incomplete_defs = true
 disallow_untyped_defs = true

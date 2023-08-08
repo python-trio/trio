@@ -1662,8 +1662,8 @@ class Runner:
     # Core task handling primitives
     ################
 
-    @_public
-    def reschedule(
+    @_public  # Type-ignore due to use of Any here.
+    def reschedule(  # type: ignore[misc]
         self, task: trio.lowlevel.Task, next_send: Outcome[Any] = _NO_SEND
     ) -> None:
         """Reschedule the given task with the given
@@ -1826,12 +1826,12 @@ class Runner:
     # System tasks and init
     ################
 
-    @_public
-    def spawn_system_task(
+    @_public  # Type-ignore due to use of Any here.
+    def spawn_system_task(  # type: ignore[misc]
         self,
         # TODO: TypeVarTuple
         async_fn: Callable[..., Awaitable[object]],
-        *args: Any,
+        *args: object,
         name: object = None,
         context: contextvars.Context | None = None,
     ) -> trio.lowlevel.Task:
