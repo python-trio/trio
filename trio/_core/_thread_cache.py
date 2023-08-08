@@ -118,7 +118,7 @@ name_counter = count()
 
 class WorkerThread(Generic[T]):
     def __init__(self, thread_cache: ThreadCache) -> None:
-        self._job: tuple[
+        self._job: tuple[  # type: ignore[no-any-unimported]
             Callable[[], T],
             Callable[[outcome.Outcome[T]], object],
             str | None,
@@ -198,7 +198,7 @@ class ThreadCache:
     def __init__(self) -> None:
         self._idle_workers: dict[WorkerThread[Any], None] = {}
 
-    def start_thread_soon(
+    def start_thread_soon(  # type: ignore[no-any-unimported]
         self,
         fn: Callable[[], T],
         deliver: Callable[[outcome.Outcome[T]], object],
@@ -216,7 +216,7 @@ class ThreadCache:
 THREAD_CACHE = ThreadCache()
 
 
-def start_thread_soon(
+def start_thread_soon(  # type: ignore[no-any-unimported]
     fn: Callable[[], T],
     deliver: Callable[[outcome.Outcome[T]], object],
     name: str | None = None,
