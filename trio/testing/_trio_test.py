@@ -1,12 +1,11 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, TypeVar
-from collections.abc import Callable, Awaitable
-from functools import partial, wraps
 
+from collections.abc import Awaitable, Callable
+from functools import partial, wraps
+from typing import TYPE_CHECKING, TypeVar
 
 from .. import _core
 from ..abc import Clock, Instrument
-
 
 if TYPE_CHECKING:
     from typing_extensions import ParamSpec

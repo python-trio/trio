@@ -4,15 +4,16 @@ from __future__ import annotations
 import random
 from collections.abc import Awaitable, Callable, Generator
 from contextlib import contextmanager
-from typing import Generic, TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar
 
-from .. import _core, CancelScope
+from .. import CancelScope, _core
 from .._abc import AsyncResource, HalfCloseableStream, ReceiveStream, SendStream, Stream
 from .._highlevel_generic import aclose_forcefully
 from ._checkpoints import assert_checkpoints
 
 if TYPE_CHECKING:
     from types import TracebackType
+
     from typing_extensions import ParamSpec
 
     ArgsT = ParamSpec("ArgsT")
