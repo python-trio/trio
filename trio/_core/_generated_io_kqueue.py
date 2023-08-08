@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from ._traps import Abort, RaiseCancelT
 
     from .. import _core
-    from ._unbounded_queue import UnboundedQueue
+
 import sys
 
 assert not TYPE_CHECKING or sys.platform=="darwin"

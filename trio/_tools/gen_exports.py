@@ -118,7 +118,7 @@ def gen_public_wrappers_source(file: File) -> str:
         # just give errors.
         if "TYPE_CHECKING" not in file.imports:
             header.append("from typing import TYPE_CHECKING\n")
-        if "import sys" not in file.imports:
+        if "import sys" not in file.imports:  # pragma: no cover
             header.append("import sys\n")
         header.append(
             f'\nassert not TYPE_CHECKING or sys.platform=="{file.platform}"\n'
@@ -267,7 +267,6 @@ if TYPE_CHECKING:
     from ._traps import Abort, RaiseCancelT
 
     from .. import _core
-    from ._unbounded_queue import UnboundedQueue
 
 """
 
