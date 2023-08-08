@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.9234449760765551,
+    "completenessScore": 0.9250398724082934,
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 579,
-      "withUnknownType": 48
+      "withKnownType": 580,
+      "withUnknownType": 47
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -101,7 +101,6 @@
       "trio.lowlevel.reschedule",
       "trio.lowlevel.spawn_system_task",
       "trio.lowlevel.start_guest_run",
-      "trio.lowlevel.start_thread_soon",
       "trio.lowlevel.temporarily_detach_coroutine_object",
       "trio.lowlevel.wait_readable",
       "trio.lowlevel.wait_writable",
