@@ -52,7 +52,7 @@ Vital statistics:
 
 * Tutorial and reference manual: https://trio.readthedocs.io
 
-* Changelog: https://trio.readthedocs.io/en/stable/history.html
+* Changelog: https://trio.readthedocs.io/en/latest/history.html
 
 * Bug tracker and source code: https://github.com/python-trio/trio
 
@@ -122,6 +122,6 @@ setup(
     ],
     project_urls={
         "Documentation": "https://trio.readthedocs.io/",
-        "Changelog": "https://trio.readthedocs.io/en/stable/history.html",
+        "Changelog": "https://trio.readthedocs.io/en/latest/history.html",
     },
 )
