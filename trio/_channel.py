@@ -4,7 +4,7 @@ from collections import OrderedDict, deque
 from math import inf
 from types import TracebackType
 from typing import Tuple  # only needed for typechecking on <3.9
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Generic
 
 import attr
 from outcome import Error, Value
