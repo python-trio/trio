@@ -3,7 +3,7 @@ from __future__ import annotations
 import select
 import sys
 from collections import defaultdict
-from typing import TYPE_CHECKING, DefaultDict
+from typing import TYPE_CHECKING, DefaultDict, Literal
 
 import attr
 
@@ -32,7 +32,7 @@ assert not TYPE_CHECKING or sys.platform == "linux"
 class _EpollStatistics:
     tasks_waiting_read: int = attr.ib()
     tasks_waiting_write: int = attr.ib()
-    backend: str = attr.ib(default="epoll")
+    backend: Literal["epoll", "kqueue", "windows"] = attr.ib(default="epoll")
 
 
 # Some facts about epoll

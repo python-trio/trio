@@ -4,7 +4,7 @@ import errno
 import select
 import sys
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Callable, Iterator
+from typing import TYPE_CHECKING, Callable, Iterator, Literal
 
 import attr
 import outcome
@@ -25,7 +25,7 @@ assert not TYPE_CHECKING or (sys.platform != "linux" and sys.platform != "win32"
 class _KqueueStatistics:
     tasks_waiting: int = attr.ib()
     monitors: int = attr.ib()
-    backend: str = attr.ib(default="kqueue")
+    backend: Literal["epoll", "kqueue", "windows"] = attr.ib(default="kqueue")
 
 
 @attr.s(slots=True, eq=False)
