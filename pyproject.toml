@@ -54,6 +54,7 @@ module = [
     "trio._core._generated_run",
     "trio._core._local",
     "trio._core._unbounded_queue",
+    "trio._core._thread_cache",
     "trio._core._run",
     "trio._deprecate",
     "trio._dtls",
