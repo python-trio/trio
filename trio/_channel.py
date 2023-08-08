@@ -4,7 +4,7 @@ from collections import OrderedDict, deque
 from math import inf
 from types import TracebackType
 from typing import Tuple  # only needed for typechecking on <3.9
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Generic
 
 import attr
 from outcome import Error, Value
@@ -15,8 +15,8 @@ from ._abc import ReceiveChannel, ReceiveType, SendChannel, SendType, T
 from ._core import Abort, RaiseCancelT, Task, enable_ki_protection
 from ._util import NoPublicConstructor, generic_function
 
-# Temporary TypeVar needed until mypy release supports Self as a type
-SelfT = TypeVar("SelfT")
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
 
 def _open_memory_channel(
@@ -237,7 +237,7 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
             raise trio.ClosedResourceError
         return MemorySendChannel._create(self._state)
 
-    def __enter__(self: SelfT) -> SelfT:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(
@@ -383,7 +383,7 @@ class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstr
             raise trio.ClosedResourceError
         return MemoryReceiveChannel._create(self._state)
 
-    def __enter__(self: SelfT) -> SelfT:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(
