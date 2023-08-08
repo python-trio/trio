@@ -171,7 +171,7 @@ async def serve_tcp(
     host: str | bytes | None = None,
     backlog: int | float | None = None,
     handler_nursery: trio.Nursery | None = None,
-    task_status: TaskStatus = trio.TASK_STATUS_IGNORED,  # type: ignore[assignment]  # default has type "_TaskStatusIgnored", argument has type "TaskStatus"
+    task_status: TaskStatus[list[trio.SocketListener]] = trio.TASK_STATUS_IGNORED,
 ) -> None:
     """Listen for incoming TCP connections, and for each one start a task
     running ``handler(stream)``.

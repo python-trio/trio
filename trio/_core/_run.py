@@ -1599,7 +1599,7 @@ class Runner:
         self.ki_manager.close()
 
     @_public
-    def current_statistics(self) -> trio.RunStatistics:
+    def current_statistics(self) -> trio.lowlevel.RunStatistics:
         """Returns ``RunStatistics``, which contains run-loop-level debugging information.
 
         Currently, the following fields are defined:

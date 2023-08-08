@@ -16,7 +16,7 @@ import trio
 # fmt: off
 
 
-def current_statistics() ->trio.RunStatistics:
+def current_statistics() ->trio.lowlevel.RunStatistics:
     """Returns ``RunStatistics``, which contains run-loop-level debugging information.
 
         Currently, the following fields are defined:
