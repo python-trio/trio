@@ -11,7 +11,7 @@ from typing import Any, Callable, Generic, TypeVar
 
 import outcome
 
-T = TypeVar("T")
+RetT = TypeVar("RetT")
 
 
 def _to_os_thread_name(name: str) -> bytes:
@@ -116,11 +116,11 @@ IDLE_TIMEOUT = 10  # seconds
 name_counter = count()
 
 
-class WorkerThread(Generic[T]):
+class WorkerThread(Generic[RetT]):
     def __init__(self, thread_cache: ThreadCache) -> None:
         self._job: tuple[  # type: ignore[no-any-unimported]
-            Callable[[], T],
-            Callable[[outcome.Outcome[T]], object],
+            Callable[[], RetT],
+            Callable[[outcome.Outcome[RetT]], object],
             str | None,
         ] | None = None
         self._thread_cache = thread_cache
@@ -200,11 +200,11 @@ class ThreadCache:
 
     def start_thread_soon(  # type: ignore[no-any-unimported]
         self,
-        fn: Callable[[], T],
-        deliver: Callable[[outcome.Outcome[T]], object],
+        fn: Callable[[], RetT],
+        deliver: Callable[[outcome.Outcome[RetT]], object],
         name: str | None = None,
     ) -> None:
-        worker: WorkerThread[T]
+        worker: WorkerThread[RetT]
         try:
             worker, _ = self._idle_workers.popitem()
         except KeyError:
@@ -217,8 +217,8 @@ THREAD_CACHE = ThreadCache()
 
 
 def start_thread_soon(  # type: ignore[no-any-unimported]
-    fn: Callable[[], T],
-    deliver: Callable[[outcome.Outcome[T]], object],
+    fn: Callable[[], RetT],
+    deliver: Callable[[outcome.Outcome[RetT]], object],
     name: str | None = None,
 ) -> None:
     """Runs ``deliver(outcome.capture(fn))`` in a worker thread.
