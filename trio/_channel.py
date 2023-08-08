@@ -18,6 +18,7 @@ from ._util import NoPublicConstructor, generic_function
 if TYPE_CHECKING:
     from typing_extensions import Self
 
+
 def _open_memory_channel(
     max_buffer_size: int | float,
 ) -> tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]:
