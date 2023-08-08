@@ -2,24 +2,31 @@
 from __future__ import annotations
 
 import random
+from collections.abc import Awaitable, Callable
 from contextlib import contextmanager
-from typing import TYPE_CHECKING
+from typing import Generic, TYPE_CHECKING, TypeVar
 
-from .. import _core
-from .._abc import HalfCloseableStream, ReceiveStream, SendStream, Stream
+from .. import _core, CancelScope
+from .._abc import AsyncResource, HalfCloseableStream, ReceiveStream, SendStream, Stream
 from .._highlevel_generic import aclose_forcefully
 from ._checkpoints import assert_checkpoints
 
 if TYPE_CHECKING:
     from types import TracebackType
+    from typing_extensions import ParamSpec
+
+    ArgsT = ParamSpec("ArgsT")
+
+Res1 = TypeVar("Res1", bound=AsyncResource)
+Res2 = TypeVar("Res2", bound=AsyncResource)
 
 
-class _ForceCloseBoth:
-    def __init__(self, both):
-        self._both = list(both)
+class _ForceCloseBoth(Generic[Res1, Res2]):
+    def __init__(self, both: tuple[Res1, Res2]) -> None:
+        self._first, self._second = both
 
-    async def __aenter__(self):
-        return self._both
+    async def __aenter__(self) -> tuple[Res1, Res2]:
+        return self._first, self._second
 
     async def __aexit__(
         self,
@@ -28,9 +35,9 @@ class _ForceCloseBoth:
         traceback: TracebackType | None,
     ) -> None:
         try:
-            await aclose_forcefully(self._both[0])
+            await aclose_forcefully(self._first)
         finally:
-            await aclose_forcefully(self._both[1])
+            await aclose_forcefully(self._second)
 
 
 @contextmanager
@@ -44,7 +51,11 @@ def _assert_raises(exc):
         raise AssertionError(f"expected exception: {exc}")
 
 
-async def check_one_way_stream(stream_maker, clogged_stream_maker):
+async def check_one_way_stream(
+    stream_maker: Callable[[], Awaitable[tuple[SendStream, ReceiveStream]]],
+    clogged_stream_maker: Callable[[], Awaitable[tuple[SendStream, ReceiveStream]]]
+    | None,
+):
     """Perform a number of generic tests on a custom one-way stream
     implementation.
 
@@ -67,18 +78,18 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
         assert isinstance(s, SendStream)
         assert isinstance(r, ReceiveStream)
 
-        async def do_send_all(data):
+        async def do_send_all(data: bytes) -> None:
             with assert_checkpoints():
                 assert await s.send_all(data) is None
 
-        async def do_receive_some(*args):
+        async def do_receive_some(max_bytes: int | None = None) -> bytes | bytearray:
             with assert_checkpoints():
-                return await r.receive_some(*args)
+                return await r.receive_some(max_bytes)
 
-        async def checked_receive_1(expected):
+        async def checked_receive_1(expected: bytes) -> None:
             assert await do_receive_some(1) == expected
 
-        async def do_aclose(resource):
+        async def do_aclose(resource: AsyncResource) -> None:
             with assert_checkpoints():
                 await resource.aclose()
 
@@ -87,7 +98,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
             nursery.start_soon(do_send_all, b"x")
             nursery.start_soon(checked_receive_1, b"x")
 
-        async def send_empty_then_y():
+        async def send_empty_then_y() -> None:
             # Streams should tolerate sending b"" without giving it any
             # special meaning.
             await do_send_all(b"")
@@ -258,9 +269,13 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
     #     https://github.com/python-trio/trio/issues/77
     async with _ForceCloseBoth(await stream_maker()) as (s, r):
 
-        async def expect_cancelled(afn, *args):
+        async def expect_cancelled(
+            afn: Callable[ArgsT, Awaitable[object]],
+            *args: ArgsT.args,
+            **kwargs: ArgsT.kwargs,
+        ) -> None:
             with _assert_raises(_core.Cancelled):
-                await afn(*args)
+                await afn(*args, **kwargs)
 
         with _core.CancelScope() as scope:
             scope.cancel()
@@ -288,16 +303,16 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
     # check wait_send_all_might_not_block, if we can
     if clogged_stream_maker is not None:
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
-            record = []
+            record: list[str] = []
 
-            async def waiter(cancel_scope):
+            async def waiter(cancel_scope: CancelScope) -> None:
                 record.append("waiter sleeping")
                 with assert_checkpoints():
                     await s.wait_send_all_might_not_block()
                 record.append("waiter wokeup")
                 cancel_scope.cancel()
 
-            async def receiver():
+            async def receiver() -> None:
                 # give wait_send_all_might_not_block a chance to block
                 await _core.wait_all_tasks_blocked()
                 record.append("receiver starting")
@@ -343,14 +358,14 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
         # with or without an exception
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
 
-            async def sender():
+            async def sender() -> None:
                 try:
                     with assert_checkpoints():
                         await s.wait_send_all_might_not_block()
                 except _core.BrokenResourceError:  # pragma: no cover
                     pass
 
-            async def receiver():
+            async def receiver() -> None:
                 await _core.wait_all_tasks_blocked()
                 await aclose_forcefully(r)
 
@@ -369,7 +384,7 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
 
         # Check that if a task is blocked in a send-side method, then closing
         # the send stream causes it to wake up.
-        async def close_soon(s):
+        async def close_soon(s: SendStream) -> None:
             await _core.wait_all_tasks_blocked()
             await aclose_forcefully(s)
 
@@ -386,7 +401,10 @@ async def check_one_way_stream(stream_maker, clogged_stream_maker):
                     await s.wait_send_all_might_not_block()
 
 
-async def check_two_way_stream(stream_maker, clogged_stream_maker):
+async def check_two_way_stream(
+    stream_maker: Callable[[], Awaitable[tuple[Stream, Stream]]],
+    clogged_stream_maker: Callable[[], Awaitable[tuple[Stream, Stream]]] | None,
+) -> None:
     """Perform a number of generic tests on a custom two-way stream
     implementation.
 
@@ -401,13 +419,13 @@ async def check_two_way_stream(stream_maker, clogged_stream_maker):
     """
     await check_one_way_stream(stream_maker, clogged_stream_maker)
 
-    async def flipped_stream_maker():
-        return reversed(await stream_maker())
+    async def flipped_stream_maker() -> tuple[Stream, Stream]:
+        return (await stream_maker())[::-1]
 
     if clogged_stream_maker is not None:
 
-        async def flipped_clogged_stream_maker():
-            return reversed(await clogged_stream_maker())
+        async def flipped_clogged_stream_maker() -> tuple[Stream, Stream]:
+            return (await clogged_stream_maker())[::-1]
 
     else:
         flipped_clogged_stream_maker = None
@@ -425,7 +443,7 @@ async def check_two_way_stream(stream_maker, clogged_stream_maker):
         i = r.getrandbits(8 * DUPLEX_TEST_SIZE)
         test_data = i.to_bytes(DUPLEX_TEST_SIZE, "little")
 
-        async def sender(s, data, seed):
+        async def sender(s: Stream, data: bytes, seed: int) -> None:
             r = random.Random(seed)
             m = memoryview(data)
             while m:
@@ -433,7 +451,7 @@ async def check_two_way_stream(stream_maker, clogged_stream_maker):
                 await s.send_all(m[:chunk_size])
                 m = m[chunk_size:]
 
-        async def receiver(s, data, seed):
+        async def receiver(s: Stream, data: bytes, seed: int) -> None:
             r = random.Random(seed)
             got = bytearray()
             while len(got) < len(data):
@@ -448,7 +466,7 @@ async def check_two_way_stream(stream_maker, clogged_stream_maker):
             nursery.start_soon(receiver, s1, test_data[::-1], 2)
             nursery.start_soon(receiver, s2, test_data, 3)
 
-        async def expect_receive_some_empty():
+        async def expect_receive_some_empty() -> None:
             assert await s2.receive_some(10) == b""
             await s2.aclose()
 
@@ -457,7 +475,15 @@ async def check_two_way_stream(stream_maker, clogged_stream_maker):
             nursery.start_soon(s1.aclose)
 
 
-async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
+async def check_half_closeable_stream(
+    stream_maker: Callable[
+        [], Awaitable[tuple[HalfCloseableStream, HalfCloseableStream]]
+    ],
+    clogged_stream_maker: Callable[
+        [], Awaitable[tuple[HalfCloseableStream, HalfCloseableStream]]
+    ]
+    | None,
+) -> None:
     """Perform a number of generic tests on a custom half-closeable stream
     implementation.
 
@@ -476,12 +502,12 @@ async def check_half_closeable_stream(stream_maker, clogged_stream_maker):
         assert isinstance(s1, HalfCloseableStream)
         assert isinstance(s2, HalfCloseableStream)
 
-        async def send_x_then_eof(s):
+        async def send_x_then_eof(s: HalfCloseableStream) -> None:
             await s.send_all(b"x")
             with assert_checkpoints():
                 await s.send_eof()
 
-        async def expect_x_then_eof(r):
+        async def expect_x_then_eof(r: HalfCloseableStream) -> None:
             await _core.wait_all_tasks_blocked()
             assert await r.receive_some(10) == b"x"
             assert await r.receive_some(10) == b""
