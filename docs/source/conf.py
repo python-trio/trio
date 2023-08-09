@@ -72,8 +72,6 @@ nitpick_ignore = [
     ("py:class", "RetT"),
     # why aren't these found in stdlib?
     ("py:class", "types.FrameType"),
-    # Outcome isn't being found currently.
-    ("py:class", "Outcome"),
     # TODO: figure out if you can link this to SSL
     ("py:class", "Context"),
     # TODO: temporary type
@@ -101,7 +99,7 @@ def autodoc_process_signature(app, what, name, obj, options, signature, return_a
     if signature is not None:
         signature = signature.replace("~_contextvars.Context", "~contextvars.Context")
         if name == "trio.lowlevel.start_guest_run":
-            print(locals())
+            signature = signature.replace("Outcome", "~outcome.Outcome")
         if name == "trio.lowlevel.RunVar":  # Typevar is not useful here.
             signature = signature.replace(": ~trio._core._local.T", "")
         if '_NoValue' in signature:
