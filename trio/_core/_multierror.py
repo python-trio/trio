@@ -204,8 +204,10 @@ class MultiError(_BaseExceptionGroup):
 
     """
 
+    __slots__ = ("collapse",)
+
     def __init__(
-        self, exceptions: list[BaseException], *, _collapse: bool = True
+        self, exceptions: Sequence[BaseException], *, _collapse: bool = True
     ) -> None:
         self.collapse = _collapse
 
@@ -218,7 +220,7 @@ class MultiError(_BaseExceptionGroup):
         super().__init__("multiple tasks failed", exceptions)
 
     def __new__(  # type: ignore[misc]  # mypy says __new__ must return a class instance
-        cls, exceptions: Iterable[BaseException], *, _collapse: bool = True
+        cls, exceptions: Sequence[BaseException], *, _collapse: bool = True
     ) -> NonBaseMultiError | Self | BaseException:
         exceptions = list(exceptions)
         for exc in exceptions:
@@ -248,7 +250,7 @@ class MultiError(_BaseExceptionGroup):
 
     def __reduce__(
         self,
-    ) -> tuple[object, tuple[type[Self], list[BaseException]], dict[str, bool],]:
+    ) -> tuple[object, tuple[type[Self], list[BaseException]], dict[str, bool]]:
         return (
             self.__new__,
             (self.__class__, list(self.exceptions)),
@@ -262,19 +264,19 @@ class MultiError(_BaseExceptionGroup):
         return f"<MultiError: {self}>"
 
     @overload
-    def derive(self, __excs: Sequence[Exception]) -> NonBaseMultiError:
+    def derive(self, excs: Sequence[Exception], /) -> NonBaseMultiError:
         ...
 
     @overload
-    def derive(self, __excs: Sequence[BaseException]) -> MultiError:
+    def derive(self, excs: Sequence[BaseException], /) -> MultiError:
         ...
 
     def derive(
-        self, __excs: Sequence[Exception | BaseException]
+        self, excs: Sequence[Exception | BaseException], /
     ) -> NonBaseMultiError | MultiError:
         # We use _collapse=False here to get ExceptionGroup semantics, since derive()
         # is part of the PEP 654 API
-        exc = MultiError(list(__excs), _collapse=False)
+        exc = MultiError(excs, _collapse=False)
         exc.collapse = self.collapse
         return exc
 
@@ -522,6 +524,6 @@ if (
 
     fake_sys = ModuleType("trio_fake_sys")
     fake_sys.__dict__.update(sys.__dict__)
-    # Fake does not have __excepthook__ attribute, but we are about to replace real sys
+    # Fake does have __excepthook__ after __dict__ update, but type checkers don't recognize this
     fake_sys.__excepthook__ = replacement_excepthook  # type: ignore[attr-defined]
     apport_python_hook.sys = fake_sys
