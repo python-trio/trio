@@ -96,8 +96,6 @@ autodoc_type_aliases = {
 
 def autodoc_process_signature(app, what, name, obj, options, signature, return_annotation):
     """Modify found signatures to fix various issues."""
-    if 'RunVar' in name:
-        print(locals())
     if signature is not None:
         signature = signature.replace("~_contextvars.Context", "~contextvars.Context")
         if '_NoValue' in signature:
