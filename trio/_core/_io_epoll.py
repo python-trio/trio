@@ -15,15 +15,15 @@ from ._wakeup_socketpair import WakeupSocketpair
 assert not TYPE_CHECKING or sys.platform == "linux"
 
 if TYPE_CHECKING:
-    from typing_extensions import TypeAlias
+    from typing_extensions import TypeAlias, Literal
 EventResult: TypeAlias = "list[tuple[int, int]]"
 
 
 @attr.s(slots=True, eq=False, frozen=True)
 class _EpollStatistics:
-    tasks_waiting_read = attr.ib()
-    tasks_waiting_write = attr.ib()
-    backend = attr.ib(default="epoll")
+    tasks_waiting_read: int = attr.ib()
+    tasks_waiting_write: int = attr.ib()
+    backend: Literal["epoll"] = attr.ib(default="epoll")
 
 
 # Some facts about epoll
