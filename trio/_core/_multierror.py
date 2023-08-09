@@ -17,7 +17,6 @@ else:
 if TYPE_CHECKING:
     from types import TracebackType
 
-    from mypy_extensions import DefaultNamedArg
     from typing_extensions import Self
 ################################################################
 # MultiError
