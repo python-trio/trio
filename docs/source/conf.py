@@ -18,6 +18,7 @@
 #
 import os
 import sys
+import re
 
 # For our local_customization module
 sys.path.insert(0, os.path.abspath("."))
@@ -90,6 +91,26 @@ autodoc_type_aliases = {
 }
 
 
+def autodoc_process_signature(
+    app, what, name, obj, options, signature, return_annotation
+):
+    """Modify found signatures to fix various issues."""
+    if signature is not None:
+        if name.startswith("trio.testing"):
+            # Expand type aliases
+            signature = re.sub(
+                r"StreamMaker\[([a-zA-Z ,]+)]",
+                lambda match: f"typing.Callable[[], typing.Awaitable[tuple[{match.group(1)}]]]",
+                signature,
+            )
+            signature = signature.replace(
+                "AsyncHook", "typing.Callable[[], typing.Awaitable[object]]"
+            )
+            signature = signature.replace("SyncHook", "typing.Callable[[], object]")
+
+    return signature, return_annotation
+
+
 # XX hack the RTD theme until
 #   https://github.com/rtfd/sphinx_rtd_theme/pull/382
 # is shipped (should be in the release after 0.2.4)
@@ -97,6 +118,7 @@ autodoc_type_aliases = {
 # though.
 def setup(app):
     app.add_css_file("hackrtd.css")
+    app.connect("autodoc-process-signature", autodoc_process_signature)
 
 
 # -- General configuration ------------------------------------------------
