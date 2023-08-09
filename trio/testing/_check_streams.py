@@ -14,12 +14,13 @@ from ._checkpoints import assert_checkpoints
 if TYPE_CHECKING:
     from types import TracebackType
 
-    from typing_extensions import ParamSpec
+    from typing_extensions import ParamSpec, TypeAlias
 
     ArgsT = ParamSpec("ArgsT")
 
 Res1 = TypeVar("Res1", bound=AsyncResource)
 Res2 = TypeVar("Res2", bound=AsyncResource)
+StreamMaker: TypeAlias = "Callable[[], Awaitable[tuple[Res1, Res2]]]"
 
 
 class _ForceCloseBoth(Generic[Res1, Res2]):
@@ -53,9 +54,8 @@ def _assert_raises(exc: type[BaseException]) -> Generator[None, None, None]:
 
 
 async def check_one_way_stream(
-    stream_maker: Callable[[], Awaitable[tuple[SendStream, ReceiveStream]]],
-    clogged_stream_maker: Callable[[], Awaitable[tuple[SendStream, ReceiveStream]]]
-    | None,
+    stream_maker: StreamMaker[SendStream, ReceiveStream],
+    clogged_stream_maker: StreamMaker[SendStream, ReceiveStream] | None,
 ) -> None:
     """Perform a number of generic tests on a custom one-way stream
     implementation.
@@ -405,8 +405,8 @@ async def check_one_way_stream(
 
 
 async def check_two_way_stream(
-    stream_maker: Callable[[], Awaitable[tuple[Stream, Stream]]],
-    clogged_stream_maker: Callable[[], Awaitable[tuple[Stream, Stream]]] | None,
+    stream_maker: StreamMaker[Stream, Stream],
+    clogged_stream_maker: StreamMaker[Stream, Stream] | None,
 ) -> None:
     """Perform a number of generic tests on a custom two-way stream
     implementation.
@@ -481,13 +481,8 @@ async def check_two_way_stream(
 
 
 async def check_half_closeable_stream(
-    stream_maker: Callable[
-        [], Awaitable[tuple[HalfCloseableStream, HalfCloseableStream]]
-    ],
-    clogged_stream_maker: Callable[
-        [], Awaitable[tuple[HalfCloseableStream, HalfCloseableStream]]
-    ]
-    | None,
+    stream_maker: StreamMaker[HalfCloseableStream, HalfCloseableStream],
+    clogged_stream_maker: StreamMaker[HalfCloseableStream, HalfCloseableStream] | None,
 ) -> None:
     """Perform a number of generic tests on a custom half-closeable stream
     implementation.

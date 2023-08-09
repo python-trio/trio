@@ -2,10 +2,21 @@ from __future__ import annotations
 
 import operator
 from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING
 
 from .. import _core, _util
 from .._highlevel_generic import StapledStream
 from ..abc import ReceiveStream, SendStream
+
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeAlias
+
+
+AsyncHook: TypeAlias = "Callable[[], Awaitable[object]]"
+# Would be nice to exclude awaitable here, but currently not possible.
+SyncHook: TypeAlias = "Callable[[], object]"
+
 
 ################################################################
 # In-memory streams - Unbounded buffer version
@@ -98,10 +109,9 @@ class MemorySendStream(SendStream, metaclass=_util.Final):
 
     def __init__(
         self,
-        send_all_hook: Callable[[], Awaitable[object]] | None = None,
-        wait_send_all_might_not_block_hook: Callable[[], Awaitable[object]]
-        | None = None,
-        close_hook: Callable[[], object] | None = None,
+        send_all_hook: AsyncHook | None = None,
+        wait_send_all_might_not_block_hook: AsyncHook | None = None,
+        close_hook: SyncHook | None = None,
     ):
         self._conflict_detector = _util.ConflictDetector(
             "another task is using this stream"
@@ -209,8 +219,8 @@ class MemoryReceiveStream(ReceiveStream, metaclass=_util.Final):
 
     def __init__(
         self,
-        receive_some_hook: Callable[[], Awaitable[object]] | None = None,
-        close_hook: Callable[[], object] | None = None,
+        receive_some_hook: AsyncHook | None = None,
+        close_hook: SyncHook | None = None,
     ):
         self._conflict_detector = _util.ConflictDetector(
             "another task is using this stream"
