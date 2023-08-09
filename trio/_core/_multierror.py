@@ -421,12 +421,10 @@ except ImportError:
             del new_tb, old_tb_frame
 
 else:
-    if TYPE_CHECKING:
-        from tputil import ProxyOperation
-
     # http://doc.pypy.org/en/latest/objspace-proxies.html
     def copy_tb(base_tb: TracebackType, tb_next: TracebackType | None) -> TracebackType:
-        def controller(operation: ProxyOperation) -> Any | None:
+        # Mypy refuses to believe that ProxyOperation can be imported properly
+        def controller(operation: tputil.ProxyOperation) -> Any | None:  # type: ignore[no-any-unimported]
             # Rationale for pragma: I looked fairly carefully and tried a few
             # things, and AFAICT it's not actually possible to get any
             # 'opname' that isn't __getattr__ or __getattribute__. So there's
