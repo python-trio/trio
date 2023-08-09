@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 import warnings
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Sequence
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, cast, overload
 
