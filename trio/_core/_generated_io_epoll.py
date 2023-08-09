@@ -4,7 +4,9 @@
 # isort: skip_file
 from __future__ import annotations
 
-from typing import Any, Callable, Awaitable
+from collections.abc import Callable, Awaitable
+from typing import Any
+
 from outcome import Outcome
 import contextvars
 

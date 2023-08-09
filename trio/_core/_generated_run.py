@@ -4,7 +4,9 @@
 # isort: skip_file
 from __future__ import annotations
 
-from typing import Any, Callable, Awaitable
+from collections.abc import Callable, Awaitable
+from typing import Any
+
 from outcome import Outcome
 import contextvars
 
@@ -112,7 +114,7 @@ def reschedule(task: trio.lowlevel.Task, next_send: Outcome[Any]=_NO_SEND
 
 
 def spawn_system_task(async_fn: Callable[..., Awaitable[object]], *args:
-    Any, name: object=None, context: (contextvars.Context | None)=None
+    object, name: object=None, context: (contextvars.Context | None)=None
     ) ->trio.lowlevel.Task:
     """Spawn a "system" task.
 
