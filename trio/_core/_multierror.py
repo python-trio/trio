@@ -204,8 +204,6 @@ class MultiError(_BaseExceptionGroup):
 
     """
 
-    __slots__ = ("collapse",)
-
     def __init__(
         self, exceptions: Sequence[BaseException], *, _collapse: bool = True
     ) -> None:
