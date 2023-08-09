@@ -79,7 +79,7 @@ async def check_one_way_stream(
         assert isinstance(s, SendStream)
         assert isinstance(r, ReceiveStream)
 
-        async def do_send_all(data: bytes) -> None:
+        async def do_send_all(data: bytes | bytearray | memoryview) -> None:
             with assert_checkpoints():  # We're testing that it doesn't return anything.
                 assert await s.send_all(data) is None  # type: ignore[func-returns-value]
 
@@ -448,7 +448,9 @@ async def check_two_way_stream(
         i = r.getrandbits(8 * DUPLEX_TEST_SIZE)
         test_data = i.to_bytes(DUPLEX_TEST_SIZE, "little")
 
-        async def sender(s: Stream, data: bytes, seed: int) -> None:
+        async def sender(
+            s: Stream, data: bytes | bytearray | memoryview, seed: int
+        ) -> None:
             r = random.Random(seed)
             m = memoryview(data)
             while m:
@@ -456,7 +458,7 @@ async def check_two_way_stream(
                 await s.send_all(m[:chunk_size])
                 m = m[chunk_size:]
 
-        async def receiver(s: Stream, data: bytes, seed: int) -> None:
+        async def receiver(s: Stream, data: bytes | bytearray, seed: int) -> None:
             r = random.Random(seed)
             got = bytearray()
             while len(got) < len(data):

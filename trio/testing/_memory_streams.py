@@ -8,7 +8,6 @@ from .. import _core, _util
 from .._highlevel_generic import StapledStream
 from ..abc import ReceiveStream, SendStream
 
-
 if TYPE_CHECKING:
     from typing_extensions import TypeAlias
 
@@ -44,7 +43,7 @@ class _UnboundedByteQueue:
         self._data = bytearray()
         self.close()
 
-    def put(self, data: bytes | bytearray) -> None:
+    def put(self, data: bytes | bytearray | memoryview) -> None:
         if self._closed:
             raise _core.ClosedResourceError("virtual connection closed")
         self._data += data
@@ -268,7 +267,7 @@ class MemoryReceiveStream(ReceiveStream, metaclass=_util.Final):
         self.close()
         await _core.checkpoint()
 
-    def put_data(self, data: bytes | bytearray) -> None:
+    def put_data(self, data: bytes | bytearray | memoryview) -> None:
         """Appends the given data to the internal buffer."""
         self._incoming.put(data)
 
@@ -481,7 +480,7 @@ class _LockstepByteQueue:
         self._receiver_closed = True
         self._something_happened()
 
-    async def send_all(self, data: bytes | bytearray) -> None:
+    async def send_all(self, data: bytes | bytearray | memoryview) -> None:
         with self._send_conflict_detector:
             if self._sender_closed:
                 raise _core.ClosedResourceError
@@ -550,7 +549,7 @@ class _LockstepSendStream(SendStream):
         self.close()
         await _core.checkpoint()
 
-    async def send_all(self, data: bytes | bytearray) -> None:
+    async def send_all(self, data: bytes | bytearray | memoryview) -> None:
         await self._lbq.send_all(data)
 
     async def wait_send_all_might_not_block(self) -> None:
