@@ -261,7 +261,7 @@ class MultiError(_BaseExceptionGroup):
     def __repr__(self) -> str:
         return f"<MultiError: {self}>"
 
-    @overload  # type: ignore[override]  # Basically mypy is mad return type is not exactly the same as superclass
+    @overload
     def derive(self, __excs: Sequence[Exception]) -> NonBaseMultiError:
         ...
 
@@ -414,16 +414,19 @@ except ImportError:
         c_new_tb.tb_lineno = base_tb.tb_lineno
 
         try:
-            return cast(TracebackType, new_tb)
+            return new_tb
         finally:
             # delete references from locals to avoid creating cycles
             # see test_MultiError_catch_doesnt_create_cyclic_garbage
             del new_tb, old_tb_frame
 
 else:
+    if TYPE_CHECKING:
+        from tputil import ProxyOperation
+
     # http://doc.pypy.org/en/latest/objspace-proxies.html
     def copy_tb(base_tb: TracebackType, tb_next: TracebackType | None) -> TracebackType:
-        def controller(operation: tputil.ProxyOperation) -> Any | None:
+        def controller(operation: ProxyOperation) -> Any | None:
             # Rationale for pragma: I looked fairly carefully and tried a few
             # things, and AFAICT it's not actually possible to get any
             # 'opname' that isn't __getattr__ or __getattribute__. So there's
@@ -516,9 +519,11 @@ if (
     def replacement_excepthook(
         etype: type[BaseException], value: BaseException, tb: TracebackType | None
     ) -> None:
-        sys.stderr.write("".join(format_exception(etype, value, tb)))
+        # This does work, it's an overloaded function
+        sys.stderr.write("".join(format_exception(etype, value, tb)))  # type: ignore[arg-type]
 
     fake_sys = ModuleType("trio_fake_sys")
     fake_sys.__dict__.update(sys.__dict__)
-    fake_sys.__excepthook__ = replacement_excepthook
+    # Fake does not have __excepthook__ attribute, but we are about to replace real sys
+    fake_sys.__excepthook__ = replacement_excepthook  # type: ignore[attr-defined]
     apport_python_hook.sys = fake_sys
