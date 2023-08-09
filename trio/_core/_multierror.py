@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 import warnings
 from collections.abc import Callable, Iterable, Sequence
-from typing import TYPE_CHECKING, Any, overload
+from typing import TYPE_CHECKING, Any, cast, overload
 
 import attr
 
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from types import TracebackType
 
     from mypy_extensions import DefaultNamedArg
-    from typing_extensions import Literal, Self
+    from typing_extensions import Self
 ################################################################
 # MultiError
 ################################################################
@@ -140,7 +140,7 @@ def _filter_impl(
 # frame show up in the traceback; otherwise, we leave no trace.)
 @attr.s(frozen=True)
 class MultiErrorCatcher:
-    handler: Callable[[BaseException], BaseException | None] = attr.ib()
+    _handler: Callable[[BaseException], BaseException | None] = attr.ib()
 
     def __enter__(self) -> None:
         pass
@@ -152,7 +152,7 @@ class MultiErrorCatcher:
         traceback: TracebackType | None,
     ) -> bool | None:
         if exc_value is not None:
-            filtered_exc = _filter_impl(self.handler, exc_value)
+            filtered_exc = _filter_impl(self._handler, exc_value)
 
             if filtered_exc is exc_value:
                 # Let the interpreter re-raise it
@@ -221,7 +221,7 @@ class MultiError(_BaseExceptionGroup):
 
     def __new__(  # type: ignore[misc]  # mypy says __new__ must return a class instance
         cls, exceptions: Iterable[BaseException], *, _collapse: bool = True
-    ) -> NonBaseMultiError | Self:
+    ) -> NonBaseMultiError | Self | BaseException:
         exceptions = list(exceptions)
         for exc in exceptions:
             if not isinstance(exc, BaseException):
@@ -230,9 +230,7 @@ class MultiError(_BaseExceptionGroup):
             # If this lone object happens to itself be a MultiError, then
             # Python will implicitly call our __init__ on it again.  See
             # special handling in __init__.
-            single = exceptions[0]
-            assert isinstance(single, cls)
-            return single
+            return exceptions[0]
         else:
             # The base class __new__() implicitly invokes our __init__, which
             # is what we want.
@@ -255,14 +253,7 @@ class MultiError(_BaseExceptionGroup):
 
     def __reduce__(
         self,
-    ) -> tuple[
-        Callable[
-            [type[Self], Iterable[BaseException], DefaultNamedArg(bool, "_collapse")],
-            NonBaseMultiError | MultiError | Self,
-        ],
-        tuple[type[Self], list[BaseException]],
-        dict[str, bool],
-    ]:
+    ) -> tuple[object, tuple[type[Self], list[BaseException]], dict[str, bool],]:
         return (
             self.__new__,
             (self.__class__, list(self.exceptions)),
@@ -283,7 +274,9 @@ class MultiError(_BaseExceptionGroup):
     def derive(self, __excs: Sequence[BaseException]) -> MultiError:
         ...
 
-    def derive(self, __excs: Sequence[Exception | BaseException]) -> MultiError:
+    def derive(
+        self, __excs: Sequence[Exception | BaseException]
+    ) -> NonBaseMultiError | MultiError:
         # We use _collapse=False here to get ExceptionGroup semantics, since derive()
         # is part of the PEP 654 API
         exc = MultiError(list(__excs), _collapse=False)
@@ -381,8 +374,8 @@ else:
 
 if have_tproxy:
     # http://doc.pypy.org/en/latest/objspace-proxies.html
-    def copy_tb(base_tb: TracebackType, tb_next: TracebackType | None) -> tputil:
-        def controller(operation: tputil.ProxyOperation) -> TracebackType | None | Any:
+    def copy_tb(base_tb: TracebackType, tb_next: TracebackType | None) -> TracebackType:
+        def controller(operation: tputil.ProxyOperation) -> Any | None:
             # Rationale for pragma: I looked fairly carefully and tried a few
             # things, and AFAICT it's not actually possible to get any
             # 'opname' that isn't __getattr__ or __getattribute__. So there's
@@ -394,9 +387,11 @@ if have_tproxy:
             ]:  # pragma: no cover
                 if operation.args[0] == "tb_next":
                     return tb_next
-            return operation.delegate()
+            return operation.delegate()  # Deligate is reverting to original behaviour
 
-        return tputil.make_proxy(controller, type(base_tb), base_tb)
+        return cast(
+            TracebackType, tputil.make_proxy(controller, type(base_tb), base_tb)
+        )  # Returns proxy to traceback
 
 else:
     # ctypes it is
@@ -418,7 +413,7 @@ else:
             ("tb_lineno", ctypes.c_int),
         ]
 
-    def copy_tb(base_tb: TracebackType, tb_next: TracebackType) -> TracebackType:
+    def copy_tb(base_tb: TracebackType, tb_next: TracebackType | None) -> TracebackType:
         # TracebackType has no public constructor, so allocate one the hard way
         try:
             raise ValueError
@@ -491,11 +486,11 @@ if "IPython" in sys.modules:
         else:
 
             def trio_show_traceback(
-                self: Any,
-                etype: Any,
+                self: IPython.core.interactiveshell.InteractiveShell,
+                etype: type[BaseException],
                 value: BaseException,
                 tb: TracebackType,
-                tb_offset: Any | None = None,
+                tb_offset: int | None = None,
             ) -> None:
                 # XX it would be better to integrate with IPython's fancy
                 # exception formatting stuff (and not ignore tb_offset)
