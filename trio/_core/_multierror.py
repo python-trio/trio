@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import warnings
 from collections.abc import Callable, Iterable, Sequence
+from types import TracebackType
 from typing import TYPE_CHECKING, Any, cast, overload
 
 import attr
@@ -15,8 +16,6 @@ else:
     from traceback import print_exception
 
 if TYPE_CHECKING:
-    from types import TracebackType
-
     from typing_extensions import Self
 ################################################################
 # MultiError
@@ -241,12 +240,9 @@ class MultiError(_BaseExceptionGroup):
             if all(isinstance(exc, Exception) for exc in exceptions):
                 from_class = NonBaseMultiError
 
-            # Mypy is really mad about the following line:
             # Ignoring arg-type: 'Argument 3 to "__new__" of "BaseExceptionGroup" has incompatible type "list[BaseException]"; expected "Sequence[_BaseExceptionT_co]"'
             # We have checked that exceptions is indeed a list of BaseException objects, this is fine.
-            # Ignoring type-var: 'Value of type variable "Self" of "__new__" of "BaseExceptionGroup" cannot be "object"'
-            # Not sure how mypy is getting 'object', this is also fine.
-            new_obj = super().__new__(from_class, "multiple tasks failed", exceptions)  # type: ignore[arg-type,type-var]
+            new_obj = super().__new__(from_class, "multiple tasks failed", exceptions)  # type: ignore[arg-type]
             assert isinstance(new_obj, (cls, NonBaseMultiError))
             return new_obj
 
@@ -372,6 +368,9 @@ else:
     have_tproxy = True
 
 if have_tproxy:
+    if TYPE_CHECKING:
+        import tputil
+
     # http://doc.pypy.org/en/latest/objspace-proxies.html
     def copy_tb(base_tb: TracebackType, tb_next: TracebackType | None) -> TracebackType:
         def controller(operation: tputil.ProxyOperation) -> Any | None:
@@ -430,14 +429,14 @@ else:
         # which it already is, so we're done. Otherwise, we have to actually
         # do some work:
         if tb_next is not None:
-            _ctypes.Py_INCREF(tb_next)
+            _ctypes.Py_INCREF(tb_next)  # type: ignore[attr-defined]
             c_new_tb.tb_next = id(tb_next)
 
         assert c_new_tb.tb_frame is not None
-        _ctypes.Py_INCREF(base_tb.tb_frame)
+        _ctypes.Py_INCREF(base_tb.tb_frame)  # type: ignore[attr-defined]
         old_tb_frame = new_tb.tb_frame
         c_new_tb.tb_frame = id(base_tb.tb_frame)
-        _ctypes.Py_DECREF(old_tb_frame)
+        _ctypes.Py_DECREF(old_tb_frame)  # type: ignore[attr-defined]
 
         c_new_tb.tb_lasti = base_tb.tb_lasti
         c_new_tb.tb_lineno = base_tb.tb_lineno
@@ -472,7 +471,7 @@ def concat_tb(
 if "IPython" in sys.modules:
     import IPython
 
-    ip = IPython.get_ipython()  # type: ignore[attr-defined]  # not explicitly exported
+    ip = IPython.get_ipython()
     if ip is not None:
         if ip.custom_exceptions != ():
             warnings.warn(
@@ -521,7 +520,9 @@ if (
 
     assert sys.excepthook is apport_python_hook.apport_excepthook
 
-    def replacement_excepthook(etype, value, tb):
+    def replacement_excepthook(
+        etype: type[BaseException], value: BaseException, tb: TracebackType
+    ) -> None:
         sys.stderr.write("".join(format_exception(etype, value, tb)))
 
     fake_sys = ModuleType("trio_fake_sys")
