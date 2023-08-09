@@ -363,35 +363,6 @@ NonBaseMultiError.__module__ = "trio"
 try:
     import tputil
 except ImportError:
-    have_tproxy = False
-else:
-    have_tproxy = True
-
-if have_tproxy:
-    if TYPE_CHECKING:
-        import tputil
-
-    # http://doc.pypy.org/en/latest/objspace-proxies.html
-    def copy_tb(base_tb: TracebackType, tb_next: TracebackType | None) -> TracebackType:
-        def controller(operation: tputil.ProxyOperation) -> Any | None:
-            # Rationale for pragma: I looked fairly carefully and tried a few
-            # things, and AFAICT it's not actually possible to get any
-            # 'opname' that isn't __getattr__ or __getattribute__. So there's
-            # no missing test we could add, and no value in coverage nagging
-            # us about adding one.
-            if operation.opname in [
-                "__getattribute__",
-                "__getattr__",
-            ]:  # pragma: no cover
-                if operation.args[0] == "tb_next":
-                    return tb_next
-            return operation.delegate()  # Deligate is reverting to original behaviour
-
-        return cast(
-            TracebackType, tputil.make_proxy(controller, type(base_tb), base_tb)
-        )  # Returns proxy to traceback
-
-else:
     # ctypes it is
     import ctypes
 
@@ -417,6 +388,7 @@ else:
             raise ValueError
         except ValueError as exc:
             new_tb = exc.__traceback__
+            assert new_tb is not None
         c_new_tb = CTraceback.from_address(id(new_tb))
 
         # At the C level, tb_next either pointer to the next traceback or is
@@ -442,11 +414,32 @@ else:
         c_new_tb.tb_lineno = base_tb.tb_lineno
 
         try:
-            return new_tb
+            return cast(TracebackType, new_tb)
         finally:
             # delete references from locals to avoid creating cycles
             # see test_MultiError_catch_doesnt_create_cyclic_garbage
             del new_tb, old_tb_frame
+
+else:
+    # http://doc.pypy.org/en/latest/objspace-proxies.html
+    def copy_tb(base_tb: TracebackType, tb_next: TracebackType | None) -> TracebackType:
+        def controller(operation: tputil.ProxyOperation) -> Any | None:
+            # Rationale for pragma: I looked fairly carefully and tried a few
+            # things, and AFAICT it's not actually possible to get any
+            # 'opname' that isn't __getattr__ or __getattribute__. So there's
+            # no missing test we could add, and no value in coverage nagging
+            # us about adding one.
+            if operation.opname in [
+                "__getattribute__",
+                "__getattr__",
+            ]:  # pragma: no cover
+                if operation.args[0] == "tb_next":
+                    return tb_next
+            return operation.delegate()  # Deligate is reverting to original behaviour
+
+        return cast(
+            TracebackType, tputil.make_proxy(controller, type(base_tb), base_tb)
+        )  # Returns proxy to traceback
 
 
 def concat_tb(
@@ -521,11 +514,11 @@ if (
     assert sys.excepthook is apport_python_hook.apport_excepthook
 
     def replacement_excepthook(
-        etype: type[BaseException], value: BaseException, tb: TracebackType
+        etype: type[BaseException], value: BaseException, tb: TracebackType | None
     ) -> None:
         sys.stderr.write("".join(format_exception(etype, value, tb)))
 
     fake_sys = ModuleType("trio_fake_sys")
     fake_sys.__dict__.update(sys.__dict__)
-    fake_sys.__excepthook__ = replacement_excepthook  # type: ignore
+    fake_sys.__excepthook__ = replacement_excepthook
     apport_python_hook.sys = fake_sys
