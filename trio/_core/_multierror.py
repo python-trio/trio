@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import sys
 import warnings
-from collections.abc import Callable, Iterable
-from typing import TYPE_CHECKING, Any
+from collections.abc import Callable, Iterable, Sequence
+from typing import TYPE_CHECKING, Any, overload
 
 import attr
 
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from types import TracebackType
 
     from mypy_extensions import DefaultNamedArg
-    from typing_extensions import Self
+    from typing_extensions import Literal, Self
 ################################################################
 # MultiError
 ################################################################
@@ -221,7 +221,7 @@ class MultiError(_BaseExceptionGroup):
 
     def __new__(  # type: ignore[misc]  # mypy says __new__ must return a class instance
         cls, exceptions: Iterable[BaseException], *, _collapse: bool = True
-    ) -> NonBaseMultiError | MultiError | Self:
+    ) -> NonBaseMultiError | Self:
         exceptions = list(exceptions)
         for exc in exceptions:
             if not isinstance(exc, BaseException):
@@ -231,7 +231,7 @@ class MultiError(_BaseExceptionGroup):
             # Python will implicitly call our __init__ on it again.  See
             # special handling in __init__.
             single = exceptions[0]
-            assert isinstance(single, MultiError)
+            assert isinstance(single, cls)
             return single
         else:
             # The base class __new__() implicitly invokes our __init__, which
@@ -275,10 +275,18 @@ class MultiError(_BaseExceptionGroup):
     def __repr__(self) -> str:
         return f"<MultiError: {self}>"
 
-    def derive(self, __excs: list[BaseException]) -> MultiError:  # type: ignore[override]
+    @overload  # type: ignore[override]  # Basically mypy is mad return type is not exactly the same as superclass
+    def derive(self, __excs: Sequence[Exception]) -> NonBaseMultiError:
+        ...
+
+    @overload
+    def derive(self, __excs: Sequence[BaseException]) -> MultiError:
+        ...
+
+    def derive(self, __excs: Sequence[Exception | BaseException]) -> MultiError:
         # We use _collapse=False here to get ExceptionGroup semantics, since derive()
         # is part of the PEP 654 API
-        exc = MultiError(__excs, _collapse=False)
+        exc = MultiError(list(__excs), _collapse=False)
         exc.collapse = self.collapse
         return exc
 
