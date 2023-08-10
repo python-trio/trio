@@ -52,8 +52,6 @@ disallow_any_unimported = true
 # downstream and users have to deal with them.
 [[tool.mypy.overrides]]
 module = [
-"trio/_core/_tests/*",
-"trio/_tests/*",
 
 # 2749
 "trio/_threads", # 15, 398 lines
@@ -67,31 +65,36 @@ module = [
 "trio/_ssl", # 26, 929 lines
 # 2742
 "trio/_core/_multierror", # 19, 469
-# 2735 trio/_core/_asyncgens
-
 # 2733
 "trio/_core/_run",
 "trio/_core/_generated_run",
-
-# windows
-"trio/_windows_pipes",
-"trio/_core/_windows_cffi", # 2, 324
-"trio/_core/_generated_io_windows", # 9 (win32), 84
-"trio/_core/_io_windows", # 47 (win32), 867
-"trio/_wait_for_object", # 2 (windows)
-
-
-"trio/testing/_fake_net", # 30
-
-"trio/_highlevel_open_unix_stream", # 2, 49 lines
+# 2724
 "trio/_highlevel_open_tcp_listeners", # 3, 227 lines
+# 2735 trio/_core/_asyncgens
+
+# exported API
+"trio/_highlevel_open_unix_stream", # 2, 49 lines
 "trio/_highlevel_serve_listeners", # 3, 121 lines
 "trio/_highlevel_ssl_helpers", # 3, 155 lines
 "trio/_highlevel_socket", # 4, 386 lines
 
-"trio/_subprocess_platform/waitid", # 2, 107 lines
 "trio/_signals", # 13, 168 lines
 "trio/_subprocess", # 21, 759 lines
+
+# windows API
+"trio/_core/_generated_io_windows", # 9 (win32), 84
+"trio/_core/_io_windows", # 47 (win32), 867
+"trio/_wait_for_object", # 2 (windows)
+
+# internal
+"trio/_windows_pipes",
+"trio/_core/_windows_cffi", # 2, 324
+
+# tests
+"trio/_subprocess_platform/waitid", # 2, 107 lines
+"trio/_core/_tests/*",
+"trio/_tests/*",
+"trio/testing/_fake_net", # 30
 ]
 disallow_any_decorated = false
 disallow_any_generics = false
