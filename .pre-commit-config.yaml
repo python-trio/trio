@@ -25,11 +25,15 @@ repos:
           - "flake8-pyproject==1.2.3"
         types: [file]
         types_or: [python, pyi]
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.2.5
+    hooks:
+      - id: codespell
 
 ci:
   autofix_commit_msg: "[pre-commit.ci] auto fixes from pre-commit.com hooks"
   autofix_prs: true
   autoupdate_commit_msg: "[pre-commit.ci] pre-commit autoupdate"
   autoupdate_schedule: weekly
-  skip: [flake8]
+  skip: [flake8,codespell]
   submodules: false
