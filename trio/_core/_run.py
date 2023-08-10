@@ -1765,6 +1765,7 @@ class Runner:
 
     def task_exited(self, task: Task, outcome: Outcome[Any]) -> None:
         if (
+            task._cancel_status is not None and
             task._cancel_status.abandoned_by_misnesting
             and task._cancel_status.parent is None
         ):
