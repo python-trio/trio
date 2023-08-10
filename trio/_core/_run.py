@@ -1136,7 +1136,7 @@ class Nursery(metaclass=NoPublicConstructor):
         self,
         # TODO: TypeVarTuple
         async_fn: Callable[..., Awaitable[object]],
-        *args: Any,
+        *args: object,
         name: object = None,
     ) -> None:
         """Creates a child task, scheduling ``await async_fn(*args)``.
@@ -1695,8 +1695,8 @@ class Runner:
     def spawn_impl(
         self,
         # TODO: TypeVarTuple
-        async_fn: Callable[..., Awaitable[Any]],
-        args: tuple[Any, ...],
+        async_fn: Callable[..., Awaitable[object]],
+        args: tuple[object, ...],
         nursery: Nursery | None,
         name: object,
         *,
@@ -1893,7 +1893,7 @@ class Runner:
         # TODO: TypeVarTuple
         self,
         async_fn: Callable[..., Awaitable[object]],
-        args: tuple[Any, ...],
+        args: tuple[object, ...],
     ) -> None:
         # run_sync_soon task runs here:
         async with open_nursery() as run_sync_soon_nursery:
@@ -2267,7 +2267,7 @@ def run(
 
 def start_guest_run(
     async_fn: Callable[..., Awaitable[RetT]],
-    *args: Any,
+    *args: object,
     run_sync_soon_threadsafe: Callable[[Callable[[], object]], object],
     done_callback: Callable[[Outcome[RetT]], object],
     run_sync_soon_not_threadsafe: Callable[[Callable[[], object]], object]
