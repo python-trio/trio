@@ -16,7 +16,6 @@ from __future__ import annotations
 #
 # Uses `from x import y as y` for compatibility with `pyright --verifytypes` (#2625)
 
-
 # must be imported early to avoid circular import
 from ._core import TASK_STATUS_IGNORED as TASK_STATUS_IGNORED  # isort: split
 

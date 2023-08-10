@@ -140,7 +140,7 @@ class AsyncGenerators:
         # To make async generator finalization easier to reason
         # about, we'll shut down asyncgen garbage collection by turning
         # the alive WeakSet into a regular set.
-        self.alive = set(self.alive)  # type: ignore
+        self.alive = set(self.alive)
 
         # Process all pending run_sync_soon callbacks, in case one of
         # them was an asyncgen finalizer that snuck in under the wire.
@@ -185,14 +185,16 @@ class AsyncGenerators:
         # all are gone.
         while self.alive:
             batch = self.alive
-            self.alive = set()  # type: ignore
+            self.alive = _ASYNC_GEN_SET()
             for agen in batch:
                 await self._finalize_one(agen, name_asyncgen(agen))
 
     def close(self) -> None:
         sys.set_asyncgen_hooks(*self.prev_hooks)
 
-    async def _finalize_one(self, agen: AGenT, name: str) -> None:
+    async def _finalize_one(
+        self, agen: AsyncGeneratorType[object, NoReturn], name: object
+    ) -> None:
         try:
             # This shield ensures that finalize_asyncgen never exits
             # with an exception, not even a Cancelled. The inside
