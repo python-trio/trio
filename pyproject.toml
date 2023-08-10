@@ -70,7 +70,6 @@ module = [
 "trio/_core/_generated_run",
 # 2724
 "trio/_highlevel_open_tcp_listeners", # 3, 227 lines
-# 2735 trio/_core/_asyncgens
 
 # exported API
 "trio/_highlevel_open_unix_stream", # 2, 49 lines
