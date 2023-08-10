@@ -32,10 +32,8 @@ from ._windows_cffi import (
 assert not TYPE_CHECKING or sys.platform == "win32"
 
 if TYPE_CHECKING:
-    from _contextlib import _GeneratorContextManager
-
     from ._traps import Abort, RaiseCancelT
-    from ._unbouded_queue import UnboundedQueue
+    from ._unbounded_queue import UnboundedQueue
 
 # There's a lot to be said about the overall design of a Windows event
 # loop. See
@@ -190,7 +188,7 @@ class CKeys(enum.IntEnum):
 def _check(success: bool) -> Literal[True]:
     if not success:
         raise_winerror()
-    return success
+    return True
 
 
 def _get_underlying_socket(
@@ -865,14 +863,9 @@ class WindowsIOManager:
     def current_iocp(self) -> int:
         return int(ffi.cast("uintptr_t", self._iocp))
 
-    @_public
-    def monitor_completion_key(
-        self,
-    ) -> _GeneratorContextManager[tuple[int, UnboundedQueue[object]]]:
-        return self._monitor_completion_key()
-
     @contextmanager
-    def _monitor_completion_key(self) -> Iterator[tuple[int, UnboundedQueue[object]]]:
+    @_public
+    def monitor_completion_key(self) -> Iterator[tuple[int, UnboundedQueue[object]]]:
         key = next(self._completion_key_counter)
         queue = _core.UnboundedQueue[object]()
         self._completion_key_queues[key] = queue

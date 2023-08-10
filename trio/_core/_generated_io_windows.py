@@ -8,7 +8,10 @@ from __future__ import annotations
 
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 from ._run import GLOBAL_RUN_CONTEXT
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ContextManager
+
+if TYPE_CHECKING:
+    from ._unbounded_queue import UnboundedQueue
 import sys
 
 assert not TYPE_CHECKING or sys.platform=="win32"
@@ -78,8 +81,7 @@ def current_iocp() ->int:
         raise RuntimeError("must be called from async context")
 
 
-def monitor_completion_key() ->_GeneratorContextManager[tuple[int,
-    UnboundedQueue[object]]]:
+def monitor_completion_key() ->ContextManager[tuple[int, UnboundedQueue[object]]]:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.monitor_completion_key()

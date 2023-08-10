@@ -148,12 +148,10 @@
 # stream)
 # docs will need to make very clear that this is different from all the other
 # cancellations in core Trio
-from __future__ import annotations
 
 import operator as _operator
 import ssl as _stdlib_ssl
 from enum import Enum as _Enum
-from typing import Any, Awaitable, Callable
 
 import trio
 
@@ -211,14 +209,13 @@ class NeedHandshakeError(Exception):
 
 
 class _Once:
-    # needs TypeVarTuple
-    def __init__(self, afn: Callable[..., Awaitable[object]], *args: Any):
+    def __init__(self, afn, *args):
         self._afn = afn
         self._args = args
         self.started = False
         self._done = _sync.Event()
 
-    async def ensure(self, *, checkpoint: bool) -> None:
+    async def ensure(self, *, checkpoint):
         if not self.started:
             self.started = True
             await self._afn(*self._args)
@@ -229,7 +226,7 @@ class _Once:
             await self._done.wait()
 
     @property
-    def done(self) -> bool:
+    def done(self):
         return self._done.is_set()
 
 

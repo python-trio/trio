@@ -1,6 +1,5 @@
 import enum
 import re
-from typing import NoReturn
 
 import cffi
 
@@ -316,7 +315,7 @@ def _handle(obj):
         return obj
 
 
-def raise_winerror(winerror=None, *, filename=None, filename2=None) -> NoReturn:
+def raise_winerror(winerror=None, *, filename=None, filename2=None):
     if winerror is None:
         winerror, msg = ffi.getwinerror()
     else:

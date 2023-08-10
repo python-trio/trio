@@ -228,7 +228,12 @@ def main() -> None:  # pragma: no cover
             "runner.instruments",
             imports=IMPORTS_INSTRUMENT,
         ),
-        File(core / "_io_windows.py", "runner.io_manager", platform="win32"),
+        File(
+            core / "_io_windows.py",
+            "runner.io_manager",
+            platform="win32",
+            imports=IMPORTS_WINDOWS,
+        ),
         File(
             core / "_io_epoll.py",
             "runner.io_manager",
@@ -268,6 +273,13 @@ if TYPE_CHECKING:
 
     from .. import _core
 
+"""
+
+IMPORTS_WINDOWS = """\
+from typing import TYPE_CHECKING, ContextManager
+
+if TYPE_CHECKING:
+    from ._unbounded_queue import UnboundedQueue
 """
 
 
