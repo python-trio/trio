@@ -3,13 +3,13 @@ from __future__ import annotations
 import select
 import sys
 from collections import defaultdict
-from typing import TYPE_CHECKING, DefaultDict
+from typing import TYPE_CHECKING, DefaultDict, Literal
 
 import attr
 
 from .. import _core
 from ._io_common import wake_all
-from ._run import _public
+from ._run import Task, _public
 from ._wakeup_socketpair import WakeupSocketpair
 
 if TYPE_CHECKING:
@@ -20,9 +20,8 @@ if TYPE_CHECKING:
 
 @attr.s(slots=True, eq=False)
 class EpollWaiters:
-    # TODO: why is nobody complaining about this?
-    read_task: None = attr.ib(default=None)
-    write_task: None = attr.ib(default=None)
+    read_task: Task | None = attr.ib(default=None)
+    write_task: Task | None = attr.ib(default=None)
     current_flags: int = attr.ib(default=0)
 
 
@@ -33,7 +32,7 @@ assert not TYPE_CHECKING or sys.platform == "linux"
 class _EpollStatistics:
     tasks_waiting_read: int = attr.ib()
     tasks_waiting_write: int = attr.ib()
-    backend: str = attr.ib(default="epoll")
+    backend: Literal["epoll"] = attr.ib(init=False, default="epoll")
 
 
 # Some facts about epoll

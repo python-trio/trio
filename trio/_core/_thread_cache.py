@@ -7,12 +7,11 @@ import traceback
 from functools import partial
 from itertools import count
 from threading import Lock, Thread
-from typing import TYPE_CHECKING, Callable, Optional, Tuple
+from typing import Any, Callable, Generic, TypeVar
 
 import outcome
 
-if TYPE_CHECKING:
-    from outcome import Value
+RetT = TypeVar("RetT")
 
 
 def _to_os_thread_name(name: str) -> bytes:
@@ -22,19 +21,19 @@ def _to_os_thread_name(name: str) -> bytes:
 
 # used to construct the method used to set os thread name, or None, depending on platform.
 # called once on import
-def get_os_thread_name_func() -> Optional[Callable[[Optional[int], str], None]]:
+def get_os_thread_name_func() -> Callable[[int | None, str], None] | None:
     def namefunc(
-        setname: Callable[[int, bytes], int], ident: Optional[int], name: str
+        setname: Callable[[int, bytes], int], ident: int | None, name: str
     ) -> None:
         # Thread.ident is None "if it has not been started". Unclear if that can happen
         # with current usage.
         if ident is not None:  # pragma: no cover
             setname(ident, _to_os_thread_name(name))
 
-    # namefunc on mac also takes an ident, even if pthread_setname_np doesn't/can't use it
+    # namefunc on Mac also takes an ident, even if pthread_setname_np doesn't/can't use it
     # so the caller don't need to care about platform.
     def darwin_namefunc(
-        setname: Callable[[bytes], int], ident: Optional[int], name: str
+        setname: Callable[[bytes], int], ident: int | None, name: str
     ) -> None:
         # I don't know if Mac can rename threads that hasn't been started, but default
         # to no to be on the safe side.
@@ -117,12 +116,13 @@ IDLE_TIMEOUT = 10  # seconds
 name_counter = count()
 
 
-class WorkerThread:
-    def __init__(self, thread_cache: ThreadCache):
-        # should generate stubs for outcome
-        self._job: Optional[
-            Tuple[Callable[[], object], Callable[[Value], None], str | None]
-        ] = None
+class WorkerThread(Generic[RetT]):
+    def __init__(self, thread_cache: ThreadCache) -> None:
+        self._job: tuple[  # type: ignore[no-any-unimported]
+            Callable[[], RetT],
+            Callable[[outcome.Outcome[RetT]], object],
+            str | None,
+        ] | None = None
         self._thread_cache = thread_cache
         # This Lock is used in an unconventional way.
         #
@@ -196,14 +196,15 @@ class WorkerThread:
 
 class ThreadCache:
     def __init__(self) -> None:
-        self._idle_workers: dict[WorkerThread, None] = {}
+        self._idle_workers: dict[WorkerThread[Any], None] = {}
 
-    def start_thread_soon(
+    def start_thread_soon(  # type: ignore[no-any-unimported]
         self,
-        fn: Callable[[], object] | partial[object],
-        deliver: Callable[[Value], None],
-        name: Optional[str] = None,
+        fn: Callable[[], RetT],
+        deliver: Callable[[outcome.Outcome[RetT]], object],
+        name: str | None = None,
     ) -> None:
+        worker: WorkerThread[RetT]
         try:
             worker, _ = self._idle_workers.popitem()
         except KeyError:
@@ -215,10 +216,10 @@ class ThreadCache:
 THREAD_CACHE = ThreadCache()
 
 
-def start_thread_soon(
-    fn: Callable[[], object] | partial[object],
-    deliver: Callable[[Value], None],
-    name: Optional[str] = None,
+def start_thread_soon(  # type: ignore[no-any-unimported]
+    fn: Callable[[], RetT],
+    deliver: Callable[[outcome.Outcome[RetT]], object],
+    name: str | None = None,
 ) -> None:
     """Runs ``deliver(outcome.capture(fn))`` in a worker thread.
 

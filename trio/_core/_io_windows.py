@@ -379,7 +379,7 @@ class _WindowsStatistics:
     tasks_waiting_write: int = attr.ib()
     tasks_waiting_overlapped: int = attr.ib()
     completion_key_monitors: int = attr.ib()
-    backend: str = attr.ib(default="windows")
+    backend: Literal["windows"] = attr.ib(init=False, default="windows")
 
 
 # Maximum number of events to dequeue from the completion port on each pass
