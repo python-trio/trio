@@ -1433,7 +1433,7 @@ class GuestState:
 class Runner:
     clock = attr.ib()
     instruments: Instruments = attr.ib()
-    io_manager = attr.ib()
+    io_manager: TheIOManager = attr.ib()
     ki_manager = attr.ib()
     strict_exception_groups = attr.ib()
 
