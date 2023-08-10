@@ -5,8 +5,9 @@ import functools
 import inspect
 import queue as stdlib_queue
 import threading
+from collections.abc import Awaitable
 from itertools import count
-from typing import Any, Callable, Optional, TypeVar
+from typing import Callable, Optional, TypeVar
 
 import attr
 import outcome
@@ -25,7 +26,9 @@ from ._core import (
 from ._sync import CapacityLimiter
 from ._util import coroutine_or_error
 
-T = TypeVar("T")
+RetT = TypeVar("RetT")
+Ret2T = TypeVar("Ret2T")
+
 
 # Global due to Threading API, thread local storage for trio token
 TOKEN_LOCAL = threading.local()
@@ -37,7 +40,7 @@ DEFAULT_LIMIT = 40
 _thread_counter = count()
 
 
-def current_default_thread_limiter():
+def current_default_thread_limiter() -> CapacityLimiter:
     """Get the default `~trio.CapacityLimiter` used by
     `trio.to_thread.run_sync`.
 
@@ -59,17 +62,17 @@ def current_default_thread_limiter():
 # keep track of who's holding the CapacityLimiter's token.
 @attr.s(frozen=True, eq=False, hash=False)
 class ThreadPlaceholder:
-    name = attr.ib()
+    name: str = attr.ib()
 
 
 @enable_ki_protection
 async def to_thread_run_sync(
-    sync_fn: Callable[..., T],
-    *args: Any,
+    sync_fn: Callable[..., RetT],
+    *args: object,
     thread_name: Optional[str] = None,
     cancellable: bool = False,
     limiter: CapacityLimiter | None = None,
-) -> T:
+) -> RetT:
     """Convert a blocking operation into an async operation using a thread.
 
     These two lines are equivalent::
@@ -237,17 +240,31 @@ async def to_thread_run_sync(
     return await trio.lowlevel.wait_task_rescheduled(abort)  # type: ignore[no-any-return]
 
 
-def _run_fn_as_system_task(cb, fn, *args, context, trio_token=None):
+# We use two typevars here, because cb can transform from one to the other any way it likes.
+def _run_fn_as_system_task(
+    cb: Callable[
+        [
+            stdlib_queue.SimpleQueue[outcome.Outcome[Ret2T]],
+            Callable[..., RetT],
+            tuple[object, ...],
+        ],
+        object,
+    ],
+    fn: Callable[..., RetT],
+    *args: object,
+    context: contextvars.Context,
+    trio_token: TrioToken | None = None,
+) -> Ret2T:
     """Helper function for from_thread.run and from_thread.run_sync.
 
     Since this internally uses TrioToken.run_sync_soon, all warnings about
     raised exceptions canceling all tasks should be noted.
     """
 
-    if trio_token and not isinstance(trio_token, TrioToken):
+    if trio_token is not None and not isinstance(trio_token, TrioToken):
         raise RuntimeError("Passed kwarg trio_token is not of type TrioToken")
 
-    if not trio_token:
+    if trio_token is None:
         try:
             trio_token = TOKEN_LOCAL.token
         except AttributeError:
@@ -263,12 +280,16 @@ def _run_fn_as_system_task(cb, fn, *args, context, trio_token=None):
     else:
         raise RuntimeError("this is a blocking function; call it from a thread")
 
-    q = stdlib_queue.SimpleQueue()
+    q: stdlib_queue.SimpleQueue[outcome.Outcome[Ret2T]] = stdlib_queue.SimpleQueue()
     trio_token.run_sync_soon(context.run, cb, q, fn, args)
     return q.get().unwrap()
 
 
-def from_thread_run(afn, *args, trio_token=None):
+def from_thread_run(
+    afn: Callable[..., Awaitable[RetT]],
+    *args: object,
+    trio_token: TrioToken | None = None,
+) -> RetT:
     """Run the given async function in the parent Trio thread, blocking until it
     is complete.
 
@@ -303,13 +324,17 @@ def from_thread_run(afn, *args, trio_token=None):
           to enter Trio.
     """
 
-    def callback(q, afn, args):
+    def callback(
+        q: stdlib_queue.SimpleQueue[outcome.Outcome[RetT]],
+        afn: Callable[..., Awaitable[RetT]],
+        args: tuple[object, ...],
+    ) -> None:
         @disable_ki_protection
-        async def unprotected_afn():
+        async def unprotected_afn() -> RetT:
             coro = coroutine_or_error(afn, *args)
             return await coro
 
-        async def await_in_trio_thread_task():
+        async def await_in_trio_thread_task() -> None:
             q.put_nowait(await outcome.acapture(unprotected_afn))
 
         context = contextvars.copy_context()
@@ -332,7 +357,11 @@ def from_thread_run(afn, *args, trio_token=None):
     )
 
 
-def from_thread_run_sync(fn, *args, trio_token=None):
+def from_thread_run_sync(
+    fn: Callable[..., RetT],
+    *args: tuple[object, ...],
+    trio_token: TrioToken | None = None,
+) -> RetT:
     """Run the given sync function in the parent Trio thread, blocking until it
     is complete.
 
@@ -363,11 +392,15 @@ def from_thread_run_sync(fn, *args, trio_token=None):
           to enter Trio.
     """
 
-    def callback(q, fn, args):
+    def callback(
+        q: stdlib_queue.SimpleQueue[outcome.Outcome[RetT]],
+        fn: Callable[..., RetT],
+        args: tuple[object, ...],
+    ) -> None:
         current_async_library_cvar.set("trio")
 
         @disable_ki_protection
-        def unprotected_fn():
+        def unprotected_fn() -> RetT:
             ret = fn(*args)
 
             if inspect.iscoroutine(ret):
