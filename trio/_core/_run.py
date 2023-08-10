@@ -1180,7 +1180,7 @@ class Nursery(metaclass=NoPublicConstructor):
         GLOBAL_RUN_CONTEXT.runner.spawn_impl(async_fn, args, self, name)
 
     async def start(
-        self, async_fn: _NurseryStartFunc[StatusT], *args: Any, name: object = None
+        self, async_fn: _NurseryStartFunc[StatusT], *args: object, name: object = None
     ) -> StatusT:
         r"""Creates and initializes a child task.
 
@@ -1277,7 +1277,7 @@ class Task(metaclass=NoPublicConstructor):
     _next_send_fn: Callable[[Any], object] = attr.ib(default=None)
     _next_send: Outcome[Any] | None | BaseException = attr.ib(default=None)
     _abort_func: Callable[[_core.RaiseCancelT], Abort] | None = attr.ib(default=None)
-    custom_sleep_data: Any = attr.ib(default=None)
+    custom_sleep_data: object = attr.ib(default=None)
 
     # For introspection and nursery.start()
     _child_nurseries: list[Nursery] = attr.ib(factory=list)
@@ -1344,7 +1344,7 @@ class Task(metaclass=NoPublicConstructor):
                 print("".join(ss.format()))
 
         """
-        # ignore static typing as we're doing lots of dynamic introspection
+        # Ignore static typing as we're doing lots of dynamic introspection
         coro: Any = self.coro
         while coro is not None:
             if hasattr(coro, "cr_frame"):
@@ -2158,7 +2158,7 @@ def setup_runner(
 
 def run(
     async_fn: Callable[..., RetT],
-    *args: Any,
+    *args: object,
     clock: Clock | None = None,
     instruments: Sequence[Instrument] = (),
     restrict_keyboard_interrupt_to_checkpoints: bool = False,
@@ -2365,7 +2365,7 @@ _MAX_TIMEOUT: FinalT = 24 * 60 * 60
 def unrolled_run(
     runner: Runner,
     async_fn: Callable[..., object],
-    args: tuple[Any, ...],
+    args: tuple[object, ...],
     host_uses_signal_set_wakeup_fd: bool = False,
 ) -> Generator[float, EventResult, None]:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
