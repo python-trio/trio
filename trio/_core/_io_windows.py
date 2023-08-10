@@ -32,7 +32,7 @@ from ._windows_cffi import (
 assert not TYPE_CHECKING or sys.platform == "win32"
 
 if TYPE_CHECKING:
-    from typing_extensions import TypeAlias
+    from typing_extensions import Literal, TypeAlias
 EventResult: TypeAlias = int
 
 # There's a lot to be said about the overall design of a Windows event
@@ -371,11 +371,11 @@ class AFDGroup:
 
 @attr.s(slots=True, eq=False, frozen=True)
 class _WindowsStatistics:
-    tasks_waiting_read = attr.ib()
-    tasks_waiting_write = attr.ib()
-    tasks_waiting_overlapped = attr.ib()
-    completion_key_monitors = attr.ib()
-    backend = attr.ib(default="windows")
+    tasks_waiting_read: int = attr.ib()
+    tasks_waiting_write: int = attr.ib()
+    tasks_waiting_overlapped: int = attr.ib()
+    completion_key_monitors: int = attr.ib()
+    backend: Literal["windows"] = attr.ib(init=False, default="windows")
 
 
 # Maximum number of events to dequeue from the completion port on each pass

@@ -16,15 +16,15 @@ from ._wakeup_socketpair import WakeupSocketpair
 assert not TYPE_CHECKING or (sys.platform != "linux" and sys.platform != "win32")
 
 if TYPE_CHECKING:
-    from typing_extensions import TypeAlias
+    from typing_extensions import TypeAlias, Literal
 EventResult: TypeAlias = "list[select.kevent]"
 
 
 @attr.s(slots=True, eq=False, frozen=True)
 class _KqueueStatistics:
-    tasks_waiting = attr.ib()
-    monitors = attr.ib()
-    backend = attr.ib(default="kqueue")
+    tasks_waiting: int = attr.ib()
+    monitors: int = attr.ib()
+    backend: Literal["kqueue"] = attr.ib(init=False, default="kqueue")
 
 
 @attr.s(slots=True, eq=False)

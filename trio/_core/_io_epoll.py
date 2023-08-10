@@ -23,7 +23,7 @@ EventResult: TypeAlias = "list[tuple[int, int]]"
 class _EpollStatistics:
     tasks_waiting_read: int = attr.ib()
     tasks_waiting_write: int = attr.ib()
-    backend: Literal["epoll"] = attr.ib(default="epoll")
+    backend: Literal["epoll"] = attr.ib(init=False, default="epoll")
 
 
 # Some facts about epoll
