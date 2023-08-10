@@ -15,7 +15,7 @@ from ._wakeup_socketpair import WakeupSocketpair
 assert not TYPE_CHECKING or sys.platform == "linux"
 
 if TYPE_CHECKING:
-    from typing_extensions import TypeAlias, Literal
+    from typing_extensions import Literal, TypeAlias
 EventResult: TypeAlias = "list[tuple[int, int]]"
 
 
