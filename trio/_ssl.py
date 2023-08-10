@@ -349,7 +349,7 @@ class SSLStream(Stream, metaclass=Final):
         server_side: bool = False,
         https_compatible: bool = False,
     ) -> None:
-        self.transport_stream = transport_stream
+        self.transport_stream: Stream = transport_stream
         self._state = _State.OK
         self._https_compatible = https_compatible
         self._outgoing = _stdlib_ssl.MemoryBIO()
