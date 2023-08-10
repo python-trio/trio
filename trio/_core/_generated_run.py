@@ -11,7 +11,7 @@ from ._run import GLOBAL_RUN_CONTEXT
 from ._run import _NO_SEND
 
 
-def current_statistics() ->_RunStatistics:
+def current_statistics():
     """Returns an object containing run-loop-level debugging information.
 
         Currently the following fields are defined:
@@ -41,7 +41,7 @@ def current_statistics() ->_RunStatistics:
         raise RuntimeError("must be called from async context")
 
 
-def current_time() ->float:
+def current_time():
     """Returns the current time according to Trio's internal clock.
 
         Returns:
@@ -58,7 +58,7 @@ def current_time() ->float:
         raise RuntimeError("must be called from async context")
 
 
-def current_clock() ->(SystemClock | Clock):
+def current_clock():
     """Returns the current :class:`~trio.abc.Clock`."""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
@@ -67,7 +67,7 @@ def current_clock() ->(SystemClock | Clock):
         raise RuntimeError("must be called from async context")
 
 
-def current_root_task() ->(Task | None):
+def current_root_task():
     """Returns the current root :class:`Task`.
 
         This is the task that is the ultimate parent of all other tasks.
@@ -80,7 +80,7 @@ def current_root_task() ->(Task | None):
         raise RuntimeError("must be called from async context")
 
 
-def reschedule(task: Task, next_send: Outcome=_NO_SEND) ->None:
+def reschedule(task, next_send=_NO_SEND):
     """Reschedule the given task with the given
         :class:`outcome.Outcome`.
 
@@ -105,8 +105,7 @@ def reschedule(task: Task, next_send: Outcome=_NO_SEND) ->None:
         raise RuntimeError("must be called from async context")
 
 
-def spawn_system_task(async_fn: Callable[..., Awaitable[object]], *args:
-    Any, name: (str | None)=None, context: (Context | None)=None) ->Task:
+def spawn_system_task(async_fn, *args, name=None, context=None):
     """Spawn a "system" task.
 
         System tasks have a few differences from regular tasks:
@@ -165,7 +164,7 @@ def spawn_system_task(async_fn: Callable[..., Awaitable[object]], *args:
         raise RuntimeError("must be called from async context")
 
 
-def current_trio_token() ->TrioToken:
+def current_trio_token():
     """Retrieve the :class:`TrioToken` for the current call to
         :func:`trio.run`.
 
@@ -177,7 +176,7 @@ def current_trio_token() ->TrioToken:
         raise RuntimeError("must be called from async context")
 
 
-async def wait_all_tasks_blocked(cushion: float=0.0) ->None:
+async def wait_all_tasks_blocked(cushion=0.0):
     """Block until there are no runnable tasks.
 
         This is useful in testing code when you want to give other tasks a

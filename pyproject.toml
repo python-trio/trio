@@ -44,7 +44,7 @@ disallow_untyped_defs = true
 # Enable gradually / for new modules
 check_untyped_defs = false
 disallow_untyped_calls = false
-disallow_any_unimported = false
+disallow_any_unimported = true
 
 
 
@@ -55,6 +55,24 @@ module = [
 "trio/_core/_tests/*",
 "trio/_tests/*",
 
+# 2749
+"trio/_threads", # 15, 398 lines
+# 2747
+"trio/testing/_network", # 1, 34
+"trio/testing/_trio_test", # 2, 29
+"trio/testing/_checkpoints", # 3, 62
+"trio/testing/_check_streams", # 27, 522
+"trio/testing/_memory_streams", # 66, 590
+# 2745
+"trio/_ssl", # 26, 929 lines
+# 2742
+"trio/_core/_multierror", # 19, 469
+# 2735 trio/_core/_asyncgens
+
+# 2733
+"trio/_core/_run",
+"trio/_core/_generated_run",
+
 # windows
 "trio/_windows_pipes",
 "trio/_core/_windows_cffi", # 2, 324
@@ -62,15 +80,8 @@ module = [
 "trio/_core/_io_windows", # 47 (win32), 867
 "trio/_wait_for_object", # 2 (windows)
 
-"trio/_core/_multierror", # 19, 469
 
-
-"trio/testing/_network", # 1, 34
-"trio/testing/_trio_test", # 2, 29
-"trio/testing/_checkpoints", # 3, 62
-"trio/testing/_check_streams", # 27, 522
 "trio/testing/_fake_net", # 30
-"trio/testing/_memory_streams", # 66, 590
 
 "trio/_highlevel_open_unix_stream", # 2, 49 lines
 "trio/_highlevel_open_tcp_listeners", # 3, 227 lines
@@ -80,26 +91,27 @@ module = [
 
 "trio/_subprocess_platform/waitid", # 2, 107 lines
 "trio/_signals", # 13, 168 lines
-"trio/_threads", # 15, 398 lines
 "trio/_subprocess", # 21, 759 lines
-"trio/_ssl", # 26, 929 lines
 ]
-disallow_untyped_defs = false
-disallow_any_generics = false
-disallow_incomplete_defs = false
 disallow_any_decorated = false
+disallow_any_generics = false
+disallow_any_unimported = false
+disallow_incomplete_defs = false
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+# awaiting typing of OutCome
+module = [
+    "trio._core._traps",
+]
+disallow_any_unimported = false
 
 [[tool.mypy.overrides]]
 # Needs to use Any due to some complex introspection.
 module = [
     "trio._path",
 ]
-disallow_incomplete_defs = true
-disallow_untyped_defs = true
 disallow_any_generics = false
-disallow_any_decorated = true
-disallow_any_unimported = true
-disallow_subclassing_any = true
 
 [tool.pytest.ini_options]
 addopts = ["--strict-markers", "--strict-config"]
