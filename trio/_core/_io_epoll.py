@@ -3,19 +3,33 @@ from __future__ import annotations
 import select
 import sys
 from collections import defaultdict
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING, DefaultDict, Literal
 
 import attr
 
 from .. import _core
 from ._io_common import wake_all
-from ._run import _public
+from ._run import Task, _public
 from ._wakeup_socketpair import WakeupSocketpair
+
+if TYPE_CHECKING:
+    from socket import socket
+
+    from typing_extensions import TypeAlias
+
+    from .._core import Abort, RaiseCancelT
+
+
+@attr.s(slots=True, eq=False)
+class EpollWaiters:
+    read_task: Task | None = attr.ib(default=None)
+    write_task: Task | None = attr.ib(default=None)
+    current_flags: int = attr.ib(default=0)
+
 
 assert not TYPE_CHECKING or sys.platform == "linux"
 
-if TYPE_CHECKING:
-    from typing_extensions import Literal, TypeAlias
+
 EventResult: TypeAlias = "list[tuple[int, int]]"
 
 
@@ -184,28 +198,21 @@ class _EpollStatistics:
 # wanted to about how epoll works.
 
 
-@attr.s(slots=True, eq=False)
-class EpollWaiters:
-    read_task = attr.ib(default=None)
-    write_task = attr.ib(default=None)
-    current_flags = attr.ib(default=0)
-
-
 @attr.s(slots=True, eq=False, hash=False)
 class EpollIOManager:
-    _epoll = attr.ib(factory=select.epoll)
+    _epoll: select.epoll = attr.ib(factory=select.epoll)
     # {fd: EpollWaiters}
-    _registered = attr.ib(
-        factory=lambda: defaultdict(EpollWaiters), type=Dict[int, EpollWaiters]
+    _registered: DefaultDict[int, EpollWaiters] = attr.ib(
+        factory=lambda: defaultdict(EpollWaiters)
     )
-    _force_wakeup = attr.ib(factory=WakeupSocketpair)
-    _force_wakeup_fd = attr.ib(default=None)
+    _force_wakeup: WakeupSocketpair = attr.ib(factory=WakeupSocketpair)
+    _force_wakeup_fd: int | None = attr.ib(default=None)
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         self._epoll.register(self._force_wakeup.wakeup_sock, select.EPOLLIN)
         self._force_wakeup_fd = self._force_wakeup.wakeup_sock.fileno()
 
-    def statistics(self):
+    def statistics(self) -> _EpollStatistics:
         tasks_waiting_read = 0
         tasks_waiting_write = 0
         for waiter in self._registered.values():
@@ -218,11 +225,11 @@ class EpollIOManager:
             tasks_waiting_write=tasks_waiting_write,
         )
 
-    def close(self):
+    def close(self) -> None:
         self._epoll.close()
         self._force_wakeup.close()
 
-    def force_wakeup(self):
+    def force_wakeup(self) -> None:
         self._force_wakeup.wakeup_thread_and_signal_safe()
 
     # Return value must be False-y IFF the timeout expired, NOT if any I/O
@@ -254,7 +261,7 @@ class EpollIOManager:
                 waiters.read_task = None
             self._update_registrations(fd)
 
-    def _update_registrations(self, fd):
+    def _update_registrations(self, fd: int) -> None:
         waiters = self._registered[fd]
         wanted_flags = 0
         if waiters.read_task is not None:
@@ -283,7 +290,7 @@ class EpollIOManager:
         if not wanted_flags:
             del self._registered[fd]
 
-    async def _epoll_wait(self, fd, attr_name):
+    async def _epoll_wait(self, fd: int | socket, attr_name: str) -> None:
         if not isinstance(fd, int):
             fd = fd.fileno()
         waiters = self._registered[fd]
@@ -294,7 +301,7 @@ class EpollIOManager:
         setattr(waiters, attr_name, _core.current_task())
         self._update_registrations(fd)
 
-        def abort(_):
+        def abort(_: RaiseCancelT) -> Abort:
             setattr(waiters, attr_name, None)
             self._update_registrations(fd)
             return _core.Abort.SUCCEEDED
@@ -302,15 +309,15 @@ class EpollIOManager:
         await _core.wait_task_rescheduled(abort)
 
     @_public
-    async def wait_readable(self, fd):
+    async def wait_readable(self, fd: int | socket) -> None:
         await self._epoll_wait(fd, "read_task")
 
     @_public
-    async def wait_writable(self, fd):
+    async def wait_writable(self, fd: int | socket) -> None:
         await self._epoll_wait(fd, "write_task")
 
     @_public
-    def notify_closing(self, fd):
+    def notify_closing(self, fd: int | socket) -> None:
         if not isinstance(fd, int):
             fd = fd.fileno()
         wake_all(

@@ -5,7 +5,7 @@ import itertools
 import socket
 import sys
 from contextlib import contextmanager
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import attr
 from outcome import Value
@@ -32,7 +32,7 @@ from ._windows_cffi import (
 assert not TYPE_CHECKING or sys.platform == "win32"
 
 if TYPE_CHECKING:
-    from typing_extensions import Literal, TypeAlias
+    from typing_extensions import TypeAlias
 EventResult: TypeAlias = int
 
 # There's a lot to be said about the overall design of a Windows event
