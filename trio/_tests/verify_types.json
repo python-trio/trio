@@ -7,10 +7,10 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.9218500797448166,
+    "completenessScore": 0.9234449760765551,
     "exportedSymbolCounts": {
-      "withAmbiguousType": 1,
-      "withKnownType": 578,
+      "withAmbiguousType": 0,
+      "withKnownType": 579,
       "withUnknownType": 48
     },
     "ignoreUnknownTypesFromImports": true,
@@ -45,8 +45,8 @@
       }
     ],
     "otherSymbolCounts": {
-      "withAmbiguousType": 4,
-      "withKnownType": 616,
+      "withAmbiguousType": 2,
+      "withKnownType": 618,
       "withUnknownType": 46
     },
     "packageName": "trio",
@@ -60,7 +60,6 @@
       "trio._highlevel_socket.SocketStream.getsockopt",
       "trio._highlevel_socket.SocketStream.send_all",
       "trio._highlevel_socket.SocketStream.setsockopt",
-      "trio._ssl.SSLStream.transport_stream",
       "trio._subprocess.Process.__init__",
       "trio._subprocess.Process.__repr__",
       "trio._subprocess.Process.args",
