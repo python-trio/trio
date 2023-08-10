@@ -62,7 +62,7 @@ nitpick_ignore = [
     ("py:obj", "trio._abc.SendType"),
     ("py:obj", "trio._abc.T"),
     ("py:obj", "trio._abc.T_resource"),
-    ("py:class", "trio._threads.T"),
+    ("py:class", "trio._threads.RetT"),
     # why aren't these found in stdlib?
     ("py:class", "types.FrameType"),
     ("py:class", "P.args"),

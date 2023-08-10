@@ -32,6 +32,7 @@ Ret2T = TypeVar("Ret2T")
 
 class _TokenLocal(threading.local):
     """Global due to Threading API, thread local storage for trio token."""
+
     token: TrioToken
 
 
@@ -69,8 +70,8 @@ class ThreadPlaceholder:
     name: str = attr.ib()
 
 
-@enable_ki_protection
-async def to_thread_run_sync(
+@enable_ki_protection  # Decorator used on function with Coroutine[Any, Any, RetT]
+async def to_thread_run_sync(  # type: ignore[misc]
     sync_fn: Callable[..., RetT],
     *args: object,
     thread_name: Optional[str] = None,
@@ -174,8 +175,8 @@ async def to_thread_run_sync(
 
     # This function gets scheduled into the Trio run loop to deliver the
     # thread's result.
-    def report_back_in_trio_thread_fn(result):
-        def do_release_then_return_result():
+    def report_back_in_trio_thread_fn(result: outcome.Outcome[RetT]) -> None:
+        def do_release_then_return_result() -> RetT:
             # release_on_behalf_of is an arbitrary user-defined method, so it
             # might raise an error. If it does, we want that error to
             # replace the regular return value, and if the regular return was
@@ -194,7 +195,7 @@ async def to_thread_run_sync(
     if thread_name is None:
         thread_name = f"{getattr(sync_fn, '__name__', None)} from {trio.lowlevel.current_task().name}"
 
-    def worker_fn():
+    def worker_fn() -> RetT:
         current_async_library_cvar.set(None)
         TOKEN_LOCAL.token = current_trio_token
         try:
@@ -213,9 +214,10 @@ async def to_thread_run_sync(
             del TOKEN_LOCAL.token
 
     context = contextvars.copy_context()
-    contextvars_aware_worker_fn = functools.partial(context.run, worker_fn)
+    # Partial confuses type checkers, coerce to a callable.
+    contextvars_aware_worker_fn: Callable[[], RetT] = functools.partial(context.run, worker_fn)  # type: ignore[assignment]
 
-    def deliver_worker_fn_result(result):
+    def deliver_worker_fn_result(result: outcome.Outcome[RetT]) -> None:
         try:
             current_trio_token.run_sync_soon(report_back_in_trio_thread_fn, result)
         except trio.RunFinishedError:
