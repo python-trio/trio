@@ -578,17 +578,12 @@ class CancelScope(metaclass=Final):
                 # CancelStatus.close() will take care of the plumbing;
                 # we just need to make sure we don't let the error
                 # pass silently.
-                scope = (
-                    repr(scope_task._cancel_status._scope)
-                    if scope_task._cancel_status is not None
-                    else "<no scope??>"
-                )
                 new_exc = RuntimeError(
                     "Cancel scope stack corrupted: attempted to exit {!r} "
-                    "in {!r} that's still within its child {}\n{}".format(
+                    "in {!r} that's still within its child {!r}\n{}".format(
                         self,
                         scope_task,
-                        scope,
+                        scope_task._cancel_status._scope,
                         MISNESTING_ADVICE,
                     )
                 )
@@ -1378,12 +1373,13 @@ class Task(metaclass=NoPublicConstructor):
 
     # The CancelStatus object that is currently active for this task.
     # Don't change this directly; instead, use _activate_cancel_status().
-    _cancel_status: CancelStatus | None = attr.ib(default=None, repr=False)
+    # This can be None, but only in the init task.
+    _cancel_status: CancelStatus = attr.ib(default=None, repr=False)
 
     def _activate_cancel_status(self, cancel_status: CancelStatus | None) -> None:
         if self._cancel_status is not None:
             self._cancel_status._tasks.remove(self)
-        self._cancel_status = cancel_status
+        self._cancel_status = cancel_status  # type: ignore[assignment]
         if self._cancel_status is not None:
             self._cancel_status._tasks.add(self)
             if self._cancel_status.effectively_cancelled:
@@ -1411,7 +1407,6 @@ class Task(metaclass=NoPublicConstructor):
     def _attempt_delivery_of_any_pending_cancel(self) -> None:
         if self._abort_func is None:
             return
-        assert self._cancel_status is not None
         if not self._cancel_status.effectively_cancelled:
             return
 
@@ -1772,8 +1767,7 @@ class Runner:
 
     def task_exited(self, task: Task, outcome: Outcome[Any]) -> None:
         if (
-            task._cancel_status is not None
-            and task._cancel_status.abandoned_by_misnesting
+            task._cancel_status.abandoned_by_misnesting
             and task._cancel_status.parent is None
         ):
             # The cancel scope surrounding this task's nursery was closed
@@ -2653,9 +2647,7 @@ def current_effective_deadline() -> float:
         float: the effective deadline, as an absolute time.
 
     """
-    status = current_task()._cancel_status
-    assert status is not None
-    return status.effective_deadline()
+    return current_task()._cancel_status.effective_deadline()
 
 
 async def checkpoint() -> None:
@@ -2678,7 +2670,6 @@ async def checkpoint() -> None:
     await cancel_shielded_checkpoint()
     task = current_task()
     task._cancel_points += 1
-    assert task._cancel_status is not None, task
     if task._cancel_status.effectively_cancelled or (
         task is task._runner.main_task and task._runner.ki_pending
     ):
@@ -2702,7 +2693,6 @@ async def checkpoint_if_cancelled() -> None:
 
     """
     task = current_task()
-    assert task._cancel_status is not None, task
     if task._cancel_status.effectively_cancelled or (
         task is task._runner.main_task and task._runner.ki_pending
     ):
