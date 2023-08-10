@@ -30,8 +30,12 @@ RetT = TypeVar("RetT")
 Ret2T = TypeVar("Ret2T")
 
 
-# Global due to Threading API, thread local storage for trio token
-TOKEN_LOCAL = threading.local()
+class _TokenLocal(threading.local):
+    """Global due to Threading API, thread local storage for trio token."""
+    token: TrioToken
+
+
+TOKEN_LOCAL = _TokenLocal()
 
 _limiter_local: RunVar[CapacityLimiter] = RunVar("limiter")
 # I pulled this number out of the air; it isn't based on anything. Probably we
