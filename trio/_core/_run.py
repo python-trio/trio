@@ -1104,8 +1104,7 @@ class Nursery(metaclass=NoPublicConstructor):
             # KeyboardInterrupt), then save that, but still wait until our
             # children finish.
             def aborted(raise_cancel: _core.RaiseCancelT) -> Abort:
-                # capture() needs an overload for NoReturn -> Error.
-                self._add_exc(capture(raise_cancel).error)  # type: ignore[union-attr]
+                self._add_exc(capture(raise_cancel).error)
                 return Abort.FAILED
 
             self._parent_waiting_in_aexit = True
