@@ -14,11 +14,12 @@ from typing import Any
 from outcome import Outcome
 import contextvars
 
-from ._run import _NO_SEND
-import trio
+from ._run import _NO_SEND, RunStatistics, Task
+from ._entry_queue import TrioToken
+from .._abc import Clock
 
 
-def current_statistics() ->trio.lowlevel.RunStatistics:
+def current_statistics() ->RunStatistics:
     """Returns ``RunStatistics``, which contains run-loop-level debugging information.
 
         Currently, the following fields are defined:
@@ -65,7 +66,7 @@ def current_time() ->float:
         raise RuntimeError("must be called from async context")
 
 
-def current_clock() ->trio.abc.Clock:
+def current_clock() ->Clock:
     """Returns the current :class:`~trio.abc.Clock`."""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
@@ -74,7 +75,7 @@ def current_clock() ->trio.abc.Clock:
         raise RuntimeError("must be called from async context")
 
 
-def current_root_task() ->(trio.lowlevel.Task | None):
+def current_root_task() ->(Task | None):
     """Returns the current root :class:`Task`.
 
         This is the task that is the ultimate parent of all other tasks.
@@ -87,8 +88,7 @@ def current_root_task() ->(trio.lowlevel.Task | None):
         raise RuntimeError("must be called from async context")
 
 
-def reschedule(task: trio.lowlevel.Task, next_send: Outcome[Any]=_NO_SEND
-    ) ->None:
+def reschedule(task: Task, next_send: Outcome[Any]=_NO_SEND) ->None:
     """Reschedule the given task with the given
         :class:`outcome.Outcome`.
 
@@ -115,7 +115,7 @@ def reschedule(task: trio.lowlevel.Task, next_send: Outcome[Any]=_NO_SEND
 
 def spawn_system_task(async_fn: Callable[..., Awaitable[object]], *args:
     object, name: object=None, context: (contextvars.Context | None)=None
-    ) ->trio.lowlevel.Task:
+    ) ->Task:
     """Spawn a "system" task.
 
         System tasks have a few differences from regular tasks:
@@ -174,7 +174,7 @@ def spawn_system_task(async_fn: Callable[..., Awaitable[object]], *args:
         raise RuntimeError("must be called from async context")
 
 
-def current_trio_token() ->trio.lowlevel.TrioToken:
+def current_trio_token() ->TrioToken:
     """Retrieve the :class:`TrioToken` for the current call to
         :func:`trio.run`.
 

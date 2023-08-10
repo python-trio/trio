@@ -1538,7 +1538,7 @@ class GuestState:
 
 @attr.s(eq=False, hash=False, slots=True)
 class Runner:
-    clock: trio._abc.Clock = attr.ib()
+    clock: Clock = attr.ib()
     instruments: Instruments = attr.ib()
     io_manager: TheIOManager = attr.ib()
     ki_manager: KIManager = attr.ib()
@@ -1585,7 +1585,7 @@ class Runner:
         self.ki_manager.close()
 
     @_public
-    def current_statistics(self) -> trio.lowlevel.RunStatistics:
+    def current_statistics(self) -> RunStatistics:
         """Returns ``RunStatistics``, which contains run-loop-level debugging information.
 
         Currently, the following fields are defined:
@@ -1631,12 +1631,12 @@ class Runner:
         return self.clock.current_time()
 
     @_public
-    def current_clock(self) -> trio.abc.Clock:
+    def current_clock(self) -> Clock:
         """Returns the current :class:`~trio.abc.Clock`."""
         return self.clock
 
     @_public
-    def current_root_task(self) -> trio.lowlevel.Task | None:
+    def current_root_task(self) -> Task | None:
         """Returns the current root :class:`Task`.
 
         This is the task that is the ultimate parent of all other tasks.
@@ -1650,7 +1650,7 @@ class Runner:
 
     @_public  # Type-ignore due to use of Any here.
     def reschedule(  # type: ignore[misc]
-        self, task: trio.lowlevel.Task, next_send: Outcome[Any] = _NO_SEND
+        self, task: Task, next_send: Outcome[Any] = _NO_SEND
     ) -> None:
         """Reschedule the given task with the given
         :class:`outcome.Outcome`.
@@ -1820,7 +1820,7 @@ class Runner:
         *args: object,
         name: object = None,
         context: contextvars.Context | None = None,
-    ) -> trio.lowlevel.Task:
+    ) -> Task:
         """Spawn a "system" task.
 
         System tasks have a few differences from regular tasks:
@@ -1924,7 +1924,7 @@ class Runner:
     ################
 
     @_public
-    def current_trio_token(self) -> trio.lowlevel.TrioToken:
+    def current_trio_token(self) -> TrioToken:
         """Retrieve the :class:`TrioToken` for the current call to
         :func:`trio.run`.
 

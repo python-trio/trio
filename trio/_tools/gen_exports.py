@@ -253,8 +253,9 @@ from typing import Any
 from outcome import Outcome
 import contextvars
 
-from ._run import _NO_SEND
-import trio
+from ._run import _NO_SEND, RunStatistics, Task
+from ._entry_queue import TrioToken
+from .._abc import Clock
 """
 IMPORTS_INSTRUMENT = """\
 from ._instrumentation import Instrument
