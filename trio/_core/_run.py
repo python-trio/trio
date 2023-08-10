@@ -40,8 +40,6 @@ from outcome import Error, Outcome, Value, capture
 from sniffio import current_async_library_cvar
 from sortedcontainers import SortedDict
 
-import trio._core._ki
-
 from .. import _core
 from .._abc import Clock, Instrument
 from .._util import Final, NoPublicConstructor, coroutine_or_error
@@ -1272,7 +1270,7 @@ class Task(metaclass=NoPublicConstructor):
     _next_send_fn: Callable[[Any], object] = attr.ib(default=None)
     _next_send: Outcome[Any] | None | BaseException = attr.ib(default=None)
     _abort_func: Callable[[_core.RaiseCancelT], Abort] | None = attr.ib(default=None)
-    custom_sleep_data: object = attr.ib(default=None)
+    custom_sleep_data: Any = attr.ib(default=None)
 
     # For introspection and nursery.start()
     _child_nurseries: list[Nursery] = attr.ib(factory=list)
@@ -1633,7 +1631,7 @@ class Runner:
         return self.clock.current_time()
 
     @_public
-    def current_clock(self) -> trio._abc.Clock:
+    def current_clock(self) -> trio.abc.Clock:
         """Returns the current :class:`~trio.abc.Clock`."""
         return self.clock
 
