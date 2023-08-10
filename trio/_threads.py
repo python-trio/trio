@@ -5,9 +5,9 @@ import functools
 import inspect
 import queue as stdlib_queue
 import threading
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Callable
 from itertools import count
-from typing import Callable, Optional, TypeVar
+from typing import TypeVar
 
 import attr
 import outcome
@@ -74,7 +74,7 @@ class ThreadPlaceholder:
 async def to_thread_run_sync(  # type: ignore[misc]
     sync_fn: Callable[..., RetT],
     *args: object,
-    thread_name: Optional[str] = None,
+    thread_name: str | None = None,
     cancellable: bool = False,
     limiter: CapacityLimiter | None = None,
 ) -> RetT:
