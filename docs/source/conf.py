@@ -44,7 +44,6 @@ nitpicky = True
 nitpick_ignore = [
     ("py:class", "CapacityLimiter-like object"),
     ("py:class", "bytes-like"),
-    ("py:class", "None"),
     # Was removed but still shows up in changelog
     ("py:class", "trio.lowlevel.RunLocal"),
     # trio.abc is documented at random places scattered throughout the docs
@@ -68,8 +67,6 @@ nitpick_ignore = [
     ("py:class", "P.args"),
     ("py:class", "P.kwargs"),
     ("py:class", "RetT"),
-    # TODO: figure out if you can link this to SSL
-    ("py:class", "Context"),
     # TODO: temporary type
     ("py:class", "_SocketType"),
     # these are not defined in https://docs.python.org/3/objects.inv
@@ -87,6 +84,9 @@ autodoc_type_aliases = {
     # aliasing doesn't actually fix the warning for types.FrameType, but displaying
     # "types.FrameType" is more helpful than just "frame"
     "FrameType": "types.FrameType",
+    # unaliasing these makes intersphinx able to resolve them
+    "Outcome": "outcome.Outcome",
+    "Context": "OpenSSL.SSL.Context",
 }
 
 
