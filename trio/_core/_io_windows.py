@@ -491,7 +491,7 @@ class WindowsIOManager:
             )
         )
 
-    def get_events(self, timeout) -> EventResult:
+    def get_events(self, timeout: float) -> EventResult:
         received = ffi.new("PULONG")
         milliseconds = round(1000 * timeout)
         if timeout > 0 and milliseconds == 0:
@@ -510,7 +510,7 @@ class WindowsIOManager:
         assert isinstance(result, int)
         return result
 
-    def process_events(self, received: EventResult):
+    def process_events(self, received: EventResult) -> None:
         for i in range(received):
             entry = self._events[i]
             if entry.lpCompletionKey == CKeys.AFD_POLL:
