@@ -31,7 +31,7 @@ def identify_typevars() -> None:
                     relative = relative.with_suffix("")
                     if relative.name == "__init__":  # Package, remove.
                         relative = relative.parent
-                    kind = f"typing.{match.group(2)}"
+                    kind = match.group(2)
                     name = match.group(1)
                     typevars_qualified[f'{".".join(relative.parts)}.{name}'] = kind
                     existing = typevars_named.setdefault(name, kind)
@@ -49,7 +49,7 @@ identify_typevars()
 print("Typevars: ", sorted(typevars_qualified))
 
 
-def on_missing_reference(
+def lookup_reference(
     app: Sphinx,
     env: BuildEnvironment,
     node: pending_xref,
@@ -83,15 +83,21 @@ def on_missing_reference(
             return None
 
     new_node = node.copy()
-    new_node["reftarget"] = typevar_type
-    return app.emit_firstresult(
+    new_node["reftarget"] = f"typing.{typevar_type}"
+    new_node = app.emit_firstresult(
         "missing-reference",
         env,
         new_node,
         contnode,
         allowed_exceptions=(NoUri,),
     )
+    reftitle = new_node["reftitle"]
+    # Is normally "(in Python 3.XX)", make it say typevar/paramspec/etc
+    paren = "(" if reftitle.startswith("(") else ""
+    new_node["reftitle"] = f"{paren}{typevar_type}, {reftitle.lstrip('(')}"
+    new_node["classes"].append("typevarref")
+    return new_node
 
 
 def setup(app):
-    app.connect("missing-reference", on_missing_reference, -10)
+    app.connect("missing-reference", lookup_reference, -10)
