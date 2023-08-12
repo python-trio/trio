@@ -23,7 +23,7 @@ def identify_typevars() -> None:
             for line in f:
                 # A simple regex should be sufficient to find them all, no need to actually parse.
                 match = re.search(
-                    r"^\s*(\w+)\s*=\s*(TypeVar|TypeVarTuple|ParamSpec)\(",
+                    r"^\s*([\w_0-9]+)\s*=\s*(TypeVar|TypeVarTuple|ParamSpec)\(",
                     line,
                 )
                 if match is not None:
@@ -40,10 +40,8 @@ def identify_typevars() -> None:
 
 
 # All our typevars, so we can suppress reference errors for them.
-typevars_qualified = {
-    "_os.PathLike": "typing.TypeVar",
-}
-typevars_named = {}
+typevars_qualified: dict[str, str] = {}
+typevars_named: dict[str, str] = {}
 identify_typevars()
 
 print("Typevars: ", sorted(typevars_qualified))
