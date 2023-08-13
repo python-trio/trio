@@ -3,7 +3,7 @@ import itertools
 import socket
 import sys
 from contextlib import contextmanager
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import attr
 from outcome import Value
@@ -369,7 +369,7 @@ class _WindowsStatistics:
     tasks_waiting_write = attr.ib()
     tasks_waiting_overlapped = attr.ib()
     completion_key_monitors = attr.ib()
-    backend = attr.ib(default="windows")
+    backend: Literal["windows"] = attr.ib(init=False, default="windows")
 
 
 # Maximum number of events to dequeue from the completion port on each pass
