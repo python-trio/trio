@@ -76,7 +76,7 @@ def lookup_reference(
         dot = target.rfind(".")
         stem = target[dot + 1 :] if dot >= 0 else target
         try:
-            typevar_type = typevars_qualified[stem]
+            typevar_type = typevars_named[stem]
         except KeyError:
             return None
 
