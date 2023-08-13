@@ -1,8 +1,9 @@
 # Simulate a producer that generates values 10x faster than the
 # consumer can handle them.
 
-import trio
 import math
+
+import trio
 
 
 async def producer(send_channel):

@@ -1,5 +1,6 @@
-import trio
 import random
+
+import trio
 
 
 async def main():

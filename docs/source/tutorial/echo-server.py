@@ -1,7 +1,8 @@
 # echo-server.py
 
-import trio
 from itertools import count
+
+import trio
 
 # Port is arbitrary, but:
 # - must be in between 1024 and 65535

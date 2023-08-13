@@ -1,5 +1,6 @@
 import trio
 
+
 async def run_test(nominal_backlog):
     print("--\nnominal:", nominal_backlog)
 
@@ -21,6 +22,7 @@ async def run_test(nominal_backlog):
     print("actual:", len(client_socks))
     for client_sock in client_socks:
         client_sock.close()
+
 
 for nominal_backlog in [10, trio.socket.SOMAXCONN, 65535]:
     trio.run(run_test, nominal_backlog)

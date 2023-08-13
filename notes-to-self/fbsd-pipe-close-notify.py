@@ -4,9 +4,8 @@
 #
 # Upstream bug: https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=246350
 
-import select
 import os
-import threading
+import select
 
 r, w = os.pipe()
 

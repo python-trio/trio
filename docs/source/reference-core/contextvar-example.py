@@ -1,6 +1,7 @@
-import random
-import trio
 import contextvars
+import random
+
+import trio
 
 request_info = contextvars.ContextVar("request_info")
 
