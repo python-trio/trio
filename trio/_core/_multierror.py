@@ -424,7 +424,8 @@ else:
     # http://doc.pypy.org/en/latest/objspace-proxies.html
     def copy_tb(base_tb: TracebackType, tb_next: TracebackType | None) -> TracebackType:
         # Mypy refuses to believe that ProxyOperation can be imported properly
-        def controller(operation: tputil.ProxyOperation) -> Any | None:  # type: ignore[no-any-unimported]
+        # TODO: will need no-any-unimported if/when that's toggled on
+        def controller(operation: tputil.ProxyOperation) -> Any | None:
             # Rationale for pragma: I looked fairly carefully and tried a few
             # things, and AFAICT it's not actually possible to get any
             # 'opname' that isn't __getattr__ or __getattribute__. So there's
