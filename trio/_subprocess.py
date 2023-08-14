@@ -9,12 +9,12 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import ExitStack
 from functools import partial
 from io import TextIOWrapper
-from typing import Literal, TYPE_CHECKING, Final, Protocol, Union, overload
+from typing import TYPE_CHECKING, Final, Literal, Protocol, Union, overload
 
 import trio
 
 from ._abc import AsyncResource, ReceiveStream, SendStream
-from ._core import ClosedResourceError
+from ._core import ClosedResourceError, TaskStatus
 from ._deprecate import deprecated
 from ._highlevel_generic import StapledStream
 from ._subprocess_platform import (
@@ -24,7 +24,6 @@ from ._subprocess_platform import (
 )
 from ._sync import Lock
 from ._util import NoPublicConstructor
-
 
 if TYPE_CHECKING:
     from typing_extensions import TypeAlias
@@ -480,15 +479,15 @@ async def _posix_deliver_cancel(p: Process) -> None:
 
 # Use a private name, so we can declare platform-specific stubs below.
 async def _run_process(
-    command,
+    command: StrOrBytesPath | Sequence[StrOrBytesPath],
     *,
     stdin: bytes | bytearray | memoryview | int | HasFileno | None = b"",
     capture_stdout: bool = False,
     capture_stderr: bool = False,
     check: bool = True,
     deliver_cancel: Callable[[Process], Awaitable[object]] | None = None,
-    task_status=trio.TASK_STATUS_IGNORED,  # trio.TaskStatus[Process]
-    **options,
+    task_status: TaskStatus = trio.TASK_STATUS_IGNORED,  # type: ignore[assignment]  # TODO
+    **options: object,
 ) -> subprocess.CompletedProcess[bytes]:
     """Run ``command`` in a subprocess and wait for it to complete.
 
@@ -747,7 +746,8 @@ async def _run_process(
                 chunks.append(chunk)
 
     async with trio.open_nursery() as nursery:
-        proc = await open_process(command, **options)
+        # options needs a complex TypedDict.
+        proc = await open_process(command, **options)  # type: ignore
         try:
             if input is not None:
                 nursery.start_soon(feed_input, proc.stdin)
@@ -800,6 +800,7 @@ async def _run_process(
 
 if TYPE_CHECKING:
     if sys.platform == "win32":
+
         async def open_process(
             command: Union[StrOrBytesPath, Sequence[StrOrBytesPath]],
             *,
@@ -812,12 +813,13 @@ if TYPE_CHECKING:
             env: Mapping[str, str] | None = None,
             startupinfo: subprocess.STARTUPINFO | None = None,
             creationflags: int = 0,
-        ) -> trio.Process: ...
+        ) -> trio.Process:
+            ...
 
         async def run_process(
             command: StrOrBytesPath | Sequence[StrOrBytesPath],
             *,
-            task_status: object = trio.TASK_STATUS_IGNORED,  # TODO: TaskStatus[Process]
+            task_status: TaskStatus = trio.TASK_STATUS_IGNORED,  # type: ignore[assignment]  # TODO
             stdin: bytes | bytearray | memoryview | int | HasFileno | None = None,
             capture_stdout: bool = False,
             capture_stderr: bool = False,
@@ -835,6 +837,7 @@ if TYPE_CHECKING:
             ...
 
     else:  # Unix
+
         @overload  # type: ignore[no-overload-impl]
         async def open_process(
             command: StrOrBytesPath,
@@ -850,7 +853,9 @@ if TYPE_CHECKING:
             restore_signals: bool = True,
             start_new_session: bool = False,
             pass_fds: Sequence[int] = (),
-        ) -> trio.Process: ...
+        ) -> trio.Process:
+            ...
+
         @overload
         async def open_process(
             command: Sequence[StrOrBytesPath],
@@ -866,13 +871,14 @@ if TYPE_CHECKING:
             restore_signals: bool = True,
             start_new_session: bool = False,
             pass_fds: Sequence[int] = (),
-        ) -> trio.Process: ...
+        ) -> trio.Process:
+            ...
 
         @overload  # type: ignore[no-overload-impl]
         async def run_process(
             command: StrOrBytesPath,
             *,
-            task_status: object = trio.TASK_STATUS_IGNORED,  # TODO: TaskStatus[Process]
+            task_status: TaskStatus = trio.TASK_STATUS_IGNORED,  # type: ignore[assignment]  # TODO
             stdin: bytes | bytearray | memoryview | int | HasFileno | None = None,
             capture_stdout: bool = False,
             capture_stderr: bool = False,
@@ -913,6 +919,7 @@ if TYPE_CHECKING:
             pass_fds: Sequence[int] = (),
         ) -> subprocess.CompletedProcess[bytes]:
             ...
+
 else:
     # At runtime, use the actual implementations.
     open_process = _open_process

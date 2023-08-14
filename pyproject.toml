@@ -65,6 +65,7 @@ module = [
     "trio._ki",
     "trio._socket",
     "trio._sync",
+    "trio._subprocess",
     "trio._tools.gen_exports",
     "trio._util",
 ]
