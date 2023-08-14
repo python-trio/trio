@@ -66,7 +66,7 @@ nitpick_ignore = [
     ("py:class", "trio._core._run.StatusT_co"),
     ("py:class", "trio._core._run.StatusT_contra"),
     ("py:class", "trio._core._run.RetT"),
-    ("py:class", "trio._threads.T"),
+    ("py:class", "trio._threads.RetT"),
     ("py:class", "P.args"),
     ("py:class", "P.kwargs"),
     ("py:class", "RetT"),
