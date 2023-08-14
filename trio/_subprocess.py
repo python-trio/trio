@@ -1,10 +1,14 @@
+from __future__ import annotations
+
 import os
+import signal
 import subprocess
 import sys
 import warnings
+from collections.abc import Awaitable, Callable
 from contextlib import ExitStack
 from functools import partial
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Final, Protocol
 
 import trio
 
@@ -65,6 +69,11 @@ else:
             can_try_pidfd_open = False
 
 
+class HasFileno(Protocol):
+    def fileno(self) -> int:
+        ...
+
+
 class Process(AsyncResource, metaclass=NoPublicConstructor):
     r"""A child process. Like :class:`subprocess.Popen`, but async.
 
@@ -107,23 +116,29 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
           available; otherwise this will be None.
 
     """
-
-    universal_newlines = False
-    encoding = None
-    errors = None
+    # We're always in binary mode.
+    universal_newlines: Final = False
+    encoding: Final = None
+    errors: Final = None
 
     # Available for the per-platform wait_child_exiting() implementations
     # to stash some state; waitid platforms use this to avoid spawning
     # arbitrarily many threads if wait() keeps getting cancelled.
-    _wait_for_exit_data = None
+    _wait_for_exit_data: object = None
 
-    def __init__(self, popen, stdin, stdout, stderr):
+    def __init__(
+        self,
+        popen: subprocess.Popen[bytes],
+        stdin: SendStream | None,
+        stdout: ReceiveStream | None,
+        stderr: ReceiveStream | None,
+    ) -> None:
         self._proc = popen
-        self.stdin: Optional[SendStream] = stdin
-        self.stdout: Optional[ReceiveStream] = stdout
-        self.stderr: Optional[ReceiveStream] = stderr
+        self.stdin = stdin
+        self.stdout = stdout
+        self.stderr = stderr
 
-        self.stdio: Optional[StapledStream] = None
+        self.stdio: StapledStream | None = None
         if self.stdin is not None and self.stdout is not None:
             self.stdio = StapledStream(self.stdin, self.stdout)
 
@@ -147,7 +162,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         self.args = self._proc.args
         self.pid = self._proc.pid
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         returncode = self.returncode
         if returncode is None:
             status = f"running with PID {self.pid}"
@@ -159,7 +174,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         return f"<trio.Process {self.args!r}: {status}>"
 
     @property
-    def returncode(self):
+    def returncode(self) -> int | None:
         """The exit status of the process (an integer), or ``None`` if it's
         still running.
 
@@ -186,13 +201,13 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         issue=1104,
         instead="run_process or nursery.start(run_process, ...)",
     )
-    async def __aenter__(self):
+    async def __aenter__(self) -> Process:
         return self
 
     @deprecated(
         "0.20.0", issue=1104, instead="run_process or nursery.start(run_process, ...)"
     )
-    async def aclose(self):
+    async def aclose(self) -> None:
         """Close any pipes we have to the process (both input and output)
         and wait for it to exit.
 
@@ -214,13 +229,13 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
                 with trio.CancelScope(shield=True):
                     await self.wait()
 
-    def _close_pidfd(self):
+    def _close_pidfd(self) -> None:
         if self._pidfd is not None:
             trio.lowlevel.notify_closing(self._pidfd.fileno())
             self._pidfd.close()
             self._pidfd = None
 
-    async def wait(self):
+    async def wait(self) -> int:
         """Block until the process exits.
 
         Returns:
@@ -248,7 +263,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         assert self._proc.returncode is not None
         return self._proc.returncode
 
-    def poll(self):
+    def poll(self) -> int | None:
         """Returns the exit status of the process (an integer), or ``None`` if
         it's still running.
 
@@ -260,7 +275,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         """
         return self.returncode
 
-    def send_signal(self, sig):
+    def send_signal(self, sig: signal.Signals | int) -> None:
         """Send signal ``sig`` to the process.
 
         On UNIX, ``sig`` may be any signal defined in the
@@ -270,7 +285,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         """
         self._proc.send_signal(sig)
 
-    def terminate(self):
+    def terminate(self) -> None:
         """Terminate the process, politely if possible.
 
         On UNIX, this is equivalent to
@@ -281,7 +296,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         """
         self._proc.terminate()
 
-    def kill(self):
+    def kill(self) -> None:
         """Immediately terminate the process.
 
         On UNIX, this is equivalent to
@@ -295,7 +310,12 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
 
 
 async def open_process(
-    command, *, stdin=None, stdout=None, stderr=None, **options
+    command: list[str] | str,
+    *,
+    stdin: int | HasFileno | None = None,
+    stdout: int | HasFileno | None = None,
+    stderr: int | HasFileno | None = None,
+    **options: object,
 ) -> Process:
     r"""Execute a child program in a new process.
 
@@ -366,9 +386,9 @@ async def open_process(
                 "on UNIX systems"
             )
 
-    trio_stdin: Optional[ClosableSendStream] = None
-    trio_stdout: Optional[ClosableReceiveStream] = None
-    trio_stderr: Optional[ClosableReceiveStream] = None
+    trio_stdin: ClosableSendStream | None = None
+    trio_stdout: ClosableReceiveStream | None = None
+    trio_stderr: ClosableReceiveStream | None = None
     # Close the parent's handle for each child side of a pipe; we want the child to
     # have the only copy, so that when it exits we can read EOF on our side. The
     # trio ends of pipes will be transferred to the Process object, which will be
@@ -414,14 +434,14 @@ async def open_process(
     return Process._create(popen, trio_stdin, trio_stdout, trio_stderr)
 
 
-async def _windows_deliver_cancel(p):
+async def _windows_deliver_cancel(p: Process) -> None:
     try:
         p.terminate()
     except OSError as exc:
         warnings.warn(RuntimeWarning(f"TerminateProcess on {p!r} failed with: {exc!r}"))
 
 
-async def _posix_deliver_cancel(p):
+async def _posix_deliver_cancel(p: Process) -> None:
     try:
         p.terminate()
         await trio.sleep(5)
@@ -442,14 +462,14 @@ async def _posix_deliver_cancel(p):
 async def run_process(
     command,
     *,
-    stdin=b"",
-    capture_stdout=False,
-    capture_stderr=False,
-    check=True,
-    deliver_cancel=None,
-    task_status=trio.TASK_STATUS_IGNORED,
+    stdin: bytes | bytearray | memoryview | int | HasFileno | None = b"",
+    capture_stdout: bool = False,
+    capture_stderr: bool = False,
+    check: bool = True,
+    deliver_cancel: Callable[[Process], Awaitable[object]] | None = None,
+    task_status=trio.TASK_STATUS_IGNORED,  # trio.TaskStatus[Process]
     **options,
-):
+) -> subprocess.CompletedProcess:
     """Run ``command`` in a subprocess and wait for it to complete.
 
     This function can be called in two different ways.
@@ -687,17 +707,21 @@ async def run_process(
             assert os.name == "posix"
             deliver_cancel = _posix_deliver_cancel
 
-    stdout_chunks = []
-    stderr_chunks = []
+    stdout_chunks: list[bytes | bytearray] = []
+    stderr_chunks: list[bytes | bytearray] = []
 
-    async def feed_input(stream):
+    async def feed_input(stream: SendStream) -> None:
         async with stream:
             try:
+                assert input is not None
                 await stream.send_all(input)
             except trio.BrokenResourceError:
                 pass
 
-    async def read_output(stream, chunks):
+    async def read_output(
+        stream: ReceiveStream,
+        chunks: list[bytes | bytearray],
+    ) -> None:
         async with stream:
             async for chunk in stream:
                 chunks.append(chunk)
@@ -722,7 +746,7 @@ async def run_process(
             with trio.CancelScope(shield=True):
                 killer_cscope = trio.CancelScope(shield=True)
 
-                async def killer():
+                async def killer() -> None:
                     with killer_cscope:
                         await deliver_cancel(proc)
 
@@ -739,4 +763,5 @@ async def run_process(
             proc.returncode, proc.args, output=stdout, stderr=stderr
         )
     else:
+        assert proc.returncode is not None
         return subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)
