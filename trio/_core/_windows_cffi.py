@@ -8,7 +8,6 @@ if TYPE_CHECKING:
     from typing_extensions import NoReturn
 
 import cffi
-from cffi.FFI import CData as CData
 
 ################################################################
 # Functions and types
@@ -223,6 +222,7 @@ LIB = re.sub(r"\bFAR\b", " ", LIB)
 LIB = re.sub(r"\bPASCAL\b", "__stdcall", LIB)
 
 ffi = cffi.FFI()
+CData = ffi.CData
 ffi.cdef(LIB)
 
 kernel32 = ffi.dlopen("kernel32.dll")
