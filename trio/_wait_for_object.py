@@ -2,10 +2,17 @@ import math
 
 import trio
 
-from ._core._windows_cffi import ErrorCodes, _handle, ffi, kernel32, raise_winerror
+from ._core._windows_cffi import (
+    CData,
+    ErrorCodes,
+    _handle,
+    ffi,
+    kernel32,
+    raise_winerror,
+)
 
 
-async def WaitForSingleObject(obj):
+async def WaitForSingleObject(obj: int | CData) -> None:
     """Async and cancellable variant of WaitForSingleObject. Windows only.
 
     Args:
@@ -45,7 +52,7 @@ async def WaitForSingleObject(obj):
         kernel32.CloseHandle(cancel_handle)
 
 
-def WaitForMultipleObjects_sync(*handles):
+def WaitForMultipleObjects_sync(*handles: int | CData) -> None:
     """Wait for any of the given Windows handles to be signaled."""
     n = len(handles)
     handle_arr = ffi.new(f"HANDLE[{n}]")
