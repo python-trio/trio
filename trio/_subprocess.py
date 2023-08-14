@@ -5,10 +5,11 @@ import signal
 import subprocess
 import sys
 import warnings
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import ExitStack
 from functools import partial
-from typing import TYPE_CHECKING, Final, Protocol
+from io import TextIOWrapper
+from typing import Literal, TYPE_CHECKING, Final, Protocol, Union, overload
 
 import trio
 
@@ -23,6 +24,14 @@ from ._subprocess_platform import (
 )
 from ._sync import Lock
 from ._util import NoPublicConstructor
+
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeAlias
+
+
+StrOrBytesPath: TypeAlias = Union[str, bytes, os.PathLike[str], os.PathLike[bytes]]
+
 
 # Linux-specific, but has complex lifetime management stuff so we hard-code it
 # here instead of hiding it behind the _subprocess_platform abstraction
@@ -144,10 +153,10 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
 
         self._wait_lock = Lock()
 
-        self._pidfd = None
+        self._pidfd: TextIOWrapper | None = None
         if can_try_pidfd_open:
             try:
-                fd = pidfd_open(self._proc.pid, 0)
+                fd: int = pidfd_open(self._proc.pid, 0)
             except OSError:
                 # Well, we tried, but it didn't work (probably because we're
                 # running on an older kernel, or in an older sandbox, that
@@ -309,7 +318,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         self._proc.kill()
 
 
-async def open_process(
+async def _open_process(
     command: list[str] | str,
     *,
     stdin: int | HasFileno | None = None,
@@ -459,7 +468,8 @@ async def _posix_deliver_cancel(p: Process) -> None:
         )
 
 
-async def run_process(
+# Use a private name, so we can declare platform-specific stubs below.
+async def _run_process(
     command,
     *,
     stdin: bytes | bytearray | memoryview | int | HasFileno | None = b"",
@@ -469,7 +479,7 @@ async def run_process(
     deliver_cancel: Callable[[Process], Awaitable[object]] | None = None,
     task_status=trio.TASK_STATUS_IGNORED,  # trio.TaskStatus[Process]
     **options,
-) -> subprocess.CompletedProcess:
+) -> subprocess.CompletedProcess[bytes]:
     """Run ``command`` in a subprocess and wait for it to complete.
 
     This function can be called in two different ways.
@@ -765,3 +775,138 @@ async def run_process(
     else:
         assert proc.returncode is not None
         return subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)
+
+
+# There's a lot of duplication here because type checkers don't
+# have a good way to represent overloads that differ only
+# slightly. A cheat sheet:
+# - on Windows, command is Union[str, Sequence[str]];
+#   on Unix, command is str if shell=True and Sequence[str] otherwise
+# - on Windows, there are startupinfo and creationflags options;
+#   on Unix, there are preexec_fn, restore_signals, start_new_session, and pass_fds
+# - run_process() has the signature of open_process() plus arguments
+#   capture_stdout, capture_stderr, check, deliver_cancel, and the ability to pass
+#   bytes as stdin
+
+if TYPE_CHECKING:
+    if sys.platform == "win32":
+        async def open_process(
+            command: Union[StrOrBytesPath, Sequence[StrOrBytesPath]],
+            *,
+            stdin: int | HasFileno | None = ...,
+            stdout: int | HasFileno | None = ...,
+            stderr: int | HasFileno | None = ...,
+            close_fds: bool = ...,
+            shell: bool = ...,
+            cwd: StrOrBytesPath | None = ...,
+            env: Mapping[str, str]  | None = ...,
+            startupinfo: subprocess.STARTUPINFO = ...,
+            creationflags: int = ...,
+        ) -> trio.Process: ...
+
+        async def run_process(
+            command: StrOrBytesPath | Sequence[StrOrBytesPath],
+            *,
+            task_status: object = ...,  # TODO: TaskStatus[Process]
+            stdin: bytes | bytearray | memoryview | int | HasFileno | None = ...,
+            capture_stdout: bool = ...,
+            capture_stderr: bool = ...,
+            check: bool = ...,
+            deliver_cancel: Callable[[Process], Awaitable[object]] | None = ...,
+            stdout: int | HasFileno | None = ...,
+            stderr: int | HasFileno | None = ...,
+            close_fds: bool = ...,
+            shell: bool = ...,
+            cwd: StrOrBytesPath | None = ...,
+            env: Mapping[str, str] | None = ...,
+            startupinfo: subprocess.STARTUPINFO = ...,
+            creationflags: int = ...,
+        ) -> subprocess.CompletedProcess[bytes]:
+            ...
+
+    else:  # Unix
+        @overload  # type: ignore[no-overload-impl]
+        async def open_process(
+            command: StrOrBytesPath,
+            *,
+            stdin: int | HasFileno | None = ...,
+            stdout: int | HasFileno | None = ...,
+            stderr: int | HasFileno | None = ...,
+            close_fds: bool = ...,
+            shell: Literal[True],
+            cwd: StrOrBytesPath | None = ...,
+            env: Mapping[str, str] | None = ...,
+            preexec_fn: Callable[[], object] | None = ...,
+            restore_signals: bool = ...,
+            start_new_session: bool = ...,
+            pass_fds: Sequence[int] = ...,
+        ) -> trio.Process: ...
+        @overload
+        async def open_process(
+            command: Sequence[StrOrBytesPath],
+            *,
+            stdin: int | HasFileno | None = ...,
+            stdout: int | HasFileno | None = ...,
+            stderr: int | HasFileno | None = ...,
+            close_fds: bool = ...,
+            shell: bool = ...,
+            cwd: StrOrBytesPath | None = ...,
+            env: Mapping[str, str] | None = ...,
+            preexec_fn: Callable[[], object] | None = ...,
+            restore_signals: bool = ...,
+            start_new_session: bool = ...,
+            pass_fds: Sequence[int] = ...,
+        ) -> trio.Process: ...
+
+        @overload  # type: ignore[no-overload-impl]
+        async def run_process(
+            command: StrOrBytesPath,
+            *,
+            task_status: object = ...,  # TODO: TaskStatus[Process]
+            stdin: bytes | bytearray | memoryview | int | HasFileno | None = ...,
+            capture_stdout: bool = ...,
+            capture_stderr: bool = ...,
+            check: bool = ...,
+            deliver_cancel: Callable[[Process], Awaitable[object]] | None = ...,
+            stdout: int | HasFileno | None = ...,
+            stderr: int | HasFileno | None = ...,
+            close_fds: bool = ...,
+            shell: Literal[True],
+            cwd: StrOrBytesPath | None = ...,
+            env: Mapping[str, str] | None = ...,
+            preexec_fn: Callable[[], object] | None = ...,
+            restore_signals: bool = ...,
+            start_new_session: bool = ...,
+            pass_fds: Sequence[int] = ...,
+        ) -> subprocess.CompletedProcess[bytes]:
+            ...
+
+        @overload
+        async def run_process(
+            command: Sequence[StrOrBytesPath],
+            *,
+            task_status: object = ...,  # TODO: TaskStatus[Process]
+            stdin: bytes | bytearray | memoryview | int | HasFileno | None = ...,
+            capture_stdout: bool = ...,
+            capture_stderr: bool = ...,
+            check: bool = ...,
+            deliver_cancel: Callable[[Process], Awaitable[None]] | None = ...,
+            stdout: int | HasFileno | None = ...,
+            stderr: int | HasFileno | None = ...,
+            close_fds: bool = ...,
+            shell: bool = ...,
+            cwd: StrOrBytesPath | None = ...,
+            env: Mapping[str, str] | None = ...,
+            preexec_fn: Callable[[], object] | None = ...,
+            restore_signals: bool = ...,
+            start_new_session: bool = ...,
+            pass_fds: Sequence[int] = ...,
+        ) -> subprocess.CompletedProcess[bytes]:
+            ...
+else:
+    # At runtime, use the actual implementations.
+    open_process = _open_process
+    open_process.__name__ = "open_process"
+
+    run_process = _run_process
+    run_process.__name__ = "run_process"
