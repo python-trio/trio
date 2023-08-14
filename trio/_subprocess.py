@@ -135,6 +135,16 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
     # arbitrarily many threads if wait() keeps getting cancelled.
     _wait_for_exit_data: object = None
 
+    _proc: subprocess.Popen[bytes]
+    stdin: SendStream | None
+    stdout: ReceiveStream | None
+    stderr: ReceiveStream | None
+    stdio: StapledStream | None
+    _wait_lock: Lock
+    _pidfd: TextIOWrapper | None
+    args: StrOrBytesPath | Sequence[StrOrBytesPath]
+    pid: int
+
     def __init__(
         self,
         popen: subprocess.Popen[bytes],
@@ -147,13 +157,13 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         self.stdout = stdout
         self.stderr = stderr
 
-        self.stdio: StapledStream | None = None
+        self.stdio = None
         if self.stdin is not None and self.stdout is not None:
             self.stdio = StapledStream(self.stdin, self.stdout)
 
         self._wait_lock = Lock()
 
-        self._pidfd: TextIOWrapper | None = None
+        self._pidfd = None
         if can_try_pidfd_open:
             try:
                 fd: int = pidfd_open(self._proc.pid, 0)
@@ -793,34 +803,34 @@ if TYPE_CHECKING:
         async def open_process(
             command: Union[StrOrBytesPath, Sequence[StrOrBytesPath]],
             *,
-            stdin: int | HasFileno | None = ...,
-            stdout: int | HasFileno | None = ...,
-            stderr: int | HasFileno | None = ...,
-            close_fds: bool = ...,
-            shell: bool = ...,
-            cwd: StrOrBytesPath | None = ...,
-            env: Mapping[str, str]  | None = ...,
-            startupinfo: subprocess.STARTUPINFO = ...,
-            creationflags: int = ...,
+            stdin: int | HasFileno | None = None,
+            stdout: int | HasFileno | None = None,
+            stderr: int | HasFileno | None = None,
+            close_fds: bool = True,
+            shell: bool = False,
+            cwd: StrOrBytesPath | None = None,
+            env: Mapping[str, str] | None = None,
+            startupinfo: subprocess.STARTUPINFO | None = None,
+            creationflags: int = 0,
         ) -> trio.Process: ...
 
         async def run_process(
             command: StrOrBytesPath | Sequence[StrOrBytesPath],
             *,
-            task_status: object = ...,  # TODO: TaskStatus[Process]
-            stdin: bytes | bytearray | memoryview | int | HasFileno | None = ...,
-            capture_stdout: bool = ...,
-            capture_stderr: bool = ...,
-            check: bool = ...,
-            deliver_cancel: Callable[[Process], Awaitable[object]] | None = ...,
-            stdout: int | HasFileno | None = ...,
-            stderr: int | HasFileno | None = ...,
-            close_fds: bool = ...,
-            shell: bool = ...,
-            cwd: StrOrBytesPath | None = ...,
-            env: Mapping[str, str] | None = ...,
-            startupinfo: subprocess.STARTUPINFO = ...,
-            creationflags: int = ...,
+            task_status: object = trio.TASK_STATUS_IGNORED,  # TODO: TaskStatus[Process]
+            stdin: bytes | bytearray | memoryview | int | HasFileno | None = None,
+            capture_stdout: bool = False,
+            capture_stderr: bool = False,
+            check: bool = True,
+            deliver_cancel: Callable[[Process], Awaitable[object]] | None = None,
+            stdout: int | HasFileno | None = None,
+            stderr: int | HasFileno | None = None,
+            close_fds: bool = True,
+            shell: bool = False,
+            cwd: StrOrBytesPath | None = None,
+            env: Mapping[str, str] | None = None,
+            startupinfo: subprocess.STARTUPINFO | None = None,
+            creationflags: int = 0,
         ) -> subprocess.CompletedProcess[bytes]:
             ...
 
@@ -829,55 +839,55 @@ if TYPE_CHECKING:
         async def open_process(
             command: StrOrBytesPath,
             *,
-            stdin: int | HasFileno | None = ...,
-            stdout: int | HasFileno | None = ...,
-            stderr: int | HasFileno | None = ...,
-            close_fds: bool = ...,
+            stdin: int | HasFileno | None = None,
+            stdout: int | HasFileno | None = None,
+            stderr: int | HasFileno | None = None,
+            close_fds: bool = True,
             shell: Literal[True],
-            cwd: StrOrBytesPath | None = ...,
-            env: Mapping[str, str] | None = ...,
-            preexec_fn: Callable[[], object] | None = ...,
-            restore_signals: bool = ...,
-            start_new_session: bool = ...,
-            pass_fds: Sequence[int] = ...,
+            cwd: StrOrBytesPath | None = None,
+            env: Mapping[str, str] | None = None,
+            preexec_fn: Callable[[], object] | None = None,
+            restore_signals: bool = True,
+            start_new_session: bool = False,
+            pass_fds: Sequence[int] = (),
         ) -> trio.Process: ...
         @overload
         async def open_process(
             command: Sequence[StrOrBytesPath],
             *,
-            stdin: int | HasFileno | None = ...,
-            stdout: int | HasFileno | None = ...,
-            stderr: int | HasFileno | None = ...,
-            close_fds: bool = ...,
-            shell: bool = ...,
-            cwd: StrOrBytesPath | None = ...,
-            env: Mapping[str, str] | None = ...,
-            preexec_fn: Callable[[], object] | None = ...,
-            restore_signals: bool = ...,
-            start_new_session: bool = ...,
-            pass_fds: Sequence[int] = ...,
+            stdin: int | HasFileno | None = None,
+            stdout: int | HasFileno | None = None,
+            stderr: int | HasFileno | None = None,
+            close_fds: bool = True,
+            shell: bool = False,
+            cwd: StrOrBytesPath | None = None,
+            env: Mapping[str, str] | None = None,
+            preexec_fn: Callable[[], object] | None = None,
+            restore_signals: bool = True,
+            start_new_session: bool = False,
+            pass_fds: Sequence[int] = (),
         ) -> trio.Process: ...
 
         @overload  # type: ignore[no-overload-impl]
         async def run_process(
             command: StrOrBytesPath,
             *,
-            task_status: object = ...,  # TODO: TaskStatus[Process]
-            stdin: bytes | bytearray | memoryview | int | HasFileno | None = ...,
-            capture_stdout: bool = ...,
-            capture_stderr: bool = ...,
-            check: bool = ...,
-            deliver_cancel: Callable[[Process], Awaitable[object]] | None = ...,
-            stdout: int | HasFileno | None = ...,
-            stderr: int | HasFileno | None = ...,
-            close_fds: bool = ...,
+            task_status: object = trio.TASK_STATUS_IGNORED,  # TODO: TaskStatus[Process]
+            stdin: bytes | bytearray | memoryview | int | HasFileno | None = None,
+            capture_stdout: bool = False,
+            capture_stderr: bool = False,
+            check: bool = True,
+            deliver_cancel: Callable[[Process], Awaitable[object]] | None = None,
+            stdout: int | HasFileno | None = None,
+            stderr: int | HasFileno | None = None,
+            close_fds: bool = True,
             shell: Literal[True],
-            cwd: StrOrBytesPath | None = ...,
-            env: Mapping[str, str] | None = ...,
-            preexec_fn: Callable[[], object] | None = ...,
-            restore_signals: bool = ...,
-            start_new_session: bool = ...,
-            pass_fds: Sequence[int] = ...,
+            cwd: StrOrBytesPath | None = None,
+            env: Mapping[str, str] | None = None,
+            preexec_fn: Callable[[], object] | None = None,
+            restore_signals: bool = True,
+            start_new_session: bool = False,
+            pass_fds: Sequence[int] = (),
         ) -> subprocess.CompletedProcess[bytes]:
             ...
 
@@ -885,22 +895,22 @@ if TYPE_CHECKING:
         async def run_process(
             command: Sequence[StrOrBytesPath],
             *,
-            task_status: object = ...,  # TODO: TaskStatus[Process]
-            stdin: bytes | bytearray | memoryview | int | HasFileno | None = ...,
-            capture_stdout: bool = ...,
-            capture_stderr: bool = ...,
-            check: bool = ...,
-            deliver_cancel: Callable[[Process], Awaitable[None]] | None = ...,
-            stdout: int | HasFileno | None = ...,
-            stderr: int | HasFileno | None = ...,
-            close_fds: bool = ...,
-            shell: bool = ...,
-            cwd: StrOrBytesPath | None = ...,
-            env: Mapping[str, str] | None = ...,
-            preexec_fn: Callable[[], object] | None = ...,
-            restore_signals: bool = ...,
-            start_new_session: bool = ...,
-            pass_fds: Sequence[int] = ...,
+            task_status: object = trio.TASK_STATUS_IGNORED,  # TODO: TaskStatus[Process]
+            stdin: bytes | bytearray | memoryview | int | HasFileno | None = None,
+            capture_stdout: bool = False,
+            capture_stderr: bool = False,
+            check: bool = True,
+            deliver_cancel: Callable[[Process], Awaitable[None]] | None = None,
+            stdout: int | HasFileno | None = None,
+            stderr: int | HasFileno | None = None,
+            close_fds: bool = True,
+            shell: bool = False,
+            cwd: StrOrBytesPath | None = None,
+            env: Mapping[str, str] | None = None,
+            preexec_fn: Callable[[], object] | None = None,
+            restore_signals: bool = True,
+            start_new_session: bool = False,
+            pass_fds: Sequence[int] = (),
         ) -> subprocess.CompletedProcess[bytes]:
             ...
 else:
