@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
 
 # Only subscriptable in 3.9+
-StrOrBytesPath: TypeAlias = Union[str, bytes, 'os.PathLike[str]', 'os.PathLike[bytes]']
+StrOrBytesPath: TypeAlias = Union[str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"]
 
 
 # Linux-specific, but has complex lifetime management stuff so we hard-code it
