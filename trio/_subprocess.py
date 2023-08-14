@@ -263,7 +263,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
             if self.poll() is None:
                 if self._pidfd is not None:
                     try:
-                        await trio.lowlevel.wait_readable(self._pidfd)
+                        await trio.lowlevel.wait_readable(self._pidfd.fileno())
                     except ClosedResourceError:
                         # something else (probably a call to poll) already closed the
                         # pidfd
