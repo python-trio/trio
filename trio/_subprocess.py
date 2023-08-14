@@ -479,7 +479,7 @@ async def _run_process(
     capture_stderr: bool = False,
     check: bool = True,
     deliver_cancel: Callable[[Process], Awaitable[object]] | None = None,
-    task_status: TaskStatus = trio.TASK_STATUS_IGNORED,  # type: ignore[assignment]  # TODO
+    task_status: TaskStatus[Process] = trio.TASK_STATUS_IGNORED,
     **options: object,
 ) -> subprocess.CompletedProcess[bytes]:
     """Run ``command`` in a subprocess and wait for it to complete.
@@ -812,7 +812,7 @@ if TYPE_CHECKING:
         async def run_process(
             command: StrOrBytesPath | Sequence[StrOrBytesPath],
             *,
-            task_status: TaskStatus = trio.TASK_STATUS_IGNORED,  # type: ignore[assignment]  # TODO
+            task_status: TaskStatus[Process] = trio.TASK_STATUS_IGNORED,
             stdin: bytes | bytearray | memoryview | int | HasFileno | None = None,
             capture_stdout: bool = False,
             capture_stderr: bool = False,
@@ -871,7 +871,7 @@ if TYPE_CHECKING:
         async def run_process(
             command: StrOrBytesPath,
             *,
-            task_status: TaskStatus = trio.TASK_STATUS_IGNORED,  # type: ignore[assignment]  # TODO
+            task_status: TaskStatus[Process] = trio.TASK_STATUS_IGNORED,
             stdin: bytes | bytearray | memoryview | int | HasFileno | None = None,
             capture_stdout: bool = False,
             capture_stderr: bool = False,
@@ -894,7 +894,7 @@ if TYPE_CHECKING:
         async def run_process(
             command: Sequence[StrOrBytesPath],
             *,
-            task_status: object = trio.TASK_STATUS_IGNORED,  # TODO: TaskStatus[Process]
+            task_status: TaskStatus[Process] = trio.TASK_STATUS_IGNORED,
             stdin: bytes | bytearray | memoryview | int | HasFileno | None = None,
             capture_stdout: bool = False,
             capture_stderr: bool = False,
