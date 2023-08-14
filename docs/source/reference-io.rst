@@ -735,7 +735,7 @@ task and interact with it while it's running:
 
    .. automethod:: fileno
 
-.. autoclass:: trio.Process
+.. autoclass:: trio.Process()
 
    .. autoattribute:: returncode
 
