@@ -5,7 +5,6 @@ import trio
 
 request_state = contextvars.ContextVar("request_state")
 
-
 # Blocking function that should be run on a thread
 # It could be reading or writing files, communicating with a database
 # with a driver not compatible with async / await, etc.

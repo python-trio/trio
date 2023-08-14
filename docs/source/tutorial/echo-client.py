@@ -1,7 +1,6 @@
 # echo-client.py
 
 import sys
-
 import trio
 
 # arbitrary, but:

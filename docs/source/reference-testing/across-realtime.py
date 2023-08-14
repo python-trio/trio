@@ -1,7 +1,6 @@
 # across-realtime.py
 
 import time
-
 import trio
 import trio.testing
 

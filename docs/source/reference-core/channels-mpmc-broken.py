@@ -1,8 +1,7 @@
 # This example usually crashes!
 
-import random
-
 import trio
+import random
 
 
 async def main():
