@@ -739,8 +739,8 @@ async def _run_process(
                 chunks.append(chunk)
 
     async with trio.open_nursery() as nursery:
-        # options needs a complex TypedDict.
-        proc = await open_process(command, **options)  # type: ignore
+        # options needs a complex TypedDict. The overload error only occurs on Unix.
+        proc = await open_process(command, **options)  # type: ignore[arg-type, call-overload, unused-ignore]
         try:
             if input is not None:
                 nursery.start_soon(feed_input, proc.stdin)
