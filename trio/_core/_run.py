@@ -1724,7 +1724,8 @@ class Runner:
         # Call the function and get the coroutine object, while giving helpful
         # errors for common mistakes.
         ######
-        coro = context.run(coroutine_or_error, async_fn, *args)
+        # TODO: resolve the type: ignore when implementing TypeVarTuple
+        coro = context.run(coroutine_or_error, async_fn, *args)  # type: ignore[arg-type]
 
         if name is None:
             name = async_fn
@@ -1760,7 +1761,8 @@ class Runner:
             self.instruments.call("task_spawned", task)
         # Special case: normally next_send should be an Outcome, but for the
         # very first send we have to send a literal unboxed None.
-        self.reschedule(task, None)  # type: ignore[arg-type]
+        # TODO: remove [unused-ignore] when Outcome is typed
+        self.reschedule(task, None)  # type: ignore[arg-type, unused-ignore]
         return task
 
     def task_exited(self, task: Task, outcome: Outcome[Any]) -> None:
@@ -2554,7 +2556,8 @@ def unrolled_run(
                         # protocol of unwrapping whatever outcome gets sent in.
                         # Instead, we'll arrange to throw `exc` in directly,
                         # which works for at least asyncio and curio.
-                        runner.reschedule(task, exc)  # type: ignore[arg-type]
+                        # TODO: remove [unused-ignore] when Outcome is typed
+                        runner.reschedule(task, exc)  # type: ignore[arg-type, unused-ignore]
                         task._next_send_fn = task.coro.throw
                     # prevent long-lived reference
                     # TODO: develop test for this deletion
