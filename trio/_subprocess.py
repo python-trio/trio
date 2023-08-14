@@ -923,7 +923,7 @@ if TYPE_CHECKING:
 else:
     # At runtime, use the actual implementations.
     open_process = _open_process
-    open_process.__name__ = "open_process"
+    open_process.__name__ = open_process.__qualname__ = "open_process"
 
     run_process = _run_process
-    run_process.__name__ = "run_process"
+    run_process.__name__ = run_process.__qualname__ = "run_process"
