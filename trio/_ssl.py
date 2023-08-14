@@ -218,8 +218,6 @@ class NeedHandshakeError(Exception):
 
 
 class _Once:
-    __slots__ = ("_afn", "_args", "started", "_done")
-
     def __init__(self, afn: Callable[..., Awaitable[object]], *args: object) -> None:
         self._afn = afn
         self._args = args
