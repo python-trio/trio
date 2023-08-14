@@ -79,6 +79,7 @@ else:
 
 class HasFileno(Protocol):
     """Represents any file-like object that has a file descriptor."""
+
     def fileno(self) -> int:
         ...
 
@@ -135,16 +136,6 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
     # arbitrarily many threads if wait() keeps getting cancelled.
     _wait_for_exit_data: object = None
 
-    _proc: subprocess.Popen[bytes]
-    stdin: SendStream | None
-    stdout: ReceiveStream | None
-    stderr: ReceiveStream | None
-    stdio: StapledStream | None
-    _wait_lock: Lock
-    _pidfd: TextIOWrapper | None
-    args: StrOrBytesPath | Sequence[StrOrBytesPath]
-    pid: int
-
     def __init__(
         self,
         popen: subprocess.Popen[bytes],
@@ -157,13 +148,13 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         self.stdout = stdout
         self.stderr = stderr
 
-        self.stdio = None
+        self.stdio: StapledStream | None = None
         if self.stdin is not None and self.stdout is not None:
             self.stdio = StapledStream(self.stdin, self.stdout)
 
-        self._wait_lock = Lock()
+        self._wait_lock: Lock = Lock()
 
-        self._pidfd = None
+        self._pidfd: TextIOWrapper | None = None
         if can_try_pidfd_open:
             try:
                 fd: int = pidfd_open(self._proc.pid, 0)
@@ -178,8 +169,8 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
                 # make sure it'll get closed.
                 self._pidfd = open(fd)
 
-        self.args = self._proc.args
-        self.pid = self._proc.pid
+        self.args: StrOrBytesPath | Sequence[StrOrBytesPath] = self._proc.args
+        self.pid: int = self._proc.pid
 
     def __repr__(self) -> str:
         returncode = self.returncode
