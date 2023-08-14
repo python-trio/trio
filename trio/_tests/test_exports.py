@@ -9,6 +9,7 @@ import socket as stdlib_socket
 import sys
 from pathlib import Path
 from types import ModuleType
+from typing import Protocol
 
 import attrs
 import pytest
@@ -21,6 +22,12 @@ from .._core._tests.tutil import slow
 from .pytest_plugin import RUN_SLOW
 
 mypy_cache_updated = False
+
+
+try:  # If installed, check both versions of this class.
+    from typing_extensions import Protocol as Protocol_ext
+except ImportError:  # pragma: no cover
+    Protocol_ext = Protocol
 
 
 def _ensure_mypy_cache_updated():
@@ -311,12 +318,15 @@ def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
             "__annotations__",
             "__attrs_attrs__",
             "__attrs_own_setattr__",
+            "__callable_proto_members_only__",
             "__class_getitem__",
+            "__final__",
             "__getstate__",
             "__match_args__",
             "__order__",
             "__orig_bases__",
             "__parameters__",
+            "__protocol_attrs__",
             "__setstate__",
             "__slots__",
             "__weakref__",
@@ -483,6 +493,9 @@ def test_classes_are_final():
             # Abstract classes can be subclassed, because that's the whole
             # point of ABCs
             if inspect.isabstract(class_):
+                continue
+            # Same with protocols, but only direct children.
+            if Protocol in class_.__bases__ or Protocol_ext in class_.__bases__:
                 continue
             # Exceptions are allowed to be subclassed, because exception
             # subclassing isn't used to inherit behavior.

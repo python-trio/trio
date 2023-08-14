@@ -102,7 +102,7 @@ def is_main_thread() -> bool:
 # TODO: Use TypeVarTuple here.
 def coroutine_or_error(
     async_fn: t.Callable[..., t.Awaitable[RetT]], *args: t.Any
-) -> t.Awaitable[RetT]:
+) -> collections.abc.Coroutine[object, t.NoReturn, RetT]:
     def _return_value_looks_like_wrong_library(value: object) -> bool:
         # Returned by legacy @asyncio.coroutine functions, which includes
         # a surprising proportion of asyncio builtins.

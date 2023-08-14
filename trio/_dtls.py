@@ -34,11 +34,6 @@ from OpenSSL import SSL
 
 import trio
 
-# This import must be outside the TYPE_CHECKING block, otherwise mypy is unable to
-# determine the type of TaskStatus, and sphinx also breaks when parsing the signature
-# (becoming unable to apply autodoc_type_aliases to Context).
-from trio.lowlevel import TaskStatus
-
 from ._util import Final, NoPublicConstructor
 
 if TYPE_CHECKING:
@@ -1271,8 +1266,7 @@ class DTLSEndpoint(metaclass=Final):
         ssl_context: Context,
         async_fn: Callable[..., Awaitable[object]],
         *args: Any,
-        # type error fixed in #2733
-        task_status: TaskStatus = trio.TASK_STATUS_IGNORED,  # type: ignore[assignment]
+        task_status: trio.TaskStatus[None] = trio.TASK_STATUS_IGNORED,
     ) -> None:
         """Listen for incoming connections, and spawn a handler for each using an
         internal nursery.

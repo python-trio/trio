@@ -61,12 +61,16 @@ nitpick_ignore = [
     ("py:obj", "trio._abc.SendType"),
     ("py:obj", "trio._abc.T"),
     ("py:obj", "trio._abc.T_resource"),
+    ("py:class", "trio._core._run.StatusT"),
+    ("py:class", "trio._core._run.StatusT_co"),
+    ("py:class", "trio._core._run.StatusT_contra"),
+    ("py:class", "trio._core._run.RetT"),
     ("py:class", "trio._threads.T"),
-    # why aren't these found in stdlib?
-    ("py:class", "types.FrameType"),
     ("py:class", "P.args"),
     ("py:class", "P.kwargs"),
     ("py:class", "RetT"),
+    # why aren't these found in stdlib?
+    ("py:class", "types.FrameType"),
     # TODO: temporary type
     ("py:class", "_SocketType"),
     # these are not defined in https://docs.python.org/3/objects.inv
@@ -90,6 +94,24 @@ autodoc_type_aliases = {
 }
 
 
+def autodoc_process_signature(
+    app, what, name, obj, options, signature, return_annotation
+):
+    """Modify found signatures to fix various issues."""
+    if signature is not None:
+        signature = signature.replace("~_contextvars.Context", "~contextvars.Context")
+        if name == "trio.lowlevel.start_guest_run":
+            signature = signature.replace("Outcome", "~outcome.Outcome")
+        if name == "trio.lowlevel.RunVar":  # Typevar is not useful here.
+            signature = signature.replace(": ~trio._core._local.T", "")
+        if "_NoValue" in signature:
+            # Strip the type from the union, make it look like = ...
+            signature = signature.replace(" | type[trio._core._local._NoValue]", "")
+            signature = signature.replace("<class 'trio._core._local._NoValue'>", "...")
+
+    return signature, return_annotation
+
+
 # XX hack the RTD theme until
 #   https://github.com/rtfd/sphinx_rtd_theme/pull/382
 # is shipped (should be in the release after 0.2.4)
@@ -97,6 +119,7 @@ autodoc_type_aliases = {
 # though.
 def setup(app):
     app.add_css_file("hackrtd.css")
+    app.connect("autodoc-process-signature", autodoc_process_signature)
 
 
 # -- General configuration ------------------------------------------------
