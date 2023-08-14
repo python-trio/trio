@@ -29,7 +29,8 @@ if TYPE_CHECKING:
     from typing_extensions import TypeAlias
 
 
-StrOrBytesPath: TypeAlias = Union[str, bytes, os.PathLike[str], os.PathLike[bytes]]
+# Only subscriptable in 3.9+
+StrOrBytesPath: TypeAlias = Union[str, bytes, 'os.PathLike[str]', 'os.PathLike[bytes]']
 
 
 # Linux-specific, but has complex lifetime management stuff so we hard-code it
