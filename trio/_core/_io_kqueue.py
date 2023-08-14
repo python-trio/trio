@@ -16,9 +16,13 @@ from ._wakeup_socketpair import WakeupSocketpair
 if TYPE_CHECKING:
     from socket import socket
 
+    from typing_extensions import TypeAlias
+
     from .._core import Abort, RaiseCancelT, Task, UnboundedQueue
 
 assert not TYPE_CHECKING or (sys.platform != "linux" and sys.platform != "win32")
+
+EventResult: TypeAlias = "list[select.kevent]"
 
 
 @attr.s(slots=True, eq=False, frozen=True)
@@ -62,7 +66,7 @@ class KqueueIOManager:
     def force_wakeup(self) -> None:
         self._force_wakeup.wakeup_thread_and_signal_safe()
 
-    def get_events(self, timeout: float) -> list[select.kevent]:
+    def get_events(self, timeout: float) -> EventResult:
         # max_events must be > 0 or kqueue gets cranky
         # and we generally want this to be strictly larger than the actual
         # number of events we get, so that we can tell that we've gotten
@@ -79,7 +83,7 @@ class KqueueIOManager:
                 # and loop back to the start
         return events
 
-    def process_events(self, events: list[select.kevent]) -> None:
+    def process_events(self, events: EventResult) -> None:
         for event in events:
             key = (event.ident, event.filter)
             if event.ident == self._force_wakeup_fd:
