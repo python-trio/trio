@@ -22,7 +22,7 @@ def identify_typevars(trio_folder: Path) -> None:
             for line in f:
                 # A simple regex should be sufficient to find them all, no need to actually parse.
                 match = re.search(
-                    r"^\s*([\w_0-9]+)\s*=\s*(TypeVar|TypeVarTuple|ParamSpec)\(",
+                    r"\b(TypeVar|TypeVarTuple|ParamSpec)\(['\"]([^'\"]+)['\"]",
                     line,
                 )
                 if match is not None:
@@ -30,8 +30,8 @@ def identify_typevars(trio_folder: Path) -> None:
                     relative = relative.with_suffix("")
                     if relative.name == "__init__":  # Package, remove.
                         relative = relative.parent
-                    kind = match.group(2)
-                    name = match.group(1)
+                    kind = match.group(1)
+                    name = match.group(2)
                     typevars_qualified[f'{".".join(relative.parts)}.{name}'] = kind
                     existing = typevars_named.setdefault(name, kind)
                     if existing != kind:
