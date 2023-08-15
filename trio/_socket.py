@@ -599,7 +599,7 @@ class _SocketType(SocketType):
             return self._sock.setsockopt(level, optname, value)
         if value is not None:
             raise TypeError(
-                "invalid value for argument 'value': {value!r}, must be None when specifying optlen"
+                f"invalid value for argument 'value': {value!r}, must be None when specifying optlen"
             )
 
         # Note: PyPy may crash here due to setsockopt only supporting
