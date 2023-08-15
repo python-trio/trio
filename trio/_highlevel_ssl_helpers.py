@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ssl
 from collections.abc import Awaitable, Callable
+from typing import NoReturn
 
 import trio
 
@@ -103,7 +104,7 @@ async def serve_ssl_over_tcp(
     backlog: int | float | None = None,
     handler_nursery: trio.Nursery | None = None,
     task_status: trio.TaskStatus[list[trio.SSLListener]] = trio.TASK_STATUS_IGNORED,
-) -> None:
+) -> NoReturn:
     """Listen for incoming TCP connections, and for each one start a task
     running ``handler(stream)``.
 

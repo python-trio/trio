@@ -3,7 +3,7 @@ from __future__ import annotations
 import errno
 import logging
 import os
-from typing import TypeVar, Callable, Awaitable
+from typing import Awaitable, Callable, NoReturn, TypeVar
 
 import trio
 
@@ -39,7 +39,7 @@ async def _serve_one_listener(
     listener: trio.abc.Listener[StreamT],
     handler_nursery: trio.Nursery,
     handler: Handler[StreamT],
-) -> None:
+) -> NoReturn:
     async with listener:
         while True:
             try:
@@ -64,13 +64,16 @@ async def _serve_one_listener(
 # relationship between StreamT & ListenerT.
 # https://github.com/python/typing/issues/1226
 # https://github.com/python/typing/issues/548
-async def serve_listeners(
+
+# It does never return (since _serve_one_listener never completes), but type checkers can't
+# understand nurseries.
+async def serve_listeners(  # type: ignore[misc]
     handler: Handler[StreamT],
     listeners: list[ListenerT],
     *,
     handler_nursery: trio.Nursery | None = None,
     task_status: trio.TaskStatus[list[ListenerT]] = trio.TASK_STATUS_IGNORED,
-) -> None:
+) -> NoReturn:
     r"""Listen for incoming connections on ``listeners``, and for each one
     start a task running ``handler(stream)``.
 
