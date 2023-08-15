@@ -5,19 +5,18 @@ See https://github.com/sphinx-doc/sphinx/issues/7722 also.
 from __future__ import annotations
 
 import re
-
 from pathlib import Path
 
-from sphinx.addnodes import pending_xref, Element
+from sphinx.addnodes import Element, pending_xref
 from sphinx.application import Sphinx
 from sphinx.environment import BuildEnvironment
 from sphinx.errors import NoUri
 
+import trio
 
-def identify_typevars() -> None:
+
+def identify_typevars(trio_folder: Path) -> None:
     """Record all typevars in trio."""
-    trio_folder = Path(__file__, "..", "..", "..", "trio").resolve()
-    print(trio_folder)
     for filename in trio_folder.rglob("*.py"):
         with open(filename, encoding="utf8") as f:
             for line in f:
@@ -42,9 +41,6 @@ def identify_typevars() -> None:
 # All our typevars, so we can suppress reference errors for them.
 typevars_qualified: dict[str, str] = {}
 typevars_named: dict[str, str] = {}
-identify_typevars()
-
-print("Typevars: ", sorted(typevars_qualified))
 
 
 def lookup_reference(
@@ -97,5 +93,6 @@ def lookup_reference(
     return new_node
 
 
-def setup(app):
+def setup(app: Sphinx) -> None:
+    identify_typevars(Path(trio.__file__).parent)
     app.connect("missing-reference", lookup_reference, -10)
