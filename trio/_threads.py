@@ -182,7 +182,7 @@ async def to_thread_run_sync(  # type: ignore[misc]
             # replace the regular return value, and if the regular return was
             # already an exception then we want them to chain.
             try:
-                return result.unwrap()
+                return result.unwrap()  # type: ignore[no-any-return]  # Until outcome is typed
             finally:
                 limiter.release_on_behalf_of(placeholder)
 
@@ -260,7 +260,8 @@ def _run_fn_as_system_task(
     *args: object,
     context: contextvars.Context,
     trio_token: TrioToken | None = None,
-) -> Ret2T:
+    # Outcome isn't typed, so Ret2T is used only in the return type.
+) -> Ret2T:  # type: ignore[type-var]
     """Helper function for from_thread.run and from_thread.run_sync.
 
     Since this internally uses TrioToken.run_sync_soon, all warnings about
@@ -288,7 +289,7 @@ def _run_fn_as_system_task(
 
     q: stdlib_queue.SimpleQueue[outcome.Outcome[Ret2T]] = stdlib_queue.SimpleQueue()
     trio_token.run_sync_soon(context.run, cb, q, fn, args)
-    return q.get().unwrap()
+    return q.get().unwrap()  # type: ignore[no-any-return]  # Until outcome is typed
 
 
 def from_thread_run(
