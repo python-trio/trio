@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import random
-from collections.abc import Awaitable, Callable, Generator
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Awaitable, Callable, Generic, Tuple, TypeVar
 
 from .. import CancelScope, _core
 from .._abc import AsyncResource, HalfCloseableStream, ReceiveStream, SendStream, Stream
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 Res1 = TypeVar("Res1", bound=AsyncResource)
 Res2 = TypeVar("Res2", bound=AsyncResource)
-StreamMaker: TypeAlias = "Callable[[], Awaitable[tuple[Res1, Res2]]]"
+StreamMaker: TypeAlias = Callable[[], Awaitable[Tuple[Res1, Res2]]]
 
 
 class _ForceCloseBoth(Generic[Res1, Res2]):

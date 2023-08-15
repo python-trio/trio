@@ -109,17 +109,6 @@ def autodoc_process_signature(
             # Strip the type from the union, make it look like = ...
             signature = signature.replace(" | type[trio._core._local._NoValue]", "")
             signature = signature.replace("<class 'trio._core._local._NoValue'>", "...")
-        if name.startswith("trio.testing"):
-            # Expand type aliases
-            signature = re.sub(
-                r"StreamMaker\[([a-zA-Z ,]+)]",
-                lambda match: f"typing.Callable[[], typing.Awaitable[tuple[{match.group(1)}]]]",
-                signature,
-            )
-            signature = signature.replace(
-                "AsyncHook", "typing.Callable[[], typing.Awaitable[object]]"
-            )
-            signature = signature.replace("SyncHook", "typing.Callable[[], object]")
 
     return signature, return_annotation
 

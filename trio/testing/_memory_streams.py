@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import operator
-from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Awaitable, Callable
 
 from .. import _core, _util
 from .._highlevel_generic import StapledStream
@@ -12,9 +11,9 @@ if TYPE_CHECKING:
     from typing_extensions import TypeAlias
 
 
-AsyncHook: TypeAlias = "Callable[[], Awaitable[object]]"
+AsyncHook: TypeAlias = Callable[[], Awaitable[object]]
 # Would be nice to exclude awaitable here, but currently not possible.
-SyncHook: TypeAlias = "Callable[[], object]"
+SyncHook: TypeAlias = Callable[[], object]
 
 
 ################################################################
