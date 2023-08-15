@@ -5,7 +5,7 @@ import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing_extensions import NoReturn
+    from typing_extensions import NoReturn, TypeAlias
 
 import cffi
 
@@ -222,7 +222,7 @@ LIB = re.sub(r"\bFAR\b", " ", LIB)
 LIB = re.sub(r"\bPASCAL\b", "__stdcall", LIB)
 
 ffi = cffi.FFI()
-CData = ffi.CData
+CData: TypeAlias = ffi.CData
 ffi.cdef(LIB)
 
 kernel32 = ffi.dlopen("kernel32.dll")
