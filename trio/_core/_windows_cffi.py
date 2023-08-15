@@ -222,7 +222,7 @@ LIB = re.sub(r"\bFAR\b", " ", LIB)
 LIB = re.sub(r"\bPASCAL\b", "__stdcall", LIB)
 
 ffi = cffi.api.FFI()
-CData: TypeAlias = ffi.CData
+CData: TypeAlias = cffi.api.FFI.CData
 ffi.cdef(LIB)
 
 kernel32 = ffi.dlopen("kernel32.dll")
