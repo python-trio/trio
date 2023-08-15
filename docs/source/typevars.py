@@ -56,6 +56,8 @@ def lookup_reference(
     if target.startswith("typing_extensions."):
         new_node = node.copy()
         new_node["reftarget"] = f"typing.{target[18:]}"
+        # This fires off this same event, with our new modified node in order to fetch the right
+        # URL to use.
         return app.emit_firstresult(
             "missing-reference",
             env,
@@ -74,8 +76,10 @@ def lookup_reference(
         try:
             typevar_type = typevars_named[stem]
         except KeyError:
+            # Let other handlers deal with this name, it's not a typevar.
             return None
 
+    # Found a typevar. Redirect to the stdlib docs for that kind of var.
     new_node = node.copy()
     new_node["reftarget"] = f"typing.{typevar_type}"
     new_node = app.emit_firstresult(
@@ -89,6 +93,7 @@ def lookup_reference(
     # Is normally "(in Python 3.XX)", make it say typevar/paramspec/etc
     paren = "(" if reftitle.startswith("(") else ""
     new_node["reftitle"] = f"{paren}{typevar_type}, {reftitle.lstrip('(')}"
+    # Add a CSS class, for restyling.
     new_node["classes"].append("typevarref")
     return new_node
 
