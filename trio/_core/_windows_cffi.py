@@ -221,7 +221,7 @@ LIB = re.sub(r"\bFAR\b", " ", LIB)
 #   being _MSC_VER >= 800)
 LIB = re.sub(r"\bPASCAL\b", "__stdcall", LIB)
 
-ffi = cffi.FFI()
+ffi = cffi.api.FFI()
 CData: TypeAlias = ffi.CData
 ffi.cdef(LIB)
 
