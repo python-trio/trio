@@ -65,11 +65,13 @@ nitpick_ignore = [
     ("py:class", "trio._core._run.StatusT"),
     ("py:class", "trio._core._run.StatusT_co"),
     ("py:class", "trio._core._run.StatusT_contra"),
+    ("py:class", "trio._highlevel_serve_listeners.StreamT"),
     ("py:class", "trio._core._run.RetT"),
     ("py:class", "trio._threads.T"),
     ("py:class", "P.args"),
     ("py:class", "P.kwargs"),
     ("py:class", "RetT"),
+    ("py:class", "ListenerT"),
     # why aren't these found in stdlib?
     ("py:class", "types.FrameType"),
     # TODO: figure out if you can link this to SSL
@@ -79,6 +81,7 @@ nitpick_ignore = [
     # these are not defined in https://docs.python.org/3/objects.inv
     ("py:class", "socket.AddressFamily"),
     ("py:class", "socket.SocketKind"),
+    ("py:class", "Buffer"),  # collections.abc.Buffer, in 3.12
 ]
 autodoc_inherit_docstrings = False
 default_role = "obj"
