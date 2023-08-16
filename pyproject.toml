@@ -65,7 +65,6 @@ module = [
     "trio._dtls",
     "trio._file_io",
     "trio._highlevel_open_tcp_stream",
-    "trio._highlevel_ssl_helpers",
     "trio._ki",
     "trio._socket",
     "trio._ssl",
