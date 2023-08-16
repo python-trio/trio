@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import operator
-from typing import TYPE_CHECKING, Awaitable, Callable
+from typing import TYPE_CHECKING, Awaitable, Callable, TypeVar
 
 from .. import _core, _util
 from .._highlevel_generic import StapledStream
@@ -14,6 +14,8 @@ if TYPE_CHECKING:
 AsyncHook: TypeAlias = Callable[[], Awaitable[object]]
 # Would be nice to exclude awaitable here, but currently not possible.
 SyncHook: TypeAlias = Callable[[], object]
+SendStreamT = TypeVar("SendStreamT", bound=SendStream)
+ReceiveStreamT = TypeVar("ReceiveStreamT", bound=ReceiveStream)
 
 
 ################################################################
@@ -352,8 +354,11 @@ def memory_stream_one_way_pair() -> tuple[MemorySendStream, MemoryReceiveStream]
 
 
 def _make_stapled_pair(
-    one_way_pair: Callable[[], tuple[SendStream, ReceiveStream]]
-) -> tuple[StapledStream, StapledStream]:
+    one_way_pair: Callable[[], tuple[SendStreamT, ReceiveStreamT]]
+) -> tuple[
+    StapledStream[SendStreamT, ReceiveStreamT],
+    StapledStream[SendStreamT, ReceiveStreamT],
+]:
     pipe1_send, pipe1_recv = one_way_pair()
     pipe2_send, pipe2_recv = one_way_pair()
     stream1 = StapledStream(pipe1_send, pipe2_recv)
@@ -361,7 +366,12 @@ def _make_stapled_pair(
     return stream1, stream2
 
 
-def memory_stream_pair() -> tuple[SendStream, SendStream]:
+def memory_stream_pair() -> (
+    tuple[
+        StapledStream[MemorySendStream, MemoryReceiveStream],
+        StapledStream[MemorySendStream, MemoryReceiveStream],
+    ]
+):
     """Create a connected, pure-Python, bidirectional stream with infinite
     buffering and flexible configuration options.
 
@@ -597,7 +607,12 @@ def lockstep_stream_one_way_pair() -> tuple[SendStream, ReceiveStream]:
     return _LockstepSendStream(lbq), _LockstepReceiveStream(lbq)
 
 
-def lockstep_stream_pair() -> tuple[StapledStream, StapledStream]:
+def lockstep_stream_pair() -> (
+    tuple[
+        StapledStream[SendStream, ReceiveStream],
+        StapledStream[SendStream, ReceiveStream],
+    ]
+):
     """Create a connected, pure-Python, bidirectional stream where data flows
     in lockstep.
 

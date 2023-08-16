@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Generic, TypeVar
 
 import attr
 
 import trio
 from trio._util import Final
 
-if TYPE_CHECKING:
-    from .abc import SendStream, ReceiveStream, AsyncResource
+from .abc import AsyncResource, HalfCloseableStream, ReceiveStream, SendStream
 
-from .abc import HalfCloseableStream
+
+SendStreamT = TypeVar("SendStreamT", bound=SendStream)
+ReceiveStreamT = TypeVar("ReceiveStreamT", bound=ReceiveStream)
 
 
 async def aclose_forcefully(resource: AsyncResource) -> None:
@@ -44,7 +45,11 @@ async def aclose_forcefully(resource: AsyncResource) -> None:
 
 
 @attr.s(eq=False, hash=False)
-class StapledStream(HalfCloseableStream, metaclass=Final):
+class StapledStream(
+    HalfCloseableStream,
+    Generic[SendStreamT, ReceiveStreamT],
+    metaclass=Final,
+):
     """This class `staples <https://en.wikipedia.org/wiki/Staple_(fastener)>`__
     together two unidirectional streams to make single bidirectional stream.
 
@@ -79,8 +84,8 @@ class StapledStream(HalfCloseableStream, metaclass=Final):
 
     """
 
-    send_stream: SendStream = attr.ib()
-    receive_stream: ReceiveStream = attr.ib()
+    send_stream: SendStreamT = attr.ib()
+    receive_stream: ReceiveStreamT = attr.ib()
 
     async def send_all(self, data: bytes | bytearray | memoryview) -> None:
         """Calls ``self.send_stream.send_all``."""
