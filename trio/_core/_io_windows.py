@@ -34,6 +34,8 @@ assert not TYPE_CHECKING or sys.platform == "win32"
 if TYPE_CHECKING:
     from ._traps import Abort, RaiseCancelT
     from ._unbounded_queue import UnboundedQueue
+    from typing_extensions import TypeAlias
+EventResult: TypeAlias = int
 
 # There's a lot to be said about the overall design of a Windows event
 # loop. See
@@ -493,7 +495,7 @@ class WindowsIOManager:
             )
         )
 
-    def get_events(self, timeout: float) -> int:
+    def get_events(self, timeout: float) -> EventResult:
         received = ffi.new("PULONG")
         milliseconds = round(1000 * timeout)
         if timeout > 0 and milliseconds == 0:
@@ -508,9 +510,11 @@ class WindowsIOManager:
             if exc.winerror != ErrorCodes.WAIT_TIMEOUT:  # pragma: no cover
                 raise
             return 0
-        return received[0]  # type: ignore[no-any-return]
+        result = received[0]
+        assert isinstance(result, int)
+        return result
 
-    def process_events(self, received: int) -> None:
+    def process_events(self, received: EventResult) -> None:
         for i in range(received):
             entry = self._events[i]
             if entry.lpCompletionKey == CKeys.AFD_POLL:

@@ -158,6 +158,13 @@ def gen_public_wrappers_source(file: File) -> str:
         if is_cm:  # pragma: no cover
             func = func.replace("->Iterator", "->ContextManager")
 
+        # TODO: hacky workaround until we run mypy without `-m`, which breaks imports
+        # enough that it cannot figure out the type of _NO_SEND
+        if file.path.stem == "_run" and func.startswith(
+            "def reschedule"
+        ):  # pragma: no cover
+            func = func.replace("None:\n", "None:  # type: ignore[has-type]\n")
+
         # Create export function body
         template = TEMPLATE.format(
             " await " if isinstance(method, ast.AsyncFunctionDef) else " ",
@@ -252,7 +259,15 @@ def main() -> None:  # pragma: no cover
 
 
 IMPORTS_RUN = """\
-from ._run import _NO_SEND
+from collections.abc import Awaitable, Callable
+from typing import Any
+
+from outcome import Outcome
+import contextvars
+
+from ._run import _NO_SEND, RunStatistics, Task
+from ._entry_queue import TrioToken
+from .._abc import Clock
 """
 IMPORTS_INSTRUMENT = """\
 from ._instrumentation import Instrument

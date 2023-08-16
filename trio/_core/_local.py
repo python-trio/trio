@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Generic, TypeVar, final
+from typing import Generic, TypeVar, cast, final
 
 # Runvar implementations
 import attr
@@ -43,8 +43,7 @@ class RunVar(Generic[T], metaclass=Final):
     def get(self, default: T | type[_NoValue] = _NoValue) -> T:
         """Gets the value of this :class:`RunVar` for the current run call."""
         try:
-            # not typed yet
-            return _run.GLOBAL_RUN_CONTEXT.runner._locals[self]  # type: ignore[return-value, index]
+            return cast(T, _run.GLOBAL_RUN_CONTEXT.runner._locals[self])
         except AttributeError:
             raise RuntimeError("Cannot be used outside of a run context") from None
         except KeyError:
@@ -92,7 +91,7 @@ class RunVar(Generic[T], metaclass=Final):
         previous = token.previous_value
         try:
             if previous is _NoValue:
-                _run.GLOBAL_RUN_CONTEXT.runner._locals.pop(self)  # type: ignore[arg-type]
+                _run.GLOBAL_RUN_CONTEXT.runner._locals.pop(self)
             else:
                 _run.GLOBAL_RUN_CONTEXT.runner._locals[self] = previous  # type: ignore[index,assignment]
         except AttributeError:
