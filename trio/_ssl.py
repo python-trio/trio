@@ -266,8 +266,8 @@ class SSLStream(Stream, metaclass=Final):
           this connection. Required. Usually created by calling
           :func:`ssl.create_default_context`.
 
-      server_hostname (str or None): The name of the server being connected
-          to. Used for `SNI
+      server_hostname (str, bytes, or None): The name of the server being
+          connected to. Used for `SNI
           <https://en.wikipedia.org/wiki/Server_Name_Indication>`__ and for
           validating the server's certificate (if hostname checking is
           enabled). This is effectively mandatory for clients, and actually
@@ -343,7 +343,7 @@ class SSLStream(Stream, metaclass=Final):
         transport_stream: Stream,
         ssl_context: _stdlib_ssl.SSLContext,
         *,
-        server_hostname: str | None = None,
+        server_hostname: str | bytes | None = None,
         server_side: bool = False,
         https_compatible: bool = False,
     ) -> None:
@@ -357,7 +357,7 @@ class SSLStream(Stream, metaclass=Final):
             self._incoming,
             self._outgoing,
             server_side=server_side,
-            server_hostname=server_hostname,
+            server_hostname=server_hostname,  # type: ignore[arg-type]  # Typeshed bug, does accept bytes as well (typeshed#10590)
         )
         # Tracks whether we've already done the initial handshake
         self._handshook = _Once(self._do_handshake)
