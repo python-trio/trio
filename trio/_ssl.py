@@ -443,7 +443,7 @@ class SSLStream(Stream, metaclass=Final):
     async def _retry(
         self,
         fn: Callable[..., T],
-        *args: Any,
+        *args: object,
         ignore_want_read: bool = False,
         is_handshake: bool = False,
     ) -> T | None:
