@@ -73,6 +73,7 @@ module = [
     "trio._subprocess_platform.waitid",
     "trio._subprocess_platform.windows",
     "trio._sync",
+    "trio._threads",
     "trio._tools.gen_exports",
     "trio._util",
 ]

@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.9538216560509554,
+    "completenessScore": 0.9585987261146497,
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 599,
-      "withUnknownType": 29
+      "withKnownType": 602,
+      "withUnknownType": 26
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -68,8 +68,6 @@
       "trio._ssl.SSLStream.transport_stream",
       "trio._ssl.SSLStream.unwrap",
       "trio._ssl.SSLStream.wait_send_all_might_not_block",
-      "trio.from_thread.run",
-      "trio.from_thread.run_sync",
       "trio.lowlevel.cancel_shielded_checkpoint",
       "trio.lowlevel.notify_closing",
       "trio.lowlevel.permanently_detach_coroutine_object",
@@ -112,8 +110,7 @@
       "trio.testing.memory_stream_pump",
       "trio.testing.open_stream_to_socket_listener",
       "trio.testing.trio_test",
-      "trio.tests.TestsDeprecationWrapper",
-      "trio.to_thread.current_default_thread_limiter"
+      "trio.tests.TestsDeprecationWrapper"
     ]
   }
 }
