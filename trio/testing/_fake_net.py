@@ -193,7 +193,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
 
         self._closed = False
 
-        self._packet_sender, self._packet_receiver = trio.open_memory_channel[object](
+        self._packet_sender, self._packet_receiver = trio.open_memory_channel[UDPPacket](
             float("inf")
         )
 
