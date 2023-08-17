@@ -8,16 +8,13 @@ from __future__ import annotations
 
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 from ._run import GLOBAL_RUN_CONTEXT
-from typing import TYPE_CHECKING, ContextManager
-
-if TYPE_CHECKING:
-    from ._unbounded_queue import UnboundedQueue
+from typing import TYPE_CHECKING
 import sys
 
 assert not TYPE_CHECKING or sys.platform=="win32"
 
 
-async def wait_readable(sock) ->None:
+async def wait_readable(sock):
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_readable(sock)
@@ -25,7 +22,7 @@ async def wait_readable(sock) ->None:
         raise RuntimeError("must be called from async context")
 
 
-async def wait_writable(sock) ->None:
+async def wait_writable(sock):
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_writable(sock)
@@ -33,7 +30,7 @@ async def wait_writable(sock) ->None:
         raise RuntimeError("must be called from async context")
 
 
-def notify_closing(handle) ->None:
+def notify_closing(handle):
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.notify_closing(handle)
@@ -41,7 +38,7 @@ def notify_closing(handle) ->None:
         raise RuntimeError("must be called from async context")
 
 
-def register_with_iocp(handle) ->None:
+def register_with_iocp(handle):
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.register_with_iocp(handle)
@@ -73,7 +70,7 @@ async def readinto_overlapped(handle, buffer, file_offset=0):
         raise RuntimeError("must be called from async context")
 
 
-def current_iocp() ->int:
+def current_iocp():
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.current_iocp()
@@ -81,7 +78,7 @@ def current_iocp() ->int:
         raise RuntimeError("must be called from async context")
 
 
-def monitor_completion_key() ->ContextManager[tuple[int, UnboundedQueue[object]]]:
+def monitor_completion_key():
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.monitor_completion_key()
