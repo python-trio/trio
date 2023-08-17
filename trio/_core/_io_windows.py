@@ -5,7 +5,7 @@ import itertools
 import socket
 import sys
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Iterator, Literal
 
 import attr
 from outcome import Value
@@ -33,6 +33,9 @@ assert not TYPE_CHECKING or sys.platform == "win32"
 
 if TYPE_CHECKING:
     from typing_extensions import TypeAlias
+
+    from ._traps import Abort, RaiseCancelT
+    from ._unbounded_queue import UnboundedQueue
 EventResult: TypeAlias = int
 
 # There's a lot to be said about the overall design of a Windows event
@@ -185,13 +188,15 @@ class CKeys(enum.IntEnum):
     USER_DEFINED = 4  # and above
 
 
-def _check(success):
+def _check(success: bool) -> Literal[True]:
     if not success:
         raise_winerror()
-    return success
+    return True
 
 
-def _get_underlying_socket(sock, *, which=WSAIoctls.SIO_BASE_HANDLE):
+def _get_underlying_socket(
+    sock: socket.socket | int, *, which=WSAIoctls.SIO_BASE_HANDLE
+):
     if hasattr(sock, "fileno"):
         sock = sock.fileno()
     base_ptr = ffi.new("HANDLE *")
@@ -336,9 +341,9 @@ WRITABLE_FLAGS = (
 # operation and start a new one.
 @attr.s(slots=True, eq=False)
 class AFDWaiters:
-    read_task = attr.ib(default=None)
-    write_task = attr.ib(default=None)
-    current_op = attr.ib(default=None)
+    read_task: None = attr.ib(default=None)
+    write_task: None = attr.ib(default=None)
+    current_op: None = attr.ib(default=None)
 
 
 # We also need to bundle up all the info for a single op into a standalone
@@ -346,10 +351,10 @@ class AFDWaiters:
 # finishes, even if we're throwing it away.
 @attr.s(slots=True, eq=False, frozen=True)
 class AFDPollOp:
-    lpOverlapped = attr.ib()
-    poll_info = attr.ib()
-    waiters = attr.ib()
-    afd_group = attr.ib()
+    lpOverlapped: None = attr.ib()
+    poll_info: None = attr.ib()
+    waiters: None = attr.ib()
+    afd_group: None = attr.ib()
 
 
 # The Windows kernel has a weird issue when using AFD handles. If you have N
@@ -365,8 +370,8 @@ MAX_AFD_GROUP_SIZE = 500  # at 1000, the cubic scaling is just starting to bite
 
 @attr.s(slots=True, eq=False)
 class AFDGroup:
-    size = attr.ib()
-    handle = attr.ib()
+    size: int = attr.ib()
+    handle: None = attr.ib()
 
 
 @attr.s(slots=True, eq=False, frozen=True)
@@ -387,8 +392,8 @@ MAX_EVENTS = 1000
 
 @attr.s(frozen=True)
 class CompletionKeyEventInfo:
-    lpOverlapped = attr.ib()
-    dwNumberOfBytesTransferred = attr.ib()
+    lpOverlapped: None = attr.ib()
+    dwNumberOfBytesTransferred: int = attr.ib()
 
 
 class WindowsIOManager:
@@ -455,7 +460,7 @@ class WindowsIOManager:
                         "netsh winsock show catalog"
                     )
 
-    def close(self):
+    def close(self) -> None:
         try:
             if self._iocp is not None:
                 iocp = self._iocp
@@ -466,10 +471,10 @@ class WindowsIOManager:
                 afd_handle = self._all_afd_handles.pop()
                 _check(kernel32.CloseHandle(afd_handle))
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.close()
 
-    def statistics(self):
+    def statistics(self) -> _WindowsStatistics:
         tasks_waiting_read = 0
         tasks_waiting_write = 0
         for waiter in self._afd_waiters.values():
@@ -484,7 +489,7 @@ class WindowsIOManager:
             completion_key_monitors=len(self._completion_key_queues),
         )
 
-    def force_wakeup(self):
+    def force_wakeup(self) -> None:
         _check(
             kernel32.PostQueuedCompletionStatus(
                 self._iocp, 0, CKeys.FORCE_WAKEUP, ffi.NULL
@@ -590,7 +595,7 @@ class WindowsIOManager:
                 )
                 queue.put_nowait(info)
 
-    def _register_with_iocp(self, handle, completion_key):
+    def _register_with_iocp(self, handle, completion_key) -> None:
         handle = _handle(handle)
         _check(kernel32.CreateIoCompletionPort(handle, self._iocp, completion_key, 0))
         # Supposedly this makes things slightly faster, by disabling the
@@ -607,7 +612,7 @@ class WindowsIOManager:
     # AFD stuff
     ################################################################
 
-    def _refresh_afd(self, base_handle):
+    def _refresh_afd(self, base_handle) -> None:
         waiters = self._afd_waiters[base_handle]
         if waiters.current_op is not None:
             afd_group = waiters.current_op.afd_group
@@ -683,7 +688,7 @@ class WindowsIOManager:
             if afd_group.size >= MAX_AFD_GROUP_SIZE:
                 self._vacant_afd_groups.remove(afd_group)
 
-    async def _afd_poll(self, sock, mode):
+    async def _afd_poll(self, sock, mode) -> None:
         base_handle = _get_base_socket(sock)
         waiters = self._afd_waiters.get(base_handle)
         if waiters is None:
@@ -696,7 +701,7 @@ class WindowsIOManager:
         # we let it escape.
         self._refresh_afd(base_handle)
 
-        def abort_fn(_):
+        def abort_fn(_: RaiseCancelT) -> Abort:
             setattr(waiters, mode, None)
             self._refresh_afd(base_handle)
             return _core.Abort.SUCCEEDED
@@ -704,15 +709,15 @@ class WindowsIOManager:
         await _core.wait_task_rescheduled(abort_fn)
 
     @_public
-    async def wait_readable(self, sock):
+    async def wait_readable(self, sock) -> None:
         await self._afd_poll(sock, "read_task")
 
     @_public
-    async def wait_writable(self, sock):
+    async def wait_writable(self, sock) -> None:
         await self._afd_poll(sock, "write_task")
 
     @_public
-    def notify_closing(self, handle):
+    def notify_closing(self, handle) -> None:
         handle = _get_base_socket(handle)
         waiters = self._afd_waiters.get(handle)
         if waiters is not None:
@@ -724,7 +729,7 @@ class WindowsIOManager:
     ################################################################
 
     @_public
-    def register_with_iocp(self, handle):
+    def register_with_iocp(self, handle) -> None:
         self._register_with_iocp(handle, CKeys.WAIT_OVERLAPPED)
 
     @_public
@@ -740,7 +745,7 @@ class WindowsIOManager:
         self._overlapped_waiters[lpOverlapped] = task
         raise_cancel = None
 
-        def abort(raise_cancel_):
+        def abort(raise_cancel_: RaiseCancelT) -> Abort:
             nonlocal raise_cancel
             raise_cancel = raise_cancel_
             try:
@@ -860,14 +865,14 @@ class WindowsIOManager:
     ################################################################
 
     @_public
-    def current_iocp(self):
+    def current_iocp(self) -> int:
         return int(ffi.cast("uintptr_t", self._iocp))
 
     @contextmanager
     @_public
-    def monitor_completion_key(self):
+    def monitor_completion_key(self) -> Iterator[tuple[int, UnboundedQueue[object]]]:
         key = next(self._completion_key_counter)
-        queue = _core.UnboundedQueue()
+        queue = _core.UnboundedQueue[object]()
         self._completion_key_queues[key] = queue
         try:
             yield (key, queue)
