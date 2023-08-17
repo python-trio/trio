@@ -116,7 +116,7 @@ def thread_wrapper_factory(
 
 def classmethod_wrapper_factory(
     cls: AsyncAutoWrapperType, meth_name: str
-) -> classmethod:
+) -> classmethod:  # type: ignore[type-arg]
     @async_wraps(cls, cls._wraps, meth_name)
     async def wrapper(cls: type[Path], *args: Any, **kwargs: Any) -> Path:  # type: ignore[misc] # contains Any
         meth = getattr(cls._wraps, meth_name)
@@ -163,7 +163,7 @@ class AsyncAutoWrapperType(Final):
 
     def generate_wraps(cls, attrs: dict[str, object]) -> None:
         # generate wrappers for functions of _wraps
-        wrapper: classmethod | Callable
+        wrapper: classmethod | Callable[..., object]  # type: ignore[type-arg]
         for attr_name, attr in cls._wraps.__dict__.items():
             # .z. exclude cls._wrap_iter
             if attr_name.startswith("_") or attr_name in attrs:
@@ -188,7 +188,7 @@ class AsyncAutoWrapperType(Final):
 
     def generate_iter(cls, attrs: dict[str, object]) -> None:
         # generate wrappers for methods that return iterators
-        wrapper: Callable
+        wrapper: Callable[..., object]
         for attr_name, attr in cls._wraps.__dict__.items():
             if attr_name in cls._wrap_iter:
                 wrapper = iter_wrapper_factory(cls, attr_name)

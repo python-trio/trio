@@ -36,48 +36,42 @@ warn_return_any = true
 # Avoid subtle backsliding
 disallow_any_decorated = true
 disallow_any_generics = true
+disallow_any_unimported = false  # Enable once Outcome has stubs.
 disallow_incomplete_defs = true
 disallow_subclassing_any = true
 disallow_untyped_decorators = true
 disallow_untyped_defs = true
 
-# Enable gradually / for new modules
+# Enable once other problems are dealt with
 check_untyped_defs = false
 disallow_untyped_calls = false
-disallow_any_unimported = false  # awaiting Outcome
 
 
-
-# DO NOT use `ignore_errors`; it doesn't apply
-# downstream and users have to deal with them.
+# files not yet fully typed
 [[tool.mypy.overrides]]
 module = [
-
 # 2747
-"trio/testing/_network", # 1, 34
-"trio/testing/_trio_test", # 2, 29
-"trio/testing/_checkpoints", # 3, 62
-"trio/testing/_check_streams", # 27, 522
-"trio/testing/_memory_streams", # 66, 590
+"trio/testing/_network",
+"trio/testing/_trio_test",
+"trio/testing/_checkpoints",
+"trio/testing/_check_streams",
+"trio/testing/_memory_streams",
 # 2745
-"trio/_ssl", # 26, 929 lines
+"trio/_ssl",
 # 2756
-"trio/_highlevel_open_unix_stream", # 2, 49 lines
-"trio/_highlevel_serve_listeners", # 3, 121 lines
-"trio/_highlevel_ssl_helpers", # 3, 155 lines
-"trio/_highlevel_socket", # 4, 386 lines
+"trio/_highlevel_open_unix_stream",
+"trio/_highlevel_serve_listeners",
+"trio/_highlevel_ssl_helpers",
+"trio/_highlevel_socket",
 # 2755
-"trio/_core/_windows_cffi", # 2, 324
-"trio/_wait_for_object", # 2 (windows)
+"trio/_core/_windows_cffi",
+"trio/_wait_for_object",
 # 2761
-"trio/_core/_generated_io_windows", # 9 (win32), 84
-"trio/_core/_io_windows", # 47 (win32), 867
+"trio/_core/_generated_io_windows",
+"trio/_core/_io_windows",
 
 
-
-
-"trio/_signals", # 13, 168 lines
-
+"trio/_signals",
 
 # internal
 "trio/_windows_pipes",
@@ -92,13 +86,6 @@ disallow_any_generics = false
 disallow_any_unimported = false
 disallow_incomplete_defs = false
 disallow_untyped_defs = false
-
-[[tool.mypy.overrides]]
-# Needs to use Any due to some complex introspection.
-module = [
-    "trio._path",
-]
-disallow_any_generics = false
 
 [tool.pytest.ini_options]
 addopts = ["--strict-markers", "--strict-config"]

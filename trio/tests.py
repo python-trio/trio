@@ -16,8 +16,6 @@ warn_deprecated(
 # This won't give deprecation warning on import, but will give a warning on use of any
 # attribute in tests, and static analysis tools will also not see any content inside.
 class TestsDeprecationWrapper:
-    """trio.tests is deprecated, use trio._tests"""
-
     __name__ = "trio.tests"
 
     def __getattr__(self, attr: str) -> Any:

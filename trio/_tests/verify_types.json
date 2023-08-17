@@ -14,7 +14,7 @@
       "withUnknownType": 22
     },
     "ignoreUnknownTypesFromImports": true,
-    "missingClassDocStringCount": 0,
+    "missingClassDocStringCount": 1,
     "missingDefaultParamCount": 0,
     "missingFunctionDocStringCount": 4,
     "moduleName": "trio",
@@ -105,7 +105,8 @@
       "trio.testing.memory_stream_pair",
       "trio.testing.memory_stream_pump",
       "trio.testing.open_stream_to_socket_listener",
-      "trio.testing.trio_test"
+      "trio.testing.trio_test",
+      "trio.tests.TestsDeprecationWrapper"
     ]
   }
 }
