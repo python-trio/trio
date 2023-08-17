@@ -193,9 +193,9 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
 
         self._closed = False
 
-        self._packet_sender, self._packet_receiver = trio.open_memory_channel[UDPPacket](
-            float("inf")
-        )
+        self._packet_sender, self._packet_receiver = trio.open_memory_channel[
+            UDPPacket
+        ](float("inf"))
 
         # This is the source-of-truth for what port etc. this socket is bound to
         self._binding: Optional[UDPBinding] = None
