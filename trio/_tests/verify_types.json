@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.9585987261146497,
+    "completenessScore": 0.964968152866242,
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 602,
-      "withUnknownType": 26
+      "withKnownType": 606,
+      "withUnknownType": 22
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -68,11 +68,7 @@
       "trio._ssl.SSLStream.transport_stream",
       "trio._ssl.SSLStream.unwrap",
       "trio._ssl.SSLStream.wait_send_all_might_not_block",
-      "trio.lowlevel.cancel_shielded_checkpoint",
       "trio.lowlevel.notify_closing",
-      "trio.lowlevel.permanently_detach_coroutine_object",
-      "trio.lowlevel.reattach_detached_coroutine_object",
-      "trio.lowlevel.temporarily_detach_coroutine_object",
       "trio.lowlevel.wait_readable",
       "trio.lowlevel.wait_writable",
       "trio.open_ssl_over_tcp_listeners",
