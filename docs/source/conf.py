@@ -53,23 +53,6 @@ nitpick_ignore = [
     ("py:exc", "Anything else"),
     ("py:class", "async function"),
     ("py:class", "sync function"),
-    # https://github.com/sphinx-doc/sphinx/issues/7722
-    # TODO: why do these need to be spelled out?
-    ("py:class", "trio._abc.ReceiveType"),
-    ("py:class", "trio._abc.SendType"),
-    ("py:class", "trio._abc.T"),
-    ("py:obj", "trio._abc.ReceiveType"),
-    ("py:obj", "trio._abc.SendType"),
-    ("py:obj", "trio._abc.T"),
-    ("py:obj", "trio._abc.T_resource"),
-    ("py:class", "trio._core._run.StatusT"),
-    ("py:class", "trio._core._run.StatusT_co"),
-    ("py:class", "trio._core._run.StatusT_contra"),
-    ("py:class", "trio._core._run.RetT"),
-    ("py:class", "trio._threads.RetT"),
-    ("py:class", "P.args"),
-    ("py:class", "P.kwargs"),
-    ("py:class", "RetT"),
     # why aren't these found in stdlib?
     ("py:class", "types.FrameType"),
     # TODO: figure out if you can link this to SSL
@@ -139,6 +122,7 @@ extensions = [
     "sphinxcontrib_trio",
     "sphinxcontrib.jquery",
     "local_customization",
+    "typevars",
 ]
 
 intersphinx_mapping = {
