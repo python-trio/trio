@@ -109,7 +109,8 @@ def run_linters(file: File, source: str) -> str:
 
     :raises ValueError: If either failed.
     """
-    # Black does not have a public Python API, so run it on the command line.
+    # Black has an undocumented API, but it doesn't easily allow reading configuration from
+    # pyproject.toml, and simultaneously pass in / receive the code as a string.
     # https://github.com/psf/black/issues/779
     result = subprocess.run(
         # "-" as a filename = use stdin, return on stdout.
