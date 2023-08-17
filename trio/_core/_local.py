@@ -71,7 +71,7 @@ class RunVar(Generic[T], metaclass=Final):
 
         # This can't fail, because if we weren't in Trio context then the
         # get() above would have failed.
-        _run.GLOBAL_RUN_CONTEXT.runner._locals[self] = value  # type: ignore[index,assignment]
+        _run.GLOBAL_RUN_CONTEXT.runner._locals[self] = value
         return token
 
     def reset(self, token: RunVarToken[T]) -> None:
@@ -93,7 +93,7 @@ class RunVar(Generic[T], metaclass=Final):
             if previous is _NoValue:
                 _run.GLOBAL_RUN_CONTEXT.runner._locals.pop(self)
             else:
-                _run.GLOBAL_RUN_CONTEXT.runner._locals[self] = previous  # type: ignore[index,assignment]
+                _run.GLOBAL_RUN_CONTEXT.runner._locals[self] = previous
         except AttributeError:
             raise RuntimeError("Cannot be used outside of a run context")
 

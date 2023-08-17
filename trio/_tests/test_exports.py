@@ -9,7 +9,7 @@ import socket as stdlib_socket
 import sys
 from pathlib import Path
 from types import ModuleType
-from typing import Protocol
+from typing import Dict, Protocol
 
 import attrs
 import pytest
@@ -27,7 +27,7 @@ mypy_cache_updated = False
 try:  # If installed, check both versions of this class.
     from typing_extensions import Protocol as Protocol_ext
 except ImportError:  # pragma: no cover
-    Protocol_ext = Protocol
+    Protocol_ext = Protocol  # type: ignore[assignment]
 
 
 def _ensure_mypy_cache_updated():
