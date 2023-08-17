@@ -328,8 +328,14 @@ def raise_winerror(
     filename2: str | None = None,
 ) -> NoReturn:
     if winerror is None:
-        winerror, msg = ffi.getwinerror()
+        err = ffi.getwinerror()
+        if err is None:
+            raise OSError("No error set?")
+        winerror, msg = err
     else:
-        _, msg = ffi.getwinerror(winerror)
+        err = ffi.getwinerror()
+        if err is None:
+            raise OSError("No error set?")
+        _, msg = err
     # https://docs.python.org/3/library/exceptions.html#OSError
     raise OSError(0, msg, filename, winerror, filename2)
