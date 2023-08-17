@@ -69,15 +69,15 @@ module = [
 # 2755
 "trio/_core/_windows_cffi", # 2, 324
 "trio/_wait_for_object", # 2 (windows)
+# 2761
+"trio/_core/_generated_io_windows", # 9 (win32), 84
+"trio/_core/_io_windows", # 47 (win32), 867
 
 
 
 
 "trio/_signals", # 13, 168 lines
 
-# windows API
-"trio/_core/_generated_io_windows", # 9 (win32), 84
-"trio/_core/_io_windows", # 47 (win32), 867
 
 # internal
 "trio/_windows_pipes",
