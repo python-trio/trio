@@ -9,7 +9,6 @@ from trio._util import Final
 
 from .abc import AsyncResource, HalfCloseableStream, ReceiveStream, SendStream
 
-
 SendStreamT = TypeVar("SendStreamT", bound=SendStream)
 ReceiveStreamT = TypeVar("ReceiveStreamT", bound=ReceiveStream)
 
