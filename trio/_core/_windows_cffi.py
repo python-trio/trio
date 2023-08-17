@@ -333,7 +333,7 @@ def raise_winerror(
             raise OSError("No error set?")
         winerror, msg = err
     else:
-        err = ffi.getwinerror()
+        err = ffi.getwinerror(winerror)
         if err is None:
             raise OSError("No error set?")
         _, msg = err
