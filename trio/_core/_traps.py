@@ -1,9 +1,9 @@
-# These are the only functions that ever yield back to the task runner.
+"""These are the only functions that ever yield back to the task runner."""
 from __future__ import annotations
 
 import enum
 import types
-from typing import TYPE_CHECKING, Any, Callable, Iterator, NoReturn, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, NoReturn
 
 import attr
 import outcome
@@ -16,8 +16,6 @@ if TYPE_CHECKING:
 
     from ._run import Task
 
-T = TypeVar("T")
-
 
 # Helper for the bottommost 'yield'. You can't use 'yield' inside an async
 # function, but you can inside a generator, and if you decorate your generator
@@ -27,7 +25,7 @@ T = TypeVar("T")
 # tracking machinery. Since our traps are public APIs, we make them real async
 # functions, and then this helper takes care of the actual yield:
 @types.coroutine
-def _async_yield(obj: T) -> Iterator[T]:
+def _async_yield(obj: Any) -> Any:  # type: ignore[misc]
     return (yield obj)
 
 
@@ -37,7 +35,7 @@ class CancelShieldedCheckpoint:
     pass
 
 
-async def cancel_shielded_checkpoint() -> Any:
+async def cancel_shielded_checkpoint() -> None:
     """Introduce a schedule point, but not a cancel point.
 
     This is *not* a :ref:`checkpoint <checkpoints>`, but it is half of a
@@ -50,7 +48,7 @@ async def cancel_shielded_checkpoint() -> Any:
             await trio.lowlevel.checkpoint()
 
     """
-    return (await _async_yield(CancelShieldedCheckpoint)).unwrap()
+    (await _async_yield(CancelShieldedCheckpoint)).unwrap()
 
 
 # Return values for abort functions

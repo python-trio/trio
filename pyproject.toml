@@ -53,8 +53,6 @@ disallow_any_unimported = false  # awaiting Outcome
 [[tool.mypy.overrides]]
 module = [
 
-# 2749
-"trio/_threads", # 15, 398 lines
 # 2747
 "trio/testing/_network", # 1, 34
 "trio/testing/_trio_test", # 2, 29
@@ -63,29 +61,28 @@ module = [
 "trio/testing/_memory_streams", # 66, 590
 # 2745
 "trio/_ssl", # 26, 929 lines
-# 2724
-"trio/_highlevel_open_tcp_listeners", # 3, 227 lines
-
-# exported API
+# 2756
 "trio/_highlevel_open_unix_stream", # 2, 49 lines
 "trio/_highlevel_serve_listeners", # 3, 121 lines
 "trio/_highlevel_ssl_helpers", # 3, 155 lines
 "trio/_highlevel_socket", # 4, 386 lines
+# 2755
+"trio/_core/_windows_cffi", # 2, 324
+"trio/_wait_for_object", # 2 (windows)
+
+
+
 
 "trio/_signals", # 13, 168 lines
-"trio/_subprocess", # 21, 759 lines
 
 # windows API
 "trio/_core/_generated_io_windows", # 9 (win32), 84
 "trio/_core/_io_windows", # 47 (win32), 867
-"trio/_wait_for_object", # 2 (windows)
 
 # internal
 "trio/_windows_pipes",
-"trio/_core/_windows_cffi", # 2, 324
 
 # tests
-"trio/_subprocess_platform/waitid", # 2, 107 lines
 "trio/_core/_tests/*",
 "trio/_tests/*",
 "trio/testing/_fake_net", # 30
