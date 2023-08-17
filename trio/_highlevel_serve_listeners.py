@@ -3,7 +3,6 @@ from __future__ import annotations
 import errno
 import logging
 import os
-from collections.abc import Sequence
 from typing import Any, Awaitable, Callable, NoReturn, TypeVar
 
 import trio
