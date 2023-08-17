@@ -70,7 +70,10 @@ def test_create_pass_through_args():
         assert create_passthrough_args(func_node) == expected
 
 
-@pytest.mark.skipif(sys.implementation != "cpython", reason="Black/isort not installed.")
+@pytest.mark.skipif(
+    sys.implementation.name != "cpython",
+    reason="Black/isort not installed.",
+)
 @pytest.mark.parametrize("imports", ["", IMPORT_1, IMPORT_2, IMPORT_3])
 def test_process(tmp_path, imports):
     modpath = tmp_path / "_module.py"
