@@ -1,3 +1,4 @@
+from __future__ import annotations
 import contextvars
 import queue as stdlib_queue
 import re
@@ -584,7 +585,7 @@ async def test_trio_to_thread_run_sync_expected_error():
         await to_thread_run_sync(async_fn)
 
 
-trio_test_contextvar: contextvars.ContextVar = contextvars.ContextVar(
+trio_test_contextvar: contextvars.ContextVar[str] = contextvars.ContextVar(
     "trio_test_contextvar"
 )
 

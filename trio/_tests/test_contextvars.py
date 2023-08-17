@@ -1,17 +1,18 @@
+from __future__ import annotations
 import contextvars
 
 from .. import _core
 
-trio_testing_contextvar: contextvars.ContextVar = contextvars.ContextVar(
+trio_testing_contextvar: contextvars.ContextVar[str] = contextvars.ContextVar(
     "trio_testing_contextvar"
 )
 
 
-async def test_contextvars_default():
+async def test_contextvars_default() -> None:
     trio_testing_contextvar.set("main")
-    record = []
+    record: list[str] = []
 
-    async def child():
+    async def child() -> None:
         value = trio_testing_contextvar.get()
         record.append(value)
 
@@ -20,7 +21,7 @@ async def test_contextvars_default():
     assert record == ["main"]
 
 
-async def test_contextvars_set():
+async def test_contextvars_set() -> None:
     trio_testing_contextvar.set("main")
     record = []
 
@@ -36,7 +37,7 @@ async def test_contextvars_set():
     assert value == "main"
 
 
-async def test_contextvars_copy():
+async def test_contextvars_copy() -> None:
     trio_testing_contextvar.set("main")
     context = contextvars.copy_context()
     trio_testing_contextvar.set("second_main")
