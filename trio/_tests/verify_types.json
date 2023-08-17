@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.9490445859872612,
+    "completenessScore": 0.9538216560509554,
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 596,
-      "withUnknownType": 32
+      "withKnownType": 599,
+      "withUnknownType": 29
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -80,8 +80,6 @@
       "trio._subprocess.Process.send_signal",
       "trio._subprocess.Process.terminate",
       "trio._subprocess.Process.wait",
-      "trio.from_thread.run",
-      "trio.from_thread.run_sync",
       "trio.lowlevel.cancel_shielded_checkpoint",
       "trio.lowlevel.notify_closing",
       "trio.lowlevel.open_process",
@@ -126,8 +124,7 @@
       "trio.testing.memory_stream_pump",
       "trio.testing.open_stream_to_socket_listener",
       "trio.testing.trio_test",
-      "trio.tests.TestsDeprecationWrapper",
-      "trio.to_thread.current_default_thread_limiter"
+      "trio.tests.TestsDeprecationWrapper"
     ]
   }
 }
