@@ -3,7 +3,8 @@ from __future__ import annotations
 import errno
 import logging
 import os
-from typing import Awaitable, Callable, NoReturn, TypeVar
+from collections.abc import Sequence
+from typing import Any, Awaitable, Callable, NoReturn, TypeVar
 
 import trio
 
@@ -24,7 +25,7 @@ LOGGER = logging.getLogger("trio.serve_listeners")
 
 
 StreamT = TypeVar("StreamT", bound=trio.abc.AsyncResource)
-ListenerT = TypeVar("ListenerT", bound=trio.abc.Listener)
+ListenerT = TypeVar("ListenerT", bound=trio.abc.Listener[Any])
 Handler = Callable[[StreamT], Awaitable[object]]
 
 
