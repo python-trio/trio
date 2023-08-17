@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import random
 import socket as stdlib_socket
 from contextlib import suppress
+from typing import Callable
 
 import pytest
 
@@ -47,15 +50,15 @@ def using_fileno(fn):
     return fileno_wrapper
 
 
-wait_readable_options = [trio.lowlevel.wait_readable]
-wait_writable_options = [trio.lowlevel.wait_writable]
-notify_closing_options = [trio.lowlevel.notify_closing]
+wait_readable_options: list[Callable] = [trio.lowlevel.wait_readable]
+wait_writable_options: list[Callable] = [trio.lowlevel.wait_writable]
+notify_closing_options: list[Callable] = [trio.lowlevel.notify_closing]
 
-for options_list in [
+for options_list in (
     wait_readable_options,
     wait_writable_options,
     notify_closing_options,
-]:
+):
     options_list += [using_fileno(f) for f in options_list]
 
 # Decorators that feed in different settings for wait_readable / wait_writable

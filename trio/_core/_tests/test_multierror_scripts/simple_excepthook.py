@@ -18,4 +18,4 @@ def exc2_fn():
 
 
 # This should be printed nicely, because Trio overrode sys.excepthook
-raise trio.MultiError([exc1_fn(), exc2_fn()])
+raise trio.MultiError([exc1_fn(), exc2_fn()])  # type: ignore[attr-defined]

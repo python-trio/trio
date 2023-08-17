@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 # this file is not run as part of the tests, instead it's run standalone from check.sh
 import argparse
 import json

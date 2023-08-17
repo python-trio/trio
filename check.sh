@@ -27,9 +27,9 @@ fi
 flake8 trio/ || EXIT_STATUS=$?
 
 # Run mypy on all supported platforms
-mypy -m trio -m trio.testing --platform linux || EXIT_STATUS=$?
-mypy -m trio -m trio.testing --platform darwin || EXIT_STATUS=$?  # tests FreeBSD too
-mypy -m trio -m trio.testing --platform win32 || EXIT_STATUS=$?
+mypy trio --platform linux || EXIT_STATUS=$?
+mypy trio --platform darwin || EXIT_STATUS=$?  # tests FreeBSD too
+mypy trio --platform win32 || EXIT_STATUS=$?
 
 # Check pip compile is consistent
 pip-compile test-requirements.in

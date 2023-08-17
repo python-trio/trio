@@ -170,7 +170,7 @@ def test_await_in_trio_thread_while_main_exits():
 async def test_named_thread():
     ending = " from trio._tests.test_threads.test_named_thread"
 
-    def inner(name="inner" + ending) -> threading.Thread:
+    def inner(name: str = "inner" + ending) -> threading.Thread:
         assert threading.current_thread().name == name
         return threading.current_thread()
 
@@ -185,7 +185,7 @@ async def test_named_thread():
     await to_thread_run_sync(f("None" + ending))
 
     # test that you can set a custom name, and that it's reset afterwards
-    async def test_thread_name(name: str):
+    async def test_thread_name(name: str) -> None:
         thread = await to_thread_run_sync(f(name), thread_name=name)
         assert re.match("Trio thread [0-9]*", thread.name)
 
@@ -235,7 +235,7 @@ def _get_thread_name(ident: Optional[int] = None) -> Optional[str]:
 # and most mac machines. So unless the platform is linux it will just skip
 # in case it fails to fetch the os thread name.
 async def test_named_thread_os():
-    def inner(name) -> threading.Thread:
+    def inner(name: str) -> threading.Thread:
         os_thread_name = _get_thread_name()
         if os_thread_name is None and sys.platform != "linux":
             pytest.skip(f"no pthread OS support on {sys.platform}")
@@ -253,7 +253,7 @@ async def test_named_thread_os():
     await to_thread_run_sync(f(default), thread_name=None)
 
     # test that you can set a custom name, and that it's reset afterwards
-    async def test_thread_name(name: str, expected: Optional[str] = None):
+    async def test_thread_name(name: str, expected: Optional[str] = None) -> None:
         if expected is None:
             expected = name
         thread = await to_thread_run_sync(f(expected), thread_name=name)
@@ -584,7 +584,9 @@ async def test_trio_to_thread_run_sync_expected_error():
         await to_thread_run_sync(async_fn)
 
 
-trio_test_contextvar = contextvars.ContextVar("trio_test_contextvar")
+trio_test_contextvar: contextvars.ContextVar = contextvars.ContextVar(
+    "trio_test_contextvar"
+)
 
 
 async def test_trio_to_thread_run_sync_contextvars():

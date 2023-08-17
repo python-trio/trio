@@ -2,7 +2,9 @@ import contextvars
 
 from .. import _core
 
-trio_testing_contextvar = contextvars.ContextVar("trio_testing_contextvar")
+trio_testing_contextvar: contextvars.ContextVar = contextvars.ContextVar(
+    "trio_testing_contextvar"
+)
 
 
 async def test_contextvars_default():

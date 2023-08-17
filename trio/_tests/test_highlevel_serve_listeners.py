@@ -12,7 +12,7 @@ from trio.testing import memory_stream_pair, wait_all_tasks_blocked
 class MemoryListener(trio.abc.Listener):
     closed = attr.ib(default=False)
     accepted_streams = attr.ib(factory=list)
-    queued_streams = attr.ib(factory=(lambda: trio.open_memory_channel(1)))
+    queued_streams = attr.ib(factory=(lambda: trio.open_memory_channel[object](1)))
     accept_hook = attr.ib(default=None)
 
     async def connect(self):
