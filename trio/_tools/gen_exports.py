@@ -10,6 +10,7 @@ import ast
 import os
 import subprocess
 import sys
+import traceback
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 from textwrap import indent
@@ -112,18 +113,29 @@ def run_linters(file: File, source: str) -> str:
     # Black has an undocumented API, but it doesn't easily allow reading configuration from
     # pyproject.toml, and simultaneously pass in / receive the code as a string.
     # https://github.com/psf/black/issues/779
-    result = subprocess.run(
-        # "-" as a filename = use stdin, return on stdout.
-        [sys.executable, "-m", "black", "--stdin-filename", file.path, "-"],
-        input=source,
-        capture_output=True,
-        encoding="utf8",
-    )
+    try:
+        result = subprocess.run(
+            # "-" as a filename = use stdin, return on stdout.
+            [sys.executable, "-m", "black", "--stdin-filename", file.path, "-"],
+            input=source,
+            capture_output=True,
+            encoding="utf8",
+            check=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        print("Failed to run black!")
+        traceback.print_exception(exc)
+        sys.exit(1)
     # isort does have a public API, makes things easy.
-    isort_res = isort.api.sort_code_string(
-        result.stdout,
-        file_path=file.path,
-    )
+    try:
+        isort_res = isort.api.sort_code_string(
+            result.stdout,
+            file_path=file.path,
+        )
+    except isort.exceptions.ISortError as exc:
+        print("Failed to run isort!")
+        traceback.print_exception(exc)
+        sys.exit(1)
     return isort_res
 
 
