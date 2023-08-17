@@ -110,6 +110,7 @@ class KqueueIOManager:
 
     @_public
     def current_kqueue(self) -> select.kqueue:
+        """TODO"""
         return self._kqueue
 
     @contextmanager
@@ -117,6 +118,7 @@ class KqueueIOManager:
     def monitor_kevent(
         self, ident: int, filter: int
     ) -> Iterator[_core.UnboundedQueue[select.kevent]]:
+        """TODO"""
         key = (ident, filter)
         if key in self._registered:
             raise _core.BusyResourceError(
@@ -133,6 +135,7 @@ class KqueueIOManager:
     async def wait_kevent(
         self, ident: int, filter: int, abort_func: Callable[[RaiseCancelT], Abort]
     ) -> Abort:
+        """TODO"""
         key = (ident, filter)
         if key in self._registered:
             raise _core.BusyResourceError(
@@ -182,14 +185,17 @@ class KqueueIOManager:
 
     @_public
     async def wait_readable(self, fd: int | socket) -> None:
+        """TODO"""
         await self._wait_common(fd, select.KQ_FILTER_READ)
 
     @_public
     async def wait_writable(self, fd: int | socket) -> None:
+        """TODO"""
         await self._wait_common(fd, select.KQ_FILTER_WRITE)
 
     @_public
     def notify_closing(self, fd: int | socket) -> None:
+        """TODO"""
         if not isinstance(fd, int):
             fd = fd.fileno()
 

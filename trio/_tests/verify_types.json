@@ -14,9 +14,9 @@
       "withUnknownType": 22
     },
     "ignoreUnknownTypesFromImports": true,
-    "missingClassDocStringCount": 1,
+    "missingClassDocStringCount": 0,
     "missingDefaultParamCount": 0,
-    "missingFunctionDocStringCount": 4,
+    "missingFunctionDocStringCount": 0,
     "moduleName": "trio",
     "modules": [
       {
@@ -68,9 +68,6 @@
       "trio._ssl.SSLStream.transport_stream",
       "trio._ssl.SSLStream.unwrap",
       "trio._ssl.SSLStream.wait_send_all_might_not_block",
-      "trio.lowlevel.notify_closing",
-      "trio.lowlevel.wait_readable",
-      "trio.lowlevel.wait_writable",
       "trio.open_ssl_over_tcp_listeners",
       "trio.open_ssl_over_tcp_stream",
       "trio.open_unix_socket",
@@ -105,8 +102,7 @@
       "trio.testing.memory_stream_pair",
       "trio.testing.memory_stream_pump",
       "trio.testing.open_stream_to_socket_listener",
-      "trio.testing.trio_test",
-      "trio.tests.TestsDeprecationWrapper"
+      "trio.testing.trio_test"
     ]
   }
 }

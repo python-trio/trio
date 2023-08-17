@@ -15,6 +15,7 @@ assert not TYPE_CHECKING or sys.platform=="win32"
 
 
 async def wait_readable(sock):
+    """TODO"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_readable(sock)
@@ -23,6 +24,7 @@ async def wait_readable(sock):
 
 
 async def wait_writable(sock):
+    """TODO"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_writable(sock)
@@ -31,6 +33,7 @@ async def wait_writable(sock):
 
 
 def notify_closing(handle):
+    """TODO"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.notify_closing(handle)
@@ -39,6 +42,7 @@ def notify_closing(handle):
 
 
 def register_with_iocp(handle):
+    """TODO"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.register_with_iocp(handle)
@@ -47,6 +51,7 @@ def register_with_iocp(handle):
 
 
 async def wait_overlapped(handle, lpOverlapped):
+    """TODO"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_overlapped(handle, lpOverlapped)
@@ -55,6 +60,7 @@ async def wait_overlapped(handle, lpOverlapped):
 
 
 async def write_overlapped(handle, data, file_offset=0):
+    """TODO"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.write_overlapped(handle, data, file_offset)
@@ -63,6 +69,7 @@ async def write_overlapped(handle, data, file_offset=0):
 
 
 async def readinto_overlapped(handle, buffer, file_offset=0):
+    """TODO"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.readinto_overlapped(handle, buffer, file_offset)
@@ -71,6 +78,7 @@ async def readinto_overlapped(handle, buffer, file_offset=0):
 
 
 def current_iocp():
+    """TODO"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.current_iocp()
@@ -79,6 +87,7 @@ def current_iocp():
 
 
 def monitor_completion_key():
+    """TODO"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.monitor_completion_key()

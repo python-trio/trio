@@ -705,14 +705,17 @@ class WindowsIOManager:
 
     @_public
     async def wait_readable(self, sock):
+        """TODO"""
         await self._afd_poll(sock, "read_task")
 
     @_public
     async def wait_writable(self, sock):
+        """TODO"""
         await self._afd_poll(sock, "write_task")
 
     @_public
     def notify_closing(self, handle):
+        """TODO"""
         handle = _get_base_socket(handle)
         waiters = self._afd_waiters.get(handle)
         if waiters is not None:
@@ -725,10 +728,12 @@ class WindowsIOManager:
 
     @_public
     def register_with_iocp(self, handle):
+        """TODO"""
         self._register_with_iocp(handle, CKeys.WAIT_OVERLAPPED)
 
     @_public
     async def wait_overlapped(self, handle, lpOverlapped):
+        """TODO"""
         handle = _handle(handle)
         if isinstance(lpOverlapped, int):
             lpOverlapped = ffi.cast("LPOVERLAPPED", lpOverlapped)
@@ -813,6 +818,7 @@ class WindowsIOManager:
 
     @_public
     async def write_overlapped(self, handle, data, file_offset=0):
+        """TODO"""
         with ffi.from_buffer(data) as cbuf:
 
             def submit_write(lpOverlapped):
@@ -836,6 +842,7 @@ class WindowsIOManager:
 
     @_public
     async def readinto_overlapped(self, handle, buffer, file_offset=0):
+        """TODO"""
         with ffi.from_buffer(buffer, require_writable=True) as cbuf:
 
             def submit_read(lpOverlapped):
@@ -861,11 +868,13 @@ class WindowsIOManager:
 
     @_public
     def current_iocp(self):
+        """TODO"""
         return int(ffi.cast("uintptr_t", self._iocp))
 
     @contextmanager
     @_public
     def monitor_completion_key(self):
+        """TODO"""
         key = next(self._completion_key_counter)
         queue = _core.UnboundedQueue()
         self._completion_key_queues[key] = queue

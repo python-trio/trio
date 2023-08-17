@@ -807,6 +807,7 @@ if TYPE_CHECKING:
             startupinfo: subprocess.STARTUPINFO | None = None,
             creationflags: int = 0,
         ) -> trio.Process:
+            """TODO: Lost the docstring defined above"""
             ...
 
         async def run_process(
@@ -827,9 +828,11 @@ if TYPE_CHECKING:
             startupinfo: subprocess.STARTUPINFO | None = None,
             creationflags: int = 0,
         ) -> subprocess.CompletedProcess[bytes]:
+            """TODO: Lost the docstring defined above"""
             ...
 
     else:  # Unix
+        # TODO: These functions are not seen by pyright (and mypy?)
 
         @overload  # type: ignore[no-overload-impl]
         async def open_process(

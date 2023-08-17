@@ -13,6 +13,8 @@ from ..abc import Clock, Instrument
 # Also: if a pytest fixture is passed in that subclasses the Clock abc, then
 # that clock is passed to trio.run().
 def trio_test(fn):
+    """Wrap an async test so it can be run synchronously by pytest."""
+
     @wraps(fn)
     def wrapper(**kwargs):
         __tracebackhide__ = True

@@ -24,6 +24,7 @@ assert not TYPE_CHECKING or sys.platform=="darwin"
 
 
 def current_kqueue() ->select.kqueue:
+    """TODO"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.current_kqueue()
@@ -33,6 +34,7 @@ def current_kqueue() ->select.kqueue:
 
 def monitor_kevent(ident: int, filter: int) ->ContextManager[_core.UnboundedQueue
     [select.kevent]]:
+    """TODO"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.monitor_kevent(ident, filter)
@@ -42,6 +44,7 @@ def monitor_kevent(ident: int, filter: int) ->ContextManager[_core.UnboundedQueu
 
 async def wait_kevent(ident: int, filter: int, abort_func: Callable[[
     RaiseCancelT], Abort]) ->Abort:
+    """TODO"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_kevent(ident, filter, abort_func)
@@ -50,6 +53,7 @@ async def wait_kevent(ident: int, filter: int, abort_func: Callable[[
 
 
 async def wait_readable(fd: (int | socket)) ->None:
+    """TODO"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_readable(fd)
@@ -58,6 +62,7 @@ async def wait_readable(fd: (int | socket)) ->None:
 
 
 async def wait_writable(fd: (int | socket)) ->None:
+    """TODO"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_writable(fd)
@@ -66,6 +71,7 @@ async def wait_writable(fd: (int | socket)) ->None:
 
 
 def notify_closing(fd: (int | socket)) ->None:
+    """TODO"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.notify_closing(fd)
