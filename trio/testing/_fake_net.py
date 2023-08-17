@@ -237,7 +237,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
     async def bind(self, addr):
         self._check_closed()
         if self._binding is not None:
-            _fake_error(errno.EINVAL)
+            _fake_err(errno.EINVAL)
         await trio.lowlevel.checkpoint()
         ip_str, port = await self._resolve_address_nocp(addr, local=True)
         ip = ipaddress.ip_address(ip_str)
