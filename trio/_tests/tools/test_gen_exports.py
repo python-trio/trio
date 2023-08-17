@@ -8,6 +8,7 @@ from trio._tools.gen_exports import (
     create_passthrough_args,
     get_public_methods,
     process,
+    run_linters,
 )
 
 SOURCE = '''from _run import _public
@@ -70,10 +71,13 @@ def test_create_pass_through_args():
         assert create_passthrough_args(func_node) == expected
 
 
-@pytest.mark.skipif(
+skip_lints = pytest.mark.skipif(
     sys.implementation.name != "cpython",
-    reason="Black/isort not installed.",
+    reason="gen_exports is internal, black/isort only runs on CPython",
 )
+
+
+@skip_lints
 @pytest.mark.parametrize("imports", ["", IMPORT_1, IMPORT_2, IMPORT_3])
 def test_process(tmp_path, imports):
     modpath = tmp_path / "_module.py"
@@ -98,3 +102,15 @@ def test_process(tmp_path, imports):
     with pytest.raises(SystemExit) as excinfo:
         process([File(modpath, "runner", imports=imports)], do_test=True)
     assert excinfo.value.code == 1
+
+
+@skip_lints
+def test_lint_failure(tmp_path) -> None:
+    """Test that processing properly fails if black or isort does."""
+    file = File(tmp_path / "module.py", "module")
+
+    with pytest.raises(SystemExit):
+        run_linters(file, "class not valid code ><")
+
+    with pytest.raises(SystemExit):
+        run_linters(file, "# isort: skip_file")
