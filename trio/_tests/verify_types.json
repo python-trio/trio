@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.9490445859872612,
+    "completenessScore": 0.964968152866242,
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 596,
-      "withUnknownType": 32
+      "withKnownType": 606,
+      "withUnknownType": 22
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -45,9 +45,9 @@
       }
     ],
     "otherSymbolCounts": {
-      "withAmbiguousType": 3,
-      "withKnownType": 627,
-      "withUnknownType": 50
+      "withAmbiguousType": 1,
+      "withKnownType": 642,
+      "withUnknownType": 39
     },
     "packageName": "trio",
     "symbols": [
@@ -68,32 +68,12 @@
       "trio._ssl.SSLStream.transport_stream",
       "trio._ssl.SSLStream.unwrap",
       "trio._ssl.SSLStream.wait_send_all_might_not_block",
-      "trio._subprocess.Process.__init__",
-      "trio._subprocess.Process.__repr__",
-      "trio._subprocess.Process.args",
-      "trio._subprocess.Process.encoding",
-      "trio._subprocess.Process.errors",
-      "trio._subprocess.Process.kill",
-      "trio._subprocess.Process.pid",
-      "trio._subprocess.Process.poll",
-      "trio._subprocess.Process.returncode",
-      "trio._subprocess.Process.send_signal",
-      "trio._subprocess.Process.terminate",
-      "trio._subprocess.Process.wait",
-      "trio.from_thread.run",
-      "trio.from_thread.run_sync",
-      "trio.lowlevel.cancel_shielded_checkpoint",
       "trio.lowlevel.notify_closing",
-      "trio.lowlevel.open_process",
-      "trio.lowlevel.permanently_detach_coroutine_object",
-      "trio.lowlevel.reattach_detached_coroutine_object",
-      "trio.lowlevel.temporarily_detach_coroutine_object",
       "trio.lowlevel.wait_readable",
       "trio.lowlevel.wait_writable",
       "trio.open_ssl_over_tcp_listeners",
       "trio.open_ssl_over_tcp_stream",
       "trio.open_unix_socket",
-      "trio.run_process",
       "trio.serve_listeners",
       "trio.serve_ssl_over_tcp",
       "trio.testing._memory_streams.MemoryReceiveStream.__init__",
@@ -126,8 +106,7 @@
       "trio.testing.memory_stream_pump",
       "trio.testing.open_stream_to_socket_listener",
       "trio.testing.trio_test",
-      "trio.tests.TestsDeprecationWrapper",
-      "trio.to_thread.current_default_thread_limiter"
+      "trio.tests.TestsDeprecationWrapper"
     ]
   }
 }
