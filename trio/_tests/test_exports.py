@@ -1,3 +1,4 @@
+from __future__ import annotations  # isort: split
 import __future__  # Regular import, not special!
 
 import enum
@@ -9,7 +10,7 @@ import socket as stdlib_socket
 import sys
 from pathlib import Path
 from types import ModuleType
-from typing import Dict, Protocol
+from typing import Protocol
 
 import attrs
 import pytest
@@ -303,7 +304,7 @@ def test_static_tool_sees_class_members(
             with mod_cache.open() as f:
                 return json.loads(f.read())["names"][name]
 
-    errors: Dict[str, object] = {}
+    errors: dict[str, object] = {}
     for class_name, class_ in module.__dict__.items():
         if not isinstance(class_, type):
             continue
@@ -483,7 +484,7 @@ def test_static_tool_sees_class_members(
     assert not errors
 
 
-def test_classes_are_final():
+def test_classes_are_final() -> None:
     for module in PUBLIC_MODULES:
         for name, class_ in module.__dict__.items():
             if not isinstance(class_, type):
@@ -505,7 +506,7 @@ def test_classes_are_final():
                 continue
             # These are classes that are conceptually abstract, but
             # inspect.isabstract returns False for boring reasons.
-            if class_ in (trio.abc.Instrument, trio.socket.SocketType):
+            if class_ is trio.abc.Instrument or class_ is trio.socket.SocketType:
                 continue
             # Enums have their own metaclass, so we can't use our metaclasses.
             # And I don't think there's a lot of risk from people subclassing

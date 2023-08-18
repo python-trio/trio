@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import random
 import socket as stdlib_socket
+from collections.abc import Callable
 from contextlib import suppress
-from typing import Callable
 
 import pytest
 

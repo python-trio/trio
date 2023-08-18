@@ -24,9 +24,9 @@ async def test_contextvars_default() -> None:
 
 async def test_contextvars_set() -> None:
     trio_testing_contextvar.set("main")
-    record = []
+    record: list[str] = []
 
-    async def child():
+    async def child() -> None:
         trio_testing_contextvar.set("child")
         value = trio_testing_contextvar.get()
         record.append(value)
@@ -42,9 +42,9 @@ async def test_contextvars_copy() -> None:
     trio_testing_contextvar.set("main")
     context = contextvars.copy_context()
     trio_testing_contextvar.set("second_main")
-    record = []
+    record: list[str] = []
 
-    async def child():
+    async def child() -> None:
         value = trio_testing_contextvar.get()
         record.append(value)
 
