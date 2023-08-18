@@ -62,7 +62,7 @@ module = [
     "trio._core._thread_cache",
     "trio._core._traps",
     "trio._core._unbounded_queue",
-    "trio._core._unbounded_queue",
+    "trio._core._windows_cffi",
     "trio._deprecate",
     "trio._dtls",
     "trio._file_io",
@@ -78,6 +78,7 @@ module = [
     "trio._threads",
     "trio._tools.gen_exports",
     "trio._util",
+    "trio._wait_for_object",
 ]
 disallow_incomplete_defs = true
 disallow_untyped_defs = true
