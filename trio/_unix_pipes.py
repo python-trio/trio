@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import errno
 import os
+import sys
 from typing import TYPE_CHECKING
 
 import trio
@@ -11,6 +12,8 @@ from ._util import ConflictDetector, Final
 
 if TYPE_CHECKING:
     from typing import Final as FinalType
+
+assert not TYPE_CHECKING or sys.platform != "win32"
 
 if os.name != "posix":
     # We raise an error here rather than gating the import in lowlevel.py
