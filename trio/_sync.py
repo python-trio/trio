@@ -107,6 +107,7 @@ class Event(metaclass=Final):
 
 class _HasAcquireRelease(Protocol):
     """Only classes with acquire() and release() can use the mixin's implementations."""
+
     async def acquire(self) -> object:
         ...
 

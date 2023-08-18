@@ -4,7 +4,7 @@ import random
 import socket as stdlib_socket
 from collections.abc import Callable
 from contextlib import suppress
-from typing import Awaitable, Callable, TYPE_CHECKING, Tuple, TypeVar
+from typing import TYPE_CHECKING, Awaitable, Callable, Tuple, TypeVar
 
 import pytest
 
