@@ -161,7 +161,7 @@ objs = [c(f) for c in classes]
 
 COUNT = 1000000
 try:
-    import __pypy__  # noqa: F401  # __pypy__ improrted but unused
+    import __pypy__  # noqa: F401  # __pypy__ imported but unused
 except ImportError:
     pass
 else:
