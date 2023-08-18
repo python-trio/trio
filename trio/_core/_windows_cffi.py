@@ -330,12 +330,12 @@ def raise_winerror(
     if winerror is None:
         err = ffi.getwinerror()
         if err is None:
-            raise OSError("No error set?")
+            raise RuntimeError("No error set?")
         winerror, msg = err
     else:
         err = ffi.getwinerror(winerror)
         if err is None:
-            raise OSError("No error set?")
+            raise RuntimeError("No error set?")
         _, msg = err
     # https://docs.python.org/3/library/exceptions.html#OSError
     raise OSError(0, msg, filename, winerror, filename2)

@@ -1,6 +1,7 @@
 import os
 import tempfile
 from contextlib import contextmanager
+from unittest.mock import create_autospec
 
 import pytest
 
@@ -20,6 +21,43 @@ if on_windows:
         kernel32,
         raise_winerror,
     )
+
+
+def test_winerror(monkeypatch) -> None:
+    mock = create_autospec(ffi.getwinerror)
+    monkeypatch.setattr(ffi, "getwinerror", mock)
+
+    # Returning none = no error, should not happen.
+    mock.return_value = None
+    with pytest.raises(RuntimeError, match="No error set"):
+        raise_winerror()
+    mock.assert_called_once_with()
+    mock.reset_mock()
+
+    with pytest.raises(RuntimeError, match="No error set"):
+        raise_winerror(38)
+    mock.assert_called_once_with(38)
+    mock.reset_mock()
+
+    mock.return_value = (12, "test error")
+    with pytest.raises(OSError) as exc:
+        raise_winerror(filename="file_1", filename2="file_2")
+    mock.assert_called_once_with()
+    mock.reset_mock()
+    assert exc.value.winerror == 12
+    assert exc.value.strerror == "test error"
+    assert exc.value.filename == "file_1"
+    assert exc.value.filename2 == "file_2"
+
+    # With an explicit number passed in, it overrides what getwinerror() returns.
+    with pytest.raises(OSError) as exc:
+        raise_winerror(18, filename="afile", filename2="bfile")
+    mock.assert_called_once_with(18)
+    mock.reset_mock()
+    assert exc.value.winerror == 18
+    assert exc.value.strerror == "test error"
+    assert exc.value.filename == "afile"
+    assert exc.value.filename2 == "bfile"
 
 
 # The undocumented API that this is testing should be changed to stop using
