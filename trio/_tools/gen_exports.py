@@ -124,7 +124,7 @@ def run_linters(file: File, source: str) -> str:
         )
     except subprocess.CalledProcessError as exc:
         print("Failed to run black!")
-        traceback.print_exception(exc)
+        traceback.print_exception(type(exc), exc, exc.__traceback__)
         sys.exit(1)
     # isort does have a public API, makes things easy.
     try:
@@ -134,7 +134,7 @@ def run_linters(file: File, source: str) -> str:
         )
     except isort.exceptions.ISortError as exc:
         print("Failed to run isort!")
-        traceback.print_exception(exc)
+        traceback.print_exception(type(exc), exc, exc.__traceback__)
         sys.exit(1)
     return isort_res
 
