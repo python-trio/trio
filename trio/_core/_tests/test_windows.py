@@ -51,13 +51,13 @@ def test_winerror(monkeypatch) -> None:
 
     # With an explicit number passed in, it overrides what getwinerror() returns.
     with pytest.raises(OSError) as exc:
-        raise_winerror(18, filename="afile", filename2="bfile")
+        raise_winerror(18, filename="a/file", filename2="b/file")
     mock.assert_called_once_with(18)
     mock.reset_mock()
     assert exc.value.winerror == 18
     assert exc.value.strerror == "test error"
-    assert exc.value.filename == "afile"
-    assert exc.value.filename2 == "bfile"
+    assert exc.value.filename == "a/file"
+    assert exc.value.filename2 == "b/file"
 
 
 # The undocumented API that this is testing should be changed to stop using
