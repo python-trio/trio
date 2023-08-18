@@ -1,8 +1,10 @@
 from .. import socket as tsocket
-from .._highlevel_socket import SocketStream
+from .._highlevel_socket import SocketListener, SocketStream
 
 
-async def open_stream_to_socket_listener(socket_listener):
+async def open_stream_to_socket_listener(
+    socket_listener: SocketListener,
+) -> SocketStream:
     """Connect to the given :class:`~trio.SocketListener`.
 
     This is particularly useful in tests when you want to let a server pick
