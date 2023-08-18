@@ -139,7 +139,7 @@ class ParkingLot(metaclass=Final):
         self._parked[task] = None
         task.custom_sleep_data = self
 
-        def abort_fn(_):
+        def abort_fn(_: _core.RaiseCancelT) -> _core.Abort:
             del task.custom_sleep_data._parked[task]
             return _core.Abort.SUCCEEDED
 

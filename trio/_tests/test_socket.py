@@ -360,7 +360,7 @@ async def test_SocketType_basics():
     sock.close()
 
 
-async def test_SocketType_setsockopt():
+async def test_SocketType_setsockopt() -> None:
     sock = tsocket.socket()
     with sock as _:
         # specifying optlen. Not supported on pypy, and I couldn't find
