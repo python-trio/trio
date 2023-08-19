@@ -2,6 +2,7 @@ import os
 import sys
 import tempfile
 from contextlib import contextmanager
+from typing import TYPE_CHECKING
 from unittest.mock import create_autospec
 
 import pytest
@@ -9,6 +10,8 @@ import pytest
 on_windows = os.name == "nt"
 # Mark all the tests in this file as being windows-only
 pytestmark = pytest.mark.skipif(not on_windows, reason="windows only")
+
+assert sys.platform == "win32" or not TYPE_CHECKING  # Skip type checking on Windows
 
 from ... import _core, sleep
 from ...testing import wait_all_tasks_blocked
@@ -45,8 +48,7 @@ def test_winerror(monkeypatch) -> None:
         raise_winerror(filename="file_1", filename2="file_2")
     mock.assert_called_once_with()
     mock.reset_mock()
-    if sys.platform == "win32":  # mypy complains otherwise
-        assert exc.value.winerror == 12
+    assert exc.value.winerror == 12
     assert exc.value.strerror == "test error"
     assert exc.value.filename == "file_1"
     assert exc.value.filename2 == "file_2"
@@ -56,8 +58,7 @@ def test_winerror(monkeypatch) -> None:
         raise_winerror(18, filename="a/file", filename2="b/file")
     mock.assert_called_once_with(18)
     mock.reset_mock()
-    if sys.platform == "win32":  # mypy complains otherwise
-        assert exc.value.winerror == 18
+    assert exc.value.winerror == 18
     assert exc.value.strerror == "test error"
     assert exc.value.filename == "a/file"
     assert exc.value.filename2 == "b/file"
