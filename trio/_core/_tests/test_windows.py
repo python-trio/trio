@@ -1,4 +1,5 @@
 import os
+import sys
 import tempfile
 from contextlib import contextmanager
 from unittest.mock import create_autospec
