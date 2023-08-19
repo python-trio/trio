@@ -44,7 +44,8 @@ def test_winerror(monkeypatch) -> None:
         raise_winerror(filename="file_1", filename2="file_2")
     mock.assert_called_once_with()
     mock.reset_mock()
-    assert exc.value.winerror == 12
+    if sys.platform == "win32":  # mypy complains otherwise
+        assert exc.value.winerror == 12
     assert exc.value.strerror == "test error"
     assert exc.value.filename == "file_1"
     assert exc.value.filename2 == "file_2"
@@ -54,7 +55,8 @@ def test_winerror(monkeypatch) -> None:
         raise_winerror(18, filename="a/file", filename2="b/file")
     mock.assert_called_once_with(18)
     mock.reset_mock()
-    assert exc.value.winerror == 18
+    if sys.platform == "win32":  # mypy complains otherwise
+        assert exc.value.winerror == 18
     assert exc.value.strerror == "test error"
     assert exc.value.filename == "a/file"
     assert exc.value.filename2 == "b/file"
