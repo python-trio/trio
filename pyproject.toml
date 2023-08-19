@@ -62,9 +62,6 @@ module = [
 "trio/_highlevel_serve_listeners",
 "trio/_highlevel_ssl_helpers",
 "trio/_highlevel_socket",
-# 2755
-"trio/_core/_windows_cffi",
-"trio/_wait_for_object",
 # 2761
 "trio/_core/_generated_io_windows",
 "trio/_core/_io_windows",
