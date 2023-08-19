@@ -35,9 +35,6 @@ from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 from ._run import GLOBAL_RUN_CONTEXT
 """
 
-FOOTER = """
-"""
-
 TEMPLATE = """locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
 try:
     return{}GLOBAL_RUN_CONTEXT.{}.{}
@@ -212,7 +209,6 @@ def gen_public_wrappers_source(file: File) -> str:
 
         # Append the snippet to the corresponding module
         generated.append(snippet)
-    generated.append(FOOTER)
     return "\n\n".join(generated)
 
 
