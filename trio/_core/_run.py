@@ -2152,7 +2152,7 @@ def setup_runner(
 
 
 def run(
-    async_fn: Callable[..., RetT],
+    async_fn: Callable[..., Awaitable[RetT]],
     *args: object,
     clock: Clock | None = None,
     instruments: Sequence[Instrument] = (),
