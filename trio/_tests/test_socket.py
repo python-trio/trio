@@ -378,11 +378,11 @@ def setsockopt_tests(sock):
 
     # specifying both
     with pytest.raises(TypeError, match="invalid value for argument 'value'"):
-        sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, False, 5)  # type: ignore[call-overload]
+        sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, False, 5)
 
     # specifying neither
     with pytest.raises(TypeError, match="invalid value for argument 'value'"):
-        sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, None)  # type: ignore[call-overload]
+        sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, None)
 
 
 async def test_SocketType_dup():
