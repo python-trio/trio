@@ -84,7 +84,7 @@ def current_root_task() -> Task | None:
         raise RuntimeError("must be called from async context")
 
 
-def reschedule(task: Task, next_send: Outcome[Any] = _NO_SEND) -> None:  # type: ignore[has-type]
+def reschedule(task: Task, next_send: Outcome[Any] = _NO_SEND) -> None:
     """Reschedule the given task with the given
     :class:`outcome.Outcome`.
 

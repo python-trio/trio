@@ -7,16 +7,16 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.9490445859872612,
+    "completenessScore": 0.9872611464968153,
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 596,
-      "withUnknownType": 32
+      "withKnownType": 620,
+      "withUnknownType": 8
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
     "missingDefaultParamCount": 0,
-    "missingFunctionDocStringCount": 4,
+    "missingFunctionDocStringCount": 3,
     "moduleName": "trio",
     "modules": [
       {
@@ -45,9 +45,9 @@
       }
     ],
     "otherSymbolCounts": {
-      "withAmbiguousType": 3,
-      "withKnownType": 627,
-      "withUnknownType": 50
+      "withAmbiguousType": 1,
+      "withKnownType": 662,
+      "withUnknownType": 19
     },
     "packageName": "trio",
     "symbols": [
@@ -68,66 +68,15 @@
       "trio._ssl.SSLStream.transport_stream",
       "trio._ssl.SSLStream.unwrap",
       "trio._ssl.SSLStream.wait_send_all_might_not_block",
-      "trio._subprocess.Process.__init__",
-      "trio._subprocess.Process.__repr__",
-      "trio._subprocess.Process.args",
-      "trio._subprocess.Process.encoding",
-      "trio._subprocess.Process.errors",
-      "trio._subprocess.Process.kill",
-      "trio._subprocess.Process.pid",
-      "trio._subprocess.Process.poll",
-      "trio._subprocess.Process.returncode",
-      "trio._subprocess.Process.send_signal",
-      "trio._subprocess.Process.terminate",
-      "trio._subprocess.Process.wait",
-      "trio.from_thread.run",
-      "trio.from_thread.run_sync",
-      "trio.lowlevel.cancel_shielded_checkpoint",
       "trio.lowlevel.notify_closing",
-      "trio.lowlevel.open_process",
-      "trio.lowlevel.permanently_detach_coroutine_object",
-      "trio.lowlevel.reattach_detached_coroutine_object",
-      "trio.lowlevel.temporarily_detach_coroutine_object",
       "trio.lowlevel.wait_readable",
       "trio.lowlevel.wait_writable",
       "trio.open_ssl_over_tcp_listeners",
       "trio.open_ssl_over_tcp_stream",
       "trio.open_unix_socket",
-      "trio.run_process",
       "trio.serve_listeners",
       "trio.serve_ssl_over_tcp",
-      "trio.testing._memory_streams.MemoryReceiveStream.__init__",
-      "trio.testing._memory_streams.MemoryReceiveStream.aclose",
-      "trio.testing._memory_streams.MemoryReceiveStream.close",
-      "trio.testing._memory_streams.MemoryReceiveStream.close_hook",
-      "trio.testing._memory_streams.MemoryReceiveStream.put_data",
-      "trio.testing._memory_streams.MemoryReceiveStream.put_eof",
-      "trio.testing._memory_streams.MemoryReceiveStream.receive_some",
-      "trio.testing._memory_streams.MemoryReceiveStream.receive_some_hook",
-      "trio.testing._memory_streams.MemorySendStream.__init__",
-      "trio.testing._memory_streams.MemorySendStream.aclose",
-      "trio.testing._memory_streams.MemorySendStream.close",
-      "trio.testing._memory_streams.MemorySendStream.close_hook",
-      "trio.testing._memory_streams.MemorySendStream.get_data",
-      "trio.testing._memory_streams.MemorySendStream.get_data_nowait",
-      "trio.testing._memory_streams.MemorySendStream.send_all",
-      "trio.testing._memory_streams.MemorySendStream.send_all_hook",
-      "trio.testing._memory_streams.MemorySendStream.wait_send_all_might_not_block",
-      "trio.testing._memory_streams.MemorySendStream.wait_send_all_might_not_block_hook",
-      "trio.testing.assert_checkpoints",
-      "trio.testing.assert_no_checkpoints",
-      "trio.testing.check_half_closeable_stream",
-      "trio.testing.check_one_way_stream",
-      "trio.testing.check_two_way_stream",
-      "trio.testing.lockstep_stream_one_way_pair",
-      "trio.testing.lockstep_stream_pair",
-      "trio.testing.memory_stream_one_way_pair",
-      "trio.testing.memory_stream_pair",
-      "trio.testing.memory_stream_pump",
-      "trio.testing.open_stream_to_socket_listener",
-      "trio.testing.trio_test",
-      "trio.tests.TestsDeprecationWrapper",
-      "trio.to_thread.current_default_thread_limiter"
+      "trio.tests.TestsDeprecationWrapper"
     ]
   }
 }

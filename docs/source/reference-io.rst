@@ -731,7 +731,11 @@ task and interact with it while it's running:
 
 .. autofunction:: trio.run_process
 
-.. autoclass:: trio.Process
+.. autoclass:: trio._subprocess.HasFileno(Protocol)
+
+   .. automethod:: fileno
+
+.. autoclass:: trio.Process()
 
    .. autoattribute:: returncode
 
