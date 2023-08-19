@@ -7,16 +7,16 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.9745222929936306,
+    "completenessScore": 0.9968152866242038,
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 612,
-      "withUnknownType": 16
+      "withKnownType": 626,
+      "withUnknownType": 2
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
     "missingDefaultParamCount": 0,
-    "missingFunctionDocStringCount": 4,
+    "missingFunctionDocStringCount": 3,
     "moduleName": "trio",
     "modules": [
       {
@@ -46,8 +46,8 @@
     ],
     "otherSymbolCounts": {
       "withAmbiguousType": 1,
-      "withKnownType": 646,
-      "withUnknownType": 35
+      "withKnownType": 666,
+      "withUnknownType": 15
     },
     "packageName": "trio",
     "symbols": [
@@ -68,36 +68,6 @@
       "trio.lowlevel.notify_closing",
       "trio.lowlevel.wait_readable",
       "trio.lowlevel.wait_writable",
-      "trio.testing._memory_streams.MemoryReceiveStream.__init__",
-      "trio.testing._memory_streams.MemoryReceiveStream.aclose",
-      "trio.testing._memory_streams.MemoryReceiveStream.close",
-      "trio.testing._memory_streams.MemoryReceiveStream.close_hook",
-      "trio.testing._memory_streams.MemoryReceiveStream.put_data",
-      "trio.testing._memory_streams.MemoryReceiveStream.put_eof",
-      "trio.testing._memory_streams.MemoryReceiveStream.receive_some",
-      "trio.testing._memory_streams.MemoryReceiveStream.receive_some_hook",
-      "trio.testing._memory_streams.MemorySendStream.__init__",
-      "trio.testing._memory_streams.MemorySendStream.aclose",
-      "trio.testing._memory_streams.MemorySendStream.close",
-      "trio.testing._memory_streams.MemorySendStream.close_hook",
-      "trio.testing._memory_streams.MemorySendStream.get_data",
-      "trio.testing._memory_streams.MemorySendStream.get_data_nowait",
-      "trio.testing._memory_streams.MemorySendStream.send_all",
-      "trio.testing._memory_streams.MemorySendStream.send_all_hook",
-      "trio.testing._memory_streams.MemorySendStream.wait_send_all_might_not_block",
-      "trio.testing._memory_streams.MemorySendStream.wait_send_all_might_not_block_hook",
-      "trio.testing.assert_checkpoints",
-      "trio.testing.assert_no_checkpoints",
-      "trio.testing.check_half_closeable_stream",
-      "trio.testing.check_one_way_stream",
-      "trio.testing.check_two_way_stream",
-      "trio.testing.lockstep_stream_one_way_pair",
-      "trio.testing.lockstep_stream_pair",
-      "trio.testing.memory_stream_one_way_pair",
-      "trio.testing.memory_stream_pair",
-      "trio.testing.memory_stream_pump",
-      "trio.testing.open_stream_to_socket_listener",
-      "trio.testing.trio_test",
       "trio.tests.TestsDeprecationWrapper"
     ]
   }

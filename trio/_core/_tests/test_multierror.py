@@ -555,7 +555,7 @@ def test_apport_excepthook_monkeypatch_interaction():
 
 
 @pytest.mark.parametrize("protocol", range(0, pickle.HIGHEST_PROTOCOL + 1))
-def test_pickle_multierror(protocol) -> None:
+def test_pickle_multierror(protocol: int) -> None:
     # use trio.MultiError to make sure that pickle works through the deprecation layer
     import trio
 
