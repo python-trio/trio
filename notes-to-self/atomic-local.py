@@ -3,8 +3,10 @@ from types import CodeType
 # Has to be a string :-(
 sentinel = "_unique_name"
 
+
 def f():
     print(locals())
+
 
 # code(argcount, kwonlyargcount, nlocals, stacksize, flags, codestring,
 #       constants, names, varnames, filename, name, firstlineno,
