@@ -12,6 +12,7 @@ from typing import (
     Any,
     Awaitable,
     Callable,
+    Literal,
     NoReturn,
     SupportsIndex,
     Tuple,
@@ -315,7 +316,7 @@ if sys.platform == "win32":
     TypeT: TypeAlias = int
     FamilyDefault = _stdlib_socket.AF_INET
 else:
-    FamilyDefault: TypeAlias = None
+    FamilyDefault: Literal[None] = None
     FamilyT: TypeAlias = Union[int, AddressFamily, None]
     TypeT: TypeAlias = Union[_stdlib_socket.socket, int]
 
