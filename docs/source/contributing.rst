@@ -323,7 +323,7 @@ in-place.)
 
 
 Additionally, in some cases it is necessary to disable isort changing the
-order of imports. To do so you can add ``# isort: skip`` comments.
+order of imports. To do so you can add ``# isort: split`` comments.
 For more information, please see `isort's docs <https://pycqa.github.io/isort/docs/configuration/action_comments.html>`__.
 
 
