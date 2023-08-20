@@ -1,5 +1,11 @@
 [tool.black]
 target-version = ['py38']
+force-exclude = '''
+(
+  ^/docs/source/reference-.*
+  | ^/docs/source/tutorial
+)
+'''
 
 [tool.codespell]
 ignore-words-list = 'astroid,crasher,asend'
@@ -20,6 +26,10 @@ per-file-ignores = [
 combine_as_imports = true
 profile = "black"
 skip_gitignore = true
+skip_glob = [
+  "docs/source/reference-*",
+  "docs/source/tutorial/*"
+]
 
 [tool.mypy]
 python_version = "3.8"

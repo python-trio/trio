@@ -4,8 +4,8 @@
 #
 # See https://github.com/python-trio/trio/issues/928 for details and context
 
-import socket
 import errno
+import socket
 
 modes = ["default", "SO_REUSEADDR", "SO_EXCLUSIVEADDRUSE"]
 bind_types = ["wildcard", "specific"]
