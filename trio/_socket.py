@@ -315,7 +315,7 @@ if sys.platform == "win32":
     TypeT: TypeAlias = int
     FamilyDefault = _stdlib_socket.AF_INET
 else:
-    FamilyDefault = None
+    FamilyDefault: TypeAlias = None
     FamilyT: TypeAlias = Union[int, AddressFamily, None]
     TypeT: TypeAlias = Union[_stdlib_socket.socket, int]
 
