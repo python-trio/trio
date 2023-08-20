@@ -60,8 +60,6 @@ disallow_untyped_calls = false
 # files not yet fully typed
 [[tool.mypy.overrides]]
 module = [
-# 2745
-"trio/_ssl",
 # 2756
 "trio/_highlevel_open_unix_stream",
 "trio/_highlevel_serve_listeners",
