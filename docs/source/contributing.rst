@@ -322,6 +322,11 @@ If you want to see what changes black will make, you can use::
 in-place.)
 
 
+Additionally, in some cases it is necessary to disable isort changing the
+order of imports. To do so you can add ``# isort: skip`` comments.
+For more information, please see `isort's docs <https://pycqa.github.io/isort/docs/configuration/action_comments.html>`__.
+
+
 .. _pull-request-release-notes:
 
 Release notes
