@@ -7,11 +7,11 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.9872611464968153,
+    "completenessScore": 0.9904458598726115,
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 620,
-      "withUnknownType": 8
+      "withKnownType": 622,
+      "withUnknownType": 6
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
@@ -45,29 +45,15 @@
       }
     ],
     "otherSymbolCounts": {
-      "withAmbiguousType": 1,
-      "withKnownType": 662,
-      "withUnknownType": 19
+      "withAmbiguousType": 0,
+      "withKnownType": 678,
+      "withUnknownType": 4
     },
     "packageName": "trio",
     "symbols": [
       "trio._highlevel_socket.SocketStream.getsockopt",
       "trio._highlevel_socket.SocketStream.send_all",
       "trio._highlevel_socket.SocketStream.setsockopt",
-      "trio._ssl.SSLListener.__init__",
-      "trio._ssl.SSLListener.accept",
-      "trio._ssl.SSLListener.aclose",
-      "trio._ssl.SSLStream.__dir__",
-      "trio._ssl.SSLStream.__getattr__",
-      "trio._ssl.SSLStream.__init__",
-      "trio._ssl.SSLStream.__setattr__",
-      "trio._ssl.SSLStream.aclose",
-      "trio._ssl.SSLStream.do_handshake",
-      "trio._ssl.SSLStream.receive_some",
-      "trio._ssl.SSLStream.send_all",
-      "trio._ssl.SSLStream.transport_stream",
-      "trio._ssl.SSLStream.unwrap",
-      "trio._ssl.SSLStream.wait_send_all_might_not_block",
       "trio.lowlevel.notify_closing",
       "trio.lowlevel.wait_readable",
       "trio.lowlevel.wait_writable",
