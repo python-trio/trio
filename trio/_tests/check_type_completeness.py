@@ -128,9 +128,10 @@ def main(args: argparse.Namespace) -> int:
             invert=invert,
         )
 
-    assert (
-        res.returncode != 0
-    ), "Fully type complete! Delete this script and instead directly run `pyright --verifytypes=trio` (consider `--ignoreexternal`) in CI and checking exit code."
+    # handle in separate PR
+    # assert (
+    #    res.returncode != 0
+    # ), "Fully type complete! Delete this script and instead directly run `pyright --verifytypes=trio` (consider `--ignoreexternal`) in CI and checking exit code."
 
     if args.overwrite_file:
         print("Overwriting file")

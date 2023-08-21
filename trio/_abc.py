@@ -565,7 +565,7 @@ class Listener(AsyncResource, Generic[T_resource]):
     __slots__ = ()
 
     @abstractmethod
-    async def accept(self) -> AsyncResource:
+    async def accept(self) -> T_resource:
         """Wait until an incoming connection arrives, and then return it.
 
         Returns:
