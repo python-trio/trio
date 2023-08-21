@@ -59,6 +59,7 @@ nitpick_ignore = [
     # these are not defined in https://docs.python.org/3/objects.inv
     ("py:class", "socket.AddressFamily"),
     ("py:class", "socket.SocketKind"),
+    ("py:class", "Buffer"),  # collections.abc.Buffer, in 3.12
 ]
 autodoc_inherit_docstrings = False
 default_role = "obj"

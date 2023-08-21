@@ -38,6 +38,7 @@ python_version = "3.8"
 ignore_missing_imports = true
 
 # Be strict about use of Mypy
+local_partial_types = true
 warn_unused_ignores = true
 warn_unused_configs = true
 warn_redundant_casts = true
@@ -56,18 +57,9 @@ disallow_untyped_defs = true
 check_untyped_defs = false
 disallow_untyped_calls = false
 
-
 # files not yet fully typed
 [[tool.mypy.overrides]]
 module = [
-# 2756
-"trio/_highlevel_open_unix_stream",
-"trio/_highlevel_serve_listeners",
-"trio/_highlevel_ssl_helpers",
-"trio/_highlevel_socket",
-# 2755
-"trio/_core/_windows_cffi",
-"trio/_wait_for_object",
 # 2761
 "trio/_core/_generated_io_windows",
 "trio/_core/_io_windows",
