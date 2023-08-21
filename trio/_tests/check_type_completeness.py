@@ -140,7 +140,7 @@ def check_type(args: argparse.Namespace, platform: str) -> int:
 
         # prune the symbols to only be the name of the symbols with
         # errors, instead of saving a huge file.
-        new_symbols = []
+        new_symbols: list[dict[str, str]] = []
         for symbol in current_result["typeCompleteness"]["symbols"]:
             if symbol["diagnostics"]:
                 # function name + message should be enough context for people!
