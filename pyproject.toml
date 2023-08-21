@@ -38,6 +38,7 @@ python_version = "3.8"
 ignore_missing_imports = true
 
 # Be strict about use of Mypy
+local_partial_types = true
 warn_unused_ignores = true
 warn_unused_configs = true
 warn_redundant_casts = true

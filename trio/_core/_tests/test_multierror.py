@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import gc
 import os
 import pickle
@@ -20,13 +22,13 @@ if sys.version_info < (3, 11):
 
 
 class NotHashableException(Exception):
-    code = None
+    code: int | None = None
 
-    def __init__(self, code):
+    def __init__(self, code: int) -> None:
         super().__init__()
         self.code = code
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, NotHashableException):
             return False
         return self.code == other.code
