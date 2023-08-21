@@ -42,9 +42,11 @@ if TYPE_CHECKING:
     # See DTLSEndpoint.__init__ for why this is imported here
     from OpenSSL import SSL  # noqa: TCH004
     from OpenSSL.SSL import Context
-    from typing_extensions import Self, TypeAlias
+    from typing_extensions import Self, TypeAlias, TypeVarTuple, Unpack
 
     from trio.socket import SocketType
+
+    PosArgsT = TypeVarTuple("PosArgsT")
 
 MAX_UDP_PACKET_SIZE = 65527
 
@@ -1258,14 +1260,11 @@ class DTLSEndpoint:
         if self._closed:
             raise trio.ClosedResourceError
 
-    # async_fn cannot be typed with ParamSpec, since we don't accept
-    # kwargs. Can be typed with TypeVarTuple once it's fully supported
-    # in mypy.
     async def serve(
         self,
         ssl_context: Context,
-        async_fn: Callable[..., Awaitable[object]],
-        *args: Any,
+        async_fn: Callable[[DTLSChannel, Unpack[PosArgsT]], Awaitable[object]],
+        *args: Unpack[PosArgsT],
         task_status: trio.TaskStatus[None] = trio.TASK_STATUS_IGNORED,
     ) -> None:
         """Listen for incoming connections, and spawn a handler for each using an
@@ -1294,6 +1293,7 @@ class DTLSEndpoint:
             incoming connections.
           async_fn: The handler function that will be invoked for each incoming
             connection.
+          *args: Additional arguments to pass to the handler function.
 
         """
         self._check_closed()
