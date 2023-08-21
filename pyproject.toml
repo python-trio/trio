@@ -62,11 +62,6 @@ disallow_untyped_calls = false
 module = [
 # 2745
 "trio/_ssl",
-# 2756
-"trio/_highlevel_open_unix_stream",
-"trio/_highlevel_serve_listeners",
-"trio/_highlevel_ssl_helpers",
-"trio/_highlevel_socket",
 # 2755
 "trio/_core/_windows_cffi",
 "trio/_wait_for_object",
