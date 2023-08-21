@@ -1,7 +1,7 @@
 import os
+import tempfile
 import threading
 import time
-import tempfile
 
 
 def check_reopen(r1, w):

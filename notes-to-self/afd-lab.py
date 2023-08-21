@@ -77,21 +77,26 @@
 # matter, energy, and life which lie close at hand yet can never be detected
 # with the senses we have."
 
-import sys
 import os.path
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__) + r"\.."))
 
 import trio
+
 print(trio.__file__)
-import trio.testing
 import socket
 
+import trio.testing
+from trio._core._io_windows import _afd_helper_handle, _check, _get_base_socket
 from trio._core._windows_cffi import (
-    ffi, kernel32, AFDPollFlags, IoControlCodes, ErrorCodes
+    AFDPollFlags,
+    ErrorCodes,
+    IoControlCodes,
+    ffi,
+    kernel32,
 )
-from trio._core._io_windows import (
-    _get_base_socket, _afd_helper_handle, _check
-)
+
 
 class AFDLab:
     def __init__(self):
@@ -172,5 +177,6 @@ async def main():
             b.send(b"x")
             await trio.sleep(2)
             nursery.cancel_scope.cancel()
+
 
 trio.run(main)

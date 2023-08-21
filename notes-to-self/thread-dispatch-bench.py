@@ -5,8 +5,8 @@
 # trio.to_thread.run_sync
 
 import threading
-from queue import Queue
 import time
+from queue import Queue
 
 COUNT = 10000
 

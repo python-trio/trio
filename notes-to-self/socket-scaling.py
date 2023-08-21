@@ -17,13 +17,16 @@
 #
 # or similar.
 
+import socket
 import time
+
 import trio
 import trio.testing
-import socket
+
 
 async def main():
     for total in [10, 100, 500, 1_000, 10_000, 20_000, 30_000]:
+
         def pt(desc, *, count=total, item="socket"):
             nonlocal last_time
             now = time.perf_counter()
@@ -52,5 +55,6 @@ async def main():
         for sock in sockets:
             sock.close()
         pt("closing sockets")
+
 
 trio.run(main)
