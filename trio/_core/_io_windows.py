@@ -5,7 +5,7 @@ import itertools
 import socket
 import sys
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Iterator, Literal
+from typing import TYPE_CHECKING, Iterator, Literal, TypeVar
 
 import attr
 from outcome import Value
@@ -36,7 +36,9 @@ if TYPE_CHECKING:
 
     from ._traps import Abort, RaiseCancelT
     from ._unbounded_queue import UnboundedQueue
+
 EventResult: TypeAlias = int
+T = TypeVar("T")
 
 # There's a lot to be said about the overall design of a Windows event
 # loop. See
@@ -188,10 +190,10 @@ class CKeys(enum.IntEnum):
     USER_DEFINED = 4  # and above
 
 
-def _check(success: bool) -> Literal[True]:
+def _check(success: T) -> T:
     if not success:
         raise_winerror()
-    return True
+    return success
 
 
 def _get_underlying_socket(
