@@ -1954,7 +1954,7 @@ async def test_Nursery_private_init():
 def test_Nursery_subclass():
     with pytest.raises(TypeError):
 
-        class Subclass(_core._run.Nursery):
+        class Subclass(_core._run.Nursery):  # type: ignore[misc]
             pass
 
 
@@ -1984,7 +1984,7 @@ def test_Cancelled_subclass():
 def test_CancelScope_subclass():
     with pytest.raises(TypeError):
 
-        class Subclass(_core.CancelScope):
+        class Subclass(_core.CancelScope):  # type: ignore[misc]
             pass
 
 

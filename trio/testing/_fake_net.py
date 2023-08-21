@@ -19,6 +19,7 @@ import trio
 from trio._util import Final, NoPublicConstructor
 
 if TYPE_CHECKING:
+    from socket import AddressFamily, SocketKind
     from types import TracebackType
 
 IPAddress = Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
@@ -104,7 +105,7 @@ class UDPPacket:
 class FakeSocketFactory(trio.abc.SocketFactory):
     fake_net: "FakeNet"
 
-    def socket(self, family: int, type: int, proto: int) -> "FakeSocket":
+    def socket(self, family: int, type: int, proto: int) -> FakeSocket:  # type: ignore[override]
         return FakeSocket._create(self.fake_net, family, type, proto)
 
 
@@ -113,22 +114,38 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
     fake_net: "FakeNet"
 
     async def getaddrinfo(
-        self, host: str, port: Union[int, str], family=0, type=0, proto=0, flags=0
-    ):
+        self,
+        host: bytes | str | None,
+        port: bytes | str | int | None,
+        family: int = 0,
+        type: int = 0,
+        proto: int = 0,
+        flags: int = 0,
+    ) -> list[
+        tuple[
+            AddressFamily,
+            SocketKind,
+            int,
+            str,
+            tuple[str, int] | tuple[str, int, int, int],
+        ]
+    ]:
         raise NotImplementedError("FakeNet doesn't do fake DNS yet")
 
-    async def getnameinfo(self, sockaddr, flags: int):
+    async def getnameinfo(
+        self, sockaddr: tuple[str, int] | tuple[str, int, int, int], flags: int
+    ) -> tuple[str, str]:
         raise NotImplementedError("FakeNet doesn't do fake DNS yet")
 
 
 class FakeNet(metaclass=Final):
-    def __init__(self):
+    def __init__(self) -> None:
         # When we need to pick an arbitrary unique ip address/port, use these:
         self._auto_ipv4_iter = ipaddress.IPv4Network("1.0.0.0/8").hosts()
-        self._auto_ipv4_iter = ipaddress.IPv6Network("1::/16").hosts()
+        self._auto_ipv4_iter = ipaddress.IPv6Network("1::/16").hosts()  # type: ignore[assignment]
         self._auto_port_iter = iter(range(50000, 65535))
 
-        self._bound: Dict[UDPBinding, FakeSocket] = {}
+        self._bound: dict[UDPBinding, FakeSocket] = {}
 
         self.route_packet = None
 
@@ -176,9 +193,9 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
 
         self._closed = False
 
-        self._packet_sender, self._packet_receiver = trio.open_memory_channel(
-            float("inf")
-        )
+        self._packet_sender, self._packet_receiver = trio.open_memory_channel[
+            UDPPacket
+        ](float("inf"))
 
         # This is the source-of-truth for what port etc. this socket is bound to
         self._binding: Optional[UDPBinding] = None
@@ -206,7 +223,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
             local=local,
         )
 
-    def _deliver_packet(self, packet: UDPPacket):
+    def _deliver_packet(self, packet: UDPPacket) -> None:
         try:
             self._packet_sender.send_nowait(packet)
         except trio.BrokenResourceError:
@@ -220,7 +237,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
     async def bind(self, addr):
         self._check_closed()
         if self._binding is not None:
-            _fake_error(errno.EINVAL)
+            _fake_err(errno.EINVAL)
         await trio.lowlevel.checkpoint()
         ip_str, port = await self._resolve_address_nocp(addr, local=True)
         ip = ipaddress.ip_address(ip_str)

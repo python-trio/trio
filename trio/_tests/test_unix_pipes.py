@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import errno
 import os
 import select
 import sys
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -11,6 +14,9 @@ from ..testing import check_one_way_stream, wait_all_tasks_blocked
 
 posix = os.name == "posix"
 pytestmark = pytest.mark.skipif(not posix, reason="posix only")
+
+assert not TYPE_CHECKING or sys.platform == "unix"
+
 if posix:
     from .._unix_pipes import FdStream
 else:
@@ -19,7 +25,7 @@ else:
 
 
 # Have to use quoted types so import doesn't crash on windows
-async def make_pipe() -> "Tuple[FdStream, FdStream]":
+async def make_pipe() -> "tuple[FdStream, FdStream]":
     """Makes a new pair of pipes."""
     (r, w) = os.pipe()
     return FdStream(w), FdStream(r)

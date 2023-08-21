@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import contextlib
 import inspect
 import signal
 import threading
+from typing import TYPE_CHECKING
 
 import outcome
 import pytest
@@ -15,6 +18,9 @@ from ... import _core
 from ..._timeouts import sleep
 from ..._util import signal_raise
 from ...testing import wait_all_tasks_blocked
+
+if TYPE_CHECKING:
+    from ..._core import Abort, RaiseCancelT
 
 
 def ki_self():
@@ -375,7 +381,7 @@ def test_ki_protection_works():
         ki_self()
         task = _core.current_task()
 
-        def abort(_):
+        def abort(_: RaiseCancelT) -> Abort:
             _core.reschedule(task, outcome.Value(1))
             return _core.Abort.FAILED
 
@@ -394,7 +400,7 @@ def test_ki_protection_works():
         ki_self()
         task = _core.current_task()
 
-        def abort(raise_cancel):
+        def abort(raise_cancel: RaiseCancelT) -> Abort:
             result = outcome.capture(raise_cancel)
             _core.reschedule(task, result)
             return _core.Abort.FAILED

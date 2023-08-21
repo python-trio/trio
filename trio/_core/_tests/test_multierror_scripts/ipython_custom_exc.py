@@ -3,7 +3,7 @@
 # about it.
 import sys
 
-import _common
+import _common  # isort: split
 
 
 def custom_excepthook(*args):
@@ -29,8 +29,8 @@ def custom_exc_hook(etype, value, tb, tb_offset=None):
 
 ip.set_custom_exc((SomeError,), custom_exc_hook)
 
-import trio
+from trio._core._multierror import MultiError  # Bypass deprecation warnings.
 
 # The custom excepthook should run, because Trio was polite and didn't
 # override it
-raise trio.MultiError([ValueError(), KeyError()])
+raise MultiError([ValueError(), KeyError()])

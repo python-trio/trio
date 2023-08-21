@@ -149,7 +149,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         self.stdout = stdout
         self.stderr = stderr
 
-        self.stdio: StapledStream | None = None
+        self.stdio: StapledStream[SendStream, ReceiveStream] | None = None
         if self.stdin is not None and self.stdout is not None:
             self.stdio = StapledStream(self.stdin, self.stdout)
 

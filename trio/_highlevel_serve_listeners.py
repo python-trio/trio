@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import errno
 import logging
 import os
+from typing import Any, Awaitable, Callable, NoReturn, TypeVar
 
 import trio
 
@@ -20,14 +23,23 @@ SLEEP_TIME = 0.100
 LOGGER = logging.getLogger("trio.serve_listeners")
 
 
-async def _run_handler(stream, handler):
+StreamT = TypeVar("StreamT", bound=trio.abc.AsyncResource)
+ListenerT = TypeVar("ListenerT", bound=trio.abc.Listener[Any])
+Handler = Callable[[StreamT], Awaitable[object]]
+
+
+async def _run_handler(stream: StreamT, handler: Handler[StreamT]) -> None:
     try:
         await handler(stream)
     finally:
         await trio.aclose_forcefully(stream)
 
 
-async def _serve_one_listener(listener, handler_nursery, handler):
+async def _serve_one_listener(
+    listener: trio.abc.Listener[StreamT],
+    handler_nursery: trio.Nursery,
+    handler: Handler[StreamT],
+) -> NoReturn:
     async with listener:
         while True:
             try:
@@ -48,9 +60,21 @@ async def _serve_one_listener(listener, handler_nursery, handler):
                 handler_nursery.start_soon(_run_handler, stream, handler)
 
 
-async def serve_listeners(
-    handler, listeners, *, handler_nursery=None, task_status=trio.TASK_STATUS_IGNORED
-):
+# This cannot be typed correctly, we need generic typevar bounds / HKT to indicate the
+# relationship between StreamT & ListenerT.
+# https://github.com/python/typing/issues/1226
+# https://github.com/python/typing/issues/548
+
+
+# It does never return (since _serve_one_listener never completes), but type checkers can't
+# understand nurseries.
+async def serve_listeners(  # type: ignore[misc]
+    handler: Handler[StreamT],
+    listeners: list[ListenerT],
+    *,
+    handler_nursery: trio.Nursery | None = None,
+    task_status: trio.TaskStatus[list[ListenerT]] = trio.TASK_STATUS_IGNORED,
+) -> NoReturn:
     r"""Listen for incoming connections on ``listeners``, and for each one
     start a task running ``handler(stream)``.
 
