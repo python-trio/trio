@@ -1,0 +1,661 @@
+{
+  "generalDiagnostics": [],
+  "summary": {
+    "errorCount": 0,
+    "filesAnalyzed": 8,
+    "informationCount": 0,
+    "warningCount": 0
+  },
+  "typeCompleteness": {
+    "completenessScore": 0.9857369255150554,
+    "exportedSymbolCounts": {
+      "withAmbiguousType": 0,
+      "withKnownType": 622,
+      "withUnknownType": 9
+    },
+    "ignoreUnknownTypesFromImports": true,
+    "missingClassDocStringCount": 1,
+    "missingDefaultParamCount": 0,
+    "missingFunctionDocStringCount": 11,
+    "moduleName": "trio",
+    "modules": [
+      {
+        "name": "trio"
+      },
+      {
+        "name": "trio.abc"
+      },
+      {
+        "name": "trio.from_thread"
+      },
+      {
+        "name": "trio.lowlevel"
+      },
+      {
+        "name": "trio.socket"
+      },
+      {
+        "name": "trio.testing"
+      },
+      {
+        "name": "trio.tests"
+      },
+      {
+        "name": "trio.to_thread"
+      }
+    ],
+    "otherSymbolCounts": {
+      "withAmbiguousType": 0,
+      "withKnownType": 673,
+      "withUnknownType": 0
+    },
+    "packageName": "trio",
+    "symbols": [
+      {
+        "category": "function",
+        "diagnostics": [
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "Return type annotation is missing",
+            "range": {
+              "end": {
+                "character": 36,
+                "line": 57
+              },
+              "start": {
+                "character": 24,
+                "line": 57
+              }
+            },
+            "severity": "error"
+          },
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "No docstring found for function \"trio.lowlevel.current_iocp\"",
+            "range": {
+              "end": {
+                "character": 36,
+                "line": 57
+              },
+              "start": {
+                "character": 24,
+                "line": 57
+              }
+            },
+            "severity": "warning"
+          }
+        ],
+        "isExported": true,
+        "isTypeAmbiguous": false,
+        "isTypeKnown": false,
+        "name": "trio.lowlevel.current_iocp",
+        "referenceCount": 1
+      },
+      {
+        "category": "function",
+        "diagnostics": [
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "Return type annotation is missing",
+            "range": {
+              "end": {
+                "character": 56,
+                "line": 58
+              },
+              "start": {
+                "character": 34,
+                "line": 58
+              }
+            },
+            "severity": "error"
+          },
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "No docstring found for function \"trio.lowlevel.monitor_completion_key\"",
+            "range": {
+              "end": {
+                "character": 56,
+                "line": 58
+              },
+              "start": {
+                "character": 34,
+                "line": 58
+              }
+            },
+            "severity": "warning"
+          }
+        ],
+        "isExported": true,
+        "isTypeAmbiguous": false,
+        "isTypeKnown": false,
+        "name": "trio.lowlevel.monitor_completion_key",
+        "referenceCount": 1
+      },
+      {
+        "category": "function",
+        "diagnostics": [
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "Type annotation for parameter \"handle\" is missing",
+            "range": {
+              "end": {
+                "character": 36,
+                "line": 33
+              },
+              "start": {
+                "character": 22,
+                "line": 33
+              }
+            },
+            "severity": "error"
+          },
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "Return type annotation is missing",
+            "range": {
+              "end": {
+                "character": 36,
+                "line": 33
+              },
+              "start": {
+                "character": 22,
+                "line": 33
+              }
+            },
+            "severity": "error"
+          },
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "No docstring found for function \"trio.lowlevel.notify_closing\"",
+            "range": {
+              "end": {
+                "character": 36,
+                "line": 33
+              },
+              "start": {
+                "character": 22,
+                "line": 33
+              }
+            },
+            "severity": "warning"
+          }
+        ],
+        "isExported": true,
+        "isTypeAmbiguous": false,
+        "isTypeKnown": false,
+        "name": "trio.lowlevel.notify_closing",
+        "referenceCount": 1
+      },
+      {
+        "category": "function",
+        "diagnostics": [
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_subprocess.py",
+            "message": "No docstring found for function \"trio.lowlevel.open_process\"",
+            "range": {
+              "end": {
+                "character": 53,
+                "line": 46
+              },
+              "start": {
+                "character": 41,
+                "line": 46
+              }
+            },
+            "severity": "warning"
+          }
+        ],
+        "isExported": true,
+        "isTypeAmbiguous": false,
+        "isTypeKnown": true,
+        "name": "trio.lowlevel.open_process",
+        "referenceCount": 1
+      },
+      {
+        "category": "function",
+        "diagnostics": [
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "Type annotation for parameter \"handle\" is missing",
+            "range": {
+              "end": {
+                "character": 50,
+                "line": 59
+              },
+              "start": {
+                "character": 31,
+                "line": 59
+              }
+            },
+            "severity": "error"
+          },
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "Type annotation for parameter \"buffer\" is missing",
+            "range": {
+              "end": {
+                "character": 50,
+                "line": 59
+              },
+              "start": {
+                "character": 31,
+                "line": 59
+              }
+            },
+            "severity": "error"
+          },
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "Type annotation for parameter \"file_offset\" is missing",
+            "range": {
+              "end": {
+                "character": 50,
+                "line": 59
+              },
+              "start": {
+                "character": 31,
+                "line": 59
+              }
+            },
+            "severity": "error"
+          },
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "Return type annotation is missing",
+            "range": {
+              "end": {
+                "character": 50,
+                "line": 59
+              },
+              "start": {
+                "character": 31,
+                "line": 59
+              }
+            },
+            "severity": "error"
+          },
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "No docstring found for function \"trio.lowlevel.readinto_overlapped\"",
+            "range": {
+              "end": {
+                "character": 50,
+                "line": 59
+              },
+              "start": {
+                "character": 31,
+                "line": 59
+              }
+            },
+            "severity": "warning"
+          }
+        ],
+        "isExported": true,
+        "isTypeAmbiguous": false,
+        "isTypeKnown": false,
+        "name": "trio.lowlevel.readinto_overlapped",
+        "referenceCount": 1
+      },
+      {
+        "category": "function",
+        "diagnostics": [
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "Type annotation for parameter \"handle\" is missing",
+            "range": {
+              "end": {
+                "character": 48,
+                "line": 60
+              },
+              "start": {
+                "character": 30,
+                "line": 60
+              }
+            },
+            "severity": "error"
+          },
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "Return type annotation is missing",
+            "range": {
+              "end": {
+                "character": 48,
+                "line": 60
+              },
+              "start": {
+                "character": 30,
+                "line": 60
+              }
+            },
+            "severity": "error"
+          },
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "No docstring found for function \"trio.lowlevel.register_with_iocp\"",
+            "range": {
+              "end": {
+                "character": 48,
+                "line": 60
+              },
+              "start": {
+                "character": 30,
+                "line": 60
+              }
+            },
+            "severity": "warning"
+          }
+        ],
+        "isExported": true,
+        "isTypeAmbiguous": false,
+        "isTypeKnown": false,
+        "name": "trio.lowlevel.register_with_iocp",
+        "referenceCount": 1
+      },
+      {
+        "category": "function",
+        "diagnostics": [
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "Type annotation for parameter \"handle\" is missing",
+            "range": {
+              "end": {
+                "character": 42,
+                "line": 61
+              },
+              "start": {
+                "character": 27,
+                "line": 61
+              }
+            },
+            "severity": "error"
+          },
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "Type annotation for parameter \"lpOverlapped\" is missing",
+            "range": {
+              "end": {
+                "character": 42,
+                "line": 61
+              },
+              "start": {
+                "character": 27,
+                "line": 61
+              }
+            },
+            "severity": "error"
+          },
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "Return type annotation is missing",
+            "range": {
+              "end": {
+                "character": 42,
+                "line": 61
+              },
+              "start": {
+                "character": 27,
+                "line": 61
+              }
+            },
+            "severity": "error"
+          },
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "No docstring found for function \"trio.lowlevel.wait_overlapped\"",
+            "range": {
+              "end": {
+                "character": 42,
+                "line": 61
+              },
+              "start": {
+                "character": 27,
+                "line": 61
+              }
+            },
+            "severity": "warning"
+          }
+        ],
+        "isExported": true,
+        "isTypeAmbiguous": false,
+        "isTypeKnown": false,
+        "name": "trio.lowlevel.wait_overlapped",
+        "referenceCount": 1
+      },
+      {
+        "category": "function",
+        "diagnostics": [
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "Type annotation for parameter \"sock\" is missing",
+            "range": {
+              "end": {
+                "character": 34,
+                "line": 42
+              },
+              "start": {
+                "character": 21,
+                "line": 42
+              }
+            },
+            "severity": "error"
+          },
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "Return type annotation is missing",
+            "range": {
+              "end": {
+                "character": 34,
+                "line": 42
+              },
+              "start": {
+                "character": 21,
+                "line": 42
+              }
+            },
+            "severity": "error"
+          },
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "No docstring found for function \"trio.lowlevel.wait_readable\"",
+            "range": {
+              "end": {
+                "character": 34,
+                "line": 42
+              },
+              "start": {
+                "character": 21,
+                "line": 42
+              }
+            },
+            "severity": "warning"
+          }
+        ],
+        "isExported": true,
+        "isTypeAmbiguous": false,
+        "isTypeKnown": false,
+        "name": "trio.lowlevel.wait_readable",
+        "referenceCount": 1
+      },
+      {
+        "category": "function",
+        "diagnostics": [
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "Type annotation for parameter \"sock\" is missing",
+            "range": {
+              "end": {
+                "character": 34,
+                "line": 44
+              },
+              "start": {
+                "character": 21,
+                "line": 44
+              }
+            },
+            "severity": "error"
+          },
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "Return type annotation is missing",
+            "range": {
+              "end": {
+                "character": 34,
+                "line": 44
+              },
+              "start": {
+                "character": 21,
+                "line": 44
+              }
+            },
+            "severity": "error"
+          },
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "No docstring found for function \"trio.lowlevel.wait_writable\"",
+            "range": {
+              "end": {
+                "character": 34,
+                "line": 44
+              },
+              "start": {
+                "character": 21,
+                "line": 44
+              }
+            },
+            "severity": "warning"
+          }
+        ],
+        "isExported": true,
+        "isTypeAmbiguous": false,
+        "isTypeKnown": false,
+        "name": "trio.lowlevel.wait_writable",
+        "referenceCount": 1
+      },
+      {
+        "category": "function",
+        "diagnostics": [
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "Type annotation for parameter \"handle\" is missing",
+            "range": {
+              "end": {
+                "character": 44,
+                "line": 62
+              },
+              "start": {
+                "character": 28,
+                "line": 62
+              }
+            },
+            "severity": "error"
+          },
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "Type annotation for parameter \"data\" is missing",
+            "range": {
+              "end": {
+                "character": 44,
+                "line": 62
+              },
+              "start": {
+                "character": 28,
+                "line": 62
+              }
+            },
+            "severity": "error"
+          },
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "Type annotation for parameter \"file_offset\" is missing",
+            "range": {
+              "end": {
+                "character": 44,
+                "line": 62
+              },
+              "start": {
+                "character": 28,
+                "line": 62
+              }
+            },
+            "severity": "error"
+          },
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "Return type annotation is missing",
+            "range": {
+              "end": {
+                "character": 44,
+                "line": 62
+              },
+              "start": {
+                "character": 28,
+                "line": 62
+              }
+            },
+            "severity": "error"
+          },
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
+            "message": "No docstring found for function \"trio.lowlevel.write_overlapped\"",
+            "range": {
+              "end": {
+                "character": 44,
+                "line": 62
+              },
+              "start": {
+                "character": 28,
+                "line": 62
+              }
+            },
+            "severity": "warning"
+          }
+        ],
+        "isExported": true,
+        "isTypeAmbiguous": false,
+        "isTypeKnown": false,
+        "name": "trio.lowlevel.write_overlapped",
+        "referenceCount": 1
+      },
+      {
+        "category": "function",
+        "diagnostics": [
+          {
+            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_subprocess.py",
+            "message": "No docstring found for function \"trio.run_process\"",
+            "range": {
+              "end": {
+                "character": 71,
+                "line": 83
+              },
+              "start": {
+                "character": 60,
+                "line": 83
+              }
+            },
+            "severity": "warning"
+          }
+        ],
+        "isExported": true,
+        "isTypeAmbiguous": false,
+        "isTypeKnown": true,
+        "name": "trio.run_process",
+        "referenceCount": 1
+      },
+      {
+        "category": "class",
+        "diagnostics": [
+          {
+            "file": "",
+            "message": "No docstring found for class \"trio.tests.TestsDeprecationWrapper\"",
+            "severity": "warning"
+          }
+        ],
+        "isExported": true,
+        "isTypeAmbiguous": false,
+        "isTypeKnown": true,
+        "name": "trio.tests.TestsDeprecationWrapper",
+        "referenceCount": 1
+      }
+    ]
+  }
+}

@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import errno
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, overload
 
 import trio
 
@@ -12,6 +13,8 @@ from ._util import ConflictDetector, Final
 from .abc import HalfCloseableStream, Listener
 
 if TYPE_CHECKING:
+    from typing_extensions import Buffer
+
     from ._socket import _SocketType as SocketType
 
 # XX TODO: this number was picked arbitrarily. We should do experiments to
@@ -29,7 +32,7 @@ _closed_stream_errnos = {
 
 
 @contextmanager
-def _translate_socket_errors_to_stream_errors():
+def _translate_socket_errors_to_stream_errors() -> Generator[None, None, None]:
     try:
         yield
     except OSError as exc:
@@ -97,7 +100,7 @@ class SocketStream(HalfCloseableStream, metaclass=Final):
             except OSError:
                 pass
 
-    async def send_all(self, data):
+    async def send_all(self, data: bytes | bytearray | memoryview) -> None:
         if self.socket.did_shutdown_SHUT_WR:
             raise trio.ClosedResourceError("can't send data after sending EOF")
         with self._send_conflict_detector:
@@ -145,15 +148,47 @@ class SocketStream(HalfCloseableStream, metaclass=Final):
 
     # __aenter__, __aexit__ inherited from HalfCloseableStream are OK
 
-    def setsockopt(self, level, option, value):
+    @overload
+    def setsockopt(self, level: int, option: int, value: int | Buffer) -> None:
+        ...
+
+    @overload
+    def setsockopt(self, level: int, option: int, value: None, length: int) -> None:
+        ...
+
+    def setsockopt(
+        self,
+        level: int,
+        option: int,
+        value: int | Buffer | None,
+        length: int | None = None,
+    ) -> None:
         """Set an option on the underlying socket.
 
         See :meth:`socket.socket.setsockopt` for details.
 
         """
-        return self.socket.setsockopt(level, option, value)
+        if length is None:
+            if value is None:
+                raise TypeError(
+                    "invalid value for argument 'value', must not be None when specifying length"
+                )
+            return self.socket.setsockopt(level, option, value)
+        if value is not None:
+            raise TypeError(
+                f"invalid value for argument 'value': {value!r}, must be None when specifying optlen"
+            )
+        return self.socket.setsockopt(level, option, value, length)
 
-    def getsockopt(self, level, option, buffersize=0):
+    @overload
+    def getsockopt(self, level: int, option: int) -> int:
+        ...
+
+    @overload
+    def getsockopt(self, level: int, option: int, buffersize: int) -> bytes:
+        ...
+
+    def getsockopt(self, level: int, option: int, buffersize: int = 0) -> int | bytes:
         """Check the current value of an option on the underlying socket.
 
         See :meth:`socket.socket.getsockopt` for details.
@@ -311,7 +346,7 @@ _ignorable_accept_errno_names = [
 ]
 
 # Not all errnos are defined on all platforms
-_ignorable_accept_errnos = set()
+_ignorable_accept_errnos: set[int] = set()
 for name in _ignorable_accept_errno_names:
     try:
         _ignorable_accept_errnos.add(getattr(errno, name))

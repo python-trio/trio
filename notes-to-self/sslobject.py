@@ -1,5 +1,5 @@
-from contextlib import contextmanager
 import ssl
+from contextlib import contextmanager
 
 client_ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
 client_ctx.check_hostname = False
