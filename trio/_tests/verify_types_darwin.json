@@ -8,6 +8,36 @@
   },
   "typeCompleteness": {
     "completenessScore": 1,
+    "diagnostics": [
+      {
+        "message": "No docstring found for function \"trio.lowlevel.current_kqueue\"",
+        "name": "trio.lowlevel.current_kqueue"
+      },
+      {
+        "message": "No docstring found for function \"trio.lowlevel.monitor_kevent\"",
+        "name": "trio.lowlevel.monitor_kevent"
+      },
+      {
+        "message": "No docstring found for function \"trio.lowlevel.notify_closing\"",
+        "name": "trio.lowlevel.notify_closing"
+      },
+      {
+        "message": "No docstring found for function \"trio.lowlevel.wait_kevent\"",
+        "name": "trio.lowlevel.wait_kevent"
+      },
+      {
+        "message": "No docstring found for function \"trio.lowlevel.wait_readable\"",
+        "name": "trio.lowlevel.wait_readable"
+      },
+      {
+        "message": "No docstring found for function \"trio.lowlevel.wait_writable\"",
+        "name": "trio.lowlevel.wait_writable"
+      },
+      {
+        "message": "No docstring found for class \"trio.tests.TestsDeprecationWrapper\"",
+        "name": "trio.tests.TestsDeprecationWrapper"
+      }
+    ],
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
       "withKnownType": 631,
@@ -49,173 +79,6 @@
       "withKnownType": 682,
       "withUnknownType": 0
     },
-    "packageName": "trio",
-    "symbols": [
-      {
-        "category": "function",
-        "diagnostics": [
-          {
-            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
-            "message": "No docstring found for function \"trio.lowlevel.current_kqueue\"",
-            "range": {
-              "end": {
-                "character": 44,
-                "line": 72
-              },
-              "start": {
-                "character": 30,
-                "line": 72
-              }
-            },
-            "severity": "warning"
-          }
-        ],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.lowlevel.current_kqueue",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [
-          {
-            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
-            "message": "No docstring found for function \"trio.lowlevel.monitor_kevent\"",
-            "range": {
-              "end": {
-                "character": 44,
-                "line": 73
-              },
-              "start": {
-                "character": 30,
-                "line": 73
-              }
-            },
-            "severity": "warning"
-          }
-        ],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.lowlevel.monitor_kevent",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [
-          {
-            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
-            "message": "No docstring found for function \"trio.lowlevel.notify_closing\"",
-            "range": {
-              "end": {
-                "character": 36,
-                "line": 33
-              },
-              "start": {
-                "character": 22,
-                "line": 33
-              }
-            },
-            "severity": "warning"
-          }
-        ],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.lowlevel.notify_closing",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [
-          {
-            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
-            "message": "No docstring found for function \"trio.lowlevel.wait_kevent\"",
-            "range": {
-              "end": {
-                "character": 38,
-                "line": 74
-              },
-              "start": {
-                "character": 27,
-                "line": 74
-              }
-            },
-            "severity": "warning"
-          }
-        ],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.lowlevel.wait_kevent",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [
-          {
-            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
-            "message": "No docstring found for function \"trio.lowlevel.wait_readable\"",
-            "range": {
-              "end": {
-                "character": 34,
-                "line": 42
-              },
-              "start": {
-                "character": 21,
-                "line": 42
-              }
-            },
-            "severity": "warning"
-          }
-        ],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.lowlevel.wait_readable",
-        "referenceCount": 1
-      },
-      {
-        "category": "function",
-        "diagnostics": [
-          {
-            "file": "/home/h/Git/trio/typing_improvements/.tox/verifytypes/lib/python3.8/site-packages/trio/_core/__init__.py",
-            "message": "No docstring found for function \"trio.lowlevel.wait_writable\"",
-            "range": {
-              "end": {
-                "character": 34,
-                "line": 44
-              },
-              "start": {
-                "character": 21,
-                "line": 44
-              }
-            },
-            "severity": "warning"
-          }
-        ],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.lowlevel.wait_writable",
-        "referenceCount": 1
-      },
-      {
-        "category": "class",
-        "diagnostics": [
-          {
-            "file": "",
-            "message": "No docstring found for class \"trio.tests.TestsDeprecationWrapper\"",
-            "severity": "warning"
-          }
-        ],
-        "isExported": true,
-        "isTypeAmbiguous": false,
-        "isTypeKnown": true,
-        "name": "trio.tests.TestsDeprecationWrapper",
-        "referenceCount": 1
-      }
-    ]
+    "packageName": "trio"
   }
 }
