@@ -57,15 +57,11 @@ disallow_untyped_defs = true
 check_untyped_defs = false
 disallow_untyped_calls = false
 
-
 # files not yet fully typed
 [[tool.mypy.overrides]]
 module = [
 # 2745
 "trio/_ssl",
-# 2755
-"trio/_core/_windows_cffi",
-"trio/_wait_for_object",
 # 2761
 "trio/_core/_generated_io_windows",
 "trio/_core/_io_windows",

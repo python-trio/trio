@@ -1,5 +1,11 @@
+from __future__ import annotations
+
 import enum
 import re
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing_extensions import NoReturn, TypeAlias
 
 import cffi
 
@@ -215,7 +221,8 @@ LIB = re.sub(r"\bFAR\b", " ", LIB)
 #   being _MSC_VER >= 800)
 LIB = re.sub(r"\bPASCAL\b", "__stdcall", LIB)
 
-ffi = cffi.FFI()
+ffi = cffi.api.FFI()
+CData: TypeAlias = cffi.api.FFI.CData
 ffi.cdef(LIB)
 
 kernel32 = ffi.dlopen("kernel32.dll")
@@ -302,23 +309,33 @@ class IoControlCodes(enum.IntEnum):
 ################################################################
 
 
-def _handle(obj):
+def _handle(obj: int | CData) -> CData:
     # For now, represent handles as either cffi HANDLEs or as ints.  If you
     # try to pass in a file descriptor instead, it's not going to work
     # out. (For that msvcrt.get_osfhandle does the trick, but I don't know if
     # we'll actually need that for anything...) For sockets this doesn't
     # matter, Python never allocates an fd. So let's wait until we actually
     # encounter the problem before worrying about it.
-    if type(obj) is int:
+    if isinstance(obj, int):
         return ffi.cast("HANDLE", obj)
-    else:
-        return obj
+    return obj
 
 
-def raise_winerror(winerror=None, *, filename=None, filename2=None):
+def raise_winerror(
+    winerror: int | None = None,
+    *,
+    filename: str | None = None,
+    filename2: str | None = None,
+) -> NoReturn:
     if winerror is None:
-        winerror, msg = ffi.getwinerror()
+        err = ffi.getwinerror()
+        if err is None:
+            raise RuntimeError("No error set?")
+        winerror, msg = err
     else:
-        _, msg = ffi.getwinerror(winerror)
+        err = ffi.getwinerror(winerror)
+        if err is None:
+            raise RuntimeError("No error set?")
+        _, msg = err
     # https://docs.python.org/3/library/exceptions.html#OSError
     raise OSError(0, msg, filename, winerror, filename2)
