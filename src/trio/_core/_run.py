@@ -53,6 +53,12 @@ from ._traps import (
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
 
+FnT = TypeVar("FnT", bound="Callable[..., Any]")
+StatusT = TypeVar("StatusT")
+StatusT_co = TypeVar("StatusT_co", covariant=True)
+StatusT_contra = TypeVar("StatusT_contra", contravariant=True)
+RetT = TypeVar("RetT")
+
 
 if TYPE_CHECKING:
     import contextvars
@@ -70,18 +76,24 @@ if TYPE_CHECKING:
     # for some strange reason Sphinx works with outcome.Outcome, but not Outcome, in
     # start_guest_run. Same with types.FrameType in iter_await_frames
     import outcome
-    from typing_extensions import Self
+    from typing_extensions import Self, TypeVarTuple, Unpack
+
+    PosArgT = TypeVarTuple("PosArgT")
+
+    # Needs to be guarded, since Unpack[] would be evaluated at runtime.
+    class _NurseryStartFunc(Protocol[Unpack[PosArgT], StatusT_co]):
+        """Type of functions passed to `nursery.start() <trio.Nursery.start>`."""
+
+        def __call__(
+            self, *args: Unpack[PosArgT], task_status: TaskStatus[StatusT_co]
+        ) -> Awaitable[object]:
+            ...
+
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: Final = 1000
 
 # Passed as a sentinel
 _NO_SEND: Final[Outcome[Any]] = cast("Outcome[Any]", object())
-
-FnT = TypeVar("FnT", bound="Callable[..., Any]")
-StatusT = TypeVar("StatusT")
-StatusT_co = TypeVar("StatusT_co", covariant=True)
-StatusT_contra = TypeVar("StatusT_contra", contravariant=True)
-RetT = TypeVar("RetT")
 
 
 @final
@@ -1119,9 +1131,8 @@ class Nursery(metaclass=NoPublicConstructor):
 
     def start_soon(
         self,
-        # TODO: TypeVarTuple
-        async_fn: Callable[..., Awaitable[object]],
-        *args: object,
+        async_fn: Callable[[PosArgT], Awaitable[object]],
+        *args: Unpack[PosArgT],
         name: object = None,
     ) -> None:
         """Creates a child task, scheduling ``await async_fn(*args)``.
@@ -1167,8 +1178,8 @@ class Nursery(metaclass=NoPublicConstructor):
 
     async def start(
         self,
-        async_fn: Callable[..., Awaitable[object]],
-        *args: object,
+        async_fn: _NurseryStartFunc[Unpack[PosArgT], StatusT],
+        *args: Unpack[PosArgT],
         name: object = None,
     ) -> StatusT:
         r"""Creates and initializes a child task.
@@ -1690,9 +1701,8 @@ class Runner:
 
     def spawn_impl(
         self,
-        # TODO: TypeVarTuple
-        async_fn: Callable[..., Awaitable[object]],
-        args: tuple[object, ...],
+        async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
+        args: tuple[Unpack[PosArgT]],
         nursery: Nursery | None,
         name: object,
         *,
@@ -1721,8 +1731,7 @@ class Runner:
         # Call the function and get the coroutine object, while giving helpful
         # errors for common mistakes.
         ######
-        # TODO: resolve the type: ignore when implementing TypeVarTuple
-        coro = context.run(coroutine_or_error, async_fn, *args)  # type: ignore[arg-type]
+        coro = context.run(coroutine_or_error, async_fn, *args)
 
         if name is None:
             name = async_fn
@@ -1809,12 +1818,11 @@ class Runner:
     # System tasks and init
     ################
 
-    @_public  # Type-ignore due to use of Any here.
-    def spawn_system_task(  # type: ignore[misc]
+    @_public
+    def spawn_system_task(
         self,
-        # TODO: TypeVarTuple
-        async_fn: Callable[..., Awaitable[object]],
-        *args: object,
+        async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
+        *args: Unpack[PosArgT],
         name: object = None,
         context: contextvars.Context | None = None,
     ) -> Task:
@@ -1879,10 +1887,9 @@ class Runner:
         )
 
     async def init(
-        # TODO: TypeVarTuple
         self,
-        async_fn: Callable[..., Awaitable[object]],
-        args: tuple[object, ...],
+        async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
+        args: tuple[Unpack[PosArgT]],
     ) -> None:
         # run_sync_soon task runs here:
         async with open_nursery() as run_sync_soon_nursery:
