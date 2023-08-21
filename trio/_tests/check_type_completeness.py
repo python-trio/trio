@@ -143,7 +143,8 @@ def check_type(args: argparse.Namespace, platform: str) -> int:
         new_symbols = []
         for symbol in current_result["typeCompleteness"]["symbols"]:
             if symbol["diagnostics"]:
-                new_symbols.append(symbol)
+                # function name + message should be enough context for people!
+                new_symbols.append({"name": symbol["name"], "message": symbol["message"]})
                 continue
 
         # Ensure order of arrays does not affect result.
