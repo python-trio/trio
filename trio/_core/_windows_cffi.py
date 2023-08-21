@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import enum
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NewType, Protocol, cast
 
 if TYPE_CHECKING:
     from typing_extensions import NoReturn, TypeAlias
@@ -222,12 +222,121 @@ LIB = re.sub(r"\bFAR\b", " ", LIB)
 LIB = re.sub(r"\bPASCAL\b", "__stdcall", LIB)
 
 ffi = cffi.api.FFI()
-CData: TypeAlias = cffi.api.FFI.CData
 ffi.cdef(LIB)
 
-kernel32 = ffi.dlopen("kernel32.dll")
-ntdll = ffi.dlopen("ntdll.dll")
-ws2_32 = ffi.dlopen("ws2_32.dll")
+CData: TypeAlias = cffi.api.FFI.CData
+CType: TypeAlias = cffi.api.FFI.CType
+AlwaysNull: TypeAlias = CType  # We currently always pass ffi.NULL here.
+Handle = NewType("Handle", CData)
+HandleArray = NewType("HandleArray", CData)
+
+
+class _Kernel32(Protocol):
+    """Statically typed version of the kernel32.dll functions we use."""
+
+    def CreateIoCompletionPort(
+        self,
+        FileHandle: Handle,
+        ExistingCompletionPort: CData,
+        CompletionKey: int,
+        NumberOfConcurrentThreads: int,
+        /,
+    ) -> CData:
+        ...
+
+    def CreateEventA(
+        self,
+        lpEventAttributes: AlwaysNull,
+        bManualReset: bool,
+        bInitialState: bool,
+        lpName: AlwaysNull,
+        /,
+    ) -> Handle:
+        ...
+
+    def SetFileCompletionNotificationModes(
+        self, handle: Handle, flags: CompletionModes, /
+    ) -> int:
+        ...
+
+    def GetQueuedCompletionStatusEx(
+        self,
+        CompletionPort: CData,
+        lpCompletionPortEntries: CData,
+        ulCount: int,
+        ulNumEntriesRemoved: CData,
+        dwMilliseconds: int,
+        fAlertable: bool | int,
+        /,
+    ) -> CData:
+        ...
+
+    def CreateFileW(
+        self,
+        lpFileName: CData,
+        dwDesiredAccess: FileFlags,
+        dwShareMode: FileFlags,
+        lpSecurityAttributes: AlwaysNull,
+        dwCreationDisposition: FileFlags,
+        dwFlagsAndAttributes: FileFlags,
+        hTemplateFile: AlwaysNull,
+        /,
+    ) -> Handle:
+        ...
+
+    def WaitForSingleObject(self, hHandle: Handle, dwMilliseconds: int, /) -> CData:
+        ...
+
+    def WaitForMultipleObjects(
+        self,
+        nCount: int,
+        lpHandles: HandleArray,
+        bWaitAll: bool,
+        dwMilliseconds: int,
+        /,
+    ) -> ErrorCodes:
+        ...
+
+    def SetEvent(self, handle: Handle, /) -> None:
+        ...
+
+    def CloseHandle(self, handle: Handle, /) -> None:
+        ...
+
+
+class _Nt(Protocol):
+    """Statically typed version of the dtdll.dll functions we use."""
+
+    def RtlNtStatusToDosError(self, status: int, /) -> ErrorCodes:
+        ...
+
+
+class _Ws2(Protocol):
+    """Statically typed version of the ws2_32.dll functions we use."""
+
+    def WSAGetLastError(self) -> int:
+        ...
+
+    def WSAIoctl(
+        self,
+        socket: CData,
+        dwIoControlCode: WSAIoctls,
+        lpvInBuffer: AlwaysNull,
+        cbInBuffer: int,
+        lpvOutBuffer: CData,
+        cbOutBuffer: int,
+        lpcbBytesReturned: int,
+        lpOverlapped: AlwaysNull,
+        # actually LPWSAOVERLAPPED_COMPLETION_ROUTINE
+        lpCompletionRoutine: AlwaysNull,
+        /,
+    ) -> int:
+        ...
+
+
+kernel32 = cast(_Kernel32, ffi.dlopen("kernel32.dll"))
+ntdll = cast(_Nt, ffi.dlopen("ntdll.dll"))
+ws2_32 = cast(_Ws2, ffi.dlopen("ws2_32.dll"))
 
 ################################################################
 # Magic numbers
@@ -309,7 +418,7 @@ class IoControlCodes(enum.IntEnum):
 ################################################################
 
 
-def _handle(obj: int | CData) -> CData:
+def _handle(obj: int | CData) -> Handle:
     # For now, represent handles as either cffi HANDLEs or as ints.  If you
     # try to pass in a file descriptor instead, it's not going to work
     # out. (For that msvcrt.get_osfhandle does the trick, but I don't know if
@@ -317,8 +426,13 @@ def _handle(obj: int | CData) -> CData:
     # matter, Python never allocates an fd. So let's wait until we actually
     # encounter the problem before worrying about it.
     if isinstance(obj, int):
-        return ffi.cast("HANDLE", obj)
-    return obj
+        return Handle(ffi.cast("HANDLE", obj))
+    return Handle(obj)
+
+
+def handle_array(count: int) -> HandleArray:
+    """Make an array of handles."""
+    return HandleArray(ffi.new(f"HANDLE[{count}]"))
 
 
 def raise_winerror(
