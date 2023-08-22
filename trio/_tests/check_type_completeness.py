@@ -140,10 +140,14 @@ def check_type(args: argparse.Namespace, platform: str) -> int:
 
         # prune the symbols to only be the name of the symbols with
         # errors, instead of saving a huge file.
-        new_symbols = []
+        new_symbols: list[dict[str, str]] = []
         for symbol in current_result["typeCompleteness"]["symbols"]:
             if symbol["diagnostics"]:
-                new_symbols.append(symbol)
+                # function name + message should be enough context for people!
+                new_symbols.extend(
+                    {"name": symbol["name"], "message": diagnostic["message"]}
+                    for diagnostic in symbol["diagnostics"]
+                )
                 continue
 
         # Ensure order of arrays does not affect result.
@@ -153,7 +157,8 @@ def check_type(args: argparse.Namespace, platform: str) -> int:
             key=lambda module: module.get("name", "")
         )
 
-        current_result["typeCompleteness"]["symbols"] = new_symbols
+        del current_result["typeCompleteness"]["symbols"]
+        current_result["typeCompleteness"]["diagnostics"] = new_symbols
 
         with open(get_result_file_name(platform), "w") as file:
             json.dump(current_result, file, sort_keys=True, indent=2)
