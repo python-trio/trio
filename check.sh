@@ -37,7 +37,7 @@ flake8 trio/ || EXIT_STATUS=$?
 echo "::endgroup::"
 
 # Run mypy on all supported platforms
-MYPY = 0
+MYPY=0
 echo "::group::Mypy Linux"
 mypy trio --platform linux || MYPY=$?
 echo "::endgroup::"
