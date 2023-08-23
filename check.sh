@@ -44,9 +44,9 @@ fi
 codespell || EXIT_STATUS=$?
 
 python trio/_tests/check_type_completeness.py --overwrite-file || EXIT_STATUS=$?
-if git status --porcelain trio/_tests/verify_types.json | grep -q "M"; then
+if git status --porcelain trio/_tests/verify_types*.json | grep -q "M"; then
     echo "Type completeness changed, please update!"
-    git --no-pager diff --color trio/_tests/verify_types.json
+    git --no-pager diff --color trio/_tests/verify_types*.json
     EXIT_STATUS=1
 fi
 
