@@ -38,13 +38,9 @@ echo "::endgroup::"
 
 # Run mypy on all supported platforms
 MYPY=0
-echo "::group::Mypy Linux"
+echo "::group::Mypy"
 mypy trio --platform linux || MYPY=$?
-echo "::endgroup::"
-echo "::group::Mypy Mac"
 mypy trio --platform darwin || MYPY=$?  # tests FreeBSD too
-echo "::endgroup::"
-echo "::group::Mypy Windows"
 mypy trio --platform win32 || MYPY=$?
 echo "::endgroup::"
 
@@ -101,4 +97,5 @@ in your local checkout.
 EOF
     exit 1
 fi
+echo "# Formatting checks succeeded." >> $GITHUB_STEP_SUMMARY
 exit 0

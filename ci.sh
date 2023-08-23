@@ -7,8 +7,10 @@ set -ex -o pipefail
 export PYRIGHT_PYTHON_IGNORE_WARNINGS=1
 
 # Log some general info about the environment
+echo "::group::Environment"
 uname -a
 env | sort
+echo "::endgroup::"
 
 # Curl's built-in retry system is not very robust; it gives up on lots of
 # network errors that we want to retry on. Wget might work better, but it's
@@ -30,7 +32,7 @@ function curl-harder() {
 # We have a Python environment!
 ################################################################
 
-echo "::group:: Versions"
+echo "::group::Versions"
 python -c "import sys, struct, ssl; print('python:', sys.version); print('version_info:', sys.version_info); print('bits:', struct.calcsize('P') * 8); print('openssl:', ssl.OPENSSL_VERSION, ssl.OPENSSL_VERSION_INFO)"
 echo "::endgroup::"
 
@@ -127,7 +129,7 @@ else
         PASSED=false
     fi
     echo "::endgroup::"
-    echo "::group Coverage"
+    echo "::group::Coverage"
 
     coverage combine --rcfile ../.coveragerc
     coverage report -m --rcfile ../.coveragerc
