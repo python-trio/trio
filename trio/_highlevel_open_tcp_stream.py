@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 import trio
 from trio._core._multierror import MultiError
-from trio.socket import SOCK_STREAM, Address, _SocketType, getaddrinfo, socket
+from trio.socket import SOCK_STREAM, Address, SocketType, getaddrinfo, socket
 
 if sys.version_info < (3, 11):
     from exceptiongroup import ExceptionGroup
@@ -114,8 +114,8 @@ DEFAULT_DELAY = 0.250
 
 
 @contextmanager
-def close_all() -> Generator[set[_SocketType], None, None]:
-    sockets_to_close: set[_SocketType] = set()
+def close_all() -> Generator[set[SocketType], None, None]:
+    sockets_to_close: set[SocketType] = set()
     try:
         yield sockets_to_close
     finally:
@@ -131,6 +131,7 @@ def close_all() -> Generator[set[_SocketType], None, None]:
             raise MultiError(errs)
 
 
+# workaround for list being invariant
 def reorder_for_rfc_6555_section_5_4(
     targets: list[
         tuple[
@@ -139,6 +140,22 @@ def reorder_for_rfc_6555_section_5_4(
             int,
             str,
             tuple[str, int] | tuple[str, int, int, int],
+        ]
+    ] | list[
+        tuple[
+            AddressFamily,
+            SocketKind,
+            int,
+            str,
+            tuple[str, int]
+        ]
+    ] | list[
+        tuple[
+            AddressFamily,
+            SocketKind,
+            int,
+            str,
+            tuple[str, int, int, int],
         ]
     ]
 ) -> None:
@@ -155,11 +172,12 @@ def reorder_for_rfc_6555_section_5_4(
             # Found the first entry with a different address family; move it
             # so that it becomes the second item on the list.
             if i != 1:
-                targets.insert(1, targets.pop(i))
+                # invariant workaround in arguments leads to type issues here
+                targets.insert(1, targets.pop(i))  # type: ignore[arg-type]
             break
 
 
-def format_host_port(host: str | bytes, port: int) -> str:
+def format_host_port(host: str | bytes, port: int|str) -> str:
     host = host.decode("ascii") if isinstance(host, bytes) else host
     if ":" in host:
         return f"[{host}]:{port}"
@@ -193,7 +211,7 @@ async def open_tcp_stream(
     *,
     happy_eyeballs_delay: float | None = DEFAULT_DELAY,
     local_address: str | None = None,
-) -> trio.abc.Stream:
+) -> trio.SocketStream:
     """Connect to the given host and port over TCP.
 
     If the given ``host`` has multiple IP addresses associated with it, then
@@ -292,7 +310,7 @@ async def open_tcp_stream(
 
     # Keeps track of the socket that we're going to complete with,
     # need to make sure this isn't automatically closed
-    winning_socket: _SocketType | None = None
+    winning_socket: SocketType | None = None
 
     # Try connecting to the specified address. Possible outcomes:
     # - success: record connected socket in winning_socket and cancel

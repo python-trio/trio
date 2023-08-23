@@ -506,7 +506,8 @@ Socket objects
 
 The internal SocketType
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
-.. autoclass:: _SocketType
+..
+    .. autoclass:: _SocketType
 ..
     TODO: adding `:members:` here gives error due to overload+_wraps on `sendto`
     TODO: rewrite ... all of the above when fixing _SocketType vs SocketType

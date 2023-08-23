@@ -1,31 +1,41 @@
+from __future__ import annotations
 import errno
 import inspect
 import os
 import socket as stdlib_socket
 import sys
 import tempfile
+from typing import Callable, Any, TYPE_CHECKING, Tuple, List, Union
+from socket import SocketKind, AddressFamily
 
 import attr
 import pytest
 
 from .. import _core, socket as tsocket
 from .._core._tests.tutil import binds_ipv6, creates_ipv6
-from .._socket import _NUMERIC_ONLY, _try_sync
+from .._socket import _NUMERIC_ONLY, _try_sync, SocketType
 from ..testing import assert_checkpoints, wait_all_tasks_blocked
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeAlias
+    GaiTuple: TypeAlias = Tuple[AddressFamily, SocketKind, int, str, Union[Tuple[str, int],Tuple[str, int, int, int]]]
+    getaddrinfoResponse: TypeAlias = List[GaiTuple]
+else:
+    GaiTuple: object
+    getaddrinfoResponse = object
 
 ################################################################
 # utils
 ################################################################
 
-
 class MonkeypatchedGAI:
-    def __init__(self, orig_getaddrinfo):
+    def __init__(self, orig_getaddrinfo: Callable[..., getaddrinfoResponse]):
         self._orig_getaddrinfo = orig_getaddrinfo
-        self._responses = {}
-        self.record = []
+        self._responses: dict[tuple[Any, ...], getaddrinfoResponse|str] = {}
+        self.record: list[tuple[Any, ...]] = []
 
     # get a normalized getaddrinfo argument tuple
-    def _frozenbind(self, *args, **kwargs):
+    def _frozenbind(self, *args: Any, **kwargs: Any) -> tuple[Any, ...]:
         sig = inspect.signature(self._orig_getaddrinfo)
         bound = sig.bind(*args, **kwargs)
         bound.apply_defaults()
@@ -33,10 +43,10 @@ class MonkeypatchedGAI:
         assert not bound.kwargs
         return frozenbound
 
-    def set(self, response, *args, **kwargs):
+    def set(self, response: getaddrinfoResponse|str, *args: Any, **kwargs: Any) -> None:
         self._responses[self._frozenbind(*args, **kwargs)] = response
 
-    def getaddrinfo(self, *args, **kwargs):
+    def getaddrinfo(self, *args: Any, **kwargs: Any) -> getaddrinfoResponse|str:
         bound = self._frozenbind(*args, **kwargs)
         self.record.append(bound)
         if bound in self._responses:
@@ -48,13 +58,13 @@ class MonkeypatchedGAI:
 
 
 @pytest.fixture
-def monkeygai(monkeypatch):
+def monkeygai(monkeypatch: pytest.MonkeyPatch) -> MonkeypatchedGAI:
     controller = MonkeypatchedGAI(stdlib_socket.getaddrinfo)
     monkeypatch.setattr(stdlib_socket, "getaddrinfo", controller.getaddrinfo)
     return controller
 
 
-async def test__try_sync():
+async def test__try_sync() -> None:
     with assert_checkpoints():
         async with _try_sync():
             pass
@@ -67,7 +77,7 @@ async def test__try_sync():
     async with _try_sync():
         raise BlockingIOError
 
-    def _is_ValueError(exc):
+    def _is_ValueError(exc: BaseException) -> bool:
         return isinstance(exc, ValueError)
 
     async with _try_sync(_is_ValueError):
@@ -84,7 +94,7 @@ async def test__try_sync():
 ################################################################
 
 
-def test_socket_has_some_reexports():
+def test_socket_has_some_reexports() -> None:
     assert tsocket.SOL_SOCKET == stdlib_socket.SOL_SOCKET
     assert tsocket.TCP_NODELAY == stdlib_socket.TCP_NODELAY
     assert tsocket.gaierror == stdlib_socket.gaierror
@@ -96,19 +106,19 @@ def test_socket_has_some_reexports():
 ################################################################
 
 
-async def test_getaddrinfo(monkeygai):
-    def check(got, expected):
+async def test_getaddrinfo(monkeygai: MonkeypatchedGAI) -> None:
+    def check(got: getaddrinfoResponse, expected: getaddrinfoResponse) -> None:
         # win32 returns 0 for the proto field
         # musl and glibc have inconsistent handling of the canonical name
         # field (https://github.com/python-trio/trio/issues/1499)
         # Neither field gets used much and there isn't much opportunity for us
         # to mess them up, so we don't bother checking them here
-        def interesting_fields(gai_tup):
+        def interesting_fields(gai_tup: GaiTuple) -> tuple[AddressFamily, SocketKind, tuple[str, int]|tuple[str, int, int]|tuple[str, int, int, int]]:
             # (family, type, proto, canonname, sockaddr)
             family, type, proto, canonname, sockaddr = gai_tup
             return (family, type, sockaddr)
 
-        def filtered(gai_list):
+        def filtered(gai_list: getaddrinfoResponse) -> list[tuple[AddressFamily, SocketKind, tuple[str, int]|tuple[str, int, int]|tuple[str, int, int, int]]]:
             return [interesting_fields(gai_tup) for gai_tup in gai_list]
 
         assert filtered(got) == filtered(expected)
@@ -172,7 +182,7 @@ async def test_getaddrinfo(monkeygai):
             await tsocket.getaddrinfo("asdf", "12345")
 
 
-async def test_getnameinfo():
+async def test_getnameinfo() -> None:
     # Trivial test:
     ni_numeric = stdlib_socket.NI_NUMERICHOST | stdlib_socket.NI_NUMERICSERV
     with assert_checkpoints():
@@ -207,7 +217,7 @@ async def test_getnameinfo():
 ################################################################
 
 
-async def test_from_stdlib_socket():
+async def test_from_stdlib_socket() -> None:
     sa, sb = stdlib_socket.socketpair()
     assert not isinstance(sa, tsocket.SocketType)
     with sa, sb:
@@ -219,7 +229,7 @@ async def test_from_stdlib_socket():
 
     # rejects other types
     with pytest.raises(TypeError):
-        tsocket.from_stdlib_socket(1)
+        tsocket.from_stdlib_socket(1)  # type: ignore[arg-type]
 
     class MySocket(stdlib_socket.socket):
         pass
@@ -229,7 +239,7 @@ async def test_from_stdlib_socket():
             tsocket.from_stdlib_socket(mysock)
 
 
-async def test_from_fd():
+async def test_from_fd() -> None:
     sa, sb = stdlib_socket.socketpair()
     ta = tsocket.fromfd(sa.fileno(), sa.family, sa.type, sa.proto)
     with sa, sb, ta:
@@ -238,8 +248,8 @@ async def test_from_fd():
         assert sb.recv(3) == b"x"
 
 
-async def test_socketpair_simple():
-    async def child(sock):
+async def test_socketpair_simple() -> None:
+    async def child(sock: SocketType) -> None:
         print("sending hello")
         await sock.send(b"h")
         assert await sock.recv(1) == b"h"
@@ -252,7 +262,8 @@ async def test_socketpair_simple():
 
 
 @pytest.mark.skipif(not hasattr(tsocket, "fromshare"), reason="windows only")
-async def test_fromshare():
+async def test_fromshare() -> None:
+    assert not TYPE_CHECKING or sys.platform == "win32"
     a, b = tsocket.socketpair()
     with a, b:
         # share with ourselves
@@ -264,21 +275,21 @@ async def test_fromshare():
             assert await b.recv(1) == b"x"
 
 
-async def test_socket():
+async def test_socket() -> None:
     with tsocket.socket() as s:
         assert isinstance(s, tsocket.SocketType)
         assert s.family == tsocket.AF_INET
 
 
 @creates_ipv6
-async def test_socket_v6():
+async def test_socket_v6() -> None:
     with tsocket.socket(tsocket.AF_INET6, tsocket.SOCK_DGRAM) as s:
         assert isinstance(s, tsocket.SocketType)
         assert s.family == tsocket.AF_INET6
 
 
 @pytest.mark.skipif(not sys.platform == "linux", reason="linux only")
-async def test_sniff_sockopts():
+async def test_sniff_sockopts() -> None:
     from socket import AF_INET, AF_INET6, SOCK_DGRAM, SOCK_STREAM
 
     # generate the combinations of families/types we're testing:
@@ -309,7 +320,7 @@ async def test_sniff_sockopts():
 ################################################################
 
 
-async def test_SocketType_basics():
+async def test_SocketType_basics() -> None:
     sock = tsocket.socket()
     with sock as cm_enter_value:
         assert cm_enter_value is sock
@@ -349,7 +360,7 @@ async def test_SocketType_basics():
 
     # our __getattr__ handles unknown names
     with pytest.raises(AttributeError):
-        sock.asdf
+        sock.asdf  # type: ignore[attr-defined]
 
     # type family proto
     stdlib_sock = stdlib_socket.socket()
@@ -366,7 +377,7 @@ async def test_SocketType_setsockopt() -> None:
         setsockopt_tests(sock)
 
 
-def setsockopt_tests(sock):
+def setsockopt_tests(sock: SocketType) -> None:
     """Extract these out, to be reused for SocketStream also."""
     # specifying optlen. Not supported on pypy, and I couldn't find
     # valid calls on darwin or win32.
@@ -378,14 +389,14 @@ def setsockopt_tests(sock):
 
     # specifying both
     with pytest.raises(TypeError, match="invalid value for argument 'value'"):
-        sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, False, 5)
+        sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, False, 5)  # type: ignore[call-overload]
 
     # specifying neither
     with pytest.raises(TypeError, match="invalid value for argument 'value'"):
-        sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, None)
+        sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, None)  # type: ignore[call-overload]
 
 
-async def test_SocketType_dup():
+async def test_SocketType_dup() -> None:
     a, b = tsocket.socketpair()
     with a, b:
         a2 = a.dup()
@@ -397,7 +408,7 @@ async def test_SocketType_dup():
             assert await b.recv(1) == b"x"
 
 
-async def test_SocketType_shutdown():
+async def test_SocketType_shutdown() -> None:
     a, b = tsocket.socketpair()
     with a, b:
         await a.send(b"x")
@@ -431,7 +442,7 @@ async def test_SocketType_shutdown():
         pytest.param("::1", tsocket.AF_INET6, marks=binds_ipv6),
     ],
 )
-async def test_SocketType_simple_server(address, socket_type):
+async def test_SocketType_simple_server(address, socket_type) -> None:
     # listen, bind, accept, connect, getpeername, getsockname
     listener = tsocket.socket(socket_type)
     client = tsocket.socket(socket_type)
@@ -448,7 +459,7 @@ async def test_SocketType_simple_server(address, socket_type):
             assert await client.recv(1) == b"x"
 
 
-async def test_SocketType_is_readable():
+async def test_SocketType_is_readable() -> None:
     a, b = tsocket.socketpair()
     with a, b:
         assert not a.is_readable()
@@ -462,7 +473,7 @@ async def test_SocketType_is_readable():
 # On some macOS systems, getaddrinfo likes to return V4-mapped addresses even
 # when we *don't* pass AI_V4MAPPED.
 # https://github.com/python-trio/trio/issues/580
-def gai_without_v4mapped_is_buggy():  # pragma: no cover
+def gai_without_v4mapped_is_buggy() -> bool:  # pragma: no cover
     try:
         stdlib_socket.getaddrinfo("1.2.3.4", 0, family=stdlib_socket.AF_INET6)
     except stdlib_socket.gaierror:
@@ -504,16 +515,16 @@ class Addresses:
         ),
     ],
 )
-async def test_SocketType_resolve(socket_type, addrs):
+async def test_SocketType_resolve(socket_type, addrs) -> None:
     v6 = socket_type == tsocket.AF_INET6
 
-    def pad(addr):
+    def pad(addr) -> tuple[str, int]|tuple[str, int,int,int]:
         if v6:
             while len(addr) < 4:
                 addr += (0,)
         return addr
 
-    def assert_eq(actual, expected):
+    def assert_eq(actual, expected) -> None:
         assert pad(expected) == pad(actual)
 
     with tsocket.socket(family=socket_type) as sock:
@@ -599,7 +610,7 @@ async def test_SocketType_resolve(socket_type, addrs):
                     await res(("1.2.3.4", 80, 0, 0))
 
 
-async def test_SocketType_unresolved_names():
+async def test_SocketType_unresolved_names() -> None:
     with tsocket.socket() as sock:
         await sock.bind(("localhost", 0))
         assert sock.getsockname()[0] == "127.0.0.1"
@@ -618,7 +629,7 @@ async def test_SocketType_unresolved_names():
 
 # This tests all the complicated paths through _nonblocking_helper, using recv
 # as a stand-in for all the methods that use _nonblocking_helper.
-async def test_SocketType_non_blocking_paths():
+async def test_SocketType_non_blocking_paths() -> None:
     a, b = stdlib_socket.socketpair()
     with a, b:
         ta = tsocket.from_stdlib_socket(a)
@@ -641,7 +652,7 @@ async def test_SocketType_non_blocking_paths():
                 await ta.recv("haha")
         # block then succeed
 
-        async def do_successful_blocking_recv():
+        async def do_successful_blocking_recv() -> None:
             with assert_checkpoints():
                 assert await ta.recv(10) == b"2"
 
@@ -651,7 +662,7 @@ async def test_SocketType_non_blocking_paths():
             b.send(b"2")
         # block then cancelled
 
-        async def do_cancelled_blocking_recv():
+        async def do_cancelled_blocking_recv() -> None:
             with assert_checkpoints():
                 with pytest.raises(_core.Cancelled):
                     await ta.recv(10)
@@ -669,13 +680,13 @@ async def test_SocketType_non_blocking_paths():
         # other:
         tb = tsocket.from_stdlib_socket(b)
 
-        async def t1():
+        async def t1() -> None:
             with assert_checkpoints():
                 assert await ta.recv(1) == b"a"
             with assert_checkpoints():
                 assert await tb.recv(1) == b"b"
 
-        async def t2():
+        async def t2() -> None:
             with assert_checkpoints():
                 assert await tb.recv(1) == b"b"
             with assert_checkpoints():
@@ -693,7 +704,7 @@ async def test_SocketType_non_blocking_paths():
 
 
 # This tests the complicated paths through connect
-async def test_SocketType_connect_paths():
+async def test_SocketType_connect_paths() -> None:
     with tsocket.socket() as sock:
         with pytest.raises(ValueError):
             # Should be a tuple
@@ -716,7 +727,7 @@ async def test_SocketType_connect_paths():
             # nose -- and then swap it back out again before we hit
             # wait_socket_writable, which insists on a real socket.
             class CancelSocket(stdlib_socket.socket):
-                def connect(self, *args, **kwargs):
+                def connect(self, *args, **kwargs) -> None:
                     cancel_scope.cancel()
                     sock._sock = stdlib_socket.fromfd(
                         self.detach(), self.family, self.type
@@ -747,7 +758,7 @@ async def test_SocketType_connect_paths():
 
 
 # Fix issue #1810
-async def test_address_in_socket_error():
+async def test_address_in_socket_error() -> None:
     address = "127.0.0.1"
     with tsocket.socket() as sock:
         try:
@@ -756,12 +767,12 @@ async def test_address_in_socket_error():
             assert any(address in str(arg) for arg in e.args)
 
 
-async def test_resolve_address_exception_in_connect_closes_socket():
+async def test_resolve_address_exception_in_connect_closes_socket() -> None:
     # Here we are testing issue 247, any cancellation will leave the socket closed
     with _core.CancelScope() as cancel_scope:
         with tsocket.socket() as sock:
 
-            async def _resolve_address_nocp(self, *args, **kwargs):
+            async def _resolve_address_nocp(self, *args, **kwargs) -> None:
                 cancel_scope.cancel()
                 await _core.checkpoint()
 
@@ -772,7 +783,7 @@ async def test_resolve_address_exception_in_connect_closes_socket():
             assert sock.fileno() == -1
 
 
-async def test_send_recv_variants():
+async def test_send_recv_variants() -> None:
     a, b = tsocket.socketpair()
     with a, b:
         # recv, including with flags
@@ -868,7 +879,7 @@ async def test_send_recv_variants():
         assert await b.recv(10) == b"yyy"
 
 
-async def test_idna(monkeygai):
+async def test_idna(monkeygai) -> None:
     # This is the encoding for "faß.de", which uses one of the characters that
     # IDNA 2003 handles incorrectly:
     monkeygai.set("ok faß.de", b"xn--fa-hia.de", 80)
@@ -886,14 +897,14 @@ async def test_idna(monkeygai):
     assert "ok faß.de" == await tsocket.getaddrinfo(b"xn--fa-hia.de", 80)
 
 
-async def test_getprotobyname():
+async def test_getprotobyname() -> None:
     # These are the constants used in IP header fields, so the numeric values
     # had *better* be stable across systems...
     assert await tsocket.getprotobyname("udp") == 17
     assert await tsocket.getprotobyname("tcp") == 6
 
 
-async def test_custom_hostname_resolver(monkeygai):
+async def test_custom_hostname_resolver(monkeygai) -> None:
     class CustomResolver:
         async def getaddrinfo(self, host, port, family, type, proto, flags):
             return ("custom_gai", host, port, family, type, proto, flags)
@@ -937,7 +948,7 @@ async def test_custom_hostname_resolver(monkeygai):
     assert await tsocket.getaddrinfo("host", "port") == "x"
 
 
-async def test_custom_socket_factory():
+async def test_custom_socket_factory() -> None:
     class CustomSocketFactory:
         def socket(self, family, type, proto):
             return ("hi", family, type, proto)
@@ -964,17 +975,17 @@ async def test_custom_socket_factory():
     assert tsocket.set_custom_socket_factory(None) is csf
 
 
-async def test_SocketType_is_abstract():
+async def test_SocketType_is_abstract() -> None:
     with pytest.raises(TypeError):
         tsocket.SocketType()
 
 
 @pytest.mark.skipif(not hasattr(tsocket, "AF_UNIX"), reason="no unix domain sockets")
-async def test_unix_domain_socket():
+async def test_unix_domain_socket() -> None:
     # Bind has a special branch to use a thread, since it has to do filesystem
     # traversal. Maybe connect should too? Not sure.
 
-    async def check_AF_UNIX(path):
+    async def check_AF_UNIX(path) -> None:
         with tsocket.socket(family=tsocket.AF_UNIX) as lsock:
             await lsock.bind(path)
             lsock.listen(10)
@@ -999,7 +1010,7 @@ async def test_unix_domain_socket():
         pass
 
 
-async def test_interrupted_by_close():
+async def test_interrupted_by_close() -> None:
     a_stdlib, b_stdlib = stdlib_socket.socketpair()
     with a_stdlib, b_stdlib:
         a_stdlib.setblocking(False)
@@ -1014,11 +1025,11 @@ async def test_interrupted_by_close():
 
         a = tsocket.from_stdlib_socket(a_stdlib)
 
-        async def sender():
+        async def sender() -> None:
             with pytest.raises(_core.ClosedResourceError):
                 await a.send(data)
 
-        async def receiver():
+        async def receiver() -> None:
             with pytest.raises(_core.ClosedResourceError):
                 await a.recv(1)
 
@@ -1029,7 +1040,7 @@ async def test_interrupted_by_close():
             a.close()
 
 
-async def test_many_sockets():
+async def test_many_sockets() -> None:
     total = 5000  # Must be more than MAX_AFD_GROUP_SIZE
     sockets = []
     for x in range(total // 2):

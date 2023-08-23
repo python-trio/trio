@@ -282,7 +282,7 @@ async def getprotobyname(name: str) -> int:
 ################################################################
 
 
-def from_stdlib_socket(sock: _stdlib_socket.socket) -> _SocketType:
+def from_stdlib_socket(sock: _stdlib_socket.socket) -> SocketType:
     """Convert a standard library :class:`socket.socket` object into a Trio
     socket object.
 
@@ -296,7 +296,7 @@ def fromfd(
     family: AddressFamily | int = _stdlib_socket.AF_INET,
     type: SocketKind | int = _stdlib_socket.SOCK_STREAM,
     proto: int = 0,
-) -> _SocketType:
+) -> SocketType:
     """Like :func:`socket.fromfd`, but returns a Trio socket object."""
     family, type, proto = _sniff_sockopts_for_fileno(family, type, proto, index(fd))
     return from_stdlib_socket(_stdlib_socket.fromfd(fd, family, type, proto))
@@ -307,7 +307,7 @@ if sys.platform == "win32" or (
 ):
 
     @_wraps(_stdlib_socket.fromshare, assigned=(), updated=())
-    def fromshare(info: bytes) -> _SocketType:
+    def fromshare(info: bytes) -> SocketType:
         return from_stdlib_socket(_stdlib_socket.fromshare(info))
 
 
@@ -326,7 +326,7 @@ def socketpair(
     family: FamilyT = FamilyDefault,
     type: TypeT = SocketKind.SOCK_STREAM,
     proto: int = 0,
-) -> tuple[_SocketType, _SocketType]:
+) -> tuple[SocketType, SocketType]:
     """Like :func:`socket.socketpair`, but returns a pair of Trio socket
     objects.
 
@@ -341,7 +341,7 @@ def socket(
     type: SocketKind | int = _stdlib_socket.SOCK_STREAM,
     proto: int = 0,
     fileno: int | None = None,
-) -> _SocketType:
+) -> SocketType:
     """Create a new Trio socket, like :class:`socket.socket`.
 
     This function's behavior can be customized using
@@ -530,7 +530,117 @@ class SocketType:
             "SocketType is an abstract class; use trio.socket.socket if you "
             "want to construct a socket object"
         )
+    def __enter__(self) -> Self:
+        raise NotImplementedError()
 
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        raise NotImplementedError()
+    @property
+    def type(self) -> SocketKind:
+        raise NotImplementedError()
+    @property
+    def family(self) -> AddressFamily:
+        raise NotImplementedError()
+    @property
+    def proto(self) -> int:
+        raise NotImplementedError()
+    @property
+    def did_shutdown_SHUT_WR(self) -> bool:
+        raise NotImplementedError()
+    def is_readable(self) -> bool:
+        raise NotImplementedError()
+    def fileno(self) -> int:
+        raise NotImplementedError()
+    async def wait_writable(self) -> None:
+        raise NotImplementedError()
+    def shutdown(self, flag: int) -> None:
+        raise NotImplementedError()
+
+    async def connect(self, address: Address) -> None:
+        raise NotImplementedError()
+    def listen(self, /, backlog: int = min(_stdlib_socket.SOMAXCONN, 128)) -> None:
+        raise NotImplementedError()
+    async def bind(self, address: Address) -> None:
+        raise NotImplementedError()
+    def close(self) -> None:
+        raise NotImplementedError()
+    def getsockname(self) -> Any:
+        raise NotImplementedError()
+    async def accept(self) -> tuple[SocketType, object]:
+        raise NotImplementedError()
+
+    @overload
+    async def sendto(
+        self, __data: Buffer, __address: tuple[Any, ...] | str | Buffer
+    ) -> int:
+        ...
+
+    @overload
+    async def sendto(
+        self, __data: Buffer, __flags: int, __address: tuple[Any, ...] | str | Buffer
+    ) -> int:
+        ...
+
+    @_wraps(_stdlib_socket.socket.sendto, assigned=(), updated=())  # type: ignore[misc]
+    async def sendto(self, *args: Any) -> int:
+        """Similar to :meth:`socket.socket.sendto`, but async."""
+        raise NotImplementedError()
+    @overload
+    def getsockopt(self, /, level: int, optname: int) -> int:
+        ...
+
+    @overload
+    def getsockopt(self, /, level: int, optname: int, buflen: int) -> bytes:
+        ...
+
+    def getsockopt(
+        self, /, level: int, optname: int, buflen: int | None = None
+    ) -> int | bytes:
+        raise NotImplementedError()
+    @overload
+    def setsockopt(self, /, level: int, optname: int, value: int | Buffer) -> None:
+        ...
+
+    @overload
+    def setsockopt(self, /, level: int, optname: int, value: None, optlen: int) -> None:
+        ...
+
+    def setsockopt(
+        self,
+        /,
+        level: int,
+        optname: int,
+        value: int | Buffer | None,
+        optlen: int | None = None,
+    ) -> None:
+        raise NotImplementedError()
+
+    def recvfrom(
+        __self, __bufsize: int, __flags: int = 0
+    ) -> Awaitable[tuple[bytes, Address]]:
+        raise NotImplementedError()
+    def send(__self, __bytes: Buffer, __flags: int = 0) -> Awaitable[int]:
+        raise NotImplementedError()
+    def recv(__self, __buflen: int, __flags: int = 0) -> Awaitable[bytes]:
+        raise NotImplementedError()
+    if sys.platform == "win32" or (
+        not TYPE_CHECKING and hasattr(_stdlib_socket.socket, "share")
+    ):
+
+        def share(self, /, process_id: int) -> bytes:
+            raise NotImplementedError()
+    def detach(self) -> int:
+        raise NotImplementedError()
+    def get_inheritable(self) -> bool:
+        raise NotImplementedError()
+
+    def set_inheritable(self, inheritable: bool) -> None:
+        raise NotImplementedError()
 
 class _SocketType(SocketType):
     def __init__(self, sock: _stdlib_socket.socket):
@@ -772,7 +882,7 @@ class _SocketType(SocketType):
         _stdlib_socket.socket.accept, _core.wait_readable
     )
 
-    async def accept(self) -> tuple[_SocketType, object]:
+    async def accept(self) -> tuple[SocketType, object]:
         """Like :meth:`socket.socket.accept`, but async."""
         sock, addr = await self._accept()
         return from_stdlib_socket(sock), addr

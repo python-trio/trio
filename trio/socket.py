@@ -36,7 +36,6 @@ globals().update(
 from ._socket import (
     Address as Address,
     SocketType as SocketType,
-    _SocketType as _SocketType,
     from_stdlib_socket as from_stdlib_socket,
     fromfd as fromfd,
     getaddrinfo as getaddrinfo,

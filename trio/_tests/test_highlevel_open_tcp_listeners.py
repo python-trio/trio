@@ -2,6 +2,7 @@ import errno
 import socket as stdlib_socket
 import sys
 from math import inf
+from socket import AddressFamily, SocketKind
 
 import attr
 import pytest
@@ -115,13 +116,25 @@ class FakeOSError(OSError):
 
 @attr.s
 class FakeSocket(tsocket.SocketType):
-    family = attr.ib()
-    type = attr.ib()
-    proto = attr.ib()
+    _family: SocketKind = attr.ib()
+    _type: AddressFamily = attr.ib()
+    _proto: int = attr.ib()
 
     closed = attr.ib(default=False)
     poison_listen = attr.ib(default=False)
     backlog = attr.ib(default=None)
+
+    @property
+    def type(self) -> SocketKind:
+        return self._type
+
+    @property
+    def family(self) -> AddressFamily:
+        return self._family
+
+    @property
+    def proto(self) -> int:
+        return self._proto
 
     def getsockopt(self, level, option):
         if (level, option) == (tsocket.SOL_SOCKET, tsocket.SO_ACCEPTCONN):
