@@ -30,8 +30,11 @@ function curl-harder() {
 # We have a Python environment!
 ################################################################
 
-python -c "import sys, struct, ssl; print('#' * 70); print('python:', sys.version); print('version_info:', sys.version_info); print('bits:', struct.calcsize('P') * 8); print('openssl:', ssl.OPENSSL_VERSION, ssl.OPENSSL_VERSION_INFO); print('#' * 70)"
+echo "::group:: Versions"
+python -c "import sys, struct, ssl; print('python:', sys.version); print('version_info:', sys.version_info); print('bits:', struct.calcsize('P') * 8); print('openssl:', ssl.OPENSSL_VERSION, ssl.OPENSSL_VERSION_INFO)"
+echo "::endgroup::"
 
+echo "::group::Install dependencies"
 python -m pip install -U pip setuptools wheel
 python -m pip --version
 
@@ -40,6 +43,7 @@ python -m pip install dist/*.zip
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
     python -m pip install -r test-requirements.txt
+    echo "::endgroup::"
     source check.sh
 else
     # Actual tests
@@ -92,7 +96,10 @@ else
             sleep 1
         done
         netsh winsock show catalog
+    echo "::endgroup::"
     fi
+
+    echo "::group::Setup for tests"
 
     # We run the tests from inside an empty directory, to make sure Python
     # doesn't pick up any .py files from our working dir. Might have been
@@ -112,11 +119,15 @@ else
     # support subprocess spawning with coverage.py
     echo "import coverage; coverage.process_startup()" | tee -a "$INSTALLDIR/../sitecustomize.py"
 
+    echo "::endgroup::"
+    echo "::group:: Run Tests"
     if COVERAGE_PROCESS_START=$(pwd)/../.coveragerc coverage run --rcfile=../.coveragerc -m pytest -r a -p trio._tests.pytest_plugin --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --verbose; then
         PASSED=true
     else
         PASSED=false
     fi
+    echo "::endgroup::"
+    echo "::group Coverage"
 
     coverage combine --rcfile ../.coveragerc
     coverage report -m --rcfile ../.coveragerc
@@ -128,5 +139,6 @@ else
         netsh winsock reset
     fi
 
+    echo "::endgroup::"
     $PASSED
 fi
