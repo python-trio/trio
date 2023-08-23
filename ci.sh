@@ -98,8 +98,8 @@ else
             sleep 1
         done
         netsh winsock show catalog
-    echo "::endgroup::"
     fi
+    echo "::endgroup::"
 
     echo "::group::Setup for tests"
 
