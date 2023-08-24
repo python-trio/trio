@@ -327,7 +327,7 @@ async def test_io_manager_statistics() -> None:
         statistics = _core.current_statistics()
         print(statistics)
         iostats = statistics.io_statistics
-        if iostats.backend in ["epoll", "windows"]:
+        if iostats.backend == "epoll" or iostats.backend == "windows":
             assert iostats.tasks_waiting_read == expected_readers
             assert iostats.tasks_waiting_write == expected_writers
         else:
