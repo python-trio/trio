@@ -1164,7 +1164,10 @@ class Nursery(metaclass=NoPublicConstructor):
         GLOBAL_RUN_CONTEXT.runner.spawn_impl(async_fn, args, self, name)
 
     async def start(
-        self, async_fn: Callable[..., Awaitable[object]], *args: object, name: object = None
+        self,
+        async_fn: Callable[..., Awaitable[object]],
+        *args: object,
+        name: object = None,
     ) -> StatusT:
         r"""Creates and initializes a child task.
 

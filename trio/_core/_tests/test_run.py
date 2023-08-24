@@ -1569,10 +1569,16 @@ async def test_current_effective_deadline(mock_clock: _core.MockClock) -> None:
 
 
 def test_nice_error_on_bad_calls_to_run_or_spawn() -> None:
-    def bad_call_run(func: Callable[..., Awaitable[object]], *args: tuple[object, ...]) -> None:
+    def bad_call_run(
+        func: Callable[..., Awaitable[object]],
+        *args: tuple[object, ...],
+    ) -> None:
         _core.run(func, *args)
 
-    def bad_call_spawn(func: Callable[..., Awaitable[object]], *args: tuple[object, ...]) -> None:
+    def bad_call_spawn(
+        func: Callable[..., Awaitable[object]],
+        *args: tuple[object, ...],
+    ) -> None:
         async def main() -> None:
             async with _core.open_nursery() as nursery:
                 nursery.start_soon(func, *args)
@@ -1682,7 +1688,9 @@ async def test_nursery_start(autojump_clock: _core.MockClock) -> None:
     assert _core.current_time() - t0 == 2 * 3
 
     # calling started twice
-    async def double_started(task_status: _core.TaskStatus[None] = _core.TASK_STATUS_IGNORED) -> None:
+    async def double_started(
+        task_status: _core.TaskStatus[None] = _core.TASK_STATUS_IGNORED,
+    ) -> None:
         task_status.started()
         with pytest.raises(RuntimeError):
             task_status.started()
@@ -1701,7 +1709,9 @@ async def test_nursery_start(autojump_clock: _core.MockClock) -> None:
             await nursery.start(raise_keyerror)
 
     # child exiting cleanly before calling started -> triggers a RuntimeError
-    async def nothing(task_status: _core.TaskStatus[None] = _core.TASK_STATUS_IGNORED) -> None:
+    async def nothing(
+        task_status: _core.TaskStatus[None] = _core.TASK_STATUS_IGNORED,
+    ) -> None:
         return
 
     async with _core.open_nursery() as nursery:
@@ -1712,7 +1722,9 @@ async def test_nursery_start(autojump_clock: _core.MockClock) -> None:
     # if the call to start() is cancelled, then the call to started() does
     # nothing -- the child keeps executing under start(). The value it passed
     # is ignored; start() raises Cancelled.
-    async def just_started(task_status: _core.TaskStatus[str] = _core.TASK_STATUS_IGNORED) -> None:
+    async def just_started(
+        task_status: _core.TaskStatus[str] = _core.TASK_STATUS_IGNORED,
+    ) -> None:
         task_status.started("hi")
 
     async with _core.open_nursery() as nursery:
@@ -1800,7 +1812,9 @@ async def test_nursery_start_with_cancelled_nursery() -> None:
         target_nursery.cancel_scope.cancel()
 
 
-async def test_nursery_start_keeps_nursery_open(autojump_clock: _core.MockClock) -> None:
+async def test_nursery_start_keeps_nursery_open(
+    autojump_clock: _core.MockClock,
+) -> None:
     async def sleep_a_bit(
         task_status: _core.TaskStatus[None] = _core.TASK_STATUS_IGNORED,
     ) -> None:
@@ -1879,7 +1893,9 @@ async def test_nursery_stop_async_iteration() -> None:
         def __init__(self, *largs: it):
             self.nexts = [obj.__anext__ for obj in largs]
 
-        async def _accumulate(self, f: Callable[[], Awaitable[int]], items: list[int | None], i: int) -> None:
+        async def _accumulate(
+            self, f: Callable[[], Awaitable[int]], items: list[int | None], i: int
+        ) -> None:
             items[i] = await f()
 
         def __aiter__(self) -> async_zip:
@@ -2072,7 +2088,10 @@ async def test_permanently_detach_coroutine_object() -> None:
     task: _core.Task | None = None
     pdco_outcome: outcome.Outcome[str] | None = None
 
-    async def detachable_coroutine(task_outcome: outcome.Outcome[Any], yield_value: object) -> None:
+    async def detachable_coroutine(
+        task_outcome: outcome.Outcome[Any],
+        yield_value: object,
+    ) -> None:
         await sleep(0)
         nonlocal task, pdco_outcome
         task = _core.current_task()
