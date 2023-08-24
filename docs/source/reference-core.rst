@@ -916,11 +916,17 @@ The nursery API
 
 
 .. autoclass:: Nursery()
-   :members:
+   :members: child_tasks, parent_task
+
+   .. automethod:: start(async_fn, *args, name = None)
+
+   .. automethod:: start_soon(async_fn, *args, name = None)
 
 .. attribute:: TASK_STATUS_IGNORED
+   :type: TaskStatus
 
-   See :meth:`~Nursery.start`.
+   See :meth:`Nursery.start`.
+
 
 .. _task-local-storage:
 

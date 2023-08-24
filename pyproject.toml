@@ -1,5 +1,11 @@
 [tool.black]
 target-version = ['py38']
+force-exclude = '''
+(
+  ^/docs/source/reference-.*
+  | ^/docs/source/tutorial
+)
+'''
 
 [tool.codespell]
 ignore-words-list = 'astroid,crasher,asend'
@@ -9,7 +15,6 @@ extend-ignore = ['D', 'E', 'W', 'F403', 'F405', 'F821', 'F822']
 per-file-ignores = [
   'trio/__init__.py: F401',
   'trio/_core/__init__.py: F401',
-  'trio/_core/_generated*.py: F401',
   'trio/_core/_tests/test_multierror_scripts/*: F401',
   'trio/abc.py: F401',
   'trio/lowlevel.py: F401',
@@ -21,6 +26,10 @@ per-file-ignores = [
 combine_as_imports = true
 profile = "black"
 skip_gitignore = true
+skip_glob = [
+  "docs/source/reference-*",
+  "docs/source/tutorial/*"
+]
 
 [tool.mypy]
 python_version = "3.8"
@@ -29,58 +38,91 @@ python_version = "3.8"
 ignore_missing_imports = true
 
 # Be strict about use of Mypy
+local_partial_types = true
 warn_unused_ignores = true
 warn_unused_configs = true
 warn_redundant_casts = true
 warn_return_any = true
 
 # Avoid subtle backsliding
-#disallow_any_decorated = true
-#disallow_incomplete_defs = true
-#disallow_subclassing_any = true
-
-# Enable gradually / for new modules
-check_untyped_defs = false
-disallow_untyped_calls = false
-disallow_untyped_defs = false
-
-# DO NOT use `ignore_errors`; it doesn't apply
-# downstream and users have to deal with them.
-[[tool.mypy.overrides]]
-# Fully typed, enable stricter checks
-module = [
-    "trio._abc",
-    "trio._core._entry_queue",
-    "trio._core._local",
-    "trio._core._unbounded_queue",
-    "trio._deprecate",
-    "trio._dtls",
-    "trio._file_io",
-    "trio._highlevel_open_tcp_stream.py",
-    "trio._ki",
-    "trio._socket",
-    "trio._sync",
-    "trio._util",
-]
-disallow_incomplete_defs = true
-disallow_untyped_defs = true
-disallow_untyped_decorators = true
-disallow_any_generics = true
 disallow_any_decorated = true
-disallow_any_unimported = true
-disallow_subclassing_any = true
-
-[[tool.mypy.overrides]]
-# Needs to use Any due to some complex introspection.
-module = [
-    "trio._path",
-]
+disallow_any_generics = true
+disallow_any_unimported = false  # Enable once Outcome has stubs.
 disallow_incomplete_defs = true
-disallow_untyped_defs = true
-#disallow_any_generics = true
-#disallow_any_decorated = true
-disallow_any_unimported = true
 disallow_subclassing_any = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+
+# Enable once other problems are dealt with
+check_untyped_defs = true
+disallow_untyped_calls = false
+
+# files not yet fully typed
+[[tool.mypy.overrides]]
+module = [
+# 2761
+"trio/_core/_generated_io_windows",
+"trio/_core/_io_windows",
+
+"trio/_signals",
+
+# internal
+"trio/_windows_pipes",
+
+# tests
+"trio/testing/_fake_net",
+"trio/_core/_tests/test_asyncgen",
+"trio/_core/_tests/test_guest_mode",
+"trio/_core/_tests/test_instrumentation",
+"trio/_core/_tests/test_io",
+"trio/_core/_tests/test_ki",
+"trio/_core/_tests/test_local",
+"trio/_core/_tests/test_mock_clock",
+"trio/_core/_tests/test_multierror",
+"trio/_core/_tests/test_multierror_scripts/ipython_custom_exc",
+"trio/_core/_tests/test_multierror_scripts/simple_excepthook",
+"trio/_core/_tests/test_parking_lot",
+"trio/_core/_tests/test_run",
+"trio/_core/_tests/test_thread_cache",
+"trio/_core/_tests/test_tutil",
+"trio/_core/_tests/test_unbounded_queue",
+"trio/_core/_tests/tutil",
+"trio/_tests/pytest_plugin",
+"trio/_tests/test_abc",
+"trio/_tests/test_channel",
+"trio/_tests/test_deprecate",
+"trio/_tests/test_dtls",
+"trio/_tests/test_exports",
+"trio/_tests/test_file_io",
+"trio/_tests/test_highlevel_generic",
+"trio/_tests/test_highlevel_open_tcp_listeners",
+"trio/_tests/test_highlevel_open_tcp_stream",
+"trio/_tests/test_highlevel_open_unix_stream",
+"trio/_tests/test_highlevel_serve_listeners",
+"trio/_tests/test_highlevel_socket",
+"trio/_tests/test_highlevel_ssl_helpers",
+"trio/_tests/test_path",
+"trio/_tests/test_scheduler_determinism",
+"trio/_tests/test_signals",
+"trio/_tests/test_socket",
+"trio/_tests/test_ssl",
+"trio/_tests/test_subprocess",
+"trio/_tests/test_sync",
+"trio/_tests/test_testing",
+"trio/_tests/test_threads",
+"trio/_tests/test_timeouts",
+"trio/_tests/test_tracing",
+"trio/_tests/test_util",
+"trio/_tests/test_wait_for_object",
+"trio/_tests/test_windows_pipes",
+"trio/_tests/tools/test_gen_exports",
+]
+check_untyped_defs = false
+disallow_any_decorated = false
+disallow_any_generics = false
+disallow_any_unimported = false
+disallow_incomplete_defs = false
+disallow_untyped_defs = false
 
 [tool.pytest.ini_options]
 addopts = ["--strict-markers", "--strict-config"]

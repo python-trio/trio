@@ -27,9 +27,9 @@ fi
 flake8 trio/ || EXIT_STATUS=$?
 
 # Run mypy on all supported platforms
-mypy -m trio -m trio.testing --platform linux || EXIT_STATUS=$?
-mypy -m trio -m trio.testing --platform darwin || EXIT_STATUS=$?  # tests FreeBSD too
-mypy -m trio -m trio.testing --platform win32 || EXIT_STATUS=$?
+mypy trio --platform linux || EXIT_STATUS=$?
+mypy trio --platform darwin || EXIT_STATUS=$?  # tests FreeBSD too
+mypy trio --platform win32 || EXIT_STATUS=$?
 
 # Check pip compile is consistent
 pip-compile test-requirements.in
@@ -44,9 +44,9 @@ fi
 codespell || EXIT_STATUS=$?
 
 python trio/_tests/check_type_completeness.py --overwrite-file || EXIT_STATUS=$?
-if git status --porcelain trio/_tests/verify_types.json | grep -q "M"; then
+if git status --porcelain trio/_tests/verify_types*.json | grep -q "M"; then
     echo "Type completeness changed, please update!"
-    git --no-pager diff --color trio/_tests/verify_types.json
+    git --no-pager diff --color trio/_tests/verify_types*.json
     EXIT_STATUS=1
 fi
 

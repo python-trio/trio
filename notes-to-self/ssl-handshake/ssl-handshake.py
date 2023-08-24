@@ -1,5 +1,5 @@
-import ssl
 import socket
+import ssl
 import threading
 from contextlib import contextmanager
 

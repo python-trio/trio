@@ -49,7 +49,11 @@ attributes, :meth:`trio.Lock.statistics`, etc.). Here are some more.
 Global statistics
 -----------------
 
-.. autofunction:: current_statistics
+.. function:: current_statistics() -> RunStatistics
+
+   Returns an object containing run-loop-level debugging information:
+
+.. autoclass:: RunStatistics()
 
 
 The current clock
@@ -534,8 +538,6 @@ Task API
       putting a task to sleep and then waking it up again. (See
       :func:`wait_task_rescheduled` for details.)
 
-.. autoclass:: TaskStatus
-   :members:
 
 .. _guest-mode:
 

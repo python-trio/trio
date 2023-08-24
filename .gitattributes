@@ -2,5 +2,3 @@
 trio/_core/_generated*    linguist-generated=true
 # Treat generated files as binary in git diff
 trio/_core/_generated*    -diff
-# don't merge the generated json file, let the user (script) handle it
-trio/_tests/verify_types.json merge=binary

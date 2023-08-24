@@ -13,6 +13,7 @@ from ._core import (
     ParkingLot as ParkingLot,
     ParkingLotStatistics as ParkingLotStatistics,
     RaiseCancelT as RaiseCancelT,
+    RunStatistics as RunStatistics,
     RunVar as RunVar,
     Task as Task,
     TaskStatus as TaskStatus,
