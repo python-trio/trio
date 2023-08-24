@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Union
+
 import pytest
 
 import trio
@@ -14,7 +16,7 @@ async def test_channel() -> None:
     with pytest.raises(ValueError):
         open_memory_channel(-1)
 
-    s, r = open_memory_channel[int | str | None](2)
+    s, r = open_memory_channel[Union[int, str, None]](2)
     repr(s)  # smoke test
     repr(r)  # smoke test
 
@@ -66,9 +68,7 @@ async def test_channel_multiple_producers() -> None:
             for j in range(3 * i, 3 * (i + 1)):
                 await send_channel.send(j)
 
-    send_channel: trio.MemorySendChannel[int]
-    receive_channel: trio.MemoryReceiveChannel[int]
-    send_channel, receive_channel = open_memory_channel(0)
+    send_channel, receive_channel = open_memory_channel[int](0)
     async with trio.open_nursery() as nursery:
         # We hand out clones to all the new producers, and then close the
         # original.
@@ -94,9 +94,7 @@ async def test_channel_multiple_consumers() -> None:
             received.append(value)
 
     async with trio.open_nursery() as nursery:
-        send_channel: trio.MemorySendChannel[int]
-        receive_channel: trio.MemoryReceiveChannel[int]
-        send_channel, receive_channel = trio.open_memory_channel(1)
+        send_channel, receive_channel = trio.open_memory_channel[int](1)
         async with send_channel:
             for i in range(5):
                 nursery.start_soon(consumer, receive_channel, i)
@@ -359,7 +357,7 @@ async def test_statistics() -> None:
 async def test_channel_fairness() -> None:
     # We can remove an item we just sent, and send an item back in after, if
     # no-one else is waiting.
-    s, r = open_memory_channel[int | None](1)
+    s, r = open_memory_channel[Union[int, None]](1)
     s.send_nowait(1)
     assert r.receive_nowait() == 1
     s.send_nowait(2)
@@ -385,7 +383,7 @@ async def test_channel_fairness() -> None:
     # And the analogous situation for send: if we free up a space, we can't
     # immediately send something in it if someone is already waiting to do
     # that
-    s, r = open_memory_channel[int | None](1)
+    s, r = open_memory_channel[Union[int, None]](1)
     s.send_nowait(1)
     with pytest.raises(trio.WouldBlock):
         s.send_nowait(None)
