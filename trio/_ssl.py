@@ -214,6 +214,8 @@ class NeedHandshakeError(Exception):
 
     """
 
+    __slots__ = ()
+
 
 class _Once:
     __slots__ = ("_afn", "_args", "started", "_done")
