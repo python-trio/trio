@@ -23,8 +23,6 @@ import outcome
 import pytest
 import sniffio
 
-import trio
-
 from ... import _core
 from ..._core._multierror import MultiError, NonBaseMultiError
 from ..._threads import to_thread_run_sync
