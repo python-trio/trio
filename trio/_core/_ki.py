@@ -121,7 +121,7 @@ def currently_ki_protected() -> bool:
 # see python-trio/async_generator/async_generator/_impl.py
 def legacy_isasyncgenfunction(
     obj: object,
-) -> TypeGuard[Callable[..., types.AsyncGeneratorType]]:
+) -> TypeGuard[Callable[..., types.AsyncGeneratorType[object, object]]]:
     return getattr(obj, "_async_gen_function", None) == id(obj)
 
 
@@ -196,7 +196,9 @@ disable_ki_protection.__name__ = "disable_ki_protection"
 
 @attr.s
 class KIManager:
-    handler = attr.ib(default=None)
+    handler: Callable[[int, types.FrameType | None], None] | None = attr.ib(
+        default=None
+    )
 
     def install(
         self,
@@ -221,7 +223,7 @@ class KIManager:
         self.handler = handler
         signal.signal(signal.SIGINT, handler)
 
-    def close(self):
+    def close(self) -> None:
         if self.handler is not None:
             if signal.getsignal(signal.SIGINT) is self.handler:
                 signal.signal(signal.SIGINT, signal.default_int_handler)

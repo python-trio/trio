@@ -5,7 +5,7 @@ import socket
 import ssl
 import threading
 
-#client_sock, server_sock = socket.socketpair()
+# client_sock, server_sock = socket.socketpair()
 listen_sock = socket.socket()
 listen_sock.bind(("127.0.0.1", 0))
 listen_sock.listen(1)
@@ -52,12 +52,12 @@ assert server.recv(10) == b"x"
 server.shutdown(socket.SHUT_WR)
 
 # Attempting to read/write to the fd after it's closed should raise EBADF
-#os.close(server.fileno())
+# os.close(server.fileno())
 
 # Attempting to read/write to an fd opened with O_DIRECT raises EINVAL in most
 # cases (unless you're very careful with alignment etc. which openssl isn't)
-#os.dup2(os.open("/tmp/blah-example-file", os.O_RDWR | os.O_CREAT | os.O_DIRECT), server.fileno())
+# os.dup2(os.open("/tmp/blah-example-file", os.O_RDWR | os.O_CREAT | os.O_DIRECT), server.fileno())
 
 # Sending or receiving
 server.sendall(b"hello")
-#server.recv(10)
+# server.recv(10)

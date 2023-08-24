@@ -26,8 +26,8 @@
 # Also, it must be set on listen2 before calling bind(), or it will conflict
 # with the lingering server1 socket.
 
-import socket
 import errno
+import socket
 
 import attr
 

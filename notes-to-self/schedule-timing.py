@@ -1,5 +1,6 @@
-import trio
 import time
+
+import trio
 
 LOOPS = 0
 RUNNING = True

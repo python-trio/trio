@@ -3,13 +3,13 @@
 # make sure it's on sys.path.
 import sys
 
-import _common
+import _common  # isort: split
 
 sys.path.append("/usr/lib/python3/dist-packages")
 import apport_python_hook
 
 apport_python_hook.install()
 
-import trio
+from trio._core._multierror import MultiError  # Bypass deprecation warnings
 
-raise trio.MultiError([KeyError("key_error"), ValueError("value_error")])
+raise MultiError([KeyError("key_error"), ValueError("value_error")])

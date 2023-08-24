@@ -44,7 +44,6 @@ nitpicky = True
 nitpick_ignore = [
     ("py:class", "CapacityLimiter-like object"),
     ("py:class", "bytes-like"),
-    ("py:class", "None"),
     # Was removed but still shows up in changelog
     ("py:class", "trio.lowlevel.RunLocal"),
     # trio.abc is documented at random places scattered throughout the docs
@@ -53,32 +52,14 @@ nitpick_ignore = [
     ("py:exc", "Anything else"),
     ("py:class", "async function"),
     ("py:class", "sync function"),
-    # https://github.com/sphinx-doc/sphinx/issues/7722
-    # TODO: why do these need to be spelled out?
-    ("py:class", "trio._abc.ReceiveType"),
-    ("py:class", "trio._abc.SendType"),
-    ("py:class", "trio._abc.T"),
-    ("py:obj", "trio._abc.ReceiveType"),
-    ("py:obj", "trio._abc.SendType"),
-    ("py:obj", "trio._abc.T"),
-    ("py:obj", "trio._abc.T_resource"),
-    ("py:class", "trio._core._run.StatusT"),
-    ("py:class", "trio._core._run.StatusT_co"),
-    ("py:class", "trio._core._run.StatusT_contra"),
-    ("py:class", "trio._core._run.RetT"),
-    ("py:class", "trio._threads.T"),
-    ("py:class", "P.args"),
-    ("py:class", "P.kwargs"),
-    ("py:class", "RetT"),
     # why aren't these found in stdlib?
     ("py:class", "types.FrameType"),
-    # TODO: figure out if you can link this to SSL
-    ("py:class", "Context"),
     # TODO: temporary type
     ("py:class", "_SocketType"),
     # these are not defined in https://docs.python.org/3/objects.inv
     ("py:class", "socket.AddressFamily"),
     ("py:class", "socket.SocketKind"),
+    ("py:class", "Buffer"),  # collections.abc.Buffer, in 3.12
 ]
 autodoc_inherit_docstrings = False
 default_role = "obj"
@@ -91,6 +72,9 @@ autodoc_type_aliases = {
     # aliasing doesn't actually fix the warning for types.FrameType, but displaying
     # "types.FrameType" is more helpful than just "frame"
     "FrameType": "types.FrameType",
+    # unaliasing these makes intersphinx able to resolve them
+    "Outcome": "outcome.Outcome",
+    "Context": "OpenSSL.SSL.Context",
 }
 
 
@@ -139,6 +123,7 @@ extensions = [
     "sphinxcontrib_trio",
     "sphinxcontrib.jquery",
     "local_customization",
+    "typevars",
 ]
 
 intersphinx_mapping = {
