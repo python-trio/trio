@@ -68,7 +68,7 @@ def test_winerror(monkeypatch) -> None:
 # UnboundedQueue (or just removed until we have time to redo it), but until
 # then we filter out the warning.
 @pytest.mark.filterwarnings("ignore:.*UnboundedQueue:trio.TrioDeprecationWarning")
-async def test_completion_key_listen():
+async def test_completion_key_listen() -> None:
     async def post(key):
         iocp = ffi.cast("HANDLE", _core.current_iocp())
         for i in range(10):
@@ -94,7 +94,7 @@ async def test_completion_key_listen():
             print("end loop")
 
 
-async def test_readinto_overlapped():
+async def test_readinto_overlapped() -> None:
     data = b"1" * 1024 + b"2" * 1024 + b"3" * 1024 + b"4" * 1024
     buffer = bytearray(len(data))
 
@@ -121,7 +121,7 @@ async def test_readinto_overlapped():
         try:
             with memoryview(buffer) as buffer_view:
 
-                async def read_region(start, end):
+                async def read_region(start: int, end: int) -> None:
                     await _core.readinto_overlapped(
                         handle, buffer_view[start:end], start
                     )
@@ -154,7 +154,7 @@ def pipe_with_overlapped_read():
 
 
 @restore_unraisablehook()
-def test_forgot_to_register_with_iocp():
+def test_forgot_to_register_with_iocp() -> None:
     with pipe_with_overlapped_read() as (write_fp, read_handle):
         with write_fp:
             write_fp.write(b"test\n")
@@ -188,7 +188,7 @@ def test_forgot_to_register_with_iocp():
 
 
 @slow
-async def test_too_late_to_cancel():
+async def test_too_late_to_cancel() -> None:
     import time
 
     with pipe_with_overlapped_read() as (write_fp, read_handle):
@@ -216,7 +216,7 @@ async def test_too_late_to_cancel():
         assert target[:6] == b"test2\n"
 
 
-def test_lsp_that_hooks_select_gives_good_error(monkeypatch):
+def test_lsp_that_hooks_select_gives_good_error(monkeypatch) -> None:
     from .. import _io_windows
     from .._windows_cffi import WSAIoctls, _handle
 
@@ -235,7 +235,7 @@ def test_lsp_that_hooks_select_gives_good_error(monkeypatch):
         _core.run(sleep, 0)
 
 
-def test_lsp_that_completely_hides_base_socket_gives_good_error(monkeypatch):
+def test_lsp_that_completely_hides_base_socket_gives_good_error(monkeypatch) -> None:
     # This tests behavior with an LSP that fails SIO_BASE_HANDLE and returns
     # self for SIO_BSP_HANDLE_SELECT (like Komodia), but also returns
     # self for SIO_BSP_HANDLE_POLL. No known LSP does this, but we want to
@@ -244,7 +244,7 @@ def test_lsp_that_completely_hides_base_socket_gives_good_error(monkeypatch):
     from .. import _io_windows
     from .._windows_cffi import WSAIoctls, _handle
 
-    def patched_get_underlying(sock, *, which=WSAIoctls.SIO_BASE_HANDLE):
+    def patched_get_underlying(sock, *, which: int = WSAIoctls.SIO_BASE_HANDLE):
         if hasattr(sock, "fileno"):  # pragma: no branch
             sock = sock.fileno()
         if which == WSAIoctls.SIO_BASE_HANDLE:

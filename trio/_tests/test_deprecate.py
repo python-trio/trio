@@ -13,7 +13,7 @@ from . import module_with_deprecations
 
 
 @pytest.fixture
-def recwarn_always(recwarn):
+def recwarn_always(recwarn: object) -> object:
     warnings.simplefilter("always")
     # ResourceWarnings about unclosed sockets can occur nondeterministically
     # (during GC) which throws off the tests in this file
@@ -21,13 +21,13 @@ def recwarn_always(recwarn):
     return recwarn
 
 
-def _here():
+def _here() -> tuple[str, int]:
     info = inspect.getframeinfo(inspect.currentframe().f_back)
     return (info.filename, info.lineno)
 
 
-def test_warn_deprecated(recwarn_always):
-    def deprecated_thing():
+def test_warn_deprecated(recwarn_always) -> None:
+    def deprecated_thing() -> None:
         warn_deprecated("ice", "1.2", issue=1, instead="water")
 
     deprecated_thing()
@@ -42,7 +42,7 @@ def test_warn_deprecated(recwarn_always):
     assert got.lineno == lineno - 1
 
 
-def test_warn_deprecated_no_instead_or_issue(recwarn_always):
+def test_warn_deprecated_no_instead_or_issue(recwarn_always) -> None:
     # Explicitly no instead or issue
     warn_deprecated("water", "1.3", issue=None, instead=None)
     assert len(recwarn_always) == 1
@@ -52,11 +52,11 @@ def test_warn_deprecated_no_instead_or_issue(recwarn_always):
     assert "Trio 1.3" in got.message.args[0]
 
 
-def test_warn_deprecated_stacklevel(recwarn_always):
-    def nested1():
+def test_warn_deprecated_stacklevel(recwarn_always) -> None:
+    def nested1() -> None:
         nested2()
 
-    def nested2():
+    def nested2() -> None:
         warn_deprecated("x", "1.3", issue=7, instead="y", stacklevel=3)
 
     filename, lineno = _here()
@@ -66,15 +66,15 @@ def test_warn_deprecated_stacklevel(recwarn_always):
     assert got.lineno == lineno + 1
 
 
-def old():  # pragma: no cover
+def old() -> None:  # pragma: no cover
     pass
 
 
-def new():  # pragma: no cover
+def new() -> None:  # pragma: no cover
     pass
 
 
-def test_warn_deprecated_formatting(recwarn_always):
+def test_warn_deprecated_formatting(recwarn_always) -> None:
     warn_deprecated(old, "1.0", issue=1, instead=new)
     got = recwarn_always.pop(TrioDeprecationWarning)
     assert "test_deprecate.old is deprecated" in got.message.args[0]
@@ -82,7 +82,7 @@ def test_warn_deprecated_formatting(recwarn_always):
 
 
 @deprecated("1.5", issue=123, instead=new)
-def deprecated_old():
+def deprecated_old() -> int:
     return 3
 
 
@@ -97,7 +97,7 @@ def test_deprecated_decorator(recwarn_always):
 
 class Foo:
     @deprecated("1.0", issue=123, instead="crying")
-    def method(self):
+    def method(self) -> int:
         return 7
 
 
@@ -109,7 +109,7 @@ def test_deprecated_decorator_method(recwarn_always):
 
 
 @deprecated("1.2", thing="the thing", issue=None, instead=None)
-def deprecated_with_thing():
+def deprecated_with_thing() -> int:
     return 72
 
 
@@ -119,14 +119,14 @@ def test_deprecated_decorator_with_explicit_thing(recwarn_always):
     assert "the thing is deprecated" in got.message.args[0]
 
 
-def new_hotness():
+def new_hotness() -> str:
     return "new hotness"
 
 
 old_hotness = deprecated_alias("old_hotness", new_hotness, "1.23", issue=1)
 
 
-def test_deprecated_alias(recwarn_always):
+def test_deprecated_alias(recwarn_always) -> None:
     assert old_hotness() == "new hotness"
     got = recwarn_always.pop(TrioDeprecationWarning)
     assert "test_deprecate.old_hotness is deprecated" in got.message.args[0]
@@ -140,7 +140,7 @@ def test_deprecated_alias(recwarn_always):
 
 
 class Alias:
-    def new_hotness_method(self):
+    def new_hotness_method(self) -> str:
         return "new hotness method"
 
     old_hotness_method = deprecated_alias(
@@ -158,22 +158,22 @@ def test_deprecated_alias_method(recwarn_always):
 
 
 @deprecated("2.1", issue=1, instead="hi")
-def docstring_test1():  # pragma: no cover
+def docstring_test1() -> None:  # pragma: no cover
     """Hello!"""
 
 
 @deprecated("2.1", issue=None, instead="hi")
-def docstring_test2():  # pragma: no cover
+def docstring_test2() -> None:  # pragma: no cover
     """Hello!"""
 
 
 @deprecated("2.1", issue=1, instead=None)
-def docstring_test3():  # pragma: no cover
+def docstring_test3() -> None:  # pragma: no cover
     """Hello!"""
 
 
 @deprecated("2.1", issue=None, instead=None)
-def docstring_test4():  # pragma: no cover
+def docstring_test4() -> None:  # pragma: no cover
     """Hello!"""
 
 
@@ -219,7 +219,7 @@ def test_deprecated_docstring_munging():
     )
 
 
-def test_module_with_deprecations(recwarn_always):
+def test_module_with_deprecations(recwarn_always) -> None:
     assert module_with_deprecations.regular == "hi"
     assert len(recwarn_always) == 0
 
