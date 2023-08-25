@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import inspect
 import warnings
-from typing import Any, TypeAlias
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -13,6 +13,9 @@ from .._deprecate import (
     warn_deprecated,
 )
 from . import module_with_deprecations
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeAlias
 
 
 @pytest.fixture
