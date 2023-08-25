@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import random
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from itertools import count
 from typing import NoReturn
@@ -30,7 +33,7 @@ parametrize_ipv6 = pytest.mark.parametrize(
 )
 
 
-def endpoint(**kwargs) -> DTLSEndpoint:
+def endpoint(**kwargs: int | bool) -> DTLSEndpoint:
     ipv6 = kwargs.pop("ipv6", False)
     if ipv6:
         family = trio.socket.AF_INET6
@@ -43,7 +46,7 @@ def endpoint(**kwargs) -> DTLSEndpoint:
 @asynccontextmanager
 async def dtls_echo_server(
     *, autocancel: bool = True, mtu=None, ipv6: bool = False
-) -> None:
+) -> AsyncGenerator[tuple[DTLSEndpoint, tuple[str, int]], None]:
     with endpoint(ipv6=ipv6) as server:
         if ipv6:
             localhost = "::1"
@@ -52,7 +55,7 @@ async def dtls_echo_server(
         await server.socket.bind((localhost, 0))
         async with trio.open_nursery() as nursery:
 
-            async def echo_handler(dtls_channel):
+            async def echo_handler(dtls_channel) -> None:
                 print(
                     "echo handler started: "
                     f"server {dtls_channel.endpoint.socket.getsockname()} "
@@ -79,7 +82,7 @@ async def dtls_echo_server(
 
 
 @parametrize_ipv6
-async def test_smoke(ipv6):
+async def test_smoke(ipv6: bool) -> None:
     async with dtls_echo_server(ipv6=ipv6) as (server_endpoint, address):
         with endpoint(ipv6=ipv6) as client_endpoint:
             client_channel = client_endpoint.connect(address, client_ctx)
@@ -115,7 +118,7 @@ async def test_handshake_over_terrible_network(autojump_clock: trio.abc.Clock) -
     async with dtls_echo_server() as (_, address):
         async with trio.open_nursery() as nursery:
 
-            async def route_packet(packet):
+            async def route_packet(packet) -> None:
                 while True:
                     op = r.choices(
                         ["deliver", "drop", "dupe", "delay"],
@@ -207,7 +210,7 @@ async def test_full_duplex() -> None:
         await server_endpoint.socket.bind(("127.0.0.1", 0))
         async with trio.open_nursery() as server_nursery:
 
-            async def handler(channel):
+            async def handler(channel) -> None:
                 async with trio.open_nursery() as nursery:
                     nursery.start_soon(channel.send, b"from server")
                     nursery.start_soon(channel.receive)
@@ -273,7 +276,7 @@ async def test_client_multiplex() -> None:
             async with trio.open_nursery() as nursery:
                 with pytest.raises(trio.ClosedResourceError):
 
-                    async def null_handler(_):  # pragma: no cover
+                    async def null_handler(_: object) -> None:  # pragma: no cover
                         pass
 
                     await nursery.start(client_endpoint.serve, server_ctx, null_handler)
@@ -286,7 +289,7 @@ async def test_dtls_over_dgram_only() -> None:
 
 
 async def test_double_serve() -> None:
-    async def null_handler(_):  # pragma: no cover
+    async def null_handler(_: object) -> None:  # pragma: no cover
         pass
 
     with endpoint() as server_endpoint:
@@ -459,7 +462,7 @@ async def test_invalid_cookie_rejected(autojump_clock: trio.abc.Clock) -> None:
         # corrupting bytes after that.
         offset_to_corrupt = count(11)
 
-        def route_packet(packet):
+        def route_packet(packet) -> None:
             try:
                 _, cookie, _ = decode_client_hello_untrusted(packet.payload)
             except BadPacket:
@@ -504,7 +507,7 @@ async def test_client_cancels_handshake_and_starts_new_one(
         async with trio.open_nursery() as nursery:
             first_time = True
 
-            async def handler(channel):
+            async def handler(channel) -> None:
                 nonlocal first_time
                 if first_time:
                     first_time = False
@@ -540,11 +543,11 @@ async def test_swap_client_server() -> None:
         await a.socket.bind(("127.0.0.1", 0))
         await b.socket.bind(("127.0.0.1", 0))
 
-        async def echo_handler(channel):
+        async def echo_handler(channel) -> None:
             async for packet in channel:
                 await channel.send(packet)
 
-        async def crashing_echo_handler(channel):
+        async def crashing_echo_handler(channel) -> None:
             with pytest.raises(trio.BrokenResourceError):
                 await echo_handler(channel)
 
@@ -576,7 +579,7 @@ async def test_openssl_retransmit_doesnt_break_stuff() -> None:
 
     blackholed = True
 
-    def route_packet(packet):
+    def route_packet(packet) -> None:
         if blackholed:
             print("dropped packet", packet)
             return
@@ -626,7 +629,7 @@ async def test_initial_retransmit_timeout_configuration(
 
     blackholed = True
 
-    def route_packet(packet):
+    def route_packet(packet) -> None:
         nonlocal blackholed
         if blackholed:
             blackholed = False
@@ -654,7 +657,7 @@ async def test_explicit_tiny_mtu_is_respected() -> None:
     fn = FakeNet()
     fn.enable()
 
-    def route_packet(packet):
+    def route_packet(packet) -> None:
         print(f"delivering {packet}")
         print(f"payload size: {len(packet.payload)}")
         assert len(packet.payload) <= MTU
@@ -684,7 +687,7 @@ async def test_handshake_handles_minimum_network_mtu(
     else:
         mtu = 576 - 28
 
-    def route_packet(packet):
+    def route_packet(packet) -> None:
         if len(packet.payload) > mtu:
             print(f"dropping {packet}")
         else:
@@ -716,7 +719,7 @@ async def test_system_task_cleaned_up_on_gc() -> None:
     # when the frame exits. For some reason just doing 'del e' wasn't enough on pypy
     # with coverage enabled -- I think we were hitting this bug:
     #     https://foss.heptapod.net/pypy/pypy/-/issues/3656
-    async def start_and_forget_endpoint():
+    async def start_and_forget_endpoint() -> int:
         e = endpoint()
 
         # This connection/handshake attempt can't succeed. The only purpose is to force
@@ -778,7 +781,7 @@ async def test_gc_as_packet_received() -> None:
 
 @pytest.mark.filterwarnings("always:unclosed DTLS:ResourceWarning")
 def test_gc_after_trio_exits() -> None:
-    async def main():
+    async def main() -> None:
         # We use fakenet just to make sure no real sockets can leak out of the test
         # case - on pypy somehow the socket was outliving the gc_collect_harder call
         # below. Since the test is just making sure DTLSEndpoint.__del__ doesn't explode
@@ -812,7 +815,7 @@ async def test_socket_closed_while_processing_clienthello(
     # HelloVerifyRequest, since that has its own sending logic
     async with dtls_echo_server() as (server, address):
 
-        def route_packet(packet):
+        def route_packet(packet) -> None:
             fn.deliver_packet(packet)
             server.socket.close()
 
@@ -830,7 +833,7 @@ async def test_association_replaced_while_handshake_running(
     fn = FakeNet()
     fn.enable()
 
-    def route_packet(packet):
+    def route_packet(packet: object) -> None:
         pass
 
     fn.route_packet = route_packet
@@ -840,7 +843,7 @@ async def test_association_replaced_while_handshake_running(
             c1 = client_endpoint.connect(address, client_ctx)
             async with trio.open_nursery() as nursery:
 
-                async def doomed_handshake():
+                async def doomed_handshake() -> None:
                     with pytest.raises(trio.BrokenResourceError):
                         await c1.do_handshake()
 
@@ -856,7 +859,7 @@ async def test_association_replaced_before_handshake_starts() -> None:
     fn.enable()
 
     # This test shouldn't send any packets
-    def route_packet(packet) -> NoReturn:  # pragma: no cover
+    def route_packet(packet: object) -> NoReturn:  # pragma: no cover
         assert False
 
     fn.route_packet = route_packet
