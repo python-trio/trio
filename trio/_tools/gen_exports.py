@@ -287,6 +287,10 @@ IMPORTS_WINDOWS = """\
 from typing import TYPE_CHECKING, ContextManager
 
 if TYPE_CHECKING:
+    import socket
+    from ._windows_cffi import Handle, CData
+    from typing_extensions import Buffer
+
     from ._unbounded_queue import UnboundedQueue
 """
 

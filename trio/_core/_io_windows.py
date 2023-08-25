@@ -5,7 +5,16 @@ import itertools
 import socket
 import sys
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Iterator, Literal, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Iterator,
+    Literal,
+    Optional,
+    TypeVar,
+    cast,
+)
 
 import attr
 from outcome import Value
@@ -16,12 +25,15 @@ from ._run import _public
 from ._windows_cffi import (
     INVALID_HANDLE_VALUE,
     AFDPollFlags,
+    CData,
     CompletionModes,
     ErrorCodes,
     FileFlags,
+    Handle,
     IoControlCodes,
     WSAIoctls,
     _handle,
+    _Overlapped,
     ffi,
     kernel32,
     ntdll,
@@ -32,7 +44,7 @@ from ._windows_cffi import (
 assert not TYPE_CHECKING or sys.platform == "win32"
 
 if TYPE_CHECKING:
-    from typing_extensions import TypeAlias
+    from typing_extensions import Buffer, TypeAlias
 
     from ._traps import Abort, RaiseCancelT
     from ._unbounded_queue import UnboundedQueue
@@ -197,8 +209,8 @@ def _check(success: T) -> T:
 
 
 def _get_underlying_socket(
-    sock: socket.socket | int, *, which=WSAIoctls.SIO_BASE_HANDLE
-):
+    sock: socket.socket | int | Handle, *, which: WSAIoctls = WSAIoctls.SIO_BASE_HANDLE
+) -> Handle:
     if hasattr(sock, "fileno"):
         sock = sock.fileno()
     base_ptr = ffi.new("HANDLE *")
@@ -217,10 +229,10 @@ def _get_underlying_socket(
     if failed:
         code = ws2_32.WSAGetLastError()
         raise_winerror(code)
-    return base_ptr[0]
+    return Handle(base_ptr[0])
 
 
-def _get_base_socket(sock):
+def _get_base_socket(sock: socket.socket | int | Handle) -> Handle:
     # There is a development kit for LSPs called Komodia Redirector.
     # It does some unusual (some might say evil) things like intercepting
     # SIO_BASE_HANDLE (fails) and SIO_BSP_HANDLE_SELECT (returns the same
@@ -267,7 +279,7 @@ def _get_base_socket(sock):
             sock = next_sock
 
 
-def _afd_helper_handle():
+def _afd_helper_handle() -> Handle:
     # The "AFD" driver is exposed at the NT path "\Device\Afd". We're using
     # the Win32 CreateFile, though, so we have to pass a Win32 path. \\.\ is
     # how Win32 refers to the NT \GLOBAL??\ directory, and GLOBALROOT is a
@@ -345,7 +357,7 @@ WRITABLE_FLAGS = (
 class AFDWaiters:
     read_task: None = attr.ib(default=None)
     write_task: None = attr.ib(default=None)
-    current_op: None = attr.ib(default=None)
+    current_op: Optional[AFDPollOp] = attr.ib(default=None)
 
 
 # We also need to bundle up all the info for a single op into a standalone
@@ -353,10 +365,10 @@ class AFDWaiters:
 # finishes, even if we're throwing it away.
 @attr.s(slots=True, eq=False, frozen=True)
 class AFDPollOp:
-    lpOverlapped: None = attr.ib()
-    poll_info: None = attr.ib()
-    waiters: None = attr.ib()
-    afd_group: None = attr.ib()
+    lpOverlapped: CData = attr.ib()
+    poll_info: Any = attr.ib()
+    waiters: AFDWaiters = attr.ib()
+    afd_group: AFDGroup = attr.ib()
 
 
 # The Windows kernel has a weird issue when using AFD handles. If you have N
@@ -373,7 +385,7 @@ MAX_AFD_GROUP_SIZE = 500  # at 1000, the cubic scaling is just starting to bite
 @attr.s(slots=True, eq=False)
 class AFDGroup:
     size: int = attr.ib()
-    handle: None = attr.ib()
+    handle: Handle = attr.ib()
 
 
 @attr.s(slots=True, eq=False, frozen=True)
@@ -399,30 +411,30 @@ class CompletionKeyEventInfo:
 
 
 class WindowsIOManager:
-    def __init__(self):
+    def __init__(self) -> None:
         # If this method raises an exception, then __del__ could run on a
         # half-initialized object. So we initialize everything that __del__
         # touches to safe values up front, before we do anything that can
         # fail.
         self._iocp = None
-        self._all_afd_handles = []
+        self._all_afd_handles: list[Handle] = []
 
         self._iocp = _check(
             kernel32.CreateIoCompletionPort(INVALID_HANDLE_VALUE, ffi.NULL, 0, 0)
         )
         self._events = ffi.new("OVERLAPPED_ENTRY[]", MAX_EVENTS)
 
-        self._vacant_afd_groups = set()
+        self._vacant_afd_groups: set[AFDGroup] = set()
         # {lpOverlapped: AFDPollOp}
-        self._afd_ops = {}
+        self._afd_ops: dict[CData, AFDPollOp] = {}
         # {socket handle: AFDWaiters}
-        self._afd_waiters = {}
+        self._afd_waiters: dict[Handle, AFDWaiters] = {}
 
         # {lpOverlapped: task}
-        self._overlapped_waiters = {}
-        self._posted_too_late_to_cancel = set()
+        self._overlapped_waiters: dict[CData, _core.Task] = {}
+        self._posted_too_late_to_cancel: set[CData] = set()
 
-        self._completion_key_queues = {}
+        self._completion_key_queues: dict[int, UnboundedQueue[object]] = {}
         self._completion_key_counter = itertools.count(CKeys.USER_DEFINED)
 
         with socket.socket() as s:
@@ -492,6 +504,7 @@ class WindowsIOManager:
         )
 
     def force_wakeup(self) -> None:
+        assert self._iocp is not None
         _check(
             kernel32.PostQueuedCompletionStatus(
                 self._iocp, 0, CKeys.FORCE_WAKEUP, ffi.NULL
@@ -504,6 +517,7 @@ class WindowsIOManager:
         if timeout > 0 and milliseconds == 0:
             milliseconds = 1
         try:
+            assert self._iocp is not None
             _check(
                 kernel32.GetQueuedCompletionStatusEx(
                     self._iocp, self._events, MAX_EVENTS, received, milliseconds, 0
@@ -597,8 +611,9 @@ class WindowsIOManager:
                 )
                 queue.put_nowait(info)
 
-    def _register_with_iocp(self, handle, completion_key) -> None:
-        handle = _handle(handle)
+    def _register_with_iocp(self, handle_: int | CData, completion_key: int) -> None:
+        handle = _handle(handle_)
+        assert self._iocp is not None
         _check(kernel32.CreateIoCompletionPort(handle, self._iocp, completion_key, 0))
         # Supposedly this makes things slightly faster, by disabling the
         # ability to do WaitForSingleObject(handle). We would never want to do
@@ -614,7 +629,7 @@ class WindowsIOManager:
     # AFD stuff
     ################################################################
 
-    def _refresh_afd(self, base_handle) -> None:
+    def _refresh_afd(self, base_handle: Handle) -> None:
         waiters = self._afd_waiters[base_handle]
         if waiters.current_op is not None:
             afd_group = waiters.current_op.afd_group
@@ -652,7 +667,7 @@ class WindowsIOManager:
 
             lpOverlapped = ffi.new("LPOVERLAPPED")
 
-            poll_info = ffi.new("AFD_POLL_INFO *")
+            poll_info: Any = ffi.new("AFD_POLL_INFO *")
             poll_info.Timeout = 2**63 - 1  # INT64_MAX
             poll_info.NumberOfHandles = 1
             poll_info.Exclusive = 0
@@ -690,7 +705,7 @@ class WindowsIOManager:
             if afd_group.size >= MAX_AFD_GROUP_SIZE:
                 self._vacant_afd_groups.remove(afd_group)
 
-    async def _afd_poll(self, sock, mode) -> None:
+    async def _afd_poll(self, sock: socket.socket | int, mode: str) -> None:
         base_handle = _get_base_socket(sock)
         waiters = self._afd_waiters.get(base_handle)
         if waiters is None:
@@ -711,15 +726,15 @@ class WindowsIOManager:
         await _core.wait_task_rescheduled(abort_fn)
 
     @_public
-    async def wait_readable(self, sock) -> None:
+    async def wait_readable(self, sock: socket.socket | int) -> None:
         await self._afd_poll(sock, "read_task")
 
     @_public
-    async def wait_writable(self, sock) -> None:
+    async def wait_writable(self, sock: socket.socket | int) -> None:
         await self._afd_poll(sock, "write_task")
 
     @_public
-    def notify_closing(self, handle) -> None:
+    def notify_closing(self, handle: Handle | int | socket.socket) -> None:
         handle = _get_base_socket(handle)
         waiters = self._afd_waiters.get(handle)
         if waiters is not None:
@@ -731,12 +746,14 @@ class WindowsIOManager:
     ################################################################
 
     @_public
-    def register_with_iocp(self, handle) -> None:
+    def register_with_iocp(self, handle: int | CData) -> None:
         self._register_with_iocp(handle, CKeys.WAIT_OVERLAPPED)
 
     @_public
-    async def wait_overlapped(self, handle, lpOverlapped):
-        handle = _handle(handle)
+    async def wait_overlapped(
+        self, handle_: int | CData, lpOverlapped: CData | int
+    ) -> object:
+        handle = _handle(handle_)
         if isinstance(lpOverlapped, int):
             lpOverlapped = ffi.cast("LPOVERLAPPED", lpOverlapped)
         if lpOverlapped in self._overlapped_waiters:
@@ -754,6 +771,7 @@ class WindowsIOManager:
                 _check(kernel32.CancelIoEx(handle, lpOverlapped))
             except OSError as exc:
                 if exc.winerror == ErrorCodes.ERROR_NOT_FOUND:
+                    assert self._iocp is not None
                     # Too late to cancel. If this happens because the
                     # operation is already completed, we don't need to do
                     # anything; we'll get a notification of that completion
@@ -782,12 +800,14 @@ class WindowsIOManager:
                     ) from exc
             return _core.Abort.FAILED
 
+        # TODO: what type does this return?
         info = await _core.wait_task_rescheduled(abort)
-        if lpOverlapped.Internal != 0:
+        lpOverlappedTyped = cast("_Overlapped", lpOverlapped)
+        if lpOverlappedTyped.Internal != 0:
             # the lpOverlapped reports the error as an NT status code,
             # which we must convert back to a Win32 error code before
             # it will produce the right sorts of exceptions
-            code = ntdll.RtlNtStatusToDosError(lpOverlapped.Internal)
+            code = ntdll.RtlNtStatusToDosError(lpOverlappedTyped.Internal)
             if code == ErrorCodes.ERROR_OPERATION_ABORTED:
                 if raise_cancel is not None:
                     raise_cancel()
@@ -800,7 +820,9 @@ class WindowsIOManager:
                 raise_winerror(code)
         return info
 
-    async def _perform_overlapped(self, handle, submit_fn):
+    async def _perform_overlapped(
+        self, handle: int | CData, submit_fn: Callable[[_Overlapped], None]
+    ) -> _Overlapped:
         # submit_fn(lpOverlapped) submits some I/O
         # it may raise an OSError with ERROR_IO_PENDING
         # the handle must already be registered using
@@ -809,20 +831,22 @@ class WindowsIOManager:
         # operation will not be cancellable, depending on how Windows is
         # feeling today. So we need to check for cancellation manually.
         await _core.checkpoint_if_cancelled()
-        lpOverlapped = ffi.new("LPOVERLAPPED")
+        lpOverlapped = cast(_Overlapped, ffi.new("LPOVERLAPPED"))
         try:
             submit_fn(lpOverlapped)
         except OSError as exc:
             if exc.winerror != ErrorCodes.ERROR_IO_PENDING:
                 raise
-        await self.wait_overlapped(handle, lpOverlapped)
+        await self.wait_overlapped(handle, cast(CData, lpOverlapped))
         return lpOverlapped
 
     @_public
-    async def write_overlapped(self, handle, data, file_offset=0):
+    async def write_overlapped(
+        self, handle: int | CData, data: Buffer, file_offset: int = 0
+    ) -> int:
         with ffi.from_buffer(data) as cbuf:
 
-            def submit_write(lpOverlapped):
+            def submit_write(lpOverlapped: _Overlapped) -> None:
                 # yes, these are the real documented names
                 offset_fields = lpOverlapped.DUMMYUNIONNAME.DUMMYSTRUCTNAME
                 offset_fields.Offset = file_offset & 0xFFFFFFFF
@@ -842,10 +866,12 @@ class WindowsIOManager:
             return lpOverlapped.InternalHigh
 
     @_public
-    async def readinto_overlapped(self, handle, buffer, file_offset=0):
+    async def readinto_overlapped(
+        self, handle: int | CData, buffer: Buffer, file_offset: int = 0
+    ) -> int:
         with ffi.from_buffer(buffer, require_writable=True) as cbuf:
 
-            def submit_read(lpOverlapped):
+            def submit_read(lpOverlapped: _Overlapped) -> None:
                 offset_fields = lpOverlapped.DUMMYUNIONNAME.DUMMYSTRUCTNAME
                 offset_fields.Offset = file_offset & 0xFFFFFFFF
                 offset_fields.OffsetHigh = file_offset >> 32
@@ -868,6 +894,7 @@ class WindowsIOManager:
 
     @_public
     def current_iocp(self) -> int:
+        assert self._iocp is not None
         return int(ffi.cast("uintptr_t", self._iocp))
 
     @contextmanager

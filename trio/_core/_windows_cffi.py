@@ -237,11 +237,11 @@ class _Kernel32(Protocol):
     def CreateIoCompletionPort(
         self,
         FileHandle: Handle,
-        ExistingCompletionPort: CData,
+        ExistingCompletionPort: CData | AlwaysNull,
         CompletionKey: int,
         NumberOfConcurrentThreads: int,
         /,
-    ) -> CData:
+    ) -> Handle:
         ...
 
     def CreateEventA(
@@ -259,9 +259,51 @@ class _Kernel32(Protocol):
     ) -> int:
         ...
 
+    def PostQueuedCompletionStatus(
+        self,
+        CompletionPort: Handle,
+        dwNumberOfBytesTransferred: int,
+        dwCompletionKey: int,
+        lpOverlapped: CData | AlwaysNull,
+        /,
+    ) -> bool:
+        ...
+
+    def CancelIoEx(
+        self,
+        hFile: Handle,
+        lpOverlapped: CData | AlwaysNull,
+        /,
+    ) -> bool:
+        ...
+
+    def WriteFile(
+        self,
+        hFile: Handle,
+        # not sure about this type
+        lpBuffer: CData,
+        nNumberOfBytesToWrite: int,
+        lpNumberOfBytesWritten: AlwaysNull,
+        lpOverlapped: _Overlapped,
+        /,
+    ) -> bool:
+        ...
+
+    def ReadFile(
+        self,
+        hFile: Handle,
+        # not sure about this type
+        lpBuffer: CData,
+        nNumberOfBytesToRead: int,
+        lpNumberOfBytesRead: AlwaysNull,
+        lpOverlapped: _Overlapped,
+        /,
+    ) -> bool:
+        ...
+
     def GetQueuedCompletionStatusEx(
         self,
-        CompletionPort: CData,
+        CompletionPort: Handle,
         lpCompletionPortEntries: CData,
         ulCount: int,
         ulNumEntriesRemoved: CData,
@@ -300,7 +342,23 @@ class _Kernel32(Protocol):
     def SetEvent(self, handle: Handle, /) -> None:
         ...
 
-    def CloseHandle(self, handle: Handle, /) -> None:
+    def CloseHandle(self, handle: Handle, /) -> bool:
+        ...
+
+    def DeviceIoControl(
+        self,
+        hDevice: Handle,
+        dwIoControlCode: int,
+        # this is wrong (it's not always null)
+        lpInBuffer: AlwaysNull,
+        nInBufferSize: int,
+        # this is also wrong
+        lpOutBuffer: AlwaysNull,
+        nOutBufferSize: int,
+        lpBytesReturned: AlwaysNull,
+        lpOverlapped: CData,
+        /,
+    ) -> bool:
         ...
 
 
@@ -325,13 +383,30 @@ class _Ws2(Protocol):
         cbInBuffer: int,
         lpvOutBuffer: CData,
         cbOutBuffer: int,
-        lpcbBytesReturned: int,
+        lpcbBytesReturned: CData,  # int*
         lpOverlapped: AlwaysNull,
         # actually LPWSAOVERLAPPED_COMPLETION_ROUTINE
         lpCompletionRoutine: AlwaysNull,
         /,
     ) -> int:
         ...
+
+
+class _DummyStruct(Protocol):
+    Offset: int
+    OffsetHigh: int
+
+
+class _DummyUnion(Protocol):
+    DUMMYSTRUCTNAME: _DummyStruct
+    Pointer: object
+
+
+class _Overlapped(Protocol):
+    Internal: int
+    InternalHigh: int
+    DUMMYUNIONNAME: _DummyUnion
+    hEvent: Handle
 
 
 kernel32 = cast(_Kernel32, ffi.dlopen("kernel32.dll"))
@@ -346,7 +421,7 @@ ws2_32 = cast(_Ws2, ffi.dlopen("ws2_32.dll"))
 #   https://www.magnumdb.com
 # (Tip: check the box to see "Hex value")
 
-INVALID_HANDLE_VALUE = ffi.cast("HANDLE", -1)
+INVALID_HANDLE_VALUE = Handle(ffi.cast("HANDLE", -1))
 
 
 class ErrorCodes(enum.IntEnum):
@@ -364,7 +439,7 @@ class ErrorCodes(enum.IntEnum):
     ERROR_NOT_SOCKET = 10038
 
 
-class FileFlags(enum.IntEnum):
+class FileFlags(enum.IntFlag):
     GENERIC_READ = 0x80000000
     SYNCHRONIZE = 0x00100000
     FILE_FLAG_OVERLAPPED = 0x40000000
