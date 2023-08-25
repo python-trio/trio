@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import inspect
 import warnings
+from typing import Any, TypeAlias
 
 import pytest
 
@@ -21,12 +24,18 @@ def recwarn_always(recwarn: object) -> object:
     return recwarn
 
 
+RecWarnObj: TypeAlias = Any
+
+
 def _here() -> tuple[str, int]:
-    info = inspect.getframeinfo(inspect.currentframe().f_back)
+    frame = inspect.currentframe()
+    if frame is None or frame.f_back is None:
+        raise RuntimeError("Current or previous frame is None!")
+    info = inspect.getframeinfo(frame.f_back)
     return (info.filename, info.lineno)
 
 
-def test_warn_deprecated(recwarn_always) -> None:
+def test_warn_deprecated(recwarn_always: RecWarnObj) -> None:
     def deprecated_thing() -> None:
         warn_deprecated("ice", "1.2", issue=1, instead="water")
 
@@ -42,7 +51,7 @@ def test_warn_deprecated(recwarn_always) -> None:
     assert got.lineno == lineno - 1
 
 
-def test_warn_deprecated_no_instead_or_issue(recwarn_always) -> None:
+def test_warn_deprecated_no_instead_or_issue(recwarn_always: RecWarnObj) -> None:
     # Explicitly no instead or issue
     warn_deprecated("water", "1.3", issue=None, instead=None)
     assert len(recwarn_always) == 1
@@ -52,7 +61,7 @@ def test_warn_deprecated_no_instead_or_issue(recwarn_always) -> None:
     assert "Trio 1.3" in got.message.args[0]
 
 
-def test_warn_deprecated_stacklevel(recwarn_always) -> None:
+def test_warn_deprecated_stacklevel(recwarn_always: RecWarnObj) -> None:
     def nested1() -> None:
         nested2()
 
@@ -74,7 +83,7 @@ def new() -> None:  # pragma: no cover
     pass
 
 
-def test_warn_deprecated_formatting(recwarn_always) -> None:
+def test_warn_deprecated_formatting(recwarn_always: RecWarnObj) -> None:
     warn_deprecated(old, "1.0", issue=1, instead=new)
     got = recwarn_always.pop(TrioDeprecationWarning)
     assert "test_deprecate.old is deprecated" in got.message.args[0]
@@ -86,7 +95,7 @@ def deprecated_old() -> int:
     return 3
 
 
-def test_deprecated_decorator(recwarn_always):
+def test_deprecated_decorator(recwarn_always: RecWarnObj) -> None:
     assert deprecated_old() == 3
     got = recwarn_always.pop(TrioDeprecationWarning)
     assert "test_deprecate.deprecated_old is deprecated" in got.message.args[0]
@@ -101,7 +110,7 @@ class Foo:
         return 7
 
 
-def test_deprecated_decorator_method(recwarn_always):
+def test_deprecated_decorator_method(recwarn_always: RecWarnObj) -> None:
     f = Foo()
     assert f.method() == 7
     got = recwarn_always.pop(TrioDeprecationWarning)
@@ -113,7 +122,7 @@ def deprecated_with_thing() -> int:
     return 72
 
 
-def test_deprecated_decorator_with_explicit_thing(recwarn_always):
+def test_deprecated_decorator_with_explicit_thing(recwarn_always: RecWarnObj) -> None:
     assert deprecated_with_thing() == 72
     got = recwarn_always.pop(TrioDeprecationWarning)
     assert "the thing is deprecated" in got.message.args[0]
@@ -126,7 +135,7 @@ def new_hotness() -> str:
 old_hotness = deprecated_alias("old_hotness", new_hotness, "1.23", issue=1)
 
 
-def test_deprecated_alias(recwarn_always) -> None:
+def test_deprecated_alias(recwarn_always: RecWarnObj) -> None:
     assert old_hotness() == "new hotness"
     got = recwarn_always.pop(TrioDeprecationWarning)
     assert "test_deprecate.old_hotness is deprecated" in got.message.args[0]
@@ -134,6 +143,7 @@ def test_deprecated_alias(recwarn_always) -> None:
     assert "test_deprecate.new_hotness instead" in got.message.args[0]
     assert "issues/1" in got.message.args[0]
 
+    assert isinstance(old_hotness.__doc__, str)
     assert ".. deprecated:: 1.23" in old_hotness.__doc__
     assert "test_deprecate.new_hotness instead" in old_hotness.__doc__
     assert "issues/1>`__" in old_hotness.__doc__
@@ -148,7 +158,7 @@ class Alias:
     )
 
 
-def test_deprecated_alias_method(recwarn_always):
+def test_deprecated_alias_method(recwarn_always: RecWarnObj) -> None:
     obj = Alias()
     assert obj.old_hotness_method() == "new hotness method"
     got = recwarn_always.pop(TrioDeprecationWarning)
@@ -177,7 +187,7 @@ def docstring_test4() -> None:  # pragma: no cover
     """Hello!"""
 
 
-def test_deprecated_docstring_munging():
+def test_deprecated_docstring_munging() -> None:
     assert (
         docstring_test1.__doc__
         == """Hello!
@@ -219,12 +229,12 @@ def test_deprecated_docstring_munging():
     )
 
 
-def test_module_with_deprecations(recwarn_always) -> None:
+def test_module_with_deprecations(recwarn_always: RecWarnObj) -> None:
     assert module_with_deprecations.regular == "hi"
     assert len(recwarn_always) == 0
 
     filename, lineno = _here()
-    assert module_with_deprecations.dep1 == "value1"
+    assert module_with_deprecations.dep1 == "value1"  # type: ignore[attr-defined]
     got = recwarn_always.pop(TrioDeprecationWarning)
     assert got.filename == filename
     assert got.lineno == lineno + 1
@@ -234,12 +244,12 @@ def test_module_with_deprecations(recwarn_always) -> None:
     assert "/issues/1" in got.message.args[0]
     assert "value1 instead" in got.message.args[0]
 
-    assert module_with_deprecations.dep2 == "value2"
+    assert module_with_deprecations.dep2 == "value2"  # type: ignore[attr-defined]
     got = recwarn_always.pop(TrioDeprecationWarning)
     assert "instead-string instead" in got.message.args[0]
 
     with pytest.raises(AttributeError):
-        module_with_deprecations.asdf
+        module_with_deprecations.asdf  # type: ignore[attr-defined]
 
 
 def test_tests_is_deprecated1() -> None:
