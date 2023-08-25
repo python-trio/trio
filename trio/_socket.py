@@ -14,6 +14,7 @@ from typing import (
     Callable,
     Literal,
     NoReturn,
+    Optional,
     SupportsIndex,
     Tuple,
     TypeVar,
@@ -43,6 +44,13 @@ T = TypeVar("T")
 # must use old-style typing because it's evaluated at runtime
 Address: TypeAlias = Union[
     str, bytes, Tuple[str, int], Tuple[str, int, int], Tuple[str, int, int, int]
+]
+AddressWithNoneHost: TypeAlias = Union[
+    str,
+    bytes,
+    Tuple[Optional[str], int],
+    Tuple[Optional[str], int, int],
+    Tuple[Optional[str], int, int, int],
 ]
 
 
@@ -450,7 +458,7 @@ async def _resolve_address_nocp(
     proto: int,
     *,
     ipv6_v6only: bool | int,
-    address: Address,
+    address: AddressWithNoneHost,
     local: bool,
 ) -> Address:
     # Do some pre-checking (or exit early for non-IP sockets)
@@ -467,7 +475,8 @@ async def _resolve_address_nocp(
         assert isinstance(address, (str, bytes))
         return os.fspath(address)
     else:
-        return address
+        # TODO: check for host is None?
+        return address  # type: ignore[return-value]
 
     # -- From here on we know we have IPv4 or IPV6 --
     host: str | None
@@ -475,13 +484,13 @@ async def _resolve_address_nocp(
     # Fast path for the simple case: already-resolved IP address,
     # already-resolved port. This is particularly important for UDP, since
     # every sendto call goes through here.
-    if isinstance(port, int):
+    if isinstance(port, int) and host is not None:
         try:
-            _stdlib_socket.inet_pton(family, address[0])
+            _stdlib_socket.inet_pton(family, host)
         except (OSError, TypeError):
             pass
         else:
-            return address
+            return address  # type: ignore[return-value]
     # Special cases to match the stdlib, see gh-277
     if host == "":
         host = None
@@ -530,66 +539,22 @@ class SocketType:
             "SocketType is an abstract class; use trio.socket.socket if you "
             "want to construct a socket object"
         )
-    def __enter__(self) -> Self:
+
+    ################################################################
+    # Simple + portable methods and attributes
+    ################################################################
+    def detach(self) -> int:
         raise NotImplementedError()
 
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_value: BaseException | None,
-        traceback: TracebackType | None,
-    ) -> None:
-        raise NotImplementedError()
-    @property
-    def type(self) -> SocketKind:
-        raise NotImplementedError()
-    @property
-    def family(self) -> AddressFamily:
-        raise NotImplementedError()
-    @property
-    def proto(self) -> int:
-        raise NotImplementedError()
-    @property
-    def did_shutdown_SHUT_WR(self) -> bool:
-        raise NotImplementedError()
-    def is_readable(self) -> bool:
-        raise NotImplementedError()
     def fileno(self) -> int:
         raise NotImplementedError()
-    async def wait_writable(self) -> None:
-        raise NotImplementedError()
-    def shutdown(self, flag: int) -> None:
+
+    def getpeername(self) -> Any:
         raise NotImplementedError()
 
-    async def connect(self, address: Address) -> None:
-        raise NotImplementedError()
-    def listen(self, /, backlog: int = min(_stdlib_socket.SOMAXCONN, 128)) -> None:
-        raise NotImplementedError()
-    async def bind(self, address: Address) -> None:
-        raise NotImplementedError()
-    def close(self) -> None:
-        raise NotImplementedError()
     def getsockname(self) -> Any:
         raise NotImplementedError()
-    async def accept(self) -> tuple[SocketType, object]:
-        raise NotImplementedError()
 
-    @overload
-    async def sendto(
-        self, __data: Buffer, __address: tuple[Any, ...] | str | Buffer
-    ) -> int:
-        ...
-
-    @overload
-    async def sendto(
-        self, __data: Buffer, __flags: int, __address: tuple[Any, ...] | str | Buffer
-    ) -> int:
-        ...
-
-    @_wraps(_stdlib_socket.socket.sendto, assigned=(), updated=())  # type: ignore[misc]
-    async def sendto(self, *args: Any) -> int:
-        """Similar to :meth:`socket.socket.sendto`, but async."""
-        raise NotImplementedError()
     @overload
     def getsockopt(self, /, level: int, optname: int) -> int:
         ...
@@ -602,6 +567,7 @@ class SocketType:
         self, /, level: int, optname: int, buflen: int | None = None
     ) -> int | bytes:
         raise NotImplementedError()
+
     @overload
     def setsockopt(self, /, level: int, optname: int, value: int | Buffer) -> None:
         ...
@@ -620,27 +586,144 @@ class SocketType:
     ) -> None:
         raise NotImplementedError()
 
-    def recvfrom(
-        __self, __bufsize: int, __flags: int = 0
-    ) -> Awaitable[tuple[bytes, Address]]:
+    def listen(self, /, backlog: int = min(_stdlib_socket.SOMAXCONN, 128)) -> None:
         raise NotImplementedError()
-    def send(__self, __bytes: Buffer, __flags: int = 0) -> Awaitable[int]:
+
+    def get_inheritable(self) -> bool:
         raise NotImplementedError()
-    def recv(__self, __buflen: int, __flags: int = 0) -> Awaitable[bytes]:
+
+    def set_inheritable(self, inheritable: bool) -> None:
         raise NotImplementedError()
+
     if sys.platform == "win32" or (
         not TYPE_CHECKING and hasattr(_stdlib_socket.socket, "share")
     ):
 
         def share(self, /, process_id: int) -> bytes:
             raise NotImplementedError()
-    def detach(self) -> int:
-        raise NotImplementedError()
-    def get_inheritable(self) -> bool:
+
+    def __enter__(self) -> Self:
         raise NotImplementedError()
 
-    def set_inheritable(self, inheritable: bool) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         raise NotImplementedError()
+
+    @property
+    def family(self) -> AddressFamily:
+        raise NotImplementedError()
+
+    @property
+    def type(self) -> SocketKind:
+        raise NotImplementedError()
+
+    @property
+    def proto(self) -> int:
+        raise NotImplementedError()
+
+    @property
+    def did_shutdown_SHUT_WR(self) -> bool:
+        raise NotImplementedError()
+
+    # def __repr__(self) -> str:
+    # raise NotImplementedError()
+    def dup(self) -> SocketType:
+        raise NotImplementedError()
+
+    def close(self) -> None:
+        raise NotImplementedError()
+
+    async def bind(self, address: Address) -> None:
+        raise NotImplementedError()
+
+    def shutdown(self, flag: int) -> None:
+        raise NotImplementedError()
+
+    def is_readable(self) -> bool:
+        raise NotImplementedError()
+
+    async def wait_writable(self) -> None:
+        raise NotImplementedError()
+
+    async def accept(self) -> tuple[SocketType, object]:
+        raise NotImplementedError()
+
+    async def connect(self, address: Address) -> None:
+        raise NotImplementedError()
+
+    def recv(__self, __buflen: int, __flags: int = 0) -> Awaitable[bytes]:
+        raise NotImplementedError()
+
+    def recv_into(
+        __self, buffer: Buffer, nbytes: int = 0, flags: int = 0
+    ) -> Awaitable[int]:
+        raise NotImplementedError()
+
+    ###
+    def recvfrom(
+        __self, __bufsize: int, __flags: int = 0
+    ) -> Awaitable[tuple[bytes, Address]]:
+        raise NotImplementedError()
+
+    # return type of socket.socket.recvfrom_into in typeshed is tuple[bytes, Any]
+    def recvfrom_into(
+        __self, buffer: Buffer, nbytes: int = 0, flags: int = 0
+    ) -> Awaitable[tuple[int, Address]]:
+        raise NotImplementedError()
+
+    # if hasattr(_stdlib_socket.socket, "recvmsg"):
+    # def recvmsg(
+    #     __self, __bufsize: int, __ancbufsize: int = 0, __flags: int = 0
+    # ) -> Awaitable[tuple[bytes, list[tuple[int, int, bytes]], int, Any]]:
+    #     raise NotImplementedError()
+
+    # if hasattr(_stdlib_socket.socket, "recvmsg_into"):
+    #    def recvmsg_into(
+    #        __self,
+    #        __buffers: Iterable[Buffer],
+    #        __ancbufsize: int = 0,
+    #        __flags: int = 0,
+    #    ) -> Awaitable[tuple[int, list[tuple[int, int, bytes]], int, Any]]:
+    #     raise NotImplementedError()
+
+    def send(__self, __bytes: Buffer, __flags: int = 0) -> Awaitable[int]:
+        raise NotImplementedError()
+
+    @overload
+    async def sendto(
+        self, __data: Buffer, __address: tuple[Any, ...] | str | Buffer
+    ) -> int:
+        ...
+
+    @overload
+    async def sendto(
+        self, __data: Buffer, __flags: int, __address: tuple[Any, ...] | str | Buffer
+    ) -> int:
+        ...
+
+    @_wraps(_stdlib_socket.socket.sendto, assigned=(), updated=())  # type: ignore[misc]
+    async def sendto(self, *args: Any) -> int:
+        """Similar to :meth:`socket.socket.sendto`, but async."""
+        raise NotImplementedError()
+
+    if sys.platform != "win32" or (
+        not TYPE_CHECKING and hasattr(_stdlib_socket.socket, "sendmsg")
+    ):
+
+        @_wraps(_stdlib_socket.socket.sendmsg, assigned=(), updated=())
+        async def sendmsg(
+            self,
+            __buffers: Iterable[Buffer],
+            __ancdata: Iterable[tuple[int, int, Buffer]] = (),
+            __flags: int = 0,
+            __address: Address | None = None,
+        ) -> int:
+            raise NotImplementedError()
+
 
 class _SocketType(SocketType):
     def __init__(self, sock: _stdlib_socket.socket):
@@ -772,7 +855,7 @@ class _SocketType(SocketType):
             trio.lowlevel.notify_closing(self._sock)
             self._sock.close()
 
-    async def bind(self, address: Address) -> None:
+    async def bind(self, address: AddressWithNoneHost) -> None:
         address = await self._resolve_address_nocp(address, local=True)
         if (
             hasattr(_stdlib_socket, "AF_UNIX")
@@ -811,7 +894,7 @@ class _SocketType(SocketType):
 
     async def _resolve_address_nocp(
         self,
-        address: Address,
+        address: AddressWithNoneHost,
         *,
         local: bool,
     ) -> Address:
@@ -891,7 +974,7 @@ class _SocketType(SocketType):
     # connect
     ################################################################
 
-    async def connect(self, address: Address) -> None:
+    async def connect(self, address: AddressWithNoneHost) -> None:
         # nonblocking connect is weird -- you call it to start things
         # off, then the socket becomes writable as a completion
         # notification. This means it isn't really cancellable... we close the
@@ -1115,7 +1198,7 @@ class _SocketType(SocketType):
             __buffers: Iterable[Buffer],
             __ancdata: Iterable[tuple[int, int, Buffer]] = (),
             __flags: int = 0,
-            __address: Address | None = None,
+            __address: AddressWithNoneHost | None = None,
         ) -> int:
             """Similar to :meth:`socket.socket.sendmsg`, but async.
 

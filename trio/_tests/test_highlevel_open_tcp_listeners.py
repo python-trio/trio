@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import errno
 import socket as stdlib_socket
 import sys
 from math import inf
 from socket import AddressFamily, SocketKind
+from typing import overload
 
 import attr
 import pytest
@@ -18,7 +21,7 @@ if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
 
 
-async def test_open_tcp_listeners_basic():
+async def test_open_tcp_listeners_basic() -> None:
     listeners = await open_tcp_listeners(0)
     assert isinstance(listeners, list)
     for obj in listeners:
@@ -46,7 +49,7 @@ async def test_open_tcp_listeners_basic():
         await resource.aclose()
 
 
-async def test_open_tcp_listeners_specific_port_specific_host():
+async def test_open_tcp_listeners_specific_port_specific_host() -> None:
     # Pick a port
     sock = tsocket.socket()
     await sock.bind(("127.0.0.1", 0))
@@ -59,7 +62,7 @@ async def test_open_tcp_listeners_specific_port_specific_host():
 
 
 @binds_ipv6
-async def test_open_tcp_listeners_ipv6_v6only():
+async def test_open_tcp_listeners_ipv6_v6only() -> None:
     # Check IPV6_V6ONLY is working properly
     (ipv6_listener,) = await open_tcp_listeners(0, host="::1")
     async with ipv6_listener:
@@ -69,7 +72,7 @@ async def test_open_tcp_listeners_ipv6_v6only():
             await open_tcp_stream("127.0.0.1", port)
 
 
-async def test_open_tcp_listeners_rebind():
+async def test_open_tcp_listeners_rebind() -> None:
     (l1,) = await open_tcp_listeners(0, host="127.0.0.1")
     sockaddr1 = l1.socket.getsockname()
 
@@ -116,13 +119,13 @@ class FakeOSError(OSError):
 
 @attr.s
 class FakeSocket(tsocket.SocketType):
-    _family: SocketKind = attr.ib()
-    _type: AddressFamily = attr.ib()
+    _family: AddressFamily = attr.ib()
+    _type: SocketKind = attr.ib()
     _proto: int = attr.ib()
 
-    closed = attr.ib(default=False)
-    poison_listen = attr.ib(default=False)
-    backlog = attr.ib(default=None)
+    closed: bool = attr.ib(default=False)
+    poison_listen: bool = attr.ib(default=False)
+    backlog: int | None = attr.ib(default=None)
 
     @property
     def type(self) -> SocketKind:
@@ -136,25 +139,50 @@ class FakeSocket(tsocket.SocketType):
     def proto(self) -> int:
         return self._proto
 
-    def getsockopt(self, level, option):
-        if (level, option) == (tsocket.SOL_SOCKET, tsocket.SO_ACCEPTCONN):
+    @overload
+    def getsockopt(self, /, level: int, optname: int) -> int:
+        ...
+
+    @overload
+    def getsockopt(self, /, level: int, optname: int, buflen: int) -> bytes:
+        ...
+
+    def getsockopt(
+        self, /, level: int, optname: int, buflen: int | None = None
+    ) -> int | bytes:
+        if (level, optname) == (tsocket.SOL_SOCKET, tsocket.SO_ACCEPTCONN):
             return True
         assert False  # pragma: no cover
 
-    def setsockopt(self, level, option, value):
+    @overload
+    def setsockopt(self, /, level: int, optname: int, value: int | Buffer) -> None:
+        ...
+
+    @overload
+    def setsockopt(self, /, level: int, optname: int, value: None, optlen: int) -> None:
+        ...
+
+    def setsockopt(
+        self,
+        /,
+        level: int,
+        optname: int,
+        value: int | Buffer | None,
+        optlen: int | None = None,
+    ) -> None:
         pass
 
-    async def bind(self, sockaddr):
+    async def bind(self, address: AddressWithNoneHost) -> None:
         pass
 
-    def listen(self, backlog):
+    def listen(self, /, backlog: int = min(_stdlib_socket.SOMAXCONN, 128)) -> None:
         assert self.backlog is None
         assert backlog is not None
         self.backlog = backlog
         if self.poison_listen:
             raise FakeOSError("whoops")
 
-    def close(self):
+    def close(self) -> None:
         self.closed = True
 
 
@@ -186,7 +214,7 @@ class FakeHostnameResolver:
         ]
 
 
-async def test_open_tcp_listeners_multiple_host_cleanup_on_error():
+async def test_open_tcp_listeners_multiple_host_cleanup_on_error() -> None:
     # If we were trying to bind to multiple hosts and one of them failed, they
     # call get cleaned up before returning
     fsf = FakeSocketFactory(3)
@@ -209,7 +237,7 @@ async def test_open_tcp_listeners_multiple_host_cleanup_on_error():
         assert sock.closed
 
 
-async def test_open_tcp_listeners_port_checking():
+async def test_open_tcp_listeners_port_checking() -> None:
     for host in ["127.0.0.1", None]:
         with pytest.raises(TypeError):
             await open_tcp_listeners(None, host=host)
@@ -219,8 +247,8 @@ async def test_open_tcp_listeners_port_checking():
             await open_tcp_listeners("http", host=host)
 
 
-async def test_serve_tcp():
-    async def handler(stream):
+async def test_serve_tcp() -> None:
+    async def handler(stream) -> None:
         await stream.send_all(b"x")
 
     async with trio.open_nursery() as nursery:
@@ -241,7 +269,7 @@ async def test_serve_tcp():
 )
 async def test_open_tcp_listeners_some_address_families_unavailable(
     try_families, fail_families
-):
+) -> None:
     fsf = FakeSocketFactory(
         10, raise_on_family={family: errno.EAFNOSUPPORT for family in fail_families}
     )
@@ -270,7 +298,7 @@ async def test_open_tcp_listeners_some_address_families_unavailable(
         assert not should_succeed
 
 
-async def test_open_tcp_listeners_socket_fails_not_afnosupport():
+async def test_open_tcp_listeners_socket_fails_not_afnosupport() -> None:
     fsf = FakeSocketFactory(
         10,
         raise_on_family={
@@ -298,7 +326,7 @@ async def test_open_tcp_listeners_socket_fails_not_afnosupport():
 # effectively is no backlog), sometimes the host might not be enough resources
 # to give us the full requested backlog... it was a mess. So now we just check
 # that the backlog argument is passed through correctly.
-async def test_open_tcp_listeners_backlog():
+async def test_open_tcp_listeners_backlog() -> None:
     fsf = FakeSocketFactory(99)
     tsocket.set_custom_socket_factory(fsf)
     for given, expected in [
@@ -314,7 +342,7 @@ async def test_open_tcp_listeners_backlog():
             assert listener.socket.backlog == expected
 
 
-async def test_open_tcp_listeners_backlog_float_error():
+async def test_open_tcp_listeners_backlog_float_error() -> None:
     fsf = FakeSocketFactory(99)
     tsocket.set_custom_socket_factory(fsf)
     for should_fail in (0.0, 2.18, 3.14, 9.75):

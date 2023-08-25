@@ -1,11 +1,13 @@
 from __future__ import annotations
+
 import socket
 import sys
+from socket import AddressFamily, SocketKind
+from typing import TYPE_CHECKING, Any, Sequence
 
 import attr
 import pytest
 
-from typing import Any, Sequence, TYPE_CHECKING
 import trio
 from trio._highlevel_open_tcp_stream import (
     close_all,
@@ -13,8 +15,7 @@ from trio._highlevel_open_tcp_stream import (
     open_tcp_stream,
     reorder_for_rfc_6555_section_5_4,
 )
-from trio.socket import AF_INET, AF_INET6, IPPROTO_TCP, SOCK_STREAM, SocketType, Address
-from socket import AddressFamily, SocketKind
+from trio.socket import AF_INET, AF_INET6, IPPROTO_TCP, SOCK_STREAM, Address, SocketType
 
 if TYPE_CHECKING:
     from trio.testing import MockClock
@@ -27,6 +28,7 @@ def test_close_all() -> None:
     class CloseMe(SocketType):
         def __init__(self) -> None:
             ...
+
         closed = False
 
         def close(self) -> None:
@@ -35,6 +37,7 @@ def test_close_all() -> None:
     class CloseKiller(SocketType):
         def __init__(self) -> None:
             ...
+
         def close(self) -> None:
             raise OSError
 
@@ -272,6 +275,7 @@ class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
     ) -> SocketType:
         assert isinstance(family, AddressFamily)
         assert isinstance(type, SocketKind)
+        assert proto is not None
         if family not in self.supported_families:
             raise OSError("pretending not to support this family")
         self.socket_count += 1

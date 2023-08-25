@@ -263,6 +263,10 @@ from ._instrumentation import Instrument
 
 IMPORTS_EPOLL = """\
 from socket import socket
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .._file_io import _HasFileNo
 """
 
 IMPORTS_KQUEUE = """\
