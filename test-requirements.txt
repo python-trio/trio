@@ -24,6 +24,7 @@ build==0.10.0
     # via pip-tools
 cffi==1.15.1
     # via cryptography
+    # via -r test-requirements.in
 click==8.1.6
     # via
     #   black
@@ -157,6 +158,8 @@ traitlets==5.9.0
     #   ipython
     #   matplotlib-inline
 trustme==1.1.0
+    # via -r test-requirements.in
+types-cffi==1.15.1.15 ; os_name == "nt" and implementation_name == "cpython"
     # via -r test-requirements.in
 types-pyopenssl==23.2.0.2 ; implementation_name == "cpython"
     # via -r test-requirements.in

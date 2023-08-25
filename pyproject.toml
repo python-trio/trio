@@ -60,10 +60,6 @@ disallow_untyped_calls = false
 # files not yet fully typed
 [[tool.mypy.overrides]]
 module = [
-# 2761
-"trio/_core/_generated_io_windows",
-"trio/_core/_io_windows",
-
 "trio/_signals",
 
 # internal
