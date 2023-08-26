@@ -1,8 +1,21 @@
+from __future__ import annotations
+
 import os
+from collections.abc import Generator
 from contextlib import contextmanager
+from typing import Protocol, TypeVar
 
 import trio
 from trio.socket import SOCK_STREAM, socket
+
+
+class Closable(Protocol):
+    def close(self) -> None:
+        ...
+
+
+CloseT = TypeVar("CloseT", bound=Closable)
+
 
 try:
     from trio.socket import AF_UNIX
@@ -13,7 +26,7 @@ except ImportError:
 
 
 @contextmanager
-def close_on_error(obj):
+def close_on_error(obj: CloseT) -> Generator[CloseT, None, None]:
     try:
         yield obj
     except:
@@ -21,7 +34,9 @@ def close_on_error(obj):
         raise
 
 
-async def open_unix_socket(filename):
+async def open_unix_socket(
+    filename: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+) -> trio.SocketStream:
     """Opens a connection to the specified
     `Unix domain socket <https://en.wikipedia.org/wiki/Unix_domain_socket>`__.
 
