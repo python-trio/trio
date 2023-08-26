@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import enum
 import re
+import sys
 from typing import TYPE_CHECKING, NewType, Protocol, cast
 
 if TYPE_CHECKING:
@@ -516,13 +517,14 @@ def raise_winerror(
     filename: str | None = None,
     filename2: str | None = None,
 ) -> NoReturn:
+    assert sys.platform == "win32"  # this should work starting next mypy release
     if winerror is None:
-        err = ffi.getwinerror()
+        err = ffi.getwinerror()  # type: ignore[attr-defined,unused-ignore]
         if err is None:
             raise RuntimeError("No error set?")
         winerror, msg = err
     else:
-        err = ffi.getwinerror(winerror)
+        err = ffi.getwinerror(winerror)  # type: ignore[attr-defined,unused-ignore]
         if err is None:
             raise RuntimeError("No error set?")
         _, msg = err
