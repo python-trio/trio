@@ -4,6 +4,11 @@ set -ex
 
 EXIT_STATUS=0
 
+# If not running on Github's CI, discard the summaries
+if [ -z "${GITHUB_STEP_SUMMARY+x}"]; then
+    GITHUB_STEP_SUMMARY=/dev/null
+fi
+
 # Test if the generated code is still up to date
 echo "::group::Generate Exports"
 python ./trio/_tools/gen_exports.py --test \
