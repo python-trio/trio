@@ -159,7 +159,7 @@ traitlets==5.9.0
     #   matplotlib-inline
 trustme==1.1.0
     # via -r test-requirements.in
-types-cffi==1.15.1.15 ; os_name == "nt" and implementation_name == "cpython"
+types-cffi==1.15.1.15 ; implementation_name == "cpython"
     # via -r test-requirements.in
 types-pyopenssl==23.2.0.2 ; implementation_name == "cpython"
     # via -r test-requirements.in

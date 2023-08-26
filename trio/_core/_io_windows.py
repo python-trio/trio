@@ -41,8 +41,6 @@ from ._windows_cffi import (
     ws2_32,
 )
 
-assert not TYPE_CHECKING or sys.platform == "win32"
-
 if TYPE_CHECKING:
     from typing_extensions import Buffer, TypeAlias
 
@@ -202,6 +200,102 @@ class CKeys(enum.IntEnum):
     USER_DEFINED = 4  # and above
 
 
+# AFD_POLL has a finer-grained set of events than other APIs. We collapse them
+# down into Unix-style "readable" and "writable".
+#
+# Note: AFD_POLL_LOCAL_CLOSE isn't a reliable substitute for notify_closing(),
+# because even if the user closes the socket *handle*, the socket *object*
+# could still remain open, e.g. if the socket was dup'ed (possibly into
+# another process). Explicitly calling notify_closing() guarantees that
+# everyone waiting on the *handle* wakes up, which is what you'd expect.
+#
+# However, we can't avoid getting LOCAL_CLOSE notifications -- the kernel
+# delivers them whether we ask for them or not -- so better to include them
+# here for documentation, and so that when we check (delivered & requested) we
+# get a match.
+
+READABLE_FLAGS = (
+    AFDPollFlags.AFD_POLL_RECEIVE
+    | AFDPollFlags.AFD_POLL_ACCEPT
+    | AFDPollFlags.AFD_POLL_DISCONNECT  # other side sent an EOF
+    | AFDPollFlags.AFD_POLL_ABORT
+    | AFDPollFlags.AFD_POLL_LOCAL_CLOSE
+)
+
+WRITABLE_FLAGS = (
+    AFDPollFlags.AFD_POLL_SEND
+    | AFDPollFlags.AFD_POLL_CONNECT_FAIL
+    | AFDPollFlags.AFD_POLL_ABORT
+    | AFDPollFlags.AFD_POLL_LOCAL_CLOSE
+)
+
+
+# Annoyingly, while the API makes it *seem* like you can happily issue as many
+# independent AFD_POLL operations as you want without them interfering with
+# each other, in fact if you issue two AFD_POLL operations for the same socket
+# at the same time with notification going to the same IOCP port, then Windows
+# gets super confused. For example, if we issue one operation from
+# wait_readable, and another independent operation from wait_writable, then
+# Windows may complete the wait_writable operation when the socket becomes
+# readable.
+#
+# To avoid this, we have to coalesce all the operations on a single socket
+# into one, and when the set of waiters changes we have to throw away the old
+# operation and start a new one.
+@attr.s(slots=True, eq=False)
+class AFDWaiters:
+    read_task: None = attr.ib(default=None)
+    write_task: None = attr.ib(default=None)
+    current_op: Optional[AFDPollOp] = attr.ib(default=None)
+
+
+# We also need to bundle up all the info for a single op into a standalone
+# object, because we need to keep all these objects alive until the operation
+# finishes, even if we're throwing it away.
+@attr.s(slots=True, eq=False, frozen=True)
+class AFDPollOp:
+    lpOverlapped: CData = attr.ib()
+    poll_info: Any = attr.ib()
+    waiters: AFDWaiters = attr.ib()
+    afd_group: AFDGroup = attr.ib()
+
+
+# The Windows kernel has a weird issue when using AFD handles. If you have N
+# instances of wait_readable/wait_writable registered with a single AFD handle,
+# then cancelling any one of them takes something like O(N**2) time. So if we
+# used just a single AFD handle, then cancellation would quickly become very
+# expensive, e.g. a program with N active sockets would take something like
+# O(N**3) time to unwind after control-C. The solution is to spread our sockets
+# out over multiple AFD handles, so that N doesn't grow too large for any
+# individual handle.
+MAX_AFD_GROUP_SIZE = 500  # at 1000, the cubic scaling is just starting to bite
+
+
+@attr.s(slots=True, eq=False)
+class AFDGroup:
+    size: int = attr.ib()
+    handle: Handle = attr.ib()
+
+
+assert not TYPE_CHECKING or sys.platform == "win32"
+
+
+@attr.s(slots=True, eq=False, frozen=True)
+class _WindowsStatistics:
+    tasks_waiting_read: int = attr.ib()
+    tasks_waiting_write: int = attr.ib()
+    tasks_waiting_overlapped: int = attr.ib()
+    completion_key_monitors: int = attr.ib()
+    backend: Literal["windows"] = attr.ib(init=False, default="windows")
+
+
+# Maximum number of events to dequeue from the completion port on each pass
+# through the run loop. Somewhat arbitrary. Should be large enough to collect
+# a good set of tasks on each loop, but not so large to waste tons of memory.
+# (Each WindowsIOManager holds a buffer whose size is ~32x this number.)
+MAX_EVENTS = 1000
+
+
 def _check(success: T) -> T:
     if not success:
         raise_winerror()
@@ -309,99 +403,6 @@ def _afd_helper_handle() -> Handle:
     if handle == INVALID_HANDLE_VALUE:  # pragma: no cover
         raise_winerror()
     return handle
-
-
-# AFD_POLL has a finer-grained set of events than other APIs. We collapse them
-# down into Unix-style "readable" and "writable".
-#
-# Note: AFD_POLL_LOCAL_CLOSE isn't a reliable substitute for notify_closing(),
-# because even if the user closes the socket *handle*, the socket *object*
-# could still remain open, e.g. if the socket was dup'ed (possibly into
-# another process). Explicitly calling notify_closing() guarantees that
-# everyone waiting on the *handle* wakes up, which is what you'd expect.
-#
-# However, we can't avoid getting LOCAL_CLOSE notifications -- the kernel
-# delivers them whether we ask for them or not -- so better to include them
-# here for documentation, and so that when we check (delivered & requested) we
-# get a match.
-
-READABLE_FLAGS = (
-    AFDPollFlags.AFD_POLL_RECEIVE
-    | AFDPollFlags.AFD_POLL_ACCEPT
-    | AFDPollFlags.AFD_POLL_DISCONNECT  # other side sent an EOF
-    | AFDPollFlags.AFD_POLL_ABORT
-    | AFDPollFlags.AFD_POLL_LOCAL_CLOSE
-)
-
-WRITABLE_FLAGS = (
-    AFDPollFlags.AFD_POLL_SEND
-    | AFDPollFlags.AFD_POLL_CONNECT_FAIL
-    | AFDPollFlags.AFD_POLL_ABORT
-    | AFDPollFlags.AFD_POLL_LOCAL_CLOSE
-)
-
-
-# Annoyingly, while the API makes it *seem* like you can happily issue as many
-# independent AFD_POLL operations as you want without them interfering with
-# each other, in fact if you issue two AFD_POLL operations for the same socket
-# at the same time with notification going to the same IOCP port, then Windows
-# gets super confused. For example, if we issue one operation from
-# wait_readable, and another independent operation from wait_writable, then
-# Windows may complete the wait_writable operation when the socket becomes
-# readable.
-#
-# To avoid this, we have to coalesce all the operations on a single socket
-# into one, and when the set of waiters changes we have to throw away the old
-# operation and start a new one.
-@attr.s(slots=True, eq=False)
-class AFDWaiters:
-    read_task: None = attr.ib(default=None)
-    write_task: None = attr.ib(default=None)
-    current_op: Optional[AFDPollOp] = attr.ib(default=None)
-
-
-# We also need to bundle up all the info for a single op into a standalone
-# object, because we need to keep all these objects alive until the operation
-# finishes, even if we're throwing it away.
-@attr.s(slots=True, eq=False, frozen=True)
-class AFDPollOp:
-    lpOverlapped: CData = attr.ib()
-    poll_info: Any = attr.ib()
-    waiters: AFDWaiters = attr.ib()
-    afd_group: AFDGroup = attr.ib()
-
-
-# The Windows kernel has a weird issue when using AFD handles. If you have N
-# instances of wait_readable/wait_writable registered with a single AFD handle,
-# then cancelling any one of them takes something like O(N**2) time. So if we
-# used just a single AFD handle, then cancellation would quickly become very
-# expensive, e.g. a program with N active sockets would take something like
-# O(N**3) time to unwind after control-C. The solution is to spread our sockets
-# out over multiple AFD handles, so that N doesn't grow too large for any
-# individual handle.
-MAX_AFD_GROUP_SIZE = 500  # at 1000, the cubic scaling is just starting to bite
-
-
-@attr.s(slots=True, eq=False)
-class AFDGroup:
-    size: int = attr.ib()
-    handle: Handle = attr.ib()
-
-
-@attr.s(slots=True, eq=False, frozen=True)
-class _WindowsStatistics:
-    tasks_waiting_read: int = attr.ib()
-    tasks_waiting_write: int = attr.ib()
-    tasks_waiting_overlapped: int = attr.ib()
-    completion_key_monitors: int = attr.ib()
-    backend: Literal["windows"] = attr.ib(init=False, default="windows")
-
-
-# Maximum number of events to dequeue from the completion port on each pass
-# through the run loop. Somewhat arbitrary. Should be large enough to collect
-# a good set of tasks on each loop, but not so large to waste tons of memory.
-# (Each WindowsIOManager holds a buffer whose size is ~32x this number.)
-MAX_EVENTS = 1000
 
 
 @attr.s(frozen=True)
