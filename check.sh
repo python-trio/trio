@@ -44,15 +44,22 @@ echo "::endgroup::"
 # Run mypy on all supported platforms
 MYPY=0
 echo "::group::Mypy"
-mypy trio --platform linux || MYPY=$?
-mypy trio --platform darwin || MYPY=$?  # tests FreeBSD too
-mypy trio --platform win32 || MYPY=$?
-echo "::endgroup::"
-
-if [ $MYPY -ne 0 ]; then
-    echo "* Mypy found type errors" >> $GITHUB_STEP_SUMMARY
+mypy trio --show-error-end --platform linux | python ./trio/_tools/mypy_annotate.py Linux
+if [ ${PIPESTATUS[0]} -ne 0 ]; then
+    echo "* Mypy (Linux) found type errors." >> $GITHUB_STEP_SUMMARY
     EXIT_STATUS=1
 fi
+mypy trio --show-error-end --platform darwin | python ./trio/_tools/mypy_annotate.py Mac  # tests FreeBSD too
+if [ ${PIPESTATUS[0]} -ne 0 ]; then
+    echo "* Mypy (Mac) found type errors." >> $GITHUB_STEP_SUMMARY
+    EXIT_STATUS=1
+fi
+mypy trio --show-error-end --platform win32 | python ./trio/_tools/mypy_annotate.py Windows
+if [ ${PIPESTATUS[0]} -ne 0 ]; then
+    echo "* Mypy (Windows) found type errors." >> $GITHUB_STEP_SUMMARY
+    EXIT_STATUS=1
+fi
+echo "::endgroup::"
 
 # Check pip compile is consistent
 echo "::group::Pip Compile - Tests"
