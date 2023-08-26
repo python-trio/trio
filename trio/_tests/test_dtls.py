@@ -13,7 +13,7 @@ from OpenSSL import SSL
 
 import trio
 import trio.testing
-from trio import DTLSEndpoint
+from trio import DTLSChannel, DTLSEndpoint
 from trio.testing._fake_net import FakeNet
 
 from .._core._tests.tutil import binds_ipv6, gc_collect_harder, slow
@@ -45,7 +45,7 @@ def endpoint(**kwargs: int | bool) -> DTLSEndpoint:
 
 @asynccontextmanager
 async def dtls_echo_server(
-    *, autocancel: bool = True, mtu=None, ipv6: bool = False
+    *, autocancel: bool = True, mtu: int | None = None, ipv6: bool = False
 ) -> AsyncGenerator[tuple[DTLSEndpoint, tuple[str, int]], None]:
     with endpoint(ipv6=ipv6) as server:
         if ipv6:
@@ -55,11 +55,11 @@ async def dtls_echo_server(
         await server.socket.bind((localhost, 0))
         async with trio.open_nursery() as nursery:
 
-            async def echo_handler(dtls_channel) -> None:
+            async def echo_handler(dtls_channel: DTLSChannel) -> None:
                 print(
                     "echo handler started: "
-                    f"server {dtls_channel.endpoint.socket.getsockname()} "
-                    f"client {dtls_channel.peer_address}"
+                    f"server {dtls_channel.endpoint.socket.getsockname()!r} "
+                    f"client {dtls_channel.peer_address!r}"
                 )
                 if mtu is not None:
                     dtls_channel.set_ciphertext_mtu(mtu)
@@ -68,7 +68,7 @@ async def dtls_echo_server(
                     await dtls_channel.do_handshake()
                     print("server finished do_handshake")
                     async for packet in dtls_channel:
-                        print(f"echoing {packet} -> {dtls_channel.peer_address}")
+                        print(f"echoing {packet!r} -> {dtls_channel.peer_address!r}")
                         await dtls_channel.send(packet)
                 except trio.BrokenResourceError:  # pragma: no cover
                     print("echo handler channel broken")
@@ -210,7 +210,7 @@ async def test_full_duplex() -> None:
         await server_endpoint.socket.bind(("127.0.0.1", 0))
         async with trio.open_nursery() as server_nursery:
 
-            async def handler(channel) -> None:
+            async def handler(channel: DTLSChannel) -> None:
                 async with trio.open_nursery() as nursery:
                     nursery.start_soon(channel.send, b"from server")
                     nursery.start_soon(channel.receive)
@@ -267,7 +267,7 @@ async def test_client_multiplex() -> None:
             client_endpoint.close()
 
             with pytest.raises(trio.ClosedResourceError):
-                await client1.send("xxx")
+                await client1.send(b"xxx")
             with pytest.raises(trio.ClosedResourceError):
                 await client2.receive()
             with pytest.raises(trio.ClosedResourceError):
@@ -490,7 +490,7 @@ async def test_invalid_cookie_rejected(autojump_clock: trio.abc.Clock) -> None:
                 with endpoint() as client:
                     channel = client.connect(address, client_ctx)
                     await channel.do_handshake()
-            assert cscope.cancelled_caught
+    assert cscope.cancelled_caught
 
 
 async def test_client_cancels_handshake_and_starts_new_one(
@@ -507,7 +507,7 @@ async def test_client_cancels_handshake_and_starts_new_one(
         async with trio.open_nursery() as nursery:
             first_time = True
 
-            async def handler(channel) -> None:
+            async def handler(channel: DTLSChannel) -> None:
                 nonlocal first_time
                 if first_time:
                     first_time = False
@@ -543,11 +543,11 @@ async def test_swap_client_server() -> None:
         await a.socket.bind(("127.0.0.1", 0))
         await b.socket.bind(("127.0.0.1", 0))
 
-        async def echo_handler(channel) -> None:
+        async def echo_handler(channel: DTLSChannel) -> None:
             async for packet in channel:
                 await channel.send(packet)
 
-        async def crashing_echo_handler(channel) -> None:
+        async def crashing_echo_handler(channel: DTLSChannel) -> None:
             with pytest.raises(trio.BrokenResourceError):
                 await echo_handler(channel)
 
@@ -599,7 +599,7 @@ async def test_openssl_retransmit_doesnt_break_stuff() -> None:
         with endpoint() as client_endpoint:
             async with trio.open_nursery() as nursery:
 
-                async def connecter():
+                async def connecter() -> None:
                     client = client_endpoint.connect(address, client_ctx)
                     await client.do_handshake(initial_retransmit_timeout=1.5)
                     await client.send(b"hi")
