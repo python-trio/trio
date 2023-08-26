@@ -29,7 +29,6 @@ mypy_to_github = {
 def main(platform: str) -> None:
     """Look for error messages, and convert the format."""
     for line in sys.stdin:
-        sys.stdout.write(line)  # Always echo unchanged.
         if match := report_re.fullmatch(line.rstrip()):
             filename, st_line, st_col, end_line, end_col, kind, message = match.groups()
             sys.stdout.write(
@@ -39,7 +38,10 @@ def main(platform: str) -> None:
                 sys.stdout.write(f"col={st_col},")
                 if end_line is not None and end_col is not None:
                     sys.stdout.write(f"endLine={end_line},endColumn={end_col},")
-            sys.stdout.write(f"title=Mypy-{platform}::{message}\n")
+            # Include the original line, so the column/end locations are visible in the GitHub UI.
+            sys.stdout.write(f"title=Mypy-{platform}::{line}")
+        else:
+            sys.stdout.write(line)
 
 
 if __name__ == "__main__":

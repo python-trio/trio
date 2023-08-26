@@ -22,6 +22,7 @@ echo "::endgroup::"
 # pyupgrade --py3-plus $(find . -name "*.py")
 echo "::group::Black"
 if ! black --check setup.py trio; then
+    echo "::error:: Black found issues"
     echo "* Black found issues" >> $GITHUB_STEP_SUMMARY
     EXIT_STATUS=1
     black --diff setup.py trio
@@ -30,7 +31,8 @@ echo "::endgroup::"
 
 echo "::group::ISort"
 if ! isort --check setup.py trio; then
-    echo "* isort found issues" >> $GITHUB_STEP_SUMMARY
+    echo "::error:: isort found issues"
+    echo "* isort found issues." >> $GITHUB_STEP_SUMMARY
     EXIT_STATUS=1
     isort --diff setup.py trio
 fi
@@ -45,14 +47,17 @@ echo "::endgroup::"
 MYPY=0
 echo "::group::Mypy"
 mypy trio --show-error-end --platform linux | python ./trio/_tools/mypy_annotate.py Linux \
-    || echo "* Mypy (Linux) found type errors." >> $GITHUB_STEP_SUMMARY; EXIT_STATUS=1
+    || echo "* Mypy (Linux) found type errors." >> $GITHUB_STEP_SUMMARY; MYPY=1
 # Darwin tests FreeBSD too
 mypy trio --show-error-end --platform darwin | python ./trio/_tools/mypy_annotate.py Mac \
-    || echo "* Mypy (Mac) found type errors." >> $GITHUB_STEP_SUMMARY; EXIT_STATUS=1
+    || echo "* Mypy (Mac) found type errors." >> $GITHUB_STEP_SUMMARY; MYPY=1
 mypy trio --show-error-end --platform win32 | python ./trio/_tools/mypy_annotate.py Windows \
-    || echo "* Mypy (Windows) found type errors." >> $GITHUB_STEP_SUMMARY; EXIT_STATUS=1
+    || echo "* Mypy (Windows) found type errors." >> $GITHUB_STEP_SUMMARY; MYPY=1
 echo "::endgroup::"
-
+if [ $MYPY -ne 0 ]; then
+    echo "::error:: Mypy found type errors."
+    EXIT_STATUS=1
+fi
 # Check pip compile is consistent
 echo "::group::Pip Compile - Tests"
 pip-compile test-requirements.in
@@ -62,6 +67,7 @@ pip-compile docs-requirements.in
 echo "::endgroup::"
 
 if git status --porcelain | grep -q "requirements.txt"; then
+    echo "::error::requirements.txt changed."
     echo "::group::requirements.txt changed"
     echo "* requirements.txt changed" >> $GITHUB_STEP_SUMMARY
     git status --porcelain
@@ -75,7 +81,7 @@ codespell || EXIT_STATUS=$?
 python trio/_tests/check_type_completeness.py --overwrite-file || EXIT_STATUS=$?
 if git status --porcelain trio/_tests/verify_types*.json | grep -q "M"; then
     echo "* Type completeness changed, please update!" >> $GITHUB_STEP_SUMMARY
-    echo "Type completeness changed, please update!"
+    echo "::error::Type completeness changed, please update!"
     git --no-pager diff --color trio/_tests/verify_types*.json
     EXIT_STATUS=1
 fi
