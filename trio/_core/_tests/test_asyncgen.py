@@ -1,7 +1,11 @@
+from __future__ import annotations
+
 import contextlib
 import sys
 import weakref
+from collections.abc import AsyncGenerator
 from math import inf
+from typing import NoReturn
 
 import pytest
 
@@ -10,10 +14,10 @@ from .tutil import buggy_pypy_asyncgens, gc_collect_harder, restore_unraisableho
 
 
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="no aclosing() in stdlib<3.10")
-def test_asyncgen_basics():
+def test_asyncgen_basics() -> None:
     collected = []
 
-    async def example(cause):
+    async def example(cause: str) -> AsyncGenerator[int, None]:
         try:
             try:
                 yield 42
@@ -37,7 +41,7 @@ def test_asyncgen_basics():
 
     saved = []
 
-    async def async_main():
+    async def async_main() -> None:
         # GC'ed before exhausted
         with pytest.warns(
             ResourceWarning, match="Async generator.*collected before.*exhausted"
@@ -85,10 +89,10 @@ def test_asyncgen_basics():
         assert agen.ag_frame is None  # all should now be exhausted
 
 
-async def test_asyncgen_throws_during_finalization(caplog):
+async def test_asyncgen_throws_during_finalization(caplog) -> None:
     record = []
 
-    async def agen():
+    async def agen() -> AsyncGenerator[int, None]:
         try:
             yield 1
         finally:
@@ -108,11 +112,11 @@ async def test_asyncgen_throws_during_finalization(caplog):
 
 
 @pytest.mark.skipif(buggy_pypy_asyncgens, reason="pypy 7.2.0 is buggy")
-def test_firstiter_after_closing():
+def test_firstiter_after_closing() -> None:
     saved = []
     record = []
 
-    async def funky_agen():
+    async def funky_agen() -> AsyncGenerator[int, None]:
         try:
             yield 1
         except GeneratorExit:
@@ -124,7 +128,7 @@ def test_firstiter_after_closing():
             record.append("cleanup 2")
             await funky_agen().asend(None)
 
-    async def async_main():
+    async def async_main() -> None:
         aiter = funky_agen()
         saved.append(aiter)
         assert 1 == await aiter.asend(None)
@@ -135,18 +139,20 @@ def test_firstiter_after_closing():
 
 
 @pytest.mark.skipif(buggy_pypy_asyncgens, reason="pypy 7.2.0 is buggy")
-def test_interdependent_asyncgen_cleanup_order():
-    saved = []
-    record = []
+def test_interdependent_asyncgen_cleanup_order() -> None:
+    saved: list[AsyncGenerator[int, None]] = []
+    record: list[int | str] = []
 
-    async def innermost():
+    async def innermost() -> AsyncGenerator[int, None]:
         try:
             yield 1
         finally:
             await _core.cancel_shielded_checkpoint()
             record.append("innermost")
 
-    async def agen(label, inner):
+    async def agen(
+        label: int, inner: AsyncGenerator[int, None]
+    ) -> AsyncGenerator[int, None]:
         try:
             yield await inner.asend(None)
         finally:
@@ -158,7 +164,7 @@ def test_interdependent_asyncgen_cleanup_order():
                 await inner.asend(None)
             record.append(label)
 
-    async def async_main():
+    async def async_main() -> None:
         # This makes a chain of 101 interdependent asyncgens:
         # agen(99)'s cleanup will iterate agen(98)'s will iterate
         # ... agen(0)'s will iterate innermost()'s
@@ -174,19 +180,20 @@ def test_interdependent_asyncgen_cleanup_order():
 
 
 @restore_unraisablehook()
-def test_last_minute_gc_edge_case():
-    saved = []
+def test_last_minute_gc_edge_case() -> None:
+    saved: list[AsyncGenerator[int, None]] = []
     record = []
     needs_retry = True
 
-    async def agen():
+    async def agen() -> AsyncGenerator[int, None]:
         try:
             yield 1
         finally:
             record.append("cleaned up")
 
-    def collect_at_opportune_moment(token):
+    def collect_at_opportune_moment(token: _core._entry_queue.TrioToken) -> None:
         runner = _core._run.GLOBAL_RUN_CONTEXT.runner
+        assert runner.system_nursery is not None
         if runner.system_nursery._closed and isinstance(
             runner.asyncgens.alive, weakref.WeakSet
         ):
@@ -201,7 +208,7 @@ def test_last_minute_gc_edge_case():
                 nonlocal needs_retry
                 needs_retry = True
 
-    async def async_main():
+    async def async_main() -> None:
         token = _core.current_trio_token()
         token.run_sync_soon(collect_at_opportune_moment, token)
         saved.append(agen())
@@ -231,7 +238,7 @@ def test_last_minute_gc_edge_case():
         )
 
 
-async def step_outside_async_context(aiter):
+async def step_outside_async_context(aiter: AsyncGenerator[int, None]) -> None:
     # abort_fns run outside of task context, at least if they're
     # triggered by a deadline expiry rather than a direct
     # cancellation.  Thus, an asyncgen first iterated inside one
@@ -242,7 +249,7 @@ async def step_outside_async_context(aiter):
     # NB: the strangeness with aiter being an attribute of abort_fn is
     # to make it as easy as possible to ensure we don't hang onto a
     # reference to aiter inside the guts of the run loop.
-    def abort_fn(_):
+    def abort_fn(_: object) -> None:
         with pytest.raises(StopIteration, match="42"):
             abort_fn.aiter.asend(None).send(None)
         del abort_fn.aiter
@@ -257,16 +264,16 @@ async def step_outside_async_context(aiter):
 
 
 @pytest.mark.skipif(buggy_pypy_asyncgens, reason="pypy 7.2.0 is buggy")
-async def test_fallback_when_no_hook_claims_it(capsys):
-    async def well_behaved():
+async def test_fallback_when_no_hook_claims_it(capsys) -> None:
+    async def well_behaved() -> AsyncGenerator[int, None]:
         yield 42
 
-    async def yields_after_yield():
+    async def yields_after_yield() -> AsyncGenerator[int, None]:
         with pytest.raises(GeneratorExit):
             yield 42
         yield 100
 
-    async def awaits_after_yield():
+    async def awaits_after_yield() -> AsyncGenerator[int, None]:
         with pytest.raises(GeneratorExit):
             yield 42
         await _core.cancel_shielded_checkpoint()
@@ -286,16 +293,16 @@ async def test_fallback_when_no_hook_claims_it(capsys):
 
 
 @pytest.mark.skipif(buggy_pypy_asyncgens, reason="pypy 7.2.0 is buggy")
-def test_delegation_to_existing_hooks():
+def test_delegation_to_existing_hooks() -> None:
     record = []
 
-    def my_firstiter(agen):
+    def my_firstiter(agen: AsyncGenerator[object, NoReturn]) -> None:
         record.append("firstiter " + agen.ag_frame.f_locals["arg"])
 
-    def my_finalizer(agen):
+    def my_finalizer(agen: AsyncGenerator[object, NoReturn]) -> None:
         record.append("finalizer " + agen.ag_frame.f_locals["arg"])
 
-    async def example(arg):
+    async def example(arg: str) -> AsyncGenerator[int, None]:
         try:
             yield 42
         finally:
@@ -303,7 +310,7 @@ def test_delegation_to_existing_hooks():
                 await _core.checkpoint()
             record.append("trio collected " + arg)
 
-    async def async_main():
+    async def async_main() -> None:
         await step_outside_async_context(example("theirs"))
         assert 42 == await example("ours").asend(None)
         gc_collect_harder()
