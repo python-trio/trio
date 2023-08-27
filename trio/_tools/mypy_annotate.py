@@ -39,7 +39,7 @@ def process_line(platform: str, line: str) -> str:
                 message = f"({st_line}:{st_col}):{message}"
         else:
             message = f"{st_line}:{message}"
-        result.append(f"title=Mypy-{platform}::{message}\n")
+        result.append(f"title=Mypy-{platform}::{filename}:{message}\n")
         return "".join(result)
     else:
         return line
