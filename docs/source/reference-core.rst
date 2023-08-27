@@ -927,6 +927,8 @@ The nursery API
 
    See :meth:`Nursery.start`.
 
+.. autoclass:: TaskStatus(Protocol[StatusT])
+   :members:
 
 .. _task-local-storage:
 
