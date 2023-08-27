@@ -36,8 +36,8 @@ def run_pyright(platform: str) -> subprocess.CompletedProcess[bytes]:
 
 def check_less_than(
     key: str,
-    current_dict: Mapping[str, object],
-    last_dict: Mapping[str, object],
+    current_dict: Mapping[str, float],
+    last_dict: Mapping[str, float],
     /,
     invert: bool = False,
 ) -> None:
@@ -64,7 +64,7 @@ def check_less_than(
     )
 
 
-def check_zero(key: str, current_dict: Mapping[str, object]) -> None:
+def check_zero(key: str, current_dict: Mapping[str, float]) -> None:
     global failed
     if current_dict[key] != 0:
         failed = True
