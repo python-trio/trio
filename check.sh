@@ -5,7 +5,7 @@ set -ex
 EXIT_STATUS=0
 
 # If not running on Github's CI, discard the summaries
-if [ -z "${GITHUB_STEP_SUMMARY+x}"]; then
+if [ -z "${GITHUB_STEP_SUMMARY+x}" ]; then
     GITHUB_STEP_SUMMARY=/dev/null
 fi
 
@@ -22,21 +22,25 @@ echo "::endgroup::"
 # pyupgrade --py3-plus $(find . -name "*.py")
 echo "::group::Black"
 if ! black --check setup.py trio; then
-    echo "::error:: Black found issues"
     echo "* Black found issues" >> $GITHUB_STEP_SUMMARY
     EXIT_STATUS=1
     black --diff setup.py trio
+    echo "::endgroup::"
+    echo "::error:: Black found issues"
+else
+    echo "::endgroup::"
 fi
-echo "::endgroup::"
 
 echo "::group::ISort"
 if ! isort --check setup.py trio; then
-    echo "::error:: isort found issues"
     echo "* isort found issues." >> $GITHUB_STEP_SUMMARY
     EXIT_STATUS=1
     isort --diff setup.py trio
+    echo "::endgroup::"
+    echo "::error:: isort found issues"
+else
+    echo "::endgroup::"
 fi
-echo "::endgroup::"
 
 # Run flake8, configured in pyproject.toml
 echo "::group::Flake8"

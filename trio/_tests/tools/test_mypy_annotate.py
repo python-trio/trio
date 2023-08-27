@@ -4,7 +4,7 @@ import sys
 
 import pytest
 
-from trio._tools.mypy_annotate import process_line, main
+from trio._tools.mypy_annotate import main, process_line
 
 
 @pytest.mark.parametrize(
@@ -40,12 +40,13 @@ def test_processing(platform: str, src: str, expected: str) -> None:
 
 
 def test_endtoend(monkeypatch, capsys) -> None:
-    monkeypatch.setattr(sys, "stdin", io.StringIO("""\
+    inp_text = """\
 Mypy begun
 trio/core.py:15: error: Bad types here [misc]
 trio/package/module.py:48:4:56:18: warn: Missing annotations  [no-untyped-def]
 Found 3 errors in 29 files
-"""))
+"""
+    monkeypatch.setattr(sys, "stdin", io.StringIO(inp_text))
 
     main("SomePlatform")
     result = capsys.readouterr()
