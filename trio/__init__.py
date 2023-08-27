@@ -35,6 +35,7 @@ from ._core import (
     EndOfChannel as EndOfChannel,
     Nursery as Nursery,
     RunFinishedError as RunFinishedError,
+    TaskStatus as TaskStatus,
     TrioInternalError as TrioInternalError,
     WouldBlock as WouldBlock,
     current_effective_deadline as current_effective_deadline,

@@ -16,8 +16,6 @@ from ._highlevel_socket import SocketListener
 if TYPE_CHECKING:
     from typing_extensions import Self
 
-    from trio.lowlevel import TaskStatus
-
     from ._socket import _SocketType as SocketType
 
 
@@ -116,7 +114,7 @@ class UnixSocketListener(SocketListener):
         path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
         inode: tuple[int, int],
     ) -> None:
-        """Private contructor. Use UnixSocketListener.create instead."""
+        """Private constructor. Use UnixSocketListener.create instead."""
         if not HAS_UNIX:
             raise RuntimeError("Unix sockets are not supported on this platform")
         if not isinstance(socket, tsocket.SocketType):
@@ -130,11 +128,13 @@ class UnixSocketListener(SocketListener):
     @classmethod
     async def _create(
         cls,
-        path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        path: str | bytes,
         mode: int,
         backlog: int,
     ) -> Self:
         # Sanitise and pre-verify socket path
+        if not isinstance(path, str):
+            path = path.decode("utf-8")
         path = os.path.abspath(path)
         folder = os.path.dirname(path)
         if not os.path.isdir(folder):
@@ -145,9 +145,7 @@ class UnixSocketListener(SocketListener):
         except FileNotFoundError:
             pass
         # Create new socket with a random temporary name
-        # typecheck: str-bytes-safe error: If x = b'abc' then f"{x}" or "{}".format(x) produces "b'abc'", not "abc". If this is desired behavior, use f"{x!r}" or "{!r}".format(x). Otherwise, decode the bytes
         tmp_path = f"{path}.{secrets.token_urlsafe()}"
-        # typecheck: ^^^^^^^^^^^^^
         sock = tsocket.socket(AF_UNIX, tsocket.SOCK_STREAM)
         try:
             # Critical section begins (filename races)
@@ -175,13 +173,12 @@ class UnixSocketListener(SocketListener):
     @classmethod
     async def create(
         cls,
-        path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        path: str | bytes,
         *,
         mode: int = 0o666,
         backlog: int | None = None,
     ) -> Self:
         backlog = _compute_backlog(backlog)
-        # typecheck: arg-type error: Argument 1 to "to_thread_run_sync" has incompatible type "Callable[[str | bytes | PathLike[str] | PathLike[bytes], int, int], Coroutine[Any, Any, Self]]"; expected "Callable[..., Self]"
         return await cls._create(path, mode, backlog or 0xFFFF)
 
     def _close(self) -> None:
@@ -204,7 +201,7 @@ class UnixSocketListener(SocketListener):
 
 
 async def open_unix_listeners(
-    path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+    path: str | bytes,
     *,
     mode: int = 0o666,
     backlog: int | None = None,
@@ -246,15 +243,13 @@ async def open_unix_listeners(
     return [await UnixSocketListener.create(path, mode=mode, backlog=backlog)]
 
 
-# typecheck: no-untyped-def error: Function is missing a return type annotation
-# typecheck: no-untyped-def error: Function is missing a type annotation for one or more arguments
 async def serve_unix(
     handler: Callable[[trio.SocketStream], Awaitable[object]],
-    path,
+    path: str | bytes,
     *,
     backlog: int | None = None,
     handler_nursery: trio.Nursery | None = None,
-    task_status: TaskStatus = trio.TASK_STATUS_IGNORED,  # type: ignore[has-type]  # Cannot determine type of "TASK_STATUS_IGNORED"
+    task_status: trio.TaskStatus[list[UnixSocketListener]] = trio.TASK_STATUS_IGNORED,
 ) -> None:
     """Listen for incoming UNIX connections, and for each one start a task
     running ``handler(stream)``.
@@ -298,7 +293,6 @@ async def serve_unix(
         raise RuntimeError("Unix sockets are not supported on this platform")
 
     listeners = await open_unix_listeners(path, backlog=backlog)
-    # typecheck: no-untyped-call error: Call to untyped function "serve_listeners" in typed context
     await trio.serve_listeners(
         handler, listeners, handler_nursery=handler_nursery, task_status=task_status
     )
