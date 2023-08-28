@@ -5,20 +5,25 @@ import socket as stdlib_socket
 import sys
 from math import inf
 from socket import AddressFamily, SocketKind
-from typing import overload
+from typing import TYPE_CHECKING, Sequence, overload
 
 import attr
 import pytest
 
 import trio
 from trio import SocketListener, open_tcp_listeners, open_tcp_stream, serve_tcp
+from trio.abc import HostnameResolver, SendStream, SocketFactory
 from trio.testing import open_stream_to_socket_listener
 
 from .. import socket as tsocket
 from .._core._tests.tutil import binds_ipv6
+from .._socket import AddressWithNoneHost
 
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
+
+if TYPE_CHECKING:
+    from typing_extensions import Buffer
 
 
 async def test_open_tcp_listeners_basic() -> None:
@@ -119,8 +124,8 @@ class FakeOSError(OSError):
 
 @attr.s
 class FakeSocket(tsocket.SocketType):
-    _family: AddressFamily = attr.ib()
-    _type: SocketKind = attr.ib()
+    _family: AddressFamily = attr.ib(converter=AddressFamily)
+    _type: SocketKind = attr.ib(converter=SocketKind)
     _proto: int = attr.ib()
 
     closed: bool = attr.ib(default=False)
@@ -175,7 +180,7 @@ class FakeSocket(tsocket.SocketType):
     async def bind(self, address: AddressWithNoneHost) -> None:
         pass
 
-    def listen(self, /, backlog: int = min(_stdlib_socket.SOMAXCONN, 128)) -> None:
+    def listen(self, /, backlog: int = min(stdlib_socket.SOMAXCONN, 128)) -> None:
         assert self.backlog is None
         assert backlog is not None
         self.backlog = backlog
@@ -187,12 +192,21 @@ class FakeSocket(tsocket.SocketType):
 
 
 @attr.s
-class FakeSocketFactory:
-    poison_after = attr.ib()
-    sockets = attr.ib(factory=list)
-    raise_on_family = attr.ib(factory=dict)  # family => errno
+class FakeSocketFactory(SocketFactory):
+    poison_after: int = attr.ib()
+    sockets: list[tsocket.SocketType] = attr.ib(factory=list)
+    raise_on_family: dict[AddressFamily, int] = attr.ib(factory=dict)  # family => errno
 
-    def socket(self, family, type, proto):
+    def socket(
+        self,
+        family: AddressFamily | int | None = None,
+        type: SocketKind | int | None = None,
+        proto: int = 0,
+    ) -> tsocket.SocketType:
+        assert family is not None
+        assert type is not None
+        if isinstance(family, int):
+            family = AddressFamily(family)
         if family in self.raise_on_family:
             raise OSError(self.raise_on_family[family], "nope")
         sock = FakeSocket(family, type, proto)
@@ -204,14 +218,36 @@ class FakeSocketFactory:
 
 
 @attr.s
-class FakeHostnameResolver:
-    family_addr_pairs = attr.ib()
+class FakeHostnameResolver(HostnameResolver):
+    family_addr_pairs: Sequence[tuple[AddressFamily, str]] = attr.ib()
 
-    async def getaddrinfo(self, host, port, family, type, proto, flags):
+    async def getaddrinfo(
+        self,
+        host: bytes | str | None,
+        port: bytes | str | int | None,
+        family: int = 0,
+        type: int = 0,
+        proto: int = 0,
+        flags: int = 0,
+    ) -> list[
+        tuple[
+            AddressFamily,
+            SocketKind,
+            int,
+            str,
+            tuple[str, int] | tuple[str, int, int, int],
+        ]
+    ]:
+        assert isinstance(port, int)
         return [
             (family, tsocket.SOCK_STREAM, 0, "", (addr, port))
             for family, addr in self.family_addr_pairs
         ]
+
+    async def getnameinfo(
+        self, sockaddr: tuple[str, int] | tuple[str, int, int, int], flags: int
+    ) -> tuple[str, str]:
+        raise NotImplementedError()
 
 
 async def test_open_tcp_listeners_multiple_host_cleanup_on_error() -> None:
@@ -234,25 +270,27 @@ async def test_open_tcp_listeners_multiple_host_cleanup_on_error() -> None:
 
     assert len(fsf.sockets) == 3
     for sock in fsf.sockets:
-        assert sock.closed
+        # property only exists on FakeSocket
+        assert sock.closed  # type: ignore[attr-defined]
 
 
 async def test_open_tcp_listeners_port_checking() -> None:
     for host in ["127.0.0.1", None]:
         with pytest.raises(TypeError):
-            await open_tcp_listeners(None, host=host)
+            await open_tcp_listeners(None, host=host)  # type: ignore[arg-type]
         with pytest.raises(TypeError):
-            await open_tcp_listeners(b"80", host=host)
+            await open_tcp_listeners(b"80", host=host)  # type: ignore[arg-type]
         with pytest.raises(TypeError):
-            await open_tcp_listeners("http", host=host)
+            await open_tcp_listeners("http", host=host)  # type: ignore[arg-type]
 
 
 async def test_serve_tcp() -> None:
-    async def handler(stream) -> None:
+    async def handler(stream: SendStream) -> None:
         await stream.send_all(b"x")
 
     async with trio.open_nursery() as nursery:
-        listeners = await nursery.start(serve_tcp, handler, 0)
+        # nursery.start is incorrectly typed, awaiting #2773
+        listeners: list[SocketListener] = await nursery.start(serve_tcp, handler, 0)  # type: ignore[arg-type]
         stream = await open_stream_to_socket_listener(listeners[0])
         async with stream:
             await stream.receive_some(1) == b"x"
@@ -268,7 +306,7 @@ async def test_serve_tcp() -> None:
     [{tsocket.AF_INET}, {tsocket.AF_INET6}, {tsocket.AF_INET, tsocket.AF_INET6}],
 )
 async def test_open_tcp_listeners_some_address_families_unavailable(
-    try_families, fail_families
+    try_families: set[AddressFamily], fail_families: set[AddressFamily]
 ) -> None:
     fsf = FakeSocketFactory(
         10, raise_on_family={family: errno.EAFNOSUPPORT for family in fail_families}
@@ -339,7 +377,8 @@ async def test_open_tcp_listeners_backlog() -> None:
         listeners = await open_tcp_listeners(0, backlog=given)
         assert listeners
         for listener in listeners:
-            assert listener.socket.backlog == expected
+            # `backlog` only exists on FakeSocket
+            assert listener.socket.backlog == expected  # type: ignore[attr-defined]
 
 
 async def test_open_tcp_listeners_backlog_float_error() -> None:

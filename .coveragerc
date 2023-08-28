@@ -24,6 +24,7 @@ exclude_lines =
   if t.TYPE_CHECKING:
   @overload
   class .*\bProtocol\b.*\):
+  raise NotImplementedError
 
 partial_branches =
   pragma: no branch

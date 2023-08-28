@@ -26,18 +26,12 @@ if sys.version_info < (3, 11):
 
 def test_close_all() -> None:
     class CloseMe(SocketType):
-        def __init__(self) -> None:
-            ...
-
         closed = False
 
         def close(self) -> None:
             self.closed = True
 
     class CloseKiller(SocketType):
-        def __init__(self) -> None:
-            ...
-
         def close(self) -> None:
             raise OSError
 
@@ -140,6 +134,7 @@ def can_bind_127_0_0_2() -> bool:
             s.bind(("127.0.0.2", 0))
         except OSError:
             return False
+        # s.getsockname() is typed as returning Any
         return s.getsockname()[0] == "127.0.0.2"  # type: ignore[no-any-return]
 
 
@@ -173,7 +168,7 @@ async def test_local_address_real() -> None:
             server_sock, remote_addr = await listener.accept()
             await client_stream.aclose()
             server_sock.close()
-            # accept returns tuple[SocketType, object]
+            # accept returns tuple[SocketType, object], due to typeshed returning `Any`
             assert remote_addr[0] == local_address  # type: ignore[index]
 
         # Trying to connect to an ipv4 address with the ipv6 wildcard
@@ -196,9 +191,9 @@ async def test_local_address_real() -> None:
 @attr.s(eq=False)
 class FakeSocket(trio.socket.SocketType):
     scenario: Scenario = attr.ib()
-    _family: AddressFamily = attr.ib(alias="_family")
-    _type: SocketKind = attr.ib(alias="_type")
-    _proto: int = attr.ib(alias="_proto")
+    _family: AddressFamily = attr.ib()
+    _type: SocketKind = attr.ib()
+    _proto: int = attr.ib()
 
     ip: str | int | None = attr.ib(default=None)
     port: str | int | None = attr.ib(default=None)
@@ -286,11 +281,11 @@ class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
     ) -> tuple[
         AddressFamily,
         SocketKind,
-        int | None,
+        int,
         str,
-        tuple[int | str, int, int, int] | tuple[int | str, int],
+        tuple[str, int, int, int] | tuple[str, int],
     ]:
-        sockaddr: tuple[int | str, int] | tuple[int | str, int, int, int]
+        sockaddr: tuple[str, int] | tuple[str, int, int, int]
         if ":" in ip:
             family = trio.socket.AF_INET6
             sockaddr = (ip, self.port, 0, 0)
@@ -301,7 +296,7 @@ class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
 
     # should hostnameresolver use AddressFamily and SocketKind, instead of int&int?
     # the return type in supertype is ... wildly incompatible with what this returns
-    async def getaddrinfo(  # type: ignore[override]
+    async def getaddrinfo(
         self,
         host: str | bytes | None,
         port: bytes | str | int | None,
@@ -313,9 +308,9 @@ class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
         tuple[
             AddressFamily,
             SocketKind,
-            int | None,
+            int,
             str,
-            tuple[int | str, int, int, int] | tuple[int | str, int],
+            tuple[str, int, int, int] | tuple[str, int],
         ]
     ]:
         assert host == b"test.example.com"

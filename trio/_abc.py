@@ -211,9 +211,9 @@ class SocketFactory(metaclass=ABCMeta):
     @abstractmethod
     def socket(
         self,
-        family: socket.AddressFamily | int | None = None,
-        type: socket.SocketKind | int | None = None,
-        proto: int | None = None,
+        family: socket.AddressFamily | int = ...,
+        type: socket.SocketKind | int = ...,
+        proto: int = ...,
     ) -> SocketType:
         """Create and return a socket object.
 

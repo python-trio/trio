@@ -13,8 +13,6 @@ from ._run import Task, _public
 from ._wakeup_socketpair import WakeupSocketpair
 
 if TYPE_CHECKING:
-    from socket import socket
-
     from typing_extensions import TypeAlias
 
     from .._core import Abort, RaiseCancelT

@@ -274,11 +274,11 @@ from typing import Callable, ContextManager, TYPE_CHECKING
 
 if TYPE_CHECKING:
     import select
-    from socket import socket
 
     from ._traps import Abort, RaiseCancelT
 
     from .. import _core
+    from .._file_io import _HasFileNo
 
 """
 
