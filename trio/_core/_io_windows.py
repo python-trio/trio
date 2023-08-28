@@ -44,6 +44,7 @@ from ._windows_cffi import (
 if TYPE_CHECKING:
     from typing_extensions import Buffer, TypeAlias
 
+    from .._file_io import _HasFileNo
     from ._traps import Abort, RaiseCancelT
     from ._unbounded_queue import UnboundedQueue
 
@@ -244,8 +245,8 @@ WRITABLE_FLAGS = (
 # operation and start a new one.
 @attr.s(slots=True, eq=False)
 class AFDWaiters:
-    read_task: None = attr.ib(default=None)
-    write_task: None = attr.ib(default=None)
+    read_task: Optional[_core.Task] = attr.ib(default=None)
+    write_task: Optional[_core.Task] = attr.ib(default=None)
     current_op: Optional[AFDPollOp] = attr.ib(default=None)
 
 
@@ -303,7 +304,7 @@ def _check(success: T) -> T:
 
 
 def _get_underlying_socket(
-    sock: socket.socket | int | Handle, *, which: WSAIoctls = WSAIoctls.SIO_BASE_HANDLE
+    sock: _HasFileNo | int | Handle, *, which: WSAIoctls = WSAIoctls.SIO_BASE_HANDLE
 ) -> Handle:
     if hasattr(sock, "fileno"):
         sock = sock.fileno()
@@ -326,7 +327,7 @@ def _get_underlying_socket(
     return Handle(base_ptr[0])
 
 
-def _get_base_socket(sock: socket.socket | int | Handle) -> Handle:
+def _get_base_socket(sock: _HasFileNo | int | Handle) -> Handle:
     # There is a development kit for LSPs called Komodia Redirector.
     # It does some unusual (some might say evil) things like intercepting
     # SIO_BASE_HANDLE (fails) and SIO_BSP_HANDLE_SELECT (returns the same
@@ -407,7 +408,7 @@ def _afd_helper_handle() -> Handle:
 
 @attr.s(frozen=True)
 class CompletionKeyEventInfo:
-    lpOverlapped: None = attr.ib()
+    lpOverlapped: CData = attr.ib()
     dwNumberOfBytesTransferred: int = attr.ib()
 
 
@@ -706,7 +707,7 @@ class WindowsIOManager:
             if afd_group.size >= MAX_AFD_GROUP_SIZE:
                 self._vacant_afd_groups.remove(afd_group)
 
-    async def _afd_poll(self, sock: socket.socket | int, mode: str) -> None:
+    async def _afd_poll(self, sock: _HasFileNo | int, mode: str) -> None:
         base_handle = _get_base_socket(sock)
         waiters = self._afd_waiters.get(base_handle)
         if waiters is None:
@@ -727,15 +728,15 @@ class WindowsIOManager:
         await _core.wait_task_rescheduled(abort_fn)
 
     @_public
-    async def wait_readable(self, sock: socket.socket | int) -> None:
+    async def wait_readable(self, sock: _HasFileNo | int) -> None:
         await self._afd_poll(sock, "read_task")
 
     @_public
-    async def wait_writable(self, sock: socket.socket | int) -> None:
+    async def wait_writable(self, sock: _HasFileNo | int) -> None:
         await self._afd_poll(sock, "write_task")
 
     @_public
-    def notify_closing(self, handle: Handle | int | socket.socket) -> None:
+    def notify_closing(self, handle: Handle | int | _HasFileNo) -> None:
         handle = _get_base_socket(handle)
         waiters = self._afd_waiters.get(handle)
         if waiters is not None:

@@ -287,7 +287,7 @@ IMPORTS_WINDOWS = """\
 from typing import TYPE_CHECKING, ContextManager
 
 if TYPE_CHECKING:
-    import socket
+    from .._file_io import _HasFileNo
     from ._windows_cffi import Handle, CData
     from typing_extensions import Buffer
 

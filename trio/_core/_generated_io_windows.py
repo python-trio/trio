@@ -11,7 +11,7 @@ from ._run import GLOBAL_RUN_CONTEXT
 from typing import TYPE_CHECKING, ContextManager
 
 if TYPE_CHECKING:
-    import socket
+    from .._file_io import _HasFileNo
     from ._windows_cffi import Handle, CData
     from typing_extensions import Buffer
 
@@ -21,7 +21,7 @@ import sys
 assert not TYPE_CHECKING or sys.platform=="win32"
 
 
-async def wait_readable(sock: (socket.socket | int)) ->None:
+async def wait_readable(sock: (_HasFileNo | int)) ->None:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_readable(sock)
@@ -29,7 +29,7 @@ async def wait_readable(sock: (socket.socket | int)) ->None:
         raise RuntimeError("must be called from async context")
 
 
-async def wait_writable(sock: (socket.socket | int)) ->None:
+async def wait_writable(sock: (_HasFileNo | int)) ->None:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_writable(sock)
@@ -37,7 +37,7 @@ async def wait_writable(sock: (socket.socket | int)) ->None:
         raise RuntimeError("must be called from async context")
 
 
-def notify_closing(handle: (Handle | int | socket.socket)) ->None:
+def notify_closing(handle: (Handle | int | _HasFileNo)) ->None:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.notify_closing(handle)
