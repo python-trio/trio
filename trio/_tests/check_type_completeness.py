@@ -6,6 +6,7 @@ import argparse
 import json
 import subprocess
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 
 # the result file is not marked in MANIFEST.in so it's not included in the package
@@ -35,8 +36,8 @@ def run_pyright(platform: str) -> subprocess.CompletedProcess[bytes]:
 
 def check_less_than(
     key: str,
-    current_dict: dict[str, int | float],
-    last_dict: dict[str, int | float],
+    current_dict: Mapping[str, int | float],
+    last_dict: Mapping[str, int | float],
     /,
     invert: bool = False,
 ) -> None:
@@ -63,7 +64,7 @@ def check_less_than(
     )
 
 
-def check_zero(key: str, current_dict: dict[str, object]) -> None:
+def check_zero(key: str, current_dict: Mapping[str, float]) -> None:
     global failed
     if current_dict[key] != 0:
         failed = True
