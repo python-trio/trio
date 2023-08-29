@@ -1,6 +1,7 @@
 import os
 import sys
 import tempfile
+from collections.abc import Generator
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
 from unittest.mock import create_autospec
