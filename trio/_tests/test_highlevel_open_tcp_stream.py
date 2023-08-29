@@ -294,8 +294,6 @@ class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
             sockaddr = (ip, self.port)
         return (family, SOCK_STREAM, IPPROTO_TCP, "", sockaddr)
 
-    # should hostnameresolver use AddressFamily and SocketKind, instead of int&int?
-    # the return type in supertype is ... wildly incompatible with what this returns
     async def getaddrinfo(
         self,
         host: str | bytes | None,
@@ -321,7 +319,7 @@ class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
         assert flags == 0
         return [self._ip_to_gai_entry(ip) for ip in self.ip_order]
 
-    async def getnameinfo(  # pragma: no cover
+    async def getnameinfo(
         self, sockaddr: tuple[str, int] | tuple[str, int, int, int], flags: int
     ) -> tuple[str, str]:
         raise NotImplementedError
