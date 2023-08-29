@@ -249,13 +249,13 @@ async def step_outside_async_context(aiter: AsyncGenerator[int, None]) -> None:
     # NB: the strangeness with aiter being an attribute of abort_fn is
     # to make it as easy as possible to ensure we don't hang onto a
     # reference to aiter inside the guts of the run loop.
-    def abort_fn(_: object) -> None:
+    def abort_fn(_: object) -> _core.Abort:
         with pytest.raises(StopIteration, match="42"):
-            abort_fn.aiter.asend(None).send(None)
-        del abort_fn.aiter
+            abort_fn.aiter.asend(None).send(None)  # type: ignore[attr-defined]  # Callables don't have attribute "aiter"
+        del abort_fn.aiter  # type: ignore[attr-defined]
         return _core.Abort.SUCCEEDED
 
-    abort_fn.aiter = aiter
+    abort_fn.aiter = aiter  # type: ignore[attr-defined]
 
     async with _core.open_nursery() as nursery:
         nursery.start_soon(_core.wait_task_rescheduled, abort_fn)

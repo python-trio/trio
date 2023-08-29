@@ -593,7 +593,7 @@ async def test_openssl_retransmit_doesnt_break_stuff() -> None:
         # )
         fn.deliver_packet(packet)
 
-    fn.route_packet = route_packet
+    fn.route_packet = route_packet  # type: ignore[assignment]  # TODO add type annotations for FakeNet
 
     async with dtls_echo_server() as (server_endpoint, address):
         with endpoint() as client_endpoint:
@@ -636,7 +636,7 @@ async def test_initial_retransmit_timeout_configuration(
         else:
             fn.deliver_packet(packet)
 
-    fn.route_packet = route_packet
+    fn.route_packet = route_packet  # type: ignore[assignment]  # TODO add type annotations for FakeNet
 
     async with dtls_echo_server() as (_, address):
         for t in [1, 2, 4]:
@@ -663,7 +663,7 @@ async def test_explicit_tiny_mtu_is_respected() -> None:
         assert len(packet.payload) <= MTU
         fn.deliver_packet(packet)
 
-    fn.route_packet = route_packet
+    fn.route_packet = route_packet  # type: ignore[assignment]  # TODO add type annotations for FakeNet
 
     async with dtls_echo_server(mtu=MTU) as (server, address):
         with endpoint() as client:
@@ -694,7 +694,7 @@ async def test_handshake_handles_minimum_network_mtu(
             print(f"delivering {packet}")
             fn.deliver_packet(packet)
 
-    fn.route_packet = route_packet
+    fn.route_packet = route_packet  # type: ignore[assignment]  # TODO add type annotations for FakeNet
 
     # See if we can successfully do a handshake -- some of the volleys will get dropped,
     # and the retransmit logic should detect this and back off the MTU to something
@@ -781,7 +781,7 @@ async def test_gc_as_packet_received() -> None:
 
 @pytest.mark.filterwarnings("always:unclosed DTLS:ResourceWarning")
 def test_gc_after_trio_exits() -> None:
-    async def main() -> None:
+    async def main() -> DTLSEndpoint:
         # We use fakenet just to make sure no real sockets can leak out of the test
         # case - on pypy somehow the socket was outliving the gc_collect_harder call
         # below. Since the test is just making sure DTLSEndpoint.__del__ doesn't explode
@@ -819,7 +819,7 @@ async def test_socket_closed_while_processing_clienthello(
             fn.deliver_packet(packet)
             server.socket.close()
 
-        fn.route_packet = route_packet
+        fn.route_packet = route_packet  # type: ignore[assignment]  # TODO add type annotations for FakeNet
 
         with endpoint() as client_endpoint:
             with trio.move_on_after(10):
@@ -836,7 +836,7 @@ async def test_association_replaced_while_handshake_running(
     def route_packet(packet: object) -> None:
         pass
 
-    fn.route_packet = route_packet
+    fn.route_packet = route_packet  # type: ignore[assignment]  # TODO add type annotations for FakeNet
 
     async with dtls_echo_server() as (_, address):
         with endpoint() as client_endpoint:
@@ -862,7 +862,7 @@ async def test_association_replaced_before_handshake_starts() -> None:
     def route_packet(packet: object) -> NoReturn:  # pragma: no cover
         assert False
 
-    fn.route_packet = route_packet
+    fn.route_packet = route_packet  # type: ignore[assignment]  # TODO add type annotations for FakeNet
 
     async with dtls_echo_server() as (_, address):
         with endpoint() as client_endpoint:

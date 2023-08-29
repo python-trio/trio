@@ -140,7 +140,7 @@ async def test_readinto_overlapped() -> None:
 
 
 @contextmanager
-def pipe_with_overlapped_read():
+def pipe_with_overlapped_read() -> Generator[tuple[int, object], None, None]:
     import msvcrt
     from asyncio.windows_utils import pipe
 
@@ -161,7 +161,7 @@ def test_forgot_to_register_with_iocp() -> None:
 
         left_run_yet = False
 
-        async def main():
+        async def main() -> None:
             target = bytearray(1)
             try:
                 async with _core.open_nursery() as nursery:
