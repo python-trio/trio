@@ -17,7 +17,7 @@ from collections.abc import (
 )
 from contextlib import ExitStack
 from math import inf
-from typing import Any, NoReturn, TypeVar
+from typing import NoReturn, TypeVar
 
 import outcome
 import pytest
