@@ -907,15 +907,6 @@ class _TaskStatus(TaskStatus[StatusT]):
         self._old_nursery._check_nursery_closed()
 
 
-class _NurseryStartFunc(Protocol[StatusT_co]):
-    """Type of functions passed to `nursery.start() <trio.Nursery.start>`."""
-
-    def __call__(
-        self, *args: Any, task_status: TaskStatus[StatusT_co]
-    ) -> Awaitable[object]:
-        ...
-
-
 @attr.s
 class NurseryManager:
     """Nursery context manager.
@@ -1173,7 +1164,10 @@ class Nursery(metaclass=NoPublicConstructor):
         GLOBAL_RUN_CONTEXT.runner.spawn_impl(async_fn, args, self, name)
 
     async def start(
-        self, async_fn: _NurseryStartFunc[StatusT], *args: object, name: object = None
+        self,
+        async_fn: Callable[..., Awaitable[object]],
+        *args: object,
+        name: object = None,
     ) -> StatusT:
         r"""Creates and initializes a child task.
 
