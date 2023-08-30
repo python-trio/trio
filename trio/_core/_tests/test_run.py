@@ -54,7 +54,10 @@ async def sleep_forever() -> object:
 
 
 def not_none(x: T | None) -> T:
-    """Assert that this object is not None."""
+    """Assert that this object is not None.
+
+    This is just to satisfy type checkers, if this ever fails the test is broken.
+    """
     assert x is not None
     return x
 
@@ -2092,7 +2095,7 @@ async def test_permanently_detach_coroutine_object() -> None:
     pdco_outcome: outcome.Outcome[str] | None = None
 
     async def detachable_coroutine(
-        task_outcome: outcome.Outcome[Any],
+        task_outcome: outcome.Outcome[None],
         yield_value: object,
     ) -> None:
         await sleep(0)
