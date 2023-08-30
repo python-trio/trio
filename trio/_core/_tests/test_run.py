@@ -2164,7 +2164,9 @@ async def test_detach_and_reattach_coroutine_object() -> None:
         await async_yield(2)
 
         with pytest.raises(RuntimeError) as excinfo:
-            await _core.reattach_detached_coroutine_object(not_none(unrelated_task), None)
+            await _core.reattach_detached_coroutine_object(
+                not_none(unrelated_task), None
+            )
         assert "does not match" in str(excinfo.value)
 
         await _core.reattach_detached_coroutine_object(task, "byebye")
