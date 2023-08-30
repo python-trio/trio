@@ -50,13 +50,17 @@ echo "::endgroup::"
 # Run mypy on all supported platforms
 MYPY=0
 echo "::group::Mypy"
-mypy trio --show-error-end --platform linux | python ./trio/_tools/mypy_annotate.py Linux \
+# Cleanup previous runs.
+rm -f mypy_annotate.dat
+mypy trio --show-error-end --platform linux | python ./trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Linux \
     || echo "* Mypy (Linux) found type errors." >> $GITHUB_STEP_SUMMARY; MYPY=1
 # Darwin tests FreeBSD too
-mypy trio --show-error-end --platform darwin | python ./trio/_tools/mypy_annotate.py Mac \
+mypy trio --show-error-end --platform darwin | python ./trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Mac \
     || echo "* Mypy (Mac) found type errors." >> $GITHUB_STEP_SUMMARY; MYPY=1
-mypy trio --show-error-end --platform win32 | python ./trio/_tools/mypy_annotate.py Windows \
+mypy trio --show-error-end --platform win32 | python ./trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Windows \
     || echo "* Mypy (Windows) found type errors." >> $GITHUB_STEP_SUMMARY; MYPY=1
+# Re-display errors using Github's syntax.
+python ./trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat
 echo "::endgroup::"
 if [ $MYPY -ne 0 ]; then
     echo "::error:: Mypy found type errors."
