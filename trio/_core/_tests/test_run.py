@@ -1999,9 +1999,14 @@ def test_system_task_contexts() -> None:
     _core.run(inner)
 
 
-def test_Nursery_init() -> None:
+async def test_Nursery_init() -> None:
+    """Test that nurseries cannot be constructed directly."""
+    # This function is async so that we have access to a task object we can
+    # pass in. It should never be accessed though.
+    task = _core.current_task()
+    scope = _core.CancelScope()
     with pytest.raises(TypeError):
-        _core._run.Nursery(None, None, False)  # type: ignore[arg-type]
+        _core._run.Nursery(task, scope, True)
 
 
 async def test_Nursery_private_init() -> None:
