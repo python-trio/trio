@@ -2133,15 +2133,18 @@ async def test_permanently_detach_coroutine_object() -> None:
 
 
 async def test_detach_and_reattach_coroutine_object() -> None:
-    tasks: dict[str, _core.Task] = {}
+    unrelated_task: _core.Task | None = None
+    task: _core.Task | None = None
 
     async def unrelated_coroutine() -> None:
-        tasks["unrelated"] = _core.current_task()
+        nonlocal unrelated_task
+        unrelated_task = _core.current_task()
 
     async def reattachable_coroutine() -> None:
+        nonlocal task
         await sleep(0)
 
-        tasks["normal"] = _core.current_task()
+        task = _core.current_task()
 
         def abort_fn(_: _core.RaiseCancelT) -> _core.Abort:  # pragma: no cover
             return _core.Abort.FAILED
@@ -2153,10 +2156,10 @@ async def test_detach_and_reattach_coroutine_object() -> None:
         await async_yield(2)
 
         with pytest.raises(RuntimeError) as excinfo:
-            await _core.reattach_detached_coroutine_object(tasks["unrelated"], None)
+            await _core.reattach_detached_coroutine_object(not_none(unrelated_task), None)
         assert "does not match" in str(excinfo.value)
 
-        await _core.reattach_detached_coroutine_object(tasks["normal"], "byebye")
+        await _core.reattach_detached_coroutine_object(task, "byebye")
 
         await sleep(0)
 
@@ -2164,13 +2167,11 @@ async def test_detach_and_reattach_coroutine_object() -> None:
         nursery.start_soon(unrelated_coroutine)
         nursery.start_soon(reattachable_coroutine)
         await wait_all_tasks_blocked()
-        assert "unrelated" in tasks
-        assert "normal" in tasks
 
         # Okay, it's detached. Here's our coroutine runner:
-        assert tasks["normal"].coro.send("not trio!") == 1
-        assert tasks["normal"].coro.send(None) == 2
-        assert tasks["normal"].coro.send(None) == "byebye"
+        assert not_none(task).coro.send("not trio!") == 1
+        assert not_none(task).coro.send(None) == 2
+        assert not_none(task).coro.send(None) == "byebye"
 
         # Now it's been reattached, and we can leave the nursery
 
