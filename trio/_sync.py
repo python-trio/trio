@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 import attr
 
@@ -105,21 +105,29 @@ class Event(metaclass=Final):
         return EventStatistics(tasks_waiting=len(self._tasks))
 
 
-# TODO: type this with a Protocol to get rid of type: ignore, see
-# https://github.com/python-trio/trio/pull/2682#discussion_r1259097422
+class _HasAcquireRelease(Protocol):
+    """Only classes with acquire() and release() can use the mixin's implementations."""
+
+    async def acquire(self) -> object:
+        ...
+
+    def release(self) -> object:
+        ...
+
+
 class AsyncContextManagerMixin:
     @enable_ki_protection
-    async def __aenter__(self) -> None:
-        await self.acquire()  # type: ignore[attr-defined]
+    async def __aenter__(self: _HasAcquireRelease) -> None:
+        await self.acquire()
 
     @enable_ki_protection
     async def __aexit__(
-        self,
+        self: _HasAcquireRelease,
         exc_type: type[BaseException] | None,
         exc_value: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
-        self.release()  # type: ignore[attr-defined]
+        self.release()
 
 
 @attr.s(frozen=True, slots=True)
