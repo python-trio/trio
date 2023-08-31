@@ -1,7 +1,12 @@
+include .coveragerc
+include check.sh
+include ci.sh
 include LICENSE LICENSE.MIT LICENSE.APACHE2
+include mypy.ini
 include README.rst
 include CODE_OF_CONDUCT.md CONTRIBUTING.md
 include test-requirements.txt
+include trio/_tests/astrill-codesigning-cert.cer
 recursive-include trio/_tests/test_ssl_certs *.pem
 recursive-include docs *
 prune docs/build
