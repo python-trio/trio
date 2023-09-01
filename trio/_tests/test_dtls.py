@@ -4,8 +4,13 @@ from itertools import count
 
 import attr
 import pytest
-import trustme
-from OpenSSL import SSL
+
+try:
+    import trustme
+    from OpenSSL import SSL
+except ImportError as error:
+    pytest.skip(error.msg, allow_module_level=True)
+
 
 import trio
 import trio.testing

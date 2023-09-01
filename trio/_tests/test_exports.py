@@ -33,7 +33,10 @@ except ImportError:  # pragma: no cover
 
 def _ensure_mypy_cache_updated():
     # This pollutes the `empty` dir. Should this be changed?
-    from mypy.api import run
+    try:
+        from mypy.api import run
+    except ImportError as error:
+        pytest.skip(error.msg)
 
     global mypy_cache_updated
     if not mypy_cache_updated:
@@ -130,13 +133,19 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
             py_typed_path.write_text("")
 
     if tool == "pylint":
-        from pylint.lint import PyLinter
+        try:
+            from pylint.lint import PyLinter
+        except ImportError as error:
+            pytest.skip(error.msg)
 
         linter = PyLinter()
         ast = linter.get_ast(module.__file__, modname)
         static_names = no_underscores(ast)
     elif tool == "jedi":
-        import jedi
+        try:
+            import jedi
+        except ImportError as error:
+            pytest.skip(error.msg)
 
         # Simulate typing "import trio; trio.<TAB>"
         script = jedi.Script(f"import {modname}; {modname}.")
@@ -145,8 +154,6 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
     elif tool == "mypy":
         if not RUN_SLOW:  # pragma: no cover
             pytest.skip("use --run-slow to check against mypy")
-        if sys.implementation.name != "cpython":
-            pytest.skip("mypy not installed in tests on pypy")
 
         cache = Path.cwd() / ".mypy_cache"
 
@@ -258,8 +265,6 @@ def test_static_tool_sees_class_members(
     py_typed_exists = py_typed_path.exists()
 
     if tool == "mypy":
-        if sys.implementation.name != "cpython":
-            pytest.skip("mypy not installed in tests on pypy")
         # create py.typed file
         # remove this logic when trio is marked with py.typed proper
         if not py_typed_exists:  # pragma: no branch
@@ -354,7 +359,10 @@ def test_static_tool_sees_class_members(
         )
 
         if tool == "jedi":
-            import jedi
+            try:
+                import jedi
+            except ImportError as error:
+                pytest.skip(error.msg)
 
             script = jedi.Script(
                 f"from {module_name} import {class_name}; {class_name}."

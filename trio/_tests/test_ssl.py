@@ -9,8 +9,12 @@ from contextlib import asynccontextmanager, contextmanager
 from functools import partial
 
 import pytest
-import trustme
-from OpenSSL import SSL
+
+try:
+    import trustme
+    from OpenSSL import SSL
+except ImportError as error:
+    pytest.skip(error.msg, allow_module_level=True)
 
 import trio
 
