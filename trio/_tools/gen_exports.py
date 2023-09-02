@@ -27,8 +27,6 @@ import astor
 import isort.api
 import isort.exceptions
 
-# imported to check that `subprocess` calls to black will succeed
-import black  # noqa: F401
 
 # isort: on
 
@@ -113,8 +111,12 @@ def create_passthrough_args(funcdef: ast.FunctionDef | ast.AsyncFunctionDef) -> 
 def run_linters(file: File, source: str) -> str:
     """Run isort and black on the specified file, returning the new source.
 
-    :raises ValueError: If either failed.
+    :raises ImportError: If black is not installed
+    :raises SystemExit: If either failed.
     """
+    # imported to check that `subprocess` calls to black will succeed
+    import black  # noqa: F401
+
     # Black has an undocumented API, but it doesn't easily allow reading configuration from
     # pyproject.toml, and simultaneously pass in / receive the code as a string.
     # https://github.com/psf/black/issues/779

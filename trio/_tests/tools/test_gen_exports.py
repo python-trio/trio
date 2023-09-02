@@ -7,12 +7,12 @@ from trio._tests.pytest_plugin import SKIP_OPTIONAL_IMPORTS
 # imports in gen_exports that are not in `install_requires` in setup.py
 try:
     import astor  # noqa: F401
-    import black  # noqa: F401
     import isort  # noqa: F401
 except ImportError as error:
     if SKIP_OPTIONAL_IMPORTS:
         pytest.skip(error.msg, allow_module_level=True)
     raise error
+
 
 from trio._tools.gen_exports import (
     File,
@@ -91,6 +91,12 @@ skip_lints = pytest.mark.skipif(
 @skip_lints
 @pytest.mark.parametrize("imports", ["", IMPORT_1, IMPORT_2, IMPORT_3])
 def test_process(tmp_path, imports):
+    try:
+        import black  # noqa: F401
+    except ImportError as error:
+        if SKIP_OPTIONAL_IMPORTS:
+            pytest.skip(error.msg, allow_module_level=True)
+
     modpath = tmp_path / "_module.py"
     genpath = tmp_path / "_generated_module.py"
     modpath.write_text(SOURCE, encoding="utf-8")
@@ -118,6 +124,11 @@ def test_process(tmp_path, imports):
 @skip_lints
 def test_lint_failure(tmp_path) -> None:
     """Test that processing properly fails if black or isort does."""
+    try:
+        import black  # noqa: F401
+    except ImportError as error:
+        if SKIP_OPTIONAL_IMPORTS:
+            pytest.skip(error.msg, allow_module_level=True)
     file = File(tmp_path / "module.py", "module")
 
     with pytest.raises(SystemExit):
