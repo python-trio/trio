@@ -34,7 +34,6 @@ globals().update(
 
 # import the overwrites
 from ._socket import (
-    Address as Address,
     SocketType as SocketType,
     from_stdlib_socket as from_stdlib_socket,
     fromfd as fromfd,

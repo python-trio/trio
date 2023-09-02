@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import socket
 from abc import ABCMeta, abstractmethod
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 import trio
 
@@ -209,12 +209,12 @@ class SocketFactory(metaclass=ABCMeta):
     """
 
     @abstractmethod
-    def socket(
+    def socket(  # type: ignore[misc]
         self,
         family: socket.AddressFamily | int = socket.AF_INET,
         type: socket.SocketKind | int = socket.SOCK_STREAM,
         proto: int = 0,
-    ) -> SocketType:
+    ) -> SocketType[Any]:
         """Create and return a socket object.
 
         Your socket object must inherit from :class:`trio.socket.SocketType`,

@@ -7,7 +7,7 @@
     "warningCount": 0
   },
   "typeCompleteness": {
-    "completenessScore": 0.9857369255150554,
+    "completenessScore": 0.9857142857142858,
     "diagnostics": [
       {
         "message": "Return type annotation is missing",
@@ -144,7 +144,7 @@
     ],
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 622,
+      "withKnownType": 621,
       "withUnknownType": 9
     },
     "ignoreUnknownTypesFromImports": true,
@@ -180,7 +180,7 @@
     ],
     "otherSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 671,
+      "withKnownType": 667,
       "withUnknownType": 0
     },
     "packageName": "trio"
