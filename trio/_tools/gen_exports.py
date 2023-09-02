@@ -16,13 +16,21 @@ from pathlib import Path
 from textwrap import indent
 from typing import TYPE_CHECKING
 
+import attr
+
 if TYPE_CHECKING:
     from typing_extensions import TypeGuard
 
+# keep these imports up to date with conditional imports in test_gen_exports
+# isort: off
 import astor
-import attr
 import isort.api
 import isort.exceptions
+
+# imported to check that `subprocess` calls to black will succeed
+import black  # noqa: F401
+
+# isort: on
 
 PREFIX = "_generated"
 

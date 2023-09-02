@@ -3,17 +3,21 @@ import sys
 
 import pytest
 
+# imports in gen_exports that are not in `install_requires` in setup.py
 try:
-    from trio._tools.gen_exports import (
-        File,
-        create_passthrough_args,
-        get_public_methods,
-        process,
-        run_linters,
-    )
+    import astor  # noqa: F401
+    import black  # noqa: F401
+    import isort  # noqa: F401
 except ImportError as error:
-    assert error.msg == "No module named 'astor'"
     pytest.skip(error.msg, allow_module_level=True)
+
+from trio._tools.gen_exports import (
+    File,
+    create_passthrough_args,
+    get_public_methods,
+    process,
+    run_linters,
+)
 
 SOURCE = '''from _run import _public
 from somewhere import Thing
