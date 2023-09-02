@@ -2,6 +2,7 @@ import ast
 import sys
 
 import pytest
+from trio._tests.pytest_plugin import SKIP_OPTIONAL_IMPORTS
 
 # imports in gen_exports that are not in `install_requires` in setup.py
 try:
@@ -9,7 +10,9 @@ try:
     import black  # noqa: F401
     import isort  # noqa: F401
 except ImportError as error:
-    pytest.skip(error.msg, allow_module_level=True)
+    if SKIP_OPTIONAL_IMPORTS:
+        pytest.skip(error.msg, allow_module_level=True)
+    raise error
 
 from trio._tools.gen_exports import (
     File,

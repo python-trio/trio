@@ -17,6 +17,7 @@ import pytest
 
 import trio
 import trio.testing
+from trio._tests.pytest_plugin import SKIP_OPTIONAL_IMPORTS
 
 from .. import _core, _util
 from .._core._tests.tutil import slow
@@ -36,7 +37,9 @@ def _ensure_mypy_cache_updated():
     try:
         from mypy.api import run
     except ImportError as error:
-        pytest.skip(error.msg)
+        if SKIP_OPTIONAL_IMPORTS:
+            pytest.skip(error.msg)
+        raise error
 
     global mypy_cache_updated
     if not mypy_cache_updated:
@@ -136,7 +139,9 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         try:
             from pylint.lint import PyLinter
         except ImportError as error:
-            pytest.skip(error.msg)
+            if SKIP_OPTIONAL_IMPORTS:
+                pytest.skip(error.msg)
+            raise error
 
         linter = PyLinter()
         ast = linter.get_ast(module.__file__, modname)
@@ -145,7 +150,9 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         try:
             import jedi
         except ImportError as error:
-            pytest.skip(error.msg)
+            if SKIP_OPTIONAL_IMPORTS:
+                pytest.skip(error.msg)
+            raise error
 
         # Simulate typing "import trio; trio.<TAB>"
         script = jedi.Script(f"import {modname}; {modname}.")
@@ -154,6 +161,8 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
     elif tool == "mypy":
         if not RUN_SLOW:  # pragma: no cover
             pytest.skip("use --run-slow to check against mypy")
+        if sys.implementation.name != "cpython":
+            pytest.skip("mypy not installed in tests on pypy")
 
         cache = Path.cwd() / ".mypy_cache"
 
@@ -265,6 +274,8 @@ def test_static_tool_sees_class_members(
     py_typed_exists = py_typed_path.exists()
 
     if tool == "mypy":
+        if sys.implementation.name != "cpython":
+            pytest.skip("mypy not installed in tests on pypy")
         # create py.typed file
         # remove this logic when trio is marked with py.typed proper
         if not py_typed_exists:  # pragma: no branch
@@ -362,7 +373,9 @@ def test_static_tool_sees_class_members(
             try:
                 import jedi
             except ImportError as error:
-                pytest.skip(error.msg)
+                if SKIP_OPTIONAL_IMPORTS:
+                    pytest.skip(error.msg)
+                raise error
 
             script = jedi.Script(
                 f"from {module_name} import {class_name}; {class_name}."

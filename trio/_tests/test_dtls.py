@@ -5,11 +5,15 @@ from itertools import count
 import attr
 import pytest
 
+from trio._tests.pytest_plugin import SKIP_OPTIONAL_IMPORTS
+
 try:
     import trustme
     from OpenSSL import SSL
 except ImportError as error:
-    pytest.skip(error.msg, allow_module_level=True)
+    if SKIP_OPTIONAL_IMPORTS:
+        pytest.skip(error.msg, allow_module_level=True)
+    raise error
 
 
 import trio

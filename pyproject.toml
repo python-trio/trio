@@ -86,7 +86,7 @@ module = [
 "trio/_core/_tests/test_unbounded_queue",
 "trio/_core/_tests/test_windows",
 "trio/_core/_tests/tutil",
-"trio/_tests/pytest_plugin",
+"trio/_tests/check_type_completeness",
 "trio/_tests/test_abc",
 "trio/_tests/test_channel",
 "trio/_tests/test_deprecate",
