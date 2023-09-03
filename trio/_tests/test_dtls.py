@@ -107,7 +107,9 @@ async def test_smoke(ipv6: bool) -> None:
 
 
 @slow
-async def test_handshake_over_terrible_network(autojump_clock: trio.abc.Clock) -> None:
+async def test_handshake_over_terrible_network(
+    autojump_clock: trio.testing.MockClock,
+) -> None:
     HANDSHAKES = 100
     r = random.Random(0)
     fn = FakeNet()
