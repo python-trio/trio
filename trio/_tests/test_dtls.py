@@ -173,7 +173,7 @@ async def test_handshake_over_terrible_network(
                     # dropped
                     pass
 
-            fn.route_packet = route_packet_wrapper
+            fn.route_packet = route_packet_wrapper  # type: ignore[assignment]  # TODO: Fix FakeNet typing
 
             for i in range(HANDSHAKES):
                 print("#" * 80)
@@ -485,7 +485,7 @@ async def test_invalid_cookie_rejected(autojump_clock: trio.abc.Clock) -> None:
 
             fn.deliver_packet(packet)
 
-        fn.route_packet = route_packet
+        fn.route_packet = route_packet  # type: ignore[assignment]  # TODO: Fix FakeNet typing
 
         async with dtls_echo_server() as (_, address):
             while True:
