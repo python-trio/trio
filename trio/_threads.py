@@ -409,7 +409,6 @@ def from_thread_run_sync(
         fn: Callable[..., RetT],
         args: tuple[object, ...],
     ) -> None:
-
         @disable_ki_protection
         def unprotected_fn() -> RetT:
             ret = fn(*args)

@@ -2066,7 +2066,7 @@ def test_sniffio_integration() -> None:
         sniffio.current_async_library()
 
     @contextmanager
-    def alternate_sniffio_library():
+    def alternate_sniffio_library() -> Generator[None, None, None]:
         prev_token = sniffio.current_async_library_cvar.set("nullio")
         prev_library, sniffio.thread_local.name = sniffio.thread_local.name, "nullio"
         try:
