@@ -15,7 +15,6 @@ from .tutil import buggy_pypy_asyncgens, gc_collect_harder, restore_unraisableho
 
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="no aclosing() in stdlib<3.10")
 def test_asyncgen_basics() -> None:
-    assert sys.version_info >= (3, 10)  # Mypy not understand pytest.mark.skipif
     collected = []
 
     async def example(cause: str) -> AsyncGenerator[int, None]:
@@ -53,7 +52,7 @@ def test_asyncgen_basics() -> None:
         assert collected.pop() == "abandoned"
 
         # aclosing() ensures it's cleaned up at point of use
-        async with contextlib.aclosing(example("exhausted 1")) as aiter:
+        async with contextlib.aclosing(example("exhausted 1")) as aiter:  # type: ignore[attr-defined]  # skipif makes sure we are at least 3.10
             assert 42 == await aiter.asend(None)
         assert collected.pop() == "exhausted 1"
 
@@ -65,7 +64,7 @@ def test_asyncgen_basics() -> None:
         gc_collect_harder()
 
         # No problems saving the geniter when using either of these patterns
-        async with contextlib.aclosing(example("exhausted 3")) as aiter:
+        async with contextlib.aclosing(example("exhausted 3")) as aiter:  # type: ignore[attr-defined]  # skipif makes sure we are at least 3.10
             saved.append(aiter)
             assert 42 == await aiter.asend(None)
         assert collected.pop() == "exhausted 3"
