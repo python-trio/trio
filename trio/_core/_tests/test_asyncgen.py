@@ -15,6 +15,7 @@ from .tutil import buggy_pypy_asyncgens, gc_collect_harder, restore_unraisableho
 
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="no aclosing() in stdlib<3.10")
 def test_asyncgen_basics() -> None:
+    assert sys.version_info >= (3, 10)  # Mypy not understand pytest.mark.skipif
     collected = []
 
     async def example(cause: str) -> AsyncGenerator[int, None]:
