@@ -351,7 +351,8 @@ def from_thread_check_cancelled() -> None:
 
      Only applicable to threads spawned by `trio.to_thread.run_sync`. Poll to allow
      ``cancellable=False`` threads to raise :exc:`trio.Cancelled` at a suitable
-     place, or to end abandoned ``cancellable=True`` sooner than they may otherwise.
+     place, or to end abandoned ``cancellable=True`` threads sooner than they may
+     otherwise.
 
     Raises:
         Cancelled: If the corresponding call to `trio.to_thread.run_sync` has had a

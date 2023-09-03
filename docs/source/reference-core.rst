@@ -1824,7 +1824,7 @@ to spawn a child thread, and then use a :ref:`memory channel
 .. literalinclude:: reference-core/from-thread-example.py
 
 You can also perform a non-blocking check for cancellation from threads spawned
-by func:`trio.to_thread.run_sync`.
+by `trio.to_thread.run_sync`.
 
 .. autofunction:: trio.from_thread.check_cancelled
 
