@@ -2357,7 +2357,7 @@ def start_guest_run(
     # spawn_system_task. We don't actually run any user code during
     # this time, so it shouldn't be possible to get an exception here,
     # except for a TrioInternalError.
-    next_send: EventResult = cast(
+    next_send = cast(
         EventResult, None
     )  # First iteration must be `None`, every iteration after that is EventResult
     for tick in range(5):  # expected need is 2 iterations + leave some wiggle room
