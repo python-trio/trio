@@ -32,8 +32,8 @@ RecWarnObj: TypeAlias = Any
 
 def _here() -> tuple[str, int]:
     frame = inspect.currentframe()
-    if frame is None or frame.f_back is None:
-        raise RuntimeError("Current or previous frame is None!")
+    assert frame is not None
+    assert frame.f_back is not None
     info = inspect.getframeinfo(frame.f_back)
     return (info.filename, info.lineno)
 
