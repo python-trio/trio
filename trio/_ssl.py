@@ -1,3 +1,18 @@
+from __future__ import annotations
+
+import operator as _operator
+import ssl as _stdlib_ssl
+from collections.abc import Awaitable, Callable
+from enum import Enum as _Enum
+from typing import Any, Final as TFinal, TypeVar
+
+import trio
+
+from . import _sync
+from ._highlevel_generic import aclose_forcefully
+from ._util import ConflictDetector, Final
+from .abc import Listener, Stream
+
 # General theory of operation:
 #
 # We implement an API that closely mirrors the stdlib ssl module's blocking
@@ -69,7 +84,7 @@
 # able to use this to figure out the key. Is this a real practical problem? I
 # have no idea, I'm not a cryptographer. In any case, some people worry that
 # it's a problem, so their TLS libraries are designed to automatically trigger
-# a renegotation every once in a while on some sort of timer.
+# a renegotiation every once in a while on some sort of timer.
 #
 # The end result is that you might be going along, minding your own business,
 # and then *bam*! a wild renegotiation appears! And you just have to cope.
@@ -103,7 +118,7 @@
 # write it needs to skip the first 1024 bytes or whatever it is. (Well,
 # technically, we're actually allowed to call 'write' again with a data buffer
 # which is the same as our old one PLUS some extra stuff added onto the end,
-# but in trio that never comes up so never mind.)
+# but in Trio that never comes up so never mind.)
 #
 # There are some people online who claim that once you've gotten a Want*Error
 # then the *very next call* you make to openssl *must* be the same as the
@@ -128,7 +143,7 @@
 # the outgoing BIO to the wire, reading data from the wire to the incoming
 # BIO, retrying an I/O call until it works, and synchronizing with other tasks
 # that might be calling _retry concurrently. Basically it takes an SSLObject
-# non-blocking in-memory method and converts it into a trio async blocking
+# non-blocking in-memory method and converts it into a Trio async blocking
 # method. _retry is only about 30 lines of code, but all these cases
 # multiplied by concurrent calls make it extremely tricky, so there are lots
 # of comments down below on the details, and a really extensive test suite in
@@ -147,80 +162,67 @@
 # XX document behavior on cancellation/error (i.e.: all is lost abandon
 # stream)
 # docs will need to make very clear that this is different from all the other
-# cancellations in core trio
-
-import operator as _operator
-import ssl as _stdlib_ssl
-from enum import Enum as _Enum
-
-from . import _core
-from .abc import Stream, Listener
-from ._highlevel_generic import (
-    BrokenStreamError, ClosedStreamError, aclose_forcefully
-)
-from . import _sync
-from ._util import ConflictDetector
-
-__all__ = ["SSLStream", "SSLListener"]
-
-################################################################
-# Faking the stdlib ssl API
-################################################################
+# cancellations in core Trio
 
 
-def _reexport(name):
-    try:
-        value = getattr(_stdlib_ssl, name)
-    except AttributeError:
-        pass
-    else:
-        globals()[name] = value
-        __all__.append(name)
-
-
-# Intentionally not re-exported:
-# SSLContext
-for _name in [
-        "SSLError",
-        "SSLZeroReturnError",
-        "SSLSyscallError",
-        "SSLEOFError",
-        "CertificateError",
-        "create_default_context",
-        "match_hostname",
-        "cert_time_to_seconds",
-        "DER_cert_to_PEM_cert",
-        "PEM_cert_to_DER_cert",
-        "get_default_verify_paths",
-        "Purpose",
-        "enum_certificates",
-        "enum_crls",
-        "SSLSession",
-        "VerifyMode",
-        "VerifyFlags",
-        "Options",
-        "AlertDescription",
-        "SSLErrorNumber",
-]:
-    _reexport(_name)
-
-for _name in _stdlib_ssl.__dict__.keys():
-    if _name == _name.upper():
-        _reexport(_name)
+T = TypeVar("T")
 
 ################################################################
 # SSLStream
 ################################################################
 
+# Ideally, when the user calls SSLStream.receive_some() with no argument, then
+# we should do exactly one call to self.transport_stream.receive_some(),
+# decrypt everything we got, and return it. Unfortunately, the way openssl's
+# API works, we have to pick how much data we want to allow when we call
+# read(), and then it (potentially) triggers a call to
+# transport_stream.receive_some(). So at the time we pick the amount of data
+# to decrypt, we don't know how much data we've read. As a simple heuristic,
+# we record the max amount of data returned by previous calls to
+# transport_stream.receive_some(), and we use that for future calls to read().
+# But what do we use for the very first call? That's what this constant sets.
+#
+# Note that the value passed to read() is a limit on the amount of
+# *decrypted* data, but we can only see the size of the *encrypted* data
+# returned by transport_stream.receive_some(). TLS adds a small amount of
+# framing overhead, and TLS compression is rarely used these days because it's
+# insecure. So the size of the encrypted data should be a slight over-estimate
+# of the size of the decrypted data, which is exactly what we want.
+#
+# The specific value is not really based on anything; it might be worth tuning
+# at some point. But, if you have an TCP connection with the typical 1500 byte
+# MTU and an initial window of 10 (see RFC 6928), then the initial burst of
+# data will be limited to ~15000 bytes (or a bit less due to IP-level framing
+# overhead), so this is chosen to be larger than that.
+STARTING_RECEIVE_SIZE: TFinal = 16384
+
+
+def _is_eof(exc: BaseException | None) -> bool:
+    # There appears to be a bug on Python 3.10, where SSLErrors
+    # aren't properly translated into SSLEOFErrors.
+    # This stringly-typed error check is borrowed from the AnyIO
+    # project.
+    return isinstance(exc, _stdlib_ssl.SSLEOFError) or (
+        "UNEXPECTED_EOF_WHILE_READING" in getattr(exc, "strerror", ())
+    )
+
+
+class NeedHandshakeError(Exception):
+    """Some :class:`SSLStream` methods can't return any meaningful data until
+    after the handshake. If you call them before the handshake, they raise
+    this error.
+
+    """
+
 
 class _Once:
-    def __init__(self, afn, *args):
+    def __init__(self, afn: Callable[..., Awaitable[object]], *args: object) -> None:
         self._afn = afn
         self._args = args
         self.started = False
         self._done = _sync.Event()
 
-    async def ensure(self, *, checkpoint):
+    async def ensure(self, *, checkpoint: bool) -> None:
         if not self.started:
             self.started = True
             await self._afn(*self._args)
@@ -230,14 +232,16 @@ class _Once:
         else:
             await self._done.wait()
 
+    @property
+    def done(self) -> bool:
+        return bool(self._done.is_set())
+
 
 _State = _Enum("_State", ["OK", "BROKEN", "CLOSED"])
 
-_default_max_refill_bytes = 32 * 1024
 
-
-class SSLStream(Stream):
-    """Encrypted communication using SSL/TLS.
+class SSLStream(Stream, metaclass=Final):
+    r"""Encrypted communication using SSL/TLS.
 
     :class:`SSLStream` wraps an arbitrary :class:`~trio.abc.Stream`, and
     allows you to perform encrypted communication over it using the usual
@@ -258,15 +262,14 @@ class SSLStream(Stream):
 
       ssl_context (~ssl.SSLContext): The :class:`~ssl.SSLContext` used for
           this connection. Required. Usually created by calling
-          :func:`trio.ssl.create_default_context()
-          <ssl.create_default_context>`.
+          :func:`ssl.create_default_context`.
 
-      server_hostname (str or None): The name of the server being connected
-          to. Used for `SNI
+      server_hostname (str, bytes, or None): The name of the server being
+          connected to. Used for `SNI
           <https://en.wikipedia.org/wiki/Server_Name_Indication>`__ and for
           validating the server's certificate (if hostname checking is
           enabled). This is effectively mandatory for clients, and actually
-          mandatory if ``ssl_context.check_hostname`` is True.
+          mandatory if ``ssl_context.check_hostname`` is ``True``.
 
       server_side (bool): Whether this stream is acting as a client or
           server. Defaults to False, i.e. client mode.
@@ -306,15 +309,6 @@ class SSLStream(Stream):
           that :class:`~ssl.SSLSocket` implements the
           ``https_compatible=True`` behavior by default.
 
-      max_refill_bytes (int): :class:`~ssl.SSLSocket` maintains an internal
-          buffer of incoming data, and when it runs low then it calls
-          :meth:`receive_some` on the underlying transport stream to refill
-          it. This argument lets you set the ``max_bytes`` argument passed to
-          the *underlying* :meth:`receive_some` call. It doesn't affect calls
-          to *this* class's :meth:`receive_some`, or really anything else
-          user-observable except possibly performance. You probably don't need
-          to worry about this.
-
     Attributes:
       transport_stream (trio.abc.Stream): The underlying transport stream
           that was passed to ``__init__``. An example of when this would be
@@ -326,36 +320,42 @@ class SSLStream(Stream):
     Internally, this class is implemented using an instance of
     :class:`ssl.SSLObject`, and all of :class:`~ssl.SSLObject`'s methods and
     attributes are re-exported as methods and attributes on this class.
+    However, there is one difference: :class:`~ssl.SSLObject` has several
+    methods that return information about the encrypted connection, like
+    :meth:`~ssl.SSLSocket.cipher` or
+    :meth:`~ssl.SSLSocket.selected_alpn_protocol`. If you call them before the
+    handshake, when they can't possibly return useful data, then
+    :class:`ssl.SSLObject` returns None, but :class:`trio.SSLStream`
+    raises :exc:`NeedHandshakeError`.
 
     This also means that if you register a SNI callback using
-    :meth:`~ssl.SSLContext.set_servername_callback`, then the first argument
-    your callback receives will be a :class:`ssl.SSLObject`.
+    `~ssl.SSLContext.sni_callback`, then the first argument your callback
+    receives will be a :class:`ssl.SSLObject`.
 
     """
 
     # Note: any new arguments here should likely also be added to
     # SSLListener.__init__, and maybe the open_ssl_over_tcp_* helpers.
     def __init__(
-            self,
-            transport_stream,
-            ssl_context,
-            *,
-            server_hostname=None,
-            server_side=False,
-            https_compatible=False,
-            max_refill_bytes=_default_max_refill_bytes
-    ):
-        self.transport_stream = transport_stream
+        self,
+        transport_stream: Stream,
+        ssl_context: _stdlib_ssl.SSLContext,
+        *,
+        server_hostname: str | bytes | None = None,
+        server_side: bool = False,
+        https_compatible: bool = False,
+    ) -> None:
+        self.transport_stream: Stream = transport_stream
         self._state = _State.OK
-        self._max_refill_bytes = max_refill_bytes
         self._https_compatible = https_compatible
         self._outgoing = _stdlib_ssl.MemoryBIO()
+        self._delayed_outgoing: bytes | None = None
         self._incoming = _stdlib_ssl.MemoryBIO()
         self._ssl_object = ssl_context.wrap_bio(
             self._incoming,
             self._outgoing,
             server_side=server_side,
-            server_hostname=server_hostname
+            server_hostname=server_hostname,  # type: ignore[arg-type]  # Typeshed bug, does accept bytes as well (typeshed#10590)
         )
         # Tracks whether we've already done the initial handshake
         self._handshook = _Once(self._do_handshake)
@@ -375,6 +375,8 @@ class SSLStream(Stream):
             "another task is currently receiving data on this SSLStream"
         )
 
+        self._estimated_receive_size = STARTING_RECEIVE_SIZE
+
     _forwarded = {
         "context",
         "server_side",
@@ -392,192 +394,243 @@ class SSLStream(Stream):
         "version",
     }
 
-    def __getattr__(self, name):
+    _after_handshake = {
+        "session_reused",
+        "getpeercert",
+        "selected_npn_protocol",
+        "cipher",
+        "shared_ciphers",
+        "compression",
+        "get_channel_binding",
+        "selected_alpn_protocol",
+        "version",
+    }
+
+    def __getattr__(self, name: str) -> Any:
         if name in self._forwarded:
+            if name in self._after_handshake and not self._handshook.done:
+                raise NeedHandshakeError(f"call do_handshake() before calling {name!r}")
+
             return getattr(self._ssl_object, name)
         else:
             raise AttributeError(name)
 
-    def __setattr__(self, name, value):
+    def __setattr__(self, name: str, value: object) -> None:
         if name in self._forwarded:
             setattr(self._ssl_object, name, value)
         else:
             super().__setattr__(name, value)
 
-    def __dir__(self):
-        return super().__dir__() + list(self._forwarded)
+    def __dir__(self) -> list[str]:
+        return list(super().__dir__()) + list(self._forwarded)
 
-    def _check_status(self):
+    def _check_status(self) -> None:
         if self._state is _State.OK:
             return
         elif self._state is _State.BROKEN:
-            raise BrokenStreamError
+            raise trio.BrokenResourceError
         elif self._state is _State.CLOSED:
-            raise ClosedStreamError
+            raise trio.ClosedResourceError
         else:  # pragma: no cover
             assert False
 
-    # This is probably the single trickiest function in trio. It has lots of
+    # This is probably the single trickiest function in Trio. It has lots of
     # comments, though, just make sure to think carefully if you ever have to
     # touch it. The big comment at the top of this file will help explain
     # too.
-    async def _retry(self, fn, *args, ignore_want_read=False):
-        await _core.yield_if_cancelled()
+    async def _retry(
+        self,
+        fn: Callable[..., T],
+        *args: object,
+        ignore_want_read: bool = False,
+        is_handshake: bool = False,
+    ) -> T | None:
+        await trio.lowlevel.checkpoint_if_cancelled()
         yielded = False
-        try:
-            finished = False
-            while not finished:
-                # WARNING: this code needs to be very careful with when it
-                # calls 'await'! There might be multiple tasks calling this
-                # function at the same time trying to do different operations,
-                # so we need to be careful to:
-                #
-                # 1) interact with the SSLObject, then
-                # 2) await on exactly one thing that lets us make forward
-                # progress, then
-                # 3) loop or exit
-                #
-                # In particular we don't want to yield while interacting with
-                # the SSLObject (because it's shared state, so someone else
-                # might come in and mess with it while we're suspended), and
-                # we don't want to yield *before* starting the operation that
-                # will help us make progress, because then someone else might
-                # come in and leapfrog us.
+        finished = False
+        while not finished:
+            # WARNING: this code needs to be very careful with when it
+            # calls 'await'! There might be multiple tasks calling this
+            # function at the same time trying to do different operations,
+            # so we need to be careful to:
+            #
+            # 1) interact with the SSLObject, then
+            # 2) await on exactly one thing that lets us make forward
+            # progress, then
+            # 3) loop or exit
+            #
+            # In particular we don't want to yield while interacting with
+            # the SSLObject (because it's shared state, so someone else
+            # might come in and mess with it while we're suspended), and
+            # we don't want to yield *before* starting the operation that
+            # will help us make progress, because then someone else might
+            # come in and leapfrog us.
 
-                # Call the SSLObject method, and get its result.
-                #
-                # NB: despite what the docs say, SSLWantWriteError can't
-                # happen – "Writes to memory BIOs will always succeed if
-                # memory is available: that is their size can grow
-                # indefinitely."
-                # https://wiki.openssl.org/index.php/Manual:BIO_s_mem(3)
+            # Call the SSLObject method, and get its result.
+            #
+            # NB: despite what the docs say, SSLWantWriteError can't
+            # happen – "Writes to memory BIOs will always succeed if
+            # memory is available: that is their size can grow
+            # indefinitely."
+            # https://wiki.openssl.org/index.php/Manual:BIO_s_mem(3)
+            want_read = False
+            ret = None
+            try:
+                ret = fn(*args)
+            except _stdlib_ssl.SSLWantReadError:
+                want_read = True
+            except (_stdlib_ssl.SSLError, _stdlib_ssl.CertificateError) as exc:
+                self._state = _State.BROKEN
+                raise trio.BrokenResourceError from exc
+            else:
+                finished = True
+            if ignore_want_read:
                 want_read = False
-                ret = None
-                try:
-                    ret = fn(*args)
-                except _stdlib_ssl.SSLWantReadError:
-                    want_read = True
-                except (SSLError, CertificateError) as exc:
-                    self._state = _State.BROKEN
-                    raise BrokenStreamError from exc
-                else:
-                    finished = True
-                if ignore_want_read:
-                    want_read = False
-                    finished = True
-                to_send = self._outgoing.read()
+                finished = True
+            to_send = self._outgoing.read()
 
-                # Outputs from the above code block are:
-                #
-                # - to_send: bytestring; if non-empty then we need to send
-                #   this data to make forward progress
-                #
-                # - want_read: True if we need to receive_some some data to make
-                #   forward progress
-                #
-                # - finished: False means that we need to retry the call to
-                #   fn(*args) again, after having pushed things forward. True
-                #   means we still need to do whatever was said (in particular
-                #   send any data in to_send), but once we do then we're
-                #   done.
-                #
-                # - ret: the operation's return value. (Meaningless unless
-                #   finished is True.)
-                #
-                # Invariant: want_read and finished can't both be True at the
-                # same time.
-                #
-                # Now we need to move things forward. There are two things we
-                # might have to do, and any given operation might require
-                # either, both, or neither to proceed:
-                #
-                # - send the data in to_send
-                #
-                # - receive_some some data and put it into the incoming BIO
-                #
-                # Our strategy is: if there's data to send, send it;
-                # *otherwise* if there's data to receive_some, receive_some it.
-                #
-                # If both need to happen, then we only send. Why? Well, we
-                # know that *right now* we have to both send and receive_some
-                # before the operation can complete. But as soon as we yield,
-                # that information becomes potentially stale – e.g. while
-                # we're sending, some other task might go and receive_some the
-                # data we need and put it into the incoming BIO. And if it
-                # does, then we *definitely don't* want to do a receive_some –
-                # there might not be any more data coming, and we'd deadlock!
-                # We could do something tricky to keep track of whether a
-                # receive_some happens while we're sending, but the case where
-                # we have to do both is very unusual (only during a
-                # renegotation), so it's better to keep things simple. So we
-                # do just one potentially-blocking operation, then check again
-                # for fresh information.
-                #
-                # And we prioritize sending over receiving because, if there
-                # are multiple tasks that want to receive_some, then it
-                # doesn't matter what order they go in. But if there are
-                # multiple tasks that want to send, then they each have
-                # different data, and the data needs to get put onto the wire
-                # in the same order that it was retrieved from the outgoing
-                # BIO. So if we have data to send, that *needs* to be the
-                # *very* *next* *thing* we do, to make sure no-one else sneaks
-                # in before us. Or if we can't send immediately because
-                # someone else is, then we at least need to get in line
-                # immediately.
-                if to_send:
-                    # NOTE: This relies on the lock being strict FIFO fair!
-                    async with self._inner_send_lock:
-                        yielded = True
-                        try:
-                            await self.transport_stream.send_all(to_send)
-                        except:
-                            # Some unknown amount of our data got sent, and we
-                            # don't know how much. This stream is doomed.
-                            self._state = _State.BROKEN
-                            raise
-                elif want_read:
-                    # It's possible that someone else is already blocked in
-                    # transport_stream.receive_some. If so then we want to
-                    # wait for them to finish, but we don't want to call
-                    # transport_stream.receive_some again ourselves; we just
-                    # want to loop around and check if their contribution
-                    # helped anything. So we make a note of how many times
-                    # some task has been through here before taking the lock,
-                    # and if it's changed by the time we get the lock, then we
-                    # skip calling transport_stream.receive_some and loop
-                    # around immediately.
-                    recv_count = self._inner_recv_count
-                    async with self._inner_recv_lock:
-                        yielded = True
-                        if recv_count == self._inner_recv_count:
-                            data = await self.transport_stream.receive_some(
-                                self._max_refill_bytes
+            # Some versions of SSL_do_handshake have a bug in how they handle
+            # the TLS 1.3 handshake on the server side: after the handshake
+            # finishes, they automatically send session tickets, even though
+            # the client may not be expecting data to arrive at this point and
+            # sending it could cause a deadlock or lost data. This applies at
+            # least to OpenSSL 1.1.1c and earlier, and the OpenSSL devs
+            # currently have no plans to fix it:
+            #
+            #   https://github.com/openssl/openssl/issues/7948
+            #   https://github.com/openssl/openssl/issues/7967
+            #
+            # The correct behavior is to wait to send session tickets on the
+            # first call to SSL_write. (This is what BoringSSL does.) So, we
+            # use a heuristic to detect when OpenSSL has tried to send session
+            # tickets, and we manually delay sending them until the
+            # appropriate moment. For more discussion see:
+            #
+            #   https://github.com/python-trio/trio/issues/819#issuecomment-517529763
+            if (
+                is_handshake
+                and not want_read
+                and self._ssl_object.server_side
+                and self._ssl_object.version() == "TLSv1.3"
+            ):
+                assert self._delayed_outgoing is None
+                self._delayed_outgoing = to_send
+                to_send = b""
+
+            # Outputs from the above code block are:
+            #
+            # - to_send: bytestring; if non-empty then we need to send
+            #   this data to make forward progress
+            #
+            # - want_read: True if we need to receive_some some data to make
+            #   forward progress
+            #
+            # - finished: False means that we need to retry the call to
+            #   fn(*args) again, after having pushed things forward. True
+            #   means we still need to do whatever was said (in particular
+            #   send any data in to_send), but once we do then we're
+            #   done.
+            #
+            # - ret: the operation's return value. (Meaningless unless
+            #   finished is True.)
+            #
+            # Invariant: want_read and finished can't both be True at the
+            # same time.
+            #
+            # Now we need to move things forward. There are two things we
+            # might have to do, and any given operation might require
+            # either, both, or neither to proceed:
+            #
+            # - send the data in to_send
+            #
+            # - receive_some some data and put it into the incoming BIO
+            #
+            # Our strategy is: if there's data to send, send it;
+            # *otherwise* if there's data to receive_some, receive_some it.
+            #
+            # If both need to happen, then we only send. Why? Well, we
+            # know that *right now* we have to both send and receive_some
+            # before the operation can complete. But as soon as we yield,
+            # that information becomes potentially stale – e.g. while
+            # we're sending, some other task might go and receive_some the
+            # data we need and put it into the incoming BIO. And if it
+            # does, then we *definitely don't* want to do a receive_some –
+            # there might not be any more data coming, and we'd deadlock!
+            # We could do something tricky to keep track of whether a
+            # receive_some happens while we're sending, but the case where
+            # we have to do both is very unusual (only during a
+            # renegotiation), so it's better to keep things simple. So we
+            # do just one potentially-blocking operation, then check again
+            # for fresh information.
+            #
+            # And we prioritize sending over receiving because, if there
+            # are multiple tasks that want to receive_some, then it
+            # doesn't matter what order they go in. But if there are
+            # multiple tasks that want to send, then they each have
+            # different data, and the data needs to get put onto the wire
+            # in the same order that it was retrieved from the outgoing
+            # BIO. So if we have data to send, that *needs* to be the
+            # *very* *next* *thing* we do, to make sure no-one else sneaks
+            # in before us. Or if we can't send immediately because
+            # someone else is, then we at least need to get in line
+            # immediately.
+            if to_send:
+                # NOTE: This relies on the lock being strict FIFO fair!
+                async with self._inner_send_lock:
+                    yielded = True
+                    try:
+                        if self._delayed_outgoing is not None:
+                            to_send = self._delayed_outgoing + to_send
+                            self._delayed_outgoing = None
+                        await self.transport_stream.send_all(to_send)
+                    except:
+                        # Some unknown amount of our data got sent, and we
+                        # don't know how much. This stream is doomed.
+                        self._state = _State.BROKEN
+                        raise
+            elif want_read:
+                # It's possible that someone else is already blocked in
+                # transport_stream.receive_some. If so then we want to
+                # wait for them to finish, but we don't want to call
+                # transport_stream.receive_some again ourselves; we just
+                # want to loop around and check if their contribution
+                # helped anything. So we make a note of how many times
+                # some task has been through here before taking the lock,
+                # and if it's changed by the time we get the lock, then we
+                # skip calling transport_stream.receive_some and loop
+                # around immediately.
+                recv_count = self._inner_recv_count
+                async with self._inner_recv_lock:
+                    yielded = True
+                    if recv_count == self._inner_recv_count:
+                        data = await self.transport_stream.receive_some()
+                        if not data:
+                            self._incoming.write_eof()
+                        else:
+                            self._estimated_receive_size = max(
+                                self._estimated_receive_size, len(data)
                             )
-                            if not data:
-                                self._incoming.write_eof()
-                            else:
-                                self._incoming.write(data)
-                            self._inner_recv_count += 1
-            return ret
-        finally:
-            if not yielded:
-                await _core.yield_briefly_no_cancel()
+                            self._incoming.write(data)
+                        self._inner_recv_count += 1
+        if not yielded:
+            await trio.lowlevel.cancel_shielded_checkpoint()
+        return ret
 
-    async def _do_handshake(self):
+    async def _do_handshake(self) -> None:
         try:
-            await self._retry(self._ssl_object.do_handshake)
+            await self._retry(self._ssl_object.do_handshake, is_handshake=True)
         except:
             self._state = _State.BROKEN
             raise
 
-    async def do_handshake(self):
+    async def do_handshake(self) -> None:
         """Ensure that the initial handshake has completed.
 
         The SSL protocol requires an initial handshake to exchange
         certificates, select cryptographic keys, and so forth, before any
         actual data can be sent or received. You don't have to call this
         method; if you don't, then :class:`SSLStream` will automatically
-        peform the handshake as needed, the first time you try to send or
+        perform the handshake as needed, the first time you try to send or
         receive data. But if you want to trigger it manually – for example,
         because you want to look at the peer's certificate before you start
         talking to them – then you can call this method.
@@ -591,14 +644,10 @@ class SSLStream(Stream):
         .. warning:: If this method is cancelled, then it may leave the
            :class:`SSLStream` in an unusable state. If this happens then any
            future attempt to use the object will raise
-           :exc:`trio.BrokenStreamError`.
+           :exc:`trio.BrokenResourceError`.
 
         """
-        try:
-            self._check_status()
-        except:
-            await _core.yield_briefly()
-            raise
+        self._check_status()
         await self._handshook.ensure(checkpoint=True)
 
     # Most things work if we don't explicitly force do_handshake to be called
@@ -609,7 +658,7 @@ class SSLStream(Stream):
     #   https://bugs.python.org/issue30141
     # So we *definitely* have to make sure that do_handshake is called
     # before doing anything else.
-    async def receive_some(self, max_bytes):
+    async def receive_some(self, max_bytes: int | None = None) -> bytes | bytearray:
         """Read some data from the underlying transport, decrypt it, and
         return it.
 
@@ -619,41 +668,52 @@ class SSLStream(Stream):
            or a renegotiation are in progress, then it may leave the
            :class:`SSLStream` in an unusable state. If this happens then any
            future attempt to use the object will raise
-           :exc:`trio.BrokenStreamError`.
+           :exc:`trio.BrokenResourceError`.
 
         """
-        async with self._outer_recv_conflict_detector:
+        with self._outer_recv_conflict_detector:
             self._check_status()
             try:
                 await self._handshook.ensure(checkpoint=False)
-            except BrokenStreamError as exc:
+            except trio.BrokenResourceError as exc:
                 # For some reason, EOF before handshake sometimes raises
                 # SSLSyscallError instead of SSLEOFError (e.g. on my linux
                 # laptop, but not on appveyor). Thanks openssl.
-                if (self._https_compatible
-                        and isinstance(exc.__cause__,
-                                       (SSLEOFError, SSLSyscallError))):
+                if self._https_compatible and (
+                    isinstance(exc.__cause__, _stdlib_ssl.SSLSyscallError)
+                    or _is_eof(exc.__cause__)
+                ):
+                    await trio.lowlevel.checkpoint()
                     return b""
                 else:
                     raise
-            max_bytes = _operator.index(max_bytes)
-            if max_bytes < 1:
-                raise ValueError("max_bytes must be >= 1")
+            if max_bytes is None:
+                # If we somehow have more data already in our pending buffer
+                # than the estimate receive size, bump up our size a bit for
+                # this read only.
+                max_bytes = max(self._estimated_receive_size, self._incoming.pending)
+            else:
+                max_bytes = _operator.index(max_bytes)
+                if max_bytes < 1:
+                    raise ValueError("max_bytes must be >= 1")
             try:
-                return await self._retry(self._ssl_object.read, max_bytes)
-            except BrokenStreamError as exc:
+                received = await self._retry(self._ssl_object.read, max_bytes)
+                assert received is not None
+                return received
+            except trio.BrokenResourceError as exc:
                 # This isn't quite equivalent to just returning b"" in the
                 # first place, because we still end up with self._state set to
                 # BROKEN. But that's actually fine, because after getting an
                 # EOF on TLS then the only thing you can do is close the
                 # stream, and closing doesn't care about the state.
-                if (self._https_compatible
-                        and isinstance(exc.__cause__, SSLEOFError)):
+
+                if self._https_compatible and _is_eof(exc.__cause__):
+                    await trio.lowlevel.checkpoint()
                     return b""
                 else:
                     raise
 
-    async def send_all(self, data):
+    async def send_all(self, data: bytes | bytearray | memoryview) -> None:
         """Encrypt some data and then send it on the underlying transport.
 
         See :meth:`trio.abc.SendStream.send_all` for details.
@@ -661,20 +721,20 @@ class SSLStream(Stream):
         .. warning:: If this method is cancelled, then it may leave the
            :class:`SSLStream` in an unusable state. If this happens then any
            attempt to use the object will raise
-           :exc:`trio.BrokenStreamError`.
+           :exc:`trio.BrokenResourceError`.
 
         """
-        async with self._outer_send_conflict_detector:
+        with self._outer_send_conflict_detector:
             self._check_status()
             await self._handshook.ensure(checkpoint=False)
             # SSLObject interprets write(b"") as an EOF for some reason, which
             # is not what we want.
             if not data:
-                await _core.yield_briefly()
+                await trio.lowlevel.checkpoint()
                 return
             await self._retry(self._ssl_object.write, data)
 
-    async def unwrap(self):
+    async def unwrap(self) -> tuple[Stream, bytes | bytearray]:
         """Cleanly close down the SSL/TLS encryption layer, allowing the
         underlying stream to be used for unencrypted communication.
 
@@ -691,17 +751,16 @@ class SSLStream(Stream):
           ``transport_stream.receive_some(...)``.
 
         """
-        async with self._outer_recv_conflict_detector, \
-                   self._outer_send_conflict_detector:
+        with self._outer_recv_conflict_detector, self._outer_send_conflict_detector:
             self._check_status()
             await self._handshook.ensure(checkpoint=False)
             await self._retry(self._ssl_object.unwrap)
             transport_stream = self.transport_stream
-            self.transport_stream = None
             self._state = _State.CLOSED
+            self.transport_stream = None  # type: ignore[assignment]  # State is CLOSED now, nothing should use
             return (transport_stream, self._incoming.read())
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         """Gracefully shut down this connection, and close the underlying
         transport.
 
@@ -714,7 +773,7 @@ class SSLStream(Stream):
 
         """
         if self._state is _State.CLOSED:
-            await _core.yield_briefly()
+            await trio.lowlevel.checkpoint()
             return
         if self._state is _State.BROKEN or self._https_compatible:
             self._state = _State.CLOSED
@@ -754,9 +813,9 @@ class SSLStream(Stream):
             # Also, because the other side might have already sent
             # close_notify and closed their connection then it's possible that
             # our attempt to send close_notify will raise
-            # BrokenStreamError. This is totally legal, and in fact can happen
-            # with two well-behaved trio programs talking to each other, so we
-            # don't want to raise an error. So we suppress BrokenStreamError
+            # BrokenResourceError. This is totally legal, and in fact can happen
+            # with two well-behaved Trio programs talking to each other, so we
+            # don't want to raise an error. So we suppress BrokenResourceError
             # here. (This is safe, because literally the only thing this call
             # to _retry will do is send the close_notify alert, so that's
             # surely where the error comes from.)
@@ -770,11 +829,13 @@ class SSLStream(Stream):
             # letting that happen. But if you start seeing it, then hopefully
             # this will give you a little head start on tracking it down,
             # because whoa did this puzzle us at the 2017 PyCon sprints.
+            #
+            # Also, if someone else is blocked in send/receive, then we aren't
+            # going to be able to do a clean shutdown. If that happens, we'll
+            # just do an unclean shutdown.
             try:
-                await self._retry(
-                    self._ssl_object.unwrap, ignore_want_read=True
-                )
-            except BrokenStreamError:
+                await self._retry(self._ssl_object.unwrap, ignore_want_read=True)
+            except (trio.BrokenResourceError, trio.BusyResourceError):
                 pass
         except:
             # Failure! Kill the stream and move on.
@@ -786,17 +847,14 @@ class SSLStream(Stream):
         finally:
             self._state = _State.CLOSED
 
-    async def wait_send_all_might_not_block(self):
-        """See :meth:`trio.abc.SendStream.wait_send_all_might_not_block`.
-
-        """
+    async def wait_send_all_might_not_block(self) -> None:
+        """See :meth:`trio.abc.SendStream.wait_send_all_might_not_block`."""
         # This method's implementation is deceptively simple.
         #
-        # First, we take the outer send lock, because of trio's standard
+        # First, we take the outer send lock, because of Trio's standard
         # semantics that wait_send_all_might_not_block and send_all
-        # conflict. This also takes care of providing correct checkpoint
-        # semantics before we potentially error out from _check_status().
-        async with self._outer_send_conflict_detector:
+        # conflict.
+        with self._outer_send_conflict_detector:
             self._check_status()
             # Then we take the inner send lock. We know that no other tasks
             # are calling self.send_all or self.wait_send_all_might_not_block,
@@ -830,10 +888,12 @@ class SSLStream(Stream):
                 await self.transport_stream.wait_send_all_might_not_block()
 
 
-class SSLListener(Listener):
+class SSLListener(Listener[SSLStream], metaclass=Final):
     """A :class:`~trio.abc.Listener` for SSL/TLS-encrypted servers.
 
-    :class:`SSLListener` allows you to wrap
+    :class:`SSLListener` wraps around another Listener, and converts
+    all incoming connections to encrypted connections by wrapping them
+    in a :class:`SSLStream`.
 
     Args:
       transport_listener (~trio.abc.Listener): The listener whose incoming
@@ -844,8 +904,6 @@ class SSLListener(Listener):
 
       https_compatible (bool): Passed on to :class:`SSLStream`.
 
-      max_refill_bytes (int): Passed on to :class:`SSLStream`.
-
     Attributes:
       transport_listener (trio.abc.Listener): The underlying listener that was
           passed to ``__init__``.
@@ -853,19 +911,17 @@ class SSLListener(Listener):
     """
 
     def __init__(
-            self,
-            transport_listener,
-            ssl_context,
-            *,
-            https_compatible=False,
-            max_refill_bytes=_default_max_refill_bytes
-    ):
+        self,
+        transport_listener: Listener[Stream],
+        ssl_context: _stdlib_ssl.SSLContext,
+        *,
+        https_compatible: bool = False,
+    ) -> None:
         self.transport_listener = transport_listener
         self._ssl_context = ssl_context
         self._https_compatible = https_compatible
-        self._max_refill_bytes = max_refill_bytes
 
-    async def accept(self):
+    async def accept(self) -> SSLStream:
         """Accept the next connection and wrap it in an :class:`SSLStream`.
 
         See :meth:`trio.abc.Listener.accept` for details.
@@ -877,11 +933,8 @@ class SSLListener(Listener):
             self._ssl_context,
             server_side=True,
             https_compatible=self._https_compatible,
-            max_refill_bytes=self._max_refill_bytes,
         )
 
-    async def aclose(self):
-        """Close the transport listener.
-
-        """
+    async def aclose(self) -> None:
+        """Close the transport listener."""
         await self.transport_listener.aclose()

@@ -41,7 +41,7 @@ use case and valid definition of usability, but it's not the one we
 use: we think it's easier to build reliable and correct systems if
 exceptions propagate until handled and if the system `catches you when
 you make potentially dangerous resource handling errors
-<https://github.com/python-trio/trio/issues/23>`__, so that's what we
+<https://github.com/python-trio/trio/issues/265>`__, so that's what we
 optimize for.
 
 It's also worth saying something about speed, since it often looms
@@ -50,7 +50,7 @@ and complex topic.
 
 In general, speed is certainly important – but the fact that people
 sometimes use Python instead of C is a pretty good indicator that
-usability often trumps speed in practice. We want to make trio fast,
+usability often trumps speed in practice. We want to make Trio fast,
 but it's not an accident that it's left off our list of overriding
 goals at the top: if necessary we are willing to accept some slowdowns
 in the service of usability and reliability.
@@ -107,7 +107,7 @@ post
 <https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/>`__,
 and in particular the `principles identified there
 <https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/#review-and-summing-up-what-is-async-await-native-anyway>`__
-that make curio easier to use correctly than asyncio. So trio also
+that make curio easier to use correctly than asyncio. So Trio also
 adopts these rules, in particular:
 
 * The only form of concurrency is the task.
@@ -127,11 +127,11 @@ adopts these rules, in particular:
 Cancel points and schedule points
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The first major place that trio departs from curio is in its decision
+The first major place that Trio departs from curio is in its decision
 to make a much larger fraction of the API use sync functions rather
 than async functions, and to provide strong conventions about cancel
 points and schedule points. (At this point, there are a lot of ways
-that trio and curio have diverged. But this was really the origin –
+that Trio and curio have diverged. But this was really the origin –
 the tipping point where I realized that exploring these ideas would
 require a new library, and couldn't be done inside curio.) The full
 reasoning here takes some unpacking.
@@ -202,7 +202,7 @@ put in the effort to make sure your code handles cancellation or
 interleaving correctly, but you can't count on it to help meet latency
 requirements.
 
-With all that in mind, trio takes the following approach:
+With all that in mind, Trio takes the following approach:
 
 Rule 1: to reduce the number of concepts to keep track of, we collapse
 cancel points and schedule points together. Every point that is a
@@ -211,7 +211,7 @@ distinct concepts both theoretically and in the actual implementation,
 but we hide that distinction from the user so that there's only one
 concept they need to keep track of.
 
-Rule 2: Cancel+schedule points are determined *statically*. A trio
+Rule 2: Cancel+schedule points are determined *statically*. A Trio
 primitive is either *always* a cancel+schedule point, or *never* a
 cancel+schedule point, regardless of runtime conditions. This is
 because we want it to be possible to determine whether some code has
@@ -220,6 +220,13 @@ because we want it to be possible to determine whether some code has
 In fact, to make this even simpler, we make it so you don't even have
 to look at the function arguments: each *function* is either a
 cancel+schedule point on *every* call or on *no* calls.
+
+(Pragmatic exception: a Trio primitive is not required to act as a
+cancel+schedule point when it raises an exception, even if it would
+act as one in the case of a successful return. See `issue 474
+<https://github.com/python-trio/trio/issues/474>`__ for more details;
+basically, requiring checkpoints on all exception paths added a lot of
+implementation complexity with negligible user-facing benefit.)
 
 Observation: since blocking is always a cancel+schedule point, rule 2
 implies that any function that *sometimes* blocks is *always* a
@@ -233,7 +240,7 @@ issue – "too many potential cancel points" is definitely a tension
 `I've felt
 <https://github.com/dabeaz/curio/issues/149#issuecomment-269745283>`__
 while trying to build things like task supervisors in curio.) And we
-expect that most trio programs will execute potentially-blocking
+expect that most Trio programs will execute potentially-blocking
 operations "often enough" to produce reasonable behavior. So, rule 3:
 the *only* cancel+schedule points are the potentially-blocking
 operations.
@@ -247,12 +254,12 @@ some Python feature, that naturally divided functions into two
 categories, and maybe put some sort of special syntactic marking on
 with the functions that can do weird things like block and task
 switch...? What a coincidence, that's exactly how async functions
-work! Rule 4: in trio, only the potentially blocking functions are
+work! Rule 4: in Trio, only the potentially blocking functions are
 async. So e.g. :meth:`Event.wait` is async, but :meth:`Event.set` is
 sync.
 
 Summing up: out of what's actually a pretty vast space of design
-possibilities, we declare by fiat that when it comes to trio
+possibilities, we declare by fiat that when it comes to Trio
 primitives, all of these categories are identical:
 
 * async functions
@@ -289,7 +296,7 @@ of their operations are schedule+cancel points.
 Exceptions always propagate
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Another rule that trio follows is that *exceptions must always
+Another rule that Trio follows is that *exceptions must always
 propagate*. This is like the `zen
 <https://www.python.org/dev/peps/pep-0020/>`__ line about "Errors
 should never pass silently", except that in every other concurrency
@@ -298,26 +305,23 @@ to end up with an undeliverable exception, which just gets printed to
 stderr and then discarded. While we understand the pragmatic
 constraints that motivated these libraries to adopt this approach, we
 feel that there are far too many situations where no human will ever
-look at stderr and notice the problem, and insist that trio APIs find
+look at stderr and notice the problem, and insist that Trio APIs find
 a way to propagate exceptions "up the stack" – whatever that might
 mean.
 
 This is often a challenging rule to follow – for example, the call
 soon code has to jump through some hoops to make it happen – but its
-most dramatic influence can seen in trio's task-spawning interface,
+most dramatic influence can seen in Trio's task-spawning interface,
 where it motivates the use of "nurseries"::
 
    async def parent():
        async with trio.open_nursery() as nursery:
-           nursery.spawn(child)
+           nursery.start_soon(child)
 
 (See :ref:`tasks` for full details.)
 
-If you squint you can see the influence of erlang's "task linking"
-idea here, but it's quite different in detail, exactly because Python
-has exceptions and Erlang doesn't. Erlang's links are symmetric and
-optional; to support exceptions we need ours to be asymmetric and
-mandatory.
+If you squint you can see the conceptual influence of Erlang's "task
+linking" and "task tree" ideas here, though the details are different.
 
 This design also turns out to enforce a remarkable, unexpected
 invariant.
@@ -326,23 +330,23 @@ In `the blog post
 <https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-in-a-post-asyncawait-world/#c-c-c-c-causality-breaker>`__
 I called out a nice feature of curio's spawning API, which is that
 since spawning is the only way to break causality, and in curio
-``spawn`` is async, this means that in curio sync functions are
+``spawn`` is async, which means that in curio sync functions are
 guaranteed to be causal. One limitation though is that this invariant
 is actually not very predictive: in curio there are lots of async
 functions that could spawn off children and violate causality, but
 most of them don't, but there's no clear marker for the ones that do.
 
 Our API doesn't quite give that guarantee, but actually a better
-one. In trio:
+one. In Trio:
 
 * Sync functions can't create nurseries, because nurseries require an
   ``async with``
 
-* Any async function can create a nursery and spawn new tasks... but
-  creating a nursery *allows task spawning without allowing causality
-  breaking*, because the children have to exit before the function is
-  allowed to return. So we can preserve causality without having to
-  give up concurrency!
+* Any async function can create a nursery and start new tasks... but
+  creating a nursery *allows task starting but does not permit
+  causality breaking*, because the children have to exit before the
+  function is allowed to return. So we can preserve causality without
+  having to give up concurrency!
 
 * The only way to violate causality (which is an important feature,
   just one that needs to be handled carefully) is to explicitly create
@@ -357,11 +361,11 @@ Introspection, debugging, testing
 
 Tools for introspection and debugging are critical to achieving
 usability and correctness in practice, so they should be first-class
-considerations in trio.
+considerations in Trio.
 
 Similarly, the availability of powerful testing tools has a huge
 impact on usability and correctness; we consider testing helpers to be
-very much in scope for the trio project.
+very much in scope for the Trio project.
 
 
 Specific style guidelines
@@ -391,7 +395,7 @@ Specific style guidelines
   unambiguous and extensible way to pass arguments to the caller.
   (Hat-tip to asyncio, who we stole this convention from.)
 
-* Whenever it makes sense, trio classes should have a method called
+* Whenever it makes sense, Trio classes should have a method called
   ``statistics()`` which returns an immutable object with named fields
   containing internal statistics about the object that are useful for
   debugging or introspection (:ref:`examples <synchronization>`).
@@ -416,78 +420,66 @@ Specific style guidelines
 
   and the ``nowait`` version raises :exc:`trio.WouldBlock` if it would block.
 
-* The word ``monitor`` is used for APIs that involve an
-  :class:`UnboundedQueue` receiving some kind of events. (Examples:
-  nursery ``.monitor`` attribute, some of the low-level I/O functions in
-  :mod:`trio.hazmat`.)
-
 * ...we should, but currently don't, have a solid convention to
   distinguish between functions that take an async callable and those
   that take a sync callable. See `issue #68
   <https://github.com/python-trio/trio/issues/68>`__.
 
 
-A brief tour of trio's internals
+A brief tour of Trio's internals
 --------------------------------
 
-If you want to understand how trio is put together internally, then
+If you want to understand how Trio is put together internally, then
 the first thing to know is that there's a very strict internal
 layering: the ``trio._core`` package is a fully self-contained
 implementation of the core scheduling/cancellation/IO handling logic,
 and then the other ``trio.*`` modules are implemented in terms of the
 API it exposes. (If you want to see what this API looks like, then
 ``import trio; print(trio._core.__all__)``). Everything exported from
-``trio._core`` is *also* exported as part of either the ``trio`` or
-``trio.hazmat`` namespaces. (This is managed through the use of a
-``@_hazmat`` decorator that marks which items in
-``trio._core.__all__`` should go into ``trio.hazmat``.)
+``trio._core`` is *also* exported as part of the ``trio``,
+``trio.lowlevel``, or ``trio.testing`` namespaces. (See their
+respective ``__init__.py`` files for details; there's a test to
+enforce this.)
 
-Rationale: currently, trio is a new project in a novel part of the
+Rationale: currently, Trio is a new project in a novel part of the
 design space, so we don't make any stability guarantees. But the goal
 is to reach the point where we *can* declare the API stable. It's
 unlikely that we'll be able to quickly explore all possible corners of
 the design space and cover all possible types of I/O. So instead, our
 strategy is to make sure that it's possible for independent packages
-to add new features on top of trio. Enforcing the ``trio`` vs
+to add new features on top of Trio. Enforcing the ``trio`` vs
 ``trio._core`` split is a way of `eating our own dogfood
 <https://en.wikipedia.org/wiki/Eating_your_own_dog_food>`__: basic
-functionality like :class:`trio.Queue` and :mod:`trio.socket` is
+functionality like :class:`trio.Lock` and :mod:`trio.socket` is
 actually implemented solely in terms of public APIs. And the hope is
 that by doing this, we increase the chances that someone who comes up
 with a better kind of queue or wants to add some new functionality
 like, say, file system change watching, will be able to do that on top
-of our public APIs without having to modify trio internals.
+of our public APIs without having to modify Trio internals.
 
 
 Inside ``trio._core``
 ~~~~~~~~~~~~~~~~~~~~~
 
-There are three notable sub-modules that are largely independent of
-the rest of trio, and could (possibly should?) be extracted into their
-own independent packages:
-
-* ``_result.py``: Defines :class:`Result`.
-
-* ``_multierror.py``: Implements :class:`MultiError` and associated
-  infrastructure.
-
-* ``_ki.py``: Implements the core infrastructure for safe handling of
-  :class:`KeyboardInterrupt`.
+The ``_ki.py`` module implements the core infrastructure for safe handling
+of :class:`KeyboardInterrupt`.  It's largely independent of the rest of Trio,
+and could (possibly should?) be extracted into its own independent package.
 
 The most important submodule, where everything is integrated, is
 ``_run.py``. (This is also by far the largest submodule; it'd be nice
-to factor bits of it out with possible, but it's tricky because the
+to factor bits of it out where possible, but it's tricky because the
 core functionality genuinely is pretty intertwined.) Notably, this is
-where cancel scopes, nurseries, and :class:`Task` are defined; it's
-also where the scheduler state and :func:`trio.run` live.
+where cancel scopes, nurseries, and :class:`~trio.lowlevel.Task` are
+defined; it's also where the scheduler state and :func:`trio.run`
+live.
 
 The one thing that *isn't* in ``_run.py`` is I/O handling. This is
 delegated to an ``IOManager`` class, of which there are currently
 three implementations:
 
-* ``EpollIOManager`` in ``_io_epoll.py`` (used on Linux, Illuminos)
+* ``EpollIOManager`` in ``_io_epoll.py`` (used on Linux, illumos)
 
-* ``KqueueIOManager`` in ``_io_kqueue.py`` (used on MacOS, \*BSD)
+* ``KqueueIOManager`` in ``_io_kqueue.py`` (used on macOS, \*BSD)
 
 * ``WindowsIOManager`` in ``_io_windows.py`` (used on Windows)
 
@@ -498,20 +490,20 @@ CFFI to access to the Win32 API directly (see
 to the raw OS functionality rather than use :mod:`selectors`, for
 several reasons:
 
-* Controlling our own fate: I/O handling is pretty core to what trio
+* Controlling our own fate: I/O handling is pretty core to what Trio
   is about, and :mod:`selectors` is (as of 2017-03-01) somewhat buggy
-  (e.g. `issue 29587 <https://bugs.python.org/issue29256>`__, `issue
+  (e.g. `issue 29256 <https://bugs.python.org/issue29256>`__, `issue
   29255 <https://bugs.python.org/issue29255>`__). Which isn't a big
   deal on its own, but since :mod:`selectors` is part of the standard
   library we can't fix it and ship an updated version; we're stuck
   with whatever we get. We want more control over our users'
   experience than that.
 
-* Impedence mismatch: the :mod:`selectors` API isn't particularly
+* Impedance mismatch: the :mod:`selectors` API isn't particularly
   well-fitted to how we want to use it. For example, kqueue natively
   treats an interest in readability of some fd as a separate thing
   from an interest in that same fd's writability, which neatly matches
-  trio's model. :class:`selectors.KqueueSelector` goes to some effort
+  Trio's model. :class:`selectors.KqueueSelector` goes to some effort
   internally to lump together all interests in a single fd, and to use
   it we'd then we'd have to jump through more hoops to reverse
   this. Of course, the native epoll API is fd-centric in the same way
@@ -527,7 +519,7 @@ several reasons:
 The ``IOManager`` layer provides a fairly raw exposure of the capabilities
 of each system, with public API functions that vary between different
 backends. (This is somewhat inspired by how :mod:`os` works.) These
-public APIs are then exported as part of :mod:`trio.hazmat`, and
+public APIs are then exported as part of :mod:`trio.lowlevel`, and
 higher-level APIs like :mod:`trio.socket` abstract over these
 system-specific APIs to provide a uniform experience.
 

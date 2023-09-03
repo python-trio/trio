@@ -1,30 +1,35 @@
-from contextlib import contextmanager
+from __future__ import annotations
+
+from collections.abc import Generator
+from contextlib import AbstractContextManager, contextmanager
 
 from .. import _core
 
-__all__ = ["assert_yields", "assert_no_yields"]
-
 
 @contextmanager
-def _assert_yields_or_not(expected):
+def _assert_yields_or_not(expected: bool) -> Generator[None, None, None]:
+    """Check if checkpoints are executed in a block of code."""
     __tracebackhide__ = True
     task = _core.current_task()
     orig_cancel = task._cancel_points
     orig_schedule = task._schedule_points
     try:
         yield
+        if expected and (
+            task._cancel_points == orig_cancel or task._schedule_points == orig_schedule
+        ):
+            raise AssertionError("assert_checkpoints block did not yield!")
     finally:
-        if (expected and (task._cancel_points == orig_cancel
-                          or task._schedule_points == orig_schedule)):
-            raise AssertionError("assert_yields block did not yield!")
-        elif (not expected and (task._cancel_points != orig_cancel
-                                or task._schedule_points != orig_schedule)):
-            raise AssertionError("assert_no_yields block yielded!")
+        if not expected and (
+            task._cancel_points != orig_cancel or task._schedule_points != orig_schedule
+        ):
+            raise AssertionError("assert_no_checkpoints block yielded!")
 
 
-def assert_yields():
+def assert_checkpoints() -> AbstractContextManager[None]:
     """Use as a context manager to check that the code inside the ``with``
-    block executes at least one :ref:`checkpoint <checkpoints>`.
+    block either exits with an exception or executes at least one
+    :ref:`checkpoint <checkpoints>`.
 
     Raises:
       AssertionError: if no checkpoint was executed.
@@ -33,7 +38,7 @@ def assert_yields():
       Check that :func:`trio.sleep` is a checkpoint, even if it doesn't
       block::
 
-         with trio.testing.assert_yields():
+         with trio.testing.assert_checkpoints():
              await trio.sleep(0)
 
     """
@@ -41,19 +46,20 @@ def assert_yields():
     return _assert_yields_or_not(True)
 
 
-def assert_no_yields():
+def assert_no_checkpoints() -> AbstractContextManager[None]:
     """Use as a context manager to check that the code inside the ``with``
-    block does not execute any :ref:`check points <checkpoints>`.
+    block does not execute any :ref:`checkpoints <checkpoints>`.
 
     Raises:
       AssertionError: if a checkpoint was executed.
 
     Example:
-      Synchronous code never yields, but we can double-check that::
+      Synchronous code never contains any checkpoints, but we can double-check
+      that::
 
-         queue = trio.Queue(10)
-         with trio.testing.assert_no_yields():
-             queue.put_nowait(None)
+         send_channel, receive_channel = trio.open_memory_channel(10)
+         with trio.testing.assert_no_checkpoints():
+             send_channel.send_nowait(None)
 
     """
     __tracebackhide__ = True

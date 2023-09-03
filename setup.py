@@ -1,9 +1,9 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 exec(open("trio/_version.py", encoding="utf-8").read())
 
 LONG_DESC = """\
-.. image:: https://cdn.rawgit.com/python-trio/trio/9b0bec646a31e0d0f67b8b6ecc6939726faf3e17/logo/logo-with-background.svg
+.. image:: https://raw.githubusercontent.com/python-trio/trio/9b0bec646a31e0d0f67b8b6ecc6939726faf3e17/logo/logo-with-background.svg
    :width: 200px
    :align: right
 
@@ -30,7 +30,8 @@ The resulting design is radically simpler than older competitors like
 `Twisted <https://twistedmatrix.com/>`__, yet just as capable. Trio is
 the Python I/O library I always wanted; I find it makes building
 I/O-oriented programs easier, less error-prone, and just plain more
-fun. Perhaps you'll find the same.
+fun. `Perhaps you'll find the same
+<https://github.com/python-trio/trio/wiki/Testimonials>`__.
 
 This project is young and still somewhat experimental: the overall
 design is solid and the existing features are fully tested and
@@ -42,8 +43,8 @@ chance to give feedback about any compatibility-breaking changes.
 
 Vital statistics:
 
-* Supported environments: Linux, MacOS, or Windows running some kind of Python
-  3.5-or-better (either CPython or PyPy3 is fine). \\*BSD and illumus likely
+* Supported environments: Linux, macOS, or Windows running some kind of Python
+  3.8-or-better (either CPython or PyPy3 is fine). \\*BSD and illumos likely
   work too, but are not tested.
 
 * Install: ``python3 -m pip install -U trio`` (or on Windows, maybe
@@ -51,46 +52,53 @@ Vital statistics:
 
 * Tutorial and reference manual: https://trio.readthedocs.io
 
+* Changelog: https://trio.readthedocs.io/en/latest/history.html
+
 * Bug tracker and source code: https://github.com/python-trio/trio
+
+* Real-time chat: https://gitter.im/python-trio/general
+
+* Discussion forum: https://trio.discourse.group
 
 * License: MIT or Apache 2, your choice
 
+* Contributor guide: https://trio.readthedocs.io/en/latest/contributing.html
+
 * Code of conduct: Contributors are requested to follow our `code of
   conduct
-  <https://github.com/python-trio/trio/blob/master/CODE_OF_CONDUCT.md>`_
+  <https://trio.readthedocs.io/en/latest/code-of-conduct.html>`_
   in all project spaces.
 """
 
 setup(
     name="trio",
     version=__version__,
-    description="An async/await-native I/O library for humans and snake people",
+    description="A friendly Python library for async concurrency and I/O",
     long_description=LONG_DESC,
+    long_description_content_type="text/x-rst",
     author="Nathaniel J. Smith",
     author_email="njs@pobox.com",
     url="https://github.com/python-trio/trio",
-    license="MIT -or- Apache License 2.0",
+    license="MIT OR Apache-2.0",
     packages=find_packages(),
     install_requires=[
-        "attrs",
+        # attrs 19.2.0 adds `eq` option to decorators
+        # attrs 20.1.0 adds @frozen
+        "attrs >= 20.1.0",
         "sortedcontainers",
-        "async_generator >= 1.6",
         "idna",
-        # PEP 508 style, but:
-        # https://bitbucket.org/pypa/wheel/issues/181/bdist_wheel-silently-discards-pep-508
-        #"cffi; os_name == 'nt'",  # "cffi is required on windows"
+        "outcome",
+        "sniffio >= 1.3.0",
+        # cffi 1.12 adds from_buffer(require_writable=True) and ffi.release()
+        # cffi 1.14 fixes memory leak inside ffi.getwinerror()
+        # cffi is required on Windows, except on PyPy where it is built-in
+        "cffi>=1.14; os_name == 'nt' and implementation_name != 'pypy'",
+        "exceptiongroup >= 1.0.0rc9; python_version < '3.11'",
     ],
     # This means, just install *everything* you see under trio/, even if it
     # doesn't look like a source file, so long as it appears in MANIFEST.in:
     include_package_data=True,
-    # Quirky bdist_wheel-specific way:
-    # https://wheel.readthedocs.io/en/latest/#defining-conditional-dependencies
-    # also supported by pip and setuptools, as long as they're vaguely
-    # recent
-    extras_require={
-        ":os_name == 'nt'": ["cffi"],  # "cffi is required on windows"
-    },
-    python_requires=">=3.5",
+    python_requires=">=3.8",
     keywords=["async", "io", "networking", "trio"],
     classifiers=[
         "Development Status :: 3 - Alpha",
@@ -104,8 +112,16 @@ setup(
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.5",
-        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Topic :: System :: Networking",
+        "Framework :: Trio",
     ],
+    project_urls={
+        "Documentation": "https://trio.readthedocs.io/",
+        "Changelog": "https://trio.readthedocs.io/en/latest/history.html",
+    },
 )

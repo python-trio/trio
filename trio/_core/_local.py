@@ -1,124 +1,103 @@
-# Task- and Run-local storage
+from __future__ import annotations
 
-from . import _hazmat, _run
+from typing import Generic, TypeVar, cast, final
 
-__all__ = ["TaskLocal", "RunLocal"]
+# Runvar implementations
+import attr
 
-# Our public API is intentionally almost identical to that of threading.local:
-# the user allocates a trio.{Task,Run}Local() object, and then can attach
-# arbitrary attributes to it. Reading one of these attributes later will
-# return the last value that was assigned to this attribute *by code running
-# inside the same task or run*.
+from .._util import Final, NoPublicConstructor
+from . import _run
 
-
-# This is conceptually a method on _LocalBase, but given the way we're playing
-# with attribute access making it a free-standing function is simpler:
-def _local_dict(local_obj):
-    locals_type = object.__getattribute__(local_obj, "_locals_key")
-    try:
-        refobj = getattr(_run.GLOBAL_RUN_CONTEXT, locals_type)
-    except AttributeError:
-        raise RuntimeError("must be called from async context") from None
-    try:
-        return refobj._locals[local_obj]
-    except KeyError:
-        new_dict = dict(object.__getattribute__(local_obj, "_defaults"))
-        refobj._locals[local_obj] = new_dict
-        return new_dict
+T = TypeVar("T")
 
 
-# Ughhh subclassing I feel so dirty
-class _LocalBase:
-    __slots__ = ("_defaults",)
-
-    def __init__(self, **kwargs):
-        object.__setattr__(self, "_defaults", kwargs)
-
-    def __getattribute__(self, name):
-        ld = _local_dict(self)
-        if name == "__dict__":
-            return ld
-        try:
-            return ld[name]
-        except KeyError:
-            raise AttributeError(name) from None
-
-    def __setattr__(self, name, value):
-        _local_dict(self)[name] = value
-
-    def __delattr__(self, name):
-        try:
-            del _local_dict(self)[name]
-        except KeyError:
-            raise AttributeError(name) from None
-
-    def __dir__(self):
-        return list(_local_dict(self))
+@final
+class _NoValue(metaclass=Final):
+    ...
 
 
-class TaskLocal(_LocalBase):
-    """Task-local storage.
+@attr.s(eq=False, hash=False, slots=False)
+class RunVarToken(Generic[T], metaclass=NoPublicConstructor):
+    _var: RunVar[T] = attr.ib()
+    previous_value: T | type[_NoValue] = attr.ib(default=_NoValue)
+    redeemed: bool = attr.ib(default=False, init=False)
 
-    Instances of this class have no particular attributes or methods. Instead,
-    they serve as a blank slate to which you can add whatever attributes you
-    like. Modifications made within one task will only be visible to that task
-    – with one exception: when you ``spawn`` a new task, then any
-    :class:`TaskLocal` attributes that are visible in the spawning task will
-    be inherited by the child. This inheritance takes the form of a shallow
-    copy: further changes in the parent will *not* affect the child, and
-    changes in the child will not affect the parent. (If you're familiar with
-    how environment variables are inherited across processes, then
-    :class:`TaskLocal` inheritance is somewhat similar.)
+    @classmethod
+    def _empty(cls, var: RunVar[T]) -> RunVarToken[T]:
+        return cls._create(var)
 
-    If you're familiar with :class:`threading.local`, then
-    :class:`trio.TaskLocal` is very similar, except adapted to work with tasks
-    instead of threads, and with the added feature that values are
-    automatically inherited across tasks.
 
-    When creating a :class:`TaskLocal` object, you can provide default values
-    as keyword arguments::
+@attr.s(eq=False, hash=False, slots=True, repr=False)
+class RunVar(Generic[T], metaclass=Final):
+    """The run-local variant of a context variable.
 
-       local = trio.TaskLocal(a=1)
-
-       async def main():
-           # The first time we access the TaskLocal object, the 'a' attribute
-           # is already present:
-           assert local.a == 1
-
-    The default values are like the default values to functions: they're only
-    evaluated once, when the object is created. So you shouldn't use mutable
-    objects as defaults -- they'll be shared not just across tasks, but even
-    across entirely unrelated runs! For example::
-
-       # Don't do this!!
-       local = trio.TaskLocal(a=[])
-
-       async def main():
-           assert local.a == []
-           local.a.append(1)
-
-       # First time, everything seems to work
-       trio.run(main)
-
-       # Second time, the assertion fails, because the first time modified
-       # the list object.
-       trio.run(main)
+    :class:`RunVar` objects are similar to context variable objects,
+    except that they are shared across a single call to :func:`trio.run`
+    rather than a single task.
 
     """
-    __slots__ = ()
-    _locals_key = "task"
 
+    _name: str = attr.ib()
+    _default: T | type[_NoValue] = attr.ib(default=_NoValue)
 
-@_hazmat
-class RunLocal(_LocalBase):
-    """Run-local storage.
+    def get(self, default: T | type[_NoValue] = _NoValue) -> T:
+        """Gets the value of this :class:`RunVar` for the current run call."""
+        try:
+            return cast(T, _run.GLOBAL_RUN_CONTEXT.runner._locals[self])
+        except AttributeError:
+            raise RuntimeError("Cannot be used outside of a run context") from None
+        except KeyError:
+            # contextvars consistency
+            # `type: ignore` awaiting https://github.com/python/mypy/issues/15553 to be fixed & released
+            if default is not _NoValue:
+                return default  # type: ignore[return-value]
 
-    :class:`RunLocal` objects are very similar to :class:`trio.TaskLocal`
-    objects, except that attributes are shared across all the tasks within a
-    single call to :func:`trio.run`. They're also very similar to
-    :class:`threading.local` objects, except that :class:`RunLocal` objects
-    are automatically wiped clean when :func:`trio.run` returns.
+            if self._default is not _NoValue:
+                return self._default  # type: ignore[return-value]
 
-    """
-    __slots__ = ()
-    _locals_key = "runner"
+            raise LookupError(self) from None
+
+    def set(self, value: T) -> RunVarToken[T]:
+        """Sets the value of this :class:`RunVar` for this current run
+        call.
+
+        """
+        try:
+            old_value = self.get()
+        except LookupError:
+            token = RunVarToken._empty(self)
+        else:
+            token = RunVarToken[T]._create(self, old_value)
+
+        # This can't fail, because if we weren't in Trio context then the
+        # get() above would have failed.
+        _run.GLOBAL_RUN_CONTEXT.runner._locals[self] = value
+        return token
+
+    def reset(self, token: RunVarToken[T]) -> None:
+        """Resets the value of this :class:`RunVar` to what it was
+        previously specified by the token.
+
+        """
+        if token is None:
+            raise TypeError("token must not be none")
+
+        if token.redeemed:
+            raise ValueError("token has already been used")
+
+        if token._var is not self:
+            raise ValueError("token is not for us")
+
+        previous = token.previous_value
+        try:
+            if previous is _NoValue:
+                _run.GLOBAL_RUN_CONTEXT.runner._locals.pop(self)
+            else:
+                _run.GLOBAL_RUN_CONTEXT.runner._locals[self] = previous
+        except AttributeError:
+            raise RuntimeError("Cannot be used outside of a run context")
+
+        token.redeemed = True
+
+    def __repr__(self) -> str:
+        return f"<RunVar name={self._name!r}>"

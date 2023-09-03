@@ -3,11 +3,9 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-===================================================
-Trio: async programming for humans and snake people
-===================================================
-
-*P.S. your API is a user interface – Kenneth Reitz*
+=============================================================
+Trio: a friendly Python library for async concurrency and I/O
+=============================================================
 
 The Trio project's goal is to produce a production-quality,
 `permissively licensed
@@ -45,9 +43,12 @@ chance to give feedback about any compatibility-breaking changes.
 
 Vital statistics:
 
-* Supported environments: Linux, MacOS, or Windows running some kind of Python
-  3.5-or-better (either CPython or PyPy3 is fine). \*BSD and illumus likely
-  work too, but are untested.
+* Supported environments: We test on
+
+  - Python: 3.8+ (CPython and PyPy)
+  - Windows, macOS, Linux (glibc and musl), FreeBSD
+
+  Other environments might also work; give it a try and see.
 
 * Install: ``python3 -m pip install -U trio`` (or on Windows, maybe
   ``py -3 -m pip install -U trio``). No compiler needed.
@@ -58,11 +59,15 @@ Vital statistics:
 
 * Real-time chat: https://gitter.im/python-trio/general
 
+* Discussion forum: https://trio.discourse.group
+
 * License: MIT or Apache 2, your choice
+
+* Contributor guide: https://trio.readthedocs.io/en/latest/contributing.html
 
 * Code of conduct: Contributors are requested to follow our `code of
   conduct
-  <https://github.com/python-trio/trio/blob/master/CODE_OF_CONDUCT.md>`_
+  <https://trio.readthedocs.io/en/latest/code-of-conduct.html>`_
   in all project spaces.
 
 
@@ -71,12 +76,16 @@ Vital statistics:
    :caption: Trio's friendly, yet comprehensive, manual:
 
    tutorial.rst
+   awesome-trio-libraries.rst
    reference-core.rst
    reference-io.rst
    reference-testing.rst
-   reference-hazmat.rst
+   reference-lowlevel.rst
    design.rst
    history.rst
+   contributing.rst
+   releasing.rst
+   code-of-conduct.rst
 
 ====================
  Indices and tables

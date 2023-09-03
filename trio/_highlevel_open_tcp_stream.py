@@ -1,9 +1,18 @@
+from __future__ import annotations
+
+import sys
+from collections.abc import Generator
 from contextlib import contextmanager
+from socket import AddressFamily, SocketKind
+from typing import TYPE_CHECKING
 
 import trio
-from trio.socket import getaddrinfo, SOCK_STREAM, socket
+from trio._core._multierror import MultiError
+from trio.socket import SOCK_STREAM, Address, _SocketType, getaddrinfo, socket
 
-__all__ = ["open_tcp_stream"]
+if sys.version_info < (3, 11):
+    from exceptiongroup import ExceptionGroup
+
 
 # Implementation of RFC 6555 "Happy eyeballs"
 # https://tools.ietf.org/html/rfc6555
@@ -62,7 +71,7 @@ __all__ = ["open_tcp_stream"]
 #   https://www.researchgate.net/profile/Vaibhav_Bajpai3/publication/304568993_Measuring_the_Effects_of_Happy_Eyeballs/links/5773848e08ae6f328f6c284c/Measuring-the-Effects-of-Happy-Eyeballs.pdf
 # claims that Firefox actually uses 0 ms, unless an about:config option is
 # toggled and then it uses 250 ms.
-DEFAULT_DELAY = 0.300
+DEFAULT_DELAY = 0.250
 
 # How should we call getaddrinfo? In particular, should we use AI_ADDRCONFIG?
 #
@@ -105,15 +114,34 @@ DEFAULT_DELAY = 0.300
 
 
 @contextmanager
-def close_on_error(obj):
+def close_all() -> Generator[set[_SocketType], None, None]:
+    sockets_to_close: set[_SocketType] = set()
     try:
-        yield obj
-    except:
-        obj.close()
-        raise
+        yield sockets_to_close
+    finally:
+        errs = []
+        for sock in sockets_to_close:
+            try:
+                sock.close()
+            except BaseException as exc:
+                errs.append(exc)
+        if len(errs) == 1:
+            raise errs[0]
+        elif errs:
+            raise MultiError(errs)
 
 
-def reorder_for_rfc_6555_section_5_4(targets):
+def reorder_for_rfc_6555_section_5_4(
+    targets: list[
+        tuple[
+            AddressFamily,
+            SocketKind,
+            int,
+            str,
+            tuple[str, int] | tuple[str, int, int, int],
+        ]
+    ]
+) -> None:
     # RFC 6555 section 5.4 says that if getaddrinfo returns multiple address
     # families (e.g. IPv4 and IPv6), then you should make sure that your first
     # and second attempts use different families:
@@ -131,11 +159,12 @@ def reorder_for_rfc_6555_section_5_4(targets):
             break
 
 
-def format_host_port(host, port):
+def format_host_port(host: str | bytes, port: int) -> str:
+    host = host.decode("ascii") if isinstance(host, bytes) else host
     if ":" in host:
-        return "[{}]:{}".format(host, port)
+        return f"[{host}]:{port}"
     else:
-        return "{}:{}".format(host, port)
+        return f"{host}:{port}"
 
 
 # Twisted's HostnameEndpoint has a good set of configurables:
@@ -143,7 +172,7 @@ def format_host_port(host, port):
 #
 # - per-connection timeout
 #   this doesn't seem useful -- we let you set a timeout on the whole thing
-#   using trio's normal mechanisms, and that seems like enough
+#   using Trio's normal mechanisms, and that seems like enough
 # - delay between attempts
 # - bind address (but not port!)
 #   they *don't* support multiple address bindings, like giving the ipv4 and
@@ -159,12 +188,12 @@ def format_host_port(host, port):
 #   AF_INET6: "..."}
 # this might be simpler after
 async def open_tcp_stream(
-    host,
-    port,
+    host: str | bytes,
+    port: int,
     *,
-    # No trailing comma b/c bpo-9232 (fixed in py36)
-    happy_eyeballs_delay=DEFAULT_DELAY
-):
+    happy_eyeballs_delay: float | None = DEFAULT_DELAY,
+    local_address: str | None = None,
+) -> trio.abc.Stream:
     """Connect to the given host and port over TCP.
 
     If the given ``host`` has multiple IP addresses associated with it, then
@@ -199,12 +228,29 @@ async def open_tcp_stream(
     Args:
       host (str or bytes): The host to connect to. Can be an IPv4 address,
           IPv6 address, or a hostname.
+
       port (int): The port to connect to.
-      happy_eyeballs_delay (float): How many seconds to wait for each
+
+      happy_eyeballs_delay (float or None): How many seconds to wait for each
           connection attempt to succeed or fail before getting impatient and
-          starting another one in parallel. Set to :obj:`math.inf` if you want
+          starting another one in parallel. Set to `None` if you want
           to limit to only one connection attempt at a time (like
-          :func:`socket.create_connection`). Default: 0.3 (300 ms).
+          :func:`socket.create_connection`). Default: 0.25 (250 ms).
+
+      local_address (None or str): The local IP address or hostname to use as
+          the source for outgoing connections. If ``None``, we let the OS pick
+          the source IP.
+
+          This is useful in some exotic networking configurations where your
+          host has multiple IP addresses, and you want to force the use of a
+          specific one.
+
+          Note that if you pass an IPv4 ``local_address``, then you won't be
+          able to connect to IPv6 hosts, and vice-versa. If you want to take
+          advantage of this to force the use of IPv4 or IPv6 without
+          specifying an exact source address, you can use the IPv4 wildcard
+          address ``local_address="0.0.0.0"``, or the IPv6 wildcard address
+          ``local_address="::"``.
 
     Returns:
       SocketStream: a :class:`~trio.abc.Stream` connected to the given server.
@@ -216,14 +262,14 @@ async def open_tcp_stream(
       open_ssl_over_tcp_stream
 
     """
+
     # To keep our public API surface smaller, rule out some cases that
     # getaddrinfo will accept in some circumstances, but that act weird or
     # have non-portable behavior or are just plain not useful.
-    # No type check on host though b/c we want to allow bytes-likes.
-    if host is None:
-        raise ValueError("host cannot be None")
+    if not isinstance(host, (str, bytes)):
+        raise ValueError(f"host must be str or bytes, not {host!r}")
     if not isinstance(port, int):
-        raise TypeError("port must be int, not {!r}".format(port))
+        raise TypeError(f"port must be int, not {port!r}")
 
     if happy_eyeballs_delay is None:
         happy_eyeballs_delay = DEFAULT_DELAY
@@ -241,71 +287,126 @@ async def open_tcp_stream(
 
     reorder_for_rfc_6555_section_5_4(targets)
 
-    targets_iter = iter(targets)
-
     # This list records all the connection failures that we ignored.
     oserrors = []
 
-    # It's possible for multiple connection attempts to succeed at the ~same
-    # time; this list records all successful connections.
-    winning_sockets = []
+    # Keeps track of the socket that we're going to complete with,
+    # need to make sure this isn't automatically closed
+    winning_socket: _SocketType | None = None
 
-    # Sleep for the given amount of time, then kick off the next task and
-    # start a connection attempt. On failure, expedite the next task; on
-    # success, kill everything. Possible outcomes:
-    # - records a failure in oserrors, returns None
-    # - records a connected socket in winning_sockets, returns None
-    # - crash (raises an unexpected exception)
-    async def attempt_connect(nursery, previous_attempt_failed):
-        # Wait until either the previous attempt failed, or the timeout
-        # expires (unless this is the first invocation, in which case we just
-        # go ahead).
-        if previous_attempt_failed is not None:
-            with trio.move_on_after(happy_eyeballs_delay):
-                await previous_attempt_failed.wait()
+    # Try connecting to the specified address. Possible outcomes:
+    # - success: record connected socket in winning_socket and cancel
+    #   concurrent attempts
+    # - failure: record exception in oserrors, set attempt_failed allowing
+    #   the next connection attempt to start early
+    # code needs to ensure sockets can be closed appropriately in the
+    # face of crash or cancellation
+    async def attempt_connect(
+        socket_args: tuple[AddressFamily, SocketKind, int],
+        sockaddr: Address,
+        attempt_failed: trio.Event,
+    ) -> None:
+        nonlocal winning_socket
 
-        # Claim our target.
         try:
-            *socket_args, _, target_sockaddr = next(targets_iter)
-        except StopIteration:
-            return
+            sock = socket(*socket_args)
+            open_sockets.add(sock)
 
-        # Then kick off the next attempt.
-        this_attempt_failed = trio.Event()
-        nursery.spawn(attempt_connect, nursery, this_attempt_failed)
+            if local_address is not None:
+                # TCP connections are identified by a 4-tuple:
+                #
+                #   (local IP, local port, remote IP, remote port)
+                #
+                # So if a single local IP wants to make multiple connections
+                # to the same (remote IP, remote port) pair, then those
+                # connections have to use different local ports, or else TCP
+                # won't be able to tell them apart. OTOH, if you have multiple
+                # connections to different remote IP/ports, then those
+                # connections can share a local port.
+                #
+                # Normally, when you call bind(), the kernel will immediately
+                # assign a specific local port to your socket. At this point
+                # the kernel doesn't know which (remote IP, remote port)
+                # you're going to use, so it has to pick a local port that
+                # *no* other connection is using. That's the only way to
+                # guarantee that this local port will be usable later when we
+                # call connect(). (Alternatively, you can set SO_REUSEADDR to
+                # allow multiple nascent connections to share the same port,
+                # but then connect() might fail with EADDRNOTAVAIL if we get
+                # unlucky and our TCP 4-tuple ends up colliding with another
+                # unrelated connection.)
+                #
+                # So calling bind() before connect() works, but it disables
+                # sharing of local ports. This is inefficient: it makes you
+                # more likely to run out of local ports.
+                #
+                # But on some versions of Linux, we can re-enable sharing of
+                # local ports by setting a special flag. This flag tells
+                # bind() to only bind the IP, and not the port. That way,
+                # connect() is allowed to pick the the port, and it can do a
+                # better job of it because it knows the remote IP/port.
+                try:
+                    sock.setsockopt(
+                        trio.socket.IPPROTO_IP, trio.socket.IP_BIND_ADDRESS_NO_PORT, 1
+                    )
+                except (OSError, AttributeError):
+                    pass
+                try:
+                    await sock.bind((local_address, 0))
+                except OSError:
+                    raise OSError(
+                        f"local_address={local_address!r} is incompatible "
+                        f"with remote address {sockaddr!r}"
+                    )
 
-        # Then make this invocation's attempt
-        try:
-            with close_on_error(socket(*socket_args)) as sock:
-                await sock.connect(target_sockaddr)
+            await sock.connect(sockaddr)
+
+            # Success! Save the winning socket and cancel all outstanding
+            # connection attempts.
+            winning_socket = sock
+            nursery.cancel_scope.cancel()
         except OSError as exc:
             # This connection attempt failed, but the next one might
             # succeed. Save the error for later so we can report it if
             # everything fails, and tell the next attempt that it should go
             # ahead (if it hasn't already).
             oserrors.append(exc)
-            this_attempt_failed.set()
+            attempt_failed.set()
+
+    with close_all() as open_sockets:
+        # nursery spawns a task for each connection attempt, will be
+        # cancelled by the task that gets a successful connection
+        async with trio.open_nursery() as nursery:
+            for address_family, socket_type, proto, _, addr in targets:
+                # create an event to indicate connection failure,
+                # allowing the next target to be tried early
+                attempt_failed = trio.Event()
+
+                # workaround to check types until typing of nursery.start_soon improved
+                if TYPE_CHECKING:
+                    await attempt_connect(
+                        (address_family, socket_type, proto), addr, attempt_failed
+                    )
+
+                nursery.start_soon(
+                    attempt_connect,
+                    (address_family, socket_type, proto),
+                    addr,
+                    attempt_failed,
+                )
+
+                # give this attempt at most this time before moving on
+                with trio.move_on_after(happy_eyeballs_delay):
+                    await attempt_failed.wait()
+
+        # nothing succeeded
+        if winning_socket is None:
+            assert len(oserrors) == len(targets)
+            msg = "all attempts to connect to {} failed".format(
+                format_host_port(host, port)
+            )
+            raise OSError(msg) from ExceptionGroup(msg, oserrors)
         else:
-            # Success! Save the winning socket and cancel all outstanding
-            # connection attempts.
-            winning_sockets.append(sock)
-            nursery.cancel_scope.cancel()
-
-    # Kick off the chain of connection attempts.
-    async with trio.open_nursery() as nursery:
-        nursery.spawn(attempt_connect, nursery, None)
-
-    # All connection attempts complete, and no unexpected errors escaped. So
-    # at this point the oserrors and winning_sockets lists are filled in.
-
-    if winning_sockets:
-        first_prize = winning_sockets.pop(0)
-        for sock in winning_sockets:
-            sock.close()
-        return trio.SocketStream(first_prize)
-    else:
-        assert len(oserrors) == len(targets)
-        msg = "all attempts to connect to {} failed".format(
-            format_host_port(host, port)
-        )
-        raise OSError(msg) from trio.MultiError(oserrors)
+            stream = trio.SocketStream(winning_socket)
+            open_sockets.remove(winning_socket)
+            return stream

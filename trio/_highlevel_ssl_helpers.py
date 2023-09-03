@@ -1,8 +1,12 @@
+from __future__ import annotations
+
+import ssl
+from collections.abc import Awaitable, Callable
+from typing import NoReturn
+
 import trio
 
 from ._highlevel_open_tcp_stream import DEFAULT_DELAY
-
-__all__ = ["open_ssl_over_tcp_stream", "open_ssl_over_tcp_listeners"]
 
 
 # It might have been nice to take a ssl_protocols= argument here to set up
@@ -10,30 +14,25 @@ __all__ = ["open_ssl_over_tcp_stream", "open_ssl_over_tcp_listeners"]
 # if it's one we created, but not OK if it's one that was passed in... and
 # the one major protocol using NPN/ALPN is HTTP/2, which mandates that you use
 # a specially configured SSLContext anyway! I also thought maybe we could copy
-# the given SSLContext and then mutate the copy, but it's no good:
-# copy.copy(SSLContext) seems to succeed, but the state is not transferred!
-# For example, with CPython 3.5, we have:
-#   ctx = ssl.create_default_context()
-#   assert ctx.check_hostname == True
-#   assert copy.copy(ctx).check_hostname == False
+# the given SSLContext and then mutate the copy, but it's no good as SSLContext
+# objects can't be copied: https://bugs.python.org/issue33023.
 # So... let's punt on that for now. Hopefully we'll be getting a new Python
 # TLS API soon and can revisit this then.
 async def open_ssl_over_tcp_stream(
-    host,
-    port,
+    host: str | bytes,
+    port: int,
     *,
-    https_compatible=False,
-    ssl_context=None,
-    # No trailing comma b/c bpo-9232 (fixed in py36)
-    happy_eyeballs_delay=DEFAULT_DELAY
-):
+    https_compatible: bool = False,
+    ssl_context: ssl.SSLContext | None = None,
+    happy_eyeballs_delay: float | None = DEFAULT_DELAY,
+) -> trio.SSLStream:
     """Make a TLS-encrypted Connection to the given host and port over TCP.
 
     This is a convenience wrapper that calls :func:`open_tcp_stream` and
-    wraps the result in an :class:`~trio.ssl.SSLStream`.
+    wraps the result in an :class:`~trio.SSLStream`.
 
     This function does not perform the TLS handshake; you can do it
-    manually by calling :meth:`~trio.ssl.SSLStream.do_handshake`, or else
+    manually by calling :meth:`~trio.SSLStream.do_handshake`, or else
     it will be performed automatically the first time you send or receive
     data.
 
@@ -42,7 +41,7 @@ async def open_ssl_over_tcp_stream(
           to have a TLS certificate valid for this hostname.
       port (int): The port to connect to.
       https_compatible (bool): Set this to True if you're connecting to a web
-          server. See :class:`~trio.ssl.SSLStream` for details. Default:
+          server. See :class:`~trio.SSLStream` for details. Default:
           False.
       ssl_context (:class:`~ssl.SSLContext` or None): The SSL context to
           use. If None (the default), :func:`ssl.create_default_context`
@@ -50,48 +49,116 @@ async def open_ssl_over_tcp_stream(
       happy_eyeballs_delay (float): See :func:`open_tcp_stream`.
 
     Returns:
-      trio.ssl.SSLStream: the encrypted connection to the server.
+      trio.SSLStream: the encrypted connection to the server.
 
     """
     tcp_stream = await trio.open_tcp_stream(
-        host,
-        port,
-        happy_eyeballs_delay=happy_eyeballs_delay,
+        host, port, happy_eyeballs_delay=happy_eyeballs_delay
     )
     if ssl_context is None:
-        ssl_context = trio.ssl.create_default_context()
-    return trio.ssl.SSLStream(
-        tcp_stream,
-        ssl_context,
-        server_hostname=host,
-        https_compatible=https_compatible,
+        ssl_context = ssl.create_default_context()
+
+        if hasattr(ssl, "OP_IGNORE_UNEXPECTED_EOF"):
+            ssl_context.options &= ~ssl.OP_IGNORE_UNEXPECTED_EOF
+
+    return trio.SSLStream(
+        tcp_stream, ssl_context, server_hostname=host, https_compatible=https_compatible
     )
 
 
 async def open_ssl_over_tcp_listeners(
-    port, ssl_context, *, host=None, https_compatible=False, backlog=None
-):
+    port: int,
+    ssl_context: ssl.SSLContext,
+    *,
+    host: str | bytes | None = None,
+    https_compatible: bool = False,
+    backlog: int | float | None = None,
+) -> list[trio.SSLListener]:
     """Start listening for SSL/TLS-encrypted TCP connections to the given port.
 
     Args:
-      port (int or str): The port to listen on. See
-          :func:`open_tcp_listeners`.
+      port (int): The port to listen on. See :func:`open_tcp_listeners`.
       ssl_context (~ssl.SSLContext): The SSL context to use for all incoming
           connections.
       host (str, bytes, or None): The address to bind to; use ``None`` to bind
           to the wildcard address. See :func:`open_tcp_listeners`.
-      https_compatible (bool): See :class:`~trio.ssl.SSLStream` for details.
-      backlog (int or None): See :class:`~trio.ssl.SSLStream` for details.
+      https_compatible (bool): See :class:`~trio.SSLStream` for details.
+      backlog (int or None): See :func:`open_tcp_listeners` for details.
 
     """
-    tcp_listeners = await trio.open_tcp_listeners(
-        port, host=host, backlog=backlog
-    )
+    tcp_listeners = await trio.open_tcp_listeners(port, host=host, backlog=backlog)
     ssl_listeners = [
-        trio.ssl.SSLListener(
-            tcp_listener,
-            ssl_context,
-            https_compatible=https_compatible,
-        ) for tcp_listener in tcp_listeners
+        trio.SSLListener(tcp_listener, ssl_context, https_compatible=https_compatible)
+        for tcp_listener in tcp_listeners
     ]
     return ssl_listeners
+
+
+async def serve_ssl_over_tcp(
+    handler: Callable[[trio.SSLStream], Awaitable[object]],
+    port: int,
+    ssl_context: ssl.SSLContext,
+    *,
+    host: str | bytes | None = None,
+    https_compatible: bool = False,
+    backlog: int | float | None = None,
+    handler_nursery: trio.Nursery | None = None,
+    task_status: trio.TaskStatus[list[trio.SSLListener]] = trio.TASK_STATUS_IGNORED,
+) -> NoReturn:
+    """Listen for incoming TCP connections, and for each one start a task
+    running ``handler(stream)``.
+
+    This is a thin convenience wrapper around
+    :func:`open_ssl_over_tcp_listeners` and :func:`serve_listeners` – see them
+    for full details.
+
+    .. warning::
+
+       If ``handler`` raises an exception, then this function doesn't do
+       anything special to catch it – so by default the exception will
+       propagate out and crash your server. If you don't want this, then catch
+       exceptions inside your ``handler``, or use a ``handler_nursery`` object
+       that responds to exceptions in some other way.
+
+    When used with ``nursery.start`` you get back the newly opened listeners.
+    See the documentation for :func:`serve_tcp` for an example where this is
+    useful.
+
+    Args:
+      handler: The handler to start for each incoming connection. Passed to
+          :func:`serve_listeners`.
+
+      port (int): The port to listen on. Use 0 to let the kernel pick
+          an open port. Ultimately passed to :func:`open_tcp_listeners`.
+
+      ssl_context (~ssl.SSLContext): The SSL context to use for all incoming
+          connections. Passed to :func:`open_ssl_over_tcp_listeners`.
+
+      host (str, bytes, or None): The address to bind to; use ``None`` to bind
+          to the wildcard address. Ultimately passed to
+          :func:`open_tcp_listeners`.
+
+      https_compatible (bool): Set this to True if you want to use
+          "HTTPS-style" TLS. See :class:`~trio.SSLStream` for details.
+
+      backlog (int or None): See :class:`~trio.SSLStream` for details.
+
+      handler_nursery: The nursery to start handlers in, or None to use an
+          internal nursery. Passed to :func:`serve_listeners`.
+
+      task_status: This function can be used with ``nursery.start``.
+
+    Returns:
+      This function only returns when cancelled.
+
+    """
+    listeners = await trio.open_ssl_over_tcp_listeners(
+        port,
+        ssl_context,
+        host=host,
+        https_compatible=https_compatible,
+        backlog=backlog,
+    )
+    await trio.serve_listeners(
+        handler, listeners, handler_nursery=handler_nursery, task_status=task_status
+    )

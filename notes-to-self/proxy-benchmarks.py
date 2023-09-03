@@ -1,8 +1,8 @@
 import textwrap
-import io
 import time
 
 methods = {"fileno"}
+
 
 class Proxy1:
     strategy = "__getattr__"
@@ -16,7 +16,9 @@ class Proxy1:
             return getattr(self._wrapped, name)
         raise AttributeError(name)
 
+
 ################################################################
+
 
 class Proxy2:
     strategy = "generated methods (getattr + closure)"
@@ -25,15 +27,19 @@ class Proxy2:
     def __init__(self, wrapped):
         self._wrapped = wrapped
 
+
 def add_wrapper(cls, method):
     def wrapper(self, *args, **kwargs):
         return getattr(self._wrapped, method)(*args, **kwargs)
+
     setattr(cls, method, wrapper)
+
 
 for method in methods:
     add_wrapper(Proxy2, method)
 
 ################################################################
+
 
 class Proxy3:
     strategy = "generated methods (exec)"
@@ -42,19 +48,26 @@ class Proxy3:
     def __init__(self, wrapped):
         self._wrapped = wrapped
 
+
 def add_wrapper(cls, method):
-    code = textwrap.dedent("""
+    code = textwrap.dedent(
+        """
         def wrapper(self, *args, **kwargs):
             return self._wrapped.{}(*args, **kwargs)
-    """.format(method))
+    """.format(
+            method
+        )
+    )
     ns = {}
     exec(code, ns)
     setattr(cls, method, ns["wrapper"])
+
 
 for method in methods:
     add_wrapper(Proxy3, method)
 
 ################################################################
+
 
 class Proxy4:
     strategy = "generated properties (getattr + closure)"
@@ -62,6 +75,7 @@ class Proxy4:
 
     def __init__(self, wrapped):
         self._wrapped = wrapped
+
 
 def add_wrapper(cls, attr):
     def getter(self):
@@ -75,10 +89,12 @@ def add_wrapper(cls, attr):
 
     setattr(cls, attr, property(getter, setter, deleter))
 
+
 for method in methods:
     add_wrapper(Proxy4, method)
 
 ################################################################
+
 
 class Proxy5:
     strategy = "generated properties (exec)"
@@ -87,8 +103,10 @@ class Proxy5:
     def __init__(self, wrapped):
         self._wrapped = wrapped
 
+
 def add_wrapper(cls, attr):
-    code = textwrap.dedent("""
+    code = textwrap.dedent(
+        """
         def getter(self):
             return self._wrapped.{attr}
 
@@ -97,15 +115,20 @@ def add_wrapper(cls, attr):
 
         def deleter(self):
             del self._wrapped.{attr}
-    """.format(attr=attr))
+    """.format(
+            attr=attr
+        )
+    )
     ns = {}
     exec(code, ns)
     setattr(cls, attr, property(ns["getter"], ns["setter"], ns["deleter"]))
+
 
 for method in methods:
     add_wrapper(Proxy5, method)
 
 ################################################################
+
 
 # methods only
 class Proxy6:
@@ -117,16 +140,18 @@ class Proxy6:
 
         for method in methods:
             setattr(self, method, getattr(self._wrapper, method))
-    
+
 
 ################################################################
 
 classes = [Proxy1, Proxy2, Proxy3, Proxy4, Proxy5, Proxy6]
 
+
 def check(cls):
     with open("/etc/passwd") as f:
         p = cls(f)
         assert p.fileno() == f.fileno()
+
 
 for cls in classes:
     check(cls)
@@ -136,7 +161,7 @@ objs = [c(f) for c in classes]
 
 COUNT = 1000000
 try:
-    import __pypy__
+    import __pypy__  # noqa: F401  # __pypy__ imported but unused
 except ImportError:
     pass
 else:
@@ -145,11 +170,10 @@ else:
 while True:
     print("-------")
     for obj in objs:
-        start = time.time()
+        start = time.perf_counter()
         for _ in range(COUNT):
             obj.fileno()
-            #obj.fileno
-        end = time.time()
+            # obj.fileno
+        end = time.perf_counter()
         per_usec = COUNT / (end - start) / 1e6
-        print("{:7.2f} / us: {} ({})"
-              .format(per_usec, obj.strategy, obj.works_for))
+        print("{:7.2f} / us: {} ({})".format(per_usec, obj.strategy, obj.works_for))

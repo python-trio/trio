@@ -1,63 +1,82 @@
-# Need to be defined early so they can be imported:
-def _public(fn):
-    # Used to mark methods on _Runner and on IOManager implementations that
-    # should be wrapped as global context-sensitive functions (see the bottom
-    # of _run.py for the wrapper implementation).
-    fn._public = True
-    return fn
+"""
+This namespace represents the core functionality that has to be built-in
+and deal with private internal data structures. Things in this namespace
+are publicly available in either trio, trio.lowlevel, or trio.testing.
+"""
 
+import sys
 
-def _hazmat(fn):
-    # Everything exported by this module gets re-exported as either part of
-    # the trio.* namespace or else the trio.hazmat.* namespace. By default,
-    # thing go into trio.*. But functions marked with this decorator go into
-    # trio.hazmat.* instead. See trio/__init__.py for details.
-    fn._hazmat = True
-    return fn
+from ._entry_queue import TrioToken
+from ._exceptions import (
+    BrokenResourceError,
+    BusyResourceError,
+    Cancelled,
+    ClosedResourceError,
+    EndOfChannel,
+    RunFinishedError,
+    TrioInternalError,
+    WouldBlock,
+)
+from ._ki import currently_ki_protected, disable_ki_protection, enable_ki_protection
+from ._local import RunVar
+from ._mock_clock import MockClock
+from ._parking_lot import ParkingLot, ParkingLotStatistics
 
+# Imports that always exist
+from ._run import (
+    TASK_STATUS_IGNORED,
+    CancelScope,
+    Nursery,
+    RunStatistics,
+    Task,
+    TaskStatus,
+    add_instrument,
+    checkpoint,
+    checkpoint_if_cancelled,
+    current_clock,
+    current_effective_deadline,
+    current_root_task,
+    current_statistics,
+    current_task,
+    current_time,
+    current_trio_token,
+    notify_closing,
+    open_nursery,
+    remove_instrument,
+    reschedule,
+    run,
+    spawn_system_task,
+    start_guest_run,
+    wait_all_tasks_blocked,
+    wait_readable,
+    wait_writable,
+)
+from ._thread_cache import start_thread_soon
 
-__all__ = []
+# Has to come after _run to resolve a circular import
+from ._traps import (
+    Abort,
+    RaiseCancelT,
+    cancel_shielded_checkpoint,
+    permanently_detach_coroutine_object,
+    reattach_detached_coroutine_object,
+    temporarily_detach_coroutine_object,
+    wait_task_rescheduled,
+)
+from ._unbounded_queue import UnboundedQueue, UnboundedQueueStatistics
 
-from ._exceptions import *
-__all__ += _exceptions.__all__
+# Windows imports
+if sys.platform == "win32":
+    from ._run import (
+        current_iocp,
+        monitor_completion_key,
+        readinto_overlapped,
+        register_with_iocp,
+        wait_overlapped,
+        write_overlapped,
+    )
+# Kqueue imports
+elif sys.platform != "linux" and sys.platform != "win32":
+    from ._run import current_kqueue, monitor_kevent, wait_kevent
 
-from ._multierror import *
-__all__ += _multierror.__all__
-
-from ._result import *
-__all__ += _result.__all__
-
-from ._traps import *
-__all__ += _traps.__all__
-
-from ._ki import *
-__all__ += _ki.__all__
-
-from ._run import *
-__all__ += _run.__all__
-
-from ._parking_lot import *
-__all__ += _parking_lot.__all__
-
-from ._unbounded_queue import *
-__all__ += _unbounded_queue.__all__
-
-from ._local import *
-__all__ += _local.__all__
-
-if hasattr(_run, "wait_readable"):
-    import socket as _stdlib_socket
-
-    @_hazmat
-    async def wait_socket_readable(sock):
-        if type(sock) != _stdlib_socket.socket:
-            raise TypeError("need a socket")
-        await wait_readable(sock)
-
-    @_hazmat
-    async def wait_socket_writable(sock):
-        if type(sock) != _stdlib_socket.socket:
-            raise TypeError("need a socket")
-        await wait_writable(sock)
-
-    __all__ += ["wait_socket_readable", "wait_socket_writable"]
+del sys  # It would be better to import sys as _sys, but mypy does not understand it

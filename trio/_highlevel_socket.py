@@ -1,18 +1,27 @@
 # "High-level" networking interface
+from __future__ import annotations
 
 import errno
+from collections.abc import Generator
 from contextlib import contextmanager
+from typing import TYPE_CHECKING, overload
 
-from . import _core
+import trio
+
 from . import socket as tsocket
-from ._socket import real_socket_type
-from ._util import ConflictDetector
+from ._util import ConflictDetector, Final
 from .abc import HalfCloseableStream, Listener
-from ._highlevel_generic import (
-    ClosedStreamError, BrokenStreamError, ClosedListenerError
-)
 
-__all__ = ["SocketStream", "SocketListener"]
+if TYPE_CHECKING:
+    from typing_extensions import Buffer
+
+    from ._socket import _SocketType as SocketType
+
+# XX TODO: this number was picked arbitrarily. We should do experiments to
+# tune it. (Or make it dynamic -- one idea is to start small and increase it
+# if we observe single reads filling up the whole buffer, at least within some
+# limits.)
+DEFAULT_RECEIVE_SIZE = 65536
 
 _closed_stream_errnos = {
     # Unix
@@ -23,29 +32,27 @@ _closed_stream_errnos = {
 
 
 @contextmanager
-def _translate_socket_errors_to_stream_errors():
+def _translate_socket_errors_to_stream_errors() -> Generator[None, None, None]:
     try:
         yield
     except OSError as exc:
         if exc.errno in _closed_stream_errnos:
-            raise ClosedStreamError("this socket was already closed") from None
+            raise trio.ClosedResourceError("this socket was already closed") from None
         else:
-            raise BrokenStreamError(
-                "socket connection broken: {}".format(exc)
-            ) from exc
+            raise trio.BrokenResourceError(f"socket connection broken: {exc}") from exc
 
 
-class SocketStream(HalfCloseableStream):
+class SocketStream(HalfCloseableStream, metaclass=Final):
     """An implementation of the :class:`trio.abc.HalfCloseableStream`
     interface based on a raw network socket.
 
     Args:
-      socket: The trio socket object to wrap. Must have type ``SOCK_STREAM``,
+      socket: The Trio socket object to wrap. Must have type ``SOCK_STREAM``,
           and be connected.
 
-    By default, :class:`SocketStream` enables ``TCP_NODELAY``, and (on
-    platforms where it's supported) enables ``TCP_NOTSENT_LOWAT`` with a
-    reasonable buffer size (currently 16 KiB) – see `issue #72
+    By default for TCP sockets, :class:`SocketStream` enables ``TCP_NODELAY``,
+    and (on platforms where it's supported) enables ``TCP_NOTSENT_LOWAT`` with
+    a reasonable buffer size (currently 16 KiB) – see `issue #72
     <https://github.com/python-trio/trio/issues/72>`__ for discussion. You can
     of course override these defaults by calling :meth:`setsockopt`.
 
@@ -59,16 +66,11 @@ class SocketStream(HalfCloseableStream):
 
     """
 
-    def __init__(self, socket):
-        if not tsocket.is_trio_socket(socket):
-            raise TypeError("SocketStream requires trio socket object")
-        if real_socket_type(socket.type) != tsocket.SOCK_STREAM:
+    def __init__(self, socket: SocketType):
+        if not isinstance(socket, tsocket.SocketType):
+            raise TypeError("SocketStream requires a Trio socket object")
+        if socket.type != tsocket.SOCK_STREAM:
             raise ValueError("SocketStream requires a SOCK_STREAM socket")
-        try:
-            socket.getpeername()
-        except OSError:
-            err = ValueError("SocketStream requires a connected socket")
-            raise err from None
 
         self.socket = socket
         self._send_conflict_detector = ConflictDetector(
@@ -94,58 +96,99 @@ class SocketStream(HalfCloseableStream):
                 # http://devstreaming.apple.com/videos/wwdc/2015/719ui2k57m/719/719_your_app_and_next_generation_networks.pdf?dl=1
                 # ). The theory is that you want it to be bandwidth *
                 # rescheduling interval.
-                self.setsockopt(
-                    tsocket.IPPROTO_TCP, tsocket.TCP_NOTSENT_LOWAT, 2**14
-                )
+                self.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NOTSENT_LOWAT, 2**14)
             except OSError:
                 pass
 
-    async def send_all(self, data):
+    async def send_all(self, data: bytes | bytearray | memoryview) -> None:
         if self.socket.did_shutdown_SHUT_WR:
-            await _core.yield_briefly()
-            raise ClosedStreamError("can't send data after sending EOF")
-        with self._send_conflict_detector.sync:
+            raise trio.ClosedResourceError("can't send data after sending EOF")
+        with self._send_conflict_detector:
             with _translate_socket_errors_to_stream_errors():
-                await self.socket._sendall(data)
+                with memoryview(data) as data:
+                    if not data:
+                        if self.socket.fileno() == -1:
+                            raise trio.ClosedResourceError("socket was already closed")
+                        await trio.lowlevel.checkpoint()
+                        return
+                    total_sent = 0
+                    while total_sent < len(data):
+                        with data[total_sent:] as remaining:
+                            sent = await self.socket.send(remaining)
+                        total_sent += sent
 
-    async def wait_send_all_might_not_block(self):
-        async with self._send_conflict_detector:
+    async def wait_send_all_might_not_block(self) -> None:
+        with self._send_conflict_detector:
             if self.socket.fileno() == -1:
-                raise ClosedStreamError
+                raise trio.ClosedResourceError
             with _translate_socket_errors_to_stream_errors():
                 await self.socket.wait_writable()
 
-    async def send_eof(self):
-        async with self._send_conflict_detector:
-            # On MacOS, calling shutdown a second time raises ENOTCONN, but
+    async def send_eof(self) -> None:
+        with self._send_conflict_detector:
+            await trio.lowlevel.checkpoint()
+            # On macOS, calling shutdown a second time raises ENOTCONN, but
             # send_eof needs to be idempotent.
             if self.socket.did_shutdown_SHUT_WR:
                 return
             with _translate_socket_errors_to_stream_errors():
                 self.socket.shutdown(tsocket.SHUT_WR)
 
-    async def receive_some(self, max_bytes):
+    async def receive_some(self, max_bytes: int | None = None) -> bytes:
+        if max_bytes is None:
+            max_bytes = DEFAULT_RECEIVE_SIZE
         if max_bytes < 1:
-            await _core.yield_briefly()
             raise ValueError("max_bytes must be >= 1")
         with _translate_socket_errors_to_stream_errors():
             return await self.socket.recv(max_bytes)
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         self.socket.close()
-        await _core.yield_briefly()
+        await trio.lowlevel.checkpoint()
 
     # __aenter__, __aexit__ inherited from HalfCloseableStream are OK
 
-    def setsockopt(self, level, option, value):
+    @overload
+    def setsockopt(self, level: int, option: int, value: int | Buffer) -> None:
+        ...
+
+    @overload
+    def setsockopt(self, level: int, option: int, value: None, length: int) -> None:
+        ...
+
+    def setsockopt(
+        self,
+        level: int,
+        option: int,
+        value: int | Buffer | None,
+        length: int | None = None,
+    ) -> None:
         """Set an option on the underlying socket.
 
         See :meth:`socket.socket.setsockopt` for details.
 
         """
-        return self.socket.setsockopt(level, option, value)
+        if length is None:
+            if value is None:
+                raise TypeError(
+                    "invalid value for argument 'value', must not be None when specifying length"
+                )
+            return self.socket.setsockopt(level, option, value)
+        if value is not None:
+            raise TypeError(
+                f"invalid value for argument 'value': {value!r}, must be None when specifying optlen"
+            )
+        return self.socket.setsockopt(level, option, value, length)
 
-    def getsockopt(self, level, option, buffersize=0):
+    @overload
+    def getsockopt(self, level: int, option: int) -> int:
+        ...
+
+    @overload
+    def getsockopt(self, level: int, option: int, buffersize: int) -> bytes:
+        ...
+
+    def getsockopt(self, level: int, option: int, buffersize: int = 0) -> int | bytes:
         """Check the current value of an option on the underlying socket.
 
         See :meth:`socket.socket.getsockopt` for details.
@@ -171,9 +214,9 @@ class SocketStream(HalfCloseableStream):
 # -----------------
 #
 # Here's a list of all the possible errors that accept() can return, according
-# to the POSIX spec or the Linux, FreeBSD, MacOS, and Windows docs:
+# to the POSIX spec or the Linux, FreeBSD, macOS, and Windows docs:
 #
-# Can't happen with a trio socket:
+# Can't happen with a Trio socket:
 # - EAGAIN/(WSA)EWOULDBLOCK
 # - EINTR
 # - WSANOTINITIALISED
@@ -217,7 +260,7 @@ class SocketStream(HalfCloseableStream):
 # - ignores EPERM, with comment about Linux firewalls
 # - logs and ignores EMFILE, ENOBUFS, ENFILE, ENOMEM, ECONNABORTED
 #   Comment notes that ECONNABORTED is a BSDism and that Linux returns the
-#   socket before having it fail, and MacOS just silently discards it.
+#   socket before having it fail, and macOS just silently discards it.
 # - other errors are raised, which is logged + kills the socket
 # ref: src/twisted/internet/tcp.py, Port.doRead
 #
@@ -303,7 +346,7 @@ _ignorable_accept_errno_names = [
 ]
 
 # Not all errnos are defined on all platforms
-_ignorable_accept_errnos = set()
+_ignorable_accept_errnos: set[int] = set()
 for name in _ignorable_accept_errno_names:
     try:
         _ignorable_accept_errnos.add(getattr(errno, name))
@@ -311,12 +354,12 @@ for name in _ignorable_accept_errno_names:
         pass
 
 
-class SocketListener(Listener):
+class SocketListener(Listener[SocketStream], metaclass=Final):
     """A :class:`~trio.abc.Listener` that uses a listening socket to accept
     incoming connections as :class:`SocketStream` objects.
 
     Args:
-      socket: The trio socket object to wrap. Must have type ``SOCK_STREAM``,
+      socket: The Trio socket object to wrap. Must have type ``SOCK_STREAM``,
           and be listening.
 
     Note that the :class:`SocketListener` "takes ownership" of the given
@@ -328,17 +371,15 @@ class SocketListener(Listener):
 
     """
 
-    def __init__(self, socket):
-        if not tsocket.is_trio_socket(socket):
-            raise TypeError("SocketListener requires trio socket object")
-        if real_socket_type(socket.type) != tsocket.SOCK_STREAM:
+    def __init__(self, socket: SocketType):
+        if not isinstance(socket, tsocket.SocketType):
+            raise TypeError("SocketListener requires a Trio socket object")
+        if socket.type != tsocket.SOCK_STREAM:
             raise ValueError("SocketListener requires a SOCK_STREAM socket")
         try:
-            listening = socket.getsockopt(
-                tsocket.SOL_SOCKET, tsocket.SO_ACCEPTCONN
-            )
+            listening = socket.getsockopt(tsocket.SOL_SOCKET, tsocket.SO_ACCEPTCONN)
         except OSError:
-            # SO_ACCEPTCONN fails on MacOS; we just have to trust the user.
+            # SO_ACCEPTCONN fails on macOS; we just have to trust the user.
             pass
         else:
             if not listening:
@@ -346,7 +387,7 @@ class SocketListener(Listener):
 
         self.socket = socket
 
-    async def accept(self):
+    async def accept(self) -> SocketStream:
         """Accept an incoming connection.
 
         Returns:
@@ -355,7 +396,7 @@ class SocketListener(Listener):
         Raises:
           OSError: if the underlying call to ``accept`` raises an unexpected
               error.
-          ClosedListenerError: if you already closed the socket.
+          ClosedResourceError: if you already closed the socket.
 
         This method handles routine errors like ``ECONNABORTED``, but passes
         other errors on to its caller. In particular, it does *not* make any
@@ -368,17 +409,13 @@ class SocketListener(Listener):
                 sock, _ = await self.socket.accept()
             except OSError as exc:
                 if exc.errno in _closed_stream_errnos:
-                    raise ClosedListenerError
+                    raise trio.ClosedResourceError
                 if exc.errno not in _ignorable_accept_errnos:
                     raise
             else:
                 return SocketStream(sock)
 
-    async def aclose(self):
-        """Close this listener and its underlying socket.
-
-        """
-        try:
-            self.socket.close()
-        finally:
-            await _core.yield_briefly()
+    async def aclose(self) -> None:
+        """Close this listener and its underlying socket."""
+        self.socket.close()
+        await trio.lowlevel.checkpoint()

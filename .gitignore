@@ -5,12 +5,13 @@ bench/results/
 bench/env/
 bench/trio/
 
-# Byte-compiled / optimized / DLL files
+# Byte-compiled / optimized / DLL files / editor temp files
 __pycache__/
 *.py[cod]
 *~
 \#*
 .#*
+*.swp
 
 # C extensions
 *.so
@@ -29,6 +30,8 @@ __pycache__/
 *.egg-info/
 .installed.cfg
 *.egg
+/.pybuild
+pip-wheel-metadata/
 
 # Installer logs
 pip-log.txt
@@ -36,9 +39,13 @@ pip-log.txt
 # Unit test / coverage reports
 htmlcov/
 .tox/
+.venv/
+pyvenv.cfg
 .coverage
 .coverage.*
 .cache
+.pytest_cache/
+.mypy_cache/
 nosetests.xml
 coverage.xml
 
@@ -59,3 +66,6 @@ coverage.xml
 
 # Sphinx documentation
 doc/_build/
+
+# PyCharm
+.idea/
