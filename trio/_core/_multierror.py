@@ -261,7 +261,7 @@ class MultiError(_BaseExceptionGroup):
     def __repr__(self) -> str:
         return f"<MultiError: {self}>"
 
-    @overload
+    @overload  # type: ignore[override]  # 'Exception' != '_ExceptionT'
     def derive(self, excs: Sequence[Exception], /) -> NonBaseMultiError:
         ...
 

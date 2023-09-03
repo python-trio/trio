@@ -37,7 +37,7 @@ from typing import (
 
 import attr
 from outcome import Error, Outcome, Value, capture
-from sniffio import current_async_library_cvar
+from sniffio import thread_local as sniffio_library
 from sortedcontainers import SortedDict
 
 from .. import _core
@@ -200,8 +200,7 @@ def collapse_exception_group(
         )
         return exceptions[0]
     elif modified:
-        # derive() returns Any for some reason.
-        return excgroup.derive(exceptions)  # type: ignore[no-any-return]
+        return excgroup.derive(exceptions)
     else:
         return excgroup
 
@@ -907,15 +906,6 @@ class _TaskStatus(TaskStatus[StatusT]):
         self._old_nursery._check_nursery_closed()
 
 
-class _NurseryStartFunc(Protocol[StatusT_co]):
-    """Type of functions passed to `nursery.start() <trio.Nursery.start>`."""
-
-    def __call__(
-        self, *args: Any, task_status: TaskStatus[StatusT_co]
-    ) -> Awaitable[object]:
-        ...
-
-
 @attr.s
 class NurseryManager:
     """Nursery context manager.
@@ -1173,7 +1163,10 @@ class Nursery(metaclass=NoPublicConstructor):
         GLOBAL_RUN_CONTEXT.runner.spawn_impl(async_fn, args, self, name)
 
     async def start(
-        self, async_fn: _NurseryStartFunc[StatusT], *args: object, name: object = None
+        self,
+        async_fn: Callable[..., Awaitable[object]],
+        *args: object,
+        name: object = None,
     ) -> StatusT:
         r"""Creates and initializes a child task.
 
@@ -1499,6 +1492,7 @@ class GuestState:
     unrolled_run_next_send: Outcome[Any] = attr.ib(factory=_value_factory)
 
     def guest_tick(self) -> None:
+        prev_library, sniffio_library.name = sniffio_library.name, "trio"
         try:
             timeout = self.unrolled_run_next_send.send(self.unrolled_run_gen)
         except StopIteration:
@@ -1508,6 +1502,8 @@ class GuestState:
         except TrioInternalError as exc:
             self.done_callback(Error(exc))
             return
+        finally:
+            sniffio_library.name = prev_library
 
         # Optimization: try to skip going into the thread if we can avoid it
         events_outcome: Value[EventResult] | Error = capture(
@@ -1708,17 +1704,13 @@ class Runner:
             assert self.init_task is None
 
         ######
-        # Propagate contextvars, and make sure that async_fn can use sniffio.
+        # Propagate contextvars
         ######
         if context is None:
             if system_task:
                 context = self.system_context.copy()
             else:
                 context = copy_context()
-        # start_soon() or spawn_system_task() might have been invoked
-        # from a different async library; make sure the new task
-        # understands it's Trio-flavored.
-        context.run(current_async_library_cvar.set, "trio")
 
         ######
         # Call the function and get the coroutine object, while giving helpful
@@ -2240,15 +2232,19 @@ def run(
         strict_exception_groups,
     )
 
-    gen = unrolled_run(runner, async_fn, args)
-    # Need to send None in the first time.
-    next_send: EventResult = None  # type: ignore[assignment]
-    while True:
-        try:
-            timeout = gen.send(next_send)
-        except StopIteration:
-            break
-        next_send = runner.io_manager.get_events(timeout)
+    prev_library, sniffio_library.name = sniffio_library.name, "trio"
+    try:
+        gen = unrolled_run(runner, async_fn, args)
+        # Need to send None in the first time.
+        next_send: EventResult = None  # type: ignore[assignment]
+        while True:
+            try:
+                timeout = gen.send(next_send)
+            except StopIteration:
+                break
+            next_send = runner.io_manager.get_events(timeout)
+    finally:
+        sniffio_library.name = prev_library
     # Inlined copy of runner.main_task_outcome.unwrap() to avoid
     # cluttering every single Trio traceback with an extra frame.
     if isinstance(runner.main_task_outcome, Value):
@@ -2284,6 +2280,16 @@ def start_guest_run(
     Generally, the best way to do this is wrap this in a function that starts
     the host loop and then immediately starts the guest run, and then shuts
     down the host when the guest run completes.
+
+    Once :func:`start_guest_run` returns successfully, the guest run
+    has been set up enough that you can invoke sync-colored Trio
+    functions such as :func:`~trio.current_time`, :func:`spawn_system_task`,
+    and :func:`current_trio_token`. If a `~trio.TrioInternalError` occurs
+    during this early setup of the guest run, it will be raised out of
+    :func:`start_guest_run`.  All other errors, including all errors
+    raised by the *async_fn*, will be delivered to your
+    *done_callback* at some point after :func:`start_guest_run` returns
+    successfully.
 
     Args:
 
@@ -2345,6 +2351,48 @@ def start_guest_run(
             host_uses_signal_set_wakeup_fd=host_uses_signal_set_wakeup_fd,
         ),
     )
+
+    # Run a few ticks of the guest run synchronously, so that by the
+    # time we return, the system nursery exists and callers can use
+    # spawn_system_task. We don't actually run any user code during
+    # this time, so it shouldn't be possible to get an exception here,
+    # except for a TrioInternalError.
+    next_send = cast(
+        EventResult, None
+    )  # First iteration must be `None`, every iteration after that is EventResult
+    for tick in range(5):  # expected need is 2 iterations + leave some wiggle room
+        if runner.system_nursery is not None:
+            # We're initialized enough to switch to async guest ticks
+            break
+        try:
+            timeout = guest_state.unrolled_run_gen.send(next_send)
+        except StopIteration:  # pragma: no cover
+            raise TrioInternalError(
+                "Guest runner exited before system nursery was initialized"
+            )
+        if timeout != 0:  # pragma: no cover
+            guest_state.unrolled_run_gen.throw(
+                TrioInternalError(
+                    "Guest runner blocked before system nursery was initialized"
+                )
+            )
+        # next_send should be the return value of
+        # IOManager.get_events() if no I/O was waiting, which is
+        # platform-dependent. We don't actually check for I/O during
+        # this init phase because no one should be expecting any yet.
+        if sys.platform == "win32":
+            next_send = 0
+        else:
+            next_send = []
+    else:  # pragma: no cover
+        guest_state.unrolled_run_gen.throw(
+            TrioInternalError(
+                "Guest runner yielded too many times before "
+                "system nursery was initialized"
+            )
+        )
+
+    guest_state.unrolled_run_next_send = Value(next_send)
     run_sync_soon_not_threadsafe(guest_state.guest_tick)
 
 
