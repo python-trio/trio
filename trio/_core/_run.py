@@ -1493,6 +1493,7 @@ class GuestState:
     unrolled_run_next_send: Outcome[Any] = attr.ib(factory=_value_factory)
 
     def guest_tick(self) -> None:
+        prev_library, sniffio_library.name = sniffio_library.name, "trio"
         try:
             timeout = self.unrolled_run_next_send.send(self.unrolled_run_gen)
         except StopIteration:
