@@ -196,7 +196,12 @@ async def to_thread_run_sync(  # type: ignore[misc]
         thread_name = f"{getattr(sync_fn, '__name__', None)} from {trio.lowlevel.current_task().name}"
 
     def worker_fn() -> RetT:
+        # Trio doesn't use current_async_library_cvar, but if someone
+        # else set it, it would now shine through since
+        # snifio.thread_local isn't set in the new thread. Make sure
+        # the new thread sees that it's not running in async context.
         current_async_library_cvar.set(None)
+
         TOKEN_LOCAL.token = current_trio_token
         try:
             ret = sync_fn(*args)
@@ -404,7 +409,6 @@ def from_thread_run_sync(
         fn: Callable[..., RetT],
         args: tuple[object, ...],
     ) -> None:
-        current_async_library_cvar.set("trio")
 
         @disable_ki_protection
         def unprotected_fn() -> RetT:
