@@ -2357,7 +2357,9 @@ def start_guest_run(
     # spawn_system_task. We don't actually run any user code during
     # this time, so it shouldn't be possible to get an exception here,
     # except for a TrioInternalError.
-    next_send = None
+    next_send: EventResult = cast(
+        EventResult, None
+    )  # First iteration must be `None`, every iteration after that is EventResult
     for tick in range(5):  # expected need is 2 iterations + leave some wiggle room
         if runner.system_nursery is not None:
             # We're initialized enough to switch to async guest ticks
@@ -2378,7 +2380,10 @@ def start_guest_run(
         # IOManager.get_events() if no I/O was waiting, which is
         # platform-dependent. We don't actually check for I/O during
         # this init phase because no one should be expecting any yet.
-        next_send = 0 if sys.platform == "win32" else ()
+        if sys.platform == "win32":
+            next_send = 0
+        else:
+            next_send = []
     else:  # pragma: no cover
         guest_state.unrolled_run_gen.throw(
             TrioInternalError(
