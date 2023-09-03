@@ -11,7 +11,13 @@ from typing import TYPE_CHECKING
 import trio
 import trio.socket as tsocket
 
-from ._highlevel_socket import SocketListener
+from ._highlevel_socket import (
+    SocketStream,
+    _closed_stream_errnos,
+    _ignorable_accept_errnos,
+)
+from ._util import Final
+from .abc import Listener
 
 if TYPE_CHECKING:
     from typing_extensions import Self
@@ -105,25 +111,52 @@ def _lock(
         os.unlink(name)
 
 
-class UnixSocketListener(SocketListener):
-    __slots__ = ()
+class UnixSocketListener(Listener[SocketStream], metaclass=Final):
+    """A :class:`~trio.abc.Listener` that uses a listening socket to accept
+    incoming connections as :class:`SocketStream` objects.
+
+    Args:
+      socket: The Trio socket object to wrap. Must have type ``SOCK_STREAM``,
+          and be listening.
+      path: The path the unix socket is bound too.
+      inode: (dev, inode) tuple uniquely identifying the socket file.
+
+    Note that the :class:`UnixSocketListener` "takes ownership" of the given
+    socket; closing the :class:`UnixSocketListener` will also close the socket.
+
+    .. attribute:: socket
+
+       The Trio socket object that this stream wraps.
+
+    """
+
+    __slots__ = ("socket", "path", "inode")
 
     def __init__(
         self,
         socket: SocketType,
-        path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        path: str,
         inode: tuple[int, int],
     ) -> None:
         """Private constructor. Use UnixSocketListener.create instead."""
         if not HAS_UNIX:
             raise RuntimeError("Unix sockets are not supported on this platform")
         if not isinstance(socket, tsocket.SocketType):
-            raise TypeError("SocketStream requires a Trio socket object")
+            raise TypeError("UnixSocketListener requires a Trio socket object")
         if socket.type != tsocket.SOCK_STREAM:
-            raise ValueError("SocketStream requires a SOCK_STREAM socket")
+            raise ValueError("UnixSocketListener requires a SOCK_STREAM socket")
+        try:
+            listening = socket.getsockopt(tsocket.SOL_SOCKET, tsocket.SO_ACCEPTCONN)
+        except OSError:
+            # SO_ACCEPTCONN fails on macOS; we just have to trust the user.
+            pass
+        else:
+            if not listening:
+                raise ValueError("SocketListener requires a listening socket")
 
-        self.path, self.inode = path, inode
-        super().__init__(socket)
+        self.socket = socket
+        self.path = path
+        self.inode = inode
 
     @classmethod
     async def _create(
@@ -192,11 +225,40 @@ class UnixSocketListener(SocketListener):
         except OSError:
             pass
 
+    async def accept(self) -> SocketStream:
+        """Accept an incoming connection.
+
+        Returns:
+          :class:`SocketStream`
+
+        Raises:
+          OSError: if the underlying call to ``accept`` raises an unexpected
+              error.
+          ClosedResourceError: if you already closed the socket.
+
+        This method handles routine errors like ``ECONNABORTED``, but passes
+        other errors on to its caller. In particular, it does *not* make any
+        special effort to handle resource exhaustion errors like ``EMFILE``,
+        ``ENFILE``, ``ENOBUFS``, ``ENOMEM``.
+
+        """
+        while True:
+            try:
+                sock, _ = await self.socket.accept()
+            except OSError as exc:
+                if exc.errno in _closed_stream_errnos:
+                    raise trio.ClosedResourceError
+                if exc.errno not in _ignorable_accept_errnos:
+                    raise
+            else:
+                return SocketStream(sock)
+
     async def aclose(self) -> None:
-        """Close the socket and remove the socket file."""
+        """Close this listener and its underlying socket."""
         with trio.fail_after(10) as cleanup:
             cleanup.shield = True
-            await super().aclose()
+            self.socket.close()
+            await trio.lowlevel.checkpoint()
             await trio.to_thread.run_sync(self._close)
 
 
