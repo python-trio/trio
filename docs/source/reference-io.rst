@@ -304,6 +304,9 @@ unfortunately that's not yet possible.
 
    .. automethod:: statistics
 
+.. autoclass:: DTLSChannelStatistics
+   :members:
+
 .. module:: trio.socket
 
 Low-level networking with :mod:`trio.socket`
@@ -501,6 +504,14 @@ Socket objects
    * :meth:`~socket.socket.set_inheritable`
    * :meth:`~socket.socket.get_inheritable`
 
+The internal SocketType
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. autoclass:: _SocketType
+..
+    TODO: adding `:members:` here gives error due to overload+_wraps on `sendto`
+    TODO: rewrite ... all of the above when fixing _SocketType vs SocketType
+
+
 .. currentmodule:: trio
 
 
@@ -634,9 +645,11 @@ Asynchronous path objects
 Asynchronous file objects
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autofunction:: open_file
+.. Suppress type annotations here, they refer to lots of internal types.
+   The normal Python docs go into better detail.
+.. autofunction:: open_file(file, mode='r', buffering=-1, encoding=None, errors=None, newline=None, closefd=None, opener=None)
 
-.. autofunction:: wrap_file
+.. autofunction:: wrap_file(file)
 
 .. interface:: Asynchronous file interface
 
@@ -718,7 +731,11 @@ task and interact with it while it's running:
 
 .. autofunction:: trio.run_process
 
-.. autoclass:: trio.Process
+.. autoclass:: trio._subprocess.HasFileno(Protocol)
+
+   .. automethod:: fileno
+
+.. autoclass:: trio.Process()
 
    .. autoattribute:: returncode
 

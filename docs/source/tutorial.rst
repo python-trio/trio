@@ -88,7 +88,7 @@ Okay, ready? Let's get started.
 Before you begin
 ----------------
 
-1. Make sure you're using Python 3.7 or newer.
+1. Make sure you're using Python 3.8 or newer.
 
 2. ``python3 -m pip install --upgrade trio`` (or on Windows, maybe
    ``py -3 -m pip install --upgrade trio`` – `details
@@ -436,15 +436,15 @@ Now that we understand ``async with``, let's look at ``parent`` again:
    :end-at: all done!
 
 There are only 4 lines of code that really do anything here. On line
-17, we use :func:`trio.open_nursery` to get a "nursery" object, and
+20, we use :func:`trio.open_nursery` to get a "nursery" object, and
 then inside the ``async with`` block we call ``nursery.start_soon`` twice,
-on lines 19 and 22. There are actually two ways to call an async
+on lines 22 and 25. There are actually two ways to call an async
 function: the first one is the one we already saw, using ``await
 async_fn()``; the new one is ``nursery.start_soon(async_fn)``: it asks Trio
 to start running this async function, *but then returns immediately
 without waiting for the function to finish*. So after our two calls to
 ``nursery.start_soon``, ``child1`` and ``child2`` are now running in the
-background. And then at line 25, the commented line, we hit the end of
+background. And then at line 28, the commented line, we hit the end of
 the ``async with`` block, and the nursery's ``__aexit__`` function
 runs. What this does is force ``parent`` to stop here and wait for all
 the children in the nursery to exit. This is why you have to use

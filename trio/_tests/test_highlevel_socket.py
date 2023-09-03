@@ -11,6 +11,7 @@ from ..testing import (
     check_half_closeable_stream,
     wait_all_tasks_blocked,
 )
+from .test_socket import setsockopt_tests
 
 
 async def test_SocketStream_basics():
@@ -49,6 +50,8 @@ async def test_SocketStream_basics():
 
             b = s.getsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, 1)
             assert isinstance(b, bytes)
+
+            setsockopt_tests(s)
 
 
 async def test_SocketStream_send_all():

@@ -1,26 +1,26 @@
 import trio
 
 
-async def coro1(event: trio.Event):
+async def coro1(event: trio.Event) -> None:
     event.set()
     await trio.sleep_forever()
 
 
-async def coro2(event: trio.Event):
+async def coro2(event: trio.Event) -> None:
     await coro1(event)
 
 
-async def coro3(event: trio.Event):
+async def coro3(event: trio.Event) -> None:
     await coro2(event)
 
 
-async def coro2_async_gen(event: trio.Event):
+async def coro2_async_gen(event):
     yield await trio.lowlevel.checkpoint()
     yield await coro1(event)
     yield await trio.lowlevel.checkpoint()
 
 
-async def coro3_async_gen(event: trio.Event):
+async def coro3_async_gen(event: trio.Event) -> None:
     async for x in coro2_async_gen(event):
         pass
 

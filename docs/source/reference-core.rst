@@ -693,7 +693,7 @@ Errors in multiple child tasks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Normally, in Python, only one thing happens at a time, which means
-that only one thing can wrong at a time. Trio has no such
+that only one thing can go wrong at a time. Trio has no such
 limitation. Consider code like::
 
     async def broken1():
@@ -916,12 +916,19 @@ The nursery API
 
 
 .. autoclass:: Nursery()
-   :members:
+   :members: child_tasks, parent_task
+
+   .. automethod:: start(async_fn, *args, name = None)
+
+   .. automethod:: start_soon(async_fn, *args, name = None)
 
 .. attribute:: TASK_STATUS_IGNORED
+   :type: TaskStatus
 
-   See :meth:`~Nursery.start`.
+   See :meth:`Nursery.start`.
 
+.. autoclass:: TaskStatus(Protocol[StatusT])
+   :members:
 
 .. _task-local-storage:
 
@@ -974,12 +981,8 @@ work. What we need is something that's *like* a global variable, but
 that can have different values depending on which request handler is
 accessing it.
 
-To solve this problem, Python 3.7 added a new module to the standard
-library: :mod:`contextvars`. And not only does Trio have built-in
-support for :mod:`contextvars`, but if you're using an earlier version
-of Python, then Trio makes sure that a backported version of
-:mod:`contextvars` is installed. So you can assume :mod:`contextvars`
-is there and works regardless of what version of Python you're using.
+To solve this problem, Python has a module in the standard
+library: :mod:`contextvars`.
 
 Here's a toy example demonstrating how to use :mod:`contextvars`:
 
@@ -1009,7 +1012,7 @@ Example output (yours may differ slightly):
    request 0: Request received finished
 
 For more information, read the
-`contextvars docs <https://docs.python.org/3.7/library/contextvars.html>`__.
+`contextvars docs <https://docs.python.org/3/library/contextvars.html>`__.
 
 
 .. _synchronization:
@@ -1096,6 +1099,8 @@ Broadcasting an event with :class:`Event`
 .. autoclass:: Event
    :members:
 
+.. autoclass:: EventStatistics
+   :members:
 
 .. _channels:
 
@@ -1169,7 +1174,7 @@ the previous version, and then exits cleanly. The only change is the
 addition of ``async with`` blocks inside the producer and consumer:
 
 .. literalinclude:: reference-core/channels-shutdown.py
-   :emphasize-lines: 10,15
+   :emphasize-lines: 11,17
 
 The really important thing here is the producer's ``async with`` .
 When the producer exits, this closes the ``send_channel``, and that
@@ -1248,7 +1253,7 @@ Fortunately, there's a better way! Here's a fixed version of our
 program above:
 
 .. literalinclude:: reference-core/channels-mpmc-fixed.py
-   :emphasize-lines: 7, 9, 10, 12, 13
+   :emphasize-lines: 8, 10, 11, 13, 14
 
 This example demonstrates using the `MemorySendChannel.clone` and
 `MemoryReceiveChannel.clone` methods. What these do is create copies
@@ -1456,6 +1461,16 @@ don't have any special access to Trio's internals.)
 .. autoclass:: Condition
    :members:
 
+These primitives return statistics objects that can be inspected.
+
+.. autoclass:: CapacityLimiterStatistics
+   :members:
+
+.. autoclass:: LockStatistics
+   :members:
+
+.. autoclass:: ConditionStatistics
+   :members:
 
 .. _async-generators:
 

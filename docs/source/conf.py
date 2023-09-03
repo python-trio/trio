@@ -44,7 +44,6 @@ nitpicky = True
 nitpick_ignore = [
     ("py:class", "CapacityLimiter-like object"),
     ("py:class", "bytes-like"),
-    ("py:class", "None"),
     # Was removed but still shows up in changelog
     ("py:class", "trio.lowlevel.RunLocal"),
     # trio.abc is documented at random places scattered throughout the docs
@@ -53,18 +52,49 @@ nitpick_ignore = [
     ("py:exc", "Anything else"),
     ("py:class", "async function"),
     ("py:class", "sync function"),
-    # https://github.com/sphinx-doc/sphinx/issues/7722
-    # TODO: why do these need to be spelled out?
-    ("py:class", "trio._abc.ReceiveType"),
-    ("py:class", "trio._abc.SendType"),
-    ("py:class", "trio._abc.T"),
-    ("py:obj", "trio._abc.ReceiveType"),
-    ("py:obj", "trio._abc.SendType"),
-    ("py:obj", "trio._abc.T"),
-    ("py:obj", "trio._abc.T_resource"),
+    # why aren't these found in stdlib?
+    ("py:class", "types.FrameType"),
+    # TODO: temporary type
+    ("py:class", "_SocketType"),
+    # these are not defined in https://docs.python.org/3/objects.inv
+    ("py:class", "socket.AddressFamily"),
+    ("py:class", "socket.SocketKind"),
+    ("py:class", "Buffer"),  # collections.abc.Buffer, in 3.12
 ]
 autodoc_inherit_docstrings = False
 default_role = "obj"
+
+# These have incorrect __module__ set in stdlib and give the error
+# `py:class reference target not found`
+# Some of the nitpick_ignore's above can probably be fixed with this.
+# See https://github.com/sphinx-doc/sphinx/issues/8315#issuecomment-751335798
+autodoc_type_aliases = {
+    # aliasing doesn't actually fix the warning for types.FrameType, but displaying
+    # "types.FrameType" is more helpful than just "frame"
+    "FrameType": "types.FrameType",
+    # unaliasing these makes intersphinx able to resolve them
+    "Outcome": "outcome.Outcome",
+    "Context": "OpenSSL.SSL.Context",
+}
+
+
+def autodoc_process_signature(
+    app, what, name, obj, options, signature, return_annotation
+):
+    """Modify found signatures to fix various issues."""
+    if signature is not None:
+        signature = signature.replace("~_contextvars.Context", "~contextvars.Context")
+        if name == "trio.lowlevel.start_guest_run":
+            signature = signature.replace("Outcome", "~outcome.Outcome")
+        if name == "trio.lowlevel.RunVar":  # Typevar is not useful here.
+            signature = signature.replace(": ~trio._core._local.T", "")
+        if "_NoValue" in signature:
+            # Strip the type from the union, make it look like = ...
+            signature = signature.replace(" | type[trio._core._local._NoValue]", "")
+            signature = signature.replace("<class 'trio._core._local._NoValue'>", "...")
+
+    return signature, return_annotation
+
 
 # XX hack the RTD theme until
 #   https://github.com/rtfd/sphinx_rtd_theme/pull/382
@@ -73,6 +103,7 @@ default_role = "obj"
 # though.
 def setup(app):
     app.add_css_file("hackrtd.css")
+    app.connect("autodoc-process-signature", autodoc_process_signature)
 
 
 # -- General configuration ------------------------------------------------
@@ -90,7 +121,9 @@ extensions = [
     "sphinx.ext.coverage",
     "sphinx.ext.napoleon",
     "sphinxcontrib_trio",
+    "sphinxcontrib.jquery",
     "local_customization",
+    "typevars",
 ]
 
 intersphinx_mapping = {
