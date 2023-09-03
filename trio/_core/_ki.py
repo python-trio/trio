@@ -16,7 +16,7 @@ CallableT = TypeVar("CallableT", bound=Callable[..., Any])
 RetT = TypeVar("RetT")
 
 if TYPE_CHECKING:
-    from typing_extensions import TypeGuard
+    from typing_extensions import ParamSpec, TypeGuard
 
     ArgsT = ParamSpec("ArgsT")
 
