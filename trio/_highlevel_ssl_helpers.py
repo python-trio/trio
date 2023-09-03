@@ -57,7 +57,7 @@ async def open_ssl_over_tcp_stream(
         host,
         port,
         happy_eyeballs_delay=happy_eyeballs_delay,
-        local_address=local_address
+        local_address=local_address,
     )
     if ssl_context is None:
         ssl_context = ssl.create_default_context()
