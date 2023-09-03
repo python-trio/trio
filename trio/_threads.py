@@ -478,13 +478,14 @@ def from_thread_run(
           to enter Trio, or if you want to avoid the cancellation context of
           `trio.to_thread.run_sync`.
     """
-    checked_token = _check_token(trio_token)
+    if trio_token is None:
+        send_message = _send_message_to_host_task
+    else:
+        send_message = _send_message_to_system_task
+
     message_to_trio = Run(afn, args, contextvars.copy_context())
 
-    if trio_token:
-        return _send_message_to_system_task(message_to_trio, checked_token)
-    else:
-        return _send_message_to_host_task(message_to_trio, checked_token)
+    return send_message(message_to_trio, _check_token(trio_token))
 
 
 def from_thread_run_sync(
@@ -523,10 +524,11 @@ def from_thread_run_sync(
           to enter Trio, or if you want to avoid the cancellation context of
           `trio.to_thread.run_sync`.
     """
-    checked_token = _check_token(trio_token)
+    if trio_token is None:
+        send_message = _send_message_to_host_task
+    else:
+        send_message = _send_message_to_system_task
+
     message_to_trio = RunSync(fn, args, contextvars.copy_context())
 
-    if trio_token:
-        return _send_message_to_system_task(message_to_trio, checked_token)
-    else:
-        return _send_message_to_host_task(message_to_trio, checked_token)
+    return send_message(message_to_trio, _check_token(trio_token))
