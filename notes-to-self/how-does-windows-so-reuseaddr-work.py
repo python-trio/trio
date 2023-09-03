@@ -4,11 +4,12 @@
 #
 # See https://github.com/python-trio/trio/issues/928 for details and context
 
-import socket
 import errno
+import socket
 
 modes = ["default", "SO_REUSEADDR", "SO_EXCLUSIVEADDRUSE"]
 bind_types = ["wildcard", "specific"]
+
 
 def sock(mode):
     s = socket.socket(family=socket.AF_INET)
@@ -18,6 +19,7 @@ def sock(mode):
         s.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
     return s
 
+
 def bind(sock, bind_type):
     if bind_type == "wildcard":
         sock.bind(("0.0.0.0", 12345))
@@ -25,6 +27,7 @@ def bind(sock, bind_type):
         sock.bind(("127.0.0.1", 12345))
     else:
         assert False
+
 
 def table_entry(mode1, bind_type1, mode2, bind_type2):
     with sock(mode1) as sock1:
@@ -41,19 +44,22 @@ def table_entry(mode1, bind_type1, mode2, bind_type2):
         else:
             return "Success"
 
-print("""
+
+print(
+    """
                                                        second bind
                                | """
-+ " | ".join(["%-19s" % mode for mode in modes])
+    + " | ".join(["%-19s" % mode for mode in modes])
 )
 
-print("""                              """, end='')
+print("""                              """, end="")
 for mode in modes:
-    print(" | " + " | ".join(["%8s" % bind_type for bind_type in bind_types]), end='')
+    print(" | " + " | ".join(["%8s" % bind_type for bind_type in bind_types]), end="")
 
-print("""
+print(
+    """
 first bind                     -----------------------------------------------------------------"""
-#            default | wildcard |    INUSE |  Success |   ACCESS |  Success |    INUSE |  Success
+    #            default | wildcard |    INUSE |  Success |   ACCESS |  Success |    INUSE |  Success
 )
 
 for i, mode1 in enumerate(modes):
@@ -63,6 +69,8 @@ for i, mode1 in enumerate(modes):
             for l, bind_type2 in enumerate(bind_types):
                 entry = table_entry(mode1, bind_type1, mode2, bind_type2)
                 row.append(entry)
-                #print(mode1, bind_type1, mode2, bind_type2, entry)
-        print("{:>19} | {:>8} | ".format(mode1, bind_type1)
-              + " | ".join(["%8s" % entry for entry in row]))
+                # print(mode1, bind_type1, mode2, bind_type2, entry)
+        print(
+            f"{mode1:>19} | {bind_type1:>8} | "
+            + " | ".join(["%8s" % entry for entry in row])
+        )

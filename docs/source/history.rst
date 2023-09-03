@@ -5,6 +5,15 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.22.2 (2023-07-13)
+------------------------
+
+Bugfixes
+~~~~~~~~
+
+- Fix ``PermissionError`` when importing `trio` due to trying to access ``pthread``. (`#2688 <https://github.com/python-trio/trio/issues/2688>`__)
+
+
 Trio 0.22.1 (2023-07-02)
 ------------------------
 

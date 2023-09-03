@@ -1,1 +1,0 @@
-Fix ``PermissionError`` when importing `trio` due to trying to access ``pthread``.

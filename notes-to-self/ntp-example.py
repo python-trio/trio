@@ -3,9 +3,11 @@
 # - use the hostname "2.pool.ntp.org"
 #   (see: https://news.ntppool.org/2011/06/continuing-ipv6-deployment/)
 
-import trio
-import struct
 import datetime
+import struct
+
+import trio
+
 
 def make_query_packet():
     """Construct a UDP packet suitable for querying an NTP server to ask for
@@ -26,6 +28,7 @@ def make_query_packet():
     # For an outgoing request, all other fields can be left as zeros.
 
     return packet
+
 
 def extract_transmit_timestamp(ntp_packet):
     """Given an NTP packet, extract the "transmit timestamp" field, as a
@@ -49,15 +52,16 @@ def extract_transmit_timestamp(ntp_packet):
     offset = datetime.timedelta(seconds=seconds + fraction / 2**32)
     return base_time + offset
 
+
 async def main():
     print("Our clock currently reads (in UTC):", datetime.datetime.utcnow())
 
     # Look up some random NTP servers.
     # (See www.pool.ntp.org for information about the NTP pool.)
     servers = await trio.socket.getaddrinfo(
-        "pool.ntp.org",               # host
-        "ntp",                        # port
-        family=trio.socket.AF_INET,   # IPv4
+        "pool.ntp.org",  # host
+        "ntp",  # port
+        family=trio.socket.AF_INET,  # IPv4
         type=trio.socket.SOCK_DGRAM,  # UDP
     )
 
@@ -66,7 +70,7 @@ async def main():
 
     # Create a UDP socket
     udp_sock = trio.socket.socket(
-        family=trio.socket.AF_INET,   # IPv4
+        family=trio.socket.AF_INET,  # IPv4
         type=trio.socket.SOCK_DGRAM,  # UDP
     )
 
@@ -87,5 +91,6 @@ async def main():
             print("Got response from:", address)
             transmit_timestamp = extract_transmit_timestamp(data)
             print("Their clock read (in UTC):", transmit_timestamp)
+
 
 trio.run(main)

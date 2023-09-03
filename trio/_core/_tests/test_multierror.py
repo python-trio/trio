@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import gc
 import os
 import pickle
@@ -20,13 +22,13 @@ if sys.version_info < (3, 11):
 
 
 class NotHashableException(Exception):
-    code = None
+    code: int | None = None
 
-    def __init__(self, code):
+    def __init__(self, code: int) -> None:
         super().__init__()
         self.code = code
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, NotHashableException):
             return False
         return self.code == other.code
@@ -472,12 +474,10 @@ def run_script(name, use_ipython=False):
     return completed
 
 
-def check_simple_excepthook(completed, uses_ipython):
+def check_simple_excepthook(completed):
     assert_match_in_seq(
         [
-            "in <cell line: "
-            if uses_ipython and sys.version_info >= (3, 8)
-            else "in <module>",
+            "in <module>",
             "MultiError",
             "--- 1 ---",
             "in exc1_fn",
@@ -504,14 +504,14 @@ need_ipython = pytest.mark.skipif(not have_ipython, reason="need IPython")
 @need_ipython
 def test_ipython_exc_handler():
     completed = run_script("simple_excepthook.py", use_ipython=True)
-    check_simple_excepthook(completed, True)
+    check_simple_excepthook(completed)
 
 
 @slow
 @need_ipython
 def test_ipython_imported_but_unused():
     completed = run_script("simple_excepthook_IPython.py")
-    check_simple_excepthook(completed, False)
+    check_simple_excepthook(completed)
 
 
 @slow
@@ -557,7 +557,7 @@ def test_apport_excepthook_monkeypatch_interaction():
 
 
 @pytest.mark.parametrize("protocol", range(0, pickle.HIGHEST_PROTOCOL + 1))
-def test_pickle_multierror(protocol) -> None:
+def test_pickle_multierror(protocol: int) -> None:
     # use trio.MultiError to make sure that pickle works through the deprecation layer
     import trio
 

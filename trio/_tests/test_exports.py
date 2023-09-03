@@ -1,3 +1,6 @@
+from __future__ import annotations  # isort: split
+import __future__  # Regular import, not special!
+
 import enum
 import functools
 import importlib
@@ -7,6 +10,7 @@ import socket as stdlib_socket
 import sys
 from pathlib import Path
 from types import ModuleType
+from typing import Protocol
 
 import attrs
 import pytest
@@ -19,6 +23,12 @@ from .._core._tests.tutil import slow
 from .pytest_plugin import RUN_SLOW
 
 mypy_cache_updated = False
+
+
+try:  # If installed, check both versions of this class.
+    from typing_extensions import Protocol as Protocol_ext
+except ImportError:  # pragma: no cover
+    Protocol_ext = Protocol  # type: ignore[assignment]
 
 
 def _ensure_mypy_cache_updated():
@@ -107,6 +117,11 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
     if modname == "trio":
         runtime_names.discard("tests")
 
+    # Ignore any __future__ feature objects, if imported under that name.
+    for name in __future__.all_feature_names:
+        if getattr(module, name, None) is getattr(__future__, name):
+            runtime_names.remove(name)
+
     if tool in ("mypy", "pyright_verifytypes"):
         # create py.typed file
         py_typed_path = Path(trio.__file__).parent / "py.typed"
@@ -175,7 +190,7 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         if modname == "trio":
             static_names.add("testing")
 
-        # these are hidden behind `if sys.plaftorm != "win32" or not TYPE_CHECKING`
+        # these are hidden behind `if sys.platform != "win32" or not TYPE_CHECKING`
         # so presumably pyright is parsing that if statement, in which case we don't
         # care about them being missing.
         if modname == "trio.socket" and sys.platform == "win32":
@@ -226,7 +241,9 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
 )
 @pytest.mark.parametrize("module_name", PUBLIC_MODULE_NAMES)
 @pytest.mark.parametrize("tool", ["jedi", "mypy"])
-def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
+def test_static_tool_sees_class_members(
+    tool: str, module_name: str, tmpdir: Path
+) -> None:
     module = PUBLIC_MODULES[PUBLIC_MODULE_NAMES.index(module_name)]
 
     # ignore hidden, but not dunder, symbols
@@ -267,7 +284,7 @@ def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
             cache_json = json.loads(cache_file.read())
 
         # skip a bunch of file-system activity (probably can un-memoize?)
-        @functools.lru_cache()
+        @functools.lru_cache
         def lookup_symbol(symbol):
             topname, *modname, name = symbol.split(".")
             version = next(cache.glob("3.*/"))
@@ -304,12 +321,15 @@ def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
             "__annotations__",
             "__attrs_attrs__",
             "__attrs_own_setattr__",
+            "__callable_proto_members_only__",
             "__class_getitem__",
+            "__final__",
             "__getstate__",
             "__match_args__",
             "__order__",
             "__orig_bases__",
             "__parameters__",
+            "__protocol_attrs__",
             "__setstate__",
             "__slots__",
             "__weakref__",
@@ -464,7 +484,7 @@ def test_static_tool_sees_class_members(tool, module_name, tmpdir) -> None:
     assert not errors
 
 
-def test_classes_are_final():
+def test_classes_are_final() -> None:
     for module in PUBLIC_MODULES:
         for name, class_ in module.__dict__.items():
             if not isinstance(class_, type):
@@ -477,13 +497,16 @@ def test_classes_are_final():
             # point of ABCs
             if inspect.isabstract(class_):
                 continue
+            # Same with protocols, but only direct children.
+            if Protocol in class_.__bases__ or Protocol_ext in class_.__bases__:
+                continue
             # Exceptions are allowed to be subclassed, because exception
             # subclassing isn't used to inherit behavior.
             if issubclass(class_, BaseException):
                 continue
             # These are classes that are conceptually abstract, but
             # inspect.isabstract returns False for boring reasons.
-            if class_ in {trio.abc.Instrument, trio.socket.SocketType}:
+            if class_ is trio.abc.Instrument or class_ is trio.socket.SocketType:
                 continue
             # Enums have their own metaclass, so we can't use our metaclasses.
             # And I don't think there's a lot of risk from people subclassing
@@ -491,5 +514,9 @@ def test_classes_are_final():
             if issubclass(class_, enum.Enum):
                 continue
             # ... insert other special cases here ...
+
+            # don't care about the *Statistics classes
+            if name.endswith("Statistics"):
+                continue
 
             assert isinstance(class_, _util.Final)
