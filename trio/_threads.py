@@ -95,7 +95,6 @@ class Run(Generic[RetT]):
         task = trio.lowlevel.current_task()
         old_context = task.context
         task.context = self.context.copy()
-        task.context.run(current_async_library_cvar.set, "trio")
         try:
             await trio.lowlevel.cancel_shielded_checkpoint()
             result = await outcome.acapture(self.unprotected_afn)
@@ -133,7 +132,6 @@ class RunSync(Generic[RetT]):
         return ret
 
     def run_sync(self) -> None:
-        self.context.run(current_async_library_cvar.set, "trio")
         result = outcome.capture(self.context.run, self.unprotected_fn)
         self.queue.put_nowait(result)
 
