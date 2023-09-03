@@ -1,34 +1,39 @@
-import itertools
-from contextlib import contextmanager
+from __future__ import annotations
+
 import enum
+import itertools
 import socket
 import sys
-from typing import TYPE_CHECKING
+from contextlib import contextmanager
+from typing import TYPE_CHECKING, Literal
 
 import attr
 from outcome import Value
 
 from .. import _core
-from ._run import _public
 from ._io_common import wake_all
-
+from ._run import _public
 from ._windows_cffi import (
+    INVALID_HANDLE_VALUE,
+    AFDPollFlags,
+    CompletionModes,
+    ErrorCodes,
+    FileFlags,
+    IoControlCodes,
+    WSAIoctls,
+    _handle,
     ffi,
     kernel32,
     ntdll,
-    ws2_32,
-    INVALID_HANDLE_VALUE,
     raise_winerror,
-    _handle,
-    ErrorCodes,
-    FileFlags,
-    AFDPollFlags,
-    WSAIoctls,
-    CompletionModes,
-    IoControlCodes,
+    ws2_32,
 )
 
 assert not TYPE_CHECKING or sys.platform == "win32"
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeAlias
+EventResult: TypeAlias = int
 
 # There's a lot to be said about the overall design of a Windows event
 # loop. See
@@ -366,11 +371,11 @@ class AFDGroup:
 
 @attr.s(slots=True, eq=False, frozen=True)
 class _WindowsStatistics:
-    tasks_waiting_read = attr.ib()
-    tasks_waiting_write = attr.ib()
-    tasks_waiting_overlapped = attr.ib()
-    completion_key_monitors = attr.ib()
-    backend = attr.ib(default="windows")
+    tasks_waiting_read: int = attr.ib()
+    tasks_waiting_write: int = attr.ib()
+    tasks_waiting_overlapped: int = attr.ib()
+    completion_key_monitors: int = attr.ib()
+    backend: Literal["windows"] = attr.ib(init=False, default="windows")
 
 
 # Maximum number of events to dequeue from the completion port on each pass
@@ -486,7 +491,7 @@ class WindowsIOManager:
             )
         )
 
-    def get_events(self, timeout):
+    def get_events(self, timeout: float) -> EventResult:
         received = ffi.new("PULONG")
         milliseconds = round(1000 * timeout)
         if timeout > 0 and milliseconds == 0:
@@ -501,9 +506,11 @@ class WindowsIOManager:
             if exc.winerror != ErrorCodes.WAIT_TIMEOUT:  # pragma: no cover
                 raise
             return 0
-        return received[0]
+        result = received[0]
+        assert isinstance(result, int)
+        return result
 
-    def process_events(self, received):
+    def process_events(self, received: EventResult) -> None:
         for i in range(received):
             entry = self._events[i]
             if entry.lpCompletionKey == CKeys.AFD_POLL:

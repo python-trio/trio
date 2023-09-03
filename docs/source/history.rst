@@ -5,6 +5,76 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.22.2 (2023-07-13)
+------------------------
+
+Bugfixes
+~~~~~~~~
+
+- Fix ``PermissionError`` when importing `trio` due to trying to access ``pthread``. (`#2688 <https://github.com/python-trio/trio/issues/2688>`__)
+
+
+Trio 0.22.1 (2023-07-02)
+------------------------
+
+Breaking changes
+~~~~~~~~~~~~~~~~
+
+- Timeout functions now raise `ValueError` if passed `math.nan`. This includes `trio.sleep`, `trio.sleep_until`, `trio.move_on_at`, `trio.move_on_after`, `trio.fail_at` and `trio.fail_after`. (`#2493 <https://github.com/python-trio/trio/issues/2493>`__)
+
+
+Features
+~~~~~~~~
+
+- Added support for naming threads created with `trio.to_thread.run_sync`, requires pthreads so is only available on POSIX platforms with glibc installed. (`#1148 <https://github.com/python-trio/trio/issues/1148>`__)
+- `trio.socket.socket` now prints the address it tried to connect to upon failure. (`#1810 <https://github.com/python-trio/trio/issues/1810>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Fixed a crash that can occur when running Trio within an embedded Python interpreter, by handling the `TypeError` that is raised when trying to (re-)install a C signal handler. (`#2333 <https://github.com/python-trio/trio/issues/2333>`__)
+- Fix :func:`sniffio.current_async_library` when Trio tasks are spawned from a non-Trio context (such as when using trio-asyncio). Previously, a regular Trio task would inherit the non-Trio library name, and spawning a system task would cause the non-Trio caller to start thinking it was Trio. (`#2462 <https://github.com/python-trio/trio/issues/2462>`__)
+- Issued a new release as in the git tag for 0.22.0, ``trio.__version__`` is incorrectly set to 0.21.0+dev. (`#2485 <https://github.com/python-trio/trio/issues/2485>`__)
+
+
+Improved documentation
+~~~~~~~~~~~~~~~~~~~~~~
+
+- Documented that :obj:`Nursery.start_soon` does not guarantee task ordering. (`#970 <https://github.com/python-trio/trio/issues/970>`__)
+
+
+Trio 0.22.0 (2022-09-28)
+------------------------
+
+Headline features
+~~~~~~~~~~~~~~~~~
+
+- ``MultiError`` has been deprecated in favor of the standard :exc:`BaseExceptionGroup`
+  (introduced in :pep:`654`). On Python versions below 3.11, this exception and its
+  derivative :exc:`ExceptionGroup` are provided by the backport_. Trio still raises
+  ``MultiError``, but it has been refactored into a subclass of :exc:`BaseExceptionGroup`
+  which users should catch instead of ``MultiError``. Uses of the ``MultiError.filter()``
+  class method should be replaced with :meth:`BaseExceptionGroup.split`. Uses of the
+  ``MultiError.catch()`` class method should be replaced with either ``except*`` clauses
+  (on Python 3.11+) or the ``exceptiongroup.catch()`` context manager provided by the
+  backport_.
+
+  See the :ref:`updated documentation <exceptiongroups>` for details.
+  (`#2211 <https://github.com/python-trio/trio/issues/2211>`__)
+
+  .. _backport: https://pypi.org/project/exceptiongroup/
+
+
+Features
+~~~~~~~~
+
+- Added support for `Datagram TLS
+  <https://en.wikipedia.org/wiki/Datagram_Transport_Layer_Security>`__,
+  for secure communication over UDP. Currently requires `PyOpenSSL
+  <https://pypi.org/p/pyopenssl>`__. (`#2010 <https://github.com/python-trio/trio/issues/2010>`__)
+
+
 Trio 0.21.0 (2022-06-07)
 ----------------------------
 
@@ -48,8 +118,8 @@ Features
 Bugfixes
 ~~~~~~~~
 
-- Trio now avoids creating cyclic garbage when a `MultiError` is generated and filtered,
-  including invisibly within the cancellation system.  This means errors raised
+- Trio now avoids creating cyclic garbage when a ``MultiError`` is generated and
+  filtered, including invisibly within the cancellation system. This means errors raised
   through nurseries and cancel scopes should result in less GC latency. (`#2063 <https://github.com/python-trio/trio/issues/2063>`__)
 - Trio now deterministically cleans up file descriptors that were opened before
   subprocess creation fails. Previously, they would remain open until the next run of
@@ -288,9 +358,9 @@ Bugfixes
 - On Ubuntu systems, the system Python includes a custom
   unhandled-exception hook to perform `crash reporting
   <https://wiki.ubuntu.com/Apport>`__. Unfortunately, Trio wants to use
-  the same hook to print nice `MultiError` tracebacks, causing a
+  the same hook to print nice ``MultiError`` tracebacks, causing a
   conflict. Previously, Trio would detect the conflict, print a warning,
-  and you just wouldn't get nice `MultiError` tracebacks. Now, Trio has
+  and you just wouldn't get nice ``MultiError`` tracebacks. Now, Trio has
   gotten clever enough to integrate its hook with Ubuntu's, so the two
   systems should Just Work together. (`#1065 <https://github.com/python-trio/trio/issues/1065>`__)
 - Fixed an over-strict test that caused failures on Alpine Linux.
@@ -492,7 +562,7 @@ Features
   violated. (One common source of such violations is an async generator
   that yields within a cancel scope.) The previous behavior was an
   inscrutable chain of TrioInternalErrors. (`#882 <https://github.com/python-trio/trio/issues/882>`__)
-- MultiError now defines its ``exceptions`` attribute in ``__init__()``
+- ``MultiError`` now defines its ``exceptions`` attribute in ``__init__()``
   to better support linters and code autocompletion. (`#1066 <https://github.com/python-trio/trio/issues/1066>`__)
 - Use ``__slots__`` in more places internally, which should make Trio slightly faster. (`#984 <https://github.com/python-trio/trio/issues/984>`__)
 
@@ -513,7 +583,7 @@ Bugfixes
   :meth:`~trio.Path.cwd`, are now async functions.  Previously, a bug
   in the forwarding logic meant :meth:`~trio.Path.cwd` was synchronous
   and :meth:`~trio.Path.home` didn't work at all. (`#960 <https://github.com/python-trio/trio/issues/960>`__)
-- An exception encapsulated within a :class:`MultiError` doesn't need to be
+- An exception encapsulated within a ``MultiError`` doesn't need to be
   hashable anymore.
 
   .. note::
@@ -1304,7 +1374,7 @@ Other changes
   interfering with direct use of
   :func:`~trio.testing.wait_all_tasks_blocked` in the same test.
 
-* :meth:`MultiError.catch` now correctly preserves ``__context__``,
+* ``MultiError.catch()`` now correctly preserves ``__context__``,
   despite Python's best attempts to stop us (`#165
   <https://github.com/python-trio/trio/issues/165>`__)
 

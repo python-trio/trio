@@ -1,5 +1,3 @@
-import attr
-
 from trio._util import NoPublicConstructor
 
 
@@ -61,7 +59,7 @@ class Cancelled(BaseException, metaclass=NoPublicConstructor):
 
     """
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "Cancelled"
 
 

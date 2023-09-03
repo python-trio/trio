@@ -6,84 +6,74 @@ are publicly available in either trio, trio.lowlevel, or trio.testing.
 
 import sys
 
+from ._entry_queue import TrioToken
 from ._exceptions import (
-    TrioInternalError,
-    RunFinishedError,
-    WouldBlock,
-    Cancelled,
-    BusyResourceError,
-    ClosedResourceError,
     BrokenResourceError,
+    BusyResourceError,
+    Cancelled,
+    ClosedResourceError,
     EndOfChannel,
+    RunFinishedError,
+    TrioInternalError,
+    WouldBlock,
 )
-
-from ._multierror import MultiError
-
-from ._ki import (
-    enable_ki_protection,
-    disable_ki_protection,
-    currently_ki_protected,
-)
+from ._ki import currently_ki_protected, disable_ki_protection, enable_ki_protection
+from ._local import RunVar
+from ._mock_clock import MockClock
+from ._parking_lot import ParkingLot, ParkingLotStatistics
 
 # Imports that always exist
 from ._run import (
-    Task,
-    CancelScope,
-    run,
-    open_nursery,
-    checkpoint,
-    current_task,
-    current_effective_deadline,
-    checkpoint_if_cancelled,
     TASK_STATUS_IGNORED,
-    current_statistics,
-    current_trio_token,
-    reschedule,
-    remove_instrument,
+    CancelScope,
+    Nursery,
+    RunStatistics,
+    Task,
+    TaskStatus,
     add_instrument,
+    checkpoint,
+    checkpoint_if_cancelled,
     current_clock,
+    current_effective_deadline,
     current_root_task,
-    spawn_system_task,
+    current_statistics,
+    current_task,
     current_time,
+    current_trio_token,
+    notify_closing,
+    open_nursery,
+    remove_instrument,
+    reschedule,
+    run,
+    spawn_system_task,
+    start_guest_run,
     wait_all_tasks_blocked,
     wait_readable,
     wait_writable,
-    notify_closing,
-    Nursery,
-    start_guest_run,
 )
+from ._thread_cache import start_thread_soon
 
 # Has to come after _run to resolve a circular import
 from ._traps import (
-    cancel_shielded_checkpoint,
     Abort,
-    wait_task_rescheduled,
-    temporarily_detach_coroutine_object,
+    RaiseCancelT,
+    cancel_shielded_checkpoint,
     permanently_detach_coroutine_object,
     reattach_detached_coroutine_object,
+    temporarily_detach_coroutine_object,
+    wait_task_rescheduled,
 )
-
-from ._entry_queue import TrioToken
-
-from ._parking_lot import ParkingLot
-
-from ._unbounded_queue import UnboundedQueue
-
-from ._local import RunVar
-
-from ._thread_cache import start_thread_soon
-
-from ._mock_clock import MockClock
+from ._unbounded_queue import UnboundedQueue, UnboundedQueueStatistics
 
 # Windows imports
 if sys.platform == "win32":
     from ._run import (
-        monitor_completion_key,
         current_iocp,
+        monitor_completion_key,
+        readinto_overlapped,
         register_with_iocp,
         wait_overlapped,
         write_overlapped,
-        readinto_overlapped,
     )
 # Kqueue imports
 elif sys.platform != "linux" and sys.platform != "win32":

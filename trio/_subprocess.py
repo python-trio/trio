@@ -1,26 +1,37 @@
-# coding: utf-8
+from __future__ import annotations
 
 import os
+import signal
 import subprocess
 import sys
-from contextlib import ExitStack
-from typing import Optional
-from functools import partial
 import warnings
-from typing import TYPE_CHECKING
+from collections.abc import Awaitable, Callable, Mapping, Sequence
+from contextlib import ExitStack
+from functools import partial
+from io import TextIOWrapper
+from typing import TYPE_CHECKING, Final, Literal, Protocol, Union, overload
 
-from ._abc import AsyncResource, SendStream, ReceiveStream
-from ._core import ClosedResourceError
-from ._highlevel_generic import StapledStream
-from ._sync import Lock
-from ._subprocess_platform import (
-    wait_child_exiting,
-    create_pipe_to_child_stdin,
-    create_pipe_from_child_output,
-)
-from ._deprecate import deprecated
-from ._util import NoPublicConstructor
 import trio
+
+from ._abc import AsyncResource, ReceiveStream, SendStream
+from ._core import ClosedResourceError, TaskStatus
+from ._deprecate import deprecated
+from ._highlevel_generic import StapledStream
+from ._subprocess_platform import (
+    create_pipe_from_child_output,
+    create_pipe_to_child_stdin,
+    wait_child_exiting,
+)
+from ._sync import Lock
+from ._util import NoPublicConstructor
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeAlias
+
+
+# Only subscriptable in 3.9+
+StrOrBytesPath: TypeAlias = Union[str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"]
+
 
 # Linux-specific, but has complex lifetime management stuff so we hard-code it
 # here instead of hiding it behind the _subprocess_platform abstraction
@@ -67,6 +78,13 @@ else:
             can_try_pidfd_open = False
 
 
+class HasFileno(Protocol):
+    """Represents any file-like object that has a file descriptor."""
+
+    def fileno(self) -> int:
+        ...
+
+
 class Process(AsyncResource, metaclass=NoPublicConstructor):
     r"""A child process. Like :class:`subprocess.Popen`, but async.
 
@@ -109,32 +127,38 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
           available; otherwise this will be None.
 
     """
-
-    universal_newlines = False
-    encoding = None
-    errors = None
+    # We're always in binary mode.
+    universal_newlines: Final = False
+    encoding: Final = None
+    errors: Final = None
 
     # Available for the per-platform wait_child_exiting() implementations
     # to stash some state; waitid platforms use this to avoid spawning
     # arbitrarily many threads if wait() keeps getting cancelled.
-    _wait_for_exit_data = None
+    _wait_for_exit_data: object = None
 
-    def __init__(self, popen, stdin, stdout, stderr):
+    def __init__(
+        self,
+        popen: subprocess.Popen[bytes],
+        stdin: SendStream | None,
+        stdout: ReceiveStream | None,
+        stderr: ReceiveStream | None,
+    ) -> None:
         self._proc = popen
-        self.stdin = stdin  # type: Optional[SendStream]
-        self.stdout = stdout  # type: Optional[ReceiveStream]
-        self.stderr = stderr  # type: Optional[ReceiveStream]
+        self.stdin = stdin
+        self.stdout = stdout
+        self.stderr = stderr
 
-        self.stdio = None  # type: Optional[StapledStream]
+        self.stdio: StapledStream[SendStream, ReceiveStream] | None = None
         if self.stdin is not None and self.stdout is not None:
             self.stdio = StapledStream(self.stdin, self.stdout)
 
-        self._wait_lock = Lock()
+        self._wait_lock: Lock = Lock()
 
-        self._pidfd = None
+        self._pidfd: TextIOWrapper | None = None
         if can_try_pidfd_open:
             try:
-                fd = pidfd_open(self._proc.pid, 0)
+                fd: int = pidfd_open(self._proc.pid, 0)
             except OSError:
                 # Well, we tried, but it didn't work (probably because we're
                 # running on an older kernel, or in an older sandbox, that
@@ -146,22 +170,22 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
                 # make sure it'll get closed.
                 self._pidfd = open(fd)
 
-        self.args = self._proc.args
-        self.pid = self._proc.pid
+        self.args: StrOrBytesPath | Sequence[StrOrBytesPath] = self._proc.args
+        self.pid: int = self._proc.pid
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         returncode = self.returncode
         if returncode is None:
-            status = "running with PID {}".format(self.pid)
+            status = f"running with PID {self.pid}"
         else:
             if returncode < 0:
-                status = "exited with signal {}".format(-returncode)
+                status = f"exited with signal {-returncode}"
             else:
-                status = "exited with status {}".format(returncode)
-        return "<trio.Process {!r}: {}>".format(self.args, status)
+                status = f"exited with status {returncode}"
+        return f"<trio.Process {self.args!r}: {status}>"
 
     @property
-    def returncode(self):
+    def returncode(self) -> int | None:
         """The exit status of the process (an integer), or ``None`` if it's
         still running.
 
@@ -188,13 +212,13 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         issue=1104,
         instead="run_process or nursery.start(run_process, ...)",
     )
-    async def __aenter__(self):
+    async def __aenter__(self) -> Process:
         return self
 
     @deprecated(
         "0.20.0", issue=1104, instead="run_process or nursery.start(run_process, ...)"
     )
-    async def aclose(self):
+    async def aclose(self) -> None:
         """Close any pipes we have to the process (both input and output)
         and wait for it to exit.
 
@@ -216,13 +240,13 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
                 with trio.CancelScope(shield=True):
                     await self.wait()
 
-    def _close_pidfd(self):
+    def _close_pidfd(self) -> None:
         if self._pidfd is not None:
             trio.lowlevel.notify_closing(self._pidfd.fileno())
             self._pidfd.close()
             self._pidfd = None
 
-    async def wait(self):
+    async def wait(self) -> int:
         """Block until the process exits.
 
         Returns:
@@ -232,7 +256,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
             if self.poll() is None:
                 if self._pidfd is not None:
                     try:
-                        await trio.lowlevel.wait_readable(self._pidfd)
+                        await trio.lowlevel.wait_readable(self._pidfd.fileno())
                     except ClosedResourceError:
                         # something else (probably a call to poll) already closed the
                         # pidfd
@@ -250,7 +274,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         assert self._proc.returncode is not None
         return self._proc.returncode
 
-    def poll(self):
+    def poll(self) -> int | None:
         """Returns the exit status of the process (an integer), or ``None`` if
         it's still running.
 
@@ -262,7 +286,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         """
         return self.returncode
 
-    def send_signal(self, sig):
+    def send_signal(self, sig: signal.Signals | int) -> None:
         """Send signal ``sig`` to the process.
 
         On UNIX, ``sig`` may be any signal defined in the
@@ -272,7 +296,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         """
         self._proc.send_signal(sig)
 
-    def terminate(self):
+    def terminate(self) -> None:
         """Terminate the process, politely if possible.
 
         On UNIX, this is equivalent to
@@ -283,7 +307,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         """
         self._proc.terminate()
 
-    def kill(self):
+    def kill(self) -> None:
         """Immediately terminate the process.
 
         On UNIX, this is equivalent to
@@ -296,8 +320,13 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         self._proc.kill()
 
 
-async def open_process(
-    command, *, stdin=None, stdout=None, stderr=None, **options
+async def _open_process(
+    command: list[str] | str,
+    *,
+    stdin: int | HasFileno | None = None,
+    stdout: int | HasFileno | None = None,
+    stderr: int | HasFileno | None = None,
+    **options: object,
 ) -> Process:
     r"""Execute a child program in a new process.
 
@@ -368,9 +397,9 @@ async def open_process(
                 "on UNIX systems"
             )
 
-    trio_stdin = None  # type: Optional[ClosableSendStream]
-    trio_stdout = None  # type: Optional[ClosableReceiveStream]
-    trio_stderr = None  # type: Optional[ClosableReceiveStream]
+    trio_stdin: ClosableSendStream | None = None
+    trio_stdout: ClosableReceiveStream | None = None
+    trio_stderr: ClosableReceiveStream | None = None
     # Close the parent's handle for each child side of a pipe; we want the child to
     # have the only copy, so that when it exits we can read EOF on our side. The
     # trio ends of pipes will be transferred to the Process object, which will be
@@ -416,22 +445,22 @@ async def open_process(
     return Process._create(popen, trio_stdin, trio_stdout, trio_stderr)
 
 
-async def _windows_deliver_cancel(p):
+async def _windows_deliver_cancel(p: Process) -> None:
     try:
         p.terminate()
     except OSError as exc:
         warnings.warn(RuntimeWarning(f"TerminateProcess on {p!r} failed with: {exc!r}"))
 
 
-async def _posix_deliver_cancel(p):
+async def _posix_deliver_cancel(p: Process) -> None:
     try:
         p.terminate()
         await trio.sleep(5)
         warnings.warn(
             RuntimeWarning(
                 f"process {p!r} ignored SIGTERM for 5 seconds. "
-                f"(Maybe you should pass a custom deliver_cancel?) "
-                f"Trying SIGKILL."
+                "(Maybe you should pass a custom deliver_cancel?) "
+                "Trying SIGKILL."
             )
         )
         p.kill()
@@ -441,17 +470,18 @@ async def _posix_deliver_cancel(p):
         )
 
 
-async def run_process(
-    command,
+# Use a private name, so we can declare platform-specific stubs below.
+async def _run_process(
+    command: StrOrBytesPath | Sequence[StrOrBytesPath],
     *,
-    stdin=b"",
-    capture_stdout=False,
-    capture_stderr=False,
-    check=True,
-    deliver_cancel=None,
-    task_status=trio.TASK_STATUS_IGNORED,
-    **options,
-):
+    stdin: bytes | bytearray | memoryview | int | HasFileno | None = b"",
+    capture_stdout: bool = False,
+    capture_stderr: bool = False,
+    check: bool = True,
+    deliver_cancel: Callable[[Process], Awaitable[object]] | None = None,
+    task_status: TaskStatus[Process] = trio.TASK_STATUS_IGNORED,
+    **options: object,
+) -> subprocess.CompletedProcess[bytes]:
     """Run ``command`` in a subprocess and wait for it to complete.
 
     This function can be called in two different ways.
@@ -689,23 +719,28 @@ async def run_process(
             assert os.name == "posix"
             deliver_cancel = _posix_deliver_cancel
 
-    stdout_chunks = []
-    stderr_chunks = []
+    stdout_chunks: list[bytes | bytearray] = []
+    stderr_chunks: list[bytes | bytearray] = []
 
-    async def feed_input(stream):
+    async def feed_input(stream: SendStream) -> None:
         async with stream:
             try:
+                assert input is not None
                 await stream.send_all(input)
             except trio.BrokenResourceError:
                 pass
 
-    async def read_output(stream, chunks):
+    async def read_output(
+        stream: ReceiveStream,
+        chunks: list[bytes | bytearray],
+    ) -> None:
         async with stream:
             async for chunk in stream:
                 chunks.append(chunk)
 
     async with trio.open_nursery() as nursery:
-        proc = await open_process(command, **options)
+        # options needs a complex TypedDict. The overload error only occurs on Unix.
+        proc = await open_process(command, **options)  # type: ignore[arg-type, call-overload, unused-ignore]
         try:
             if input is not None:
                 nursery.start_soon(feed_input, proc.stdin)
@@ -724,7 +759,7 @@ async def run_process(
             with trio.CancelScope(shield=True):
                 killer_cscope = trio.CancelScope(shield=True)
 
-                async def killer():
+                async def killer() -> None:
                     with killer_cscope:
                         await deliver_cancel(proc)
 
@@ -741,4 +776,147 @@ async def run_process(
             proc.returncode, proc.args, output=stdout, stderr=stderr
         )
     else:
+        assert proc.returncode is not None
         return subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)
+
+
+# There's a lot of duplication here because type checkers don't
+# have a good way to represent overloads that differ only
+# slightly. A cheat sheet:
+# - on Windows, command is Union[str, Sequence[str]];
+#   on Unix, command is str if shell=True and Sequence[str] otherwise
+# - on Windows, there are startupinfo and creationflags options;
+#   on Unix, there are preexec_fn, restore_signals, start_new_session, and pass_fds
+# - run_process() has the signature of open_process() plus arguments
+#   capture_stdout, capture_stderr, check, deliver_cancel, and the ability to pass
+#   bytes as stdin
+
+if TYPE_CHECKING:
+    if sys.platform == "win32":
+
+        async def open_process(
+            command: Union[StrOrBytesPath, Sequence[StrOrBytesPath]],
+            *,
+            stdin: int | HasFileno | None = None,
+            stdout: int | HasFileno | None = None,
+            stderr: int | HasFileno | None = None,
+            close_fds: bool = True,
+            shell: bool = False,
+            cwd: StrOrBytesPath | None = None,
+            env: Mapping[str, str] | None = None,
+            startupinfo: subprocess.STARTUPINFO | None = None,
+            creationflags: int = 0,
+        ) -> trio.Process:
+            ...
+
+        async def run_process(
+            command: StrOrBytesPath | Sequence[StrOrBytesPath],
+            *,
+            task_status: TaskStatus[Process] = trio.TASK_STATUS_IGNORED,
+            stdin: bytes | bytearray | memoryview | int | HasFileno | None = None,
+            capture_stdout: bool = False,
+            capture_stderr: bool = False,
+            check: bool = True,
+            deliver_cancel: Callable[[Process], Awaitable[object]] | None = None,
+            stdout: int | HasFileno | None = None,
+            stderr: int | HasFileno | None = None,
+            close_fds: bool = True,
+            shell: bool = False,
+            cwd: StrOrBytesPath | None = None,
+            env: Mapping[str, str] | None = None,
+            startupinfo: subprocess.STARTUPINFO | None = None,
+            creationflags: int = 0,
+        ) -> subprocess.CompletedProcess[bytes]:
+            ...
+
+    else:  # Unix
+
+        @overload  # type: ignore[no-overload-impl]
+        async def open_process(
+            command: StrOrBytesPath,
+            *,
+            stdin: int | HasFileno | None = None,
+            stdout: int | HasFileno | None = None,
+            stderr: int | HasFileno | None = None,
+            close_fds: bool = True,
+            shell: Literal[True],
+            cwd: StrOrBytesPath | None = None,
+            env: Mapping[str, str] | None = None,
+            preexec_fn: Callable[[], object] | None = None,
+            restore_signals: bool = True,
+            start_new_session: bool = False,
+            pass_fds: Sequence[int] = (),
+        ) -> trio.Process:
+            ...
+
+        @overload
+        async def open_process(
+            command: Sequence[StrOrBytesPath],
+            *,
+            stdin: int | HasFileno | None = None,
+            stdout: int | HasFileno | None = None,
+            stderr: int | HasFileno | None = None,
+            close_fds: bool = True,
+            shell: bool = False,
+            cwd: StrOrBytesPath | None = None,
+            env: Mapping[str, str] | None = None,
+            preexec_fn: Callable[[], object] | None = None,
+            restore_signals: bool = True,
+            start_new_session: bool = False,
+            pass_fds: Sequence[int] = (),
+        ) -> trio.Process:
+            ...
+
+        @overload  # type: ignore[no-overload-impl]
+        async def run_process(
+            command: StrOrBytesPath,
+            *,
+            task_status: TaskStatus[Process] = trio.TASK_STATUS_IGNORED,
+            stdin: bytes | bytearray | memoryview | int | HasFileno | None = None,
+            capture_stdout: bool = False,
+            capture_stderr: bool = False,
+            check: bool = True,
+            deliver_cancel: Callable[[Process], Awaitable[object]] | None = None,
+            stdout: int | HasFileno | None = None,
+            stderr: int | HasFileno | None = None,
+            close_fds: bool = True,
+            shell: Literal[True],
+            cwd: StrOrBytesPath | None = None,
+            env: Mapping[str, str] | None = None,
+            preexec_fn: Callable[[], object] | None = None,
+            restore_signals: bool = True,
+            start_new_session: bool = False,
+            pass_fds: Sequence[int] = (),
+        ) -> subprocess.CompletedProcess[bytes]:
+            ...
+
+        @overload
+        async def run_process(
+            command: Sequence[StrOrBytesPath],
+            *,
+            task_status: TaskStatus[Process] = trio.TASK_STATUS_IGNORED,
+            stdin: bytes | bytearray | memoryview | int | HasFileno | None = None,
+            capture_stdout: bool = False,
+            capture_stderr: bool = False,
+            check: bool = True,
+            deliver_cancel: Callable[[Process], Awaitable[None]] | None = None,
+            stdout: int | HasFileno | None = None,
+            stderr: int | HasFileno | None = None,
+            close_fds: bool = True,
+            shell: bool = False,
+            cwd: StrOrBytesPath | None = None,
+            env: Mapping[str, str] | None = None,
+            preexec_fn: Callable[[], object] | None = None,
+            restore_signals: bool = True,
+            start_new_session: bool = False,
+            pass_fds: Sequence[int] = (),
+        ) -> subprocess.CompletedProcess[bytes]:
+            ...
+
+else:
+    # At runtime, use the actual implementations.
+    open_process = _open_process
+    open_process.__name__ = open_process.__qualname__ = "open_process"
+
+    run_process = _run_process
+    run_process.__name__ = run_process.__qualname__ = "run_process"

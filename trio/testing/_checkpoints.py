@@ -1,10 +1,14 @@
-from contextlib import contextmanager
+from __future__ import annotations
+
+from collections.abc import Generator
+from contextlib import AbstractContextManager, contextmanager
 
 from .. import _core
 
 
 @contextmanager
-def _assert_yields_or_not(expected):
+def _assert_yields_or_not(expected: bool) -> Generator[None, None, None]:
+    """Check if checkpoints are executed in a block of code."""
     __tracebackhide__ = True
     task = _core.current_task()
     orig_cancel = task._cancel_points
@@ -22,7 +26,7 @@ def _assert_yields_or_not(expected):
             raise AssertionError("assert_no_checkpoints block yielded!")
 
 
-def assert_checkpoints():
+def assert_checkpoints() -> AbstractContextManager[None]:
     """Use as a context manager to check that the code inside the ``with``
     block either exits with an exception or executes at least one
     :ref:`checkpoint <checkpoints>`.
@@ -42,7 +46,7 @@ def assert_checkpoints():
     return _assert_yields_or_not(True)
 
 
-def assert_no_checkpoints():
+def assert_no_checkpoints() -> AbstractContextManager[None]:
     """Use as a context manager to check that the code inside the ``with``
     block does not execute any :ref:`checkpoints <checkpoints>`.
 

@@ -1,6 +1,9 @@
-import sys
+from __future__ import annotations
+
 import select
+import sys
 from typing import TYPE_CHECKING
+
 from .. import _core, _subprocess
 
 assert (sys.platform != "win32" and sys.platform != "linux") or not TYPE_CHECKING
@@ -34,7 +37,7 @@ async def wait_child_exiting(process: "_subprocess.Process") -> None:
         # in Chromium it seems we should still keep the check.
         return
 
-    def abort(_):
+    def abort(_: _core.RaiseCancelT) -> _core.Abort:
         kqueue.control([make_event(select.KQ_EV_DELETE)], 0)
         return _core.Abort.SUCCEEDED
 
