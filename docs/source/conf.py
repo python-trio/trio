@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 #
 # Trio documentation build configuration file, created by
 # sphinx-quickstart on Sat Jan 21 19:11:14 2017.
@@ -19,10 +18,25 @@
 #
 import os
 import sys
+
 # For our local_customization module
-sys.path.insert(0, os.path.abspath('.'))
+sys.path.insert(0, os.path.abspath("."))
 # For trio itself
-sys.path.insert(0, os.path.abspath('../..'))
+sys.path.insert(0, os.path.abspath("../.."))
+
+# https://docs.readthedocs.io/en/stable/builds.html#build-environment
+if "READTHEDOCS" in os.environ:
+    import glob
+
+    if glob.glob("../../newsfragments/*.*.rst"):
+        print("-- Found newsfragments; running towncrier --", flush=True)
+        import subprocess
+
+        subprocess.run(
+            ["towncrier", "--yes", "--date", "not released yet"],
+            cwd="../..",
+            check=True,
+        )
 
 # Warn about all references to unknown targets
 nitpicky = True
@@ -30,17 +44,57 @@ nitpicky = True
 nitpick_ignore = [
     ("py:class", "CapacityLimiter-like object"),
     ("py:class", "bytes-like"),
-    ("py:class", "None"),
     # Was removed but still shows up in changelog
-    ("py:class", "trio.hazmat.RunLocal"),
+    ("py:class", "trio.lowlevel.RunLocal"),
     # trio.abc is documented at random places scattered throughout the docs
     ("py:mod", "trio.abc"),
-    # contextvars is added in 3.7, but the docs point to 3.6
-    # these two entries can be removed after 3.7 is released
-    ("py:mod", "contextvars"),
-    ("py:class", "contextvars.Context"),
+    ("py:class", "math.inf"),
+    ("py:exc", "Anything else"),
+    ("py:class", "async function"),
+    ("py:class", "sync function"),
+    # why aren't these found in stdlib?
+    ("py:class", "types.FrameType"),
+    # TODO: temporary type
+    ("py:class", "_SocketType"),
+    # these are not defined in https://docs.python.org/3/objects.inv
+    ("py:class", "socket.AddressFamily"),
+    ("py:class", "socket.SocketKind"),
+    ("py:class", "Buffer"),  # collections.abc.Buffer, in 3.12
 ]
 autodoc_inherit_docstrings = False
+default_role = "obj"
+
+# These have incorrect __module__ set in stdlib and give the error
+# `py:class reference target not found`
+# Some of the nitpick_ignore's above can probably be fixed with this.
+# See https://github.com/sphinx-doc/sphinx/issues/8315#issuecomment-751335798
+autodoc_type_aliases = {
+    # aliasing doesn't actually fix the warning for types.FrameType, but displaying
+    # "types.FrameType" is more helpful than just "frame"
+    "FrameType": "types.FrameType",
+    # unaliasing these makes intersphinx able to resolve them
+    "Outcome": "outcome.Outcome",
+    "Context": "OpenSSL.SSL.Context",
+}
+
+
+def autodoc_process_signature(
+    app, what, name, obj, options, signature, return_annotation
+):
+    """Modify found signatures to fix various issues."""
+    if signature is not None:
+        signature = signature.replace("~_contextvars.Context", "~contextvars.Context")
+        if name == "trio.lowlevel.start_guest_run":
+            signature = signature.replace("Outcome", "~outcome.Outcome")
+        if name == "trio.lowlevel.RunVar":  # Typevar is not useful here.
+            signature = signature.replace(": ~trio._core._local.T", "")
+        if "_NoValue" in signature:
+            # Strip the type from the union, make it look like = ...
+            signature = signature.replace(" | type[trio._core._local._NoValue]", "")
+            signature = signature.replace("<class 'trio._core._local._NoValue'>", "...")
+
+    return signature, return_annotation
+
 
 # XX hack the RTD theme until
 #   https://github.com/rtfd/sphinx_rtd_theme/pull/382
@@ -48,7 +102,9 @@ autodoc_inherit_docstrings = False
 # ...note that this has since grown to contain a bunch of other CSS hacks too
 # though.
 def setup(app):
-    app.add_stylesheet("hackrtd.css")
+    app.add_css_file("hackrtd.css")
+    app.connect("autodoc-process-signature", autodoc_process_signature)
+
 
 # -- General configuration ------------------------------------------------
 
@@ -60,37 +116,41 @@ def setup(app):
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.intersphinx',
-    'sphinx.ext.coverage',
-    'sphinx.ext.napoleon',
-    'sphinxcontrib_trio',
-    'local_customization',
+    "sphinx.ext.autodoc",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.coverage",
+    "sphinx.ext.napoleon",
+    "sphinxcontrib_trio",
+    "sphinxcontrib.jquery",
+    "local_customization",
+    "typevars",
 ]
 
 intersphinx_mapping = {
-    "python": ('https://docs.python.org/3', None),
-    "outcome": ('https://outcome.readthedocs.org/en/latest/', None),
+    "python": ("https://docs.python.org/3", None),
+    "outcome": ("https://outcome.readthedocs.io/en/latest/", None),
+    "pyopenssl": ("https://www.pyopenssl.org/en/stable/", None),
+    "sniffio": ("https://sniffio.readthedocs.io/en/latest/", None),
 }
 
 autodoc_member_order = "bysource"
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 #
 # source_suffix = ['.rst', '.md']
-source_suffix = '.rst'
+source_suffix = ".rst"
 
 # The master toctree document.
-master_doc = 'index'
+master_doc = "index"
 
 # General information about the project.
-project = 'Trio'
-copyright = '2017, Nathaniel J. Smith'
-author = 'Nathaniel J. Smith'
+project = "Trio"
+copyright = "2017, Nathaniel J. Smith"
+author = "Nathaniel J. Smith"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -98,18 +158,12 @@ author = 'Nathaniel J. Smith'
 #
 # The short X.Y version.
 import trio
+
 version = trio.__version__
 # The full version, including alpha/beta/rc tags.
 release = version
 
-# It would be nicer to make this a .png; literally every browser that
-# supports favicons at all now supports png:
-#     https://caniuse.com/#feat=link-icon-png
-# But sphinx won't let me:
-#     https://github.com/sphinx-doc/sphinx/pull/3715
-# Oh well. 'convert favicon-32.png favicon-32.ico' it is. And it's only 2x
-# bigger...
-html_favicon = "_static/favicon-32.ico"
+html_favicon = "_static/favicon-32.png"
 html_logo = "../../logo/wordmark-transparent.svg"
 # & down below in html_theme_options we set logo_only=True
 
@@ -118,7 +172,7 @@ html_logo = "../../logo/wordmark-transparent.svg"
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "en"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -126,12 +180,16 @@ language = None
 exclude_patterns = []
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'default'
+pygments_style = "default"
 
-highlight_language = 'python3'
+highlight_language = "python3"
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
+
+# This avoids a warning by the epub builder that it can't figure out
+# the MIME type for our favicon.
+suppress_warnings = ["epub.unknown_project_files"]
 
 
 # -- Options for HTML output ----------------------------------------------
@@ -139,13 +197,14 @@ todo_include_todos = False
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-#html_theme = 'alabaster'
+# html_theme = 'alabaster'
 
 # We have to set this ourselves, not only because it's useful for local
 # testing, but also because if we don't then RTD will throw away our
 # html_theme_options.
 import sphinx_rtd_theme
-html_theme = 'sphinx_rtd_theme'
+
+html_theme = "sphinx_rtd_theme"
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
 # Theme options are theme-specific and customize the look and feel of a theme
@@ -160,18 +219,19 @@ html_theme_options = {
     # versions/settings...
     "navigation_depth": 4,
     "logo_only": True,
+    "prev_next_buttons_location": "both",
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = ["_static"]
 
 
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'Triodoc'
+htmlhelp_basename = "Triodoc"
 
 
 # -- Options for LaTeX output ---------------------------------------------
@@ -180,15 +240,12 @@ latex_elements = {
     # The paper size ('letterpaper' or 'a4paper').
     #
     # 'papersize': 'letterpaper',
-
     # The font size ('10pt', '11pt' or '12pt').
     #
     # 'pointsize': '10pt',
-
     # Additional stuff for the LaTeX preamble.
     #
     # 'preamble': '',
-
     # Latex figure (float) alignment
     #
     # 'figure_align': 'htbp',
@@ -198,8 +255,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'Trio.tex', 'Trio Documentation',
-     'Nathaniel J. Smith', 'manual'),
+    (master_doc, "Trio.tex", "Trio Documentation", "Nathaniel J. Smith", "manual"),
 ]
 
 
@@ -207,10 +263,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [
-    (master_doc, 'trio', 'Trio Documentation',
-     [author], 1)
-]
+man_pages = [(master_doc, "trio", "Trio Documentation", [author], 1)]
 
 
 # -- Options for Texinfo output -------------------------------------------
@@ -219,7 +272,13 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'Trio', 'Trio Documentation',
-     author, 'Trio', 'One line description of project.',
-     'Miscellaneous'),
+    (
+        master_doc,
+        "Trio",
+        "Trio Documentation",
+        author,
+        "Trio",
+        "One line description of project.",
+        "Miscellaneous",
+    ),
 ]

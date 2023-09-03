@@ -1,3 +1,7 @@
+# NOTE:
+# possibly it would be easier to use https://pypi.org/project/tree-format/
+# instead of formatting by hand like this code does...
+
 """
 Demo/exploration of how to print a task tree. Outputs:
 
@@ -34,7 +38,7 @@ END_CONTINUE = " " * len(END_PREFIX)
 
 
 def current_root_task():
-    task = trio.hazmat.current_task()
+    task = trio.lowlevel.current_task()
     while task.parent_nursery is not None:
         task = task.parent_nursery.parent_task
     return task

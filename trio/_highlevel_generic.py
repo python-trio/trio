@@ -1,16 +1,23 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Generic, TypeVar
+
 import attr
 
-from . import _core
-from .abc import HalfCloseableStream
+import trio
+from trio._util import Final
 
-__all__ = [
-    "aclose_forcefully",
-    "BrokenStreamError",
-    "StapledStream",
-]
+from .abc import AsyncResource, HalfCloseableStream, ReceiveStream, SendStream
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeGuard
 
 
-async def aclose_forcefully(resource):
+SendStreamT = TypeVar("SendStreamT", bound=SendStream)
+ReceiveStreamT = TypeVar("ReceiveStreamT", bound=ReceiveStream)
+
+
+async def aclose_forcefully(resource: AsyncResource) -> None:
     """Close an async resource or async generator immediately, without
     blocking to do any graceful cleanup.
 
@@ -25,7 +32,7 @@ async def aclose_forcefully(resource):
     Most users won't need this, but it may be useful on cleanup paths where
     you can't afford to block, or if you want to close a resource and don't
     care about handling it gracefully. For example, if
-    :class:`~trio.ssl.SSLStream` encounters an error and cannot perform its
+    :class:`~trio.SSLStream` encounters an error and cannot perform its
     own graceful close, then there's no point in waiting to gracefully shut
     down the underlying transport either, so it calls ``await
     aclose_forcefully(self.transport_stream)``.
@@ -35,30 +42,22 @@ async def aclose_forcefully(resource):
     assuming the underlying resource object is correctly implemented).
 
     """
-    with _core.open_cancel_scope() as cs:
+    with trio.CancelScope() as cs:
         cs.cancel()
         await resource.aclose()
 
 
-class BrokenStreamError(Exception):
-    """Raised when an attempt to use a stream fails due to external
-    circumstances.
-
-    For example, you might get this if you try to send data on a stream where
-    the remote side has already closed the connection.
-
-    You *don't* get this error if *you* closed the stream – in that case you
-    get :class:`ClosedResourceError`.
-
-    This exception's ``__cause__`` attribute will often contain more
-    information about the underlying error.
-
-    """
-    pass
+def _is_halfclosable(stream: SendStream) -> TypeGuard[HalfCloseableStream]:
+    """Check if the stream has a send_eof() method."""
+    return hasattr(stream, "send_eof")
 
 
-@attr.s(cmp=False, hash=False)
-class StapledStream(HalfCloseableStream):
+@attr.s(eq=False, hash=False)
+class StapledStream(
+    HalfCloseableStream,
+    Generic[SendStreamT, ReceiveStreamT],
+    metaclass=Final,
+):
     """This class `staples <https://en.wikipedia.org/wiki/Staple_(fastener)>`__
     together two unidirectional streams to make single bidirectional stream.
 
@@ -75,7 +74,7 @@ class StapledStream(HalfCloseableStream):
           left, right = trio.testing.memory_stream_pair()
           echo_stream = StapledStream(SocketStream(left), SocketStream(right))
           await echo_stream.send_all(b"x")
-          assert await echo_stream.receive_some(1) == b"x"
+          assert await echo_stream.receive_some() == b"x"
 
     :class:`StapledStream` objects implement the methods in the
     :class:`~trio.abc.HalfCloseableStream` interface. They also have two
@@ -92,43 +91,38 @@ class StapledStream(HalfCloseableStream):
        is delegated to this object.
 
     """
-    send_stream = attr.ib()
-    receive_stream = attr.ib()
 
-    async def send_all(self, data):
-        """Calls ``self.send_stream.send_all``.
+    send_stream: SendStreamT = attr.ib()
+    receive_stream: ReceiveStreamT = attr.ib()
 
-        """
+    async def send_all(self, data: bytes | bytearray | memoryview) -> None:
+        """Calls ``self.send_stream.send_all``."""
         return await self.send_stream.send_all(data)
 
-    async def wait_send_all_might_not_block(self):
-        """Calls ``self.send_stream.wait_send_all_might_not_block``.
-
-        """
+    async def wait_send_all_might_not_block(self) -> None:
+        """Calls ``self.send_stream.wait_send_all_might_not_block``."""
         return await self.send_stream.wait_send_all_might_not_block()
 
-    async def send_eof(self):
+    async def send_eof(self) -> None:
         """Shuts down the send side of the stream.
 
-        If ``self.send_stream.send_eof`` exists, then calls it. Otherwise,
-        calls ``self.send_stream.aclose()``.
-
+        If :meth:`self.send_stream.send_eof() <trio.abc.HalfCloseableStream.send_eof>` exists,
+        then this calls it. Otherwise, this calls
+        :meth:`self.send_stream.aclose() <trio.abc.AsyncResource.aclose>`.
         """
-        if hasattr(self.send_stream, "send_eof"):
-            return await self.send_stream.send_eof()
+        stream = self.send_stream
+        if _is_halfclosable(stream):
+            return await stream.send_eof()
         else:
-            return await self.send_stream.aclose()
+            return await stream.aclose()
 
-    async def receive_some(self, max_bytes):
-        """Calls ``self.receive_stream.receive_some``.
-
-        """
+    # we intentionally accept more types from the caller than we support returning
+    async def receive_some(self, max_bytes: int | None = None) -> bytes:
+        """Calls ``self.receive_stream.receive_some``."""
         return await self.receive_stream.receive_some(max_bytes)
 
-    async def aclose(self):
-        """Calls ``aclose`` on both underlying streams.
-
-        """
+    async def aclose(self) -> None:
+        """Calls ``aclose`` on both underlying streams."""
         try:
             await self.send_stream.aclose()
         finally:

@@ -5,7 +5,7 @@ Contributing to Trio and related projects
 
 So you're interested in contributing to Trio or `one of our associated
 projects <https://github.com/python-trio>`__? That's awesome! Trio is
-is an open-source project maintained by an informal group of
+an open-source project maintained by an informal group of
 volunteers. Our goal is to make async I/O in Python more fun, easy,
 and reliable, and we can't do it without help from people like you. We
 welcome contributions from anyone willing to work in good faith with
@@ -17,6 +17,9 @@ all contributions are valued.  For example, you could:
 
 - Hang out in our `chatroom <https://gitter.im/python-trio/general>`__
   and help people with questions.
+- Sign up for our `forum <https://trio.discourse.group>`__, set up
+  your notifications so you notice interesting conversations, and join
+  in.
 - Answer questions on StackOverflow (`recent questions
   <https://stackexchange.com/filters/289914/trio-project-tags-on-stackoverflow-filter>`__).
 - Use Trio in a project, and give us feedback on what worked and what
@@ -58,8 +61,8 @@ repositories. See :ref:`joining-the-team` below for more details.
 If you're looking for a good place to start, then check out our issues
 labeled `good first issue
 <https://github.com/search?utf8=%E2%9C%93&q=user%3Apython-trio+label%3A%22good+first+issue%22+state%3Aopen&type=Issues&ref=advsearch&l=&l=>`__,
-or feel free to `ask in chat
-<https://gitter.im/python-trio/general>`__.
+or feel free to ask `on the forum <https://trio.discourse.group>`__ or
+`in chat <https://gitter.im/python-trio/general>`__.
 
 
 Providing support
@@ -130,7 +133,7 @@ in separate sections below:
   adding a test to make sure it stays fixed.
 
 * :ref:`pull-request-formatting`: If you changed Python code, then did
-  you run ``yapf -rpi setup.py trio``? (Or for other packages, replace
+  you run ``black setup.py trio``? (Or for other packages, replace
   ``trio`` with the package name.)
 
 * :ref:`pull-request-release-notes`: If your change affects
@@ -164,6 +167,14 @@ to get feedback on, feel free to submit it as a PR. (In this case it's
 traditional to start the PR title with ``[WIP]``, for "work in
 progress".)
 
+When you are submitting your PR, you can include ``Closes #123``,
+``Fixes: #123`` or
+`some variation <https://help.github.com/en/articles/closing-issues-using-keywords>`__
+in either your commit message or the PR description, in order to
+automatically close the referenced issue when the PR is merged.
+This keeps us closer to the desired state where each open issue reflects some
+work that still needs to be done.
+
 
 .. _pull-request-tests:
 
@@ -173,10 +184,11 @@ Tests
 We use `pytest <https://pytest.org/>`__ for testing. To run the tests
 locally, you should run:
 
-* ``cd path/to/project/checkout/``
-* ``pip install -r test-requirements.txt`` (possibly using a
-  virtualenv)
-* ``pytest <projectname>``
+.. code-block:: shell
+
+   cd path/to/trio/checkout/
+   pip install -r test-requirements.txt  # possibly using a virtualenv
+   pytest trio
 
 This doesn't try to be completely exhaustive – it only checks that
 things work on your machine, and it may skip some slow tests. But it's
@@ -198,7 +210,7 @@ locally can be useful
 (``pytest --cov=PACKAGENAME --cov-report=html``), but don't be
 surprised if you get lower coverage than when looking at Codecov
 reports, because there are some lines that are only executed on
-Windows, or MacOS, or PyPy, or CPython, or... you get the idea. After
+Windows, or macOS, or PyPy, or CPython, or... you get the idea. After
 you create a PR, Codecov will automatically report back with the
 coverage, so you can check how you're really doing. (But note that the
 results can be inaccurate until all the tests are passing. If the
@@ -254,7 +266,7 @@ Some rules for writing good tests:
     <https://codewithoutrules.com/2016/07/31/verified-fakes/>`__
 
   Most major features have both real tests and tests using fakes or
-  stubs. For example, :class:`~trio.ssl.SSLStream` has some tests that
+  stubs. For example, :class:`~trio.SSLStream` has some tests that
   use Trio to make a real socket connection to real SSL server
   implemented using blocking I/O, because it sure would be
   embarrassing if that didn't work. And then there are also a bunch of
@@ -273,31 +285,46 @@ of eyes can be helpful when trying to come up with devious tricks.
 Code formatting
 ~~~~~~~~~~~~~~~
 
-Instead of wasting time arguing about code formatting, we use `yapf
-<https://github.com/google/yapf>`__ to automatically format all our
-code to a standard style. While you're editing code you can be as
-sloppy as you like about whitespace; and then before you commit, just
-run::
+Instead of wasting time arguing about code formatting, we use `black
+<https://github.com/psf/black>`__ as well as other tools to automatically
+format all our code to a standard style. While you're editing code you
+can be as sloppy as you like about whitespace; and then before you commit,
+just run::
 
-    pip install -U yapf
-    yapf -rpi setup.py trio
+    pip install -U pre-commit
+    pre-commit
 
 to fix it up. (And don't worry if you forget – when you submit a pull
 request then we'll automatically check and remind you.) Hopefully this
 will let you focus on more important style issues like choosing good
 names, writing useful comments, and making sure your docstrings are
-nicely formatted. (Yapf doesn't reformat comments or docstrings.)
+nicely formatted. (black doesn't reformat comments or docstrings.)
 
-Very occasionally, yapf will generate really ugly and unreadable
-formatting (usually for large literal structures like dicts nested
-inside dicts). In these cases, you can add a ``# yapf: disable``
-comment to tell it to leave that particular statement alone.
+If you would like, you can even have pre-commit run before you commit by
+running::
 
-If you want to see what changes yapf will make, you can use::
+    pre-commit install
 
-  yapf -rpd setup.py trio
+and now pre-commit will run before git commits. You can uninstall the
+pre-commit hook at any time by running::
 
-(``-d`` displays a diff, versus ``-i`` which fixes files in-place.)
+    pre-commit uninstall
+
+
+Very occasionally, you'll want to override black formatting. To do so,
+you can can add ``# fmt: off`` and ``# fmt: on`` comments.
+
+If you want to see what changes black will make, you can use::
+
+    black --diff setup.py trio
+
+(``--diff`` displays a diff, versus the default mode which fixes files
+in-place.)
+
+
+Additionally, in some cases it is necessary to disable isort changing the
+order of imports. To do so you can add ``# isort: split`` comments.
+For more information, please see `isort's docs <https://pycqa.github.io/isort/docs/configuration/action_comments.html>`__.
 
 
 .. _pull-request-release-notes:
@@ -306,7 +333,8 @@ Release notes
 ~~~~~~~~~~~~~
 
 We use `towncrier <https://github.com/hawkowl/towncrier>`__ to manage
-our release notes. Basically, every pull request that has a user
+our `release notes <https://trio.readthedocs.io/en/latest/history.html>`__.
+Basically, every pull request that has a user
 visible effect should add a short file to the ``newsfragments/``
 directory describing the change, with a name like ``<ISSUE
 NUMBER>.<TYPE>.rst``. See `newsfragments/README.rst
@@ -351,7 +379,7 @@ Documentation is hosted at `Read the Docs
 rebuilding it after every commit.
 
 For docstrings, we use `the Google docstring format
-<http://www.sphinx-doc.org/en/stable/ext/example_google.html#example-google>`__.
+<https://www.sphinx-doc.org/en/3.x/usage/extensions/example_google.html#example-google-style-python-docstrings>`__.
 If you add a new function or class, there's no mechanism for
 automatically adding that to the docs: you'll have to at least add a
 line like ``.. autofunction:: <your function>`` in the appropriate
@@ -365,6 +393,19 @@ a dangling reference, you can add it to the `nitpick_ignore
 <http://www.sphinx-doc.org/en/stable/config.html#confval-nitpick_ignore>`__
 whitelist in ``docs/source/conf.py``.
 
+To build the docs locally, use our handy ``docs-requirements.txt``
+file to install all of the required packages (possibly using a
+virtualenv). After that, build the docs using ``make html`` in the
+docs directory. The whole process might look something like this::
+
+    cd path/to/project/checkout/
+    pip install -r docs-requirements.txt
+    cd docs
+    make html
+
+You can then browse the docs using Python's builtin http server:
+``python -m http.server 8000 --bind 127.0.0.1 --directory build/html``
+and then opening ``http://127.0.0.1:8000/`` in your web browser.
 
 .. _joining-the-team:
 
@@ -428,16 +469,12 @@ Short answer: whatever you feel comfortable with.
 
 We do have one rule, which is the same one most F/OSS projects use:
 don't merge your own PRs. We find that having another person look at
-each PR leads to better quality. (Exception: you may see `@njsmith
-<https://github.com/njsmith>`__ merging his own PRs. This happens
-because he is lonely and has no-one to review them for him. It would
-make him happy if you reviewed and – if they look good – merged his
-PRs.)
+each PR leads to better quality.
 
 Beyond that, it all comes down to what you feel up to. If you don't
 feel like you know enough to review a complex code change, then you
 don't have to – you can just look it over and make some comments, even
-if you don't feel up to making the final merge/no-merge decison. Or
+if you don't feel up to making the final merge/no-merge decision. Or
 you can just stick to merging trivial doc fixes and adding tags to
 issues, that's helpful too. If after hanging around for a while you
 start to feel like you have better handle on how things work and want
@@ -445,14 +482,16 @@ to start doing more, that's excellent; if it doesn't happen, that's
 fine too.
 
 If at any point you're unsure about whether doing something would be
-appropriate, feel free to ask (for example, in our chat room or by
-posting Github comment). For example, it's *totally OK* if the first
-time you review a PR, you want someone else to check over your work
-before you hit the merge button.
+appropriate, feel free to ask. For example, it's *totally OK* if the
+first time you review a PR, you want someone else to check over your
+work before you hit the merge button.
 
-For general tips on doing code reviews, the `node.js guide
+The best essay I know about reviewing pull request's is Sage Sharp's
+`The gentle art of patch review
+<http://sage.thesharps.us/2014/09/01/the-gentle-art-of-patch-review/>`__.
+The `node.js guide
 <https://github.com/nodejs/node/blob/master/doc/guides/contributing/pull-requests.md#reviewing-pull-requests>`__
-has some good suggestions, and `so does this blog post
+also has some good suggestions, and `so does this blog post
 <http://verraes.net/2013/10/pre-merge-code-reviews/>`__.
 
 
@@ -533,7 +572,8 @@ then we'll figure something out.
 .. Possible references for future additions:
 
    """
-   Jumping into an unfamiliar codebase (or any for that matter) for the first time can be scary. Plus, if it’s your first time contributing to open source, it can even be scarier!
+   Jumping into an unfamiliar codebase (or any for that matter) for the first time can be scary.
+   Plus, if it's your first time contributing to open source, it can even be scarier!
 
    But, we at webpack believe:
 

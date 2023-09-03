@@ -1,28 +1,35 @@
-from collections import deque
+from __future__ import annotations
+
 import threading
+from collections import deque
+from typing import Callable, Iterable, NoReturn, Tuple
 
 import attr
 
 from .. import _core
+from .._util import NoPublicConstructor
 from ._wakeup_socketpair import WakeupSocketpair
 
-__all__ = ["TrioToken"]
+# TODO: Type with TypeVarTuple, at least to an extent where it makes
+# the public interface safe.
+Function = Callable[..., object]
+Job = Tuple[Function, Iterable[object]]
 
 
-@attr.s
+@attr.s(slots=True)
 class EntryQueue:
     # This used to use a queue.Queue. but that was broken, because Queues are
     # implemented in Python, and not reentrant -- so it was thread-safe, but
     # not signal-safe. deque is implemented in C, so each operation is atomic
     # WRT threads (and this is guaranteed in the docs), AND each operation is
     # atomic WRT signal delivery (signal handlers can run on either side, but
-    # not *during* a deque operation). dict makes similar guarantees - and on
-    # CPython 3.6 and PyPy, it's even ordered!
-    queue = attr.ib(default=attr.Factory(deque))
-    idempotent_queue = attr.ib(default=attr.Factory(dict))
+    # not *during* a deque operation). dict makes similar guarantees - and
+    # it's even ordered!
+    queue: deque[Job] = attr.ib(factory=deque)
+    idempotent_queue: dict[Job, None] = attr.ib(factory=dict)
 
-    wakeup = attr.ib(default=attr.Factory(WakeupSocketpair))
-    done = attr.ib(default=False)
+    wakeup: WakeupSocketpair = attr.ib(factory=WakeupSocketpair)
+    done: bool = attr.ib(default=False)
     # Must be a reentrant lock, because it's acquired from signal handlers.
     # RLock is signal-safe as of cpython 3.2. NB that this does mean that the
     # lock is effectively *disabled* when we enter from signal context. The
@@ -31,9 +38,9 @@ class EntryQueue:
     # main thread -- it just might happen at some inconvenient place. But if
     # you look at the one place where the main thread holds the lock, it's
     # just to make 1 assignment, so that's atomic WRT a signal anyway.
-    lock = attr.ib(default=attr.Factory(threading.RLock))
+    lock: threading.RLock = attr.ib(factory=threading.RLock)
 
-    async def task(self):
+    async def task(self) -> None:
         assert _core.currently_ki_protected()
         # RLock has two implementations: a signal-safe version in _thread, and
         # and signal-UNsafe version in threading. We need the signal safe
@@ -44,7 +51,7 @@ class EntryQueue:
         #     https://bugs.python.org/issue13697#msg237140
         assert self.lock.__class__.__module__ == "_thread"
 
-        def run_cb(job):
+        def run_cb(job: Job) -> None:
             # We run this with KI protection enabled; it's the callback's
             # job to disable it if it wants it disabled. Exceptions are
             # treated like system task exceptions (i.e., converted into
@@ -54,16 +61,27 @@ class EntryQueue:
                 sync_fn(*args)
             except BaseException as exc:
 
-                async def kill_everything(exc):
+                async def kill_everything(exc: BaseException) -> NoReturn:
                     raise exc
 
-                _core.spawn_system_task(kill_everything, exc)
-            return True
+                try:
+                    _core.spawn_system_task(kill_everything, exc)
+                except RuntimeError:
+                    # We're quite late in the shutdown process and the
+                    # system nursery is already closed.
+                    # TODO(2020-06): this is a gross hack and should
+                    # be fixed soon when we address #1607.
+                    parent_nursery = _core.current_task().parent_nursery
+                    if parent_nursery is None:
+                        raise AssertionError(
+                            "Internal error: `parent_nursery` should never be `None`"
+                        ) from exc  # pragma: no cover
+                    parent_nursery.start_soon(kill_everything, exc)
 
         # This has to be carefully written to be safe in the face of new items
         # being queued while we iterate, and to do a bounded amount of work on
         # each pass:
-        def run_all_bounded():
+        def run_all_bounded() -> None:
             for _ in range(len(self.queue)):
                 run_cb(self.queue.popleft())
             for job in list(self.idempotent_queue):
@@ -97,17 +115,15 @@ class EntryQueue:
             assert not self.queue
             assert not self.idempotent_queue
 
-    def close(self):
+    def close(self) -> None:
         self.wakeup.close()
 
-    def size(self):
+    def size(self) -> int:
         return len(self.queue) + len(self.idempotent_queue)
 
-    def spawn(self):
-        name = "<TrioToken.run_sync_soon task>"
-        _core.spawn_system_task(self.task, name=name)
-
-    def run_sync_soon(self, sync_fn, *args, idempotent=False):
+    def run_sync_soon(
+        self, sync_fn: Function, *args: object, idempotent: bool = False
+    ) -> None:
         with self.lock:
             if self.done:
                 raise _core.RunFinishedError("run() has exited")
@@ -123,7 +139,8 @@ class EntryQueue:
             self.wakeup.wakeup_thread_and_signal_safe()
 
 
-class TrioToken:
+@attr.s(eq=False, hash=False, slots=True)
+class TrioToken(metaclass=NoPublicConstructor):
     """An opaque object representing a single call to :func:`trio.run`.
 
     It has no public constructor; instead, see :func:`current_trio_token`.
@@ -131,10 +148,10 @@ class TrioToken:
     This object has two uses:
 
     1. It lets you re-enter the Trio run loop from external threads or signal
-       handlers. This is the low-level primitive that
-       :func:`trio.run_sync_in_worker_thread` uses to receive results from
-       worker threads, that :func:`trio.catch_signals` uses to receive
-       notifications about signals, and so forth.
+       handlers. This is the low-level primitive that :func:`trio.to_thread`
+       and `trio.from_thread` use to communicate with worker threads, that
+       `trio.open_signal_receiver` uses to receive notifications about
+       signals, and so forth.
 
     2. Each call to :func:`trio.run` has exactly one associated
        :class:`TrioToken` object, so you can use it to identify a particular
@@ -142,12 +159,13 @@ class TrioToken:
 
     """
 
-    def __init__(self, reentry_queue):
-        self._reentry_queue = reentry_queue
+    _reentry_queue: EntryQueue = attr.ib()
 
-    def run_sync_soon(self, sync_fn, *args, idempotent=False):
+    def run_sync_soon(
+        self, sync_fn: Function, *args: object, idempotent: bool = False
+    ) -> None:
         """Schedule a call to ``sync_fn(*args)`` to occur in the context of a
-        trio task.
+        Trio task.
 
         This is safe to call from the main thread, from other threads, and
         from signal handlers. This is the fundamental primitive used to
@@ -158,12 +176,12 @@ class TrioToken:
         If you need this, you'll have to build your own.
 
         The call is effectively run as part of a system task (see
-        :func:`~trio.hazmat.spawn_system_task`). In particular this means
+        :func:`~trio.lowlevel.spawn_system_task`). In particular this means
         that:
 
         * :exc:`KeyboardInterrupt` protection is *enabled* by default; if
           you want ``sync_fn`` to be interruptible by control-C, then you
-          need to use :func:`~trio.hazmat.disable_ki_protection`
+          need to use :func:`~trio.lowlevel.disable_ki_protection`
           explicitly.
 
         * If ``sync_fn`` raises an exception, then it's converted into a
@@ -174,11 +192,9 @@ class TrioToken:
         first-in first-out order.
 
         If ``idempotent=True``, then ``sync_fn`` and ``args`` must be
-        hashable, and trio will make a best-effort attempt to discard any
+        hashable, and Trio will make a best-effort attempt to discard any
         call submission which is equal to an already-pending call. Trio
-        will make an attempt to process these in first-in first-out order,
-        but no guarantees. (Currently processing is FIFO on CPython 3.6 and
-        PyPy, but not CPython 3.5.)
+        will process these in first-in first-out order.
 
         Any ordering guarantees apply separately to ``idempotent=False``
         and ``idempotent=True`` calls; there's no rule for how calls in the
@@ -191,6 +207,4 @@ class TrioToken:
               exits.)
 
         """
-        self._reentry_queue.run_sync_soon(
-            sync_fn, *args, idempotent=idempotent
-        )
+        self._reentry_queue.run_sync_soon(sync_fn, *args, idempotent=idempotent)

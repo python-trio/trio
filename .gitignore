@@ -31,6 +31,7 @@ __pycache__/
 .installed.cfg
 *.egg
 /.pybuild
+pip-wheel-metadata/
 
 # Installer logs
 pip-log.txt
@@ -39,10 +40,12 @@ pip-log.txt
 htmlcov/
 .tox/
 .venv/
+pyvenv.cfg
 .coverage
 .coverage.*
 .cache
 .pytest_cache/
+.mypy_cache/
 nosetests.xml
 coverage.xml
 
@@ -63,3 +66,6 @@ coverage.xml
 
 # Sphinx documentation
 doc/_build/
+
+# PyCharm
+.idea/

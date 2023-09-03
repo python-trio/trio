@@ -1,10 +1,17 @@
+from __future__ import annotations
+
+import errno
 import sys
+from collections.abc import Awaitable, Callable
 from math import inf
 
 import trio
+from trio import TaskStatus
+
 from . import socket as tsocket
 
-__all__ = ["open_tcp_listeners", "serve_tcp"]
+if sys.version_info < (3, 11):
+    from exceptiongroup import ExceptionGroup
 
 
 # Default backlog size:
@@ -20,7 +27,7 @@ __all__ = ["open_tcp_listeners", "serve_tcp"]
 # backpressure. If a connection gets stuck waiting in the backlog queue, then
 # from the peer's point of view the connection succeeded but then their
 # send/recv will stall until we get to it, possibly for a long time. OTOH if
-# there isn't room in the backlog queue... then their connect stalls, possibly
+# there isn't room in the backlog queue, then their connect stalls, possibly
 # for a long time, which is pretty much the same thing.
 #
 # A large backlog can also use a bit more kernel memory, but this seems fairly
@@ -32,18 +39,26 @@ __all__ = ["open_tcp_listeners", "serve_tcp"]
 # different operating systems. But on every system, passing in a too-large
 # backlog just causes it to be silently truncated to the configured maximum,
 # so this is unnecessary -- we can just pass in "infinity" and get the maximum
-# that way. (Verified on Windows, Linux, MacOS using
+# that way. (Verified on Windows, Linux, macOS using
 # notes-to-self/measure-listen-backlog.py)
-def _compute_backlog(backlog):
-    if backlog is None:
-        backlog = inf
+def _compute_backlog(backlog: int | float | None) -> int:
     # Many systems (Linux, BSDs, ...) store the backlog in a uint16 and are
     # missing overflow protection, so we apply our own overflow protection.
     # https://github.com/golang/go/issues/5030
-    return min(backlog, 0xffff)
+    if isinstance(backlog, float):
+        # TODO: Remove when removing infinity support
+        # https://github.com/python-trio/trio/pull/2724#discussion_r1278541729
+        if backlog != inf:
+            raise ValueError(f"Only accepts infinity, not {backlog!r}")
+        backlog = None
+    if backlog is None:
+        return 0xFFFF
+    return min(backlog, 0xFFFF)
 
 
-async def open_tcp_listeners(port, *, host=None, backlog=None):
+async def open_tcp_listeners(
+    port: int, *, host: str | bytes | None = None, backlog: int | float | None = None
+) -> list[trio.SocketListener]:
     """Create :class:`SocketListener` objects to listen for TCP connections.
 
     Args:
@@ -59,7 +74,7 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
           :func:`open_tcp_listeners` will bind to both the IPv4 wildcard
           address (``0.0.0.0``) and also the IPv6 wildcard address (``::``).
 
-      host (str, bytes-like, or None): The local interface to bind to. This is
+      host (str, bytes, or None): The local interface to bind to. This is
           passed to :func:`~socket.getaddrinfo` with the ``AI_PASSIVE`` flag
           set.
 
@@ -75,12 +90,15 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
           all interfaces, pass the family-specific wildcard address:
           ``"0.0.0.0"`` for IPv4-only and ``"::"`` for IPv6-only.
 
-      backlog (int or None): The listen backlog to use. If you leave this as
-          ``None`` then Trio will pick a good default. (Currently: whatever
+      backlog (int, math.inf, or None): The listen backlog to use. If you leave this as
+          ``None`` or ``math.inf`` then Trio will pick a good default. (Currently: whatever
           your system has configured as the maximum backlog.)
 
     Returns:
       list of :class:`SocketListener`
+
+    Raises:
+      :class:`TypeError` if invalid arguments.
 
     """
     # getaddrinfo sometimes allows port=None, sometimes not (depending on
@@ -88,39 +106,42 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
     # doesn't:
     #   http://klickverbot.at/blog/2012/01/getaddrinfo-edge-case-behavior-on-windows-linux-and-osx/
     if not isinstance(port, int):
-        raise TypeError("port must be an int or str, not {!r}".format(port))
+        raise TypeError(f"port must be an int not {port!r}")
 
-    backlog = _compute_backlog(backlog)
+    computed_backlog = _compute_backlog(backlog)
 
     addresses = await tsocket.getaddrinfo(
-        host,
-        port,
-        type=tsocket.SOCK_STREAM,
-        flags=tsocket.AI_PASSIVE,
+        host, port, type=tsocket.SOCK_STREAM, flags=tsocket.AI_PASSIVE
     )
 
     listeners = []
+    unsupported_address_families = []
     try:
         for family, type, proto, _, sockaddr in addresses:
-            sock = tsocket.socket(family, type, proto)
+            try:
+                sock = tsocket.socket(family, type, proto)
+            except OSError as ex:
+                if ex.errno == errno.EAFNOSUPPORT:
+                    # If a system only supports IPv4, or only IPv6, it
+                    # is still likely that getaddrinfo will return
+                    # both an IPv4 and an IPv6 address. As long as at
+                    # least one of the returned addresses can be
+                    # turned into a socket, we won't complain about a
+                    # failure to create the other.
+                    unsupported_address_families.append(ex)
+                    continue
+                else:
+                    raise
             try:
                 # See https://github.com/python-trio/trio/issues/39
-                if sys.platform == "win32":
-                    sock.setsockopt(
-                        tsocket.SOL_SOCKET, tsocket.SO_EXCLUSIVEADDRUSE, 1
-                    )
-                else:
-                    sock.setsockopt(
-                        tsocket.SOL_SOCKET, tsocket.SO_REUSEADDR, 1
-                    )
+                if sys.platform != "win32":
+                    sock.setsockopt(tsocket.SOL_SOCKET, tsocket.SO_REUSEADDR, 1)
 
                 if family == tsocket.AF_INET6:
-                    sock.setsockopt(
-                        tsocket.IPPROTO_IPV6, tsocket.IPV6_V6ONLY, 1
-                    )
+                    sock.setsockopt(tsocket.IPPROTO_IPV6, tsocket.IPV6_V6ONLY, 1)
 
                 await sock.bind(sockaddr)
-                sock.listen(backlog)
+                sock.listen(computed_backlog)
 
                 listeners.append(trio.SocketListener(sock))
             except:
@@ -131,18 +152,27 @@ async def open_tcp_listeners(port, *, host=None, backlog=None):
             listener.socket.close()
         raise
 
+    if unsupported_address_families and not listeners:
+        msg = (
+            "This system doesn't support any of the kinds of "
+            "socket that that address could use"
+        )
+        raise OSError(errno.EAFNOSUPPORT, msg) from ExceptionGroup(
+            msg, unsupported_address_families
+        )
+
     return listeners
 
 
 async def serve_tcp(
-    handler,
-    port,
+    handler: Callable[[trio.SocketStream], Awaitable[object]],
+    port: int,
     *,
-    host=None,
-    backlog=None,
-    handler_nursery=None,
-    task_status=trio.TASK_STATUS_IGNORED
-):
+    host: str | bytes | None = None,
+    backlog: int | float | None = None,
+    handler_nursery: trio.Nursery | None = None,
+    task_status: TaskStatus[list[trio.SocketListener]] = trio.TASK_STATUS_IGNORED,
+) -> None:
     """Listen for incoming TCP connections, and for each one start a task
     running ``handler(stream)``.
 
@@ -208,8 +238,5 @@ async def serve_tcp(
     """
     listeners = await trio.open_tcp_listeners(port, host=host, backlog=backlog)
     await trio.serve_listeners(
-        handler,
-        listeners,
-        handler_nursery=handler_nursery,
-        task_status=task_status
+        handler, listeners, handler_nursery=handler_nursery, task_status=task_status
     )

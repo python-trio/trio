@@ -4,7 +4,7 @@ Testing made easier with ``trio.testing``
 .. module:: trio.testing
 
 The :mod:`trio.testing` module provides various utilities to make it
-easier to test trio code. Unlike the other submodules in the
+easier to test Trio code. Unlike the other submodules in the
 :mod:`trio` namespace, :mod:`trio.testing` is *not* automatically
 imported when you do ``import trio``; you must ``import trio.testing``
 explicitly.
@@ -15,6 +15,8 @@ Test harness integration
 
 .. decorator:: trio_test
 
+
+.. _testing-time:
 
 Time and timeouts
 -----------------
@@ -44,8 +46,8 @@ timeouts:
 
 * And of course these can be mixed and matched at will.
 
-Regardless of these shenanigans, from "inside" trio the passage of time
-still seems normal so long as you restrict yourself to trio's time
+Regardless of these shenanigans, from "inside" Trio the passage of time
+still seems normal so long as you restrict yourself to Trio's time
 functions (see :ref:`time-and-clocks`). Below is an example
 demonstrating two different ways of making time pass quickly. Notice
 how in both cases, the two tasks keep a consistent view of reality and
@@ -92,7 +94,7 @@ making sure that your implementation can handle data whose flow gets
 broken up in weird ways and arrives with weird timings: localhost
 connections tend to be much better behaved than real networks, so if
 you only test on localhost then you might get bitten later. To help
-you out, trio provides some fully in-memory implementations of the
+you out, Trio provides some fully in-memory implementations of the
 stream interfaces (see :ref:`abstract-stream-api`), that let you write
 all kinds of interestingly evil tests.
 
@@ -118,7 +120,7 @@ some interesting hooks you can set, that let you customize the
 behavior of their methods. This is where you can insert the evil, if
 you want it. :func:`memory_stream_one_way_pair` takes advantage of
 these hooks in a relatively boring way: it just sets it up so that
-when you call ``sendall``, or when you close the send stream, then it
+when you call ``send_all``, or when you close the send stream, then it
 automatically triggers a call to :func:`memory_stream_pump`, which is
 a convenience function that takes data out of a
 :class:`MemorySendStream`\´s buffer and puts it into a
@@ -173,7 +175,7 @@ Virtual networking for testing
 ------------------------------
 
 In the previous section you learned how to use virtual in-memory
-streams to test protocols that are written against trio's
+streams to test protocols that are written against Trio's
 :class:`~trio.abc.Stream` abstraction. But what if you have more
 complicated networking code – the kind of code that makes connections
 to multiple hosts, or opens a listening socket, or sends UDP packets?

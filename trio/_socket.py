@@ -1,30 +1,49 @@
-import os as _os
+from __future__ import annotations
+
+import os
+import select
 import socket as _stdlib_socket
-import sys as _sys
+import sys
 from functools import wraps as _wraps
+from operator import index
+from socket import AddressFamily, SocketKind
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Awaitable,
+    Callable,
+    Literal,
+    NoReturn,
+    SupportsIndex,
+    Tuple,
+    TypeVar,
+    Union,
+    overload,
+)
 
 import idna as _idna
 
+import trio
+
 from . import _core
-from ._deprecate import deprecated
-from ._threads import run_sync_in_worker_thread
-from ._util import fspath
 
-__all__ = []
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+    from types import TracebackType
 
-################################################################
-# misc utilities
-################################################################
+    from typing_extensions import Buffer, Concatenate, ParamSpec, Self, TypeAlias
 
+    from ._abc import HostnameResolver, SocketFactory
 
-def _reexport(name):
-    globals()[name] = getattr(_stdlib_socket, name)
-    __all__.append(name)
+    P = ParamSpec("P")
 
 
-def _add_to_all(obj):
-    __all__.append(obj.__name__)
-    return obj
+T = TypeVar("T")
+
+# must use old-style typing because it's evaluated at runtime
+Address: TypeAlias = Union[
+    str, bytes, Tuple[str, int], Tuple[str, int, int], Tuple[str, int, int, int]
+]
 
 
 # Usage:
@@ -36,95 +55,50 @@ def _add_to_all(obj):
 #   return await do_it_properly_with_a_check_point()
 #
 class _try_sync:
-    def __init__(self, blocking_exc_override=None):
+    def __init__(
+        self, blocking_exc_override: Callable[[BaseException], bool] | None = None
+    ):
         self._blocking_exc_override = blocking_exc_override
 
-    def _is_blocking_io_error(self, exc):
+    def _is_blocking_io_error(self, exc: BaseException) -> bool:
         if self._blocking_exc_override is None:
             return isinstance(exc, BlockingIOError)
         else:
             return self._blocking_exc_override(exc)
 
-    async def __aenter__(self):
-        await _core.checkpoint_if_cancelled()
+    async def __aenter__(self) -> None:
+        await trio.lowlevel.checkpoint_if_cancelled()
 
-    async def __aexit__(self, etype, value, tb):
-        if value is not None and self._is_blocking_io_error(value):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> bool:
+        if exc_value is not None and self._is_blocking_io_error(exc_value):
             # Discard the exception and fall through to the code below the
             # block
             return True
         else:
-            await _core.cancel_shielded_checkpoint()
+            await trio.lowlevel.cancel_shielded_checkpoint()
             # Let the return or exception propagate
             return False
 
 
 ################################################################
-# CONSTANTS
-################################################################
-
-# Hopefully will show up in 3.7:
-#   https://github.com/python/cpython/pull/477
-if not hasattr(_stdlib_socket, "TCP_NOTSENT_LOWAT"):  # pragma: no branch
-    if _sys.platform == "darwin":
-        TCP_NOTSENT_LOWAT = 0x201
-        __all__.append("TCP_NOTSENT_LOWAT")
-    elif _sys.platform == "linux":
-        TCP_NOTSENT_LOWAT = 25
-        __all__.append("TCP_NOTSENT_LOWAT")
-
-for _name in _stdlib_socket.__dict__.keys():
-    if _name == _name.upper():
-        _reexport(_name)
-
-if _sys.platform == "win32":
-    # See https://github.com/python-trio/trio/issues/39
-    # (you can still get it from stdlib socket, of course, if you want it)
-    del SO_REUSEADDR
-    __all__.remove("SO_REUSEADDR")
-
-    # As of at least 3.6, python on Windows is missing IPPROTO_IPV6
-    # https://bugs.python.org/issue29515
-    if not hasattr(_stdlib_socket, "IPPROTO_IPV6"):  # pragma: no branch
-        IPPROTO_IPV6 = 41
-        __all__.append("IPPROTO_IPV6")
-
-################################################################
-# Simple re-exports
-################################################################
-
-for _name in [
-    "gaierror",
-    "herror",
-    "gethostname",
-    "ntohs",
-    "htonl",
-    "htons",
-    "inet_aton",
-    "inet_ntoa",
-    "inet_pton",
-    "inet_ntop",
-    "sethostname",
-    "if_nameindex",
-    "if_nametoindex",
-    "if_indextoname",
-]:
-    if hasattr(_stdlib_socket, _name):
-        _reexport(_name)
-
-################################################################
 # Overrides
 ################################################################
 
-_resolver = _core.RunVar("hostname_resolver")
-_socket_factory = _core.RunVar("socket_factory")
+_resolver: _core.RunVar[HostnameResolver | None] = _core.RunVar("hostname_resolver")
+_socket_factory: _core.RunVar[SocketFactory | None] = _core.RunVar("socket_factory")
 
 
-@_add_to_all
-def set_custom_hostname_resolver(hostname_resolver):
+def set_custom_hostname_resolver(
+    hostname_resolver: HostnameResolver | None,
+) -> HostnameResolver | None:
     """Set a custom hostname resolver.
 
-    By default, trio's :func:`getaddrinfo` and :func:`getnameinfo` functions
+    By default, Trio's :func:`getaddrinfo` and :func:`getnameinfo` functions
     use the standard system resolver functions. This function allows you to
     customize that behavior. The main intended use case is for testing, but it
     might also be useful for using third-party resolvers like `c-ares
@@ -134,7 +108,7 @@ def set_custom_hostname_resolver(hostname_resolver):
 
     Setting a custom hostname resolver affects all future calls to
     :func:`getaddrinfo` and :func:`getnameinfo` within the enclosing call to
-    :func:`trio.run`. All other hostname resolution in trio is implemented in
+    :func:`trio.run`. All other hostname resolution in Trio is implemented in
     terms of these functions.
 
     Generally you should call this function just once, right at the beginning
@@ -153,11 +127,12 @@ def set_custom_hostname_resolver(hostname_resolver):
     return old
 
 
-@_add_to_all
-def set_custom_socket_factory(socket_factory):
+def set_custom_socket_factory(
+    socket_factory: SocketFactory | None,
+) -> SocketFactory | None:
     """Set a custom socket object factory.
 
-    This function allows you to replace trio's normal socket class with a
+    This function allows you to replace Trio's normal socket class with a
     custom class. This is very useful for testing, and probably a bad idea in
     any other circumstance. See :class:`trio.abc.HostnameResolver` for more
     details.
@@ -188,8 +163,23 @@ def set_custom_socket_factory(socket_factory):
 _NUMERIC_ONLY = _stdlib_socket.AI_NUMERICHOST | _stdlib_socket.AI_NUMERICSERV
 
 
-@_add_to_all
-async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+# It would be possible to @overload the return value depending on Literal[AddressFamily.INET/6], but should probably be added in typeshed first
+async def getaddrinfo(
+    host: bytes | str | None,
+    port: bytes | str | int | None,
+    family: int = 0,
+    type: int = 0,
+    proto: int = 0,
+    flags: int = 0,
+) -> list[
+    tuple[
+        AddressFamily,
+        SocketKind,
+        int,
+        str,
+        tuple[str, int] | tuple[str, int, int, int],
+    ]
+]:
     """Look up a numeric address given a name.
 
     Arguments and return values are identical to :func:`socket.getaddrinfo`,
@@ -210,8 +200,11 @@ async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
     # skip the whole thread thing, which seems worthwhile. So we try first
     # with the _NUMERIC_ONLY flags set, and then only spawn a thread if that
     # fails with EAI_NONAME:
-    def numeric_only_failure(exc):
-        return isinstance(exc, gaierror) and exc.errno == EAI_NONAME
+    def numeric_only_failure(exc: BaseException) -> bool:
+        return (
+            isinstance(exc, _stdlib_socket.gaierror)
+            and exc.errno == _stdlib_socket.EAI_NONAME
+        )
 
     async with _try_sync(numeric_only_failure):
         return _stdlib_socket.getaddrinfo(
@@ -237,7 +230,7 @@ async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
     if hr is not None:
         return await hr.getaddrinfo(host, port, family, type, proto, flags)
     else:
-        return await run_sync_in_worker_thread(
+        return await trio.to_thread.run_sync(
             _stdlib_socket.getaddrinfo,
             host,
             port,
@@ -245,12 +238,13 @@ async def getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
             type,
             proto,
             flags,
-            cancellable=True
+            cancellable=True,
         )
 
 
-@_add_to_all
-async def getnameinfo(sockaddr, flags):
+async def getnameinfo(
+    sockaddr: tuple[str, int] | tuple[str, int, int, int], flags: int
+) -> tuple[str, str]:
     """Look up a name given a numeric address.
 
     Arguments and return values are identical to :func:`socket.getnameinfo`,
@@ -264,19 +258,18 @@ async def getnameinfo(sockaddr, flags):
     if hr is not None:
         return await hr.getnameinfo(sockaddr, flags)
     else:
-        return await run_sync_in_worker_thread(
+        return await trio.to_thread.run_sync(
             _stdlib_socket.getnameinfo, sockaddr, flags, cancellable=True
         )
 
 
-@_add_to_all
-async def getprotobyname(name):
+async def getprotobyname(name: str) -> int:
     """Look up a protocol number by name. (Rarely used.)
 
     Like :func:`socket.getprotobyname`, but async.
 
     """
-    return await run_sync_in_worker_thread(
+    return await trio.to_thread.run_sync(
         _stdlib_socket.getprotobyname, name, cancellable=True
     )
 
@@ -289,9 +282,8 @@ async def getprotobyname(name):
 ################################################################
 
 
-@_add_to_all
-def from_stdlib_socket(sock):
-    """Convert a standard library :func:`socket.socket` object into a trio
+def from_stdlib_socket(sock: _stdlib_socket.socket) -> _SocketType:
+    """Convert a standard library :class:`socket.socket` object into a Trio
     socket object.
 
     """
@@ -299,37 +291,58 @@ def from_stdlib_socket(sock):
 
 
 @_wraps(_stdlib_socket.fromfd, assigned=(), updated=())
-@_add_to_all
-def fromfd(*args, **kwargs):
-    """Like :func:`socket.fromfd`, but returns a trio socket object.
+def fromfd(
+    fd: SupportsIndex,
+    family: AddressFamily | int = _stdlib_socket.AF_INET,
+    type: SocketKind | int = _stdlib_socket.SOCK_STREAM,
+    proto: int = 0,
+) -> _SocketType:
+    """Like :func:`socket.fromfd`, but returns a Trio socket object."""
+    family, type, proto = _sniff_sockopts_for_fileno(family, type, proto, index(fd))
+    return from_stdlib_socket(_stdlib_socket.fromfd(fd, family, type, proto))
 
-    """
-    return from_stdlib_socket(_stdlib_socket.fromfd(*args, **kwargs))
 
-
-if hasattr(_stdlib_socket, "fromshare"):
+if sys.platform == "win32" or (
+    not TYPE_CHECKING and hasattr(_stdlib_socket, "fromshare")
+):
 
     @_wraps(_stdlib_socket.fromshare, assigned=(), updated=())
-    @_add_to_all
-    def fromshare(*args, **kwargs):
-        return from_stdlib_socket(_stdlib_socket.fromshare(*args, **kwargs))
+    def fromshare(info: bytes) -> _SocketType:
+        return from_stdlib_socket(_stdlib_socket.fromshare(info))
+
+
+if sys.platform == "win32":
+    FamilyT: TypeAlias = int
+    TypeT: TypeAlias = int
+    FamilyDefault = _stdlib_socket.AF_INET
+else:
+    FamilyDefault: Literal[None] = None
+    FamilyT: TypeAlias = Union[int, AddressFamily, None]
+    TypeT: TypeAlias = Union[_stdlib_socket.socket, int]
 
 
 @_wraps(_stdlib_socket.socketpair, assigned=(), updated=())
-@_add_to_all
-def socketpair(*args, **kwargs):
-    """Like :func:`socket.socketpair`, but returns a pair of trio socket
+def socketpair(
+    family: FamilyT = FamilyDefault,
+    type: TypeT = SocketKind.SOCK_STREAM,
+    proto: int = 0,
+) -> tuple[_SocketType, _SocketType]:
+    """Like :func:`socket.socketpair`, but returns a pair of Trio socket
     objects.
 
     """
-    left, right = _stdlib_socket.socketpair(*args, **kwargs)
+    left, right = _stdlib_socket.socketpair(family, type, proto)
     return (from_stdlib_socket(left), from_stdlib_socket(right))
 
 
 @_wraps(_stdlib_socket.socket, assigned=(), updated=())
-@_add_to_all
-def socket(family=AF_INET, type=SOCK_STREAM, proto=0, fileno=None):
-    """Create a new trio socket, like :func:`socket.socket`.
+def socket(
+    family: AddressFamily | int = _stdlib_socket.AF_INET,
+    type: SocketKind | int = _stdlib_socket.SOCK_STREAM,
+    proto: int = 0,
+    fileno: int | None = None,
+) -> _SocketType:
+    """Create a new Trio socket, like :class:`socket.socket`.
 
     This function's behavior can be customized using
     :func:`set_custom_socket_factory`.
@@ -339,8 +352,40 @@ def socket(family=AF_INET, type=SOCK_STREAM, proto=0, fileno=None):
         sf = _socket_factory.get(None)
         if sf is not None:
             return sf.socket(family, type, proto)
+    else:
+        family, type, proto = _sniff_sockopts_for_fileno(family, type, proto, fileno)
     stdlib_socket = _stdlib_socket.socket(family, type, proto, fileno)
     return from_stdlib_socket(stdlib_socket)
+
+
+def _sniff_sockopts_for_fileno(
+    family: AddressFamily | int,
+    type: SocketKind | int,
+    proto: int,
+    fileno: int | None,
+) -> tuple[AddressFamily | int, SocketKind | int, int]:
+    """Correct SOCKOPTS for given fileno, falling back to provided values."""
+    # Wrap the raw fileno into a Python socket object
+    # This object might have the wrong metadata, but it lets us easily call getsockopt
+    # and then we'll throw it away and construct a new one with the correct metadata.
+    if sys.platform != "linux":
+        return family, type, proto
+    from socket import (  # type: ignore[attr-defined]
+        SO_DOMAIN,
+        SO_PROTOCOL,
+        SO_TYPE,
+        SOL_SOCKET,
+    )
+
+    sockobj = _stdlib_socket.socket(family, type, proto, fileno=fileno)
+    try:
+        family = sockobj.getsockopt(SOL_SOCKET, SO_DOMAIN)
+        proto = sockobj.getsockopt(SOL_SOCKET, SO_PROTOCOL)
+        type = sockobj.getsockopt(SOL_SOCKET, SO_TYPE)
+    finally:
+        # Unwrap it again, so that sockobj.__del__ doesn't try to close our socket
+        sockobj.detach()
+    return family, type, proto
 
 
 ################################################################
@@ -360,18 +405,127 @@ _SOCK_TYPE_MASK = ~(
 )
 
 
-# Note that this is *not* in __all__.
+def _make_simple_sock_method_wrapper(
+    fn: Callable[Concatenate[_stdlib_socket.socket, P], T],
+    wait_fn: Callable[[_stdlib_socket.socket], Awaitable[None]],
+    maybe_avail: bool = False,
+) -> Callable[Concatenate[_SocketType, P], Awaitable[T]]:
+    @_wraps(fn, assigned=("__name__",), updated=())
+    async def wrapper(self: _SocketType, *args: P.args, **kwargs: P.kwargs) -> T:
+        return await self._nonblocking_helper(wait_fn, fn, *args, **kwargs)
+
+    wrapper.__doc__ = f"""Like :meth:`socket.socket.{fn.__name__}`, but async.
+
+            """
+    if maybe_avail:
+        wrapper.__doc__ += (
+            f"Only available on platforms where :meth:`socket.socket.{fn.__name__}` is "
+            "available."
+        )
+    return wrapper
+
+
+# Helpers to work with the (hostname, port) language that Python uses for socket
+# addresses everywhere. Split out into a standalone function so it can be reused by
+# FakeNet.
+
+
+# Take an address in Python's representation, and returns a new address in
+# the same representation, but with names resolved to numbers,
+# etc.
 #
-# This function will modify the given socket to match the behavior in python
-# 3.7. This will become unecessary and can be removed when support for versions
-# older than 3.7 is dropped.
-def real_socket_type(type_num):
-    return type_num & _SOCK_TYPE_MASK
+# local=True means that the address is being used with bind() or similar
+# local=False means that the address is being used with connect() or sendto() or
+# similar.
+#
 
 
-@_add_to_all
+# Using a TypeVar to indicate we return the same type of address appears to give errors
+# when passed a union of address types.
+# @overload likely works, but is extremely verbose.
+# NOTE: this function does not always checkpoint
+async def _resolve_address_nocp(
+    type: int,
+    family: AddressFamily,
+    proto: int,
+    *,
+    ipv6_v6only: bool | int,
+    address: Address,
+    local: bool,
+) -> Address:
+    # Do some pre-checking (or exit early for non-IP sockets)
+    if family == _stdlib_socket.AF_INET:
+        if not isinstance(address, tuple) or not len(address) == 2:
+            raise ValueError("address should be a (host, port) tuple")
+    elif family == _stdlib_socket.AF_INET6:
+        if not isinstance(address, tuple) or not 2 <= len(address) <= 4:
+            raise ValueError(
+                "address should be a (host, port, [flowinfo, [scopeid]]) tuple"
+            )
+    elif family == getattr(_stdlib_socket, "AF_UNIX"):
+        # unwrap path-likes
+        assert isinstance(address, (str, bytes))
+        return os.fspath(address)
+    else:
+        return address
+
+    # -- From here on we know we have IPv4 or IPV6 --
+    host: str | None
+    host, port, *_ = address
+    # Fast path for the simple case: already-resolved IP address,
+    # already-resolved port. This is particularly important for UDP, since
+    # every sendto call goes through here.
+    if isinstance(port, int):
+        try:
+            _stdlib_socket.inet_pton(family, address[0])
+        except (OSError, TypeError):
+            pass
+        else:
+            return address
+    # Special cases to match the stdlib, see gh-277
+    if host == "":
+        host = None
+    if host == "<broadcast>":
+        host = "255.255.255.255"
+    flags = 0
+    if local:
+        flags |= _stdlib_socket.AI_PASSIVE
+    # Since we always pass in an explicit family here, AI_ADDRCONFIG
+    # doesn't add any value -- if we have no ipv6 connectivity and are
+    # working with an ipv6 socket, then things will break soon enough! And
+    # if we do enable it, then it makes it impossible to even run tests
+    # for ipv6 address resolution on travis-ci, which as of 2017-03-07 has
+    # no ipv6.
+    # flags |= AI_ADDRCONFIG
+    if family == _stdlib_socket.AF_INET6 and not ipv6_v6only:
+        flags |= _stdlib_socket.AI_V4MAPPED
+    gai_res = await getaddrinfo(host, port, family, type, proto, flags)
+    # AFAICT from the spec it's not possible for getaddrinfo to return an
+    # empty list.
+    assert len(gai_res) >= 1
+    # Address is the last item in the first entry
+    (*_, normed), *_ = gai_res
+    # The above ignored any flowid and scopeid in the passed-in address,
+    # so restore them if present:
+    if family == _stdlib_socket.AF_INET6:
+        list_normed = list(normed)
+        assert len(normed) == 4
+        # typechecking certainly doesn't like this logic, but given just how broad
+        # Address is, it's quite cumbersome to write the below without type: ignore
+        if len(address) >= 3:
+            list_normed[2] = address[2]  # type: ignore
+        if len(address) >= 4:
+            list_normed[3] = address[3]  # type: ignore
+        return tuple(list_normed)  # type: ignore
+    return normed
+
+
+# TODO: stopping users from initializing this type should be done in a different way,
+# so SocketType can be used as a type. Note that this is *far* from trivial without
+# breaking subclasses of SocketType. Can maybe add abstract methods to SocketType,
+# or rename _SocketType.
 class SocketType:
-    def __init__(self):
+    def __init__(self) -> NoReturn:
         raise TypeError(
             "SocketType is an abstract class; use trio.socket.socket if you "
             "want to construct a socket object"
@@ -379,13 +533,12 @@ class SocketType:
 
 
 class _SocketType(SocketType):
-    def __init__(self, sock):
+    def __init__(self, sock: _stdlib_socket.socket):
         if type(sock) is not _stdlib_socket.socket:
             # For example, ssl.SSLSocket subclasses socket.socket, but we
             # certainly don't want to blindly wrap one of those.
             raise TypeError(
-                "expected object of type 'socket.socket', not '{}"
-                .format(type(sock).__name__)
+                f"expected object of type 'socket.socket', not '{type(sock).__name__}'"
             )
         self._sock = sock
         self._sock.setblocking(False)
@@ -395,191 +548,191 @@ class _SocketType(SocketType):
     # Simple + portable methods and attributes
     ################################################################
 
-    # NB this doesn't work because for loops don't create a scope
-    # for _name in [
-    #         ]:
-    #     _meth = getattr(_stdlib_socket.socket, _name)
-    #     @_wraps(_meth, assigned=("__name__", "__doc__"), updated=())
-    #     def _wrapped(self, *args, **kwargs):
-    #         return getattr(self._sock, _meth)(*args, **kwargs)
-    #     locals()[_meth] = _wrapped
-    # del _name, _meth, _wrapped
+    # forwarded methods
+    def detach(self) -> int:
+        return self._sock.detach()
 
-    _forward = {
-        "detach",
-        "get_inheritable",
-        "set_inheritable",
-        "fileno",
-        "getpeername",
-        "getsockname",
-        "getsockopt",
-        "setsockopt",
-        "listen",
-        "share",
-    }
+    def fileno(self) -> int:
+        return self._sock.fileno()
 
-    def __getattr__(self, name):
-        if name in self._forward:
-            return getattr(self._sock, name)
-        raise AttributeError(name)
+    def getpeername(self) -> Any:
+        return self._sock.getpeername()
 
-    def __dir__(self):
-        return super().__dir__() + list(self._forward)
+    def getsockname(self) -> Any:
+        return self._sock.getsockname()
 
-    def __enter__(self):
+    @overload
+    def getsockopt(self, /, level: int, optname: int) -> int:
+        ...
+
+    @overload
+    def getsockopt(self, /, level: int, optname: int, buflen: int) -> bytes:
+        ...
+
+    def getsockopt(
+        self, /, level: int, optname: int, buflen: int | None = None
+    ) -> int | bytes:
+        if buflen is None:
+            return self._sock.getsockopt(level, optname)
+        return self._sock.getsockopt(level, optname, buflen)
+
+    @overload
+    def setsockopt(self, /, level: int, optname: int, value: int | Buffer) -> None:
+        ...
+
+    @overload
+    def setsockopt(self, /, level: int, optname: int, value: None, optlen: int) -> None:
+        ...
+
+    def setsockopt(
+        self,
+        /,
+        level: int,
+        optname: int,
+        value: int | Buffer | None,
+        optlen: int | None = None,
+    ) -> None:
+        if optlen is None:
+            if value is None:
+                raise TypeError(
+                    "invalid value for argument 'value', must not be None when specifying optlen"
+                )
+            return self._sock.setsockopt(level, optname, value)
+        if value is not None:
+            raise TypeError(
+                f"invalid value for argument 'value': {value!r}, must be None when specifying optlen"
+            )
+
+        # Note: PyPy may crash here due to setsockopt only supporting
+        # four parameters.
+        return self._sock.setsockopt(level, optname, value, optlen)
+
+    def listen(self, /, backlog: int = min(_stdlib_socket.SOMAXCONN, 128)) -> None:
+        return self._sock.listen(backlog)
+
+    def get_inheritable(self) -> bool:
+        return self._sock.get_inheritable()
+
+    def set_inheritable(self, inheritable: bool) -> None:
+        return self._sock.set_inheritable(inheritable)
+
+    if sys.platform == "win32" or (
+        not TYPE_CHECKING and hasattr(_stdlib_socket.socket, "share")
+    ):
+
+        def share(self, /, process_id: int) -> bytes:
+            return self._sock.share(process_id)
+
+    def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, *exc_info):
-        return self._sock.__exit__(*exc_info)
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        return self._sock.__exit__(exc_type, exc_value, traceback)
 
     @property
-    def family(self):
+    def family(self) -> AddressFamily:
         return self._sock.family
 
     @property
-    def type(self):
-        # Modify the socket type do match what is done on python 3.7. When
-        # support for versions older than 3.7 is dropped, this can be updated
-        # to just return self._sock.type
-        return real_socket_type(self._sock.type)
+    def type(self) -> SocketKind:
+        return self._sock.type
 
     @property
-    def proto(self):
+    def proto(self) -> int:
         return self._sock.proto
 
     @property
-    def did_shutdown_SHUT_WR(self):
+    def did_shutdown_SHUT_WR(self) -> bool:
         return self._did_shutdown_SHUT_WR
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return repr(self._sock).replace("socket.socket", "trio.socket.socket")
 
-    def dup(self):
-        """Same as :meth:`socket.socket.dup`.
-
-        """
+    def dup(self) -> _SocketType:
+        """Same as :meth:`socket.socket.dup`."""
         return _SocketType(self._sock.dup())
 
-    def close(self):
-        _core.notify_socket_close(self._sock)
-        self._sock.close()
+    def close(self) -> None:
+        if self._sock.fileno() != -1:
+            trio.lowlevel.notify_closing(self._sock)
+            self._sock.close()
 
-    async def bind(self, address):
-        await _core.checkpoint()
-        address = await self._resolve_local_address(address)
+    async def bind(self, address: Address) -> None:
+        address = await self._resolve_address_nocp(address, local=True)
         if (
-            hasattr(_stdlib_socket, "AF_UNIX") and self.family == AF_UNIX
+            hasattr(_stdlib_socket, "AF_UNIX")
+            and self.family == _stdlib_socket.AF_UNIX
             and address[0]
         ):
             # Use a thread for the filesystem traversal (unless it's an
             # abstract domain socket)
-            return await run_sync_in_worker_thread(self._sock.bind, address)
+            return await trio.to_thread.run_sync(self._sock.bind, address)
         else:
             # POSIX actually says that bind can return EWOULDBLOCK and
             # complete asynchronously, like connect. But in practice AFAICT
             # there aren't yet any real systems that do this, so we'll worry
             # about it when it happens.
+            await trio.lowlevel.checkpoint()
             return self._sock.bind(address)
 
-    def shutdown(self, flag):
+    def shutdown(self, flag: int) -> None:
         # no need to worry about return value b/c always returns None:
         self._sock.shutdown(flag)
         # only do this if the call succeeded:
-        if flag in [SHUT_WR, SHUT_RDWR]:
+        if flag in [_stdlib_socket.SHUT_WR, _stdlib_socket.SHUT_RDWR]:
             self._did_shutdown_SHUT_WR = True
 
-    async def wait_writable(self):
-        await _core.wait_socket_writable(self._sock)
+    def is_readable(self) -> bool:
+        # use select.select on Windows, and select.poll everywhere else
+        if sys.platform == "win32":
+            rready, _, _ = select.select([self._sock], [], [], 0)
+            return bool(rready)
+        p = select.poll()
+        p.register(self._sock, select.POLLIN)
+        return bool(p.poll(0))
 
-    ################################################################
-    # Address handling
-    ################################################################
+    async def wait_writable(self) -> None:
+        await _core.wait_writable(self._sock)
 
-    # Take an address in Python's representation, and returns a new address in
-    # the same representation, but with names resolved to numbers,
-    # etc.
-    async def _resolve_address(self, address, flags):
-        # Do some pre-checking (or exit early for non-IP sockets)
-        if self._sock.family == AF_INET:
-            if not isinstance(address, tuple) or not len(address) == 2:
-                await _core.checkpoint()
-                raise ValueError("address should be a (host, port) tuple")
-        elif self._sock.family == AF_INET6:
-            if not isinstance(address, tuple) or not 2 <= len(address) <= 4:
-                await _core.checkpoint()
-                raise ValueError(
-                    "address should be a (host, port, [flowinfo, [scopeid]]) "
-                    "tuple"
-                )
-        elif self._sock.family == AF_UNIX:
-            await _core.checkpoint()
-            # unwrap path-likes
-            return fspath(address)
-
+    async def _resolve_address_nocp(
+        self,
+        address: Address,
+        *,
+        local: bool,
+    ) -> Address:
+        if self.family == _stdlib_socket.AF_INET6:
+            ipv6_v6only = self._sock.getsockopt(
+                _stdlib_socket.IPPROTO_IPV6, _stdlib_socket.IPV6_V6ONLY
+            )
         else:
-            await _core.checkpoint()
-            return address
-        host, port, *_ = address
-        # Special cases to match the stdlib, see gh-277
-        if host == "":
-            host = None
-        if host == "<broadcast>":
-            host = "255.255.255.255"
-        # Since we always pass in an explicit family here, AI_ADDRCONFIG
-        # doesn't add any value -- if we have no ipv6 connectivity and are
-        # working with an ipv6 socket, then things will break soon enough! And
-        # if we do enable it, then it makes it impossible to even run tests
-        # for ipv6 address resolution on travis-ci, which as of 2017-03-07 has
-        # no ipv6.
-        # flags |= AI_ADDRCONFIG
-        if self._sock.family == AF_INET6:
-            if not self._sock.getsockopt(IPPROTO_IPV6, IPV6_V6ONLY):
-                flags |= AI_V4MAPPED
-        gai_res = await getaddrinfo(
-            host, port, self._sock.family, self.type, self._sock.proto, flags
+            ipv6_v6only = False
+        return await _resolve_address_nocp(
+            self.type,
+            self.family,
+            self.proto,
+            ipv6_v6only=ipv6_v6only,
+            address=address,
+            local=local,
         )
-        # AFAICT from the spec it's not possible for getaddrinfo to return an
-        # empty list.
-        assert len(gai_res) >= 1
-        # Address is the last item in the first entry
-        (*_, normed), *_ = gai_res
-        # The above ignored any flowid and scopeid in the passed-in address,
-        # so restore them if present:
-        if self._sock.family == AF_INET6:
-            normed = list(normed)
-            assert len(normed) == 4
-            if len(address) >= 3:
-                normed[2] = address[2]
-            if len(address) >= 4:
-                normed[3] = address[3]
-            normed = tuple(normed)
-        return normed
 
-    # Returns something appropriate to pass to bind()
-    async def _resolve_local_address(self, address):
-        return await self._resolve_address(address, AI_PASSIVE)
+    # args and kwargs must be starred, otherwise pyright complains:
+    # '"args" member of ParamSpec is valid only when used with *args parameter'
+    # '"kwargs" member of ParamSpec is valid only when used with **kwargs parameter'
+    # wait_fn and fn must also be first in the signature
+    # 'Keyword parameter cannot appear in signature after ParamSpec args parameter'
 
-    @deprecated(
-        "0.3.0",
-        issue=377,
-        instead="just pass the address to the method you want to use"
-    )
-    async def resolve_local_address(self, address):
-        return await self._resolve_local_address(address)
-
-    # Returns something appropriate to pass to connect()/sendto()/sendmsg()
-    async def _resolve_remote_address(self, address):
-        return await self._resolve_address(address, 0)
-
-    @deprecated(
-        "0.3.0",
-        issue=377,
-        instead="just pass the address to the method you want to use"
-    )
-    async def resolve_remote_address(self, address):
-        return await self._resolve_remote_address(address)
-
-    async def _nonblocking_helper(self, fn, args, kwargs, wait_fn):
+    async def _nonblocking_helper(
+        self,
+        wait_fn: Callable[[_stdlib_socket.socket], Awaitable[None]],
+        fn: Callable[Concatenate[_stdlib_socket.socket, P], T],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> T:
         # We have to reconcile two conflicting goals:
         # - We want to make it look like we always blocked in doing these
         #   operations. The obvious way is to always do an IO wait before
@@ -587,13 +740,13 @@ class _SocketType(SocketType):
         # - But, we also want to provide the correct semantics, and part
         #   of that means giving correct errors. So, for example, if you
         #   haven't called .listen(), then .accept() raises an error
-        #   immediately. But in this same circumstance, then on MacOS, the
+        #   immediately. But in this same circumstance, then on macOS, the
         #   socket does not register as readable. So if we block waiting
         #   for read *before* we call accept, then we'll be waiting
         #   forever instead of properly raising an error. (On Linux,
         #   interestingly, AFAICT a socket that can't possible read/write
         #   *does* count as readable/writable for select() purposes. But
-        #   not on MacOS.)
+        #   not on macOS.)
         #
         # So, we have to call the function once, with the appropriate
         # cancellation/yielding sandwich if it succeeds, and if it gives
@@ -611,37 +764,16 @@ class _SocketType(SocketType):
             except BlockingIOError:
                 pass
 
-    def _make_simple_sock_method_wrapper(methname, wait_fn, maybe_avail=False):
-        fn = getattr(_stdlib_socket.socket, methname)
-
-        @_wraps(fn, assigned=("__name__",), updated=())
-        async def wrapper(self, *args, **kwargs):
-            return await self._nonblocking_helper(fn, args, kwargs, wait_fn)
-
-        wrapper.__doc__ = (
-            """Like :meth:`socket.socket.{}`, but async.
-
-            """.format(methname)
-        )
-        if maybe_avail:
-            wrapper.__doc__ += (
-                "Only available on platforms where :meth:`socket.socket.{}` "
-                "is available.".format(methname)
-            )
-        return wrapper
-
     ################################################################
     # accept
     ################################################################
 
     _accept = _make_simple_sock_method_wrapper(
-        "accept", _core.wait_socket_readable
+        _stdlib_socket.socket.accept, _core.wait_readable
     )
 
-    async def accept(self):
-        """Like :meth:`socket.socket.accept`, but async.
-
-        """
+    async def accept(self) -> tuple[_SocketType, object]:
+        """Like :meth:`socket.socket.accept`, but async."""
         sock, addr = await self._accept()
         return from_stdlib_socket(sock), addr
 
@@ -649,13 +781,13 @@ class _SocketType(SocketType):
     # connect
     ################################################################
 
-    async def connect(self, address):
+    async def connect(self, address: Address) -> None:
         # nonblocking connect is weird -- you call it to start things
         # off, then the socket becomes writable as a completion
         # notification. This means it isn't really cancellable... we close the
         # socket if cancelled, to avoid confusion.
         try:
-            address = await self._resolve_remote_address(address)
+            address = await self._resolve_address_nocp(address, local=False)
             async with _try_sync():
                 # An interesting puzzle: can a non-blocking connect() return EINTR
                 # (= raise InterruptedError)? PEP 475 specifically left this as
@@ -688,7 +820,7 @@ class _SocketType(SocketType):
                 #
                 # In practice, the resolution is probably that non-blocking
                 # connect simply never returns EINTR, so the question of how to
-                # handle it is moot.  Someone spelunked MacOS/FreeBSD and
+                # handle it is moot.  Someone spelunked macOS/FreeBSD and
                 # confirmed this is true there:
                 #
                 #   https://stackoverflow.com/questions/14134440/eintr-and-non-blocking-calls
@@ -707,46 +839,81 @@ class _SocketType(SocketType):
                 return self._sock.connect(address)
             # It raised BlockingIOError, meaning that it's started the
             # connection attempt. We wait for it to complete:
-            await _core.wait_socket_writable(self._sock)
-        except _core.Cancelled:
+            await _core.wait_writable(self._sock)
+        except trio.Cancelled:
             # We can't really cancel a connect, and the socket is in an
             # indeterminate state. Better to close it so we don't get
             # confused.
             self._sock.close()
             raise
         # Okay, the connect finished, but it might have failed:
-        err = self._sock.getsockopt(SOL_SOCKET, SO_ERROR)
+        err = self._sock.getsockopt(_stdlib_socket.SOL_SOCKET, _stdlib_socket.SO_ERROR)
         if err != 0:
-            raise OSError(err, "Error in connect: " + _os.strerror(err))
+            raise OSError(err, f"Error connecting to {address!r}: {os.strerror(err)}")
 
     ################################################################
     # recv
     ################################################################
 
-    recv = _make_simple_sock_method_wrapper("recv", _core.wait_socket_readable)
+    # Not possible to typecheck with a Callable (due to DefaultArg), nor with a
+    # callback Protocol (https://github.com/python/typing/discussions/1040)
+    # but this seems to work. If not explicitly defined then pyright --verifytypes will
+    # complain about AmbiguousType
+    if TYPE_CHECKING:
+
+        def recv(__self, __buflen: int, __flags: int = 0) -> Awaitable[bytes]:
+            ...
+
+    # _make_simple_sock_method_wrapper is typed, so this checks that the above is correct
+    # this requires that we refrain from using `/` to specify pos-only
+    # args, or mypy thinks the signature differs from typeshed.
+    recv = _make_simple_sock_method_wrapper(  # noqa: F811
+        _stdlib_socket.socket.recv, _core.wait_readable
+    )
 
     ################################################################
     # recv_into
     ################################################################
 
-    recv_into = _make_simple_sock_method_wrapper(
-        "recv_into", _core.wait_socket_readable
+    if TYPE_CHECKING:
+
+        def recv_into(
+            __self, buffer: Buffer, nbytes: int = 0, flags: int = 0
+        ) -> Awaitable[int]:
+            ...
+
+    recv_into = _make_simple_sock_method_wrapper(  # noqa: F811
+        _stdlib_socket.socket.recv_into, _core.wait_readable
     )
 
     ################################################################
     # recvfrom
     ################################################################
 
-    recvfrom = _make_simple_sock_method_wrapper(
-        "recvfrom", _core.wait_socket_readable
+    if TYPE_CHECKING:
+        # return type of socket.socket.recvfrom in typeshed is tuple[bytes, Any]
+        def recvfrom(
+            __self, __bufsize: int, __flags: int = 0
+        ) -> Awaitable[tuple[bytes, Address]]:
+            ...
+
+    recvfrom = _make_simple_sock_method_wrapper(  # noqa: F811
+        _stdlib_socket.socket.recvfrom, _core.wait_readable
     )
 
     ################################################################
     # recvfrom_into
     ################################################################
 
-    recvfrom_into = _make_simple_sock_method_wrapper(
-        "recvfrom_into", _core.wait_socket_readable
+    if TYPE_CHECKING:
+        # return type of socket.socket.recvfrom_into in typeshed is tuple[bytes, Any]
+        def recvfrom_into(
+            __self, buffer: Buffer, nbytes: int = 0, flags: int = 0
+        ) -> Awaitable[tuple[int, Address]]:
+            ...
+
+    recvfrom_into = _make_simple_sock_method_wrapper(  # noqa: F811
+        _stdlib_socket.socket.recvfrom_into, _core.wait_readable
     )
 
     ################################################################
@@ -754,8 +921,15 @@ class _SocketType(SocketType):
     ################################################################
 
     if hasattr(_stdlib_socket.socket, "recvmsg"):
-        recvmsg = _make_simple_sock_method_wrapper(
-            "recvmsg", _core.wait_socket_readable, maybe_avail=True
+        if TYPE_CHECKING:
+
+            def recvmsg(
+                __self, __bufsize: int, __ancbufsize: int = 0, __flags: int = 0
+            ) -> Awaitable[tuple[bytes, list[tuple[int, int, bytes]], int, Any]]:
+                ...
+
+        recvmsg = _make_simple_sock_method_wrapper(  # noqa: F811
+            _stdlib_socket.socket.recvmsg, _core.wait_readable, maybe_avail=True
         )
 
     ################################################################
@@ -763,55 +937,91 @@ class _SocketType(SocketType):
     ################################################################
 
     if hasattr(_stdlib_socket.socket, "recvmsg_into"):
-        recvmsg_into = _make_simple_sock_method_wrapper(
-            "recvmsg_into", _core.wait_socket_readable, maybe_avail=True
+        if TYPE_CHECKING:
+
+            def recvmsg_into(
+                __self,
+                __buffers: Iterable[Buffer],
+                __ancbufsize: int = 0,
+                __flags: int = 0,
+            ) -> Awaitable[tuple[int, list[tuple[int, int, bytes]], int, Any]]:
+                ...
+
+        recvmsg_into = _make_simple_sock_method_wrapper(  # noqa: F811
+            _stdlib_socket.socket.recvmsg_into, _core.wait_readable, maybe_avail=True
         )
 
     ################################################################
     # send
     ################################################################
 
-    send = _make_simple_sock_method_wrapper("send", _core.wait_socket_writable)
+    if TYPE_CHECKING:
+
+        def send(__self, __bytes: Buffer, __flags: int = 0) -> Awaitable[int]:
+            ...
+
+    send = _make_simple_sock_method_wrapper(  # noqa: F811
+        _stdlib_socket.socket.send, _core.wait_writable
+    )
 
     ################################################################
     # sendto
     ################################################################
 
-    @_wraps(_stdlib_socket.socket.sendto, assigned=(), updated=())
-    async def sendto(self, *args):
-        """Similar to :meth:`socket.socket.sendto`, but async.
+    @overload
+    async def sendto(
+        self, __data: Buffer, __address: tuple[Any, ...] | str | Buffer
+    ) -> int:
+        ...
 
-        """
+    @overload
+    async def sendto(
+        self, __data: Buffer, __flags: int, __address: tuple[Any, ...] | str | Buffer
+    ) -> int:
+        ...
+
+    @_wraps(_stdlib_socket.socket.sendto, assigned=(), updated=())  # type: ignore[misc]
+    async def sendto(self, *args: Any) -> int:
+        """Similar to :meth:`socket.socket.sendto`, but async."""
         # args is: data[, flags], address)
         # and kwargs are not accepted
-        args = list(args)
-        args[-1] = await self._resolve_remote_address(args[-1])
+        args_list = list(args)
+        args_list[-1] = await self._resolve_address_nocp(args[-1], local=False)
         return await self._nonblocking_helper(
-            _stdlib_socket.socket.sendto, args, {}, _core.wait_socket_writable
+            _core.wait_writable, _stdlib_socket.socket.sendto, *args_list
         )
 
     ################################################################
     # sendmsg
     ################################################################
 
-    if hasattr(_stdlib_socket.socket, "sendmsg"):
+    if sys.platform != "win32" or (
+        not TYPE_CHECKING and hasattr(_stdlib_socket.socket, "sendmsg")
+    ):
 
         @_wraps(_stdlib_socket.socket.sendmsg, assigned=(), updated=())
-        async def sendmsg(self, *args):
+        async def sendmsg(
+            self,
+            __buffers: Iterable[Buffer],
+            __ancdata: Iterable[tuple[int, int, Buffer]] = (),
+            __flags: int = 0,
+            __address: Address | None = None,
+        ) -> int:
             """Similar to :meth:`socket.socket.sendmsg`, but async.
 
             Only available on platforms where :meth:`socket.socket.sendmsg` is
             available.
 
             """
-            # args is: buffers[, ancdata[, flags[, address]]]
-            # and kwargs are not accepted
-            if len(args) == 4 and args[-1] is not None:
-                args = list(args)
-                args[-1] = await self._resolve_remote_address(args[-1])
+            if __address is not None:
+                __address = await self._resolve_address_nocp(__address, local=False)
             return await self._nonblocking_helper(
-                _stdlib_socket.socket.sendmsg, args, {},
-                _core.wait_socket_writable
+                _core.wait_writable,
+                _stdlib_socket.socket.sendmsg,
+                __buffers,
+                __ancdata,
+                __flags,
+                __address,
             )
 
     ################################################################

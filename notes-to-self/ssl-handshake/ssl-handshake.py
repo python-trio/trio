@@ -1,5 +1,5 @@
-import ssl
 import socket
+import ssl
 import threading
 from contextlib import contextmanager
 
@@ -7,6 +7,7 @@ BUFSIZE = 4096
 
 server_ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
 server_ctx.load_cert_chain("trio-test-1.pem")
+
 
 def _ssl_echo_serve_sync(sock):
     try:
@@ -20,15 +21,18 @@ def _ssl_echo_serve_sync(sock):
     except BrokenPipeError:
         pass
 
+
 @contextmanager
 def echo_server_connection():
     client_sock, server_sock = socket.socketpair()
     with client_sock, server_sock:
         t = threading.Thread(
-            target=_ssl_echo_serve_sync, args=(server_sock,), daemon=True)
+            target=_ssl_echo_serve_sync, args=(server_sock,), daemon=True
+        )
         t.start()
 
         yield client_sock
+
 
 class ManuallyWrappedSocket:
     def __init__(self, ctx, sock, **kwargs):
@@ -82,21 +86,23 @@ class ManuallyWrappedSocket:
 def wrap_socket_via_wrap_socket(ctx, sock, **kwargs):
     return ctx.wrap_socket(sock, do_handshake_on_connect=False, **kwargs)
 
+
 def wrap_socket_via_wrap_bio(ctx, sock, **kwargs):
     return ManuallyWrappedSocket(ctx, sock, **kwargs)
 
 
 for wrap_socket in [
-        wrap_socket_via_wrap_socket,
-        wrap_socket_via_wrap_bio,
+    wrap_socket_via_wrap_socket,
+    wrap_socket_via_wrap_bio,
 ]:
-    print("\n--- checking {} ---\n".format(wrap_socket.__name__))
+    print(f"\n--- checking {wrap_socket.__name__} ---\n")
 
     print("checking with do_handshake + correct hostname...")
     with echo_server_connection() as client_sock:
         client_ctx = ssl.create_default_context(cafile="trio-test-CA.pem")
         wrapped = wrap_socket(
-            client_ctx, client_sock, server_hostname="trio-test-1.example.org")
+            client_ctx, client_sock, server_hostname="trio-test-1.example.org"
+        )
         wrapped.do_handshake()
         wrapped.sendall(b"x")
         assert wrapped.recv(1) == b"x"
@@ -107,7 +113,8 @@ for wrap_socket in [
     with echo_server_connection() as client_sock:
         client_ctx = ssl.create_default_context(cafile="trio-test-CA.pem")
         wrapped = wrap_socket(
-            client_ctx, client_sock, server_hostname="trio-test-2.example.org")
+            client_ctx, client_sock, server_hostname="trio-test-2.example.org"
+        )
         try:
             wrapped.do_handshake()
         except Exception:
@@ -119,7 +126,8 @@ for wrap_socket in [
     with echo_server_connection() as client_sock:
         client_ctx = ssl.create_default_context(cafile="trio-test-CA.pem")
         wrapped = wrap_socket(
-            client_ctx, client_sock, server_hostname="trio-test-2.example.org")
+            client_ctx, client_sock, server_hostname="trio-test-2.example.org"
+        )
         # We forgot to call do_handshake
         # But the hostname is wrong so something had better error out...
         sent = b"x"
