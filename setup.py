@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 exec(open("trio/_version.py", encoding="utf-8").read())
 
@@ -44,13 +44,15 @@ chance to give feedback about any compatibility-breaking changes.
 Vital statistics:
 
 * Supported environments: Linux, macOS, or Windows running some kind of Python
-  3.7-or-better (either CPython or PyPy3 is fine). \\*BSD and illumos likely
+  3.8-or-better (either CPython or PyPy3 is fine). \\*BSD and illumos likely
   work too, but are not tested.
 
 * Install: ``python3 -m pip install -U trio`` (or on Windows, maybe
   ``py -3 -m pip install -U trio``). No compiler needed.
 
 * Tutorial and reference manual: https://trio.readthedocs.io
+
+* Changelog: https://trio.readthedocs.io/en/latest/history.html
 
 * Bug tracker and source code: https://github.com/python-trio/trio
 
@@ -73,6 +75,7 @@ setup(
     version=__version__,
     description="A friendly Python library for async concurrency and I/O",
     long_description=LONG_DESC,
+    long_description_content_type="text/x-rst",
     author="Nathaniel J. Smith",
     author_email="njs@pobox.com",
     url="https://github.com/python-trio/trio",
@@ -85,7 +88,7 @@ setup(
         "sortedcontainers",
         "idna",
         "outcome",
-        "sniffio",
+        "sniffio >= 1.3.0",
         # cffi 1.12 adds from_buffer(require_writable=True) and ffi.release()
         # cffi 1.14 fixes memory leak inside ffi.getwinerror()
         # cffi is required on Windows, except on PyPy where it is built-in
@@ -95,7 +98,7 @@ setup(
     # This means, just install *everything* you see under trio/, even if it
     # doesn't look like a source file, so long as it appears in MANIFEST.in:
     include_package_data=True,
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     keywords=["async", "io", "networking", "trio"],
     classifiers=[
         "Development Status :: 3 - Alpha",
@@ -109,12 +112,16 @@ setup(
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Topic :: System :: Networking",
         "Framework :: Trio",
     ],
+    project_urls={
+        "Documentation": "https://trio.readthedocs.io/",
+        "Changelog": "https://trio.readthedocs.io/en/latest/history.html",
+    },
 )

@@ -1,5 +1,7 @@
-import socket
+from __future__ import annotations
+
 import signal
+import socket
 import warnings
 
 from .. import _core
@@ -7,7 +9,7 @@ from .._util import is_main_thread
 
 
 class WakeupSocketpair:
-    def __init__(self):
+    def __init__(self) -> None:
         self.wakeup_sock, self.write_sock = socket.socketpair()
         self.wakeup_sock.setblocking(False)
         self.write_sock.setblocking(False)
@@ -27,26 +29,26 @@ class WakeupSocketpair:
             self.write_sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         except OSError:
             pass
-        self.old_wakeup_fd = None
+        self.old_wakeup_fd: int | None = None
 
-    def wakeup_thread_and_signal_safe(self):
+    def wakeup_thread_and_signal_safe(self) -> None:
         try:
             self.write_sock.send(b"\x00")
         except BlockingIOError:
             pass
 
-    async def wait_woken(self):
+    async def wait_woken(self) -> None:
         await _core.wait_readable(self.wakeup_sock)
         self.drain()
 
-    def drain(self):
+    def drain(self) -> None:
         try:
             while True:
                 self.wakeup_sock.recv(2**16)
         except BlockingIOError:
             pass
 
-    def wakeup_on_signals(self):
+    def wakeup_on_signals(self) -> None:
         assert self.old_wakeup_fd is None
         if not is_main_thread():
             return
@@ -64,7 +66,7 @@ class WakeupSocketpair:
                 )
             )
 
-    def close(self):
+    def close(self) -> None:
         self.wakeup_sock.close()
         self.write_sock.close()
         if self.old_wakeup_fd is not None:

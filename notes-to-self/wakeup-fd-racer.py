@@ -1,19 +1,21 @@
+import itertools
 import os
+import select
 import signal
+import socket
 import threading
 import time
-import socket
-import select
-import itertools
 
 # Equivalent to the C function raise(), which Python doesn't wrap
 if os.name == "nt":
     import cffi
+
     _ffi = cffi.FFI()
     _ffi.cdef("int raise(int);")
     _lib = _ffi.dlopen("api-ms-win-crt-runtime-l1-1-0.dll")
     signal_raise = getattr(_lib, "raise")
 else:
+
     def signal_raise(signum):
         # Use pthread_kill to make sure we're actually using the wakeup fd on
         # Unix
@@ -26,7 +28,7 @@ def raise_SIGINT_soon():
     # Sending 2 signals becomes reliable, as we'd expect (because we need
     # set-flags -> write-to-fd, and doing it twice does
     # write-to-fd -> set-flags -> write-to-fd -> set-flags)
-    #signal_raise(signal.SIGINT)
+    # signal_raise(signal.SIGINT)
 
 
 def drain(sock):
@@ -87,14 +89,17 @@ def main():
         # them.
         duration = time.perf_counter() - start
         if duration < 2:
-            print(f"Attempt {attempt}: OK, trying again "
-                  f"(select_calls = {select_calls}, drained = {drained})")
+            print(
+                f"Attempt {attempt}: OK, trying again "
+                f"(select_calls = {select_calls}, drained = {drained})"
+            )
         else:
             print(f"Attempt {attempt}: FAILED, took {duration} seconds")
             print(f"select_calls = {select_calls}, drained = {drained}")
             break
 
         thread.join()
+
 
 if __name__ == "__main__":
     main()

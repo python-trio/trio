@@ -1,19 +1,160 @@
 [tool.black]
-target-version = ['py37']
+target-version = ['py38']
+force-exclude = '''
+(
+  ^/docs/source/reference-.*
+  | ^/docs/source/tutorial
+)
+'''
 
+[tool.codespell]
+ignore-words-list = 'astroid,crasher,asend'
+
+[tool.flake8]
+extend-ignore = ['D', 'E', 'W', 'F403', 'F405', 'F821', 'F822']
+per-file-ignores = [
+  'trio/__init__.py: F401',
+  'trio/_core/__init__.py: F401',
+  'trio/_core/_tests/test_multierror_scripts/*: F401',
+  'trio/abc.py: F401',
+  'trio/lowlevel.py: F401',
+  'trio/socket.py: F401',
+  'trio/testing/__init__.py: F401'
+]
+
+[tool.isort]
+combine_as_imports = true
+profile = "black"
+skip_gitignore = true
+skip_glob = [
+  "docs/source/reference-*",
+  "docs/source/tutorial/*"
+]
+
+[tool.mypy]
+python_version = "3.8"
+
+# Be flexible about dependencies that don't have stubs yet (like pytest)
+ignore_missing_imports = true
+
+# Be strict about use of Mypy
+local_partial_types = true
+warn_unused_ignores = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_return_any = true
+
+# Avoid subtle backsliding
+disallow_any_decorated = true
+disallow_any_generics = true
+disallow_any_unimported = false  # Enable once Outcome has stubs.
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+
+# Enable once other problems are dealt with
+check_untyped_defs = true
+disallow_untyped_calls = false
+
+# files not yet fully typed
+[[tool.mypy.overrides]]
+module = [
+# 2761
+"trio/_core/_generated_io_windows",
+"trio/_core/_io_windows",
+
+"trio/_signals",
+
+# internal
+"trio/_windows_pipes",
+
+# tests
+"trio/testing/_fake_net",
+"trio/_core/_tests/test_asyncgen",
+"trio/_core/_tests/test_guest_mode",
+"trio/_core/_tests/test_instrumentation",
+"trio/_core/_tests/test_ki",
+"trio/_core/_tests/test_local",
+"trio/_core/_tests/test_mock_clock",
+"trio/_core/_tests/test_multierror",
+"trio/_core/_tests/test_multierror_scripts/ipython_custom_exc",
+"trio/_core/_tests/test_multierror_scripts/simple_excepthook",
+"trio/_core/_tests/test_parking_lot",
+"trio/_core/_tests/test_thread_cache",
+"trio/_core/_tests/test_tutil",
+"trio/_core/_tests/test_unbounded_queue",
+"trio/_core/_tests/test_windows",
+"trio/_core/_tests/tutil",
+"trio/_tests/pytest_plugin",
+"trio/_tests/test_abc",
+"trio/_tests/test_channel",
+"trio/_tests/test_deprecate",
+"trio/_tests/test_dtls",
+"trio/_tests/test_exports",
+"trio/_tests/test_file_io",
+"trio/_tests/test_highlevel_generic",
+"trio/_tests/test_highlevel_open_tcp_listeners",
+"trio/_tests/test_highlevel_open_tcp_stream",
+"trio/_tests/test_highlevel_open_unix_stream",
+"trio/_tests/test_highlevel_serve_listeners",
+"trio/_tests/test_highlevel_socket",
+"trio/_tests/test_highlevel_ssl_helpers",
+"trio/_tests/test_path",
+"trio/_tests/test_scheduler_determinism",
+"trio/_tests/test_signals",
+"trio/_tests/test_socket",
+"trio/_tests/test_ssl",
+"trio/_tests/test_subprocess",
+"trio/_tests/test_sync",
+"trio/_tests/test_testing",
+"trio/_tests/test_threads",
+"trio/_tests/test_timeouts",
+"trio/_tests/test_tracing",
+"trio/_tests/test_util",
+"trio/_tests/test_wait_for_object",
+"trio/_tests/test_windows_pipes",
+"trio/_tests/tools/test_gen_exports",
+]
+check_untyped_defs = false
+disallow_any_decorated = false
+disallow_any_generics = false
+disallow_any_unimported = false
+disallow_incomplete_defs = false
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+addopts = ["--strict-markers", "--strict-config"]
+faulthandler_timeout = 60
+filterwarnings = [
+  "error",
+  # https://gitter.im/python-trio/general?at=63bb8d0740557a3d5c688d67
+  'ignore:You are using cryptography on a 32-bit Python on a 64-bit Windows Operating System. Cryptography will be significantly faster if you switch to using a 64-bit Python.:UserWarning',
+  # this should remain until https://github.com/pytest-dev/pytest/pull/10894 is merged
+  'ignore:ast.Str is deprecated:DeprecationWarning',
+  'ignore:Attribute s is deprecated and will be removed:DeprecationWarning',
+  'ignore:ast.NameConstant is deprecated:DeprecationWarning',
+  'ignore:ast.Num is deprecated:DeprecationWarning',
+  # https://github.com/python/mypy/issues/15330
+  'ignore:ast.Ellipsis is deprecated:DeprecationWarning',
+  'ignore:ast.Bytes is deprecated:DeprecationWarning'
+]
+junit_family = "xunit2"
+markers = ["redistributors_should_skip: tests that should be skipped by downstream redistributors"]
+xfail_strict = true
 
 [tool.towncrier]
+directory = "newsfragments"
+filename = "docs/source/history.rst"
+issue_format = "`#{issue} <https://github.com/python-trio/trio/issues/{issue}>`__"
 # Usage:
 # - PRs should drop a file like "issuenumber.feature" in newsfragments
-#   (or "bugfix", "doc", "removal", "misc"; misc gets no text, we can
-#    customize this)
+# (or "bugfix", "doc", "removal", "misc"; misc gets no text, we can
+# customize this)
 # - At release time after bumping version number, run: towncrier
-#   (or towncrier --draft)
+# (or towncrier --draft)
 package = "trio"
-filename = "docs/source/history.rst"
-directory = "newsfragments"
 underlines = ["-", "~", "^"]
-issue_format = "`#{issue} <https://github.com/python-trio/trio/issues/{issue}>`__"
 
 [[tool.towncrier.type]]
 directory = "headline"
@@ -49,15 +190,3 @@ showcontent = true
 directory = "misc"
 name = "Miscellaneous internal changes"
 showcontent = true
-
-[tool.pytest.ini_options]
-addopts = ["--strict-markers", "--strict-config"]
-xfail_strict = true
-faulthandler_timeout = 60
-markers = ["redistributors_should_skip: tests that should be skipped by downstream redistributors"]
-junit_family = "xunit2"
-filterwarnings = [
-    "error",
-    # https://gitter.im/python-trio/general?at=63bb8d0740557a3d5c688d67
-    'ignore:You are using cryptography on a 32-bit Python on a 64-bit Windows Operating System. Cryptography will be significantly faster if you switch to using a 64-bit Python.:UserWarning',
-]

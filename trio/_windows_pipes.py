@@ -1,9 +1,10 @@
 import sys
 from typing import TYPE_CHECKING
+
 from . import _core
-from ._abc import SendStream, ReceiveStream
+from ._abc import ReceiveStream, SendStream
+from ._core._windows_cffi import _handle, kernel32, raise_winerror
 from ._util import ConflictDetector, Final
-from ._core._windows_cffi import _handle, raise_winerror, kernel32, ffi
 
 assert sys.platform == "win32" or not TYPE_CHECKING
 

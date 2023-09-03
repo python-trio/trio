@@ -1,18 +1,15 @@
 # RTD is currently installing 1.5.3, which has a bug in :lineno-match:
-# sphinx-3.4 causes warnings about some trio._abc classes: GH#2338
-sphinx >= 1.7.0, < 6.2
-# jinja2-3.1 causes importerror with sphinx<4.0
-jinja2 < 3.1
+sphinx >= 4.0, < 6.2
+jinja2
 sphinx_rtd_theme
+sphinxcontrib-jquery
 sphinxcontrib-trio
 towncrier
 
 # Trio's own dependencies
 cffi; os_name == "nt"
-contextvars; python_version < "3.7"
 attrs >= 19.2.0
 sortedcontainers
-async_generator >= 1.9
 idna
 outcome
 sniffio
@@ -20,3 +17,6 @@ exceptiongroup >= 1.0.0rc9
 
 # See note in test-requirements.in
 immutables >= 0.6
+
+# types used in annotations
+pyOpenSSL

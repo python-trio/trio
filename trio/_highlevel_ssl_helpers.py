@@ -1,5 +1,10 @@
-import trio
+from __future__ import annotations
+
 import ssl
+from collections.abc import Awaitable, Callable
+from typing import NoReturn
+
+import trio
 
 from ._highlevel_open_tcp_stream import DEFAULT_DELAY
 
@@ -14,13 +19,13 @@ from ._highlevel_open_tcp_stream import DEFAULT_DELAY
 # So... let's punt on that for now. Hopefully we'll be getting a new Python
 # TLS API soon and can revisit this then.
 async def open_ssl_over_tcp_stream(
-    host,
-    port,
+    host: str | bytes,
+    port: int,
     *,
-    https_compatible=False,
-    ssl_context=None,
-    happy_eyeballs_delay=DEFAULT_DELAY,
-):
+    https_compatible: bool = False,
+    ssl_context: ssl.SSLContext | None = None,
+    happy_eyeballs_delay: float | None = DEFAULT_DELAY,
+) -> trio.SSLStream:
     """Make a TLS-encrypted Connection to the given host and port over TCP.
 
     This is a convenience wrapper that calls :func:`open_tcp_stream` and
@@ -62,8 +67,13 @@ async def open_ssl_over_tcp_stream(
 
 
 async def open_ssl_over_tcp_listeners(
-    port, ssl_context, *, host=None, https_compatible=False, backlog=None
-):
+    port: int,
+    ssl_context: ssl.SSLContext,
+    *,
+    host: str | bytes | None = None,
+    https_compatible: bool = False,
+    backlog: int | float | None = None,
+) -> list[trio.SSLListener]:
     """Start listening for SSL/TLS-encrypted TCP connections to the given port.
 
     Args:
@@ -85,16 +95,16 @@ async def open_ssl_over_tcp_listeners(
 
 
 async def serve_ssl_over_tcp(
-    handler,
-    port,
-    ssl_context,
+    handler: Callable[[trio.SSLStream], Awaitable[object]],
+    port: int,
+    ssl_context: ssl.SSLContext,
     *,
-    host=None,
-    https_compatible=False,
-    backlog=None,
-    handler_nursery=None,
-    task_status=trio.TASK_STATUS_IGNORED,
-):
+    host: str | bytes | None = None,
+    https_compatible: bool = False,
+    backlog: int | float | None = None,
+    handler_nursery: trio.Nursery | None = None,
+    task_status: trio.TaskStatus[list[trio.SSLListener]] = trio.TASK_STATUS_IGNORED,
+) -> NoReturn:
     """Listen for incoming TCP connections, and for each one start a task
     running ``handler(stream)``.
 

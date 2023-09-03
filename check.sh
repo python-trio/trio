@@ -18,15 +18,18 @@ if ! black --check setup.py trio; then
     black --diff setup.py trio
 fi
 
-# Run flake8 without pycodestyle and import-related errors
-flake8 trio/ \
-    --ignore=D,E,W,F401,F403,F405,F821,F822\
-    || EXIT_STATUS=$?
+if ! isort --check setup.py trio; then
+    EXIT_STATUS=1
+    isort --diff setup.py trio
+fi
+
+# Run flake8, configured in pyproject.toml
+flake8 trio/ || EXIT_STATUS=$?
 
 # Run mypy on all supported platforms
-mypy -m trio -m trio.testing --platform linux || EXIT_STATUS=$?
-mypy -m trio -m trio.testing --platform darwin || EXIT_STATUS=$?  # tests FreeBSD too
-mypy -m trio -m trio.testing --platform win32 || EXIT_STATUS=$?
+mypy trio --platform linux || EXIT_STATUS=$?
+mypy trio --platform darwin || EXIT_STATUS=$?  # tests FreeBSD too
+mypy trio --platform win32 || EXIT_STATUS=$?
 
 # Check pip compile is consistent
 pip-compile test-requirements.in
@@ -34,6 +37,16 @@ pip-compile docs-requirements.in
 
 if git status --porcelain | grep -q "requirements.txt"; then
     git status --porcelain
+    git --no-pager diff --color *requirements.txt
+    EXIT_STATUS=1
+fi
+
+codespell || EXIT_STATUS=$?
+
+python trio/_tests/check_type_completeness.py --overwrite-file || EXIT_STATUS=$?
+if git status --porcelain trio/_tests/verify_types*.json | grep -q "M"; then
+    echo "Type completeness changed, please update!"
+    git --no-pager diff --color trio/_tests/verify_types*.json
     EXIT_STATUS=1
 fi
 
@@ -48,6 +61,7 @@ To fix formatting and see remaining errors, run
 
     pip install -r test-requirements.txt
     black setup.py trio
+    isort setup.py trio
     ./check.sh
 
 in your local checkout.

@@ -1,14 +1,15 @@
 import os
+import tempfile
 import threading
 import time
-import tempfile
+
 
 def check_reopen(r1, w):
     try:
         print("Reopening read end")
-        r2 = os.open("/proc/self/fd/{}".format(r1), os.O_RDONLY)
+        r2 = os.open(f"/proc/self/fd/{r1}", os.O_RDONLY)
 
-        print("r1 is {}, r2 is {}".format(r1, r2))
+        print(f"r1 is {r1}, r2 is {r2}")
 
         print("checking they both can receive from w...")
 
@@ -36,11 +37,12 @@ def check_reopen(r1, w):
         def sleep_then_write():
             time.sleep(1)
             os.write(w, b"c")
+
         threading.Thread(target=sleep_then_write, daemon=True).start()
         assert os.read(r1, 1) == b"c"
         print("r1 definitely seems to be in blocking mode")
     except Exception as exc:
-        print("ERROR: {!r}".format(exc))
+        print(f"ERROR: {exc!r}")
 
 
 print("-- testing anonymous pipe --")
@@ -63,6 +65,6 @@ with tempfile.TemporaryDirectory() as tmpdir:
 
 print("-- testing socketpair --")
 import socket
+
 rs, ws = socket.socketpair()
 check_reopen(rs.fileno(), ws.fileno())
-

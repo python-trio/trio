@@ -5,15 +5,17 @@
 # trio.to_thread.run_sync
 
 import threading
-from queue import Queue
 import time
+from queue import Queue
 
 COUNT = 10000
+
 
 def worker(in_q, out_q):
     while True:
         job = in_q.get()
         out_q.put(job())
+
 
 def main():
     in_q = Queue()
@@ -28,6 +30,7 @@ def main():
             in_q.put(lambda: None)
             out_q.get()
         end = time.monotonic()
-        print("{:.2f} µs/job".format((end - start) / COUNT * 1e6))
+        print(f"{(end - start) / COUNT * 1e6:.2f} µs/job")
+
 
 main()
