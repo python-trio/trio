@@ -15,7 +15,7 @@ from collections.abc import (
     Callable,
     Generator,
 )
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
 from math import inf
 from typing import NoReturn, TypeVar
 
@@ -2065,13 +2065,24 @@ def test_sniffio_integration() -> None:
     with pytest.raises(sniffio.AsyncLibraryNotFoundError):
         sniffio.current_async_library()
 
+    @contextmanager
+    def alternate_sniffio_library() -> Generator[None, None, None]:
+        prev_token = sniffio.current_async_library_cvar.set("nullio")
+        prev_library, sniffio.thread_local.name = sniffio.thread_local.name, "nullio"
+        try:
+            yield
+            assert sniffio.current_async_library() == "nullio"
+        finally:
+            sniffio.thread_local.name = prev_library
+            sniffio.current_async_library_cvar.reset(prev_token)
+
     async def check_new_task_resets_sniffio_library() -> None:
-        sniffio.current_async_library_cvar.set("nullio")
-        _core.spawn_system_task(check_inside_trio)
+        with alternate_sniffio_library():
+            _core.spawn_system_task(check_inside_trio)
         async with _core.open_nursery() as nursery:
-            nursery.start_soon(check_inside_trio)
-            nursery.start_soon(check_function_returning_coroutine)
-        assert sniffio.current_async_library() == "nullio"
+            with alternate_sniffio_library():
+                nursery.start_soon(check_inside_trio)
+                nursery.start_soon(check_function_returning_coroutine)
 
     _core.run(check_new_task_resets_sniffio_library)
 

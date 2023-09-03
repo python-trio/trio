@@ -26,7 +26,7 @@ from .tutil import buggy_pypy_asyncgens, gc_collect_harder, restore_unraisableho
 #   our main
 # - final result is returned
 # - any unhandled exceptions cause an immediate crash
-def trivial_guest_run(trio_fn, **start_guest_run_kwargs):
+def trivial_guest_run(trio_fn, *, in_host_after_start=None, **start_guest_run_kwargs):
     todo = queue.Queue()
 
     host_thread = threading.current_thread()
@@ -58,6 +58,8 @@ def trivial_guest_run(trio_fn, **start_guest_run_kwargs):
         done_callback=done_callback,
         **start_guest_run_kwargs,
     )
+    if in_host_after_start is not None:
+        in_host_after_start()
 
     try:
         while True:
@@ -109,6 +111,49 @@ def test_guest_can_do_io():
     trivial_guest_run(trio_main)
 
 
+def test_guest_is_initialized_when_start_returns():
+    trio_token = None
+    record = []
+
+    async def trio_main(in_host):
+        record.append("main task ran")
+        await trio.sleep(0)
+        assert trio.lowlevel.current_trio_token() is trio_token
+        return "ok"
+
+    def after_start():
+        # We should get control back before the main task executes any code
+        assert record == []
+
+        nonlocal trio_token
+        trio_token = trio.lowlevel.current_trio_token()
+        trio_token.run_sync_soon(record.append, "run_sync_soon cb ran")
+
+        @trio.lowlevel.spawn_system_task
+        async def early_task():
+            record.append("system task ran")
+            await trio.sleep(0)
+
+    res = trivial_guest_run(trio_main, in_host_after_start=after_start)
+    assert res == "ok"
+    assert set(record) == {"system task ran", "main task ran", "run_sync_soon cb ran"}
+
+    # Errors during initialization (which can only be TrioInternalErrors)
+    # are raised out of start_guest_run, not out of the done_callback
+    with pytest.raises(trio.TrioInternalError):
+
+        class BadClock:
+            def start_clock(self):
+                raise ValueError("whoops")
+
+        def after_start_never_runs():  # pragma: no cover
+            pytest.fail("shouldn't get here")
+
+        trivial_guest_run(
+            trio_main, clock=BadClock(), in_host_after_start=after_start_never_runs
+        )
+
+
 def test_host_can_directly_wake_trio_task():
     async def trio_main(in_host):
         ev = trio.Event()
@@ -140,6 +185,35 @@ def test_host_altering_deadlines_wakes_trio_up():
         return "ok"
 
     assert trivial_guest_run(trio_main) == "ok"
+
+
+def test_guest_mode_sniffio_integration():
+    from sniffio import current_async_library, thread_local as sniffio_library
+
+    async def trio_main(in_host):
+        async def synchronize():
+            """Wait for all in_host() calls issued so far to complete."""
+            evt = trio.Event()
+            in_host(evt.set)
+            await evt.wait()
+
+        # Host and guest have separate sniffio_library contexts
+        in_host(partial(setattr, sniffio_library, "name", "nullio"))
+        await synchronize()
+        assert current_async_library() == "trio"
+
+        record = []
+        in_host(lambda: record.append(current_async_library()))
+        await synchronize()
+        assert record == ["nullio"]
+        assert current_async_library() == "trio"
+
+        return "ok"
+
+    try:
+        assert trivial_guest_run(trio_main) == "ok"
+    finally:
+        sniffio_library.name = None
 
 
 def test_warn_set_wakeup_fd_overwrite():
@@ -504,10 +578,6 @@ def test_guest_mode_autojump_clock_threshold_changing():
 
 
 @pytest.mark.skipif(buggy_pypy_asyncgens, reason="PyPy 7.2 is buggy")
-@pytest.mark.xfail(
-    sys.implementation.name == "pypy",
-    reason="async generator issue under investigation",
-)
 @restore_unraisablehook()
 def test_guest_mode_asyncgens():
     import sniffio
@@ -527,8 +597,6 @@ def test_guest_mode_asyncgens():
             record.add((label, library))
 
     async def iterate_in_aio():
-        # "trio" gets inherited from our Trio caller if we don't set this
-        sniffio.current_async_library_cvar.set("asyncio")
         await agen("asyncio").asend(None)
 
     async def trio_main():
