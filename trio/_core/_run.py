@@ -37,7 +37,7 @@ from typing import (
 
 import attr
 from outcome import Error, Outcome, Value, capture
-from sniffio import current_async_library_cvar
+from sniffio import thread_local as sniffio_library
 from sortedcontainers import SortedDict
 
 from .. import _core
@@ -1493,6 +1493,7 @@ class GuestState:
     unrolled_run_next_send: Outcome[Any] = attr.ib(factory=_value_factory)
 
     def guest_tick(self) -> None:
+        prev_library, sniffio_library.name = sniffio_library.name, "trio"
         try:
             timeout = self.unrolled_run_next_send.send(self.unrolled_run_gen)
         except StopIteration:
@@ -1502,6 +1503,8 @@ class GuestState:
         except TrioInternalError as exc:
             self.done_callback(Error(exc))
             return
+        finally:
+            sniffio_library.name = prev_library
 
         # Optimization: try to skip going into the thread if we can avoid it
         events_outcome: Value[EventResult] | Error = capture(
@@ -1702,17 +1705,13 @@ class Runner:
             assert self.init_task is None
 
         ######
-        # Propagate contextvars, and make sure that async_fn can use sniffio.
+        # Propagate contextvars
         ######
         if context is None:
             if system_task:
                 context = self.system_context.copy()
             else:
                 context = copy_context()
-        # start_soon() or spawn_system_task() might have been invoked
-        # from a different async library; make sure the new task
-        # understands it's Trio-flavored.
-        context.run(current_async_library_cvar.set, "trio")
 
         ######
         # Call the function and get the coroutine object, while giving helpful
@@ -2234,15 +2233,19 @@ def run(
         strict_exception_groups,
     )
 
-    gen = unrolled_run(runner, async_fn, args)
-    # Need to send None in the first time.
-    next_send: EventResult = None  # type: ignore[assignment]
-    while True:
-        try:
-            timeout = gen.send(next_send)
-        except StopIteration:
-            break
-        next_send = runner.io_manager.get_events(timeout)
+    prev_library, sniffio_library.name = sniffio_library.name, "trio"
+    try:
+        gen = unrolled_run(runner, async_fn, args)
+        # Need to send None in the first time.
+        next_send: EventResult = None  # type: ignore[assignment]
+        while True:
+            try:
+                timeout = gen.send(next_send)
+            except StopIteration:
+                break
+            next_send = runner.io_manager.get_events(timeout)
+    finally:
+        sniffio_library.name = prev_library
     # Inlined copy of runner.main_task_outcome.unwrap() to avoid
     # cluttering every single Trio traceback with an extra frame.
     if isinstance(runner.main_task_outcome, Value):
