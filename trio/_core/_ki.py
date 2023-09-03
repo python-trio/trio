@@ -6,16 +6,17 @@ import sys
 import types
 from collections.abc import Callable
 from functools import wraps
-from typing import TYPE_CHECKING, Final, Protocol, TypeVar
+from typing import TYPE_CHECKING, Any, Final, Protocol, TypeVar
 
 import attr
 
 from .._util import is_main_thread
 
+CallableT = TypeVar("CallableT", bound=Callable[..., Any])
 RetT = TypeVar("RetT")
 
 if TYPE_CHECKING:
-    from typing_extensions import ParamSpec, TypeGuard
+    from typing_extensions import TypeGuard
 
     ArgsT = ParamSpec("ArgsT")
 
@@ -183,11 +184,11 @@ def _ki_protection_decorator(
     return decorator
 
 
-# pyright work around: https://github.com/microsoft/pyright/issues/5866
+# pyright workaround: https://github.com/microsoft/pyright/issues/5866
 class KIProtectionSignature(Protocol):
     __name__: str
 
-    def __call__(self, f: Callable[ArgsT, RetT], /) -> Callable[ArgsT, RetT]:
+    def __call__(self, f: CallableT, /) -> CallableT:
         pass
 
 
