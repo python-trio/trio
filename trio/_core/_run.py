@@ -200,8 +200,7 @@ def collapse_exception_group(
         )
         return exceptions[0]
     elif modified:
-        # derive() returns Any for some reason.
-        return excgroup.derive(exceptions)  # type: ignore[no-any-return]
+        return excgroup.derive(exceptions)
     else:
         return excgroup
 
