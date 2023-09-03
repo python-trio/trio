@@ -5,6 +5,7 @@ import sys
 import tempfile
 from collections.abc import Generator
 from contextlib import contextmanager
+from io import BufferedWriter
 from typing import TYPE_CHECKING
 from unittest.mock import create_autospec
 
@@ -143,7 +144,7 @@ async def test_readinto_overlapped() -> None:
 
 
 @contextmanager
-def pipe_with_overlapped_read() -> Generator[tuple[int, object], None, None]:
+def pipe_with_overlapped_read() -> Generator[tuple[BufferedWriter, int], None, None]:
     import msvcrt
     from asyncio.windows_utils import pipe
 
