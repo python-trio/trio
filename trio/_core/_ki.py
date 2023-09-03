@@ -12,7 +12,7 @@ import attr
 
 from .._util import is_main_thread
 
-CallableT = TypeVar("CallableT", bound=Callable[..., Any])
+CallableT = TypeVar("CallableT", bound="Callable[..., Any]")
 RetT = TypeVar("RetT")
 
 if TYPE_CHECKING:
@@ -192,10 +192,11 @@ class KIProtectionSignature(Protocol):
         pass
 
 
-enable_ki_protection: KIProtectionSignature = _ki_protection_decorator(True)
+# the following `type: ignore`s are because we use ParamSpec internally, but want to allow overloads
+enable_ki_protection: KIProtectionSignature = _ki_protection_decorator(True)  # type: ignore[assignment]
 enable_ki_protection.__name__ = "enable_ki_protection"
 
-disable_ki_protection: KIProtectionSignature = _ki_protection_decorator(False)
+disable_ki_protection: KIProtectionSignature = _ki_protection_decorator(False)  # type: ignore[assignment]
 disable_ki_protection.__name__ = "disable_ki_protection"
 
 
