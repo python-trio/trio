@@ -1001,9 +1001,9 @@ async def test_from_thread_check_cancelled():
 
 
 async def test_from_thread_check_cancelled_raises_in_foreign_threads():
-    with pytest.raises(AttributeError):
+    with pytest.raises(RuntimeError):
         from_thread_check_cancelled()
     q = stdlib_queue.Queue()
     _core.start_thread_soon(from_thread_check_cancelled, lambda _: q.put(_))
-    with pytest.raises(AttributeError):
+    with pytest.raises(RuntimeError):
         q.get(timeout=1).unwrap()
