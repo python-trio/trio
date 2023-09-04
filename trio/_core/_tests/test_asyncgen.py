@@ -3,7 +3,7 @@ from __future__ import annotations
 import contextlib
 import sys
 import weakref
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from math import inf
 from typing import NoReturn
 
