@@ -15,78 +15,79 @@ from .tutil import buggy_pypy_asyncgens, gc_collect_harder, restore_unraisableho
 
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="no aclosing() in stdlib<3.10")
 def test_asyncgen_basics() -> None:
-    collected = []
+    if sys.version_info >= (3, 10):  # mypy does not understand skipif's check
+        collected = []
 
-    async def example(cause: str) -> AsyncGenerator[int, None]:
-        try:
+        async def example(cause: str) -> AsyncGenerator[int, None]:
             try:
-                yield 42
-            except GeneratorExit:
-                pass
-            await _core.checkpoint()
-        except _core.Cancelled:
-            assert "exhausted" not in cause
-            task_name = _core.current_task().name
-            assert cause in task_name or task_name == "<init>"
-            assert _core.current_effective_deadline() == -inf
-            with pytest.raises(_core.Cancelled):
+                try:
+                    yield 42
+                except GeneratorExit:
+                    pass
                 await _core.checkpoint()
-            collected.append(cause)
-        else:
-            assert "async_main" in _core.current_task().name
-            assert "exhausted" in cause
-            assert _core.current_effective_deadline() == inf
-            await _core.checkpoint()
-            collected.append(cause)
+            except _core.Cancelled:
+                assert "exhausted" not in cause
+                task_name = _core.current_task().name
+                assert cause in task_name or task_name == "<init>"
+                assert _core.current_effective_deadline() == -inf
+                with pytest.raises(_core.Cancelled):
+                    await _core.checkpoint()
+                collected.append(cause)
+            else:
+                assert "async_main" in _core.current_task().name
+                assert "exhausted" in cause
+                assert _core.current_effective_deadline() == inf
+                await _core.checkpoint()
+                collected.append(cause)
 
-    saved = []
+        saved = []
 
-    async def async_main() -> None:
-        # GC'ed before exhausted
-        with pytest.warns(
-            ResourceWarning, match="Async generator.*collected before.*exhausted"
-        ):
-            assert 42 == await example("abandoned").asend(None)
+        async def async_main() -> None:
+            # GC'ed before exhausted
+            with pytest.warns(
+                ResourceWarning, match="Async generator.*collected before.*exhausted"
+            ):
+                assert 42 == await example("abandoned").asend(None)
+                gc_collect_harder()
+            await _core.wait_all_tasks_blocked()
+            assert collected.pop() == "abandoned"
+
+            # aclosing() ensures it's cleaned up at point of use
+            async with contextlib.aclosing(example("exhausted 1")) as aiter:
+                assert 42 == await aiter.asend(None)
+            assert collected.pop() == "exhausted 1"
+
+            # Also fine if you exhaust it at point of use
+            async for val in example("exhausted 2"):
+                assert val == 42
+            assert collected.pop() == "exhausted 2"
+
             gc_collect_harder()
-        await _core.wait_all_tasks_blocked()
-        assert collected.pop() == "abandoned"
 
-        # aclosing() ensures it's cleaned up at point of use
-        async with contextlib.aclosing(example("exhausted 1")) as aiter:  # type: ignore[attr-defined]  # skipif makes sure we are at least 3.10
-            assert 42 == await aiter.asend(None)
-        assert collected.pop() == "exhausted 1"
+            # No problems saving the geniter when using either of these patterns
+            async with contextlib.aclosing(example("exhausted 3")) as aiter:
+                saved.append(aiter)
+                assert 42 == await aiter.asend(None)
+            assert collected.pop() == "exhausted 3"
 
-        # Also fine if you exhaust it at point of use
-        async for val in example("exhausted 2"):
-            assert val == 42
-        assert collected.pop() == "exhausted 2"
+            # Also fine if you exhaust it at point of use
+            saved.append(example("exhausted 4"))
+            async for val in saved[-1]:
+                assert val == 42
+            assert collected.pop() == "exhausted 4"
 
-        gc_collect_harder()
+            # Leave one referenced-but-unexhausted and make sure it gets cleaned up
+            if buggy_pypy_asyncgens:
+                collected.append("outlived run")
+            else:
+                saved.append(example("outlived run"))
+                assert 42 == await saved[-1].asend(None)
+                assert collected == []
 
-        # No problems saving the geniter when using either of these patterns
-        async with contextlib.aclosing(example("exhausted 3")) as aiter:  # type: ignore[attr-defined]  # skipif makes sure we are at least 3.10
-            saved.append(aiter)
-            assert 42 == await aiter.asend(None)
-        assert collected.pop() == "exhausted 3"
-
-        # Also fine if you exhaust it at point of use
-        saved.append(example("exhausted 4"))
-        async for val in saved[-1]:
-            assert val == 42
-        assert collected.pop() == "exhausted 4"
-
-        # Leave one referenced-but-unexhausted and make sure it gets cleaned up
-        if buggy_pypy_asyncgens:
-            collected.append("outlived run")
-        else:
-            saved.append(example("outlived run"))
-            assert 42 == await saved[-1].asend(None)
-            assert collected == []
-
-    _core.run(async_main)
-    assert collected.pop() == "outlived run"
-    for agen in saved:
-        assert agen.ag_frame is None  # all should now be exhausted
+        _core.run(async_main)
+        assert collected.pop() == "outlived run"
+        for agen in saved:
+            assert agen.ag_frame is None  # all should now be exhausted
 
 
 async def test_asyncgen_throws_during_finalization(caplog) -> None:
