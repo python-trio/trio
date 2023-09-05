@@ -430,7 +430,7 @@ def test_non_base_multierror():
     assert isinstance(exc, ExceptionGroup)
 
 
-def run_script(name, use_ipython=False):
+def run_script(name: str) -> subprocess.CompletedProcess[bytes]:
     import trio
 
     trio_path = Path(trio.__file__).parent.parent
@@ -447,24 +447,7 @@ def run_script(name, use_ipython=False):
     env["PYTHONPATH"] = os.pathsep.join(pp)
     print("subprocess PYTHONPATH:", env.get("PYTHONPATH"))
 
-    if use_ipython:
-        lines = [
-            "import runpy",
-            f"runpy.run_path(r'{script_path}', run_name='trio.fake')",
-            "exit()",
-        ]
-
-        cmd = [
-            sys.executable,
-            "-u",
-            "-m",
-            "IPython",
-            # no startup files
-            "--quick",
-            "--TerminalIPythonApp.code_to_run=" + "\n".join(lines),
-        ]
-    else:
-        cmd = [sys.executable, "-u", str(script_path)]
+    cmd = [sys.executable, "-u", str(script_path)]
     print("running:", cmd)
     completed = subprocess.run(
         cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
@@ -488,53 +471,6 @@ def check_simple_excepthook(completed):
         ],
         completed.stdout.decode("utf-8"),
     )
-
-
-try:
-    import IPython  # noqa: F401
-except ImportError:  # pragma: no cover
-    have_ipython = False
-else:
-    have_ipython = True
-
-need_ipython = pytest.mark.skipif(not have_ipython, reason="need IPython")
-
-
-@slow
-@need_ipython
-def test_ipython_exc_handler():
-    completed = run_script("simple_excepthook.py", use_ipython=True)
-    check_simple_excepthook(completed)
-
-
-@slow
-@need_ipython
-def test_ipython_imported_but_unused():
-    completed = run_script("simple_excepthook_IPython.py")
-    check_simple_excepthook(completed)
-
-
-@slow
-@need_ipython
-def test_ipython_custom_exc_handler():
-    # Check we get a nice warning (but only one!) if the user is using IPython
-    # and already has some other set_custom_exc handler installed.
-    completed = run_script("ipython_custom_exc.py", use_ipython=True)
-    assert_match_in_seq(
-        [
-            # The warning
-            "RuntimeWarning",
-            "IPython detected",
-            "skip installing Trio",
-            # The MultiError
-            "MultiError",
-            "ValueError",
-            "KeyError",
-        ],
-        completed.stdout.decode("utf-8"),
-    )
-    # Make sure our other warning doesn't show up
-    assert "custom sys.excepthook" not in completed.stdout.decode("utf-8")
 
 
 @slow
