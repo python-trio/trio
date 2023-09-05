@@ -174,6 +174,7 @@ class FakeNet:
             pass
 
 
+@final
 class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
     def __init__(self, fake_net: FakeNet, family: int, type: int, proto: int):
         self._fake_net = fake_net

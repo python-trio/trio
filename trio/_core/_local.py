@@ -16,6 +16,7 @@ class _NoValue:
     ...
 
 
+@final
 @attr.s(eq=False, hash=False, slots=False)
 class RunVarToken(Generic[T], metaclass=NoPublicConstructor):
     _var: RunVar[T] = attr.ib()

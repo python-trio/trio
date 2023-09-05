@@ -812,6 +812,7 @@ class DTLSChannelStatistics:
     incoming_packets_dropped_in_trio: int
 
 
+@final
 class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
     """A DTLS connection.
 

@@ -199,11 +199,6 @@ def test_no_public_constructor_metaclass():
     with pytest.raises(TypeError):
         SpecialClass()
 
-    with pytest.raises(TypeError):
-
-        class SubClass(SpecialClass):
-            pass
-
     # Private constructor should not raise
     assert isinstance(SpecialClass._create(), SpecialClass)
 
