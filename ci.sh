@@ -49,7 +49,11 @@ if [ "$CHECK_FORMATTING" = "1" ]; then
     source check.sh
 else
     # Actual tests
-    if [ "$NO_TEST_REQUIREMENTS" != "1"]; then
+    # expands to 0 != 1 if NO_TEST_REQUIREMENTS is not set, if set the `-0` has no effect
+    # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_06_02
+    if [ ${NO_TEST_REQUIREMENTS-0} == 1 ]; then
+        python -m pip install pytest coverage
+    else
         python -m pip install -r test-requirements.txt
     fi
 
