@@ -26,12 +26,6 @@ click==8.1.7
     #   pip-tools
 codespell==2.2.5
     # via -r test-requirements.in
-colorama==0.4.6
-    # via
-    #   build
-    #   click
-    #   pylint
-    #   pytest
 coverage==7.3.0
     # via -r test-requirements.in
 cryptography==41.0.3
