@@ -509,7 +509,7 @@ async def _resolve_address_nocp(
     return normed
 
 
-# _stdlib_socket.socket supports 13 different socket families: https://docs.python.org/3/library/socket.html?highlight=sendmsg#socket-families
+# _stdlib_socket.socket supports 13 different socket families: https://docs.python.org/3/library/socket.html#socket-families
 # and the return type of several methods will depend on those. typeshed has ended up typing those return types as `Any` in most cases, but for users that know which family/families they're working in and wants complete type coverage they can specify the AddressFormat.
 class SocketType(Generic[AddressFormat]):
     def __init__(self) -> None:
