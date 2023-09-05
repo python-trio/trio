@@ -24,7 +24,16 @@ from heapq import heapify, heappop, heappush
 from math import inf
 from time import perf_counter
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, NoReturn, Protocol, TypeVar, cast, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Final,
+    NoReturn,
+    Protocol,
+    TypeVar,
+    cast,
+    overload,
+)
 
 import attr
 from outcome import Error, Outcome, Value, capture
@@ -58,15 +67,12 @@ from types import FrameType
 if TYPE_CHECKING:
     import contextvars
 
-    # An unfortunate name collision here with trio._util.Final
-    from typing import Final as FinalT
-
     from typing_extensions import Self
 
-DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: FinalT = 1000
+DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: Final = 1000
 
 # Passed as a sentinel
-_NO_SEND: FinalT = cast("Outcome[Any]", object())
+_NO_SEND: Final = cast("Outcome[Any]", object())
 
 FnT = TypeVar("FnT", bound="Callable[..., Any]")
 StatusT = TypeVar("StatusT")
@@ -91,7 +97,7 @@ def _public(fn: FnT) -> FnT:
 # variable to True, and registers the Random instance _r for Hypothesis
 # to manage for each test case, which together should make Trio's task
 # scheduling loop deterministic.  We have a test for that, of course.
-_ALLOW_DETERMINISTIC_SCHEDULING: FinalT = False
+_ALLOW_DETERMINISTIC_SCHEDULING: Final = False
 _r = random.Random()
 
 
@@ -136,7 +142,7 @@ def _count_context_run_tb_frames() -> int:
         )
 
 
-CONTEXT_RUN_TB_FRAMES: FinalT = _count_context_run_tb_frames()
+CONTEXT_RUN_TB_FRAMES: Final = _count_context_run_tb_frames()
 
 
 @attr.s(frozen=True, slots=True)
@@ -1419,7 +1425,7 @@ class RunContext(threading.local):
     task: Task
 
 
-GLOBAL_RUN_CONTEXT: FinalT = RunContext()
+GLOBAL_RUN_CONTEXT: Final = RunContext()
 
 
 @attr.frozen
@@ -2389,7 +2395,7 @@ def start_guest_run(
 
 # 24 hours is arbitrary, but it avoids issues like people setting timeouts of
 # 10**20 and then getting integer overflows in the underlying system calls.
-_MAX_TIMEOUT: FinalT = 24 * 60 * 60
+_MAX_TIMEOUT: Final = 24 * 60 * 60
 
 
 # Weird quirk: this is written as a generator in order to support "guest
@@ -2647,7 +2653,7 @@ class _TaskStatusIgnored(TaskStatus[Any]):
         pass
 
 
-TASK_STATUS_IGNORED: FinalT[TaskStatus[Any]] = _TaskStatusIgnored()
+TASK_STATUS_IGNORED: Final[TaskStatus[Any]] = _TaskStatusIgnored()
 
 
 def current_task() -> Task:
