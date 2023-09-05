@@ -188,6 +188,12 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
     elif tool == "pyright_verifytypes":
         if not RUN_SLOW:  # pragma: no cover
             pytest.skip("use --run-slow to check against mypy")
+        try:
+            import pyright  # noqa: F401
+        except ImportError as error:
+            if not SKIP_OPTIONAL_IMPORTS:
+                raise error
+            pytest.skip(error.msg)
         import subprocess
 
         res = subprocess.run(
