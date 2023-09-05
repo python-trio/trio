@@ -37,9 +37,9 @@ def _ensure_mypy_cache_updated():
     try:
         from mypy.api import run
     except ImportError as error:
-        if SKIP_OPTIONAL_IMPORTS:
-            pytest.skip(error.msg)
-        raise error
+        if not SKIP_OPTIONAL_IMPORTS:
+            raise error
+        pytest.skip(error.msg)
 
     global mypy_cache_updated
     if not mypy_cache_updated:
@@ -139,9 +139,9 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         try:
             from pylint.lint import PyLinter
         except ImportError as error:
-            if SKIP_OPTIONAL_IMPORTS:
-                pytest.skip(error.msg)
-            raise error
+            if not SKIP_OPTIONAL_IMPORTS:
+                raise error
+            pytest.skip(error.msg)
 
         linter = PyLinter()
         ast = linter.get_ast(module.__file__, modname)
@@ -150,9 +150,9 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         try:
             import jedi
         except ImportError as error:
-            if SKIP_OPTIONAL_IMPORTS:
-                pytest.skip(error.msg)
-            raise error
+            if not SKIP_OPTIONAL_IMPORTS:
+                raise error
+            pytest.skip(error.msg)
 
         # Simulate typing "import trio; trio.<TAB>"
         script = jedi.Script(f"import {modname}; {modname}.")
@@ -373,9 +373,9 @@ def test_static_tool_sees_class_members(
             try:
                 import jedi
             except ImportError as error:
-                if SKIP_OPTIONAL_IMPORTS:
-                    pytest.skip(error.msg)
-                raise error
+                if not SKIP_OPTIONAL_IMPORTS:
+                    raise error
+                pytest.skip(error.msg)
 
             script = jedi.Script(
                 f"from {module_name} import {class_name}; {class_name}."

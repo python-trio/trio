@@ -43,7 +43,9 @@ if [ "$CHECK_FORMATTING" = "1" ]; then
     source check.sh
 else
     # Actual tests
-    python -m pip install -r test-requirements.txt
+    if [ "$NO_TEST_REQUIREMENTS" != "1"]; then
+        python -m pip install -r test-requirements.txt
+    fi
 
     # So we can run the test for our apport/excepthook interaction working
     if [ -e /etc/lsb-release ] && grep -q Ubuntu /etc/lsb-release; then

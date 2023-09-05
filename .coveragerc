@@ -33,3 +33,5 @@ partial_branches =
   if .* or not TYPE_CHECKING:
   if .* or not _t.TYPE_CHECKING:
   if .* or not t.TYPE_CHECKING:
+  if not SKIP_OPTIONAL_IMPORTS:
+  if SKIP_OPTIONAL_IMPORTS:

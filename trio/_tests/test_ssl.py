@@ -16,9 +16,9 @@ try:
     import trustme
     from OpenSSL import SSL
 except ImportError as error:
-    if SKIP_OPTIONAL_IMPORTS:
-        pytest.skip(error.msg, allow_module_level=True)
-    raise error
+    if not SKIP_OPTIONAL_IMPORTS:
+        raise error
+    pytest.skip(error.msg, allow_module_level=True)
 
 import trio
 

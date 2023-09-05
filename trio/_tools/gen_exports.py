@@ -22,13 +22,10 @@ if TYPE_CHECKING:
     from typing_extensions import TypeGuard
 
 # keep these imports up to date with conditional imports in test_gen_exports
-# isort: off
+# isort: split
 import astor
 import isort.api
 import isort.exceptions
-
-
-# isort: on
 
 PREFIX = "_generated"
 
