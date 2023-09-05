@@ -53,7 +53,7 @@ def test_asyncgen_basics() -> None:
         try:
             assert 42 == await aiter.asend(None)
         finally:
-            await aiter.close()
+            await aiter.aclose()
         assert collected.pop() == "exhausted 1"
 
         # Also fine if you exhaust it at point of use
@@ -69,7 +69,7 @@ def test_asyncgen_basics() -> None:
         try:
             assert 42 == await aiter.asend(None)
         finally:
-            await aiter.close()
+            await aiter.aclose()
         assert collected.pop() == "exhausted 3"
 
         # Also fine if you exhaust it at point of use
