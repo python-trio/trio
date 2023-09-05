@@ -109,8 +109,7 @@ jobs:
     continue-on-error: >-
       ${{
         (
-          matrix.check_formatting == '1'
-          || endsWith(matrix.python, '-dev')
+          endsWith(matrix.python, '-dev')
           || endsWith(matrix.python, '-nightly')
         )
         && true
