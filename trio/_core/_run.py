@@ -24,16 +24,7 @@ from heapq import heapify, heappop, heappush
 from math import inf
 from time import perf_counter
 from types import TracebackType
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    NoReturn,
-    Protocol,
-    TypeVar,
-    cast,
-    final,
-    overload,
-)
+from typing import TYPE_CHECKING, Any, NoReturn, Protocol, TypeVar, cast, overload
 
 import attr
 from outcome import Error, Outcome, Value, capture
@@ -42,7 +33,7 @@ from sortedcontainers import SortedDict
 
 from .. import _core
 from .._abc import Clock, Instrument
-from .._util import Final, NoPublicConstructor, coroutine_or_error
+from .._util import NoPublicConstructor, coroutine_or_error, final
 from ._asyncgens import AsyncGenerators
 from ._entry_queue import EntryQueue, TrioToken
 from ._exceptions import Cancelled, RunFinishedError, TrioInternalError
@@ -473,7 +464,7 @@ https://github.com/python-trio/trio/issues/new
 
 @final
 @attr.s(eq=False, repr=False, slots=True)
-class CancelScope(metaclass=Final):
+class CancelScope:
     """A *cancellation scope*: the link between a unit of cancellable
     work and Trio's cancellation system.
 

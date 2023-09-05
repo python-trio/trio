@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, overload
 import trio
 
 from . import socket as tsocket
-from ._util import ConflictDetector, Final
+from ._util import ConflictDetector, final
 from .abc import HalfCloseableStream, Listener
 
 if TYPE_CHECKING:
@@ -42,7 +42,8 @@ def _translate_socket_errors_to_stream_errors() -> Generator[None, None, None]:
             raise trio.BrokenResourceError(f"socket connection broken: {exc}") from exc
 
 
-class SocketStream(HalfCloseableStream, metaclass=Final):
+@final
+class SocketStream(HalfCloseableStream):
     """An implementation of the :class:`trio.abc.HalfCloseableStream`
     interface based on a raw network socket.
 

@@ -6,7 +6,7 @@ import attr
 
 from .. import _core
 from .._deprecate import deprecated
-from .._util import Final
+from .._util import final
 
 T = TypeVar("T")
 
@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
 
+@final
 @attr.s(slots=True, frozen=True)
 class UnboundedQueueStatistics:
     """An object containing debugging information.
@@ -30,7 +31,8 @@ class UnboundedQueueStatistics:
     tasks_waiting: int = attr.ib()
 
 
-class UnboundedQueue(Generic[T], metaclass=Final):
+@final
+class UnboundedQueue(Generic[T]):
     """An unbounded queue suitable for certain unusual forms of inter-task
     communication.
 

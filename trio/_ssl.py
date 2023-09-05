@@ -10,7 +10,7 @@ import trio
 
 from . import _sync
 from ._highlevel_generic import aclose_forcefully
-from ._util import ConflictDetector, Final
+from ._util import ConflictDetector, final
 from .abc import Listener, Stream
 
 # General theory of operation:
@@ -240,7 +240,8 @@ class _Once:
 _State = _Enum("_State", ["OK", "BROKEN", "CLOSED"])
 
 
-class SSLStream(Stream, metaclass=Final):
+@final
+class SSLStream(Stream):
     r"""Encrypted communication using SSL/TLS.
 
     :class:`SSLStream` wraps an arbitrary :class:`~trio.abc.Stream`, and
@@ -888,7 +889,8 @@ class SSLStream(Stream, metaclass=Final):
                 await self.transport_stream.wait_send_all_might_not_block()
 
 
-class SSLListener(Listener[SSLStream], metaclass=Final):
+@final
+class SSLListener(Listener[SSLStream]):
     """A :class:`~trio.abc.Listener` for SSL/TLS-encrypted servers.
 
     :class:`SSLListener` wraps around another Listener, and converts

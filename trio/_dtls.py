@@ -33,7 +33,7 @@ import attr
 
 import trio
 
-from ._util import Final, NoPublicConstructor
+from ._util import NoPublicConstructor, final
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -1154,7 +1154,8 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         return DTLSChannelStatistics(self._packets_dropped_in_trio)
 
 
-class DTLSEndpoint(metaclass=Final):
+@final
+class DTLSEndpoint:
     """A DTLS endpoint.
 
     A single UDP socket can handle arbitrarily many DTLS connections simultaneously,

@@ -22,7 +22,7 @@ from typing import (
 
 import trio
 from trio._file_io import AsyncIOWrapper as _AsyncIOWrapper
-from trio._util import Final, async_wraps
+from trio._util import async_wraps, final
 
 if TYPE_CHECKING:
     from _typeshed import (
@@ -129,7 +129,7 @@ def classmethod_wrapper_factory(
     return classmethod(wrapper)
 
 
-class AsyncAutoWrapperType(Final):
+class AsyncAutoWrapperType:
     _forwards: type
     _wraps: type
     _forward_magic: list[str]
@@ -197,6 +197,7 @@ class AsyncAutoWrapperType(Final):
                 setattr(cls, attr_name, wrapper)
 
 
+@final
 class Path(metaclass=AsyncAutoWrapperType):
     """A :class:`pathlib.Path` wrapper that executes blocking methods in
     :meth:`trio.to_thread.run_sync`.

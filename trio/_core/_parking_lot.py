@@ -79,12 +79,13 @@ from typing import TYPE_CHECKING
 import attr
 
 from .. import _core
-from .._util import Final
+from .._util import final
 
 if TYPE_CHECKING:
     from ._run import Task
 
 
+@final
 @attr.s(frozen=True, slots=True)
 class ParkingLotStatistics:
     """An object containing debugging information for a ParkingLot.
@@ -99,8 +100,9 @@ class ParkingLotStatistics:
     tasks_waiting: int = attr.ib()
 
 
+@final
 @attr.s(eq=False, hash=False, slots=True)
-class ParkingLot(metaclass=Final):
+class ParkingLot:
     """A fair wait queue with cancellation and requeueing.
 
     This class encapsulates the tricky parts of implementing a wait
