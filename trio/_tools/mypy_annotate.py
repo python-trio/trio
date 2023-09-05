@@ -38,7 +38,7 @@ mypy_to_github = {
 
 @attrs.frozen(kw_only=True)
 class Result:
-    """Accumulated results, collected and deduplicated."""
+    """Accumulated results, used as a dict key to deduplicate."""
 
     filename: str
     start_line: int
