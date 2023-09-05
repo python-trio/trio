@@ -65,6 +65,8 @@ mypy trio --show-error-end --platform win32 | python ./trio/_tools/mypy_annotate
 set +o pipefail
 # Re-display errors using Github's syntax, read out of mypy_annotate.dat
 python ./trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat
+# Then discard.
+rm -f mypy_annotate.dat
 echo "::endgroup::"
 # Display a big error if we failed, outside the group so it can't be collapsed.
 if [ $MYPY -ne 0 ]; then
