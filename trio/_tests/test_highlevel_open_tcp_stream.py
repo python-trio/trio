@@ -15,7 +15,7 @@ from trio._highlevel_open_tcp_stream import (
     open_tcp_stream,
     reorder_for_rfc_6555_section_5_4,
 )
-from trio.socket import AF_INET, AF_INET6, IPPROTO_TCP, SOCK_STREAM, Address, SocketType
+from trio.socket import AF_INET, AF_INET6, IPPROTO_TCP, SOCK_STREAM, SocketType
 
 if TYPE_CHECKING:
     from trio.testing import MockClock

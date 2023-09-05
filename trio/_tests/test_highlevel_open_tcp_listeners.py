@@ -17,7 +17,6 @@ from trio.testing import open_stream_to_socket_listener
 
 from .. import socket as tsocket
 from .._core._tests.tutil import binds_ipv6
-from .._socket import AddressWithNoneHost
 
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
