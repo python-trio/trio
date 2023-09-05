@@ -457,22 +457,6 @@ def run_script(name: str) -> subprocess.CompletedProcess[bytes]:
     return completed
 
 
-def check_simple_excepthook(completed):
-    assert_match_in_seq(
-        [
-            "in <module>",
-            "MultiError",
-            "--- 1 ---",
-            "in exc1_fn",
-            "ValueError",
-            "--- 2 ---",
-            "in exc2_fn",
-            "KeyError",
-        ],
-        completed.stdout.decode("utf-8"),
-    )
-
-
 @slow
 @pytest.mark.skipif(
     not Path("/usr/lib/python3/dist-packages/apport_python_hook.py").exists(),
