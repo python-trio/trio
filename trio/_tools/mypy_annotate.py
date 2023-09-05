@@ -81,7 +81,7 @@ def export(results: dict[Result, list[str]]) -> None:
         print(f"title=Mypy-{'+'.join(platforms)}::{res.filename}:{message}")
 
 
-def main(argv) -> None:
+def main(argv: list[str]) -> None:
     """Look for error messages, and convert the format."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(

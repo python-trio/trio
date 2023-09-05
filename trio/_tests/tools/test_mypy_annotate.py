@@ -55,7 +55,7 @@ def test_processing(src: str, expected: Result | None) -> None:
     assert result == expected
 
 
-def test_export(capsys) -> None:
+def test_export(capsys: pytest.CaptureFixture[str]) -> None:
     results = {
         Result(
             kind="notice",
@@ -97,7 +97,11 @@ def test_export(capsys) -> None:
     )
 
 
-def test_endtoend(tmp_path: Path, monkeypatch, capsys) -> None:
+def test_endtoend(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     inp_text = """\
 Mypy begun
 trio/core.py:15: error: Bad types here [misc]
