@@ -48,24 +48,30 @@ flake8 trio/ || EXIT_STATUS=$?
 echo "::endgroup::"
 
 # Run mypy on all supported platforms
+# MYPY is set if any of them fail.
 MYPY=0
 echo "::group::Mypy"
 # Cleanup previous runs.
 rm -f mypy_annotate.dat
+# Pipefail makes these pipelines fail if mypy does, even if mypy_annotate.py succeeds.
+set -o pipefail
 mypy trio --show-error-end --platform linux | python ./trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Linux \
-    || echo "* Mypy (Linux) found type errors." >> $GITHUB_STEP_SUMMARY; MYPY=1
+    || { echo "* Mypy (Linux) found type errors." >> $GITHUB_STEP_SUMMARY; MYPY=1; }
 # Darwin tests FreeBSD too
 mypy trio --show-error-end --platform darwin | python ./trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Mac \
-    || echo "* Mypy (Mac) found type errors." >> $GITHUB_STEP_SUMMARY; MYPY=1
+    || { echo "* Mypy (Mac) found type errors." >> $GITHUB_STEP_SUMMARY; MYPY=1; }
 mypy trio --show-error-end --platform win32 | python ./trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Windows \
-    || echo "* Mypy (Windows) found type errors." >> $GITHUB_STEP_SUMMARY; MYPY=1
-# Re-display errors using Github's syntax.
+    || { echo "* Mypy (Windows) found type errors." >> $GITHUB_STEP_SUMMARY; MYPY=1; }
+set +o pipefail
+# Re-display errors using Github's syntax, read out of mypy_annotate.dat
 python ./trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat
 echo "::endgroup::"
+# Display a big error if we failed, outside the group so it can't be collapsed.
 if [ $MYPY -ne 0 ]; then
     echo "::error:: Mypy found type errors."
     EXIT_STATUS=1
 fi
+
 # Check pip compile is consistent
 echo "::group::Pip Compile - Tests"
 pip-compile test-requirements.in
