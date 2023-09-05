@@ -16,6 +16,7 @@ from .._util import (
     Final,
     NoPublicConstructor,
     coroutine_or_error,
+    final,
     fixup_module_metadata,
     generic_function,
     is_main_thread,
@@ -177,6 +178,17 @@ def test_final_metaclass():
     with pytest.raises(TypeError):
 
         class SubClass(FinalClass):
+            pass
+
+
+def test_final_deco() -> None:
+    @final
+    class FinalClass:
+        pass
+
+    with pytest.raises(TypeError):
+
+        class SubClass(FinalClass):  # type: ignore[misc]
             pass
 
 

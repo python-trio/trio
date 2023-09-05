@@ -311,6 +311,38 @@ class generic_function(t.Generic[RetT]):
         return self
 
 
+def _init_final_cls(cls: type[object]) -> t.NoReturn:
+    """Raises an exception when a final class is subclassed."""
+    raise TypeError(f"{cls.__module__}.{cls.__qualname__} does not support subclassing")
+
+
+def _final_impl(decorated: type[T]) -> type[T]:
+    """Decorator that enforces a class to be final (i.e., subclass not allowed).
+
+    If a class uses this metaclass like this::
+
+        @final
+        class SomeClass:
+            pass
+
+    The metaclass will ensure that no subclass can be created.
+
+    Raises
+    ------
+    - TypeError if a subclass is created
+    """
+    # Override the method blindly. We're always going to raise, so it doesn't
+    # matter what the original did (if anything).
+    decorated.__init_subclass__ = classmethod(_init_final_cls)  # type: ignore[assignment]
+    return decorated
+
+
+if t.TYPE_CHECKING:
+    from typing import final
+else:
+    final = _final_impl
+
+
 class Final(ABCMeta):
     """Metaclass that enforces a class to be final (i.e., subclass not allowed).
 
