@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import io
-import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
-from trio._tools.mypy_annotate import main, process_line, Result, export
+from trio._tools.mypy_annotate import Result, export, main, process_line
 
 
 @pytest.mark.parametrize(
@@ -17,15 +16,36 @@ from trio._tools.mypy_annotate import main, process_line, Result, export
         ("a regular line\n", None),
         (
             "package\\filename.py:42:8: note: Some info\n",
-            Result(kind="notice", filename="package\\filename.py", start_line=42, start_col=8, end_line=None, end_col=None, message=" Some info",),
+            Result(
+                kind="notice",
+                filename="package\\filename.py",
+                start_line=42,
+                start_col=8,
+                end_line=None,
+                end_col=None,
+                message=" Some info",
+            ),
         ),
         (
             "package/filename.py:42:1:46:3: error: Type error here [code]\n",
-            Result(kind="error", filename="package/filename.py", start_line=42, start_col=1, end_line=46, end_col=3, message=" Type error here [code]"),
+            Result(
+                kind="error",
+                filename="package/filename.py",
+                start_line=42,
+                start_col=1,
+                end_line=46,
+                end_col=3,
+                message=" Type error here [code]",
+            ),
         ),
         (
             "package/module.py:87: warn: Bad code\n",
-            Result(kind="warning", filename="package/module.py", start_line=87, message=" Bad code"),
+            Result(
+                kind="warning",
+                filename="package/module.py",
+                start_line=87,
+                message=" Bad code",
+            ),
         ),
     ],
     ids=["blank", "normal", "note-wcol", "error-wend", "warn-lineonly"],
@@ -37,20 +57,41 @@ def test_processing(src: str, expected: Result | None) -> None:
 
 def test_export(capsys) -> None:
     results = {
-        Result(kind="notice", filename="package\\filename.py", start_line=42, start_col=8, end_line=None, end_col=None, message=" Some info"): ["Windows", "Mac"],
-        Result(kind="error", filename="package/filename.py", start_line=42, start_col=1, end_line=46, end_col=3, message=" Type error here [code]"): ["Linux", "Mac"],
-        Result(kind="warning", filename="package/module.py", start_line=87, message=" Bad code"): ["Linux"],
+        Result(
+            kind="notice",
+            filename="package\\filename.py",
+            start_line=42,
+            start_col=8,
+            end_line=None,
+            end_col=None,
+            message=" Some info",
+        ): ["Windows", "Mac"],
+        Result(
+            kind="error",
+            filename="package/filename.py",
+            start_line=42,
+            start_col=1,
+            end_line=46,
+            end_col=3,
+            message=" Type error here [code]",
+        ): ["Linux", "Mac"],
+        Result(
+            kind="warning",
+            filename="package/module.py",
+            start_line=87,
+            message=" Bad code",
+        ): ["Linux"],
     }
     export(results)
     std = capsys.readouterr()
     assert std.err == ""
     assert std.out == (
         "::notice file=package\\filename.py,line=42,col=8,"
-        "title=Mypy-Windows+Mac::package\\filename.py:(42:8): Some info\n"
-
+        "title=Mypy-Windows+Mac::package\\filename.py:(42:8): Some info"
+        "\n"
         "::error file=package/filename.py,line=42,col=1,endLine=46,endColumn=3,"
-        "title=Mypy-Linux+Mac::package/filename.py:(42:1 - 46:3): Type error here [code]\n"
-
+        "title=Mypy-Linux+Mac::package/filename.py:(42:1 - 46:3): Type error here [code]"
+        "\n"
         "::warning file=package/module.py,line=87,"
         "title=Mypy-Linux::package/module.py:87: Bad code\n"
     )

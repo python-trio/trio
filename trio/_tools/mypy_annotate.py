@@ -3,15 +3,15 @@
 See: https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions
 
 This first is run with Mypy's output piped in, to collect messages in
-mypy_annotate.dat. After all platforms run, we run this again with
---export, which prints the messages but with cross-platform failures
-deduplicated.
+mypy_annotate.dat. After all platforms run, we run this again, which prints the
+messages in GitHub's format but with cross-platform failures deduplicated.
 """
 from __future__ import annotations
+
+import argparse
 import pickle
 import re
 import sys
-import argparse
 
 import attrs
 
@@ -39,6 +39,7 @@ mypy_to_github = {
 @attrs.frozen(kw_only=True)
 class Result:
     """Accumulated results, collected and deduplicated."""
+
     filename: str
     start_line: int
     kind: str
@@ -67,11 +68,11 @@ def process_line(line: str) -> Result | None:
 def export(results: dict[Result, list[str]]) -> None:
     """Display the collected results."""
     for res, platforms in results.items():
-        print(f"::{res.kind} file={res.filename},line={res.start_line},", end='')
+        print(f"::{res.kind} file={res.filename},line={res.start_line},", end="")
         if res.start_col is not None:
-            print(f"col={res.start_col},", end='')
+            print(f"col={res.start_col},", end="")
             if res.end_col is not None and res.end_line is not None:
-                print(f"endLine={res.end_line},endColumn={res.end_col},", end='')
+                print(f"endLine={res.end_line},endColumn={res.end_col},", end="")
                 message = f"({res.start_line}:{res.start_col} - {res.end_line}:{res.end_col}):{res.message}"
             else:
                 message = f"({res.start_line}:{res.start_col}):{res.message}"
@@ -83,13 +84,19 @@ def export(results: dict[Result, list[str]]) -> None:
 def main(argv) -> None:
     """Look for error messages, and convert the format."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--dumpfile", help="File to write pickled messages to.", required=True)
-    parser.add_argument("--platform", help="OS name, if set Mypy should be piped to stdin.", default=None)
+    parser.add_argument(
+        "--dumpfile", help="File to write pickled messages to.", required=True
+    )
+    parser.add_argument(
+        "--platform",
+        help="OS name, if set Mypy should be piped to stdin.",
+        default=None,
+    )
     cmd_line = parser.parse_args(argv)
 
     results: dict[Result, list[str]]
     try:
-        with open(cmd_line.dumpfile, 'rb') as f:
+        with open(cmd_line.dumpfile, "rb") as f:
             results = pickle.load(f)
     except (FileNotFoundError, pickle.UnpicklingError):
         # If we fail to load, assume it's an old result.
@@ -108,7 +115,7 @@ def main(argv) -> None:
                 except KeyError:
                     results[parsed] = [platform]
             sys.stdout.write(line)
-        with open(cmd_line.dumpfile, 'wb') as f:
+        with open(cmd_line.dumpfile, "wb") as f:
             pickle.dump(results, f)
 
 
