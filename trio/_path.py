@@ -129,7 +129,7 @@ def classmethod_wrapper_factory(
     return classmethod(wrapper)
 
 
-class AsyncAutoWrapperType:
+class AsyncAutoWrapperType(type):
     _forwards: type
     _wraps: type
     _forward_magic: list[str]

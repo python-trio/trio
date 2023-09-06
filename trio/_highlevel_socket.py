@@ -355,7 +355,8 @@ for name in _ignorable_accept_errno_names:
         pass
 
 
-class SocketListener(Listener[SocketStream], metaclass=Final):
+@final
+class SocketListener(Listener[SocketStream]):
     """A :class:`~trio.abc.Listener` that uses a listening socket to accept
     incoming connections as :class:`SocketStream` objects.
 

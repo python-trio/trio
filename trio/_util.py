@@ -373,6 +373,7 @@ class Final(ABCMeta):
         return super().__new__(cls, name, bases, cls_namespace)
 
 
+@final  # No subclassing of NoPublicConstructor itself.
 class NoPublicConstructor(Final):
     """Metaclass that enforces a class to be final (i.e., subclass not allowed)
     and ensures a private constructor.
