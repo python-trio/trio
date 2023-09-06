@@ -6,12 +6,13 @@ import sys
 import types
 from collections.abc import Callable
 from functools import wraps
-from typing import TYPE_CHECKING, Final, TypeVar
+from typing import TYPE_CHECKING, Final, Protocol, TypeVar
 
 import attr
 
 from .._util import is_main_thread
 
+CallableT = TypeVar("CallableT", bound="Callable[..., object]")
 RetT = TypeVar("RetT")
 
 if TYPE_CHECKING:
@@ -183,14 +184,19 @@ def _ki_protection_decorator(
     return decorator
 
 
-enable_ki_protection: Callable[
-    [Callable[ArgsT, RetT]], Callable[ArgsT, RetT]
-] = _ki_protection_decorator(True)
+# pyright workaround: https://github.com/microsoft/pyright/issues/5866
+class KIProtectionSignature(Protocol):
+    __name__: str
+
+    def __call__(self, f: CallableT, /) -> CallableT:
+        pass
+
+
+# the following `type: ignore`s are because we use ParamSpec internally, but want to allow overloads
+enable_ki_protection: KIProtectionSignature = _ki_protection_decorator(True)  # type: ignore[assignment]
 enable_ki_protection.__name__ = "enable_ki_protection"
 
-disable_ki_protection: Callable[
-    [Callable[ArgsT, RetT]], Callable[ArgsT, RetT]
-] = _ki_protection_decorator(False)
+disable_ki_protection: KIProtectionSignature = _ki_protection_decorator(False)  # type: ignore[assignment]
 disable_ki_protection.__name__ = "disable_ki_protection"
 
 
