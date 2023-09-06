@@ -1,1 +1,0 @@
-On win32 we no longer set SO_EXCLUSIVEADDRUSE when binding a socket in :exc:`trio.open_tcp_listeners`.

@@ -1,19 +1,30 @@
+from __future__ import annotations
+
+import socket
 from abc import ABCMeta, abstractmethod
-from typing import Generic, TypeVar
-from ._util import aiter_compat
+from typing import TYPE_CHECKING, Generic, TypeVar
+
 import trio
+
+if TYPE_CHECKING:
+    from types import TracebackType
+
+    from typing_extensions import Self
+
+    # both of these introduce circular imports if outside a TYPE_CHECKING guard
+    from ._socket import _SocketType
+    from .lowlevel import Task
 
 
 # We use ABCMeta instead of ABC, plus set __slots__=(), so as not to force a
 # __dict__ onto subclasses.
 class Clock(metaclass=ABCMeta):
-    """The interface for custom run loop clocks.
+    """The interface for custom run loop clocks."""
 
-    """
     __slots__ = ()
 
     @abstractmethod
-    def start_clock(self):
+    def start_clock(self) -> None:
         """Do any setup this clock might need.
 
         Called at the beginning of the run.
@@ -21,7 +32,7 @@ class Clock(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def current_time(self):
+    def current_time(self) -> float:
         """Return the current time, according to this clock.
 
         This is used to implement functions like :func:`trio.current_time` and
@@ -33,7 +44,7 @@ class Clock(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def deadline_to_sleep_time(self, deadline):
+    def deadline_to_sleep_time(self, deadline: float) -> float:
         """Compute the real time until the given deadline.
 
         This is called before we enter a system-specific wait function like
@@ -64,62 +75,59 @@ class Instrument(metaclass=ABCMeta):
     of these methods are optional. This class serves mostly as documentation.
 
     """
+
     __slots__ = ()
 
-    def before_run(self):
-        """Called at the beginning of :func:`trio.run`.
+    def before_run(self) -> None:
+        """Called at the beginning of :func:`trio.run`."""
 
-        """
+    def after_run(self) -> None:
+        """Called just before :func:`trio.run` returns."""
 
-    def after_run(self):
-        """Called just before :func:`trio.run` returns.
-
-        """
-
-    def task_spawned(self, task):
+    def task_spawned(self, task: Task) -> None:
         """Called when the given task is created.
 
         Args:
-            task (trio.hazmat.Task): The new task.
+            task (trio.lowlevel.Task): The new task.
 
         """
 
-    def task_scheduled(self, task):
+    def task_scheduled(self, task: Task) -> None:
         """Called when the given task becomes runnable.
 
         It may still be some time before it actually runs, if there are other
         runnable tasks ahead of it.
 
         Args:
-            task (trio.hazmat.Task): The task that became runnable.
+            task (trio.lowlevel.Task): The task that became runnable.
 
         """
 
-    def before_task_step(self, task):
+    def before_task_step(self, task: Task) -> None:
         """Called immediately before we resume running the given task.
 
         Args:
-            task (trio.hazmat.Task): The task that is about to run.
+            task (trio.lowlevel.Task): The task that is about to run.
 
         """
 
-    def after_task_step(self, task):
+    def after_task_step(self, task: Task) -> None:
         """Called when we return to the main run loop after a task has yielded.
 
         Args:
-            task (trio.hazmat.Task): The task that just ran.
+            task (trio.lowlevel.Task): The task that just ran.
 
         """
 
-    def task_exited(self, task):
+    def task_exited(self, task: Task) -> None:
         """Called when the given task exits.
 
         Args:
-            task (trio.hazmat.Task): The finished task.
+            task (trio.lowlevel.Task): The finished task.
 
         """
 
-    def before_io_wait(self, timeout):
+    def before_io_wait(self, timeout: float) -> None:
         """Called before blocking to wait for I/O readiness.
 
         Args:
@@ -127,7 +135,7 @@ class Instrument(metaclass=ABCMeta):
 
         """
 
-    def after_io_wait(self, timeout):
+    def after_io_wait(self, timeout: float) -> None:
         """Called after handling pending I/O.
 
         Args:
@@ -145,12 +153,27 @@ class HostnameResolver(metaclass=ABCMeta):
     See :func:`trio.socket.set_custom_hostname_resolver`.
 
     """
+
     __slots__ = ()
 
     @abstractmethod
     async def getaddrinfo(
-        self, host, port, family=0, type=0, proto=0, flags=0
-    ):
+        self,
+        host: bytes | str | None,
+        port: bytes | str | int | None,
+        family: int = 0,
+        type: int = 0,
+        proto: int = 0,
+        flags: int = 0,
+    ) -> list[
+        tuple[
+            socket.AddressFamily,
+            socket.SocketKind,
+            int,
+            str,
+            tuple[str, int] | tuple[str, int, int, int],
+        ]
+    ]:
         """A custom implementation of :func:`~trio.socket.getaddrinfo`.
 
         Called by :func:`trio.socket.getaddrinfo`.
@@ -167,7 +190,9 @@ class HostnameResolver(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    async def getnameinfo(self, sockaddr, flags):
+    async def getnameinfo(
+        self, sockaddr: tuple[str, int] | tuple[str, int, int, int], flags: int
+    ) -> tuple[str, str]:
         """A custom implementation of :func:`~trio.socket.getnameinfo`.
 
         Called by :func:`trio.socket.getnameinfo`.
@@ -184,7 +209,12 @@ class SocketFactory(metaclass=ABCMeta):
     """
 
     @abstractmethod
-    def socket(self, family=None, type=None, proto=None):
+    def socket(
+        self,
+        family: socket.AddressFamily | int | None = None,
+        type: socket.SocketKind | int | None = None,
+        proto: int | None = None,
+    ) -> _SocketType:
         """Create and return a socket object.
 
         Your socket object must inherit from :class:`trio.socket.SocketType`,
@@ -226,10 +256,11 @@ class AsyncResource(metaclass=ABCMeta):
     ``__aenter__`` and ``__aexit__`` should be adequate for all subclasses.
 
     """
+
     __slots__ = ()
 
     @abstractmethod
-    async def aclose(self):
+    async def aclose(self) -> None:
         """Close this resource, possibly blocking.
 
         IMPORTANT: This method may block in order to perform a "graceful"
@@ -257,10 +288,15 @@ class AsyncResource(metaclass=ABCMeta):
 
         """
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Self:
         return self
 
-    async def __aexit__(self, *args):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         await self.aclose()
 
 
@@ -279,10 +315,11 @@ class SendStream(AsyncResource):
     :class:`SendChannel`.
 
     """
+
     __slots__ = ()
 
     @abstractmethod
-    async def send_all(self, data):
+    async def send_all(self, data: bytes | bytearray | memoryview) -> None:
         """Sends the given data through the stream, blocking if necessary.
 
         Args:
@@ -308,7 +345,7 @@ class SendStream(AsyncResource):
         """
 
     @abstractmethod
-    async def wait_send_all_might_not_block(self):
+    async def wait_send_all_might_not_block(self) -> None:
         """Block until it's possible that :meth:`send_all` might not block.
 
         This method may return early: it's possible that after it returns,
@@ -335,7 +372,7 @@ class SendStream(AsyncResource):
 
           This method is intended to aid in implementing protocols that want
           to delay choosing which data to send until the last moment. E.g.,
-          suppose you're working on an implemention of a remote display server
+          suppose you're working on an implementation of a remote display server
           like `VNC
           <https://en.wikipedia.org/wiki/Virtual_Network_Computing>`__, and
           the network connection is currently backed up so that if you call
@@ -378,26 +415,29 @@ class ReceiveStream(AsyncResource):
     If you want to receive Python objects rather than raw bytes, see
     :class:`ReceiveChannel`.
 
+    `ReceiveStream` objects can be used in ``async for`` loops. Each iteration
+    will produce an arbitrary sized chunk of bytes, like calling
+    `receive_some` with no arguments. Every chunk will contain at least one
+    byte, and the loop automatically exits when reaching end-of-file.
+
     """
+
     __slots__ = ()
 
     @abstractmethod
-    async def receive_some(self, max_bytes):
+    async def receive_some(self, max_bytes: int | None = None) -> bytes | bytearray:
         """Wait until there is data available on this stream, and then return
-        at most ``max_bytes`` of it.
+        some of it.
 
         A return value of ``b""`` (an empty bytestring) indicates that the
         stream has reached end-of-file. Implementations should be careful that
         they return ``b""`` if, and only if, the stream has reached
         end-of-file!
 
-        This method will return as soon as any data is available, so it may
-        return fewer than ``max_bytes`` of data. But it will never return
-        more.
-
         Args:
           max_bytes (int): The maximum number of bytes to return. Must be
-              greater than zero.
+              greater than zero. Optional; if omitted, then the stream object
+              is free to pick a reasonable default.
 
         Returns:
           bytes or bytearray: The data received.
@@ -413,6 +453,15 @@ class ReceiveStream(AsyncResource):
 
         """
 
+    def __aiter__(self) -> Self:
+        return self
+
+    async def __anext__(self) -> bytes | bytearray:
+        data = await self.receive_some()
+        if not data:
+            raise StopAsyncIteration
+        return data
+
 
 class Stream(SendStream, ReceiveStream):
     """A standard interface for interacting with bidirectional byte streams.
@@ -424,6 +473,7 @@ class Stream(SendStream, ReceiveStream):
     step further and implement :class:`HalfCloseableStream`.
 
     """
+
     __slots__ = ()
 
 
@@ -432,10 +482,11 @@ class HalfCloseableStream(Stream):
     part of the stream without closing the receive part.
 
     """
+
     __slots__ = ()
 
     @abstractmethod
-    async def send_eof(self):
+    async def send_eof(self) -> None:
         """Send an end-of-file indication on this stream, if possible.
 
         The difference between :meth:`send_eof` and
@@ -484,15 +535,18 @@ class HalfCloseableStream(Stream):
         """
 
 
+# A regular invariant generic type
+T = TypeVar("T")
+
 # The type of object produced by a ReceiveChannel (covariant because
 # ReceiveChannel[Derived] can be passed to someone expecting
 # ReceiveChannel[Base])
-T_co = TypeVar("T_co", covariant=True)
+ReceiveType = TypeVar("ReceiveType", covariant=True)
 
 # The type of object accepted by a SendChannel (contravariant because
 # SendChannel[Base] can be passed to someone expecting
 # SendChannel[Derived])
-T_contra = TypeVar("T_contra", contravariant=True)
+SendType = TypeVar("SendType", contravariant=True)
 
 # The type of object produced by a Listener (covariant plus must be
 # an AsyncResource)
@@ -507,10 +561,11 @@ class Listener(AsyncResource, Generic[T_resource]):
     or using an ``async with`` block.
 
     """
+
     __slots__ = ()
 
     @abstractmethod
-    async def accept(self):
+    async def accept(self) -> T_resource:
         """Wait until an incoming connection arrives, and then return it.
 
         Returns:
@@ -537,39 +592,22 @@ class Listener(AsyncResource, Generic[T_resource]):
         """
 
 
-class SendChannel(AsyncResource, Generic[T_contra]):
+class SendChannel(AsyncResource, Generic[SendType]):
     """A standard interface for sending Python objects to some receiver.
 
-    :class:`SendChannel` objects also implement the :class:`AsyncResource`
-    interface, so they can be closed by calling :meth:`~AsyncResource.aclose`
-    or using an ``async with`` block.
+    `SendChannel` objects also implement the `AsyncResource` interface, so
+    they can be closed by calling `~AsyncResource.aclose` or using an ``async
+    with`` block.
 
     If you want to send raw bytes rather than Python objects, see
-    :class:`ReceiveStream`.
+    `SendStream`.
 
     """
+
     __slots__ = ()
 
     @abstractmethod
-    def send_nowait(self, value):
-        """Attempt to send an object through the channel, without blocking.
-
-        Args:
-          value (object): The object to send.
-
-        Raises:
-          trio.WouldBlock: if the operation cannot be completed immediately
-              (for example, because the channel's internal buffer is full).
-          trio.BrokenResourceError: if something has gone wrong, and the
-              channel is broken. For example, you may get this if the receiver
-              has already been closed.
-          trio.ClosedResourceError: if you previously closed this
-              :class:`SendChannel` object.
-
-        """
-
-    @abstractmethod
-    async def send(self, value):
+    async def send(self, value: SendType) -> None:
         """Attempt to send an object through the channel, blocking if necessary.
 
         Args:
@@ -582,36 +620,15 @@ class SendChannel(AsyncResource, Generic[T_contra]):
           trio.ClosedResourceError: if you previously closed this
               :class:`SendChannel` object, or if another task closes it while
               :meth:`send` is running.
-
-        """
-
-    @abstractmethod
-    def clone(self):
-        """Clone this send channel object.
-
-        This returns a new :class:`SendChannel` object, which acts as a
-        duplicate of the original: sending on the new object does exactly the
-        same thing as sending on the old object.
-
-        However, closing one of the objects does not close the other, and
-        receivers don't get :exc:`~trio.EndOfChannel` until *all* clones have
-        been closed.
-
-        This is useful for communication patterns that involve multiple
-        producers all sending objects to the same destination. If you give
-        each producer its own clone of the :class:`SendChannel`, and then make
-        sure to close each :class:`SendChannel` when it's finished, receivers
-        will automatically get notified when all producers are finished. See
-        :ref:`channel-mpmc` for examples.
-
-        Raises:
-          trio.ClosedResourceError: if you already closed this
-              :class:`SendChannel` object.
+          trio.BusyResourceError: some channels allow multiple tasks to call
+              `send` at the same time, but others don't. If you try to call
+              `send` simultaneously from multiple tasks on a channel that
+              doesn't support it, then you can get `~trio.BusyResourceError`.
 
         """
 
 
-class ReceiveChannel(AsyncResource, Generic[T_co]):
+class ReceiveChannel(AsyncResource, Generic[ReceiveType]):
     """A standard interface for receiving Python objects from some sender.
 
     You can iterate over a :class:`ReceiveChannel` using an ``async for``
@@ -621,45 +638,23 @@ class ReceiveChannel(AsyncResource, Generic[T_co]):
            ...
 
     This is equivalent to calling :meth:`receive` repeatedly. The loop exits
-    without error when :meth:`receive` raises :exc:`~trio.EndOfChannel`.
+    without error when `receive` raises `~trio.EndOfChannel`.
 
-    :class:`ReceiveChannel` objects also implement the :class:`AsyncResource`
-    interface, so they can be closed by calling :meth:`~AsyncResource.aclose`
-    or using an ``async with`` block.
+    `ReceiveChannel` objects also implement the `AsyncResource` interface, so
+    they can be closed by calling `~AsyncResource.aclose` or using an ``async
+    with`` block.
 
     If you want to receive raw bytes rather than Python objects, see
-    :class:`ReceiveStream`.
+    `ReceiveStream`.
 
     """
+
     __slots__ = ()
 
     @abstractmethod
-    def receive_nowait(self):
-        """Attempt to receive an incoming object, without blocking.
-
-        Returns:
-          object: Whatever object was received.
-
-        Raises:
-          trio.WouldBlock: if the operation cannot be completed immediately
-              (for example, because no object has been sent yet).
-          trio.EndOfChannel: if the sender has been closed cleanly, and no
-              more objects are coming. This is not an error condition.
-          trio.ClosedResourceError: if you previously closed this
-              :class:`ReceiveChannel` object.
-          trio.BrokenResourceError: if something has gone wrong, and the
-              channel is broken.
-
-        """
-
-    @abstractmethod
-    async def receive(self):
+    async def receive(self) -> ReceiveType:
         """Attempt to receive an incoming object, blocking if necessary.
 
-        It's legal for multiple tasks to call :meth:`receive` at the same
-        time. If this happens, then one task receives the first value sent,
-        another task receives the next value sent, and so on.
-
         Returns:
           object: Whatever object was received.
 
@@ -670,43 +665,27 @@ class ReceiveChannel(AsyncResource, Generic[T_co]):
               :class:`ReceiveChannel` object.
           trio.BrokenResourceError: if something has gone wrong, and the
               channel is broken.
+          trio.BusyResourceError: some channels allow multiple tasks to call
+              `receive` at the same time, but others don't. If you try to call
+              `receive` simultaneously from multiple tasks on a channel that
+              doesn't support it, then you can get `~trio.BusyResourceError`.
 
         """
 
-    @abstractmethod
-    def clone(self):
-        """Clone this receive channel object.
-
-        This returns a new :class:`ReceiveChannel` object, which acts as a
-        duplicate of the original: receiving on the new object does exactly
-        the same thing as receiving on the old object.
-
-        However, closing one of the objects does not close the other, and the
-        underlying channel is not closed until all clones are closed.
-
-        This is useful for communication patterns involving multiple consumers
-        all receiving objects from the same underlying channel. See
-        :ref:`channel-mpmc` for examples.
-
-        .. warning:: The clones all share the same underlying channel.
-           Whenever a clone :meth:`receive`\\s a value, it is removed from the
-           channel and the other clones do *not* receive that value. If you
-           want to send multiple copies of the same stream of values to
-           multiple destinations, like :func:`itertools.tee`, then you need to
-           find some other solution; this method does *not* do that.
-
-        Raises:
-          trio.ClosedResourceError: if you already closed this
-              :class:`SendChannel` object.
-
-        """
-
-    @aiter_compat
-    def __aiter__(self):
+    def __aiter__(self) -> Self:
         return self
 
-    async def __anext__(self):
+    async def __anext__(self) -> ReceiveType:
         try:
             return await self.receive()
         except trio.EndOfChannel:
             raise StopAsyncIteration
+
+
+class Channel(SendChannel[T], ReceiveChannel[T]):
+    """A standard interface for interacting with bidirectional channels.
+
+    A `Channel` is an object that implements both the `SendChannel` and
+    `ReceiveChannel` interfaces, so you can both send and receive objects.
+
+    """

@@ -1,11 +1,9 @@
-import attr
-
 from trio._util import NoPublicConstructor
 
 
 class TrioInternalError(Exception):
     """Raised by :func:`run` if we encounter a bug in Trio, or (possibly) a
-    misuse of one of the low-level :mod:`trio.hazmat` APIs.
+    misuse of one of the low-level :mod:`trio.lowlevel` APIs.
 
     This should never happen! If you get this error, please file a bug.
 
@@ -18,16 +16,14 @@ class TrioInternalError(Exception):
 
 
 class RunFinishedError(RuntimeError):
-    """Raised by ``run_in_trio_thread`` and similar functions if the
+    """Raised by `trio.from_thread.run` and similar functions if the
     corresponding call to :func:`trio.run` has already finished.
 
     """
 
 
 class WouldBlock(Exception):
-    """Raised by ``X_nowait`` functions if ``X`` would block.
-
-    """
+    """Raised by ``X_nowait`` functions if ``X`` would block."""
 
 
 class Cancelled(BaseException, metaclass=NoPublicConstructor):
@@ -63,7 +59,7 @@ class Cancelled(BaseException, metaclass=NoPublicConstructor):
 
     """
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "Cancelled"
 
 

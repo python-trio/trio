@@ -1,2 +1,0 @@
-MultiError now defines its ``exceptions`` attribute in ``__init__()``
-to better support linters and code autocompletion.

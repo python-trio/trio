@@ -26,10 +26,11 @@
 # Also, it must be set on listen2 before calling bind(), or it will conflict
 # with the lingering server1 socket.
 
-import socket
 import errno
+import socket
 
 import attr
+
 
 @attr.s(repr=False)
 class Options:
@@ -49,8 +50,9 @@ class Options:
         for f in attr.fields(self.__class__):
             value = getattr(self, f.name)
             if value is not None:
-                info.append("{}={}".format(f.name, value))
+                info.append(f"{f.name}={value}")
         return "Set/unset: {}".format(", ".join(info))
+
 
 def time_wait(options):
     print(options.describe())
@@ -60,7 +62,7 @@ def time_wait(options):
     listen0 = socket.socket()
     listen0.bind(("127.0.0.1", 0))
     sockaddr = listen0.getsockname()
-    #print("  ", sockaddr)
+    # print("  ", sockaddr)
     listen0.close()
 
     listen1 = socket.socket()
@@ -97,6 +99,7 @@ def time_wait(options):
             raise
     else:
         print("  -> ok")
+
 
 time_wait(Options())
 time_wait(Options(listen1_early=True, server=True, listen2=True))

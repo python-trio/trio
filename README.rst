@@ -7,16 +7,16 @@
    :alt: Join forum
 
 .. image:: https://img.shields.io/badge/docs-read%20now-blue.svg
-   :target: https://trio.readthedocs.io/en/latest/?badge=latest
-   :alt: Documentation Status
-   
+   :target: https://trio.readthedocs.io
+   :alt: Documentation
+
 .. image:: https://img.shields.io/pypi/v/trio.svg
    :target: https://pypi.org/project/trio
    :alt: Latest PyPi version
 
 .. image:: https://img.shields.io/conda/vn/conda-forge/trio.svg
    :target: https://anaconda.org/conda-forge/trio
-   :alt: Latest conda-forge version   
+   :alt: Latest conda-forge version
 
 .. image:: https://codecov.io/gh/python-trio/trio/branch/master/graph/badge.svg
    :target: https://codecov.io/gh/python-trio/trio
@@ -25,28 +25,18 @@
 Trio – a friendly Python library for async concurrency and I/O
 ==============================================================
 
-.. Github carefully breaks rendering of SVG directly out of the repo,
-   so we have to redirect through cdn.rawgit.com
-   See:
-     https://github.com/isaacs/github/issues/316
-     https://github.com/github/markup/issues/556#issuecomment-288581799
-   I also tried rendering to PNG and linking to that locally, which
-   "works" in that it displays the image, but for some reason it
-   ignores the width and align directives, so it's actually pretty
-   useless...
-
-.. image:: https://cdn.rawgit.com/python-trio/trio/9b0bec646a31e0d0f67b8b6ecc6939726faf3e17/logo/logo-with-background.svg
+.. image:: https://raw.githubusercontent.com/python-trio/trio/9b0bec646a31e0d0f67b8b6ecc6939726faf3e17/logo/logo-with-background.svg
    :width: 200px
    :align: right
 
-The Trio project's goal is to produce a production-quality,
+The Trio project aims to produce a production-quality,
 `permissively licensed
 <https://github.com/python-trio/trio/blob/master/LICENSE>`__,
 async/await-native I/O library for Python. Like all async libraries,
 its main purpose is to help you write programs that do **multiple
 things at the same time** with **parallelized I/O**. A web spider that
 wants to fetch lots of pages in parallel, a web server that needs to
-juggle lots of downloads and websocket connections at the same time, a
+juggle lots of downloads and websocket connections simultaneously, a
 process supervisor monitoring multiple subprocesses... that sort of
 thing. Compared to other libraries, Trio attempts to distinguish
 itself with an obsessive focus on **usability** and
@@ -67,11 +57,11 @@ fun. `Perhaps you'll find the same
 <https://github.com/python-trio/trio/wiki/Testimonials>`__.
 
 This project is young and still somewhat experimental: the overall
-design is solid and the existing features are fully tested and
+design is solid, and the existing features are fully tested and
 documented, but you may encounter missing functionality or rough
-edges. We *do* encourage you do use it, but you should `read and
+edges. We *do* encourage you to use it, but you should `read and
 subscribe to issue #1
-<https://github.com/python-trio/trio/issues/1>`__ to get warning and a
+<https://github.com/python-trio/trio/issues/1>`__ to get a warning and a
 chance to give feedback about any compatibility-breaking changes.
 
 
@@ -79,16 +69,16 @@ Where to next?
 --------------
 
 **I want to try it out!** Awesome! We have a `friendly tutorial
-<https://trio.readthedocs.io/en/latest/tutorial.html>`__ to get you
+<https://trio.readthedocs.io/en/stable/tutorial.html>`__ to get you
 started; no prior experience with async coding is required.
 
 **Ugh, I don't want to read all that – show me some code!** If you're
 impatient, then here's a `simple concurrency example
-<https://trio.readthedocs.io/en/latest/tutorial.html#tutorial-example-tasks-intro>`__,
+<https://trio.readthedocs.io/en/stable/tutorial.html#tutorial-example-tasks-intro>`__,
 an `echo client
-<https://trio.readthedocs.io/en/latest/tutorial.html#tutorial-echo-client-example>`__,
+<https://trio.readthedocs.io/en/stable/tutorial.html#tutorial-echo-client-example>`__,
 and an `echo server
-<https://trio.readthedocs.io/en/latest/tutorial.html#tutorial-echo-server-example>`__.
+<https://trio.readthedocs.io/en/stable/tutorial.html#tutorial-echo-server-example>`__.
 
 **How does Trio make programs easier to read and reason about than
 competing approaches?** Trio is based on a new way of thinking that we
@@ -102,14 +92,15 @@ demonstration of implementing the "Happy Eyeballs" algorithm in an
 older library versus Trio.
 
 **Cool, but will it work on my system?** Probably! As long as you have
-some kind of Python 3.5-or-better (CPython or the latest PyPy3 are
-both fine), and are using Linux, macOS, or Windows, then Trio should
-absolutely work. *BSD and illumos likely work too, but we don't have
-testing infrastructure for them. And all of our dependencies are pure
-Python, except for CFFI on Windows, and that has wheels available, so
-installation should be easy.
+some kind of Python 3.8-or-better (CPython or [currently maintained versions of
+PyPy3](https://doc.pypy.org/en/latest/faq.html#which-python-versions-does-pypy-implement)
+are both fine), and are using Linux, macOS, Windows, or FreeBSD, then Trio
+will work. Other environments might work too, but those
+are the ones we test on. And all of our dependencies are pure Python,
+except for CFFI on Windows, which has wheels available, so
+installation should be easy (no C compiler needed).
 
-**I tried it but it's not working.** Sorry to hear that! You can try
+**I tried it, but it's not working.** Sorry to hear that! You can try
 asking for help in our `chat room
 <https://gitter.im/python-trio/general>`__ or `forum
 <https://trio.discourse.group>`__, `filing a bug
@@ -118,14 +109,14 @@ question on StackOverflow
 <https://stackoverflow.com/questions/ask?tags=python+python-trio>`__,
 and we'll do our best to help you out.
 
-**Trio is awesome and I want to help make it more awesome!** You're
+**Trio is awesome, and I want to help make it more awesome!** You're
 the best! There's tons of work to do – filling in missing
 functionality, building up an ecosystem of Trio-using libraries,
 usability testing (e.g., maybe try teaching yourself or a friend to
 use Trio and make a list of every error message you hit and place
 where you got confused?), improving the docs, ... check out our `guide
 for contributors
-<https://trio.readthedocs.io/en/latest/contributing.html>`__!
+<https://trio.readthedocs.io/en/stable/contributing.html>`__!
 
 **I don't have any immediate plans to use it, but I love geeking out
 about I/O library design!** That's a little weird? But let's be
@@ -134,7 +125,7 @@ for discussing structured concurrency
 <https://trio.discourse.group/c/structured-concurrency>`__ (developers
 of other systems welcome!). Or check out our `discussion of design
 choices
-<https://trio.readthedocs.io/en/latest/design.html#user-level-api-principles>`__,
+<https://trio.readthedocs.io/en/stable/design.html#user-level-api-principles>`__,
 `reading list
 <https://github.com/python-trio/trio/wiki/Reading-list>`__, and
 `issues tagged design-discussion
@@ -150,5 +141,5 @@ Code of conduct
 ---------------
 
 Contributors are requested to follow our `code of conduct
-<https://trio.readthedocs.io/en/latest/code-of-conduct.html>`__ in all
+<https://trio.readthedocs.io/en/stable/code-of-conduct.html>`__ in all
 project spaces.

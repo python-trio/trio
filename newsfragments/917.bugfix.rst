@@ -1,3 +1,0 @@
-The :class:`trio.Path` methods :meth:`~trio.Path.glob` and
-:meth:`~trio.Path.rglob` now return iterables of :class:`trio.Path`
-(not :class:`pathlib.Path`).

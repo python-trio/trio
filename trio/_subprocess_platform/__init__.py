@@ -1,10 +1,27 @@
 # Platform-specific subprocess bits'n'pieces.
 
 import os
-from typing import Tuple
+import sys
+from typing import TYPE_CHECKING, Optional, Tuple
+
+import trio
 
 from .. import _core, _subprocess
-from .._abc import SendStream, ReceiveStream
+from .._abc import ReceiveStream, SendStream
+
+_wait_child_exiting_error: Optional[ImportError] = None
+_create_child_pipe_error: Optional[ImportError] = None
+
+
+if TYPE_CHECKING:
+    # internal types for the pipe representations used in type checking only
+    class ClosableSendStream(SendStream):
+        def close(self) -> None:
+            ...
+
+    class ClosableReceiveStream(ReceiveStream):
+        def close(self) -> None:
+            ...
 
 
 # Fallback versions of the functions provided -- implementations
@@ -21,10 +38,10 @@ async def wait_child_exiting(process: "_subprocess.Process") -> None:
     consumed by this call, since :class:`~subprocess.Popen` wants
     to be able to do that itself.
     """
-    raise NotImplementedError from wait_child_exiting._error  # pragma: no cover
+    raise NotImplementedError from _wait_child_exiting_error  # pragma: no cover
 
 
-def create_pipe_to_child_stdin() -> Tuple[SendStream, int]:
+def create_pipe_to_child_stdin() -> Tuple["ClosableSendStream", int]:
     """Create a new pipe suitable for sending data from this
     process to the standard input of a child we're about to spawn.
 
@@ -34,12 +51,10 @@ def create_pipe_to_child_stdin() -> Tuple[SendStream, int]:
       something suitable for passing as the ``stdin`` argument of
       :class:`subprocess.Popen`.
     """
-    raise NotImplementedError from (  # pragma: no cover
-        create_pipe_to_child_stdin._error
-    )
+    raise NotImplementedError from _create_child_pipe_error  # pragma: no cover
 
 
-def create_pipe_from_child_output() -> Tuple[ReceiveStream, int]:
+def create_pipe_from_child_output() -> Tuple["ClosableReceiveStream", int]:
     """Create a new pipe suitable for receiving data into this
     process from the standard output or error stream of a child
     we're about to spawn.
@@ -50,35 +65,37 @@ def create_pipe_from_child_output() -> Tuple[ReceiveStream, int]:
       something suitable for passing as the ``stdin`` argument of
       :class:`subprocess.Popen`.
     """
-    raise NotImplementedError from (  # pragma: no cover
-        create_pipe_to_child_stdin._error
-    )
+    raise NotImplementedError from _create_child_pipe_error  # pragma: no cover
 
 
 try:
-    if os.name == "nt":
+    if sys.platform == "win32":
         from .windows import wait_child_exiting  # noqa: F811
-    elif hasattr(_core, "wait_kevent"):
+    elif sys.platform != "linux" and (TYPE_CHECKING or hasattr(_core, "wait_kevent")):
         from .kqueue import wait_child_exiting  # noqa: F811
     else:
-        from .waitid import wait_child_exiting  # noqa: F811
+        # noqa'd as it's an exported symbol
+        from .waitid import wait_child_exiting  # noqa: F811, F401
 except ImportError as ex:  # pragma: no cover
-    wait_child_exiting._error = ex
+    _wait_child_exiting_error = ex
 
 try:
-    if os.name == "posix":
-        from .._unix_pipes import PipeSendStream, PipeReceiveStream
+    if TYPE_CHECKING:
+        # Not worth type checking these definitions
+        pass
+
+    elif os.name == "posix":
 
         def create_pipe_to_child_stdin():  # noqa: F811
             rfd, wfd = os.pipe()
-            return PipeSendStream(wfd), rfd
+            return trio.lowlevel.FdStream(wfd), rfd
 
         def create_pipe_from_child_output():  # noqa: F811
             rfd, wfd = os.pipe()
-            return PipeReceiveStream(rfd), wfd
+            return trio.lowlevel.FdStream(rfd), wfd
 
     elif os.name == "nt":
-        from .._windows_pipes import PipeSendStream, PipeReceiveStream
+        import msvcrt
 
         # This isn't exported or documented, but it's also not
         # underscore-prefixed, and seems kosher to use. The asyncio docs
@@ -87,7 +104,8 @@ try:
         # when asyncio.windows_utils.socketpair was removed in 3.7, the
         # removal was mentioned in the release notes.
         from asyncio.windows_utils import pipe as windows_pipe
-        import msvcrt
+
+        from .._windows_pipes import PipeReceiveStream, PipeSendStream
 
         def create_pipe_to_child_stdin():  # noqa: F811
             # for stdin, we want the write end (our end) to use overlapped I/O
@@ -103,5 +121,4 @@ try:
         raise ImportError("pipes not implemented on this platform")
 
 except ImportError as ex:  # pragma: no cover
-    create_pipe_to_child_stdin._error = ex
-    create_pipe_from_child_output._error = ex
+    _create_child_pipe_error = ex

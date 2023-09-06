@@ -1,5 +1,6 @@
 import trio
 
+
 class GracefulShutdownManager:
     def __init__(self):
         self._shutting_down = False
@@ -21,6 +22,7 @@ class GracefulShutdownManager:
     def shutting_down(self):
         return self._shutting_down
 
+
 # Code can check gsm.shutting_down occasionally at appropriate points to see
 # if it should exit.
 #
@@ -30,9 +32,11 @@ class GracefulShutdownManager:
 async def stream_handler(stream):
     while True:
         with gsm.cancel_on_graceful_shutdown():
-            data = await stream.receive_some(...)
+            data = await stream.receive_some()
+            print(f"{data = }")
         if gsm.shutting_down:
             break
+
 
 # To trigger the shutdown:
 async def listen_for_shutdown_signals():

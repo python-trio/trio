@@ -1,1 +1,0 @@
-Use ``__slots__`` in more places internally, which should make Trio slightly faster.

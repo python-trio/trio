@@ -1,8 +1,0 @@
-An exception encapsulated within a :class:`MultiError` doesn't need to be
-hashable anymore.
-
-.. note::
-
-   This is only supported if you are running python >= 3.6.4. You can
-   refer to `this github PR <https://github.com/python/cpython/pull/4014>`_
-   for details.

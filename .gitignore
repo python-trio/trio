@@ -31,6 +31,7 @@ __pycache__/
 .installed.cfg
 *.egg
 /.pybuild
+pip-wheel-metadata/
 
 # Installer logs
 pip-log.txt
@@ -39,6 +40,7 @@ pip-log.txt
 htmlcov/
 .tox/
 .venv/
+pyvenv.cfg
 .coverage
 .coverage.*
 .cache
@@ -46,6 +48,9 @@ htmlcov/
 .mypy_cache/
 nosetests.xml
 coverage.xml
+
+# Temp file during Mypy processing
+mypy_annotate.dat
 
 # Translations
 *.mo
@@ -64,3 +69,6 @@ coverage.xml
 
 # Sphinx documentation
 doc/_build/
+
+# PyCharm
+.idea/

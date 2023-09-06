@@ -1,1 +1,0 @@
-Change the default timeout in :func:`trio.open_tcp_stream` to 0.250 seconds, for consistency with RFC 8305.

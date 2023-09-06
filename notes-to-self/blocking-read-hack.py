@@ -1,12 +1,15 @@
-import trio
+import errno
 import os
 import socket
-import errno
+
+import trio
 
 bad_socket = socket.socket()
 
+
 class BlockingReadTimeoutError(Exception):
     pass
+
 
 async def blocking_read_with_timeout(fd, count, timeout):
     print("reading from fd", fd)
@@ -29,7 +32,7 @@ async def blocking_read_with_timeout(fd, count, timeout):
         async with trio.open_nursery() as nursery:
             nursery.start_soon(kill_it_after_timeout, new_fd)
             try:
-                data = await trio.run_sync_in_thread(os.read, new_fd, count)
+                data = await trio.to_thread.run_sync(os.read, new_fd, count)
             except OSError as exc:
                 if cancel_requested and exc.errno == errno.ENOTCONN:
                     # Call was successfully cancelled. In a real version we'd
@@ -41,5 +44,6 @@ async def blocking_read_with_timeout(fd, count, timeout):
             return data
     finally:
         os.close(new_fd)
+
 
 trio.run(blocking_read_with_timeout, 0, 10, 2)

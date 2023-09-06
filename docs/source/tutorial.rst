@@ -13,14 +13,13 @@ Tutorial
    still probably read this, because Trio is different.)
 
    Trio turns Python into a concurrent language. It takes the core
-   async/await syntax introduced in 3.5, and uses it to add three
+   async/await syntax introduced in 3.5, and uses it to add two
    new pieces of semantics:
 
    - cancel scopes: a generic system for managing timeouts and
      cancellation
    - nurseries: which let your program do multiple things at the same
      time
-   - MultiErrors: for when multiple things go wrong at once
 
    Of course it also provides a complete suite of APIs for doing
    networking, file I/O, using worker threads,
@@ -33,9 +32,6 @@ Tutorial
          response = await asks.get("https://httpbin.org/delay/1")
          print(response)
    and then again with /delay/10
-
-   (note that asks needs cpython 3.6 though. maybe just for one async
-   generator?)
 
    value of async/await: show you where the cancellation exceptions
    can happen -- see pillar re: explicit cancel points
@@ -59,8 +55,6 @@ Tutorial
    API, and show how to do explicit concurrency
    and demonstrate start()
    then point out that you can just use serve_tcp()
-
-   exceptions and MultiError
 
    example: catch-all logging in our echo server
 
@@ -94,7 +88,7 @@ Okay, ready? Let's get started.
 Before you begin
 ----------------
 
-1. Make sure you're using Python 3.5 or newer.
+1. Make sure you're using Python 3.8 or newer.
 
 2. ``python3 -m pip install --upgrade trio`` (or on Windows, maybe
    ``py -3 -m pip install --upgrade trio`` – `details
@@ -273,7 +267,7 @@ this, that tries to call an async function but leaves out the
        trio.sleep(2 * x)
 
        sleep_time = time.perf_counter() - start_time
-       print("Woke up after {:.2f} seconds, feeling well rested!".format(sleep_time))
+       print(f"Woke up after {sleep_time:.2f} seconds, feeling well rested!")
 
    trio.run(broken_double_sleep, 3)
 
@@ -312,7 +306,7 @@ runs:
    >>>> # but forcing a garbage collection gives us a warning:
    >>>> import gc
    >>>> gc.collect()
-   /home/njs/pypy-3.5-nightly/lib-python/3/importlib/_bootstrap.py:191: RuntimeWarning: coroutine 'sleep' was never awaited
+   /home/njs/pypy-3.8-nightly/lib-python/3/importlib/_bootstrap.py:191: RuntimeWarning: coroutine 'sleep' was never awaited
    if _module_locks.get(name) is wr:    # XXX PyPy fix?
    0
    >>>>
@@ -442,15 +436,15 @@ Now that we understand ``async with``, let's look at ``parent`` again:
    :end-at: all done!
 
 There are only 4 lines of code that really do anything here. On line
-17, we use :func:`trio.open_nursery` to get a "nursery" object, and
+20, we use :func:`trio.open_nursery` to get a "nursery" object, and
 then inside the ``async with`` block we call ``nursery.start_soon`` twice,
-on lines 19 and 22. There are actually two ways to call an async
+on lines 22 and 25. There are actually two ways to call an async
 function: the first one is the one we already saw, using ``await
 async_fn()``; the new one is ``nursery.start_soon(async_fn)``: it asks Trio
 to start running this async function, *but then returns immediately
 without waiting for the function to finish*. So after our two calls to
 ``nursery.start_soon``, ``child1`` and ``child2`` are now running in the
-background. And then at line 25, the commented line, we hit the end of
+background. And then at line 28, the commented line, we hit the end of
 the ``async with`` block, and the nursery's ``__aexit__`` function
 runs. What this does is force ``parent`` to stop here and wait for all
 the children in the nursery to exit. This is why you have to use
@@ -599,8 +593,8 @@ Each task runs until it hits the call to :func:`trio.sleep`, and then
 suddenly we're back in :func:`trio.run` deciding what to run next. How
 does this happen? The secret is that :func:`trio.run` and
 :func:`trio.sleep` work together to make it happen: :func:`trio.sleep`
-has access to some special magic that lets it pause its entire
-call stack, so it sends a note to :func:`trio.run` requesting to be
+has access to some special magic that lets it pause itself,
+so it sends a note to :func:`trio.run` requesting to be
 woken again after 1 second, and then suspends the task. And once the
 task is suspended, Python gives control back to :func:`trio.run`,
 which decides what to do next. (If this sounds similar to the way that
@@ -622,7 +616,7 @@ between the implementation of generators and async functions.)
 
 Only async functions have access to the special magic for suspending a
 task, so only async functions can cause the program to switch to a
-different task. What this means if a call *doesn't* have an ``await``
+different task. What this means is that if a call *doesn't* have an ``await``
 on it, then you know that it *can't* be a place where your task will
 be suspended. This makes tasks much `easier to reason about
 <https://glyph.twistedmatrix.com/2014/02/unyielding.html>`__ than
@@ -639,7 +633,7 @@ wouldn't have been able to pause at the end and wait for the children
 to finish; we need our cleanup function to be async, which is exactly
 what ``async with`` gives us.
 
-Now, back to our execution trace. To recap: at this point ``parent``
+Now, back to our execution point. To recap: at this point ``parent``
 is waiting on ``child1`` and ``child2``, and both children are
 sleeping. So :func:`trio.run` checks its notes, and sees that there's
 nothing to be done until those sleeps finish – unless possibly some
@@ -770,11 +764,12 @@ programming, and – to add insult to injury – `pretty poor scalability
 Python just aren't that appealing.
 
 Trio doesn't make your code run on multiple cores; in fact, as we saw
-above, it's baked into Trio's design that you never have two tasks
-running at the same time. We're not so much overcoming the GIL as
-embracing it. But if you're willing to accept that, plus a bit of
-extra work to put these new ``async`` and ``await`` keywords in the
-right places, then in exchange you get:
+above, it's baked into Trio's design that when it has multiple tasks,
+they take turns, so at each moment only one of them is actively running.
+We're not so much overcoming the GIL as embracing it. But if you're
+willing to accept that, plus a bit of extra work to put these new
+``async`` and ``await`` keywords in the right places, then in exchange
+you get:
 
 * Excellent scalability: Trio can run 10,000+ tasks simultaneously
   without breaking a sweat, so long as their total CPU demands don't
@@ -835,18 +830,24 @@ Networking with Trio
 Now let's take what we've learned and use it to do some I/O, which is
 where async/await really shines.
 
-
-An echo client
-~~~~~~~~~~~~~~
-
-The traditional application for demonstrating network APIs is an "echo
-server": a program that accepts arbitrary data from a client, and then
-sends that same data right back. (Probably a more relevant example
+The traditional toy application for demonstrating network APIs is an
+"echo server": a program that awaits arbitrary data from  remote clients,
+and then sends that same data right back. (Probably a more relevant example
 these days would be an application that does lots of concurrent HTTP
 requests, but for that `you need an HTTP library
 <https://github.com/python-trio/trio/issues/236#issuecomment-310784001>`__
 such as `asks <https://asks.readthedocs.io>`__, so we'll stick
 with the echo server tradition.)
+
+In this tutorial, we present both ends of the pipe: the client, and the
+server. The client periodically sends data to the server, and displays its
+answers. The server awaits connections; when a client connects, it recopies
+the received data back on the pipe.
+
+
+An echo client
+~~~~~~~~~~~~~~
+
 
 To start with, here's an example echo *client*, i.e., the program that
 will send some data at our echo server and get responses back:
@@ -855,6 +856,9 @@ will send some data at our echo server and get responses back:
 
 .. literalinclude:: tutorial/echo-client.py
    :linenos:
+
+Note that this code will not work without a TCP server such as the one
+we'll implement below.
 
 The overall structure here should be familiar, because it's just like
 our :ref:`last example <tutorial-example-tasks-intro>`: we have a
@@ -908,12 +912,10 @@ And the second task's job is to process the data the server sends back:
    :lineno-match:
    :pyobject: receiver
 
-It repeatedly calls ``await client_stream.receive_some(...)`` to get
-more data from the server (again, all Trio streams provide this
-method), and then checks to see if the server has closed the
-connection. ``receive_some`` only returns an empty bytestring if the
-connection has been closed; otherwise, it waits until some data has
-arrived, up to a maximum of ``BUFSIZE`` bytes.
+It uses an ``async for`` loop to fetch data from the server.
+Alternatively, it could use `~trio.abc.ReceiveStream.receive_some`,
+which is the opposite of `~trio.abc.SendStream.send_all`, but using
+``async for`` saves some boilerplate.
 
 And now we're ready to look at the server.
 
@@ -974,11 +976,11 @@ functions we saw in the last section:
 
 The argument ``server_stream`` is provided by :func:`serve_tcp`, and
 is the other end of the connection we made in the client: so the data
-that the client passes to ``send_all`` will come out of
-``receive_some`` here, and vice-versa. Then we have a ``try`` block
-discussed below, and finally the server loop which alternates between
-reading some data from the socket and then sending it back out again
-(unless the socket was closed, in which case we quit).
+that the client passes to ``send_all`` will come out here. Then we
+have a ``try`` block discussed below, and finally the server loop
+which alternates between reading some data from the socket and then
+sending it back out again (unless the socket was closed, in which case
+we quit).
 
 So what's that ``try`` block for? Remember that in Trio, like Python
 in general, exceptions keep propagating until they're caught. Here we
@@ -1029,7 +1031,7 @@ our client could use a single task like::
        while True:
            data = ...
            await client_stream.send_all(data)
-           received = await client_stream.receive_some(BUFSIZE)
+           received = await client_stream.receive_some()
            if not received:
                sys.exit()
            await trio.sleep(1)
@@ -1046,18 +1048,23 @@ line, any time we're expecting more than one byte of data, we have to
 be prepared to call ``receive_some`` multiple times.
 
 And where this would go especially wrong is if we find ourselves in
-the situation where ``len(data) > BUFSIZE``. On each pass through the
-loop, we send ``len(data)`` bytes, but only read *at most* ``BUFSIZE``
-bytes. The result is something like a memory leak: we'll end up with
-more and more data backed up in the network, until eventually
-something breaks.
+the situation where ``data`` is big enough that it passes some
+internal threshold, and the operating system or network decide to
+always break it up into multiple pieces. Now on each pass through the
+loop, we send ``len(data)`` bytes, but read less than that. The result
+is something like a memory leak: we'll end up with more and more data
+backed up in the network, until eventually something breaks.
+
+.. note:: If you're curious *how* things break, then you can use
+   `~trio.abc.ReceiveStream.receive_some`\'s optional argument to put
+   a limit on how many bytes you read each time, and see what happens.
 
 We could fix this by keeping track of how much data we're expecting at
 each moment, and then keep calling ``receive_some`` until we get it all::
 
    expected = len(data)
    while expected > 0:
-       received = await client_stream.receive_some(BUFSIZE)
+       received = await client_stream.receive_some(expected)
        if not received:
            sys.exit(1)
        expected -= len(received)
@@ -1079,7 +1086,7 @@ up, and ``send_all`` will block until the remote side calls
 
 Now let's think about this from the server's point of view. Each time
 it calls ``receive_some``, it gets some data that it needs to send
-back. And until it sends it back, the data is sitting around takes up
+back. And until it sends it back, the data that is sitting around takes up
 memory. Computers have finite amounts of RAM, so if our server is well
 behaved then at some point it needs to stop calling ``receive_some``
 until it gets rid of some of the old data by doing its own call to
@@ -1138,9 +1145,6 @@ TODO: explain :exc:`Cancelled`
 
 TODO: explain how cancellation is also used when one child raises an
 exception
-
-TODO: show an example :exc:`MultiError` traceback and walk through its
-structure
 
 TODO: maybe a brief discussion of :exc:`KeyboardInterrupt` handling?
 

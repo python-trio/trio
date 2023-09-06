@@ -1,2 +1,0 @@
-Add :func:`trio.run_process` as a high-level helper for running a process
-and waiting for it to finish, like the standard :func:`subprocess.run` does.

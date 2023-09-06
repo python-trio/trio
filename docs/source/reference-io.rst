@@ -24,7 +24,7 @@ create complex transport configurations. Here's some examples:
   speak SSL over the network is to wrap an
   :class:`~trio.SSLStream` around a :class:`~trio.SocketStream`.
 
-* If you spawn a :ref:`subprocess`, you can get a
+* If you spawn a :ref:`subprocess <subprocess>`, you can get a
   :class:`~trio.abc.SendStream` that lets you write to its stdin, and
   a :class:`~trio.abc.ReceiveStream` that lets you read from its
   stdout. If for some reason you wanted to speak SSL to a subprocess,
@@ -98,7 +98,7 @@ Abstract base classes
    * - :class:`ReceiveStream`
      - :class:`AsyncResource`
      - :meth:`~ReceiveStream.receive_some`
-     -
+     - ``__aiter__``, ``__anext__``
      - :class:`~trio.testing.MemoryReceiveStream`
    * - :class:`Stream`
      - :class:`SendStream`, :class:`ReceiveStream`
@@ -117,14 +117,19 @@ Abstract base classes
      - :class:`~trio.SocketListener`, :class:`~trio.SSLListener`
    * - :class:`SendChannel`
      - :class:`AsyncResource`
-     - :meth:`~SendChannel.send`, :meth:`~SendChannel.send_nowait`
+     - :meth:`~SendChannel.send`
      -
-     - :func:`~trio.open_memory_channel`
+     - `~trio.MemorySendChannel`
    * - :class:`ReceiveChannel`
      - :class:`AsyncResource`
-     - :meth:`~ReceiveChannel.receive`, :meth:`~ReceiveChannel.receive_nowait`
+     - :meth:`~ReceiveChannel.receive`
      - ``__aiter__``, ``__anext__``
-     - :func:`~trio.open_memory_channel`
+     - `~trio.MemoryReceiveChannel`
+   * - `Channel`
+     - `SendChannel`, `ReceiveChannel`
+     -
+     -
+     -
 
 .. autoclass:: trio.abc.AsyncResource
    :members:
@@ -162,6 +167,10 @@ Abstract base classes
    :show-inheritance:
 
 .. autoclass:: trio.abc.ReceiveChannel
+   :members:
+   :show-inheritance:
+
+.. autoclass:: trio.abc.Channel
    :members:
    :show-inheritance:
 
@@ -228,8 +237,7 @@ other constants and functions in the :mod:`ssl` module.
 
 .. warning:: Avoid instantiating :class:`ssl.SSLContext` directly.
    A newly constructed :class:`~ssl.SSLContext` has less secure
-   defaults than one returned by :func:`ssl.create_default_context`,
-   dramatically so before Python 3.6.
+   defaults than one returned by :func:`ssl.create_default_context`.
 
 Instead of using :meth:`ssl.SSLContext.wrap_socket`, you
 create a :class:`SSLStream`:
@@ -249,6 +257,55 @@ you call them before the handshake completes:
 
 .. autoexception:: NeedHandshakeError
 
+
+Datagram TLS support
+~~~~~~~~~~~~~~~~~~~~
+
+Trio also has support for Datagram TLS (DTLS), which is like TLS but
+for unreliable UDP connections. This can be useful for applications
+where TCP's reliable in-order delivery is problematic, like
+teleconferencing, latency-sensitive games, and VPNs.
+
+Currently, using DTLS with Trio requires PyOpenSSL. We hope to
+eventually allow the use of the stdlib `ssl` module as well, but
+unfortunately that's not yet possible.
+
+.. warning:: Note that PyOpenSSL is in many ways lower-level than the
+   `ssl` module – in particular, it currently **HAS NO BUILT-IN
+   MECHANISM TO VALIDATE CERTIFICATES**. We *strongly* recommend that
+   you use the `service-identity
+   <https://pypi.org/project/service-identity/>`__ library to validate
+   hostnames and certificates.
+
+.. autoclass:: DTLSEndpoint
+
+   .. automethod:: connect
+
+   .. automethod:: serve
+
+   .. automethod:: close
+
+.. autoclass:: DTLSChannel
+   :show-inheritance:
+
+   .. automethod:: do_handshake
+
+   .. automethod:: send
+
+   .. automethod:: receive
+
+   .. automethod:: close
+
+   .. automethod:: aclose
+
+   .. automethod:: set_ciphertext_mtu
+
+   .. automethod:: get_cleartext_mtu
+
+   .. automethod:: statistics
+
+.. autoclass:: DTLSChannelStatistics
+   :members:
 
 .. module:: trio.socket
 
@@ -292,7 +349,7 @@ library socket into a Trio socket:
 
 .. autofunction:: from_stdlib_socket
 
-Unlike :func:`socket.socket`, :func:`trio.socket.socket` is a
+Unlike :class:`socket.socket`, :func:`trio.socket.socket` is a
 function, not a class; if you want to check whether an object is a
 Trio socket, use ``isinstance(obj, trio.socket.SocketType)``.
 
@@ -371,7 +428,7 @@ Socket objects
      additional error checking.
 
    In addition, the following methods are similar to the equivalents
-   in :func:`socket.socket`, but have some Trio-specific quirks:
+   in :class:`socket.socket`, but have some Trio-specific quirks:
 
    .. method:: connect
       :async:
@@ -394,6 +451,10 @@ Socket objects
          left in an unknown state – possibly open, and possibly
          closed. The only reasonable thing to do is to close it.
 
+   .. method:: is_readable
+
+      Check whether the socket is readable or not.
+
    .. method:: sendfile
 
       `Not implemented yet! <https://github.com/python-trio/trio/issues/45>`__
@@ -408,7 +469,7 @@ Socket objects
       False otherwise.
 
    The following methods are identical to their equivalents in
-   :func:`socket.socket`, except async, and the ones that take address
+   :class:`socket.socket`, except async, and the ones that take address
    arguments require pre-resolved addresses:
 
    * :meth:`~socket.socket.accept`
@@ -424,7 +485,7 @@ Socket objects
    * :meth:`~socket.socket.sendmsg` (if available)
 
    All methods and attributes *not* mentioned above are identical to
-   their equivalents in :func:`socket.socket`:
+   their equivalents in :class:`socket.socket`:
 
    * :attr:`~socket.socket.family`
    * :attr:`~socket.socket.type`
@@ -443,6 +504,14 @@ Socket objects
    * :meth:`~socket.socket.set_inheritable`
    * :meth:`~socket.socket.get_inheritable`
 
+The internal SocketType
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. autoclass:: _SocketType
+..
+    TODO: adding `:members:` here gives error due to overload+_wraps on `sendto`
+    TODO: rewrite ... all of the above when fixing _SocketType vs SocketType
+
+
 .. currentmodule:: trio
 
 
@@ -459,14 +528,13 @@ people switch to async I/O, and then they're surprised and confused
 when they find it doesn't speed up their program. The next section
 explains the theory behind async file I/O, to help you better
 understand your code's behavior. Or, if you just want to get started,
-you can `jump down to the API overview
-<ref:async-file-io-overview>`__.
+you can :ref:`jump down to the API overview <async-file-io-overview>`.
 
 
 Background: Why is async file I/O useful? The answer may surprise you
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Many people expect that switching to from synchronous file I/O to
+Many people expect that switching from synchronous file I/O to
 async file I/O will always make their program faster. This is not
 true! If we just look at total throughput, then async file I/O might
 be faster, slower, or about the same, and it depends in a complicated
@@ -479,7 +547,7 @@ To understand why, you need to know two things.
 First, right now no mainstream operating system offers a generic,
 reliable, native API for async file or filesystem operations, so we
 have to fake it by using threads (specifically,
-:func:`run_sync_in_thread`). This is cheap but isn't free: on a
+:func:`trio.to_thread.run_sync`). This is cheap but isn't free: on a
 typical PC, dispatching to a worker thread adds something like ~100 µs
 of overhead to each operation. ("µs" is pronounced "microseconds", and
 there are 1,000,000 µs in a second. Note that all the numbers here are
@@ -577,9 +645,11 @@ Asynchronous path objects
 Asynchronous file objects
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autofunction:: open_file
+.. Suppress type annotations here, they refer to lots of internal types.
+   The normal Python docs go into better detail.
+.. autofunction:: open_file(file, mode='r', buffering=-1, encoding=None, errors=None, newline=None, closefd=None, opener=None)
 
-.. autofunction:: wrap_file
+.. autofunction:: wrap_file(file)
 
 .. interface:: Asynchronous file interface
 
@@ -652,22 +722,47 @@ Spawning subprocesses
 
 Trio provides support for spawning other programs as subprocesses,
 communicating with them via pipes, sending them signals, and waiting
-for them to exit. The interface for doing so consists of two layers:
+for them to exit.
 
-* :func:`trio.run_process` runs a process from start to
-  finish and returns a :class:`~subprocess.CompletedProcess` object describing
-  its outputs and return value. This is what you should reach for if you
-  want to run a process to completion before continuing, while possibly
-  sending it some input or capturing its output. It is modelled after
-  the standard :func:`subprocess.run` with some additional features
-  and safer defaults.
+Most of the time, this is done through our high-level interface,
+`trio.run_process`. It lets you either run a process to completion
+while optionally capturing the output, or else run it in a background
+task and interact with it while it's running:
 
-* `trio.open_process` starts a process in the background and returns a
-  `Process` object to let you interact with it. Using it requires a
-  bit more code than `run_process`, but exposes additional
-  capabilities: back-and-forth communication, processing output as
-  soon as it is generated, and so forth. It is modelled after the
-  standard library :class:`subprocess.Popen`.
+.. autofunction:: trio.run_process
+
+.. autoclass:: trio._subprocess.HasFileno(Protocol)
+
+   .. automethod:: fileno
+
+.. autoclass:: trio.Process()
+
+   .. autoattribute:: returncode
+
+   .. automethod:: wait
+
+   .. automethod:: poll
+
+   .. automethod:: kill
+
+   .. automethod:: terminate
+
+   .. automethod:: send_signal
+
+   .. note:: :meth:`~subprocess.Popen.communicate` is not provided as a
+      method on :class:`~trio.Process` objects; call :func:`~trio.run_process`
+      normally for simple capturing, or write the loop yourself if you
+      have unusual needs. :meth:`~subprocess.Popen.communicate` has
+      quite unusual cancellation behavior in the standard library (on
+      some platforms it spawns a background thread which continues to
+      read from the child process even after the timeout has expired)
+      and we wanted to provide an interface with fewer surprises.
+
+If `trio.run_process` is too limiting, we also offer a low-level API,
+`trio.lowlevel.open_process`. For example, if you want to spawn a
+child process that will outlive the parent process and be
+orphaned, then `~trio.run_process` can't do that, but
+`~trio.lowlevel.open_process` can.
 
 
 .. _subprocess-options:
@@ -689,60 +784,8 @@ subprocess`` in order to access constants such as ``PIPE`` or
 
 Currently, Trio always uses unbuffered byte streams for communicating
 with a process, so it does not support the ``encoding``, ``errors``,
-``universal_newlines`` (alias ``text`` in 3.7+), and ``bufsize``
+``universal_newlines`` (alias ``text``), and ``bufsize``
 options.
-
-
-Running a process and waiting for it to finish
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The basic interface for running a subprocess start-to-finish is
-:func:`trio.run_process`.  It always waits for the subprocess to exit
-before returning, so there's no need to worry about leaving a process
-running by mistake after you've gone on to do other things.
-:func:`~trio.run_process` is similar to the standard library
-:func:`subprocess.run` function, but tries to have safer defaults:
-with no options, the subprocess's input is empty rather than coming
-from the user's terminal, and a failure in the subprocess will be
-propagated as a :exc:`subprocess.CalledProcessError` exception. Of
-course, these defaults can be changed where necessary.
-
-.. autofunction:: trio.run_process
-
-
-Interacting with a process as it runs
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-If you want more control than :func:`~trio.run_process` affords, you
-can use `trio.open_process` to spawn a subprocess, and then interact
-with it using the `Process` interface.
-
-.. autofunction:: trio.open_process
-
-.. autoclass:: trio.Process
-
-   .. autoattribute:: returncode
-
-   .. automethod:: aclose
-
-   .. automethod:: wait
-
-   .. automethod:: poll
-
-   .. automethod:: kill
-
-   .. automethod:: terminate
-
-   .. automethod:: send_signal
-
-   .. note:: :meth:`~subprocess.Popen.communicate` is not provided as a
-      method on :class:`~trio.Process` objects; use :func:`~trio.run_process`
-      instead, or write the loop yourself if you have unusual
-      needs. :meth:`~subprocess.Popen.communicate` has quite unusual
-      cancellation behavior in the standard library (on some platforms it
-      spawns a background thread which continues to read from the child
-      process even after the timeout has expired) and we wanted to
-      provide an interface with fewer surprises.
 
 
 .. _subprocess-quoting:
