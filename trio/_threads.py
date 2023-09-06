@@ -494,7 +494,7 @@ def from_thread_run(
 
 def from_thread_run_sync(
     fn: Callable[..., RetT],
-    *args: tuple[object, ...],
+    *args: object,
     trio_token: TrioToken | None = None,
 ) -> RetT:
     """Run the given sync function in the parent Trio thread, blocking until it
