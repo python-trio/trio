@@ -376,23 +376,24 @@ class Final(ABCMeta):
 
 
 @final  # No subclassing of NoPublicConstructor itself.
-class NoPublicConstructor(Final):
-    """Metaclass that enforces a class to be final (i.e., subclass not allowed)
-    and ensures a private constructor.
+class NoPublicConstructor(ABCMeta):
+    """Metaclass that ensures a private constructor.
 
     If a class uses this metaclass like this::
 
+        @final
         class SomeClass(metaclass=NoPublicConstructor):
             pass
 
-    The metaclass will ensure that no subclass can be created, and that no instance
-    can be initialized.
+    The metaclass will ensure that no instance can be initialized. This should always be
+    used with @final.
 
-    If you try to instantiate your class (SomeClass()), a TypeError will be thrown.
+    If you try to instantiate your class (SomeClass()), a TypeError will be thrown. Use
+    _create() instead in the class's implementation.
 
     Raises
     ------
-    - TypeError if a subclass or an instance is created.
+    - TypeError if an instance is created.
     """
 
     def __call__(cls, *args: object, **kwargs: object) -> None:
