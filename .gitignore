@@ -49,6 +49,9 @@ pyvenv.cfg
 nosetests.xml
 coverage.xml
 
+# Temp file during Mypy processing
+mypy_annotate.dat
+
 # Translations
 *.mo
 
