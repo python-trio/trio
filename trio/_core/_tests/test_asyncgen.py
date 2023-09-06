@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 import weakref
-from collections.abc import AsyncGenerator, Callable
+from collections.abc import AsyncGenerator
 from math import inf
 from typing import NoReturn
 
@@ -65,8 +65,8 @@ def test_asyncgen_basics() -> None:
 
         # No problems saving the geniter when using either of these patterns
         aiter = example("exhausted 3")
-        saved.append(aiter)
         try:
+            saved.append(aiter)
             assert 42 == await aiter.asend(None)
         finally:
             await aiter.aclose()
@@ -92,7 +92,9 @@ def test_asyncgen_basics() -> None:
         assert agen.ag_frame is None  # all should now be exhausted
 
 
-async def test_asyncgen_throws_during_finalization(caplog) -> None:
+async def test_asyncgen_throws_during_finalization(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     record = []
 
     async def agen() -> AsyncGenerator[int, None]:
@@ -252,7 +254,7 @@ async def step_outside_async_context(aiter: AsyncGenerator[int, None]) -> None:
     # NB: the strangeness with aiter being an attribute of abort_fn is
     # to make it as easy as possible to ensure we don't hang onto a
     # reference to aiter inside the guts of the run loop.
-    def abort_fn(_: Callable[..., object]) -> _core.Abort:
+    def abort_fn(_: _core.RaiseCancelT) -> _core.Abort:
         with pytest.raises(StopIteration, match="42"):
             abort_fn.aiter.asend(None).send(None)  # type: ignore[attr-defined]  # Callables don't have attribute "aiter"
         del abort_fn.aiter  # type: ignore[attr-defined]
@@ -267,7 +269,7 @@ async def step_outside_async_context(aiter: AsyncGenerator[int, None]) -> None:
 
 
 @pytest.mark.skipif(buggy_pypy_asyncgens, reason="pypy 7.2.0 is buggy")
-async def test_fallback_when_no_hook_claims_it(capsys) -> None:
+async def test_fallback_when_no_hook_claims_it(capsys: pytest.CaptureFixture) -> None:
     async def well_behaved() -> AsyncGenerator[int, None]:
         yield 42
 

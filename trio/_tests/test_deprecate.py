@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import inspect
 import warnings
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -18,11 +18,8 @@ if TYPE_CHECKING:
     from typing_extensions import TypeAlias
 
 
-T = TypeVar("T")
-
-
 @pytest.fixture
-def recwarn_always(recwarn: T) -> T:
+def recwarn_always(recwarn: pytest.WarningsRecorder) -> pytest.WarningsRecorder:
     warnings.simplefilter("always")
     # ResourceWarnings about unclosed sockets can occur nondeterministically
     # (during GC) which throws off the tests in this file

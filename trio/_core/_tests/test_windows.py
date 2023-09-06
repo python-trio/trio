@@ -220,7 +220,9 @@ async def test_too_late_to_cancel() -> None:
         assert target[:6] == b"test2\n"
 
 
-def test_lsp_that_hooks_select_gives_good_error(monkeypatch) -> None:
+def test_lsp_that_hooks_select_gives_good_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from .. import _io_windows
     from .._windows_cffi import WSAIoctls, _handle
 
