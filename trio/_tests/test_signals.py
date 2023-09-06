@@ -9,7 +9,7 @@ from .._signals import _signal_handler, open_signal_receiver
 from .._util import signal_raise
 
 
-async def test_open_signal_receiver():
+async def test_open_signal_receiver() -> None:
     orig = signal.getsignal(signal.SIGILL)
     with open_signal_receiver(signal.SIGILL) as receiver:
         # Raise it a few times, to exercise signal coalescing, both at the
@@ -33,7 +33,7 @@ async def test_open_signal_receiver():
     assert signal.getsignal(signal.SIGILL) is orig
 
 
-async def test_open_signal_receiver_restore_handler_after_one_bad_signal():
+async def test_open_signal_receiver_restore_handler_after_one_bad_signal() -> None:
     orig = signal.getsignal(signal.SIGILL)
     with pytest.raises(ValueError):
         with open_signal_receiver(signal.SIGILL, 1234567):
@@ -42,13 +42,13 @@ async def test_open_signal_receiver_restore_handler_after_one_bad_signal():
     assert signal.getsignal(signal.SIGILL) is orig
 
 
-async def test_open_signal_receiver_empty_fail():
+async def test_open_signal_receiver_empty_fail() -> None:
     with pytest.raises(TypeError, match="No signals were provided"):
         with open_signal_receiver():
             pass
 
 
-async def test_open_signal_receiver_restore_handler_after_duplicate_signal():
+async def test_open_signal_receiver_restore_handler_after_duplicate_signal() -> None:
     orig = signal.getsignal(signal.SIGILL)
     with open_signal_receiver(signal.SIGILL, signal.SIGILL):
         pass
@@ -56,7 +56,7 @@ async def test_open_signal_receiver_restore_handler_after_duplicate_signal():
     assert signal.getsignal(signal.SIGILL) is orig
 
 
-async def test_catch_signals_wrong_thread():
+async def test_catch_signals_wrong_thread() -> None:
     async def naughty():
         with open_signal_receiver(signal.SIGINT):
             pass  # pragma: no cover
@@ -65,7 +65,7 @@ async def test_catch_signals_wrong_thread():
         await trio.to_thread.run_sync(trio.run, naughty)
 
 
-async def test_open_signal_receiver_conflict():
+async def test_open_signal_receiver_conflict() -> None:
     with pytest.raises(trio.BusyResourceError):
         with open_signal_receiver(signal.SIGILL) as receiver:
             async with trio.open_nursery() as nursery:
@@ -75,14 +75,14 @@ async def test_open_signal_receiver_conflict():
 
 # Blocks until all previous calls to run_sync_soon(idempotent=True) have been
 # processed.
-async def wait_run_sync_soon_idempotent_queue_barrier():
+async def wait_run_sync_soon_idempotent_queue_barrier() -> None:
     ev = trio.Event()
     token = _core.current_trio_token()
     token.run_sync_soon(ev.set, idempotent=True)
     await ev.wait()
 
 
-async def test_open_signal_receiver_no_starvation():
+async def test_open_signal_receiver_no_starvation() -> None:
     # Set up a situation where there are always 2 pending signals available to
     # report, and make sure that instead of getting the same signal reported
     # over and over, it alternates between reporting both of them.
