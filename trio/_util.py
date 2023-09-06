@@ -345,36 +345,6 @@ else:
     final = _final_impl
 
 
-class Final(ABCMeta):
-    """Metaclass that enforces a class to be final (i.e., subclass not allowed).
-
-    If a class uses this metaclass like this::
-
-        class SomeClass(metaclass=Final):
-            pass
-
-    The metaclass will ensure that no subclass can be created.
-
-    Raises
-    ------
-    - TypeError if a subclass is created
-    """
-
-    def __new__(
-        cls,
-        name: str,
-        bases: tuple[type, ...],
-        cls_namespace: dict[str, object],
-    ) -> Final:
-        for base in bases:
-            if isinstance(base, Final):
-                raise TypeError(
-                    f"{base.__module__}.{base.__qualname__} does not support"
-                    " subclassing"
-                )
-        return super().__new__(cls, name, bases, cls_namespace)
-
-
 @final  # No subclassing of NoPublicConstructor itself.
 class NoPublicConstructor(ABCMeta):
     """Metaclass that ensures a private constructor.

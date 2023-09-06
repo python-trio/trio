@@ -13,7 +13,6 @@ from .._core._tests.tutil import (
 )
 from .._util import (
     ConflictDetector,
-    Final,
     NoPublicConstructor,
     coroutine_or_error,
     final,
@@ -171,17 +170,7 @@ def test_generic_function():
     assert test_func.__module__ == __name__
 
 
-def test_final_metaclass():
-    class FinalClass(metaclass=Final):
-        pass
-
-    with pytest.raises(TypeError):
-
-        class SubClass(FinalClass):
-            pass
-
-
-def test_final_deco() -> None:
+def test_final_decorator() -> None:
     @final
     class FinalClass:
         pass
