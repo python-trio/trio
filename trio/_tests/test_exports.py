@@ -8,6 +8,8 @@ import inspect
 import json
 import socket as stdlib_socket
 import sys
+import types
+from collections.abc import Iterator
 from pathlib import Path
 from types import ModuleType
 from typing import Protocol
@@ -70,10 +72,19 @@ def test_core_is_properly_reexported():
         assert found == 1
 
 
-def public_modules(module):
+def class_is_final(cls: type) -> bool:
+    """Check if a class has _util.final / typing.final applied."""
+    # We use vars() to bypass this being set in superclasses or the metaclass.
+    return vars(cls).get("__final__", False)
+
+
+def iter_modules(
+    module: types.ModuleType,
+    only_public: bool,
+) -> Iterator[types.ModuleType]:
     yield module
     for name, class_ in module.__dict__.items():
-        if name.startswith("_"):  # pragma: no cover
+        if name.startswith("_") and only_public:
             continue
         if not isinstance(class_, ModuleType):
             continue
@@ -81,10 +92,11 @@ def public_modules(module):
             continue
         if class_ is module:  # pragma: no cover
             continue
-        yield from public_modules(class_)
+        yield from iter_modules(class_, only_public)
 
 
-PUBLIC_MODULES = list(public_modules(trio))
+PUBLIC_MODULES = list(iter_modules(trio, only_public=True))
+ALL_MODULES = list(iter_modules(trio, only_public=False))
 PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
 
 
@@ -484,6 +496,16 @@ def test_static_tool_sees_class_members(
     assert not errors
 
 
+def test_nopublic_is_final() -> None:
+    """Check all NoPublicConstructor classes are also @final."""
+    assert class_is_final(_util.NoPublicConstructor)  # This is itself final.
+
+    for module in ALL_MODULES:
+        for name, class_ in module.__dict__.items():
+            if isinstance(class_, _util.NoPublicConstructor):
+                assert class_is_final(class_)
+
+
 def test_classes_are_final() -> None:
     for module in PUBLIC_MODULES:
         for name, class_ in module.__dict__.items():
@@ -519,4 +541,4 @@ def test_classes_are_final() -> None:
             if name.endswith("Statistics"):
                 continue
 
-            assert isinstance(class_, _util.Final)
+            assert class_is_final(class_), f"{class_.__module__}.{class_.__qualname__}"

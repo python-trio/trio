@@ -334,6 +334,8 @@ def _final_impl(decorated: type[T]) -> type[T]:
     # Override the method blindly. We're always going to raise, so it doesn't
     # matter what the original did (if anything).
     decorated.__init_subclass__ = classmethod(_init_final_cls)  # type: ignore[assignment]
+    # Python 3.11+ sets this attr, do it on all versions so this being present can be tested.
+    decorated.__final__ = True  # type: ignore[attr-defined]
     return decorated
 
 
