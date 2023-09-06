@@ -399,7 +399,7 @@ def _check_token(trio_token: TrioToken | None) -> TrioToken:
 
 def _send_message_to_host_task(
     message: Run[RetT] | RunSync[RetT], trio_token: TrioToken
-) -> RetT:
+) -> None:
     task_register = TOKEN_LOCAL.task_register
     cancel_register = TOKEN_LOCAL.cancel_register
 
@@ -412,12 +412,11 @@ def _send_message_to_host_task(
             trio.lowlevel.reschedule(task, outcome.Value(message))
 
     trio_token.run_sync_soon(in_trio_thread)
-    return message.queue.get().unwrap()  # type: ignore[no-any-return]
 
 
 def _send_message_to_system_task(
     message: Run[RetT] | RunSync[RetT], trio_token: TrioToken
-) -> RetT:
+) -> None:
     if type(message) is RunSync:
         run_sync = message.run_sync
     elif type(message) is Run:
@@ -437,9 +436,7 @@ def _send_message_to_system_task(
             "trio.to_thread.run_sync received unrecognized thread message {!r}."
             "".format(message)
         )
-
     trio_token.run_sync_soon(run_sync)
-    return message.queue.get().unwrap()  # type: ignore[no-any-return]
 
 
 def from_thread_run(
@@ -489,7 +486,8 @@ def from_thread_run(
 
     message_to_trio = Run(afn, args, contextvars.copy_context())
 
-    return send_message(message_to_trio, _check_token(trio_token))
+    send_message(message_to_trio, _check_token(trio_token))
+    return message_to_trio.queue.get().unwrap()  # type: ignore[no-any-return]
 
 
 def from_thread_run_sync(
@@ -535,4 +533,5 @@ def from_thread_run_sync(
 
     message_to_trio = RunSync(fn, args, contextvars.copy_context())
 
-    return send_message(message_to_trio, _check_token(trio_token))
+    send_message(message_to_trio, _check_token(trio_token))
+    return message_to_trio.queue.get().unwrap()  # type: ignore[no-any-return]
