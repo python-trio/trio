@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import signal
 from collections import OrderedDict
-from collections.abc import Callable, Generator, Iterable
+from collections.abc import AsyncIterator, Callable, Generator, Iterable
 from contextlib import contextmanager
 from types import FrameType
 from typing import TYPE_CHECKING
@@ -100,10 +100,6 @@ class SignalReceiver:
 
         deliver_next()
 
-    # Helper for tests, not public or otherwise used
-    def _pending_signal_count(self) -> int:
-        return len(self._pending)
-
     def __aiter__(self) -> Self:
         return self
 
@@ -122,10 +118,17 @@ class SignalReceiver:
             return signum
 
 
+def get_pending_signal_count(rec: AsyncIterator[int]) -> int:
+    """Helper for tests, not public or otherwise used."""
+    # open_signal_receiver() always produces SignalReceiver, so cast.
+    assert isinstance(rec, SignalReceiver)
+    return len(rec._pending)
+
+
 @contextmanager
 def open_signal_receiver(
     *signals: signal.Signals | int,
-) -> Generator[SignalReceiver, None, None]:
+) -> Generator[AsyncIterator[int], None, None]:
     """A context manager for catching signals.
 
     Entering this context manager starts listening for the given signals and
