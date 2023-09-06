@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sys
-import warnings
 from collections.abc import Callable, Sequence
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, cast, overload
@@ -11,9 +10,7 @@ import attr
 from trio._deprecate import warn_deprecated
 
 if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup, ExceptionGroup, print_exception
-else:
-    from traceback import print_exception
+    from exceptiongroup import BaseExceptionGroup, ExceptionGroup
 
 if TYPE_CHECKING:
     from typing_extensions import Self
@@ -261,7 +258,7 @@ class MultiError(_BaseExceptionGroup):
     def __repr__(self) -> str:
         return f"<MultiError: {self}>"
 
-    @overload
+    @overload  # type: ignore[override]  # 'Exception' != '_ExceptionT'
     def derive(self, excs: Sequence[Exception], /) -> NonBaseMultiError:
         ...
 
@@ -459,37 +456,6 @@ def concat_tb(
     for head_tb in reversed(head_tbs):
         current_head = copy_tb(head_tb, tb_next=current_head)
     return current_head
-
-
-# Remove when IPython gains support for exception groups
-# (https://github.com/ipython/ipython/issues/13753)
-if "IPython" in sys.modules:
-    import IPython
-
-    ip = IPython.get_ipython()
-    if ip is not None:
-        if ip.custom_exceptions != ():
-            warnings.warn(
-                "IPython detected, but you already have a custom exception "
-                "handler installed. I'll skip installing Trio's custom "
-                "handler, but this means exception groups will not show full "
-                "tracebacks.",
-                category=RuntimeWarning,
-            )
-        else:
-
-            def trio_show_traceback(
-                self: IPython.core.interactiveshell.InteractiveShell,
-                etype: type[BaseException],
-                value: BaseException,
-                tb: TracebackType,
-                tb_offset: int | None = None,
-            ) -> None:
-                # XX it would be better to integrate with IPython's fancy
-                # exception formatting stuff (and not ignore tb_offset)
-                print_exception(value)
-
-            ip.set_custom_exc((BaseExceptionGroup,), trio_show_traceback)
 
 
 # Ubuntu's system Python has a sitecustomize.py file that import

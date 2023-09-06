@@ -6,19 +6,20 @@ import argparse
 import json
 import subprocess
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 
 # the result file is not marked in MANIFEST.in so it's not included in the package
 failed = False
 
 
-def get_result_file_name(platform: str):
+def get_result_file_name(platform: str) -> Path:
     return Path(__file__).parent / f"verify_types_{platform.lower()}.json"
 
 
 # TODO: consider checking manually without `--ignoreexternal`, and/or
 # removing it from the below call later on.
-def run_pyright(platform: str):
+def run_pyright(platform: str) -> subprocess.CompletedProcess[bytes]:
     return subprocess.run(
         [
             "pyright",
@@ -33,7 +34,13 @@ def run_pyright(platform: str):
     )
 
 
-def check_less_than(key, current_dict, last_dict, /, invert=False):
+def check_less_than(
+    key: str,
+    current_dict: Mapping[str, float],
+    last_dict: Mapping[str, float],
+    /,
+    invert: bool = False,
+) -> None:
     global failed
     current = current_dict[key]
     last = last_dict[key]
@@ -57,7 +64,7 @@ def check_less_than(key, current_dict, last_dict, /, invert=False):
     )
 
 
-def check_zero(key, current_dict):
+def check_zero(key: str, current_dict: Mapping[str, float]) -> None:
     global failed
     if current_dict[key] != 0:
         failed = True

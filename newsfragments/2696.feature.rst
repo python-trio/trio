@@ -1,0 +1,4 @@
+:func:`trio.lowlevel.start_guest_run` now does a bit more setup of the guest run
+before it returns to its caller, so that the caller can immediately make calls to
+:func:`trio.current_time`, :func:`trio.lowlevel.spawn_system_task`,
+:func:`trio.lowlevel.current_trio_token`, etc.
