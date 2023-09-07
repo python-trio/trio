@@ -188,14 +188,19 @@ def test_final_decorator() -> None:
 
 
 def test_no_public_constructor_metaclass():
+    """The NoPublicConstructor metaclass prevents calling the constructor directly."""
+
     class SpecialClass(metaclass=NoPublicConstructor):
-        pass
+        def __init__(self, a: int, b: float):
+            """Check arguments can be passed to __init__."""
+            assert a == 8
+            assert b == 3.14
 
     with pytest.raises(TypeError):
-        SpecialClass()
+        SpecialClass(8, 3.14)
 
-    # Private constructor should not raise
-    assert isinstance(SpecialClass._create(), SpecialClass)
+    # Private constructor should not raise, and passes args to __init__.
+    assert isinstance(SpecialClass._create(8, b=3.14), SpecialClass)
 
 
 def test_fixup_module_metadata():
