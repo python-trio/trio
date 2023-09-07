@@ -4,7 +4,7 @@ import sys
 import weakref
 from collections.abc import AsyncGenerator
 from math import inf
-from typing import NoReturn
+from typing import Any, NoReturn
 
 import pytest
 
@@ -270,7 +270,9 @@ async def step_outside_async_context(aiter: AsyncGenerator[int, None]) -> None:
 
 
 @pytest.mark.skipif(buggy_pypy_asyncgens, reason="pypy 7.2.0 is buggy")
-async def test_fallback_when_no_hook_claims_it(capsys: pytest.CaptureFixture) -> None:
+async def test_fallback_when_no_hook_claims_it(
+    capsys: pytest.CaptureFixture[Any],
+) -> None:
     async def well_behaved() -> AsyncGenerator[int, None]:
         yield 42
 
