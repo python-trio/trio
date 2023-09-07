@@ -270,7 +270,7 @@ async def step_outside_async_context(aiter: AsyncGenerator[int, None]) -> None:
 
 
 @pytest.mark.skipif(buggy_pypy_asyncgens, reason="pypy 7.2.0 is buggy")
-async def test_fallback_when_no_hook_claims_it(
+async def test_fallback_when_no_hook_claims_it(  # type: ignore[misc]  # skipif decorator leaves this function untyped :(
     capsys: pytest.CaptureFixture[Any],
 ) -> None:
     async def well_behaved() -> AsyncGenerator[int, None]:
