@@ -14,7 +14,7 @@ from OpenSSL import SSL
 import trio
 import trio.testing
 from trio import DTLSChannel, DTLSEndpoint
-from trio.testing._fake_net import FakeNet
+from trio.testing._fake_net import FakeNet, UDPPacket
 
 from .._core._tests.tutil import binds_ipv6, gc_collect_harder, slow
 
@@ -120,7 +120,7 @@ async def test_handshake_over_terrible_network(
     async with dtls_echo_server() as (_, address):
         async with trio.open_nursery() as nursery:
 
-            async def route_packet(packet) -> None:
+            async def route_packet(packet: UDPPacket) -> None:
                 while True:
                     op = r.choices(
                         ["deliver", "drop", "dupe", "delay"],
@@ -165,7 +165,7 @@ async def test_handshake_over_terrible_network(
                         fn.deliver_packet(packet)
                         break
 
-            def route_packet_wrapper(packet) -> None:
+            def route_packet_wrapper(packet: UDPPacket) -> None:
                 try:
                     nursery.start_soon(route_packet, packet)
                 except RuntimeError:  # pragma: no cover
@@ -464,7 +464,7 @@ async def test_invalid_cookie_rejected(autojump_clock: trio.abc.Clock) -> None:
         # corrupting bytes after that.
         offset_to_corrupt = count(11)
 
-        def route_packet(packet) -> None:
+        def route_packet(packet: UDPPacket) -> None:
             try:
                 _, cookie, _ = decode_client_hello_untrusted(packet.payload)
             except BadPacket:
@@ -581,7 +581,7 @@ async def test_openssl_retransmit_doesnt_break_stuff() -> None:
 
     blackholed = True
 
-    def route_packet(packet) -> None:
+    def route_packet(packet: UDPPacket) -> None:
         if blackholed:
             print("dropped packet", packet)
             return
@@ -631,7 +631,7 @@ async def test_initial_retransmit_timeout_configuration(
 
     blackholed = True
 
-    def route_packet(packet) -> None:
+    def route_packet(packet: UDPPacket) -> None:
         nonlocal blackholed
         if blackholed:
             blackholed = False
@@ -659,7 +659,7 @@ async def test_explicit_tiny_mtu_is_respected() -> None:
     fn = FakeNet()
     fn.enable()
 
-    def route_packet(packet) -> None:
+    def route_packet(packet: UDPPacket) -> None:
         print(f"delivering {packet}")
         print(f"payload size: {len(packet.payload)}")
         assert len(packet.payload) <= MTU
@@ -689,7 +689,7 @@ async def test_handshake_handles_minimum_network_mtu(
     else:
         mtu = 576 - 28
 
-    def route_packet(packet) -> None:
+    def route_packet(packet: UDPPacket) -> None:
         if len(packet.payload) > mtu:
             print(f"dropping {packet}")
         else:
@@ -817,7 +817,7 @@ async def test_socket_closed_while_processing_clienthello(
     # HelloVerifyRequest, since that has its own sending logic
     async with dtls_echo_server() as (server, address):
 
-        def route_packet(packet) -> None:
+        def route_packet(packet: UDPPacket) -> None:
             fn.deliver_packet(packet)
             server.socket.close()
 
@@ -835,7 +835,7 @@ async def test_association_replaced_while_handshake_running(
     fn = FakeNet()
     fn.enable()
 
-    def route_packet(packet: object) -> None:
+    def route_packet(packet: UDPPacket) -> None:
         pass
 
     fn.route_packet = route_packet  # type: ignore[assignment]  # TODO add type annotations for FakeNet
@@ -861,7 +861,7 @@ async def test_association_replaced_before_handshake_starts() -> None:
     fn.enable()
 
     # This test shouldn't send any packets
-    def route_packet(packet: object) -> NoReturn:  # pragma: no cover
+    def route_packet(packet: UDPPacket) -> NoReturn:  # pragma: no cover
         assert False
 
     fn.route_packet = route_packet  # type: ignore[assignment]  # TODO add type annotations for FakeNet

@@ -31,7 +31,7 @@ if on_windows:
     )
 
 
-def test_winerror(monkeypatch) -> None:
+def test_winerror(monkeypatch: pytest.MonkeyPatch) -> None:
     mock = create_autospec(ffi.getwinerror)
     monkeypatch.setattr(ffi, "getwinerror", mock)
 
@@ -73,7 +73,7 @@ def test_winerror(monkeypatch) -> None:
 # then we filter out the warning.
 @pytest.mark.filterwarnings("ignore:.*UnboundedQueue:trio.TrioDeprecationWarning")
 async def test_completion_key_listen() -> None:
-    async def post(key):
+    async def post(key: int) -> None:
         iocp = ffi.cast("HANDLE", _core.current_iocp())
         for i in range(10):
             print("post", i)
@@ -224,9 +224,11 @@ def test_lsp_that_hooks_select_gives_good_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from .. import _io_windows
-    from .._windows_cffi import WSAIoctls, _handle
+    from .._windows_cffi import CData, WSAIoctls, _handle
 
-    def patched_get_underlying(sock, *, which=WSAIoctls.SIO_BASE_HANDLE):
+    def patched_get_underlying(
+        sock: int | CData, *, which: int = WSAIoctls.SIO_BASE_HANDLE
+    ) -> CData:
         if hasattr(sock, "fileno"):  # pragma: no branch
             sock = sock.fileno()
         if which == WSAIoctls.SIO_BSP_HANDLE_SELECT:
@@ -241,16 +243,20 @@ def test_lsp_that_hooks_select_gives_good_error(
         _core.run(sleep, 0)
 
 
-def test_lsp_that_completely_hides_base_socket_gives_good_error(monkeypatch) -> None:
+def test_lsp_that_completely_hides_base_socket_gives_good_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # This tests behavior with an LSP that fails SIO_BASE_HANDLE and returns
     # self for SIO_BSP_HANDLE_SELECT (like Komodia), but also returns
     # self for SIO_BSP_HANDLE_POLL. No known LSP does this, but we want to
     # make sure we get an error rather than an infinite loop.
 
     from .. import _io_windows
-    from .._windows_cffi import WSAIoctls, _handle
+    from .._windows_cffi import CData, WSAIoctls, _handle
 
-    def patched_get_underlying(sock, *, which: int = WSAIoctls.SIO_BASE_HANDLE):
+    def patched_get_underlying(
+        sock: int | CData, *, which: int = WSAIoctls.SIO_BASE_HANDLE
+    ) -> CData:
         if hasattr(sock, "fileno"):  # pragma: no branch
             sock = sock.fileno()
         if which == WSAIoctls.SIO_BASE_HANDLE:
