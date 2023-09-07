@@ -171,6 +171,12 @@ def test_generic_function():
 
 
 def test_final_decorator() -> None:
+    """Test that subclassing a @final-annotated class is not allowed.
+
+    This checks both runtime results, and verifies that type checkers detect
+    the error statically through the type-ignore comment.
+    """
+
     @final
     class FinalClass:
         pass
