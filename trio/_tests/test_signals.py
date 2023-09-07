@@ -1,4 +1,8 @@
+from __future__ import annotations
+
 import signal
+from types import FrameType
+from typing import NoReturn
 
 import pytest
 
@@ -57,7 +61,7 @@ async def test_open_signal_receiver_restore_handler_after_duplicate_signal() -> 
 
 
 async def test_catch_signals_wrong_thread() -> None:
-    async def naughty():
+    async def naughty() -> None:
         with open_signal_receiver(signal.SIGINT):
             pass  # pragma: no cover
 
@@ -113,10 +117,10 @@ async def test_open_signal_receiver_no_starvation() -> None:
             traceback.print_exc()
 
 
-async def test_catch_signals_race_condition_on_exit():
-    delivered_directly = set()
+async def test_catch_signals_race_condition_on_exit() -> None:
+    delivered_directly: set[int] = set()
 
-    def direct_handler(signo, frame):
+    def direct_handler(signo: int, frame: FrameType | None) -> None:
         delivered_directly.add(signo)
 
     print(1)
@@ -161,7 +165,7 @@ async def test_catch_signals_race_condition_on_exit():
 
     # Check exception chaining if there are multiple exception-raising
     # handlers
-    def raise_handler(signum, _):
+    def raise_handler(signum: int, frame: FrameType | None) -> NoReturn:
         raise RuntimeError(signum)
 
     with _signal_handler({signal.SIGILL, signal.SIGFPE}, raise_handler):
