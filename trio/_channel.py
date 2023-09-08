@@ -3,8 +3,11 @@ from __future__ import annotations
 from collections import OrderedDict, deque
 from math import inf
 from types import TracebackType
-from typing import Tuple  # only needed for typechecking on <3.9
-from typing import TYPE_CHECKING, Generic
+from typing import (
+    TYPE_CHECKING,
+    Generic,
+    Tuple,  # only needed for typechecking on <3.9
+)
 
 import attr
 from outcome import Error, Value

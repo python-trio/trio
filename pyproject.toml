@@ -1,3 +1,6 @@
+[project]
+requires-python = ">=3.8"
+
 [tool.black]
 target-version = ['py38']
 force-exclude = '''
@@ -10,26 +13,40 @@ force-exclude = '''
 [tool.codespell]
 ignore-words-list = 'astroid,crasher,asend'
 
-[tool.flake8]
+[tool.ruff]
+src = ["trio", "notes-to-self"]
+respect-gitignore = true
+fix = true
+
+select = [
+  "E",  # pycodestyle errors
+  "W",  # pycodestyle warnings
+  "F",  # pyflakes
+  "I",  # isort
+  "D",  # pydocstyle
+  "YTT",  # flake8-2020
+]
 extend-ignore = ['D', 'E', 'W', 'F403', 'F405', 'F821', 'F822']
-per-file-ignores = [
-  'trio/__init__.py: F401',
-  'trio/_core/__init__.py: F401',
-  'trio/_core/_tests/test_multierror_scripts/*: F401',
-  'trio/abc.py: F401',
-  'trio/lowlevel.py: F401',
-  'trio/socket.py: F401',
-  'trio/testing/__init__.py: F401'
+
+include = ["*.py", "*.pyi", "**/pyproject.toml"]
+
+extend-exclude = [
+  "docs/source/reference-*",
+  "docs/source/tutorial/*",
 ]
 
-[tool.isort]
-combine_as_imports = true
-profile = "black"
-skip_gitignore = true
-skip_glob = [
-  "docs/source/reference-*",
-  "docs/source/tutorial/*"
-]
+[tool.ruff.per-file-ignores]
+'trio/__init__.py' = ['F401']
+'trio/_core/__init__.py' = ['F401']
+'trio/_core/_tests/test_multierror_scripts/*' = ['F401']
+'trio/abc.py' = ['F401']
+'trio/lowlevel.py' = ['F401']
+'trio/socket.py' = ['F401']
+'trio/testing/__init__.py' = ['F401']
+'trio/_core/_generated_*.py' = ['I']
+
+[tool.ruff.isort]
+combine-as-imports = true
 
 [tool.mypy]
 python_version = "3.8"
