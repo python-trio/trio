@@ -31,21 +31,16 @@ else
     echo "::endgroup::"
 fi
 
-echo "::group::ISort"
-if ! isort --check setup.py trio; then
-    echo "* isort found issues." >> $GITHUB_STEP_SUMMARY
+# Run ruff, configured in pyproject.toml
+echo "::group::Ruff"
+if ! ruff check --diff .; then
+    echo "* ruff found issues." >> $GITHUB_STEP_SUMMARY
     EXIT_STATUS=1
-    isort --diff setup.py trio
     echo "::endgroup::"
-    echo "::error:: isort found issues"
+    echo "::error:: ruff found issues"
 else
     echo "::endgroup::"
 fi
-
-# Run flake8, configured in pyproject.toml
-echo "::group::Flake8"
-flake8 trio/ || EXIT_STATUS=$?
-echo "::endgroup::"
 
 # Run mypy on all supported platforms
 # MYPY is set if any of them fail.
