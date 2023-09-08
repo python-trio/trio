@@ -1,6 +1,82 @@
-from threading import Thread, Lock
-import outcome
+from __future__ import annotations
+
+import ctypes
+import ctypes.util
+import sys
+import traceback
+from functools import partial
 from itertools import count
+from threading import Lock, Thread
+from typing import Any, Callable, Generic, TypeVar
+
+import outcome
+
+RetT = TypeVar("RetT")
+
+
+def _to_os_thread_name(name: str) -> bytes:
+    # ctypes handles the trailing \00
+    return name.encode("ascii", errors="replace")[:15]
+
+
+# used to construct the method used to set os thread name, or None, depending on platform.
+# called once on import
+def get_os_thread_name_func() -> Callable[[int | None, str], None] | None:
+    def namefunc(
+        setname: Callable[[int, bytes], int], ident: int | None, name: str
+    ) -> None:
+        # Thread.ident is None "if it has not been started". Unclear if that can happen
+        # with current usage.
+        if ident is not None:  # pragma: no cover
+            setname(ident, _to_os_thread_name(name))
+
+    # namefunc on Mac also takes an ident, even if pthread_setname_np doesn't/can't use it
+    # so the caller don't need to care about platform.
+    def darwin_namefunc(
+        setname: Callable[[bytes], int], ident: int | None, name: str
+    ) -> None:
+        # I don't know if Mac can rename threads that hasn't been started, but default
+        # to no to be on the safe side.
+        if ident is not None:  # pragma: no cover
+            setname(_to_os_thread_name(name))
+
+    # find the pthread library
+    # this will fail on windows
+    libpthread_path = ctypes.util.find_library("pthread")
+    if not libpthread_path:
+        return None
+
+    # Sometimes windows can find the path, but gives a permission error when
+    # accessing it. Catching a wider exception in case of more esoteric errors.
+    # https://github.com/python-trio/trio/issues/2688
+    try:
+        libpthread = ctypes.CDLL(libpthread_path)
+    except Exception:  # pragma: no cover
+        return None
+
+    # get the setname method from it
+    # afaik this should never fail
+    pthread_setname_np = getattr(libpthread, "pthread_setname_np", None)
+    if pthread_setname_np is None:  # pragma: no cover
+        return None
+
+    # specify function prototype
+    pthread_setname_np.restype = ctypes.c_int
+
+    # on mac OSX pthread_setname_np does not take a thread id,
+    # it only lets threads name themselves, which is not a problem for us.
+    # Just need to make sure to call it correctly
+    if sys.platform == "darwin":
+        pthread_setname_np.argtypes = [ctypes.c_char_p]
+        return partial(darwin_namefunc, pthread_setname_np)
+
+    # otherwise assume linux parameter conventions. Should also work on *BSD
+    pthread_setname_np.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+    return partial(namefunc, pthread_setname_np)
+
+
+# construct os thread name method
+set_os_thread_name = get_os_thread_name_func()
 
 # The "thread cache" is a simple unbounded thread pool, i.e., it automatically
 # spawns as many threads as needed to handle all the requests its given. Its
@@ -40,9 +116,13 @@ IDLE_TIMEOUT = 10  # seconds
 name_counter = count()
 
 
-class WorkerThread:
-    def __init__(self, thread_cache):
-        self._job = None
+class WorkerThread(Generic[RetT]):
+    def __init__(self, thread_cache: ThreadCache) -> None:
+        self._job: tuple[
+            Callable[[], RetT],
+            Callable[[outcome.Outcome[RetT]], object],
+            str | None,
+        ] | None = None
         self._thread_cache = thread_cache
         # This Lock is used in an unconventional way.
         #
@@ -52,25 +132,50 @@ class WorkerThread:
         # Initially we have no job, so it starts out in locked state.
         self._worker_lock = Lock()
         self._worker_lock.acquire()
-        thread = Thread(target=self._work, daemon=True)
-        thread.name = f"Trio worker thread {next(name_counter)}"
-        thread.start()
+        self._default_name = f"Trio thread {next(name_counter)}"
 
-    def _work(self):
+        self._thread = Thread(target=self._work, name=self._default_name, daemon=True)
+
+        if set_os_thread_name:
+            set_os_thread_name(self._thread.ident, self._default_name)
+        self._thread.start()
+
+    def _handle_job(self) -> None:
+        # Handle job in a separate method to ensure user-created
+        # objects are cleaned up in a consistent manner.
+        assert self._job is not None
+        fn, deliver, name = self._job
+        self._job = None
+
+        # set name
+        if name is not None:
+            self._thread.name = name
+            if set_os_thread_name:
+                set_os_thread_name(self._thread.ident, name)
+        result = outcome.capture(fn)
+
+        # reset name if it was changed
+        if name is not None:
+            self._thread.name = self._default_name
+            if set_os_thread_name:
+                set_os_thread_name(self._thread.ident, self._default_name)
+
+        # Tell the cache that we're available to be assigned a new
+        # job. We do this *before* calling 'deliver', so that if
+        # 'deliver' triggers a new job, it can be assigned to us
+        # instead of spawning a new thread.
+        self._thread_cache._idle_workers[self] = None
+        try:
+            deliver(result)
+        except BaseException as e:
+            print("Exception while delivering result of thread", file=sys.stderr)
+            traceback.print_exception(type(e), e, e.__traceback__)
+
+    def _work(self) -> None:
         while True:
             if self._worker_lock.acquire(timeout=IDLE_TIMEOUT):
                 # We got a job
-                fn, deliver = self._job
-                self._job = None
-                result = outcome.capture(fn)
-                # Tell the cache that we're available to be assigned a new
-                # job. We do this *before* calling 'deliver', so that if
-                # 'deliver' triggers a new job, it can be assigned to us
-                # instead of spawning a new thread.
-                self._thread_cache._idle_workers[self] = None
-                deliver(result)
-                del fn
-                del deliver
+                self._handle_job()
             else:
                 # Timeout acquiring lock, so we can probably exit. But,
                 # there's a race condition: we might be assigned a job *just*
@@ -90,22 +195,32 @@ class WorkerThread:
 
 
 class ThreadCache:
-    def __init__(self):
-        self._idle_workers = {}
+    def __init__(self) -> None:
+        self._idle_workers: dict[WorkerThread[Any], None] = {}
 
-    def start_thread_soon(self, fn, deliver):
+    def start_thread_soon(
+        self,
+        fn: Callable[[], RetT],
+        deliver: Callable[[outcome.Outcome[RetT]], object],
+        name: str | None = None,
+    ) -> None:
+        worker: WorkerThread[RetT]
         try:
             worker, _ = self._idle_workers.popitem()
         except KeyError:
             worker = WorkerThread(self)
-        worker._job = (fn, deliver)
+        worker._job = (fn, deliver, name)
         worker._worker_lock.release()
 
 
 THREAD_CACHE = ThreadCache()
 
 
-def start_thread_soon(fn, deliver):
+def start_thread_soon(
+    fn: Callable[[], RetT],
+    deliver: Callable[[outcome.Outcome[RetT]], object],
+    name: str | None = None,
+) -> None:
     """Runs ``deliver(outcome.capture(fn))`` in a worker thread.
 
     Generally ``fn`` does some blocking work, and ``deliver`` delivers the
@@ -165,4 +280,4 @@ def start_thread_soon(fn, deliver):
         limit how many threads they're using then it's polite to respect that.
 
     """
-    THREAD_CACHE.start_thread_soon(fn, deliver)
+    THREAD_CACHE.start_thread_soon(fn, deliver, name)

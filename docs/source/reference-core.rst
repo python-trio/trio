@@ -90,9 +90,9 @@ them. Here are the rules:
   exception, it might act as a checkpoint or might not.)
 
   * This includes async iterators: If you write ``async for ... in <a
-    trio object>``, then there will be at least one checkpoint before
-    each iteration of the loop and one checkpoint after the last
-    iteration.
+    trio object>``, then there will be at least one checkpoint in
+    each iteration of the loop, and it will still checkpoint if the
+    iterable is empty.
 
   * Partial exception for async context managers:
     Both the entry and exit of an ``async with`` block are
@@ -524,6 +524,10 @@ objects.
 
    .. autoattribute:: cancel_called
 
+Often there is no need to create :class:`CancelScope` object. Trio
+already includes :attr:`~trio.Nursery.cancel_scope` attribute in a
+task-related :class:`Nursery` object. We will cover nurseries later in
+the manual.
 
 Trio also provides several convenience functions for the common
 situation of just wanting to impose a timeout on some code:
@@ -637,7 +641,7 @@ crucial things to keep in mind:
 
   * Any unhandled exceptions are re-raised inside the parent task. If
     there are multiple exceptions, then they're collected up into a
-    single :exc:`MultiError` exception.
+    single :exc:`BaseExceptionGroup` or :exc:`ExceptionGroup` exception.
 
 Since all tasks are descendents of the initial task, one consequence
 of this is that :func:`run` can't finish until all tasks have
@@ -663,7 +667,7 @@ In Trio, child tasks inherit the parent nursery's cancel scopes. So in
 this example, both the child tasks will be cancelled when the timeout
 expires::
 
-   with move_on_after(TIMEOUT):
+   with trio.move_on_after(TIMEOUT):
        async with trio.open_nursery() as nursery:
            nursery.start_soon(child1)
            nursery.start_soon(child2)
@@ -674,20 +678,22 @@ Note that what matters here is the scopes that were active when
 nothing at all::
 
    async with trio.open_nursery() as nursery:
-       with move_on_after(TIMEOUT):  # don't do this!
+       with trio.move_on_after(TIMEOUT):  # don't do this!
            nursery.start_soon(child)
 
-Why is this so? Well, ``start_soon()`` returns as soon as it has scheduled the new task to start running. The flow of execution in the parent then continues on to exit the ``with move_on_after(TIMEOUT):`` block, at which point Trio forgets about the timeout entirely. In order for the timeout to apply to the child task, Trio must be able to tell that its associated cancel scope will stay open for at least as long as the child task is executing. And Trio can only know that for sure if the cancel scope block is outside the nursery block.
+Why is this so? Well, ``start_soon()`` returns as soon as it has scheduled the new task to start running. The flow of execution in the parent then continues on to exit the ``with trio.move_on_after(TIMEOUT):`` block, at which point Trio forgets about the timeout entirely. In order for the timeout to apply to the child task, Trio must be able to tell that its associated cancel scope will stay open for at least as long as the child task is executing. And Trio can only know that for sure if the cancel scope block is outside the nursery block.
 
-You might wonder why Trio can't just remember "this task should be cancelled in ``TIMEOUT`` seconds", even after the ``with move_on_after(TIMEOUT):`` block is gone. The reason has to do with :ref:`how cancellation is implemented <cancellation>`. Recall that cancellation is represented by a `Cancelled` exception, which eventually needs to be caught by the cancel scope that caused it. (Otherwise, the exception would take down your whole program!) In order to be able to cancel the child tasks, the cancel scope has to be able to "see" the `Cancelled` exceptions that they raise -- and those exceptions come out of the ``async with open_nursery()`` block, not out of the call to ``start_soon()``.
+You might wonder why Trio can't just remember "this task should be cancelled in ``TIMEOUT`` seconds", even after the ``with trio.move_on_after(TIMEOUT):`` block is gone. The reason has to do with :ref:`how cancellation is implemented <cancellation>`. Recall that cancellation is represented by a `Cancelled` exception, which eventually needs to be caught by the cancel scope that caused it. (Otherwise, the exception would take down your whole program!) In order to be able to cancel the child tasks, the cancel scope has to be able to "see" the `Cancelled` exceptions that they raise -- and those exceptions come out of the ``async with open_nursery()`` block, not out of the call to ``start_soon()``.
 
 If you want a timeout to apply to one task but not another, then you need to put the cancel scope in that individual task's function -- ``child()``, in this example.
+
+.. _exceptiongroups:
 
 Errors in multiple child tasks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Normally, in Python, only one thing happens at a time, which means
-that only one thing can wrong at a time. Trio has no such
+that only one thing can go wrong at a time. Trio has no such
 limitation. Consider code like::
 
     async def broken1():
@@ -705,18 +711,102 @@ limitation. Consider code like::
 
 ``broken1`` raises ``KeyError``. ``broken2`` raises
 ``IndexError``. Obviously ``parent`` should raise some error, but
-what? In some sense, the answer should be "both of these at once", but
-in Python there can only be one exception at a time.
+what? The answer is that both exceptions are grouped in an :exc:`ExceptionGroup`.
+:exc:`ExceptionGroup` and its parent class :exc:`BaseExceptionGroup` are used to
+encapsulate multiple exceptions being raised at once.
 
-Trio's answer is that it raises a :exc:`MultiError` object. This is a
-special exception which encapsulates multiple exception objects –
-either regular exceptions or nested :exc:`MultiError`\s. To make these
-easier to work with, Trio installs a custom `sys.excepthook` that
-knows how to print nice tracebacks for unhandled :exc:`MultiError`\s,
-and it also provides some helpful utilities like
-:meth:`MultiError.catch`, which allows you to catch "part of" a
-:exc:`MultiError`.
+To catch individual exceptions encapsulated in an exception group, the ``except*``
+clause was introduced in Python 3.11 (:pep:`654`). Here's how it works::
 
+    try:
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(broken1)
+            nursery.start_soon(broken2)
+    except* KeyError as excgroup:
+        for exc in excgroup.exceptions:
+            ...  # handle each KeyError
+    except* IndexError as excgroup:
+        for exc in excgroup.exceptions:
+            ...  # handle each IndexError
+
+If you want to reraise exceptions, or raise new ones, you can do so, but be aware that
+exceptions raised in ``except*`` sections will be raised together in a new exception
+group.
+
+But what if you can't use ``except*`` just yet? Well, for that there is the handy
+exceptiongroup_ library which lets you approximate this behavior with exception handler
+callbacks::
+
+    from exceptiongroup import catch
+
+    def handle_keyerrors(excgroup):
+        for exc in excgroup.exceptions:
+            ...  # handle each KeyError
+
+    def handle_indexerrors(excgroup):
+        for exc in excgroup.exceptions:
+            ...  # handle each IndexError
+
+    with catch({
+        KeyError: handle_keyerrors,
+        IndexError: handle_indexerrors
+    }):
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(broken1)
+            nursery.start_soon(broken2)
+
+The semantics for the handler functions are equal to ``except*`` blocks, except for
+setting local variables. If you need to set local variables, you need to declare them
+inside the handler function(s) with the ``nonlocal`` keyword::
+
+    def handle_keyerrors(excgroup):
+        nonlocal myflag
+        myflag = True
+
+    myflag = False
+    with catch({KeyError: handle_keyerrors}):
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(broken1)
+
+For reasons of backwards compatibility, nurseries raise ``trio.MultiError`` and
+``trio.NonBaseMultiError`` which inherit from :exc:`BaseExceptionGroup` and
+:exc:`ExceptionGroup`, respectively. Users should refrain from attempting to raise or
+catch the Trio specific exceptions themselves, and treat them as if they were standard
+:exc:`BaseExceptionGroup` or :exc:`ExceptionGroup` instances instead.
+
+"Strict" versus "loose" ExceptionGroup semantics
+++++++++++++++++++++++++++++++++++++++++++++++++
+
+Ideally, in some abstract sense we'd want everything that *can* raise an
+`ExceptionGroup` to *always* raise an `ExceptionGroup` (rather than, say, a single
+`ValueError`). Otherwise, it would be easy to accidentally write something like ``except
+ValueError:`` (not ``except*``), which works if a single exception is raised but fails to
+catch _anything_ in the case of multiple simultaneous exceptions (even if one of them is
+a ValueError). However, this is not how Trio worked in the past: as a concession to
+practicality when the ``except*`` syntax hadn't been dreamed up yet, the old
+``trio.MultiError`` was raised only when at least two exceptions occurred
+simultaneously. Adding a layer of `ExceptionGroup` around every nursery, while
+theoretically appealing, would probably break a lot of existing code in practice.
+
+Therefore, we've chosen to gate the newer, "stricter" behavior behind a parameter
+called ``strict_exception_groups``. This is accepted as a parameter to
+:func:`open_nursery`, to set the behavior for that nursery, and to :func:`trio.run`,
+to set the default behavior for any nursery in your program that doesn't override it.
+
+* With ``strict_exception_groups=True``, the exception(s) coming out of a nursery will
+  always be wrapped in an `ExceptionGroup`, so you'll know that if you're handling
+  single errors correctly, multiple simultaneous errors will work as well.
+
+* With ``strict_exception_groups=False``, a nursery in which only one task has failed
+  will raise that task's exception without an additional layer of `ExceptionGroup`
+  wrapping, so you'll get maximum compatibility with code that was written to
+  support older versions of Trio.
+
+To maintain backwards compatibility, the default is ``strict_exception_groups=False``.
+The default will eventually change to ``True`` in a future version of Trio, once
+Python 3.11 and later versions are in wide use.
+
+.. _exceptiongroup: https://pypi.org/project/exceptiongroup/
 
 Spawning tasks without becoming a parent
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -759,7 +849,7 @@ example, the timeout does *not* apply to ``child`` (or to anything
 else)::
 
    async def do_spawn(nursery):
-       with move_on_after(TIMEOUT):  # don't do this, it has no effect
+       with trio.move_on_after(TIMEOUT):  # don't do this, it has no effect
            nursery.start_soon(child)
 
    async with trio.open_nursery() as nursery:
@@ -790,23 +880,23 @@ finishes first::
        if not async_fns:
            raise ValueError("must pass at least one argument")
 
-       send_channel, receive_channel = trio.open_memory_channel(0)
+       winner = None
 
-       async def jockey(async_fn):
-           await send_channel.send(await async_fn())
+       async def jockey(async_fn, cancel_scope):
+           nonlocal winner
+           winner = await async_fn()
+           cancel_scope.cancel()
 
        async with trio.open_nursery() as nursery:
            for async_fn in async_fns:
-               nursery.start_soon(jockey, async_fn)
-           winner = await receive_channel.receive()
-           nursery.cancel_scope.cancel()
-           return winner
+               nursery.start_soon(jockey, async_fn, nursery.cancel_scope)
+
+       return winner
 
 This works by starting a set of tasks which each try to run their
-function, and then report back the value it returns. The main task
-uses ``receive_channel.receive`` to wait for one to finish; as soon as
-the first task crosses the finish line, it cancels the rest, and then
-returns the winning value.
+function. As soon as the first function completes its execution, the task will set the nonlocal variable ``winner``
+from the outer scope to the result of the function, and cancel the other tasks using the passed in cancel scope. Once all tasks
+have been cancelled (which exits the nursery block), the variable ``winner`` will be returned.
 
 Here if one or more of the racing functions raises an unhandled
 exception then Trio's normal handling kicks in: it cancels the others
@@ -826,110 +916,19 @@ The nursery API
 
 
 .. autoclass:: Nursery()
-   :members:
+   :members: child_tasks, parent_task
+
+   .. automethod:: start(async_fn, *args, name = None)
+
+   .. automethod:: start_soon(async_fn, *args, name = None)
 
 .. attribute:: TASK_STATUS_IGNORED
+   :type: TaskStatus
 
-   See :meth:`~Nursery.start`.
+   See :meth:`Nursery.start`.
 
-
-Working with :exc:`MultiError`\s
-++++++++++++++++++++++++++++++++
-
-.. autoexception:: MultiError
-
-   .. attribute:: exceptions
-
-      The list of exception objects that this :exc:`MultiError`
-      represents.
-
-   .. automethod:: filter
-
-   .. automethod:: catch
-      :with:
-
-Examples:
-
-Suppose we have a handler function that discards :exc:`ValueError`\s::
-
-    def handle_ValueError(exc):
-        if isinstance(exc, ValueError):
-            return None
-        else:
-            return exc
-
-Then these both raise :exc:`KeyError`::
-
-    with MultiError.catch(handle_ValueError):
-         raise MultiError([KeyError(), ValueError()])
-
-    with MultiError.catch(handle_ValueError):
-         raise MultiError([
-             ValueError(),
-             MultiError([KeyError(), ValueError()]),
-         ])
-
-And both of these raise nothing at all::
-
-    with MultiError.catch(handle_ValueError):
-         raise MultiError([ValueError(), ValueError()])
-
-    with MultiError.catch(handle_ValueError):
-         raise MultiError([
-             MultiError([ValueError(), ValueError()]),
-             ValueError(),
-         ])
-
-You can also return a new or modified exception, for example::
-
-    def convert_ValueError_to_MyCustomError(exc):
-        if isinstance(exc, ValueError):
-            # Similar to 'raise MyCustomError from exc'
-            new_exc = MyCustomError(...)
-            new_exc.__cause__ = exc
-            return new_exc
-        else:
-            return exc
-
-In the example above, we set ``__cause__`` as a form of explicit
-context chaining. :meth:`MultiError.filter` and
-:meth:`MultiError.catch` also perform implicit exception chaining – if
-you return a new exception object, then the new object's
-``__context__`` attribute will automatically be set to the original
-exception.
-
-We also monkey patch :class:`traceback.TracebackException` to be able
-to handle formatting :exc:`MultiError`\s. This means that anything that
-formats exception messages like :mod:`logging` will work out of the
-box::
-
-    import logging
-
-    logging.basicConfig()
-
-    try:
-        raise MultiError([ValueError("foo"), KeyError("bar")])
-    except:
-        logging.exception("Oh no!")
-        raise
-
-Will properly log the inner exceptions:
-
-.. code-block:: none
-
-    ERROR:root:Oh no!
-    Traceback (most recent call last):
-      File "<stdin>", line 2, in <module>
-    trio.MultiError: ValueError('foo',), KeyError('bar',)
-
-    Details of embedded exception 1:
-
-      ValueError: foo
-
-    Details of embedded exception 2:
-
-      KeyError: 'bar'
-
+.. autoclass:: TaskStatus(Protocol[StatusT])
+   :members:
 
 .. _task-local-storage:
 
@@ -982,12 +981,8 @@ work. What we need is something that's *like* a global variable, but
 that can have different values depending on which request handler is
 accessing it.
 
-To solve this problem, Python 3.7 added a new module to the standard
-library: :mod:`contextvars`. And not only does Trio have built-in
-support for :mod:`contextvars`, but if you're using an earlier version
-of Python, then Trio makes sure that a backported version of
-:mod:`contextvars` is installed. So you can assume :mod:`contextvars`
-is there and works regardless of what version of Python you're using.
+To solve this problem, Python has a module in the standard
+library: :mod:`contextvars`.
 
 Here's a toy example demonstrating how to use :mod:`contextvars`:
 
@@ -1017,7 +1012,7 @@ Example output (yours may differ slightly):
    request 0: Request received finished
 
 For more information, read the
-`contextvar docs <https://docs.python.org/3.7/library/contextvars.html>`__.
+`contextvars docs <https://docs.python.org/3/library/contextvars.html>`__.
 
 
 .. _synchronization:
@@ -1086,7 +1081,7 @@ you'll see that the two tasks politely take turns::
    async def loopy_child(number, lock):
        while True:
            async with lock:
-               print("Child {} has the lock!".format(number))
+               print(f"Child {number} has the lock!")
                await trio.sleep(0.5)
 
    async def main():
@@ -1104,6 +1099,8 @@ Broadcasting an event with :class:`Event`
 .. autoclass:: Event
    :members:
 
+.. autoclass:: EventStatistics
+   :members:
 
 .. _channels:
 
@@ -1183,7 +1180,7 @@ the previous version, and then exits cleanly. The only change is the
 addition of ``async with`` blocks inside the producer and consumer:
 
 .. literalinclude:: reference-core/channels-shutdown.py
-   :emphasize-lines: 10,15
+   :emphasize-lines: 11,17
 
 The really important thing here is the producer's ``async with`` .
 When the producer exits, this closes the ``send_channel``, and that
@@ -1262,7 +1259,7 @@ Fortunately, there's a better way! Here's a fixed version of our
 program above:
 
 .. literalinclude:: reference-core/channels-mpmc-fixed.py
-   :emphasize-lines: 7, 9, 10, 12, 13
+   :emphasize-lines: 8, 10, 11, 13, 14
 
 This example demonstrates using the `MemorySendChannel.clone` and
 `MemoryReceiveChannel.clone` methods. What these do is create copies
@@ -1470,6 +1467,16 @@ don't have any special access to Trio's internals.)
 .. autoclass:: Condition
    :members:
 
+These primitives return statistics objects that can be inspected.
+
+.. autoclass:: CapacityLimiterStatistics
+   :members:
+
+.. autoclass:: LockStatistics
+   :members:
+
+.. autoclass:: ConditionStatistics
+   :members:
 
 .. _async-generators:
 
@@ -1821,6 +1828,66 @@ to spawn a child thread, and then use a :ref:`memory channel
 <channels>` to send messages between the thread and a Trio task:
 
 .. literalinclude:: reference-core/from-thread-example.py
+
+Threads and task-local storage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When working with threads, you can use the same `contextvars` we discussed above,
+because their values are preserved.
+
+This is done by automatically copying the `contextvars` context when you use any of:
+
+* `trio.to_thread.run_sync`
+* `trio.from_thread.run`
+* `trio.from_thread.run_sync`
+
+That means that the values of the context variables are accessible even in worker
+threads, or when sending a function to be run in the main/parent Trio thread using
+`trio.from_thread.run` *from* one of these worker threads.
+
+But it also means that as the context is not the same but a copy, if you `set` the
+context variable value *inside* one of these functions that work in threads, the
+new value will only be available in that context (that was copied). So, the new value
+will be available for that function and other internal/children tasks, but the value
+won't be available in the parent thread.
+
+If you need to modify values that would live in the context variables and you need to
+make those modifications from the child threads, you can instead set a mutable object
+(e.g. a dictionary) in the context variable of the top level/parent Trio thread.
+Then in the children, instead of setting the context variable, you can ``get`` the same
+object, and modify its values. That way you keep the same object in the context
+variable and only mutate it in child threads.
+
+This way, you can modify the object content in child threads and still access the
+new content in the parent thread.
+
+Here's an example:
+
+.. literalinclude:: reference-core/thread-contextvars-example.py
+
+Running that script will result in the output:
+
+.. code-block:: none
+
+    Processed user 2 with message Hello 2 in a thread worker
+    Processed user 0 with message Hello 0 in a thread worker
+    Processed user 1 with message Hello 1 in a thread worker
+    New contextvar value from worker thread for user 2: Hello 2
+    New contextvar value from worker thread for user 1: Hello 1
+    New contextvar value from worker thread for user 0: Hello 0
+
+If you are using ``contextvars`` or you are using a library that uses them, now you
+know how they interact when working with threads in Trio.
+
+But have in mind that in many cases it might be a lot simpler to *not* use context
+variables in your own code and instead pass values in arguments, as it might be more
+explicit and might be easier to reason about.
+
+.. note::
+
+   The context is automatically copied instead of using the same parent context because
+   a single context can't be used in more than one thread, it's not supported by
+   ``contextvars``.
 
 
 Exceptions and warnings

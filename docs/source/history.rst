@@ -5,6 +5,190 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.22.2 (2023-07-13)
+------------------------
+
+Bugfixes
+~~~~~~~~
+
+- Fix ``PermissionError`` when importing `trio` due to trying to access ``pthread``. (`#2688 <https://github.com/python-trio/trio/issues/2688>`__)
+
+
+Trio 0.22.1 (2023-07-02)
+------------------------
+
+Breaking changes
+~~~~~~~~~~~~~~~~
+
+- Timeout functions now raise `ValueError` if passed `math.nan`. This includes `trio.sleep`, `trio.sleep_until`, `trio.move_on_at`, `trio.move_on_after`, `trio.fail_at` and `trio.fail_after`. (`#2493 <https://github.com/python-trio/trio/issues/2493>`__)
+
+
+Features
+~~~~~~~~
+
+- Added support for naming threads created with `trio.to_thread.run_sync`, requires pthreads so is only available on POSIX platforms with glibc installed. (`#1148 <https://github.com/python-trio/trio/issues/1148>`__)
+- `trio.socket.socket` now prints the address it tried to connect to upon failure. (`#1810 <https://github.com/python-trio/trio/issues/1810>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Fixed a crash that can occur when running Trio within an embedded Python interpreter, by handling the `TypeError` that is raised when trying to (re-)install a C signal handler. (`#2333 <https://github.com/python-trio/trio/issues/2333>`__)
+- Fix :func:`sniffio.current_async_library` when Trio tasks are spawned from a non-Trio context (such as when using trio-asyncio). Previously, a regular Trio task would inherit the non-Trio library name, and spawning a system task would cause the non-Trio caller to start thinking it was Trio. (`#2462 <https://github.com/python-trio/trio/issues/2462>`__)
+- Issued a new release as in the git tag for 0.22.0, ``trio.__version__`` is incorrectly set to 0.21.0+dev. (`#2485 <https://github.com/python-trio/trio/issues/2485>`__)
+
+
+Improved documentation
+~~~~~~~~~~~~~~~~~~~~~~
+
+- Documented that :obj:`Nursery.start_soon` does not guarantee task ordering. (`#970 <https://github.com/python-trio/trio/issues/970>`__)
+
+
+Trio 0.22.0 (2022-09-28)
+------------------------
+
+Headline features
+~~~~~~~~~~~~~~~~~
+
+- ``MultiError`` has been deprecated in favor of the standard :exc:`BaseExceptionGroup`
+  (introduced in :pep:`654`). On Python versions below 3.11, this exception and its
+  derivative :exc:`ExceptionGroup` are provided by the backport_. Trio still raises
+  ``MultiError``, but it has been refactored into a subclass of :exc:`BaseExceptionGroup`
+  which users should catch instead of ``MultiError``. Uses of the ``MultiError.filter()``
+  class method should be replaced with :meth:`BaseExceptionGroup.split`. Uses of the
+  ``MultiError.catch()`` class method should be replaced with either ``except*`` clauses
+  (on Python 3.11+) or the ``exceptiongroup.catch()`` context manager provided by the
+  backport_.
+
+  See the :ref:`updated documentation <exceptiongroups>` for details.
+  (`#2211 <https://github.com/python-trio/trio/issues/2211>`__)
+
+  .. _backport: https://pypi.org/project/exceptiongroup/
+
+
+Features
+~~~~~~~~
+
+- Added support for `Datagram TLS
+  <https://en.wikipedia.org/wiki/Datagram_Transport_Layer_Security>`__,
+  for secure communication over UDP. Currently requires `PyOpenSSL
+  <https://pypi.org/p/pyopenssl>`__. (`#2010 <https://github.com/python-trio/trio/issues/2010>`__)
+
+
+Trio 0.21.0 (2022-06-07)
+----------------------------
+
+Features
+~~~~~~~~
+
+- Trio now supports Python 3.11. (`#2270
+  <https://github.com/python-trio/trio/issues/2270>`__, `#2318
+  <https://github.com/python-trio/trio/issues/2318>`__, `#2319
+  <https://github.com/python-trio/trio/issues/2319>`__)
+
+Deprecations and Removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Remove support for Python 3.6. (`#2210 <https://github.com/python-trio/trio/issues/2210>`__)
+
+
+Trio 0.20.0 (2022-02-21)
+------------------------
+
+Features
+~~~~~~~~
+
+- You can now conveniently spawn a child process in a background task
+  and interact it with on the fly using ``process = await
+  nursery.start(run_process, ...)``. See `run_process` for more details.
+  We recommend most users switch to this new API. Also note that:
+
+  - ``trio.open_process`` has been deprecated in favor of
+    `trio.lowlevel.open_process`,
+  - The ``aclose`` method on `Process` has been deprecated along with
+    ``async with process_obj``. (`#1104 <https://github.com/python-trio/trio/issues/1104>`__)
+- Now context variables set with `contextvars` are preserved when running functions
+  in a worker thread with `trio.to_thread.run_sync`, or when running
+  functions from the worker thread in the parent Trio thread with
+  `trio.from_thread.run`, and `trio.from_thread.run_sync`.
+  This is done by automatically copying the `contextvars` context.
+  `trio.lowlevel.spawn_system_task` now also receives an optional ``context`` argument. (`#2160 <https://github.com/python-trio/trio/issues/2160>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Trio now avoids creating cyclic garbage when a ``MultiError`` is generated and
+  filtered, including invisibly within the cancellation system. This means errors raised
+  through nurseries and cancel scopes should result in less GC latency. (`#2063 <https://github.com/python-trio/trio/issues/2063>`__)
+- Trio now deterministically cleans up file descriptors that were opened before
+  subprocess creation fails. Previously, they would remain open until the next run of
+  the garbage collector. (`#2193 <https://github.com/python-trio/trio/issues/2193>`__)
+- Add compatibility with OpenSSL 3.0 on newer Python and PyPy versions by working
+  around ``SSLEOFError`` not being raised properly. (`#2203 <https://github.com/python-trio/trio/issues/2203>`__)
+- Fix a bug that could cause `Process.wait` to hang on Linux systems using pidfds, if
+  another task were to access `Process.returncode` after the process exited but before
+  ``wait`` woke up (`#2209 <https://github.com/python-trio/trio/issues/2209>`__)
+
+
+Trio 0.19.0 (2021-06-15)
+------------------------
+
+Features
+~~~~~~~~
+
+- Trio now supports Python 3.10. (`#1921 <https://github.com/python-trio/trio/issues/1921>`__)
+- Use slots for :class:`~.lowlevel.Task` which should make them slightly smaller and faster. (`#1927 <https://github.com/python-trio/trio/issues/1927>`__)
+- Make :class:`~.Event` more lightweight by using less objects (about 2 rather
+  than 5, including a nested ParkingLot and attribute dicts) and simpler
+  structures (set rather than OrderedDict).  This may benefit applications that
+  create a large number of event instances, such as with the "replace event
+  object on every set()" idiom. (`#1948 <https://github.com/python-trio/trio/issues/1948>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- The event loop now holds on to references of coroutine frames for only
+  the minimum necessary period of time. (`#1864 <https://github.com/python-trio/trio/issues/1864>`__)
+- The :class:`~.lowlevel.TrioToken` class can now be used as a target of a weak reference. (`#1924 <https://github.com/python-trio/trio/issues/1924>`__)
+
+
+Trio 0.18.0 (2021-01-11)
+------------------------
+
+Features
+~~~~~~~~
+
+- Add synchronous ``.close()`` methods and context manager (``with x``) support
+  for `.MemorySendChannel` and `.MemoryReceiveChannel`. (`#1797 <https://github.com/python-trio/trio/issues/1797>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Previously, on Windows, Trio programs using thousands of sockets at the same time could trigger extreme slowdowns in the Windows kernel. Now, Trio works around this issue, so you should be able to use as many sockets as you want. (`#1280 <https://github.com/python-trio/trio/issues/1280>`__)
+- :func:`trio.from_thread.run` no longer crashes the Trio run if it is
+  executed after the system nursery has been closed but before the run
+  has finished. Calls made at this time will now raise
+  `trio.RunFinishedError`.  This fixes a regression introduced in
+  Trio 0.17.0.  The window in question is only one scheduler tick long in
+  most cases, but may be longer if async generators need to be cleaned up. (`#1738 <https://github.com/python-trio/trio/issues/1738>`__)
+- Fix a crash in pypy-3.7 (`#1765 <https://github.com/python-trio/trio/issues/1765>`__)
+- Trio now avoids creating cyclic garbage as often. This should have a
+  minimal impact on most programs, but can slightly reduce how often the
+  cycle collector GC runs on CPython, which can reduce latency spikes. (`#1770 <https://github.com/python-trio/trio/issues/1770>`__)
+
+
+Deprecations and removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Remove deprecated ``max_refill_bytes`` from :class:`SSLStream`. (`#959 <https://github.com/python-trio/trio/issues/959>`__)
+- Remove the deprecated ``tiebreaker`` argument to `trio.testing.wait_all_tasks_blocked`. (`#1558 <https://github.com/python-trio/trio/issues/1558>`__)
+- Remove the deprecated ``trio.hazmat`` module. (`#1722 <https://github.com/python-trio/trio/issues/1722>`__)
+- Stop allowing subclassing public classes. This behavior was deprecated in 0.15.0. (`#1726 <https://github.com/python-trio/trio/issues/1726>`__)
+
+
 Trio 0.17.0 (2020-09-15)
 ------------------------
 
@@ -155,7 +339,7 @@ Features
   worry: you can now pass a custom ``deliver_cancel=`` argument to
   define your own process killing policy. (`#1104 <https://github.com/python-trio/trio/issues/1104>`__)
 - It turns out that creating a subprocess can block the parent process
-  for a surprisingly long time. So `trio.open_process` now uses a worker
+  for a surprisingly long time. So ``trio.open_process`` now uses a worker
   thread to avoid blocking the event loop. (`#1109 <https://github.com/python-trio/trio/issues/1109>`__)
 - We've added FreeBSD to the list of platforms we support and test on. (`#1118 <https://github.com/python-trio/trio/issues/1118>`__)
 - On Linux kernels v5.3 or newer, `trio.Process.wait` now uses `the
@@ -174,9 +358,9 @@ Bugfixes
 - On Ubuntu systems, the system Python includes a custom
   unhandled-exception hook to perform `crash reporting
   <https://wiki.ubuntu.com/Apport>`__. Unfortunately, Trio wants to use
-  the same hook to print nice `MultiError` tracebacks, causing a
+  the same hook to print nice ``MultiError`` tracebacks, causing a
   conflict. Previously, Trio would detect the conflict, print a warning,
-  and you just wouldn't get nice `MultiError` tracebacks. Now, Trio has
+  and you just wouldn't get nice ``MultiError`` tracebacks. Now, Trio has
   gotten clever enough to integrate its hook with Ubuntu's, so the two
   systems should Just Work together. (`#1065 <https://github.com/python-trio/trio/issues/1065>`__)
 - Fixed an over-strict test that caused failures on Alpine Linux.
@@ -209,7 +393,7 @@ Deprecations and Removals
   alternatives or make a case for why some particular class should be
   designed to support subclassing. (`#1044 <https://github.com/python-trio/trio/issues/1044>`__)
 - If you want to create a `trio.Process` object, you now have to call
-  `trio.open_process`; calling ``trio.Process()`` directly was
+  ``trio.open_process``; calling ``trio.Process()`` directly was
   deprecated in v0.12.0 and has now been removed. (`#1109 <https://github.com/python-trio/trio/issues/1109>`__)
 - Remove ``clear`` method on `trio.Event`: it was deprecated in 0.12.0. (`#1498 <https://github.com/python-trio/trio/issues/1498>`__)
 
@@ -378,7 +562,7 @@ Features
   violated. (One common source of such violations is an async generator
   that yields within a cancel scope.) The previous behavior was an
   inscrutable chain of TrioInternalErrors. (`#882 <https://github.com/python-trio/trio/issues/882>`__)
-- MultiError now defines its ``exceptions`` attribute in ``__init__()``
+- ``MultiError`` now defines its ``exceptions`` attribute in ``__init__()``
   to better support linters and code autocompletion. (`#1066 <https://github.com/python-trio/trio/issues/1066>`__)
 - Use ``__slots__`` in more places internally, which should make Trio slightly faster. (`#984 <https://github.com/python-trio/trio/issues/984>`__)
 
@@ -399,7 +583,7 @@ Bugfixes
   :meth:`~trio.Path.cwd`, are now async functions.  Previously, a bug
   in the forwarding logic meant :meth:`~trio.Path.cwd` was synchronous
   and :meth:`~trio.Path.home` didn't work at all. (`#960 <https://github.com/python-trio/trio/issues/960>`__)
-- An exception encapsulated within a :class:`MultiError` doesn't need to be
+- An exception encapsulated within a ``MultiError`` doesn't need to be
   hashable anymore.
 
   .. note::
@@ -437,7 +621,7 @@ Deprecations and Removals
   deprecated. (`#878 <https://github.com/python-trio/trio/issues/878>`__)
 - It turns out that it's better to treat subprocess spawning as an async
   operation. Therefore, direct construction of `Process` objects has
-  been deprecated. Use `trio.open_process` instead. (`#1109 <https://github.com/python-trio/trio/issues/1109>`__)
+  been deprecated. Use ``trio.open_process`` instead. (`#1109 <https://github.com/python-trio/trio/issues/1109>`__)
 
 
 Miscellaneous internal changes
@@ -739,7 +923,7 @@ Bugfixes
 
 - Make trio.socket._SocketType.connect *always* close the socket on
   cancellation (`#247 <https://github.com/python-trio/trio/issues/247>`__)
-- Fix a memory leak in :class:`trio.CapacityLimiter`, that could occurr when
+- Fix a memory leak in :class:`trio.CapacityLimiter`, that could occur when
   ``acquire`` or ``acquire_on_behalf_of`` was cancelled. (`#548
   <https://github.com/python-trio/trio/issues/548>`__)
 - Some version of macOS have a buggy ``getaddrinfo`` that was causing spurious
@@ -1190,7 +1374,7 @@ Other changes
   interfering with direct use of
   :func:`~trio.testing.wait_all_tasks_blocked` in the same test.
 
-* :meth:`MultiError.catch` now correctly preserves ``__context__``,
+* ``MultiError.catch()`` now correctly preserves ``__context__``,
   despite Python's best attempts to stop us (`#165
   <https://github.com/python-trio/trio/issues/165>`__)
 

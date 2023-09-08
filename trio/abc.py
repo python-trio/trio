@@ -4,18 +4,20 @@
 # temporaries, imports, etc. when implementing the module. So we put the
 # implementation in an underscored module, and then re-export the public parts
 # here.
+
+# Uses `from x import y as y` for compatibility with `pyright --verifytypes` (#2625)
 from ._abc import (
-    Clock,
-    Instrument,
-    AsyncResource,
-    SendStream,
-    ReceiveStream,
-    Stream,
-    HalfCloseableStream,
-    SocketFactory,
-    HostnameResolver,
-    Listener,
-    SendChannel,
-    ReceiveChannel,
-    Channel,
+    AsyncResource as AsyncResource,
+    Channel as Channel,
+    Clock as Clock,
+    HalfCloseableStream as HalfCloseableStream,
+    HostnameResolver as HostnameResolver,
+    Instrument as Instrument,
+    Listener as Listener,
+    ReceiveChannel as ReceiveChannel,
+    ReceiveStream as ReceiveStream,
+    SendChannel as SendChannel,
+    SendStream as SendStream,
+    SocketFactory as SocketFactory,
+    Stream as Stream,
 )

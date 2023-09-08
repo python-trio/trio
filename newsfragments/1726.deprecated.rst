@@ -1,1 +1,0 @@
-Stop allowing subclassing public classes. This behavior was deprecated in 0.15.0.

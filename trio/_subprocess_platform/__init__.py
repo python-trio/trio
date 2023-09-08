@@ -2,14 +2,26 @@
 
 import os
 import sys
-from typing import Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Tuple
+
+import trio
 
 from .. import _core, _subprocess
-from .._abc import SendStream, ReceiveStream
-
+from .._abc import ReceiveStream, SendStream
 
 _wait_child_exiting_error: Optional[ImportError] = None
 _create_child_pipe_error: Optional[ImportError] = None
+
+
+if TYPE_CHECKING:
+    # internal types for the pipe representations used in type checking only
+    class ClosableSendStream(SendStream):
+        def close(self) -> None:
+            ...
+
+    class ClosableReceiveStream(ReceiveStream):
+        def close(self) -> None:
+            ...
 
 
 # Fallback versions of the functions provided -- implementations
@@ -29,7 +41,7 @@ async def wait_child_exiting(process: "_subprocess.Process") -> None:
     raise NotImplementedError from _wait_child_exiting_error  # pragma: no cover
 
 
-def create_pipe_to_child_stdin() -> Tuple[SendStream, int]:
+def create_pipe_to_child_stdin() -> Tuple["ClosableSendStream", int]:
     """Create a new pipe suitable for sending data from this
     process to the standard input of a child we're about to spawn.
 
@@ -42,7 +54,7 @@ def create_pipe_to_child_stdin() -> Tuple[SendStream, int]:
     raise NotImplementedError from _create_child_pipe_error  # pragma: no cover
 
 
-def create_pipe_from_child_output() -> Tuple[ReceiveStream, int]:
+def create_pipe_from_child_output() -> Tuple["ClosableReceiveStream", int]:
     """Create a new pipe suitable for receiving data into this
     process from the standard output or error stream of a child
     we're about to spawn.
@@ -62,7 +74,8 @@ try:
     elif sys.platform != "linux" and (TYPE_CHECKING or hasattr(_core, "wait_kevent")):
         from .kqueue import wait_child_exiting  # noqa: F811
     else:
-        from .waitid import wait_child_exiting  # noqa: F811
+        # noqa'd as it's an exported symbol
+        from .waitid import wait_child_exiting  # noqa: F811, F401
 except ImportError as ex:  # pragma: no cover
     _wait_child_exiting_error = ex
 
@@ -72,18 +85,17 @@ try:
         pass
 
     elif os.name == "posix":
-        from ..lowlevel import FdStream
 
         def create_pipe_to_child_stdin():  # noqa: F811
             rfd, wfd = os.pipe()
-            return FdStream(wfd), rfd
+            return trio.lowlevel.FdStream(wfd), rfd
 
         def create_pipe_from_child_output():  # noqa: F811
             rfd, wfd = os.pipe()
-            return FdStream(rfd), wfd
+            return trio.lowlevel.FdStream(rfd), wfd
 
     elif os.name == "nt":
-        from .._windows_pipes import PipeSendStream, PipeReceiveStream
+        import msvcrt
 
         # This isn't exported or documented, but it's also not
         # underscore-prefixed, and seems kosher to use. The asyncio docs
@@ -92,7 +104,8 @@ try:
         # when asyncio.windows_utils.socketpair was removed in 3.7, the
         # removal was mentioned in the release notes.
         from asyncio.windows_utils import pipe as windows_pipe
-        import msvcrt
+
+        from .._windows_pipes import PipeReceiveStream, PipeSendStream
 
         def create_pipe_to_child_stdin():  # noqa: F811
             # for stdin, we want the write end (our end) to use overlapped I/O

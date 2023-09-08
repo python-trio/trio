@@ -24,12 +24,12 @@
 # make this fairly straightforward, but you obviously need to use a separate
 # time source
 
-import cffi
 from datetime import datetime, timedelta, timezone
-import time
+
+import cffi
 
 import trio
-from trio._core._windows_cffi import (ffi, kernel32, raise_winerror)
+from trio._core._windows_cffi import ffi, kernel32, raise_winerror
 
 try:
     ffi.cdef(
@@ -91,7 +91,7 @@ BOOL SystemTimeToFileTime(
   LPFILETIME       lpFileTime
 );
 """,
-    override=True
+    override=True,
 )
 
 ProcessLeapSecondInfo = 8
@@ -106,10 +106,10 @@ def set_leap_seconds_enabled(enabled):
         plsi.Flags = 0
     plsi.Reserved = 0
     if not kernel32.SetProcessInformation(
-            ffi.cast("HANDLE", -1),  # current process
-            ProcessLeapSecondInfo,
-            plsi,
-            ffi.sizeof("PROCESS_LEAP_SECOND_INFO"),
+        ffi.cast("HANDLE", -1),  # current process
+        ProcessLeapSecondInfo,
+        plsi,
+        ffi.sizeof("PROCESS_LEAP_SECOND_INFO"),
     ):
         raise_winerror()
 
@@ -130,14 +130,12 @@ def now_as_filetime():
 #
 #   https://docs.microsoft.com/en-us/windows/win32/sysinfo/file-times
 #
-# This page has FILETIME convertors and can be useful for debugging:
+# This page has FILETIME converters and can be useful for debugging:
 #
 #   https://www.epochconverter.com/ldap
 #
 FILETIME_TICKS_PER_SECOND = 10**7
-FILETIME_EPOCH = datetime.strptime(
-    '1601-01-01 00:00:00 Z', '%Y-%m-%d %H:%M:%S %z'
-)
+FILETIME_EPOCH = datetime.strptime("1601-01-01 00:00:00 Z", "%Y-%m-%d %H:%M:%S %z")
 # XXX THE ABOVE IS WRONG:
 #
 #   https://techcommunity.microsoft.com/t5/networking-blog/leap-seconds-for-the-appdev-what-you-should-know/ba-p/339813#
@@ -159,11 +157,9 @@ FILETIME_EPOCH = datetime.strptime(
 
 def py_datetime_to_win_filetime(dt):
     # We'll want to call this on every datetime as it comes in
-    #dt = dt.astimezone(timezone.utc)
+    # dt = dt.astimezone(timezone.utc)
     assert dt.tzinfo is timezone.utc
-    return round(
-        (dt - FILETIME_EPOCH).total_seconds() * FILETIME_TICKS_PER_SECOND
-    )
+    return round((dt - FILETIME_EPOCH).total_seconds() * FILETIME_TICKS_PER_SECOND)
 
 
 async def main():

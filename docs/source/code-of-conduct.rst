@@ -19,7 +19,7 @@ If you see a Code of Conduct violation, follow these steps:
    them to stop and/or edit their message(s) or commits.
 2. That person should immediately stop the behavior and correct the
    issue.
-3. If this doesn’t happen, or if you're uncomfortable speaking up,
+3. If this doesn't happen, or if you're uncomfortable speaking up,
    :ref:`contact the maintainers <coc-contacting-maintainers>`.
 4. As soon as possible, a maintainer will look into the issue, and take
    :ref:`further action (see below) <coc-further-enforcement>`, starting with
@@ -78,10 +78,10 @@ Examples of unacceptable behavior by participants include:
    electronic address, without explicit permission. This includes any
    sort of "outing" of any aspect of someone's identity without their
    consent.
--  Publishing private screenshots or quotes of interactions in the
+-  Publishing screenshots or quotes of private interactions in the
    context of this project without all quoted users' *explicit* consent.
 -  Publishing of private communication that doesn't have to do with
-   reporting harrassment.
+   reporting harassment.
 -  Any of the above even when `presented as "ironic" or
    "joking" <https://en.wikipedia.org/wiki/Hipster_racism>`__.
 -  Any attempt to present "reverse-ism" versions of the above as

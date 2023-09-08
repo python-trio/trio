@@ -1,12 +1,21 @@
 # "High-level" networking interface
+from __future__ import annotations
 
 import errno
+from collections.abc import Generator
 from contextlib import contextmanager
+from typing import TYPE_CHECKING, overload
 
 import trio
+
 from . import socket as tsocket
 from ._util import ConflictDetector, Final
 from .abc import HalfCloseableStream, Listener
+
+if TYPE_CHECKING:
+    from typing_extensions import Buffer
+
+    from ._socket import _SocketType as SocketType
 
 # XX TODO: this number was picked arbitrarily. We should do experiments to
 # tune it. (Or make it dynamic -- one idea is to start small and increase it
@@ -23,16 +32,14 @@ _closed_stream_errnos = {
 
 
 @contextmanager
-def _translate_socket_errors_to_stream_errors():
+def _translate_socket_errors_to_stream_errors() -> Generator[None, None, None]:
     try:
         yield
     except OSError as exc:
         if exc.errno in _closed_stream_errnos:
             raise trio.ClosedResourceError("this socket was already closed") from None
         else:
-            raise trio.BrokenResourceError(
-                "socket connection broken: {}".format(exc)
-            ) from exc
+            raise trio.BrokenResourceError(f"socket connection broken: {exc}") from exc
 
 
 class SocketStream(HalfCloseableStream, metaclass=Final):
@@ -59,7 +66,7 @@ class SocketStream(HalfCloseableStream, metaclass=Final):
 
     """
 
-    def __init__(self, socket):
+    def __init__(self, socket: SocketType):
         if not isinstance(socket, tsocket.SocketType):
             raise TypeError("SocketStream requires a Trio socket object")
         if socket.type != tsocket.SOCK_STREAM:
@@ -89,11 +96,11 @@ class SocketStream(HalfCloseableStream, metaclass=Final):
                 # http://devstreaming.apple.com/videos/wwdc/2015/719ui2k57m/719/719_your_app_and_next_generation_networks.pdf?dl=1
                 # ). The theory is that you want it to be bandwidth *
                 # rescheduling interval.
-                self.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NOTSENT_LOWAT, 2 ** 14)
+                self.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NOTSENT_LOWAT, 2**14)
             except OSError:
                 pass
 
-    async def send_all(self, data):
+    async def send_all(self, data: bytes | bytearray | memoryview) -> None:
         if self.socket.did_shutdown_SHUT_WR:
             raise trio.ClosedResourceError("can't send data after sending EOF")
         with self._send_conflict_detector:
@@ -110,14 +117,14 @@ class SocketStream(HalfCloseableStream, metaclass=Final):
                             sent = await self.socket.send(remaining)
                         total_sent += sent
 
-    async def wait_send_all_might_not_block(self):
+    async def wait_send_all_might_not_block(self) -> None:
         with self._send_conflict_detector:
             if self.socket.fileno() == -1:
                 raise trio.ClosedResourceError
             with _translate_socket_errors_to_stream_errors():
                 await self.socket.wait_writable()
 
-    async def send_eof(self):
+    async def send_eof(self) -> None:
         with self._send_conflict_detector:
             await trio.lowlevel.checkpoint()
             # On macOS, calling shutdown a second time raises ENOTCONN, but
@@ -127,7 +134,7 @@ class SocketStream(HalfCloseableStream, metaclass=Final):
             with _translate_socket_errors_to_stream_errors():
                 self.socket.shutdown(tsocket.SHUT_WR)
 
-    async def receive_some(self, max_bytes=None):
+    async def receive_some(self, max_bytes: int | None = None) -> bytes:
         if max_bytes is None:
             max_bytes = DEFAULT_RECEIVE_SIZE
         if max_bytes < 1:
@@ -135,21 +142,53 @@ class SocketStream(HalfCloseableStream, metaclass=Final):
         with _translate_socket_errors_to_stream_errors():
             return await self.socket.recv(max_bytes)
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         self.socket.close()
         await trio.lowlevel.checkpoint()
 
     # __aenter__, __aexit__ inherited from HalfCloseableStream are OK
 
-    def setsockopt(self, level, option, value):
+    @overload
+    def setsockopt(self, level: int, option: int, value: int | Buffer) -> None:
+        ...
+
+    @overload
+    def setsockopt(self, level: int, option: int, value: None, length: int) -> None:
+        ...
+
+    def setsockopt(
+        self,
+        level: int,
+        option: int,
+        value: int | Buffer | None,
+        length: int | None = None,
+    ) -> None:
         """Set an option on the underlying socket.
 
         See :meth:`socket.socket.setsockopt` for details.
 
         """
-        return self.socket.setsockopt(level, option, value)
+        if length is None:
+            if value is None:
+                raise TypeError(
+                    "invalid value for argument 'value', must not be None when specifying length"
+                )
+            return self.socket.setsockopt(level, option, value)
+        if value is not None:
+            raise TypeError(
+                f"invalid value for argument 'value': {value!r}, must be None when specifying optlen"
+            )
+        return self.socket.setsockopt(level, option, value, length)
 
-    def getsockopt(self, level, option, buffersize=0):
+    @overload
+    def getsockopt(self, level: int, option: int) -> int:
+        ...
+
+    @overload
+    def getsockopt(self, level: int, option: int, buffersize: int) -> bytes:
+        ...
+
+    def getsockopt(self, level: int, option: int, buffersize: int = 0) -> int | bytes:
         """Check the current value of an option on the underlying socket.
 
         See :meth:`socket.socket.getsockopt` for details.
@@ -307,7 +346,7 @@ _ignorable_accept_errno_names = [
 ]
 
 # Not all errnos are defined on all platforms
-_ignorable_accept_errnos = set()
+_ignorable_accept_errnos: set[int] = set()
 for name in _ignorable_accept_errno_names:
     try:
         _ignorable_accept_errnos.add(getattr(errno, name))
@@ -332,7 +371,7 @@ class SocketListener(Listener[SocketStream], metaclass=Final):
 
     """
 
-    def __init__(self, socket):
+    def __init__(self, socket: SocketType):
         if not isinstance(socket, tsocket.SocketType):
             raise TypeError("SocketListener requires a Trio socket object")
         if socket.type != tsocket.SOCK_STREAM:
@@ -348,7 +387,7 @@ class SocketListener(Listener[SocketStream], metaclass=Final):
 
         self.socket = socket
 
-    async def accept(self):
+    async def accept(self) -> SocketStream:
         """Accept an incoming connection.
 
         Returns:
@@ -376,7 +415,7 @@ class SocketListener(Listener[SocketStream], metaclass=Final):
             else:
                 return SocketStream(sock)
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         """Close this listener and its underlying socket."""
         self.socket.close()
         await trio.lowlevel.checkpoint()

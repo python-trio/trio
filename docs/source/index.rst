@@ -45,7 +45,7 @@ Vital statistics:
 
 * Supported environments: We test on
 
-  - Python: 3.6+ (CPython and PyPy)
+  - Python: 3.8+ (CPython and PyPy)
   - Windows, macOS, Linux (glibc and musl), FreeBSD
 
   Other environments might also work; give it a try and see.

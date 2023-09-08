@@ -286,19 +286,30 @@ Code formatting
 ~~~~~~~~~~~~~~~
 
 Instead of wasting time arguing about code formatting, we use `black
-<https://github.com/psf/black>`__ to automatically format all our
-code to a standard style. While you're editing code you can be as
-sloppy as you like about whitespace; and then before you commit, just
-run::
+<https://github.com/psf/black>`__ as well as other tools to automatically
+format all our code to a standard style. While you're editing code you
+can be as sloppy as you like about whitespace; and then before you commit,
+just run::
 
-    pip install -U black
-    black setup.py trio
+    pip install -U pre-commit
+    pre-commit
 
 to fix it up. (And don't worry if you forget – when you submit a pull
 request then we'll automatically check and remind you.) Hopefully this
 will let you focus on more important style issues like choosing good
 names, writing useful comments, and making sure your docstrings are
 nicely formatted. (black doesn't reformat comments or docstrings.)
+
+If you would like, you can even have pre-commit run before you commit by
+running::
+
+    pre-commit install
+
+and now pre-commit will run before git commits. You can uninstall the
+pre-commit hook at any time by running::
+
+    pre-commit uninstall
+
 
 Very occasionally, you'll want to override black formatting. To do so,
 you can can add ``# fmt: off`` and ``# fmt: on`` comments.
@@ -309,6 +320,11 @@ If you want to see what changes black will make, you can use::
 
 (``--diff`` displays a diff, versus the default mode which fixes files
 in-place.)
+
+
+Additionally, in some cases it is necessary to disable isort changing the
+order of imports. To do so you can add ``# isort: split`` comments.
+For more information, please see `isort's docs <https://pycqa.github.io/isort/docs/configuration/action_comments.html>`__.
 
 
 .. _pull-request-release-notes:
@@ -458,7 +474,7 @@ each PR leads to better quality.
 Beyond that, it all comes down to what you feel up to. If you don't
 feel like you know enough to review a complex code change, then you
 don't have to – you can just look it over and make some comments, even
-if you don't feel up to making the final merge/no-merge decison. Or
+if you don't feel up to making the final merge/no-merge decision. Or
 you can just stick to merging trivial doc fixes and adding tags to
 issues, that's helpful too. If after hanging around for a while you
 start to feel like you have better handle on how things work and want
@@ -556,7 +572,8 @@ then we'll figure something out.
 .. Possible references for future additions:
 
    """
-   Jumping into an unfamiliar codebase (or any for that matter) for the first time can be scary. Plus, if it’s your first time contributing to open source, it can even be scarier!
+   Jumping into an unfamiliar codebase (or any for that matter) for the first time can be scary.
+   Plus, if it's your first time contributing to open source, it can even be scarier!
 
    But, we at webpack believe:
 
