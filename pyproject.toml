@@ -71,7 +71,6 @@ module = [
 
 # tests
 "trio/testing/_fake_net",
-"trio/_core/_tests/test_asyncgen",
 "trio/_core/_tests/test_guest_mode",
 "trio/_core/_tests/test_instrumentation",
 "trio/_core/_tests/test_ki",
@@ -82,15 +81,7 @@ module = [
 "trio/_core/_tests/test_multierror_scripts/simple_excepthook",
 "trio/_core/_tests/test_parking_lot",
 "trio/_core/_tests/test_thread_cache",
-"trio/_core/_tests/test_tutil",
 "trio/_core/_tests/test_unbounded_queue",
-"trio/_core/_tests/test_windows",
-"trio/_core/_tests/tutil",
-"trio/_tests/pytest_plugin",
-"trio/_tests/test_abc",
-"trio/_tests/test_channel",
-"trio/_tests/test_deprecate",
-"trio/_tests/test_dtls",
 "trio/_tests/test_exports",
 "trio/_tests/test_file_io",
 "trio/_tests/test_highlevel_generic",
