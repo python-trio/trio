@@ -33,9 +33,10 @@ fi
 
 # Run ruff, configured in pyproject.toml
 echo "::group::Ruff"
-if ! ruff check --diff .; then
+if ! ruff check .; then
     echo "* ruff found issues." >> $GITHUB_STEP_SUMMARY
     EXIT_STATUS=1
+    ruff check --diff .
     echo "::endgroup::"
     echo "::error:: ruff found issues"
 else
