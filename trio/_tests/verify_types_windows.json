@@ -138,6 +138,10 @@
         "name": "trio.run_process"
       },
       {
+        "message": "No docstring found for class \"trio.socket.fromshare\"",
+        "name": "trio.socket.fromshare"
+      },
+      {
         "message": "No docstring found for class \"trio.tests.TestsDeprecationWrapper\"",
         "name": "trio.tests.TestsDeprecationWrapper"
       }
@@ -150,7 +154,7 @@
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 1,
     "missingDefaultParamCount": 0,
-    "missingFunctionDocStringCount": 11,
+    "missingFunctionDocStringCount": 12,
     "moduleName": "trio",
     "modules": [
       {

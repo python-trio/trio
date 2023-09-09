@@ -40,8 +40,11 @@ T = TypeVar("T")
 
 # work around a pyright error
 if TYPE_CHECKING:
+    from typing import Sequence
+
     Fn = TypeVar("Fn", bound=Callable[..., object])
-    def _wraps(f: Fn) -> Fn:
+
+    def _wraps(wrapped: Fn, assigned: Sequence[str] = ..., updated: Sequence[str]=...) -> Fn:
         ...
 
 else:
