@@ -320,6 +320,7 @@ class Path(metaclass=AsyncAutoWrapperType):
     ) -> _AsyncIOWrapper[IO[Any]]:
         ...
 
+    # TODO: check the following is AOK with pyright
     @wraps(pathlib.Path.open)  # type: ignore[misc]  # Overload return mismatch.
     async def open(self, *args: Any, **kwargs: Any) -> _AsyncIOWrapper[IO[Any]]:
         """Open the file pointed to by the path, like the :func:`trio.open_file`

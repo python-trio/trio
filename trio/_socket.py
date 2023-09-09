@@ -4,7 +4,6 @@ import os
 import select
 import socket as _stdlib_socket
 import sys
-from functools import wraps as _wraps
 from operator import index
 from socket import AddressFamily, SocketKind
 from typing import (
@@ -37,8 +36,16 @@ if TYPE_CHECKING:
 
     P = ParamSpec("P")
 
-
 T = TypeVar("T")
+
+# work around a pyright error
+if TYPE_CHECKING:
+    Fn = TypeVar("Fn", bound=Callable[..., object])
+    def _wraps(f: Fn) -> Fn:
+        ...
+
+else:
+    from functools import wraps as _wraps
 
 # must use old-style typing because it's evaluated at runtime
 Address: TypeAlias = Union[
