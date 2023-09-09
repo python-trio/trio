@@ -1,7 +1,6 @@
 from __future__ import annotations  # isort: split
 import __future__  # Regular import, not special!
 
-import enum
 import functools
 import importlib
 import inspect
@@ -73,9 +72,14 @@ def test_core_is_properly_reexported():
 
 
 def class_is_final(cls: type) -> bool:
-    """Check if a class has _util.final / typing.final applied."""
-    # We use vars() to bypass this being set in superclasses or the metaclass.
-    return vars(cls).get("__final__", False)
+    """Check if a class cannot be subclassed."""
+    try:
+        # new_class() handles metaclasses properly, type(...) does not.
+        types.new_class("SubclassTester", (cls,))
+    except TypeError:
+        return True
+    else:
+        return False
 
 
 def iter_modules(
@@ -529,11 +533,6 @@ def test_classes_are_final() -> None:
             # These are classes that are conceptually abstract, but
             # inspect.isabstract returns False for boring reasons.
             if class_ is trio.abc.Instrument or class_ is trio.socket.SocketType:
-                continue
-            # Enums have their own metaclass, so we can't use our metaclasses.
-            # And I don't think there's a lot of risk from people subclassing
-            # enums...
-            if issubclass(class_, enum.Enum):
                 continue
             # ... insert other special cases here ...
 
