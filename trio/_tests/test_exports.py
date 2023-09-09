@@ -541,4 +541,4 @@ def test_classes_are_final() -> None:
             if name.endswith("Statistics"):
                 continue
 
-            assert class_is_final(class_), f"{class_.__module__}.{class_.__qualname__}"
+            assert class_is_final(class_)
