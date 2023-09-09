@@ -36,8 +36,8 @@ def run_pyright(platform: str) -> subprocess.CompletedProcess[bytes]:
 
 def check_less_than(
     key: str,
-    current_dict: Mapping[str, float],
-    last_dict: Mapping[str, float],
+    current_dict: Mapping[str, int | float],
+    last_dict: Mapping[str, int | float],
     /,
     invert: bool = False,
 ) -> None:
