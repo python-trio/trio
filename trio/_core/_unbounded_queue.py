@@ -14,12 +14,11 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
 
-@final
 @attr.s(slots=True, frozen=True)
 class UnboundedQueueStatistics:
     """An object containing debugging information.
 
-    Currently the following fields are defined:
+    Currently, the following fields are defined:
 
     * ``qsize``: The number of items currently in the queue.
     * ``tasks_waiting``: The number of tasks blocked on this queue's

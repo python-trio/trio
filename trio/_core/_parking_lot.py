@@ -85,12 +85,11 @@ if TYPE_CHECKING:
     from ._run import Task
 
 
-@final
 @attr.s(frozen=True, slots=True)
 class ParkingLotStatistics:
     """An object containing debugging information for a ParkingLot.
 
-    Currently the following fields are defined:
+    Currently, the following fields are defined:
 
     * ``tasks_waiting`` (int): The number of tasks blocked on this lot's
       :meth:`trio.lowlevel.ParkingLot.park` method.
