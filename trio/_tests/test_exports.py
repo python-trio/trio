@@ -511,6 +511,10 @@ def test_nopublic_is_final() -> None:
 
 
 def test_classes_are_final() -> None:
+    # Sanity checks.
+    assert not class_is_final(object)
+    assert class_is_final(bool)
+
     for module in PUBLIC_MODULES:
         for name, class_ in module.__dict__.items():
             if not isinstance(class_, type):
