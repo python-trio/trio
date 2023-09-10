@@ -11,6 +11,8 @@ from abc import ABCMeta
 from functools import update_wrapper
 from types import AsyncGeneratorType, TracebackType
 
+from sniffio import thread_local as sniffio_loop
+
 import trio
 
 CallT = t.TypeVar("CallT", bound=t.Callable[..., t.Any])
@@ -102,7 +104,7 @@ def is_main_thread() -> bool:
 # TODO: Use TypeVarTuple here.
 def coroutine_or_error(
     async_fn: t.Callable[..., t.Awaitable[RetT]], *args: t.Any
-) -> t.Awaitable[RetT]:
+) -> collections.abc.Coroutine[object, t.NoReturn, RetT]:
     def _return_value_looks_like_wrong_library(value: object) -> bool:
         # Returned by legacy @asyncio.coroutine functions, which includes
         # a surprising proportion of asyncio builtins.
@@ -117,6 +119,10 @@ def coroutine_or_error(
         if value.__class__.__name__ in ("Future", "Deferred"):
             return True
         return False
+
+    # Make sure a sync-fn-that-returns-coroutine still sees itself as being
+    # in trio context
+    prev_loop, sniffio_loop.name = sniffio_loop.name, "trio"
 
     try:
         coro = async_fn(*args)
@@ -154,6 +160,9 @@ def coroutine_or_error(
             ) from None
 
         raise
+
+    finally:
+        sniffio_loop.name = prev_loop
 
     # We can't check iscoroutinefunction(async_fn), because that will fail
     # for things like functools.partial objects wrapping an async

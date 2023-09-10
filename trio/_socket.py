@@ -12,6 +12,7 @@ from typing import (
     Any,
     Awaitable,
     Callable,
+    Literal,
     NoReturn,
     SupportsIndex,
     Tuple,
@@ -315,7 +316,7 @@ if sys.platform == "win32":
     TypeT: TypeAlias = int
     FamilyDefault = _stdlib_socket.AF_INET
 else:
-    FamilyDefault = None
+    FamilyDefault: Literal[None] = None
     FamilyT: TypeAlias = Union[int, AddressFamily, None]
     TypeT: TypeAlias = Union[_stdlib_socket.socket, int]
 
@@ -599,7 +600,7 @@ class _SocketType(SocketType):
             return self._sock.setsockopt(level, optname, value)
         if value is not None:
             raise TypeError(
-                "invalid value for argument 'value': {value!r}, must be None when specifying optlen"
+                f"invalid value for argument 'value': {value!r}, must be None when specifying optlen"
             )
 
         # Note: PyPy may crash here due to setsockopt only supporting

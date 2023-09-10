@@ -1,10 +1,18 @@
 import ast
+import sys
 
 import pytest
 
-from trio._tools.gen_exports import create_passthrough_args, get_public_methods, process
+from trio._tools.gen_exports import (
+    File,
+    create_passthrough_args,
+    get_public_methods,
+    process,
+    run_linters,
+)
 
 SOURCE = '''from _run import _public
+from somewhere import Thing
 
 class Test:
     @_public
@@ -14,7 +22,7 @@ class Test:
     @ignore_this
     @_public
     @another_decorator
-    async def public_async_func(self):
+    async def public_async_func(self) -> Thing:
         pass  # no doc string
 
     def not_public(self):
@@ -23,6 +31,21 @@ class Test:
     async def not_public_async(self):
         pass
 '''
+
+IMPORT_1 = """\
+from somewhere import Thing
+"""
+
+IMPORT_2 = """\
+from somewhere import Thing
+import os
+"""
+
+IMPORT_3 = """\
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from somewhere import Thing
+"""
 
 
 def test_get_public_methods():
@@ -48,18 +71,46 @@ def test_create_pass_through_args():
         assert create_passthrough_args(func_node) == expected
 
 
-def test_process(tmp_path):
+skip_lints = pytest.mark.skipif(
+    sys.implementation.name != "cpython",
+    reason="gen_exports is internal, black/isort only runs on CPython",
+)
+
+
+@skip_lints
+@pytest.mark.parametrize("imports", ["", IMPORT_1, IMPORT_2, IMPORT_3])
+def test_process(tmp_path, imports):
     modpath = tmp_path / "_module.py"
     genpath = tmp_path / "_generated_module.py"
     modpath.write_text(SOURCE, encoding="utf-8")
+    file = File(modpath, "runner", platform="linux", imports=imports)
     assert not genpath.exists()
     with pytest.raises(SystemExit) as excinfo:
-        process([(str(modpath), "runner")], do_test=True)
+        process([file], do_test=True)
     assert excinfo.value.code == 1
-    process([(str(modpath), "runner")], do_test=False)
+    process([file], do_test=False)
     assert genpath.exists()
-    process([(str(modpath), "runner")], do_test=True)
+    process([file], do_test=True)
     # But if we change the lookup path it notices
     with pytest.raises(SystemExit) as excinfo:
-        process([(str(modpath), "runner.io_manager")], do_test=True)
+        process(
+            [File(modpath, "runner.io_manager", platform="linux", imports=imports)],
+            do_test=True,
+        )
     assert excinfo.value.code == 1
+    # Also if the platform is changed.
+    with pytest.raises(SystemExit) as excinfo:
+        process([File(modpath, "runner", imports=imports)], do_test=True)
+    assert excinfo.value.code == 1
+
+
+@skip_lints
+def test_lint_failure(tmp_path) -> None:
+    """Test that processing properly fails if black or isort does."""
+    file = File(tmp_path / "module.py", "module")
+
+    with pytest.raises(SystemExit):
+        run_linters(file, "class not valid code ><")
+
+    with pytest.raises(SystemExit):
+        run_linters(file, "# isort: skip_file")

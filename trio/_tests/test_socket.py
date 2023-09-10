@@ -360,24 +360,29 @@ async def test_SocketType_basics():
     sock.close()
 
 
-async def test_SocketType_setsockopt():
+async def test_SocketType_setsockopt() -> None:
     sock = tsocket.socket()
     with sock as _:
-        # specifying optlen. Not supported on pypy, and I couldn't find
-        # valid calls on darwin or win32.
-        if hasattr(tsocket, "SO_BINDTODEVICE"):
-            sock.setsockopt(tsocket.SOL_SOCKET, tsocket.SO_BINDTODEVICE, None, 0)
+        setsockopt_tests(sock)
 
-        # specifying value
-        sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, False)
 
-        # specifying both
-        with pytest.raises(TypeError, match="invalid value for argument 'value'"):
-            sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, False, 5)  # type: ignore[call-overload]
+def setsockopt_tests(sock):
+    """Extract these out, to be reused for SocketStream also."""
+    # specifying optlen. Not supported on pypy, and I couldn't find
+    # valid calls on darwin or win32.
+    if hasattr(tsocket, "SO_BINDTODEVICE"):
+        sock.setsockopt(tsocket.SOL_SOCKET, tsocket.SO_BINDTODEVICE, None, 0)
 
-        # specifying neither
-        with pytest.raises(TypeError, match="invalid value for argument 'value'"):
-            sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, None)  # type: ignore[call-overload]
+    # specifying value
+    sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, False)
+
+    # specifying both
+    with pytest.raises(TypeError, match="invalid value for argument 'value'"):
+        sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, False, 5)
+
+    # specifying neither
+    with pytest.raises(TypeError, match="invalid value for argument 'value'"):
+        sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, None)
 
 
 async def test_SocketType_dup():

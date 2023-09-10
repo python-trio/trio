@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import gc
 import os
 import pickle
@@ -20,13 +22,13 @@ if sys.version_info < (3, 11):
 
 
 class NotHashableException(Exception):
-    code = None
+    code: int | None = None
 
-    def __init__(self, code):
+    def __init__(self, code: int) -> None:
         super().__init__()
         self.code = code
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, NotHashableException):
             return False
         return self.code == other.code
@@ -428,7 +430,7 @@ def test_non_base_multierror():
     assert isinstance(exc, ExceptionGroup)
 
 
-def run_script(name, use_ipython=False):
+def run_script(name: str) -> subprocess.CompletedProcess[bytes]:
     import trio
 
     trio_path = Path(trio.__file__).parent.parent
@@ -445,24 +447,7 @@ def run_script(name, use_ipython=False):
     env["PYTHONPATH"] = os.pathsep.join(pp)
     print("subprocess PYTHONPATH:", env.get("PYTHONPATH"))
 
-    if use_ipython:
-        lines = [
-            "import runpy",
-            f"runpy.run_path(r'{script_path}', run_name='trio.fake')",
-            "exit()",
-        ]
-
-        cmd = [
-            sys.executable,
-            "-u",
-            "-m",
-            "IPython",
-            # no startup files
-            "--quick",
-            "--TerminalIPythonApp.code_to_run=" + "\n".join(lines),
-        ]
-    else:
-        cmd = [sys.executable, "-u", str(script_path)]
+    cmd = [sys.executable, "-u", str(script_path)]
     print("running:", cmd)
     completed = subprocess.run(
         cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
@@ -470,69 +455,6 @@ def run_script(name, use_ipython=False):
     print("process output:")
     print(completed.stdout.decode("utf-8"))
     return completed
-
-
-def check_simple_excepthook(completed):
-    assert_match_in_seq(
-        [
-            "in <module>",
-            "MultiError",
-            "--- 1 ---",
-            "in exc1_fn",
-            "ValueError",
-            "--- 2 ---",
-            "in exc2_fn",
-            "KeyError",
-        ],
-        completed.stdout.decode("utf-8"),
-    )
-
-
-try:
-    import IPython  # noqa: F401
-except ImportError:  # pragma: no cover
-    have_ipython = False
-else:
-    have_ipython = True
-
-need_ipython = pytest.mark.skipif(not have_ipython, reason="need IPython")
-
-
-@slow
-@need_ipython
-def test_ipython_exc_handler():
-    completed = run_script("simple_excepthook.py", use_ipython=True)
-    check_simple_excepthook(completed)
-
-
-@slow
-@need_ipython
-def test_ipython_imported_but_unused():
-    completed = run_script("simple_excepthook_IPython.py")
-    check_simple_excepthook(completed)
-
-
-@slow
-@need_ipython
-def test_ipython_custom_exc_handler():
-    # Check we get a nice warning (but only one!) if the user is using IPython
-    # and already has some other set_custom_exc handler installed.
-    completed = run_script("ipython_custom_exc.py", use_ipython=True)
-    assert_match_in_seq(
-        [
-            # The warning
-            "RuntimeWarning",
-            "IPython detected",
-            "skip installing Trio",
-            # The MultiError
-            "MultiError",
-            "ValueError",
-            "KeyError",
-        ],
-        completed.stdout.decode("utf-8"),
-    )
-    # Make sure our other warning doesn't show up
-    assert "custom sys.excepthook" not in completed.stdout.decode("utf-8")
 
 
 @slow
@@ -555,7 +477,7 @@ def test_apport_excepthook_monkeypatch_interaction():
 
 
 @pytest.mark.parametrize("protocol", range(0, pickle.HIGHEST_PROTOCOL + 1))
-def test_pickle_multierror(protocol) -> None:
+def test_pickle_multierror(protocol: int) -> None:
     # use trio.MultiError to make sure that pickle works through the deprecation layer
     import trio
 

@@ -1,6 +1,6 @@
-import _common
+import _common  # isort: split
 
-import trio
+from trio._core._multierror import MultiError  # Bypass deprecation warnings
 
 
 def exc1_fn():
@@ -18,4 +18,4 @@ def exc2_fn():
 
 
 # This should be printed nicely, because Trio overrode sys.excepthook
-raise trio.MultiError([exc1_fn(), exc2_fn()])
+raise MultiError([exc1_fn(), exc2_fn()])

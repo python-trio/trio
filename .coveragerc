@@ -16,6 +16,7 @@ parallel=True
 
 [report]
 precision = 1
+skip_covered = True
 exclude_lines =
   pragma: no cover
   abc.abstractmethod
@@ -23,6 +24,7 @@ exclude_lines =
   if _t.TYPE_CHECKING:
   if t.TYPE_CHECKING:
   @overload
+  class .*\bProtocol\b.*\):
 
 partial_branches =
   pragma: no branch

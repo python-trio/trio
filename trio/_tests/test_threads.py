@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import contextvars
 import queue as stdlib_queue
 import re
@@ -9,7 +11,7 @@ from functools import partial
 from typing import Callable, Optional
 
 import pytest
-from sniffio import current_async_library_cvar
+import sniffio
 
 from trio._core import TrioToken, current_trio_token
 
@@ -170,7 +172,7 @@ def test_await_in_trio_thread_while_main_exits():
 async def test_named_thread():
     ending = " from trio._tests.test_threads.test_named_thread"
 
-    def inner(name="inner" + ending) -> threading.Thread:
+    def inner(name: str = "inner" + ending) -> threading.Thread:
         assert threading.current_thread().name == name
         return threading.current_thread()
 
@@ -185,7 +187,7 @@ async def test_named_thread():
     await to_thread_run_sync(f("None" + ending))
 
     # test that you can set a custom name, and that it's reset afterwards
-    async def test_thread_name(name: str):
+    async def test_thread_name(name: str) -> None:
         thread = await to_thread_run_sync(f(name), thread_name=name)
         assert re.match("Trio thread [0-9]*", thread.name)
 
@@ -235,7 +237,7 @@ def _get_thread_name(ident: Optional[int] = None) -> Optional[str]:
 # and most mac machines. So unless the platform is linux it will just skip
 # in case it fails to fetch the os thread name.
 async def test_named_thread_os():
-    def inner(name) -> threading.Thread:
+    def inner(name: str) -> threading.Thread:
         os_thread_name = _get_thread_name()
         if os_thread_name is None and sys.platform != "linux":
             pytest.skip(f"no pthread OS support on {sys.platform}")
@@ -253,7 +255,7 @@ async def test_named_thread_os():
     await to_thread_run_sync(f(default), thread_name=None)
 
     # test that you can set a custom name, and that it's reset afterwards
-    async def test_thread_name(name: str, expected: Optional[str] = None):
+    async def test_thread_name(name: str, expected: Optional[str] = None) -> None:
         if expected is None:
             expected = name
         thread = await to_thread_run_sync(f(expected), thread_name=name)
@@ -584,7 +586,9 @@ async def test_trio_to_thread_run_sync_expected_error():
         await to_thread_run_sync(async_fn)
 
 
-trio_test_contextvar = contextvars.ContextVar("trio_test_contextvar")
+trio_test_contextvar: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "trio_test_contextvar"
+)
 
 
 async def test_trio_to_thread_run_sync_contextvars():
@@ -593,42 +597,35 @@ async def test_trio_to_thread_run_sync_contextvars():
 
     def f():
         value = trio_test_contextvar.get()
-        sniffio_cvar_value = current_async_library_cvar.get()
-        return (value, sniffio_cvar_value, threading.current_thread())
+        with pytest.raises(sniffio.AsyncLibraryNotFoundError):
+            sniffio.current_async_library()
+        return (value, threading.current_thread())
 
-    value, sniffio_cvar_value, child_thread = await to_thread_run_sync(f)
+    value, child_thread = await to_thread_run_sync(f)
     assert value == "main"
-    assert sniffio_cvar_value == None
     assert child_thread != trio_thread
 
     def g():
         parent_value = trio_test_contextvar.get()
         trio_test_contextvar.set("worker")
         inner_value = trio_test_contextvar.get()
-        sniffio_cvar_value = current_async_library_cvar.get()
+        with pytest.raises(sniffio.AsyncLibraryNotFoundError):
+            sniffio.current_async_library()
         return (
             parent_value,
             inner_value,
-            sniffio_cvar_value,
             threading.current_thread(),
         )
 
-    (
-        parent_value,
-        inner_value,
-        sniffio_cvar_value,
-        child_thread,
-    ) = await to_thread_run_sync(g)
+    parent_value, inner_value, child_thread = await to_thread_run_sync(g)
     current_value = trio_test_contextvar.get()
-    sniffio_outer_value = current_async_library_cvar.get()
     assert parent_value == "main"
     assert inner_value == "worker"
     assert current_value == "main", (
         "The contextvar value set on the worker would not propagate back to the main"
         " thread"
     )
-    assert sniffio_cvar_value is None
-    assert sniffio_outer_value == "trio"
+    assert sniffio.current_async_library() == "trio"
 
 
 async def test_trio_from_thread_run_sync():
@@ -715,50 +712,40 @@ async def test_trio_from_thread_run_sync_contextvars():
         thread_parent_value = trio_test_contextvar.get()
         trio_test_contextvar.set("worker")
         thread_current_value = trio_test_contextvar.get()
-        sniffio_cvar_thread_pre_value = current_async_library_cvar.get()
+        with pytest.raises(sniffio.AsyncLibraryNotFoundError):
+            sniffio.current_async_library()
 
         def back_in_main():
             back_parent_value = trio_test_contextvar.get()
             trio_test_contextvar.set("back_in_main")
             back_current_value = trio_test_contextvar.get()
-            sniffio_cvar_back_value = current_async_library_cvar.get()
-            return back_parent_value, back_current_value, sniffio_cvar_back_value
+            assert sniffio.current_async_library() == "trio"
+            return back_parent_value, back_current_value
 
-        (
-            back_parent_value,
-            back_current_value,
-            sniffio_cvar_back_value,
-        ) = from_thread_run_sync(back_in_main)
+        back_parent_value, back_current_value = from_thread_run_sync(back_in_main)
         thread_after_value = trio_test_contextvar.get()
-        sniffio_cvar_thread_after_value = current_async_library_cvar.get()
+        with pytest.raises(sniffio.AsyncLibraryNotFoundError):
+            sniffio.current_async_library()
         return (
             thread_parent_value,
             thread_current_value,
             thread_after_value,
-            sniffio_cvar_thread_pre_value,
-            sniffio_cvar_thread_after_value,
             back_parent_value,
             back_current_value,
-            sniffio_cvar_back_value,
         )
 
     (
         thread_parent_value,
         thread_current_value,
         thread_after_value,
-        sniffio_cvar_thread_pre_value,
-        sniffio_cvar_thread_after_value,
         back_parent_value,
         back_current_value,
-        sniffio_cvar_back_value,
     ) = await to_thread_run_sync(thread_fn)
     current_value = trio_test_contextvar.get()
-    sniffio_cvar_out_value = current_async_library_cvar.get()
     assert current_value == thread_parent_value == "main"
     assert thread_current_value == back_parent_value == thread_after_value == "worker"
+    assert sniffio.current_async_library() == "trio"
     assert back_current_value == "back_in_main"
-    assert sniffio_cvar_out_value == sniffio_cvar_back_value == "trio"
-    assert sniffio_cvar_thread_pre_value == sniffio_cvar_thread_after_value == None
 
 
 async def test_trio_from_thread_run_contextvars():
@@ -768,49 +755,40 @@ async def test_trio_from_thread_run_contextvars():
         thread_parent_value = trio_test_contextvar.get()
         trio_test_contextvar.set("worker")
         thread_current_value = trio_test_contextvar.get()
-        sniffio_cvar_thread_pre_value = current_async_library_cvar.get()
+        with pytest.raises(sniffio.AsyncLibraryNotFoundError):
+            sniffio.current_async_library()
 
         async def async_back_in_main():
             back_parent_value = trio_test_contextvar.get()
             trio_test_contextvar.set("back_in_main")
             back_current_value = trio_test_contextvar.get()
-            sniffio_cvar_back_value = current_async_library_cvar.get()
-            return back_parent_value, back_current_value, sniffio_cvar_back_value
+            assert sniffio.current_async_library() == "trio"
+            return back_parent_value, back_current_value
 
-        (
-            back_parent_value,
-            back_current_value,
-            sniffio_cvar_back_value,
-        ) = from_thread_run(async_back_in_main)
+        back_parent_value, back_current_value = from_thread_run(async_back_in_main)
         thread_after_value = trio_test_contextvar.get()
-        sniffio_cvar_thread_after_value = current_async_library_cvar.get()
+        with pytest.raises(sniffio.AsyncLibraryNotFoundError):
+            sniffio.current_async_library()
         return (
             thread_parent_value,
             thread_current_value,
             thread_after_value,
-            sniffio_cvar_thread_pre_value,
-            sniffio_cvar_thread_after_value,
             back_parent_value,
             back_current_value,
-            sniffio_cvar_back_value,
         )
 
     (
         thread_parent_value,
         thread_current_value,
         thread_after_value,
-        sniffio_cvar_thread_pre_value,
-        sniffio_cvar_thread_after_value,
         back_parent_value,
         back_current_value,
-        sniffio_cvar_back_value,
     ) = await to_thread_run_sync(thread_fn)
     current_value = trio_test_contextvar.get()
     assert current_value == thread_parent_value == "main"
     assert thread_current_value == back_parent_value == thread_after_value == "worker"
     assert back_current_value == "back_in_main"
-    assert sniffio_cvar_thread_pre_value == sniffio_cvar_thread_after_value == None
-    assert sniffio_cvar_back_value == "trio"
+    assert sniffio.current_async_library() == "trio"
 
 
 def test_run_fn_as_system_task_catched_badly_typed_token():

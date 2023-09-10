@@ -30,7 +30,6 @@ from typing import (
 from weakref import ReferenceType, WeakValueDictionary
 
 import attr
-from OpenSSL import SSL
 
 import trio
 
@@ -39,11 +38,12 @@ from ._util import Final, NoPublicConstructor
 if TYPE_CHECKING:
     from types import TracebackType
 
+    # See DTLSEndpoint.__init__ for why this is imported here
+    from OpenSSL import SSL
     from OpenSSL.SSL import Context
     from typing_extensions import Self, TypeAlias
 
-    from ._core._run import TaskStatus
-    from ._socket import Address, _SocketType
+    from trio.socket import Address, _SocketType
 
 MAX_UDP_PACKET_SIZE = 65527
 
@@ -1267,7 +1267,7 @@ class DTLSEndpoint(metaclass=Final):
         ssl_context: Context,
         async_fn: Callable[..., Awaitable[object]],
         *args: Any,
-        task_status: TaskStatus = trio.TASK_STATUS_IGNORED,  # type: ignore[has-type]
+        task_status: trio.TaskStatus[None] = trio.TASK_STATUS_IGNORED,
     ) -> None:
         """Listen for incoming connections, and spawn a handler for each using an
         internal nursery.

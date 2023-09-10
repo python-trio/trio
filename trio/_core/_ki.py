@@ -6,12 +6,13 @@ import sys
 import types
 from collections.abc import Callable
 from functools import wraps
-from typing import TYPE_CHECKING, Final, TypeVar
+from typing import TYPE_CHECKING, Final, Protocol, TypeVar
 
 import attr
 
 from .._util import is_main_thread
 
+CallableT = TypeVar("CallableT", bound="Callable[..., object]")
 RetT = TypeVar("RetT")
 
 if TYPE_CHECKING:
@@ -121,7 +122,7 @@ def currently_ki_protected() -> bool:
 # see python-trio/async_generator/async_generator/_impl.py
 def legacy_isasyncgenfunction(
     obj: object,
-) -> TypeGuard[Callable[..., types.AsyncGeneratorType]]:
+) -> TypeGuard[Callable[..., types.AsyncGeneratorType[object, object]]]:
     return getattr(obj, "_async_gen_function", None) == id(obj)
 
 
@@ -183,20 +184,27 @@ def _ki_protection_decorator(
     return decorator
 
 
-enable_ki_protection: Callable[
-    [Callable[ArgsT, RetT]], Callable[ArgsT, RetT]
-] = _ki_protection_decorator(True)
+# pyright workaround: https://github.com/microsoft/pyright/issues/5866
+class KIProtectionSignature(Protocol):
+    __name__: str
+
+    def __call__(self, f: CallableT, /) -> CallableT:
+        pass
+
+
+# the following `type: ignore`s are because we use ParamSpec internally, but want to allow overloads
+enable_ki_protection: KIProtectionSignature = _ki_protection_decorator(True)  # type: ignore[assignment]
 enable_ki_protection.__name__ = "enable_ki_protection"
 
-disable_ki_protection: Callable[
-    [Callable[ArgsT, RetT]], Callable[ArgsT, RetT]
-] = _ki_protection_decorator(False)
+disable_ki_protection: KIProtectionSignature = _ki_protection_decorator(False)  # type: ignore[assignment]
 disable_ki_protection.__name__ = "disable_ki_protection"
 
 
 @attr.s
 class KIManager:
-    handler = attr.ib(default=None)
+    handler: Callable[[int, types.FrameType | None], None] | None = attr.ib(
+        default=None
+    )
 
     def install(
         self,
@@ -221,7 +229,7 @@ class KIManager:
         self.handler = handler
         signal.signal(signal.SIGINT, handler)
 
-    def close(self):
+    def close(self) -> None:
         if self.handler is not None:
             if signal.getsignal(signal.SIGINT) is self.handler:
                 signal.signal(signal.SIGINT, signal.default_int_handler)

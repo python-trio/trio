@@ -52,6 +52,8 @@ Vital statistics:
 
 * Tutorial and reference manual: https://trio.readthedocs.io
 
+* Changelog: https://trio.readthedocs.io/en/latest/history.html
+
 * Bug tracker and source code: https://github.com/python-trio/trio
 
 * Real-time chat: https://gitter.im/python-trio/general
@@ -86,7 +88,7 @@ setup(
         "sortedcontainers",
         "idna",
         "outcome",
-        "sniffio",
+        "sniffio >= 1.3.0",
         # cffi 1.12 adds from_buffer(require_writable=True) and ffi.release()
         # cffi 1.14 fixes memory leak inside ffi.getwinerror()
         # cffi is required on Windows, except on PyPy where it is built-in
@@ -118,4 +120,8 @@ setup(
         "Topic :: System :: Networking",
         "Framework :: Trio",
     ],
+    project_urls={
+        "Documentation": "https://trio.readthedocs.io/",
+        "Changelog": "https://trio.readthedocs.io/en/latest/history.html",
+    },
 )
