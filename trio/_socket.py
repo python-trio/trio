@@ -45,8 +45,10 @@ if TYPE_CHECKING:
     Fn = TypeVar("Fn", bound=Callable[..., object])
 
     def _wraps(
-        wrapped: Fn, assigned: Sequence[str] = ..., updated: Sequence[str] = ...
-    ) -> Callable[..., Fn]:
+        wrapped: Callable[..., object],
+        assigned: Sequence[str] = ...,
+        updated: Sequence[str] = ...,
+    ) -> Callable[[Fn], Fn]:
         ...
 
 else:
