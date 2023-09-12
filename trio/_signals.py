@@ -120,7 +120,7 @@ class SignalReceiver:
 
 def get_pending_signal_count(rec: AsyncIterator[int]) -> int:
     """Helper for tests, not public or otherwise used."""
-    # open_signal_receiver() always produces SignalReceiver, so cast.
+    # open_signal_receiver() always produces SignalReceiver, this should not fail.
     assert isinstance(rec, SignalReceiver)
     return len(rec._pending)
 
