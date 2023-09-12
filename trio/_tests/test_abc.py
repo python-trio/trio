@@ -1,15 +1,17 @@
+from __future__ import annotations
+
 import attr
 import pytest
 
 from .. import abc as tabc
 
 
-async def test_AsyncResource_defaults():
+async def test_AsyncResource_defaults() -> None:
     @attr.s
     class MyAR(tabc.AsyncResource):
-        record = attr.ib(factory=list)
+        record: list[str] = attr.ib(factory=list)
 
-        async def aclose(self):
+        async def aclose(self) -> None:
             self.record.append("ac")
 
     async with MyAR() as myar:
@@ -19,7 +21,7 @@ async def test_AsyncResource_defaults():
     assert myar.record == ["ac"]
 
 
-def test_abc_generics():
+def test_abc_generics() -> None:
     # Pythons below 3.5.2 had a typing.Generic that would throw
     # errors when instantiating or subclassing a parameterized
     # version of a class with any __slots__. This is why RunVar
@@ -30,16 +32,16 @@ def test_abc_generics():
     class SlottedChannel(tabc.SendChannel[tabc.Stream]):
         __slots__ = ("x",)
 
-        def send_nowait(self, value):
+        def send_nowait(self, value: object) -> None:
             raise RuntimeError
 
-        async def send(self, value):
+        async def send(self, value: object) -> None:
             raise RuntimeError  # pragma: no cover
 
-        def clone(self):
+        def clone(self) -> None:
             raise RuntimeError  # pragma: no cover
 
-        async def aclose(self):
+        async def aclose(self) -> None:
             pass  # pragma: no cover
 
     channel = SlottedChannel()
