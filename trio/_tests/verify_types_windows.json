@@ -138,7 +138,7 @@
         "name": "trio.run_process"
       },
       {
-        "message": "No docstring found for class \"trio.socket.fromshare\"",
+        "message": "No docstring found for function \"trio.socket.fromshare\"",
         "name": "trio.socket.fromshare"
       },
       {
