@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any
 
 import pytest
 
@@ -41,8 +40,7 @@ def autojump_clock() -> MockClock:
 # interface?), with config file to enable? and I guess a mark option too; I
 # guess it's useful with the class- and file-level marking machinery (where
 # the raw @trio_test decorator isn't enough).
-# `pytest.FixtureRequest.__init__` types `pyfuncitem` as `Any`
-@pytest.hookimpl(tryfirst=True)  # type: ignore[misc] # use of Any in decorator
-def pytest_pyfunc_call(pyfuncitem: Any) -> None:
+@pytest.hookimpl(tryfirst=True)
+def pytest_pyfunc_call(pyfuncitem: pytest.Function) -> None:
     if inspect.iscoroutinefunction(pyfuncitem.obj):
         pyfuncitem.obj = trio_test(pyfuncitem.obj)

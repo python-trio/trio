@@ -16,6 +16,7 @@ parallel=True
 
 [report]
 precision = 1
+skip_covered = True
 exclude_lines =
   pragma: no cover
   abc.abstractmethod

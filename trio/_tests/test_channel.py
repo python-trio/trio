@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Union
+
 import pytest
 
 import trio
@@ -6,13 +10,13 @@ from trio import EndOfChannel, open_memory_channel
 from ..testing import assert_checkpoints, wait_all_tasks_blocked
 
 
-async def test_channel():
+async def test_channel() -> None:
     with pytest.raises(TypeError):
         open_memory_channel(1.0)
     with pytest.raises(ValueError):
         open_memory_channel(-1)
 
-    s, r = open_memory_channel(2)
+    s, r = open_memory_channel[Union[int, str, None]](2)
     repr(s)  # smoke test
     repr(r)  # smoke test
 
@@ -45,26 +49,26 @@ async def test_channel():
     with pytest.raises(trio.ClosedResourceError):
         await r.receive()
     with pytest.raises(trio.ClosedResourceError):
-        await r.receive_nowait()
+        r.receive_nowait()
     await r.aclose()
 
 
-async def test_553(autojump_clock):
-    s, r = open_memory_channel(1)
+async def test_553(autojump_clock: trio.abc.Clock) -> None:
+    s, r = open_memory_channel[str](1)
     with trio.move_on_after(10) as timeout_scope:
         await r.receive()
     assert timeout_scope.cancelled_caught
     await s.send("Test for PR #553")
 
 
-async def test_channel_multiple_producers():
-    async def producer(send_channel, i):
+async def test_channel_multiple_producers() -> None:
+    async def producer(send_channel: trio.MemorySendChannel[int], i: int) -> None:
         # We close our handle when we're done with it
         async with send_channel:
             for j in range(3 * i, 3 * (i + 1)):
                 await send_channel.send(j)
 
-    send_channel, receive_channel = open_memory_channel(0)
+    send_channel, receive_channel = open_memory_channel[int](0)
     async with trio.open_nursery() as nursery:
         # We hand out clones to all the new producers, and then close the
         # original.
@@ -80,17 +84,17 @@ async def test_channel_multiple_producers():
         assert got == list(range(30))
 
 
-async def test_channel_multiple_consumers():
+async def test_channel_multiple_consumers() -> None:
     successful_receivers = set()
     received = []
 
-    async def consumer(receive_channel, i):
+    async def consumer(receive_channel: trio.MemoryReceiveChannel[int], i: int) -> None:
         async for value in receive_channel:
             successful_receivers.add(i)
             received.append(value)
 
     async with trio.open_nursery() as nursery:
-        send_channel, receive_channel = trio.open_memory_channel(1)
+        send_channel, receive_channel = trio.open_memory_channel[int](1)
         async with send_channel:
             for i in range(5):
                 nursery.start_soon(consumer, receive_channel, i)
@@ -103,13 +107,15 @@ async def test_channel_multiple_consumers():
     assert set(received) == set(range(10))
 
 
-async def test_close_basics():
-    async def send_block(s, expect):
+async def test_close_basics() -> None:
+    async def send_block(
+        s: trio.MemorySendChannel[None], expect: type[BaseException]
+    ) -> None:
         with pytest.raises(expect):
             await s.send(None)
 
     # closing send -> other send gets ClosedResourceError
-    s, r = open_memory_channel(0)
+    s, r = open_memory_channel[None](0)
     async with trio.open_nursery() as nursery:
         nursery.start_soon(send_block, s, trio.ClosedResourceError)
         await wait_all_tasks_blocked()
@@ -128,7 +134,7 @@ async def test_close_basics():
         await r.receive()
 
     # closing receive -> send gets BrokenResourceError
-    s, r = open_memory_channel(0)
+    s, r = open_memory_channel[None](0)
     async with trio.open_nursery() as nursery:
         nursery.start_soon(send_block, s, trio.BrokenResourceError)
         await wait_all_tasks_blocked()
@@ -141,11 +147,11 @@ async def test_close_basics():
         await s.send(None)
 
     # closing receive -> other receive gets ClosedResourceError
-    async def receive_block(r):
+    async def receive_block(r: trio.MemoryReceiveChannel[int]) -> None:
         with pytest.raises(trio.ClosedResourceError):
             await r.receive()
 
-    s, r = open_memory_channel(0)
+    s, r = open_memory_channel[None](0)
     async with trio.open_nursery() as nursery:
         nursery.start_soon(receive_block, r)
         await wait_all_tasks_blocked()
@@ -158,13 +164,15 @@ async def test_close_basics():
         await r.receive()
 
 
-async def test_close_sync():
-    async def send_block(s, expect):
+async def test_close_sync() -> None:
+    async def send_block(
+        s: trio.MemorySendChannel[None], expect: type[BaseException]
+    ) -> None:
         with pytest.raises(expect):
             await s.send(None)
 
     # closing send -> other send gets ClosedResourceError
-    s, r = open_memory_channel(0)
+    s, r = open_memory_channel[None](0)
     async with trio.open_nursery() as nursery:
         nursery.start_soon(send_block, s, trio.ClosedResourceError)
         await wait_all_tasks_blocked()
@@ -183,7 +191,7 @@ async def test_close_sync():
         await r.receive()
 
     # closing receive -> send gets BrokenResourceError
-    s, r = open_memory_channel(0)
+    s, r = open_memory_channel[None](0)
     async with trio.open_nursery() as nursery:
         nursery.start_soon(send_block, s, trio.BrokenResourceError)
         await wait_all_tasks_blocked()
@@ -196,11 +204,11 @@ async def test_close_sync():
         await s.send(None)
 
     # closing receive -> other receive gets ClosedResourceError
-    async def receive_block(r):
+    async def receive_block(r: trio.MemoryReceiveChannel[int]) -> None:
         with pytest.raises(trio.ClosedResourceError):
             await r.receive()
 
-    s, r = open_memory_channel(0)
+    s, r = open_memory_channel[None](0)
     async with trio.open_nursery() as nursery:
         nursery.start_soon(receive_block, r)
         await wait_all_tasks_blocked()
@@ -213,8 +221,8 @@ async def test_close_sync():
         await r.receive()
 
 
-async def test_receive_channel_clone_and_close():
-    s, r = open_memory_channel(10)
+async def test_receive_channel_clone_and_close() -> None:
+    s, r = open_memory_channel[None](10)
 
     r2 = r.clone()
     r3 = r.clone()
@@ -240,17 +248,17 @@ async def test_receive_channel_clone_and_close():
         s.send_nowait(None)
 
 
-async def test_close_multiple_send_handles():
+async def test_close_multiple_send_handles() -> None:
     # With multiple send handles, closing one handle only wakes senders on
     # that handle, but others can continue just fine
-    s1, r = open_memory_channel(0)
+    s1, r = open_memory_channel[str](0)
     s2 = s1.clone()
 
-    async def send_will_close():
+    async def send_will_close() -> None:
         with pytest.raises(trio.ClosedResourceError):
             await s1.send("nope")
 
-    async def send_will_succeed():
+    async def send_will_succeed() -> None:
         await s2.send("ok")
 
     async with trio.open_nursery() as nursery:
@@ -261,17 +269,17 @@ async def test_close_multiple_send_handles():
         assert await r.receive() == "ok"
 
 
-async def test_close_multiple_receive_handles():
+async def test_close_multiple_receive_handles() -> None:
     # With multiple receive handles, closing one handle only wakes receivers on
     # that handle, but others can continue just fine
-    s, r1 = open_memory_channel(0)
+    s, r1 = open_memory_channel[str](0)
     r2 = r1.clone()
 
-    async def receive_will_close():
+    async def receive_will_close() -> None:
         with pytest.raises(trio.ClosedResourceError):
             await r1.receive()
 
-    async def receive_will_succeed():
+    async def receive_will_succeed() -> None:
         assert await r2.receive() == "ok"
 
     async with trio.open_nursery() as nursery:
@@ -282,8 +290,8 @@ async def test_close_multiple_receive_handles():
         await s.send("ok")
 
 
-async def test_inf_capacity():
-    s, r = open_memory_channel(float("inf"))
+async def test_inf_capacity() -> None:
+    s, r = open_memory_channel[int](float("inf"))
 
     # It's accepted, and we can send all day without blocking
     with s:
@@ -296,8 +304,8 @@ async def test_inf_capacity():
     assert got == list(range(10))
 
 
-async def test_statistics():
-    s, r = open_memory_channel(2)
+async def test_statistics() -> None:
+    s, r = open_memory_channel[None](2)
 
     assert s.statistics() == r.statistics()
     stats = s.statistics()
@@ -346,10 +354,10 @@ async def test_statistics():
     assert s.statistics().tasks_waiting_receive == 0
 
 
-async def test_channel_fairness():
+async def test_channel_fairness() -> None:
     # We can remove an item we just sent, and send an item back in after, if
     # no-one else is waiting.
-    s, r = open_memory_channel(1)
+    s, r = open_memory_channel[Union[int, None]](1)
     s.send_nowait(1)
     assert r.receive_nowait() == 1
     s.send_nowait(2)
@@ -360,7 +368,7 @@ async def test_channel_fairness():
 
     result = None
 
-    async def do_receive(r):
+    async def do_receive(r: trio.MemoryReceiveChannel[int]) -> None:
         nonlocal result
         result = await r.receive()
 
@@ -375,7 +383,7 @@ async def test_channel_fairness():
     # And the analogous situation for send: if we free up a space, we can't
     # immediately send something in it if someone is already waiting to do
     # that
-    s, r = open_memory_channel(1)
+    s, r = open_memory_channel[Union[int, None]](1)
     s.send_nowait(1)
     with pytest.raises(trio.WouldBlock):
         s.send_nowait(None)
@@ -388,14 +396,14 @@ async def test_channel_fairness():
         assert (await r.receive()) == 2
 
 
-async def test_unbuffered():
-    s, r = open_memory_channel(0)
+async def test_unbuffered() -> None:
+    s, r = open_memory_channel[int](0)
     with pytest.raises(trio.WouldBlock):
         r.receive_nowait()
     with pytest.raises(trio.WouldBlock):
         s.send_nowait(1)
 
-    async def do_send(s, v):
+    async def do_send(s: trio.MemorySendChannel[int], v: int) -> None:
         with assert_checkpoints():
             await s.send(v)
 
