@@ -17,7 +17,7 @@ import pytest
 
 import trio
 import trio.testing
-from trio._tests.pytest_plugin import SKIP_OPTIONAL_IMPORTS
+from trio._tests.pytest_plugin import skip_if_optional_else_raise
 
 from .. import _core, _util
 from .._core._tests.tutil import slow
@@ -37,9 +37,7 @@ def _ensure_mypy_cache_updated():
     try:
         from mypy.api import run
     except ImportError as error:
-        if not SKIP_OPTIONAL_IMPORTS:
-            raise error
-        pytest.skip(error.msg)
+        skip_if_optional_else_raise(error)
 
     global mypy_cache_updated
     if not mypy_cache_updated:
@@ -139,9 +137,7 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         try:
             from pylint.lint import PyLinter
         except ImportError as error:
-            if not SKIP_OPTIONAL_IMPORTS:
-                raise error
-            pytest.skip(error.msg)
+            skip_if_optional_else_raise(error)
 
         linter = PyLinter()
         ast = linter.get_ast(module.__file__, modname)
@@ -150,9 +146,7 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         try:
             import jedi
         except ImportError as error:
-            if not SKIP_OPTIONAL_IMPORTS:
-                raise error
-            pytest.skip(error.msg)
+            skip_if_optional_else_raise(error)
 
         # Simulate typing "import trio; trio.<TAB>"
         script = jedi.Script(f"import {modname}; {modname}.")
@@ -191,9 +185,7 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         try:
             import pyright  # noqa: F401
         except ImportError as error:
-            if not SKIP_OPTIONAL_IMPORTS:
-                raise error
-            pytest.skip(error.msg)
+            skip_if_optional_else_raise(error)
         import subprocess
 
         res = subprocess.run(
@@ -379,9 +371,7 @@ def test_static_tool_sees_class_members(
             try:
                 import jedi
             except ImportError as error:
-                if not SKIP_OPTIONAL_IMPORTS:
-                    raise error
-                pytest.skip(error.msg)
+                skip_if_optional_else_raise(error)
 
             script = jedi.Script(
                 f"from {module_name} import {class_name}; {class_name}."

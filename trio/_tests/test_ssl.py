@@ -10,15 +10,13 @@ from functools import partial
 
 import pytest
 
-from trio._tests.pytest_plugin import SKIP_OPTIONAL_IMPORTS
+from trio._tests.pytest_plugin import skip_if_optional_else_raise
 
 try:
     import trustme
     from OpenSSL import SSL
 except ImportError as error:
-    if not SKIP_OPTIONAL_IMPORTS:
-        raise error
-    pytest.skip(error.msg, allow_module_level=True)
+    skip_if_optional_else_raise(error)
 
 import trio
 

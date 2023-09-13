@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+from typing import NoReturn
 
 import pytest
 
@@ -44,3 +45,10 @@ def autojump_clock() -> MockClock:
 def pytest_pyfunc_call(pyfuncitem: pytest.Function) -> None:
     if inspect.iscoroutinefunction(pyfuncitem.obj):
         pyfuncitem.obj = trio_test(pyfuncitem.obj)
+
+
+def skip_if_optional_else_raise(error: ImportError) -> NoReturn:
+    if SKIP_OPTIONAL_IMPORTS:
+        pytest.skip(error.msg, allow_module_level=True)
+    else:  # pragma: no cover
+        raise error
