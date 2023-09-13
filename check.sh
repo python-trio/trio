@@ -11,7 +11,7 @@ fi
 
 # Test if the generated code is still up to date
 echo "::group::Generate Exports"
-python ./trio/_tools/gen_exports.py --test \
+python src/trio/_tools/gen_exports.py --test \
     || EXIT_STATUS=$?
 echo "::endgroup::"
 
@@ -21,10 +21,10 @@ echo "::endgroup::"
 # autoflake --recursive --in-place .
 # pyupgrade --py3-plus $(find . -name "*.py")
 echo "::group::Black"
-if ! black --check setup.py trio; then
+if ! black --check setup.py src/trio; then
     echo "* Black found issues" >> $GITHUB_STEP_SUMMARY
     EXIT_STATUS=1
-    black --diff setup.py trio
+    black --diff setup.py src/trio
     echo "::endgroup::"
     echo "::error:: Black found issues"
 else
@@ -32,10 +32,10 @@ else
 fi
 
 echo "::group::ISort"
-if ! isort --check setup.py trio; then
+if ! isort --check setup.py src/trio; then
     echo "* isort found issues." >> $GITHUB_STEP_SUMMARY
     EXIT_STATUS=1
-    isort --diff setup.py trio
+    isort --diff setup.py src/trio
     echo "::endgroup::"
     echo "::error:: isort found issues"
 else
@@ -44,7 +44,7 @@ fi
 
 # Run flake8, configured in pyproject.toml
 echo "::group::Flake8"
-flake8 trio/ || EXIT_STATUS=$?
+flake8 src/trio/ || EXIT_STATUS=$?
 echo "::endgroup::"
 
 # Run mypy on all supported platforms
@@ -55,16 +55,16 @@ echo "::group::Mypy"
 rm -f mypy_annotate.dat
 # Pipefail makes these pipelines fail if mypy does, even if mypy_annotate.py succeeds.
 set -o pipefail
-mypy trio --show-error-end --platform linux | python ./trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Linux \
+mypy src/trio --show-error-end --platform linux | python ./src/trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Linux \
     || { echo "* Mypy (Linux) found type errors." >> $GITHUB_STEP_SUMMARY; MYPY=1; }
 # Darwin tests FreeBSD too
-mypy trio --show-error-end --platform darwin | python ./trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Mac \
+mypy src/trio --show-error-end --platform darwin | python ./src/trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Mac \
     || { echo "* Mypy (Mac) found type errors." >> $GITHUB_STEP_SUMMARY; MYPY=1; }
-mypy trio --show-error-end --platform win32 | python ./trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Windows \
+mypy src/trio --show-error-end --platform win32 | python ./src/trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Windows \
     || { echo "* Mypy (Windows) found type errors." >> $GITHUB_STEP_SUMMARY; MYPY=1; }
 set +o pipefail
 # Re-display errors using Github's syntax, read out of mypy_annotate.dat
-python ./trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat
+python ./src/trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat
 # Then discard.
 rm -f mypy_annotate.dat
 echo "::endgroup::"
@@ -94,11 +94,11 @@ fi
 
 codespell || EXIT_STATUS=$?
 
-python trio/_tests/check_type_completeness.py --overwrite-file || EXIT_STATUS=$?
-if git status --porcelain trio/_tests/verify_types*.json | grep -q "M"; then
+python src/trio/_tests/check_type_completeness.py --overwrite-file || EXIT_STATUS=$?
+if git status --porcelain src/trio/_tests/verify_types*.json | grep -q "M"; then
     echo "* Type completeness changed, please update!" >> $GITHUB_STEP_SUMMARY
     echo "::error::Type completeness changed, please update!"
-    git --no-pager diff --color trio/_tests/verify_types*.json
+    git --no-pager diff --color src/trio/_tests/verify_types*.json
     EXIT_STATUS=1
 fi
 
@@ -112,8 +112,8 @@ Problems were found by static analysis (listed above).
 To fix formatting and see remaining errors, run
 
     pip install -r test-requirements.txt
-    black setup.py trio
-    isort setup.py trio
+    black setup.py src/trio
+    isort setup.py src/trio
     ./check.sh
 
 in your local checkout.

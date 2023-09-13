@@ -22,7 +22,7 @@ import sys
 # For our local_customization module
 sys.path.insert(0, os.path.abspath("."))
 # For trio itself
-sys.path.insert(0, os.path.abspath("../.."))
+sys.path.insert(0, os.path.abspath("../../src"))
 
 # https://docs.readthedocs.io/en/stable/builds.html#build-environment
 if "READTHEDOCS" in os.environ:

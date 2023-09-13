@@ -13,13 +13,13 @@ ignore-words-list = 'astroid,crasher,asend'
 [tool.flake8]
 extend-ignore = ['D', 'E', 'W', 'F403', 'F405', 'F821', 'F822']
 per-file-ignores = [
-  'trio/__init__.py: F401',
-  'trio/_core/__init__.py: F401',
-  'trio/_core/_tests/test_multierror_scripts/*: F401',
-  'trio/abc.py: F401',
-  'trio/lowlevel.py: F401',
-  'trio/socket.py: F401',
-  'trio/testing/__init__.py: F401'
+  'src/trio/__init__.py: F401',
+  'src/trio/_core/__init__.py: F401',
+  'src/trio/_core/_tests/test_multierror_scripts/*: F401',
+  'src/trio/abc.py: F401',
+  'src/trio/lowlevel.py: F401',
+  'src/trio/socket.py: F401',
+  'src/trio/testing/__init__.py: F401'
 ]
 
 [tool.isort]
@@ -61,48 +61,48 @@ disallow_untyped_calls = false
 [[tool.mypy.overrides]]
 module = [
 # 2761
-"trio/_core/_generated_io_windows",
-"trio/_core/_io_windows",
+"src/trio/_core/_generated_io_windows",
+"src/trio/_core/_io_windows",
 
 # internal
-"trio/_windows_pipes",
+"src/trio/_windows_pipes",
 
 # tests
-"trio/testing/_fake_net",
-"trio/_core/_tests/test_guest_mode",
-"trio/_core/_tests/test_instrumentation",
-"trio/_core/_tests/test_ki",
-"trio/_core/_tests/test_local",
-"trio/_core/_tests/test_mock_clock",
-"trio/_core/_tests/test_multierror",
-"trio/_core/_tests/test_multierror_scripts/ipython_custom_exc",
-"trio/_core/_tests/test_multierror_scripts/simple_excepthook",
-"trio/_core/_tests/test_parking_lot",
-"trio/_core/_tests/test_thread_cache",
-"trio/_core/_tests/test_unbounded_queue",
-"trio/_tests/test_exports",
-"trio/_tests/test_file_io",
-"trio/_tests/test_highlevel_generic",
-"trio/_tests/test_highlevel_open_tcp_listeners",
-"trio/_tests/test_highlevel_open_tcp_stream",
-"trio/_tests/test_highlevel_open_unix_stream",
-"trio/_tests/test_highlevel_serve_listeners",
-"trio/_tests/test_highlevel_socket",
-"trio/_tests/test_highlevel_ssl_helpers",
-"trio/_tests/test_path",
-"trio/_tests/test_scheduler_determinism",
-"trio/_tests/test_socket",
-"trio/_tests/test_ssl",
-"trio/_tests/test_subprocess",
-"trio/_tests/test_sync",
-"trio/_tests/test_testing",
-"trio/_tests/test_threads",
-"trio/_tests/test_timeouts",
-"trio/_tests/test_tracing",
-"trio/_tests/test_util",
-"trio/_tests/test_wait_for_object",
-"trio/_tests/test_windows_pipes",
-"trio/_tests/tools/test_gen_exports",
+"src/trio/testing/_fake_net",
+"src/trio/_core/_tests/test_guest_mode",
+"src/trio/_core/_tests/test_instrumentation",
+"src/trio/_core/_tests/test_ki",
+"src/trio/_core/_tests/test_local",
+"src/trio/_core/_tests/test_mock_clock",
+"src/trio/_core/_tests/test_multierror",
+"src/trio/_core/_tests/test_multierror_scripts/ipython_custom_exc",
+"src/trio/_core/_tests/test_multierror_scripts/simple_excepthook",
+"src/trio/_core/_tests/test_parking_lot",
+"src/trio/_core/_tests/test_thread_cache",
+"src/trio/_core/_tests/test_unbounded_queue",
+"src/trio/_tests/test_exports",
+"src/trio/_tests/test_file_io",
+"src/trio/_tests/test_highlevel_generic",
+"src/trio/_tests/test_highlevel_open_tcp_listeners",
+"src/trio/_tests/test_highlevel_open_tcp_stream",
+"src/trio/_tests/test_highlevel_open_unix_stream",
+"src/trio/_tests/test_highlevel_serve_listeners",
+"src/trio/_tests/test_highlevel_socket",
+"src/trio/_tests/test_highlevel_ssl_helpers",
+"src/trio/_tests/test_path",
+"src/trio/_tests/test_scheduler_determinism",
+"src/trio/_tests/test_socket",
+"src/trio/_tests/test_ssl",
+"src/trio/_tests/test_subprocess",
+"src/trio/_tests/test_sync",
+"src/trio/_tests/test_testing",
+"src/trio/_tests/test_threads",
+"src/trio/_tests/test_timeouts",
+"src/trio/_tests/test_tracing",
+"src/trio/_tests/test_util",
+"src/trio/_tests/test_wait_for_object",
+"src/trio/_tests/test_windows_pipes",
+"src/trio/_tests/tools/test_gen_exports",
 ]
 check_untyped_defs = false
 disallow_any_decorated = false
@@ -142,6 +142,7 @@ issue_format = "`#{issue} <https://github.com/python-trio/trio/issues/{issue}>`_
 # - At release time after bumping version number, run: towncrier
 # (or towncrier --draft)
 package = "trio"
+package_dir = "src"
 underlines = ["-", "~", "^"]
 
 [[tool.towncrier.type]]
