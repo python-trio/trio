@@ -60,8 +60,6 @@ disallow_untyped_calls = false
 # files not yet fully typed
 [[tool.mypy.overrides]]
 module = [
-"trio/_signals",
-
 # internal
 "trio/_windows_pipes",
 
@@ -89,7 +87,6 @@ module = [
 "trio/_tests/test_highlevel_ssl_helpers",
 "trio/_tests/test_path",
 "trio/_tests/test_scheduler_determinism",
-"trio/_tests/test_signals",
 "trio/_tests/test_socket",
 "trio/_tests/test_ssl",
 "trio/_tests/test_subprocess",
