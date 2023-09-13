@@ -517,6 +517,9 @@ def raise_winerror(
     filename2: str | None = None,
 ) -> NoReturn:
     # assert sys.platform == "win32"  # TODO: make this work in MyPy
+    # ... in the meanwhile, ffi.getwinerror() is undefined on non-Windows, necessitating the type
+    # ignores.
+
     if winerror is None:
         err = ffi.getwinerror()  # type: ignore[attr-defined,unused-ignore]
         if err is None:
