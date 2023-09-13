@@ -91,7 +91,8 @@ skip_lints = pytest.mark.skipif(
 def test_process(tmp_path, imports):
     try:
         import black  # noqa: F401
-    except ImportError as error:
+    # there's no dedicated CI run that has astor+isort, but lacks black.
+    except ImportError as error:  # pragma: no cover
         skip_if_optional_else_raise(error)
 
     modpath = tmp_path / "_module.py"
@@ -123,7 +124,8 @@ def test_lint_failure(tmp_path) -> None:
     """Test that processing properly fails if black or isort does."""
     try:
         import black  # noqa: F401
-    except ImportError as error:
+    # there's no dedicated CI run that has astor+isort, but lacks black.
+    except ImportError as error:  # pragma: no cover
         skip_if_optional_else_raise(error)
 
     file = File(tmp_path / "module.py", "module")
