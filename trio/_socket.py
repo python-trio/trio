@@ -12,7 +12,6 @@ from typing import (
     Any,
     Awaitable,
     Callable,
-    Generic,
     Literal,
     SupportsIndex,
     TypeVar,
@@ -38,7 +37,18 @@ if TYPE_CHECKING:
 
 
 T = TypeVar("T")
-AddressFormat = TypeVar("AddressFormat")
+
+# _stdlib_socket.socket supports 13 different socket families, see
+# https://docs.python.org/3/library/socket.html#socket-families
+# and the return type of several methods in SocketType will depend on those. Typeshed
+# has ended up typing those return types as `Any` in most cases, but for users that
+# know which family/families they're working in we could make SocketType a generic type,
+# where you specify the return values you expect from those methods depending on the
+# protocol the socket will be handling.
+# But without the ability to default the value to `Any` it will be overly cumbersome for
+# most users, so currently we just specify it as `Any`.
+# AddressFormat = TypeVar("AddressFormat")
+AddressFormat: TypeAlias = Any
 
 
 # Usage:
@@ -273,7 +283,7 @@ async def getprotobyname(name: str) -> int:
 ################################################################
 
 
-def from_stdlib_socket(sock: _stdlib_socket.socket) -> SocketType[Any]:
+def from_stdlib_socket(sock: _stdlib_socket.socket) -> SocketType:
     """Convert a standard library :class:`socket.socket` object into a Trio
     socket object.
 
@@ -282,12 +292,12 @@ def from_stdlib_socket(sock: _stdlib_socket.socket) -> SocketType[Any]:
 
 
 @_wraps(_stdlib_socket.fromfd, assigned=(), updated=())
-def fromfd(  # type: ignore[misc] # use of Any in decorated function
+def fromfd(
     fd: SupportsIndex,
     family: AddressFamily | int = _stdlib_socket.AF_INET,
     type: SocketKind | int = _stdlib_socket.SOCK_STREAM,
     proto: int = 0,
-) -> SocketType[Any]:
+) -> SocketType:
     """Like :func:`socket.fromfd`, but returns a Trio socket object."""
     family, type, proto = _sniff_sockopts_for_fileno(family, type, proto, index(fd))
     return from_stdlib_socket(_stdlib_socket.fromfd(fd, family, type, proto))
@@ -298,7 +308,7 @@ if sys.platform == "win32" or (
 ):
 
     @_wraps(_stdlib_socket.fromshare, assigned=(), updated=())
-    def fromshare(info: bytes) -> SocketType[Any]:
+    def fromshare(info: bytes) -> SocketType:
         return from_stdlib_socket(_stdlib_socket.fromshare(info))
 
 
@@ -313,11 +323,11 @@ else:
 
 
 @_wraps(_stdlib_socket.socketpair, assigned=(), updated=())
-def socketpair(  # type: ignore[misc]
+def socketpair(
     family: FamilyT = FamilyDefault,
     type: TypeT = SocketKind.SOCK_STREAM,
     proto: int = 0,
-) -> tuple[SocketType[Any], SocketType[Any]]:
+) -> tuple[SocketType, SocketType]:
     """Like :func:`socket.socketpair`, but returns a pair of Trio socket
     objects.
 
@@ -327,12 +337,12 @@ def socketpair(  # type: ignore[misc]
 
 
 @_wraps(_stdlib_socket.socket, assigned=(), updated=())
-def socket(  # type: ignore[misc]
+def socket(
     family: AddressFamily | int = _stdlib_socket.AF_INET,
     type: SocketKind | int = _stdlib_socket.SOCK_STREAM,
     proto: int = 0,
     fileno: int | None = None,
-) -> SocketType[Any]:
+) -> SocketType:
     """Create a new Trio socket, like :class:`socket.socket`.
 
     This function's behavior can be customized using
@@ -400,9 +410,9 @@ def _make_simple_sock_method_wrapper(
     fn: Callable[Concatenate[_stdlib_socket.socket, P], T],
     wait_fn: Callable[[_stdlib_socket.socket], Awaitable[None]],
     maybe_avail: bool = False,
-) -> Callable[Concatenate[_SocketType[Any], P], Awaitable[T]]:
-    @_wraps(fn, assigned=("__name__",), updated=())  # type: ignore
-    async def wrapper(self: _SocketType[Any], *args: P.args, **kwargs: P.kwargs) -> T:
+) -> Callable[Concatenate[_SocketType, P], Awaitable[T]]:
+    @_wraps(fn, assigned=("__name__",), updated=())
+    async def wrapper(self: _SocketType, *args: P.args, **kwargs: P.kwargs) -> T:
         return await self._nonblocking_helper(wait_fn, fn, *args, **kwargs)
 
     wrapper.__doc__ = f"""Like :meth:`socket.socket.{fn.__name__}`, but async.
@@ -509,9 +519,7 @@ async def _resolve_address_nocp(
     return normed
 
 
-# _stdlib_socket.socket supports 13 different socket families: https://docs.python.org/3/library/socket.html#socket-families
-# and the return type of several methods will depend on those. typeshed has ended up typing those return types as `Any` in most cases, but for users that know which family/families they're working in and wants complete type coverage they can specify the AddressFormat.
-class SocketType(Generic[AddressFormat]):
+class SocketType:
     def __init__(self) -> None:
         if type(self) == SocketType:
             raise TypeError(
@@ -608,7 +616,7 @@ class SocketType(Generic[AddressFormat]):
     def __repr__(self) -> str:
         raise NotImplementedError
 
-    def dup(self) -> SocketType[AddressFormat]:
+    def dup(self) -> SocketType:
         raise NotImplementedError
 
     def close(self) -> None:
@@ -626,7 +634,7 @@ class SocketType(Generic[AddressFormat]):
     async def wait_writable(self) -> None:
         raise NotImplementedError
 
-    async def accept(self) -> tuple[SocketType[AddressFormat], AddressFormat]:
+    async def accept(self) -> tuple[SocketType, AddressFormat]:
         raise NotImplementedError
 
     async def connect(self, address: AddressFormat) -> None:
@@ -712,7 +720,7 @@ class SocketType(Generic[AddressFormat]):
             raise NotImplementedError
 
 
-class _SocketType(SocketType[AddressFormat]):
+class _SocketType(SocketType):
     def __init__(self, sock: _stdlib_socket.socket):
         if type(sock) is not _stdlib_socket.socket:
             # For example, ssl.SSLSocket subclasses socket.socket, but we
@@ -736,10 +744,10 @@ class _SocketType(SocketType[AddressFormat]):
         return self._sock.fileno()
 
     def getpeername(self) -> AddressFormat:
-        return self._sock.getpeername()  # type: ignore[no-any-return]
+        return self._sock.getpeername()
 
     def getsockname(self) -> AddressFormat:
-        return self._sock.getsockname()  # type: ignore[no-any-return]
+        return self._sock.getsockname()
 
     @overload
     def getsockopt(self, /, level: int, optname: int) -> int:
@@ -833,7 +841,7 @@ class _SocketType(SocketType[AddressFormat]):
     def __repr__(self) -> str:
         return repr(self._sock).replace("socket.socket", "trio.socket.socket")
 
-    def dup(self) -> SocketType[AddressFormat]:
+    def dup(self) -> SocketType:
         """Same as :meth:`socket.socket.dup`."""
         return _SocketType(self._sock.dup())
 
@@ -847,7 +855,7 @@ class _SocketType(SocketType[AddressFormat]):
         if (
             hasattr(_stdlib_socket, "AF_UNIX")
             and self.family == _stdlib_socket.AF_UNIX
-            and address[0]  # type: ignore[index]
+            and address[0]
         ):
             # Use a thread for the filesystem traversal (unless it's an
             # abstract domain socket)
@@ -858,7 +866,7 @@ class _SocketType(SocketType[AddressFormat]):
             # there aren't yet any real systems that do this, so we'll worry
             # about it when it happens.
             await trio.lowlevel.checkpoint()
-            return self._sock.bind(address)  # type: ignore[arg-type]
+            return self._sock.bind(address)
 
     def shutdown(self, flag: int) -> None:
         # no need to worry about return value b/c always returns None:
@@ -891,7 +899,7 @@ class _SocketType(SocketType[AddressFormat]):
             )
         else:
             ipv6_v6only = False
-        return await _resolve_address_nocp(  # type: ignore[no-any-return]
+        return await _resolve_address_nocp(
             self.type,
             self.family,
             self.proto,
@@ -952,7 +960,7 @@ class _SocketType(SocketType[AddressFormat]):
         _stdlib_socket.socket.accept, _core.wait_readable
     )
 
-    async def accept(self) -> tuple[SocketType[AddressFormat], AddressFormat]:
+    async def accept(self) -> tuple[SocketType, AddressFormat]:
         """Like :meth:`socket.socket.accept`, but async."""
         sock, addr = await self._accept()
         return from_stdlib_socket(sock), addr
@@ -1016,7 +1024,7 @@ class _SocketType(SocketType[AddressFormat]):
                 # happens, someone will hopefully tell us, and then hopefully we
                 # can investigate their system to figure out what its semantics
                 # are.
-                return self._sock.connect(address)  # type: ignore[arg-type]
+                return self._sock.connect(address)
             # It raised BlockingIOError, meaning that it's started the
             # connection attempt. We wait for it to complete:
             await _core.wait_writable(self._sock)
@@ -1205,7 +1213,7 @@ class _SocketType(SocketType[AddressFormat]):
                 __buffers,
                 __ancdata,
                 __flags,
-                __address,  # type: ignore[arg-type]
+                __address,
             )
 
     ################################################################

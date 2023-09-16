@@ -5,7 +5,7 @@ import socket as stdlib_socket
 import sys
 from math import inf
 from socket import AddressFamily, SocketKind
-from typing import TYPE_CHECKING, Sequence, overload
+from typing import TYPE_CHECKING, Any, Sequence, overload
 
 import attr
 import pytest
@@ -140,7 +140,7 @@ class FakeSocket(tsocket.SocketType):
         return self._family
 
     @property
-    def proto(self) -> int:
+    def proto(self) -> int:  # pragma: no cover
         return self._proto
 
     @overload
@@ -176,7 +176,7 @@ class FakeSocket(tsocket.SocketType):
     ) -> None:
         pass
 
-    async def bind(self, address: AddressWithNoneHost) -> None:
+    async def bind(self, address: Any) -> None:
         pass
 
     def listen(self, /, backlog: int = min(stdlib_socket.SOMAXCONN, 128)) -> None:
@@ -289,7 +289,7 @@ async def test_serve_tcp() -> None:
 
     async with trio.open_nursery() as nursery:
         # nursery.start is incorrectly typed, awaiting #2773
-        listeners: list[SocketListener] = await nursery.start(serve_tcp, handler, 0)  # type: ignore[arg-type]
+        listeners: list[SocketListener] = await nursery.start(serve_tcp, handler, 0)
         stream = await open_stream_to_socket_listener(listeners[0])
         async with stream:
             await stream.receive_some(1) == b"x"

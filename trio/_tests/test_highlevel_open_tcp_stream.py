@@ -169,7 +169,7 @@ async def test_local_address_real() -> None:
             await client_stream.aclose()
             server_sock.close()
             # accept returns tuple[SocketType, object], due to typeshed returning `Any`
-            assert remote_addr[0] == local_address  # type: ignore[index]
+            assert remote_addr[0] == local_address
 
         # Trying to connect to an ipv4 address with the ipv6 wildcard
         # local_address should fail
@@ -206,14 +206,14 @@ class FakeSocket(trio.socket.SocketType):
         return self._type
 
     @property
-    def family(self) -> AddressFamily:
+    def family(self) -> AddressFamily:  # pragma: no cover
         return self._family
 
     @property
-    def proto(self) -> int:
+    def proto(self) -> int:  # pragma: no cover
         return self._proto
 
-    async def connect(self, sockaddr: Address) -> None:
+    async def connect(self, sockaddr: tuple[str | int, str | int | None]) -> None:
         self.ip = sockaddr[0]
         self.port = sockaddr[1]
         assert self.ip not in self.scenario.sockets

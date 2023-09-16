@@ -114,8 +114,8 @@ DEFAULT_DELAY = 0.250
 
 
 @contextmanager
-def close_all() -> Generator[set[SocketType[Any]], None, None]:  # type: ignore[misc]
-    sockets_to_close: set[SocketType[Any]] = set()
+def close_all() -> Generator[set[SocketType], None, None]:
+    sockets_to_close: set[SocketType] = set()
     try:
         yield sockets_to_close
     finally:
@@ -292,7 +292,7 @@ async def open_tcp_stream(
 
     # Keeps track of the socket that we're going to complete with,
     # need to make sure this isn't automatically closed
-    winning_socket: SocketType[Any] | None = None
+    winning_socket: SocketType | None = None
 
     # Try connecting to the specified address. Possible outcomes:
     # - success: record connected socket in winning_socket and cancel

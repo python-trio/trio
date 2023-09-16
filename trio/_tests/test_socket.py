@@ -289,7 +289,7 @@ async def test_socketpair_simple() -> None:
 
 @pytest.mark.skipif(not hasattr(tsocket, "fromshare"), reason="windows only")
 async def test_fromshare() -> None:
-    if TYPE_CHECKING and sys.platform != "win32":
+    if TYPE_CHECKING and sys.platform != "win32":  # pragma: no cover
         return
     a, b = tsocket.socketpair()
     with a, b:
@@ -585,12 +585,8 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
                 | tuple[str, str]
                 | tuple[str, str, int]
                 | tuple[str, str, int, int]
-            ) -> tuple[str, int] | tuple[str, int, int, int]:
-                # we're only passing IP sockets, so we ignore the str/bytes return type
-                # But what about when port/family is a string? Should that be part of the public API?
-                res = await sock._resolve_address_nocp(args, local=local)  # type: ignore[arg-type]
-                # no str/bytes
-                return res  # type: ignore[return-value]
+            ) -> Any:
+                return await sock._resolve_address_nocp(args, local=local)
 
             assert_eq(await res((addrs.arbitrary, "http")), (addrs.arbitrary, 80))
             if v6:

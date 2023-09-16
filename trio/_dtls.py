@@ -48,21 +48,21 @@ if TYPE_CHECKING:
 MAX_UDP_PACKET_SIZE = 65527
 
 
-def packet_header_overhead(sock: SocketType[Any]) -> int:
+def packet_header_overhead(sock: SocketType) -> int:
     if sock.family == trio.socket.AF_INET:
         return 28
     else:
         return 48
 
 
-def worst_case_mtu(sock: SocketType[Any]) -> int:
+def worst_case_mtu(sock: SocketType) -> int:
     if sock.family == trio.socket.AF_INET:
         return 576 - packet_header_overhead(sock)
     else:
         return 1280 - packet_header_overhead(sock)
 
 
-def best_guess_mtu(sock: SocketType[Any]) -> int:
+def best_guess_mtu(sock: SocketType) -> int:
     return 1500 - packet_header_overhead(sock)
 
 
@@ -739,7 +739,7 @@ async def handle_client_hello_untrusted(
 
 
 async def dtls_receive_loop(
-    endpoint_ref: ReferenceType[DTLSEndpoint], sock: SocketType[Any]
+    endpoint_ref: ReferenceType[DTLSEndpoint], sock: SocketType
 ) -> None:
     try:
         while True:
@@ -1178,7 +1178,7 @@ class DTLSEndpoint(metaclass=Final):
 
     """
 
-    def __init__(self, socket: SocketType[Any], *, incoming_packets_buffer: int = 10):
+    def __init__(self, socket: SocketType, *, incoming_packets_buffer: int = 10):
         # We do this lazily on first construction, so only people who actually use DTLS
         # have to install PyOpenSSL.
         global SSL
@@ -1189,7 +1189,7 @@ class DTLSEndpoint(metaclass=Final):
         if socket.type != trio.socket.SOCK_DGRAM:
             raise ValueError("DTLS requires a SOCK_DGRAM socket")
         self._initialized = True
-        self.socket: SocketType[Any] = socket
+        self.socket: SocketType = socket
 
         self.incoming_packets_buffer = incoming_packets_buffer
         self._token = trio.lowlevel.current_trio_token()

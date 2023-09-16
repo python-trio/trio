@@ -4,7 +4,7 @@ from __future__ import annotations
 import errno
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, overload
+from typing import TYPE_CHECKING, overload
 
 import trio
 
@@ -66,7 +66,7 @@ class SocketStream(HalfCloseableStream, metaclass=Final):
 
     """
 
-    def __init__(self, socket: SocketType[Any]):
+    def __init__(self, socket: SocketType):
         if not isinstance(socket, tsocket.SocketType):
             raise TypeError("SocketStream requires a Trio socket object")
         if socket.type != tsocket.SOCK_STREAM:
@@ -371,7 +371,7 @@ class SocketListener(Listener[SocketStream], metaclass=Final):
 
     """
 
-    def __init__(self, socket: SocketType[Any]):
+    def __init__(self, socket: SocketType):
         if not isinstance(socket, tsocket.SocketType):
             raise TypeError("SocketListener requires a Trio socket object")
         if socket.type != tsocket.SOCK_STREAM:

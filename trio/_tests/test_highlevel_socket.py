@@ -222,10 +222,12 @@ async def test_SocketListener_accept_errors() -> None:
             ...
 
         @overload
-        def getsockopt(self, /, level: int, optname: int, buflen: int) -> bytes:
+        def getsockopt(  # noqa: F811
+            self, /, level: int, optname: int, buflen: int
+        ) -> bytes:
             ...
 
-        def getsockopt(
+        def getsockopt(  # noqa: F811
             self, /, level: int, optname: int, buflen: int | None = None
         ) -> int | bytes:
             return True
@@ -235,12 +237,12 @@ async def test_SocketListener_accept_errors() -> None:
             ...
 
         @overload
-        def setsockopt(
+        def setsockopt(  # noqa: F811
             self, /, level: int, optname: int, value: None, optlen: int
         ) -> None:
             ...
 
-        def setsockopt(
+        def setsockopt(  # noqa: F811
             self,
             /,
             level: int,

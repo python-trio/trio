@@ -11,7 +11,7 @@ from __future__ import annotations
 import errno
 import ipaddress
 import os
-from typing import TYPE_CHECKING, Optional, Union, Type
+from typing import TYPE_CHECKING, Optional, Type, Union
 
 import attr
 
@@ -21,9 +21,10 @@ from trio._util import Final, NoPublicConstructor
 if TYPE_CHECKING:
     from socket import AddressFamily, SocketKind
     from types import TracebackType
+
     from typing_extensions import TypeAlias
 
-IPAddress = Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
+IPAddress: TypeAlias = Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
 
 
 def _family_for(ip: IPAddress) -> int:
@@ -175,7 +176,9 @@ class FakeNet(metaclass=Final):
 
 
 class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
-    def __init__(self, fake_net: FakeNet, family: AddressFamily, type: SocketKind, proto: int):
+    def __init__(
+        self, fake_net: FakeNet, family: AddressFamily, type: SocketKind, proto: int
+    ):
         self._fake_net = fake_net
 
         if not family:
@@ -200,12 +203,15 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
 
         # This is the source-of-truth for what port etc. this socket is bound to
         self._binding: Optional[UDPBinding] = None
+
     @property
     def type(self) -> SocketKind:
         return self._type
+
     @property
     def family(self) -> AddressFamily:
         return self._family
+
     @property
     def proto(self) -> int:
         return self._proto
