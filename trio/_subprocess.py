@@ -49,12 +49,8 @@ else:
         from os import pidfd_open
     except ImportError:
         if sys.platform == "linux":
-            # pidfd_open is defined in 3.9+, so this workaround can be removed when
-            # removing support for 3.8
-            assert sys.version_info < (3, 9), (
-                "pidfd_open should be defined in 3.9+, please open an issue in the"
-                " github repo if this assert fails"
-            )
+            # This workaround is only needed on 3.8 and pypy
+            assert sys.version_info < (3, 9) or sys.implementation_name != "cpython"
             import ctypes
 
             _cdll_for_pidfd_open = ctypes.CDLL(None, use_errno=True)
