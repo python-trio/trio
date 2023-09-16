@@ -327,8 +327,8 @@ async def to_thread_run_sync(  # type: ignore[misc]
 
     while True:
         # wait_task_rescheduled return value cannot be typed
-        msg_from_thread: ThreadDone[RetT] | Run[RetT] | RunSync[
-            RetT
+        msg_from_thread: ThreadDone[RetT] | Run[object] | RunSync[
+            object
         ] = await trio.lowlevel.wait_task_rescheduled(abort)
         if type(msg_from_thread) is ThreadDone:
             return msg_from_thread.result.unwrap()  # type: ignore[no-any-return]
