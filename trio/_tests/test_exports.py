@@ -17,6 +17,7 @@ import pytest
 
 import trio
 import trio.testing
+from trio._tests.pytest_plugin import skip_if_optional_else_raise
 
 from .. import _core, _util
 from .._core._tests.tutil import slow
@@ -33,7 +34,10 @@ except ImportError:  # pragma: no cover
 
 def _ensure_mypy_cache_updated():
     # This pollutes the `empty` dir. Should this be changed?
-    from mypy.api import run
+    try:
+        from mypy.api import run
+    except ImportError as error:
+        skip_if_optional_else_raise(error)
 
     global mypy_cache_updated
     if not mypy_cache_updated:
@@ -130,13 +134,19 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
             py_typed_path.write_text("")
 
     if tool == "pylint":
-        from pylint.lint import PyLinter
+        try:
+            from pylint.lint import PyLinter
+        except ImportError as error:
+            skip_if_optional_else_raise(error)
 
         linter = PyLinter()
         ast = linter.get_ast(module.__file__, modname)
         static_names = no_underscores(ast)
     elif tool == "jedi":
-        import jedi
+        try:
+            import jedi
+        except ImportError as error:
+            skip_if_optional_else_raise(error)
 
         # Simulate typing "import trio; trio.<TAB>"
         script = jedi.Script(f"import {modname}; {modname}.")
@@ -172,6 +182,10 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
     elif tool == "pyright_verifytypes":
         if not RUN_SLOW:  # pragma: no cover
             pytest.skip("use --run-slow to check against mypy")
+        try:
+            import pyright  # noqa: F401
+        except ImportError as error:
+            skip_if_optional_else_raise(error)
         import subprocess
 
         res = subprocess.run(
@@ -354,7 +368,10 @@ def test_static_tool_sees_class_members(
         )
 
         if tool == "jedi":
-            import jedi
+            try:
+                import jedi
+            except ImportError as error:
+                skip_if_optional_else_raise(error)
 
             script = jedi.Script(
                 f"from {module_name} import {class_name}; {class_name}."
