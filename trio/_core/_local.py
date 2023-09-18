@@ -1,21 +1,22 @@
 from __future__ import annotations
 
-from typing import Generic, TypeVar, cast, final
+from typing import Generic, TypeVar, cast
 
 # Runvar implementations
 import attr
 
-from .._util import Final, NoPublicConstructor
+from .._util import NoPublicConstructor, final
 from . import _run
 
 T = TypeVar("T")
 
 
 @final
-class _NoValue(metaclass=Final):
+class _NoValue:
     ...
 
 
+@final
 @attr.s(eq=False, hash=False, slots=False)
 class RunVarToken(Generic[T], metaclass=NoPublicConstructor):
     _var: RunVar[T] = attr.ib()
@@ -27,8 +28,9 @@ class RunVarToken(Generic[T], metaclass=NoPublicConstructor):
         return cls._create(var)
 
 
+@final
 @attr.s(eq=False, hash=False, slots=True, repr=False)
-class RunVar(Generic[T], metaclass=Final):
+class RunVar(Generic[T]):
     """The run-local variant of a context variable.
 
     :class:`RunVar` objects are similar to context variable objects,

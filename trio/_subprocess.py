@@ -23,7 +23,7 @@ from ._subprocess_platform import (
     wait_child_exiting,
 )
 from ._sync import Lock
-from ._util import NoPublicConstructor
+from ._util import NoPublicConstructor, final
 
 if TYPE_CHECKING:
     from typing_extensions import TypeAlias
@@ -87,6 +87,7 @@ class HasFileno(Protocol):
         ...
 
 
+@final
 class Process(AsyncResource, metaclass=NoPublicConstructor):
     r"""A child process. Like :class:`subprocess.Popen`, but async.
 
