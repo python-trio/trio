@@ -311,12 +311,18 @@ class generic_function(t.Generic[RetT]):
         return self
 
 
-class Final(ABCMeta):
-    """Metaclass that enforces a class to be final (i.e., subclass not allowed).
+def _init_final_cls(cls: type[object]) -> t.NoReturn:
+    """Raises an exception when a final class is subclassed."""
+    raise TypeError(f"{cls.__module__}.{cls.__qualname__} does not support subclassing")
+
+
+def _final_impl(decorated: type[T]) -> type[T]:
+    """Decorator that enforces a class to be final (i.e., subclass not allowed).
 
     If a class uses this metaclass like this::
 
-        class SomeClass(metaclass=Final):
+        @final
+        class SomeClass:
             pass
 
     The metaclass will ensure that no subclass can be created.
@@ -325,39 +331,38 @@ class Final(ABCMeta):
     ------
     - TypeError if a subclass is created
     """
-
-    def __new__(
-        cls,
-        name: str,
-        bases: tuple[type, ...],
-        cls_namespace: dict[str, object],
-    ) -> Final:
-        for base in bases:
-            if isinstance(base, Final):
-                raise TypeError(
-                    f"{base.__module__}.{base.__qualname__} does not support"
-                    " subclassing"
-                )
-        return super().__new__(cls, name, bases, cls_namespace)
+    # Override the method blindly. We're always going to raise, so it doesn't
+    # matter what the original did (if anything).
+    decorated.__init_subclass__ = classmethod(_init_final_cls)  # type: ignore[assignment]
+    # Apply the typing decorator, in 3.11+ it adds a __final__ marker attribute.
+    return t.final(decorated)
 
 
-class NoPublicConstructor(Final):
-    """Metaclass that enforces a class to be final (i.e., subclass not allowed)
-    and ensures a private constructor.
+if t.TYPE_CHECKING:
+    from typing import final
+else:
+    final = _final_impl
+
+
+@final  # No subclassing of NoPublicConstructor itself.
+class NoPublicConstructor(ABCMeta):
+    """Metaclass that ensures a private constructor.
 
     If a class uses this metaclass like this::
 
+        @final
         class SomeClass(metaclass=NoPublicConstructor):
             pass
 
-    The metaclass will ensure that no subclass can be created, and that no instance
-    can be initialized.
+    The metaclass will ensure that no instance can be initialized. This should always be
+    used with @final.
 
-    If you try to instantiate your class (SomeClass()), a TypeError will be thrown.
+    If you try to instantiate your class (SomeClass()), a TypeError will be thrown. Use
+    _create() instead in the class's implementation.
 
     Raises
     ------
-    - TypeError if a subclass or an instance is created.
+    - TypeError if an instance is created.
     """
 
     def __call__(cls, *args: object, **kwargs: object) -> None:

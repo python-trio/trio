@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Optional, Union
 import attr
 
 import trio
-from trio._util import Final, NoPublicConstructor
+from trio._util import NoPublicConstructor, final
 
 if TYPE_CHECKING:
     from socket import AddressFamily, SocketKind
@@ -141,7 +141,8 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
         raise NotImplementedError("FakeNet doesn't do fake DNS yet")
 
 
-class FakeNet(metaclass=Final):
+@final
+class FakeNet:
     def __init__(self) -> None:
         # When we need to pick an arbitrary unique ip address/port, use these:
         self._auto_ipv4_iter = ipaddress.IPv4Network("1.0.0.0/8").hosts()
@@ -176,6 +177,7 @@ class FakeNet(metaclass=Final):
             pass
 
 
+@final
 class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
     def __init__(
         self, fake_net: FakeNet, family: AddressFamily, type: SocketKind, proto: int
