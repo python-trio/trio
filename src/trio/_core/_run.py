@@ -1131,7 +1131,7 @@ class Nursery(metaclass=NoPublicConstructor):
 
     def start_soon(
         self,
-        async_fn: Callable[[PosArgT], Awaitable[object]],
+        async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
         *args: Unpack[PosArgT],
         name: object = None,
     ) -> None:
@@ -1231,7 +1231,13 @@ class Nursery(metaclass=NoPublicConstructor):
             # exception in an extra ExceptionGroup. See #2611.
             async with open_nursery(strict_exception_groups=False) as old_nursery:
                 task_status: _TaskStatus[StatusT] = _TaskStatus(old_nursery, self)
-                thunk = functools.partial(async_fn, task_status=task_status)
+                # Without the task_status keyword argument, this is just a positional-only function.
+                thunk: Callable[
+                    [Unpack[PosArgT]], Awaitable[object]
+                ] = functools.partial(  # type: ignore[assignment]
+                    async_fn,
+                    task_status=task_status,
+                )
                 task = GLOBAL_RUN_CONTEXT.runner.spawn_impl(
                     thunk, args, old_nursery, name
                 )
