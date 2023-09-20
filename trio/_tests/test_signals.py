@@ -108,7 +108,7 @@ async def test_open_signal_receiver_no_starvation() -> None:
             # Clear out the last signal so that it doesn't get redelivered
             while get_pending_signal_count(receiver) != 0:
                 await receiver.__anext__()
-        except:  # pragma: no cover
+        except BaseException:  # pragma: no cover
             # If there's an unhandled exception above, then exiting the
             # open_signal_receiver block might cause the signal to be
             # redelivered and give us a core dump instead of a traceback...

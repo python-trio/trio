@@ -1485,7 +1485,10 @@ class GuestState:
     run_sync_soon_not_threadsafe: Callable[[Callable[[], object]], object] = attr.ib()
     done_callback: Callable[[Outcome[Any]], object] = attr.ib()
     unrolled_run_gen: Generator[float, EventResult, None] = attr.ib()
-    _value_factory: Callable[[], Value[Any]] = lambda: Value(None)
+
+    def _value_factory() -> Value[Any]:
+        return Value(None)
+
     unrolled_run_next_send: Outcome[Any] = attr.ib(factory=_value_factory)
 
     def guest_tick(self) -> None:

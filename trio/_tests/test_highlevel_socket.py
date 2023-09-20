@@ -242,21 +242,21 @@ async def test_SocketListener_accept_errors():
         ]
     )
 
-    l = SocketListener(fake_listen_sock)
+    listener = SocketListener(fake_listen_sock)
 
     with assert_checkpoints():
-        s = await l.accept()
-        assert s.socket is fake_server_sock
+        stream = await listener.accept()
+        assert stream.socket is fake_server_sock
 
     for code in [errno.EMFILE, errno.EFAULT, errno.ENOBUFS]:
         with assert_checkpoints():
             with pytest.raises(OSError) as excinfo:
-                await l.accept()
+                await listener.accept()
             assert excinfo.value.errno == code
 
     with assert_checkpoints():
-        s = await l.accept()
-        assert s.socket is fake_server_sock
+        stream = await listener.accept()
+        assert stream.socket is fake_server_sock
 
 
 async def test_socket_stream_works_when_peer_has_already_closed():

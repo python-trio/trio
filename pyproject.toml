@@ -15,11 +15,14 @@ target-version = "py38"
 respect-gitignore = true
 fix = true
 
+line-length = 170
+
 # The directories to consider when resolving first vs. third-party imports.
 # Does not control what files to include/exclude!
 src = ["trio", "notes-to-self"]
 
 select = [
+  "E",  # Error
   "F",  # pyflakes
   "I",  # isort
   "YTT",  # flake8-2020
@@ -28,6 +31,7 @@ extend-ignore = [
     'F403',  # undefined-local-with-import-star
     'F405',  # undefined-local-with-import-star-usage
     'F821',  # undefined-name
+    'E402',  # module-import-not-at-top-of-file (usually OS-specific)
 ]
 
 include = ["*.py", "*.pyi", "**/pyproject.toml"]
