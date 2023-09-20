@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 from . import _core
 from ._abc import ReceiveStream, SendStream
 from ._core._windows_cffi import _handle, kernel32, raise_winerror
-from ._util import ConflictDetector, Final
+from ._util import ConflictDetector, final
 
 assert sys.platform == "win32" or not TYPE_CHECKING
 
@@ -38,7 +38,8 @@ class _HandleHolder:
         self.close()
 
 
-class PipeSendStream(SendStream, metaclass=Final):
+@final
+class PipeSendStream(SendStream):
     """Represents a send stream over a Windows named pipe that has been
     opened in OVERLAPPED mode.
     """
@@ -83,7 +84,8 @@ class PipeSendStream(SendStream, metaclass=Final):
         await _core.checkpoint()
 
 
-class PipeReceiveStream(ReceiveStream, metaclass=Final):
+@final
+class PipeReceiveStream(ReceiveStream):
     """Represents a receive stream over an os.pipe object."""
 
     def __init__(self, handle: int) -> None:

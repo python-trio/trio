@@ -13,9 +13,9 @@ from .._core._tests.tutil import (
 )
 from .._util import (
     ConflictDetector,
-    Final,
     NoPublicConstructor,
     coroutine_or_error,
+    final,
     fixup_module_metadata,
     generic_function,
     is_main_thread,
@@ -170,30 +170,37 @@ def test_generic_function():
     assert test_func.__module__ == __name__
 
 
-def test_final_metaclass():
-    class FinalClass(metaclass=Final):
+def test_final_decorator() -> None:
+    """Test that subclassing a @final-annotated class is not allowed.
+
+    This checks both runtime results, and verifies that type checkers detect
+    the error statically through the type-ignore comment.
+    """
+
+    @final
+    class FinalClass:
         pass
 
     with pytest.raises(TypeError):
 
-        class SubClass(FinalClass):
+        class SubClass(FinalClass):  # type: ignore[misc]
             pass
 
 
 def test_no_public_constructor_metaclass():
+    """The NoPublicConstructor metaclass prevents calling the constructor directly."""
+
     class SpecialClass(metaclass=NoPublicConstructor):
-        pass
+        def __init__(self, a: int, b: float):
+            """Check arguments can be passed to __init__."""
+            assert a == 8
+            assert b == 3.14
 
     with pytest.raises(TypeError):
-        SpecialClass()
+        SpecialClass(8, 3.14)
 
-    with pytest.raises(TypeError):
-
-        class SubClass(SpecialClass):
-            pass
-
-    # Private constructor should not raise
-    assert isinstance(SpecialClass._create(), SpecialClass)
+    # Private constructor should not raise, and passes args to __init__.
+    assert isinstance(SpecialClass._create(8, b=3.14), SpecialClass)
 
 
 def test_fixup_module_metadata():

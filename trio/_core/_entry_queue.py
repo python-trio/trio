@@ -7,7 +7,7 @@ from typing import Callable, Iterable, NoReturn, Tuple
 import attr
 
 from .. import _core
-from .._util import NoPublicConstructor
+from .._util import NoPublicConstructor, final
 from ._wakeup_socketpair import WakeupSocketpair
 
 # TODO: Type with TypeVarTuple, at least to an extent where it makes
@@ -139,6 +139,7 @@ class EntryQueue:
             self.wakeup.wakeup_thread_and_signal_safe()
 
 
+@final
 @attr.s(eq=False, hash=False, slots=True)
 class TrioToken(metaclass=NoPublicConstructor):
     """An opaque object representing a single call to :func:`trio.run`.
