@@ -19,7 +19,7 @@ async def scheduler_trace() -> tuple[tuple[str, int], ...]:
 
     async with trio.open_nursery() as nursery:
         for i in range(5):
-            nursery.start_soon(tracer, i)
+            nursery.start_soon(tracer, str(i))
 
     return tuple(trace)
 

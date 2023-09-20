@@ -225,6 +225,9 @@ async def test_pipes(background_process: BackgroundProcessType) -> None:
                 seen += chunk
             assert seen == expected
 
+        assert proc.stdout is not None
+        assert proc.stderr is not None
+
         async with _core.open_nursery() as nursery:
             # fail eventually if something is broken
             nursery.cancel_scope.deadline = _core.current_time() + 30.0
@@ -277,6 +280,8 @@ async def test_interactive(background_process: BackgroundProcessType) -> None:
                     assert count == 0
                     assert await stream.receive_some(len(newline)) == newline
 
+                assert proc.stdout is not None
+                assert proc.stderr is not None
                 nursery.start_soon(drain_one, proc.stdout, request, idx * 2)
                 nursery.start_soon(drain_one, proc.stderr, request * 2, idx * 2 + 1)
 
