@@ -8,10 +8,11 @@
 
 from __future__ import annotations
 
+import builtins
 import errno
 import ipaddress
 import os
-from typing import TYPE_CHECKING, Optional, Type, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 import attr
 
@@ -378,8 +379,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
 
     def __exit__(
         self,
-        # builtin `type` is shadowed by the property
-        exc_type: Type[BaseException] | None,
+        exc_type: builtins.type[BaseException] | None,
         exc_value: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:

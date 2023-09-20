@@ -377,7 +377,7 @@ async def run_scenario(
         return (exc, scenario)
 
 
-async def test_one_host_quick_success(autojump_clock: trio.testing.MockClock) -> None:
+async def test_one_host_quick_success(autojump_clock: MockClock) -> None:
     sock, scenario = await run_scenario(80, [("1.2.3.4", 0.123, "success")])
     assert isinstance(sock, FakeSocket)
     assert sock.ip == "1.2.3.4"
