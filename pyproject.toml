@@ -12,19 +12,23 @@ ignore-words-list = 'astroid,crasher,asend'
 
 [tool.ruff]
 target-version = "py38"
-src = ["trio", "notes-to-self"]
 respect-gitignore = true
 fix = true
 
+# The directories to consider when resolving first vs. third-party imports.
+# Does not control what files to include/exclude!
+src = ["trio", "notes-to-self"]
+
 select = [
-  "E",  # pycodestyle errors
-  "W",  # pycodestyle warnings
   "F",  # pyflakes
   "I",  # isort
-  "D",  # pydocstyle
   "YTT",  # flake8-2020
 ]
-extend-ignore = ['D', 'E', 'W', 'F403', 'F405', 'F821', 'F822']
+extend-ignore = [
+    'F403',  # undefined-local-with-import-star
+    'F405',  # undefined-local-with-import-star-usage
+    'F821',  # undefined-name
+]
 
 include = ["*.py", "*.pyi", "**/pyproject.toml"]
 
