@@ -30,7 +30,6 @@ select = [
 extend-ignore = [
     'F403',  # undefined-local-with-import-star
     'F405',  # undefined-local-with-import-star-usage
-    'F821',  # undefined-name
     'E402',  # module-import-not-at-top-of-file (usually OS-specific)
 ]
 
@@ -49,7 +48,6 @@ extend-exclude = [
 'trio/lowlevel.py' = ['F401']
 'trio/socket.py' = ['F401']
 'trio/testing/__init__.py' = ['F401']
-'trio/_core/_generated_*.py' = ['I']
 
 [tool.ruff.isort]
 combine-as-imports = true

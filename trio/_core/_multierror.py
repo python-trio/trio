@@ -87,7 +87,9 @@ def _filter_impl(
             new_exceptions = []
             changed = False
             for child_exc in exc.exceptions:
-                new_child_exc = filter_tree(child_exc, preserved)
+                new_child_exc = filter_tree(  # noqa: F821  # Recursive function
+                    child_exc, preserved
+                )
                 if new_child_exc is not child_exc:
                     changed = True
                 if new_child_exc is not None:
@@ -114,7 +116,9 @@ def _filter_impl(
         new_tb = concat_tb(tb, exc.__traceback__)
         if isinstance(exc, MultiError):
             for child_exc in exc.exceptions:
-                push_tb_down(new_tb, child_exc, preserved)
+                push_tb_down(  # noqa: F821  # Recursive function
+                    new_tb, child_exc, preserved
+                )
             exc.__traceback__ = None
         else:
             exc.__traceback__ = new_tb

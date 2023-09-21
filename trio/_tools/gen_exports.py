@@ -24,8 +24,6 @@ if TYPE_CHECKING:
 # keep these imports up to date with conditional imports in test_gen_exports
 # isort: split
 import astor
-import isort.api
-import isort.exceptions
 
 PREFIX = "_generated"
 
@@ -130,17 +128,30 @@ def run_linters(file: File, source: str) -> str:
         print("Failed to run black!")
         traceback.print_exception(type(exc), exc, exc.__traceback__)
         sys.exit(1)
-    # isort does have a public API, makes things easy.
     try:
-        isort_res = isort.api.sort_code_string(
-            result.stdout,
-            file_path=file.path,
+        ruff_res = subprocess.run(
+            # "-" as a filename = use stdin, return on stdout.
+            [
+                sys.executable,
+                "-m",
+                "ruff",
+                "--fix-only",
+                "--format",
+                "text",
+                "--stdin-filename",
+                file.path,
+                "-",
+            ],
+            input=result.stdout,
+            capture_output=True,
+            encoding="utf8",
+            check=True,
         )
-    except isort.exceptions.ISortError as exc:
-        print("Failed to run isort!")
+    except subprocess.CalledProcessError as exc:
+        print("Failed to run ruff!")
         traceback.print_exception(type(exc), exc, exc.__traceback__)
         sys.exit(1)
-    return isort_res
+    return ruff_res.stdout
 
 
 def gen_public_wrappers_source(file: File) -> str:
