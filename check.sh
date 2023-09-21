@@ -2,11 +2,13 @@
 
 set -ex
 
+ON_GITHUB_CI=false
 EXIT_STATUS=0
 
 # If not running on Github's CI, discard the summaries
 if [ -z "${GITHUB_STEP_SUMMARY+x}" ]; then
     GITHUB_STEP_SUMMARY=/dev/null
+    ON_GITHUB_CI=true
 fi
 
 # Test if the generated code is still up to date
@@ -22,7 +24,7 @@ echo "::endgroup::"
 # pyupgrade --py3-plus $(find . -name "*.py")
 echo "::group::Black"
 if ! black --check setup.py trio; then
-    echo "* Black found issues" >> $GITHUB_STEP_SUMMARY
+    echo "* Black found issues" >> "$GITHUB_STEP_SUMMARY"
     EXIT_STATUS=1
     black --diff setup.py trio
     echo "::endgroup::"
@@ -34,9 +36,13 @@ fi
 # Run ruff, configured in pyproject.toml
 echo "::group::Ruff"
 if ! ruff check .; then
-    echo "* ruff found issues." >> $GITHUB_STEP_SUMMARY
+    echo "* ruff found issues." >> "$GITHUB_STEP_SUMMARY"
     EXIT_STATUS=1
-    ruff check --diff .
+    if $ON_GITHUB_CI; then
+        ruff check --format github --diff .
+    else
+        ruff check --diff .
+    fi
     echo "::endgroup::"
     echo "::error:: ruff found issues"
 else
@@ -52,12 +58,12 @@ rm -f mypy_annotate.dat
 # Pipefail makes these pipelines fail if mypy does, even if mypy_annotate.py succeeds.
 set -o pipefail
 mypy trio --show-error-end --platform linux | python ./trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Linux \
-    || { echo "* Mypy (Linux) found type errors." >> $GITHUB_STEP_SUMMARY; MYPY=1; }
+    || { echo "* Mypy (Linux) found type errors." >> "$GITHUB_STEP_SUMMARY"; MYPY=1; }
 # Darwin tests FreeBSD too
 mypy trio --show-error-end --platform darwin | python ./trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Mac \
-    || { echo "* Mypy (Mac) found type errors." >> $GITHUB_STEP_SUMMARY; MYPY=1; }
+    || { echo "* Mypy (Mac) found type errors." >> "$GITHUB_STEP_SUMMARY"; MYPY=1; }
 mypy trio --show-error-end --platform win32 | python ./trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Windows \
-    || { echo "* Mypy (Windows) found type errors." >> $GITHUB_STEP_SUMMARY; MYPY=1; }
+    || { echo "* Mypy (Windows) found type errors." >> "$GITHUB_STEP_SUMMARY"; MYPY=1; }
 set +o pipefail
 # Re-display errors using Github's syntax, read out of mypy_annotate.dat
 python ./trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat
@@ -81,9 +87,9 @@ echo "::endgroup::"
 if git status --porcelain | grep -q "requirements.txt"; then
     echo "::error::requirements.txt changed."
     echo "::group::requirements.txt changed"
-    echo "* requirements.txt changed" >> $GITHUB_STEP_SUMMARY
+    echo "* requirements.txt changed" >> "$GITHUB_STEP_SUMMARY"
     git status --porcelain
-    git --no-pager diff --color *requirements.txt
+    git --no-pager diff --color ./*requirements.txt
     EXIT_STATUS=1
     echo "::endgroup::"
 fi
@@ -92,7 +98,7 @@ codespell || EXIT_STATUS=$?
 
 python trio/_tests/check_type_completeness.py --overwrite-file || EXIT_STATUS=$?
 if git status --porcelain trio/_tests/verify_types*.json | grep -q "M"; then
-    echo "* Type completeness changed, please update!" >> $GITHUB_STEP_SUMMARY
+    echo "* Type completeness changed, please update!" >> "$GITHUB_STEP_SUMMARY"
     echo "::error::Type completeness changed, please update!"
     git --no-pager diff --color trio/_tests/verify_types*.json
     EXIT_STATUS=1
@@ -119,5 +125,5 @@ in your local checkout.
 EOF
     exit 1
 fi
-echo "# Formatting checks succeeded." >> $GITHUB_STEP_SUMMARY
+echo "# Formatting checks succeeded." >> "$GITHUB_STEP_SUMMARY"
 exit 0
