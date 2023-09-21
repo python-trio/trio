@@ -109,8 +109,9 @@ def run_linters(file: File, source: str) -> str:
     :raises ImportError: If black is not installed
     :raises SystemExit: If either failed.
     """
-    # imported to check that `subprocess` calls to black will succeed
+    # imported to check that `subprocess` calls will succeed
     import black  # noqa: F401
+    import ruff  # noqa: F401
 
     # Black has an undocumented API, but it doesn't easily allow reading configuration from
     # pyproject.toml, and simultaneously pass in / receive the code as a string.

@@ -122,10 +122,10 @@ def test_process(tmp_path, imports):
 
 @skip_lints
 def test_lint_failure(tmp_path) -> None:
-    """Test that processing properly fails if black or isort does."""
+    """Test that processing properly fails if black or ruff does."""
     try:
         import black  # noqa: F401
-    # there's no dedicated CI run that has astor+isort, but lacks black.
+        import ruff  # noqa: F401
     except ImportError as error:  # pragma: no cover
         skip_if_optional_else_raise(error)
 
@@ -133,6 +133,3 @@ def test_lint_failure(tmp_path) -> None:
 
     with pytest.raises(SystemExit):
         run_linters(file, "class not valid code ><")
-
-    with pytest.raises(SystemExit):
-        run_linters(file, "# isort: skip_file")
