@@ -6,7 +6,7 @@ import pathlib
 import sys
 import types
 from collections.abc import Awaitable, Callable, Iterable
-from functools import partial, wraps
+from functools import partial
 from io import BufferedRandom, BufferedReader, BufferedWriter, FileIO, TextIOWrapper
 from typing import (
     IO,
@@ -35,6 +35,22 @@ if TYPE_CHECKING:
     from typing_extensions import Concatenate, Literal, ParamSpec, TypeAlias
 
     P = ParamSpec("P")
+
+# work around a pyright error
+if TYPE_CHECKING:
+    from typing import Sequence
+
+    Fn = TypeVar("Fn", bound=Callable[..., object])
+
+    def wraps(
+        wrapped: Callable[..., object],
+        assigned: Sequence[str] = ...,
+        updated: Sequence[str] = ...,
+    ) -> Callable[[Fn], Fn]:
+        ...
+
+else:
+    from functools import wraps
 
 T = TypeVar("T")
 StrPath: TypeAlias = Union[str, "os.PathLike[str]"]  # Only subscriptable in 3.9+
@@ -320,7 +336,6 @@ class Path(metaclass=AsyncAutoWrapperType):
     ) -> _AsyncIOWrapper[IO[Any]]:
         ...
 
-    # TODO: check the following is AOK with pyright
     @wraps(pathlib.Path.open)  # type: ignore[misc]  # Overload return mismatch.
     async def open(self, *args: Any, **kwargs: Any) -> _AsyncIOWrapper[IO[Any]]:
         """Open the file pointed to by the path, like the :func:`trio.open_file`
