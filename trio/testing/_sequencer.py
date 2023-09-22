@@ -12,8 +12,9 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
 
+@_util.final
 @attr.s(eq=False, hash=False)
-class Sequencer(metaclass=_util.Final):
+class Sequencer:
     """A convenience class for forcing code in different tasks to run in an
     explicit linear order.
 

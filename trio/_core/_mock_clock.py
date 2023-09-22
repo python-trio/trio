@@ -3,7 +3,7 @@ from math import inf
 
 from .. import _core
 from .._abc import Clock
-from .._util import Final
+from .._util import final
 from ._run import GLOBAL_RUN_CONTEXT
 
 ################################################################
@@ -14,7 +14,8 @@ from ._run import GLOBAL_RUN_CONTEXT
 # Prior art:
 #   https://twistedmatrix.com/documents/current/api/twisted.internet.task.Clock.html
 #   https://github.com/ztellman/manifold/issues/57
-class MockClock(Clock, metaclass=Final):
+@final
+class MockClock(Clock):
     """A user-controllable clock suitable for writing tests.
 
     Args:
