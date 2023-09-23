@@ -1480,10 +1480,6 @@ class RunStatistics:
 # worker thread.
 
 
-def _value_factory() -> Value[None]:
-    return Value(None)
-
-
 @attr.s(eq=False, hash=False, slots=True)
 class GuestState:
     runner: Runner = attr.ib()
@@ -1491,7 +1487,7 @@ class GuestState:
     run_sync_soon_not_threadsafe: Callable[[Callable[[], object]], object] = attr.ib()
     done_callback: Callable[[Outcome[Any]], object] = attr.ib()
     unrolled_run_gen: Generator[float, EventResult, None] = attr.ib()
-    unrolled_run_next_send: Outcome[Any] = attr.ib(factory=_value_factory)
+    unrolled_run_next_send: Outcome[Any] = attr.ib(factory=lambda: Value(None))
 
     def guest_tick(self) -> None:
         prev_library, sniffio_library.name = sniffio_library.name, "trio"
