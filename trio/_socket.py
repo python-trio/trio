@@ -46,8 +46,9 @@ T = TypeVar("T")
 # where you specify the return values you expect from those methods depending on the
 # protocol the socket will be handling.
 # But without the ability to default the value to `Any` it will be overly cumbersome for
-# most users, so currently we just specify it as `Any`.
-# AddressFormat = TypeVar("AddressFormat")
+# most users, so currently we just specify it as `Any`. Otherwise we would write:
+# `AddressFormat = TypeVar("AddressFormat")`
+# but instead we simply do:
 AddressFormat: TypeAlias = Any
 
 
@@ -521,6 +522,9 @@ async def _resolve_address_nocp(
 
 class SocketType:
     def __init__(self) -> None:
+        # make sure this __init__ works with multiple inheritance
+        super().__init__()
+        # and only raises error if it's directly constructed
         if type(self) == SocketType:
             raise TypeError(
                 "SocketType is an abstract class; use trio.socket.socket if you "
@@ -640,6 +644,7 @@ class SocketType:
     async def connect(self, address: AddressFormat) -> None:
         raise NotImplementedError
 
+    # argument names with __ used because of typeshed, see comment for recv in _SocketType
     def recv(__self, __buflen: int, __flags: int = 0) -> Awaitable[bytes]:
         raise NotImplementedError
 
