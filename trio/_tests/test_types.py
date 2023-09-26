@@ -42,7 +42,9 @@ def check_file(checker: str, contents: str) -> bool:
         raise AssertionError(f"unknown checker {checker}")
 
 
-@pytest.mark.skipif(type_checkers != ["pyright", "mypy"])
+@pytest.mark.skipif(
+    type_checkers != ["pyright", "mypy"], reason="uses both pyright and mypy"
+)
 def test_harness() -> None:
     # mypy error only!
     file = """
