@@ -133,3 +133,6 @@ def test_lint_failure(tmp_path) -> None:
 
     with pytest.raises(SystemExit):
         run_linters(file, "class not valid code ><")
+
+    with pytest.raises(SystemExit):
+        run_linters(file, "import waffle\n;import trio")
