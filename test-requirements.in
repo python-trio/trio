@@ -3,7 +3,6 @@ pytest >= 5.0         # for faulthandler in core
 coverage >= 7.2.5
 async_generator >= 1.9
 pyright
-ipython               # for the IPython traceback integration tests
 pyOpenSSL >= 22.0.0   # for the ssl + DTLS tests
 trustme               # for the ssl + DTLS tests
 pylint                # for pylint finding all symbols tests
@@ -23,6 +22,7 @@ codespell
 # https://github.com/python-trio/trio/pull/654#issuecomment-420518745
 mypy-extensions; implementation_name == "cpython"
 typing-extensions
+types-cffi; implementation_name == "cpython"
 
 # Trio's own dependencies
 cffi; os_name == "nt"

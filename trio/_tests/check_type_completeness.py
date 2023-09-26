@@ -6,21 +6,25 @@ import argparse
 import json
 import subprocess
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 
 # the result file is not marked in MANIFEST.in so it's not included in the package
-RESULT_FILE = Path(__file__).parent / "verify_types.json"
 failed = False
+
+
+def get_result_file_name(platform: str) -> Path:
+    return Path(__file__).parent / f"verify_types_{platform.lower()}.json"
 
 
 # TODO: consider checking manually without `--ignoreexternal`, and/or
 # removing it from the below call later on.
-def run_pyright():
+def run_pyright(platform: str) -> subprocess.CompletedProcess[bytes]:
     return subprocess.run(
         [
             "pyright",
             # Specify a platform and version to keep imported modules consistent.
-            "--pythonplatform=Linux",
+            f"--pythonplatform={platform}",
             "--pythonversion=3.8",
             "--verifytypes=trio",
             "--outputjson",
@@ -30,7 +34,13 @@ def run_pyright():
     )
 
 
-def check_less_than(key, current_dict, last_dict, /, invert=False):
+def check_less_than(
+    key: str,
+    current_dict: Mapping[str, int | float],
+    last_dict: Mapping[str, int | float],
+    /,
+    invert: bool = False,
+) -> None:
     global failed
     current = current_dict[key]
     last = last_dict[key]
@@ -43,26 +53,28 @@ def check_less_than(key, current_dict, last_dict, /, invert=False):
         print("ERROR: ", end="")
     if isinstance(current, float):
         strcurrent = f"{current:.4}"
-        strlast = f"{last:.4}"
     else:
         strcurrent = str(current)
+    if isinstance(last, float):
+        strlast = f"{last:.4}"
+    else:
         strlast = str(last)
     print(
         f"{key} has gone {'down' if current<last else 'up'} from {strlast} to {strcurrent}"
     )
 
 
-def check_zero(key, current_dict):
+def check_zero(key: str, current_dict: Mapping[str, float]) -> None:
     global failed
     if current_dict[key] != 0:
         failed = True
         print(f"ERROR: {key} is {current_dict[key]}")
 
 
-def main(args: argparse.Namespace) -> int:
+def check_type(args: argparse.Namespace, platform: str) -> int:
     print("*" * 20, "\nChecking type completeness hasn't gone down...")
 
-    res = run_pyright()
+    res = run_pyright(platform)
     current_result = json.loads(res.stdout)
     py_typed_file: Path | None = None
 
@@ -79,26 +91,13 @@ def main(args: argparse.Namespace) -> int:
         )
         py_typed_file.write_text("")
 
-        res = run_pyright()
+        res = run_pyright(platform)
         current_result = json.loads(res.stdout)
 
     if res.stderr:
         print(res.stderr)
 
-    if args.full_diagnostics_file is not None:
-        with open(args.full_diagnostics_file, "w") as file:
-            json.dump(
-                [
-                    sym
-                    for sym in current_result["typeCompleteness"]["symbols"]
-                    if sym["diagnostics"]
-                ],
-                file,
-                sort_keys=True,
-                indent=2,
-            )
-
-    last_result = json.loads(RESULT_FILE.read_text())
+    last_result = json.loads(get_result_file_name(platform).read_text())
 
     for key in "errorCount", "warningCount", "informationCount":
         check_zero(key, current_result["summary"])
@@ -128,10 +127,6 @@ def main(args: argparse.Namespace) -> int:
             invert=invert,
         )
 
-    assert (
-        res.returncode != 0
-    ), "Fully type complete! Delete this script and instead directly run `pyright --verifytypes=trio` (consider `--ignoreexternal`) in CI and checking exit code."
-
     if args.overwrite_file:
         print("Overwriting file")
 
@@ -152,22 +147,27 @@ def main(args: argparse.Namespace) -> int:
 
         # prune the symbols to only be the name of the symbols with
         # errors, instead of saving a huge file.
-        new_symbols = []
+        new_symbols: list[dict[str, str]] = []
         for symbol in current_result["typeCompleteness"]["symbols"]:
             if symbol["diagnostics"]:
-                new_symbols.append(symbol["name"])
+                # function name + message should be enough context for people!
+                new_symbols.extend(
+                    {"name": symbol["name"], "message": diagnostic["message"]}
+                    for diagnostic in symbol["diagnostics"]
+                )
                 continue
 
         # Ensure order of arrays does not affect result.
-        new_symbols.sort()
+        new_symbols.sort(key=lambda module: module.get("name", ""))
         current_result["generalDiagnostics"].sort()
         current_result["typeCompleteness"]["modules"].sort(
             key=lambda module: module.get("name", "")
         )
 
-        current_result["typeCompleteness"]["symbols"] = new_symbols
+        del current_result["typeCompleteness"]["symbols"]
+        current_result["typeCompleteness"]["diagnostics"] = new_symbols
 
-        with open(RESULT_FILE, "w") as file:
+        with open(get_result_file_name(platform), "w") as file:
             json.dump(current_result, file, sort_keys=True, indent=2)
             # add newline at end of file so it's easier to manually modify
             file.write("\n")
@@ -179,6 +179,13 @@ def main(args: argparse.Namespace) -> int:
     print("*" * 20)
 
     return int(failed)
+
+
+def main(args: argparse.Namespace) -> int:
+    res = 0
+    for platform in "Linux", "Windows", "Darwin":
+        res += check_type(args, platform)
+    return res
 
 
 parser = argparse.ArgumentParser()

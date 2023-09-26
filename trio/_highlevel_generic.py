@@ -1,13 +1,17 @@
 from __future__ import annotations
 
-from typing import Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 import attr
 
 import trio
-from trio._util import Final
+from trio._util import final
 
 from .abc import AsyncResource, HalfCloseableStream, ReceiveStream, SendStream
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeGuard
+
 
 SendStreamT = TypeVar("SendStreamT", bound=SendStream)
 ReceiveStreamT = TypeVar("ReceiveStreamT", bound=ReceiveStream)
@@ -43,11 +47,16 @@ async def aclose_forcefully(resource: AsyncResource) -> None:
         await resource.aclose()
 
 
+def _is_halfclosable(stream: SendStream) -> TypeGuard[HalfCloseableStream]:
+    """Check if the stream has a send_eof() method."""
+    return hasattr(stream, "send_eof")
+
+
+@final
 @attr.s(eq=False, hash=False)
 class StapledStream(
     HalfCloseableStream,
     Generic[SendStreamT, ReceiveStreamT],
-    metaclass=Final,
 ):
     """This class `staples <https://en.wikipedia.org/wiki/Staple_(fastener)>`__
     together two unidirectional streams to make single bidirectional stream.
@@ -97,16 +106,15 @@ class StapledStream(
     async def send_eof(self) -> None:
         """Shuts down the send side of the stream.
 
-        If ``self.send_stream.send_eof`` exists, then calls it. Otherwise,
-        calls ``self.send_stream.aclose()``.
-
+        If :meth:`self.send_stream.send_eof() <trio.abc.HalfCloseableStream.send_eof>` exists,
+        then this calls it. Otherwise, this calls
+        :meth:`self.send_stream.aclose() <trio.abc.AsyncResource.aclose>`.
         """
-        if hasattr(self.send_stream, "send_eof"):
-            # send_stream.send_eof() is not defined in Trio, this should maybe be
-            # redesigned so it's possible to type it.
-            return await self.send_stream.send_eof()  # type: ignore[no-any-return]
+        stream = self.send_stream
+        if _is_halfclosable(stream):
+            return await stream.send_eof()
         else:
-            return await self.send_stream.aclose()
+            return await stream.aclose()
 
     # we intentionally accept more types from the caller than we support returning
     async def receive_some(self, max_bytes: int | None = None) -> bytes:

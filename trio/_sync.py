@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 import attr
 
@@ -9,7 +9,7 @@ import trio
 
 from . import _core
 from ._core import Abort, ParkingLot, RaiseCancelT, enable_ki_protection
-from ._util import Final
+from ._util import final
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -32,8 +32,9 @@ class EventStatistics:
     tasks_waiting: int = attr.ib()
 
 
+@final
 @attr.s(repr=False, eq=False, hash=False, slots=True)
-class Event(metaclass=Final):
+class Event:
     """A waitable boolean value useful for inter-task synchronization,
     inspired by :class:`threading.Event`.
 
@@ -105,21 +106,29 @@ class Event(metaclass=Final):
         return EventStatistics(tasks_waiting=len(self._tasks))
 
 
-# TODO: type this with a Protocol to get rid of type: ignore, see
-# https://github.com/python-trio/trio/pull/2682#discussion_r1259097422
+class _HasAcquireRelease(Protocol):
+    """Only classes with acquire() and release() can use the mixin's implementations."""
+
+    async def acquire(self) -> object:
+        ...
+
+    def release(self) -> object:
+        ...
+
+
 class AsyncContextManagerMixin:
     @enable_ki_protection
-    async def __aenter__(self) -> None:
-        await self.acquire()  # type: ignore[attr-defined]
+    async def __aenter__(self: _HasAcquireRelease) -> None:
+        await self.acquire()
 
     @enable_ki_protection
     async def __aexit__(
-        self,
+        self: _HasAcquireRelease,
         exc_type: type[BaseException] | None,
         exc_value: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
-        self.release()  # type: ignore[attr-defined]
+        self.release()
 
 
 @attr.s(frozen=True, slots=True)
@@ -150,7 +159,8 @@ class CapacityLimiterStatistics:
 # Can be a generic type with a default of Task if/when PEP 696 is released
 # and implemented in type checkers. Making it fully generic would currently
 # introduce a lot of unnecessary hassle.
-class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
+@final
+class CapacityLimiter(AsyncContextManagerMixin):
     """An object for controlling access to a resource with limited capacity.
 
     Sometimes you need to put a limit on how many tasks can do something at
@@ -392,7 +402,8 @@ class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
         )
 
 
-class Semaphore(AsyncContextManagerMixin, metaclass=Final):
+@final
+class Semaphore(AsyncContextManagerMixin):
     """A `semaphore <https://en.wikipedia.org/wiki/Semaphore_(programming)>`__.
 
     A semaphore holds an integer value, which can be incremented by
@@ -623,7 +634,8 @@ class _LockImpl(AsyncContextManagerMixin):
         )
 
 
-class Lock(_LockImpl, metaclass=Final):
+@final
+class Lock(_LockImpl):
     """A classic `mutex
     <https://en.wikipedia.org/wiki/Lock_(computer_science)>`__.
 
@@ -637,7 +649,8 @@ class Lock(_LockImpl, metaclass=Final):
     """
 
 
-class StrictFIFOLock(_LockImpl, metaclass=Final):
+@final
+class StrictFIFOLock(_LockImpl):
     r"""A variant of :class:`Lock` where tasks are guaranteed to acquire the
     lock in strict first-come-first-served order.
 
@@ -716,7 +729,8 @@ class ConditionStatistics:
     lock_statistics: LockStatistics = attr.ib()
 
 
-class Condition(AsyncContextManagerMixin, metaclass=Final):
+@final
+class Condition(AsyncContextManagerMixin):
     """A classic `condition variable
     <https://en.wikipedia.org/wiki/Monitor_(synchronization)>`__, similar to
     :class:`threading.Condition`.

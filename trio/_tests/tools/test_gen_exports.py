@@ -1,12 +1,23 @@
 import ast
+import sys
 
 import pytest
+from trio._tests.pytest_plugin import skip_if_optional_else_raise
+
+# imports in gen_exports that are not in `install_requires` in setup.py
+try:
+    import astor  # noqa: F401
+    import isort  # noqa: F401
+except ImportError as error:
+    skip_if_optional_else_raise(error)
+
 
 from trio._tools.gen_exports import (
     File,
     create_passthrough_args,
     get_public_methods,
     process,
+    run_linters,
 )
 
 SOURCE = '''from _run import _public
@@ -69,8 +80,21 @@ def test_create_pass_through_args():
         assert create_passthrough_args(func_node) == expected
 
 
+skip_lints = pytest.mark.skipif(
+    sys.implementation.name != "cpython",
+    reason="gen_exports is internal, black/isort only runs on CPython",
+)
+
+
+@skip_lints
 @pytest.mark.parametrize("imports", ["", IMPORT_1, IMPORT_2, IMPORT_3])
 def test_process(tmp_path, imports):
+    try:
+        import black  # noqa: F401
+    # there's no dedicated CI run that has astor+isort, but lacks black.
+    except ImportError as error:  # pragma: no cover
+        skip_if_optional_else_raise(error)
+
     modpath = tmp_path / "_module.py"
     genpath = tmp_path / "_generated_module.py"
     modpath.write_text(SOURCE, encoding="utf-8")
@@ -93,3 +117,21 @@ def test_process(tmp_path, imports):
     with pytest.raises(SystemExit) as excinfo:
         process([File(modpath, "runner", imports=imports)], do_test=True)
     assert excinfo.value.code == 1
+
+
+@skip_lints
+def test_lint_failure(tmp_path) -> None:
+    """Test that processing properly fails if black or isort does."""
+    try:
+        import black  # noqa: F401
+    # there's no dedicated CI run that has astor+isort, but lacks black.
+    except ImportError as error:  # pragma: no cover
+        skip_if_optional_else_raise(error)
+
+    file = File(tmp_path / "module.py", "module")
+
+    with pytest.raises(SystemExit):
+        run_linters(file, "class not valid code ><")
+
+    with pytest.raises(SystemExit):
+        run_linters(file, "# isort: skip_file")

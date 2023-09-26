@@ -6,7 +6,7 @@ import attr
 
 from .. import _core
 from .._deprecate import deprecated
-from .._util import Final
+from .._util import final
 
 T = TypeVar("T")
 
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 class UnboundedQueueStatistics:
     """An object containing debugging information.
 
-    Currently the following fields are defined:
+    Currently, the following fields are defined:
 
     * ``qsize``: The number of items currently in the queue.
     * ``tasks_waiting``: The number of tasks blocked on this queue's
@@ -30,7 +30,8 @@ class UnboundedQueueStatistics:
     tasks_waiting: int = attr.ib()
 
 
-class UnboundedQueue(Generic[T], metaclass=Final):
+@final
+class UnboundedQueue(Generic[T]):
     """An unbounded queue suitable for certain unusual forms of inter-task
     communication.
 

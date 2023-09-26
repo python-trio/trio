@@ -30,15 +30,16 @@ from typing import (
 from weakref import ReferenceType, WeakValueDictionary
 
 import attr
-from OpenSSL import SSL
 
 import trio
 
-from ._util import Final, NoPublicConstructor
+from ._util import NoPublicConstructor, final
 
 if TYPE_CHECKING:
     from types import TracebackType
 
+    # See DTLSEndpoint.__init__ for why this is imported here
+    from OpenSSL import SSL
     from OpenSSL.SSL import Context
     from typing_extensions import Self, TypeAlias
 
@@ -811,6 +812,7 @@ class DTLSChannelStatistics:
     incoming_packets_dropped_in_trio: int
 
 
+@final
 class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
     """A DTLS connection.
 
@@ -1153,7 +1155,8 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         return DTLSChannelStatistics(self._packets_dropped_in_trio)
 
 
-class DTLSEndpoint(metaclass=Final):
+@final
+class DTLSEndpoint:
     """A DTLS endpoint.
 
     A single UDP socket can handle arbitrarily many DTLS connections simultaneously,
