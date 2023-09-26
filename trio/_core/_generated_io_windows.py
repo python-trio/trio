@@ -14,7 +14,6 @@ if TYPE_CHECKING:
     from .._file_io import _HasFileNo
     from ._unbounded_queue import UnboundedQueue
     from ._windows_cffi import CData, Handle
-
 import sys
 
 assert not TYPE_CHECKING or sys.platform == "win32"
