@@ -113,8 +113,12 @@ tomlkit==0.12.1
     # via pylint
 trustme==1.1.0
     # via -r test-requirements.in
+types-cffi==1.15.1.15 ; implementation_name == "cpython"
+    # via -r test-requirements.in
 types-pyopenssl==23.2.0.2 ; implementation_name == "cpython"
     # via -r test-requirements.in
+types-setuptools==68.1.0.0
+    # via types-cffi
 typing-extensions==4.7.1
     # via
     #   -r test-requirements.in
