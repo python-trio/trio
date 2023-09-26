@@ -68,9 +68,6 @@ def test_socket_functools_wrap(checker: str) -> None:
     assert check_file(
         checker,
         """
-        import array
-        import socket
-
         import trio
         import typing_extensions
 
