@@ -1,7 +1,6 @@
 # this file should only check *small* portions of trio's API.
 # (it would be unproductive to write out the API twice :^)
 
-type_checkers = []
 import os
 import subprocess
 import tempfile
@@ -9,6 +8,7 @@ import textwrap
 
 import pytest
 
+type_checkers = []
 try:
     import pyright
 except:
