@@ -62,7 +62,7 @@ def test_harness() -> None:
 
 
 @pytest.mark.parametrize("checker", type_checkers)
-def test_socket_functools_wrap(checker) -> None:
+def test_socket_functools_wrap(checker: str) -> None:
     # https://github.com/python-trio/trio/issues/2775#issuecomment-1702267589
     # (except platform independent...)
     assert check_file(
