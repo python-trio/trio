@@ -21,6 +21,7 @@ assert not TYPE_CHECKING or sys.platform == "win32"
 
 
 async def wait_readable(sock: (_HasFileNo | int)) -> None:
+    """TODO"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_readable(sock)
@@ -29,6 +30,7 @@ async def wait_readable(sock: (_HasFileNo | int)) -> None:
 
 
 async def wait_writable(sock: (_HasFileNo | int)) -> None:
+    """TODO"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_writable(sock)
@@ -37,6 +39,7 @@ async def wait_writable(sock: (_HasFileNo | int)) -> None:
 
 
 def notify_closing(handle: (Handle | int | _HasFileNo)) -> None:
+    """TODO"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.notify_closing(handle)
@@ -45,6 +48,7 @@ def notify_closing(handle: (Handle | int | _HasFileNo)) -> None:
 
 
 def register_with_iocp(handle: (int | CData)) -> None:
+    """TODO"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.register_with_iocp(handle)
@@ -55,6 +59,7 @@ def register_with_iocp(handle: (int | CData)) -> None:
 async def wait_overlapped(
     handle_: (int | CData), lpOverlapped: (CData | int)
 ) -> object:
+    """TODO"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_overlapped(
@@ -67,6 +72,7 @@ async def wait_overlapped(
 async def write_overlapped(
     handle: (int | CData), data: Buffer, file_offset: int = 0
 ) -> int:
+    """TODO"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.write_overlapped(
@@ -79,6 +85,7 @@ async def write_overlapped(
 async def readinto_overlapped(
     handle: (int | CData), buffer: Buffer, file_offset: int = 0
 ) -> int:
+    """TODO"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.readinto_overlapped(
@@ -89,6 +96,7 @@ async def readinto_overlapped(
 
 
 def current_iocp() -> int:
+    """TODO"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.current_iocp()
@@ -97,6 +105,7 @@ def current_iocp() -> int:
 
 
 def monitor_completion_key() -> ContextManager[tuple[int, UnboundedQueue[object]]]:
+    """TODO"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.monitor_completion_key()

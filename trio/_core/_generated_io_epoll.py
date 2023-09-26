@@ -14,6 +14,7 @@ assert not TYPE_CHECKING or sys.platform == "linux"
 
 
 async def wait_readable(fd: (int | socket)) -> None:
+    """TODO"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_readable(fd)
@@ -22,6 +23,7 @@ async def wait_readable(fd: (int | socket)) -> None:
 
 
 async def wait_writable(fd: (int | socket)) -> None:
+    """TODO"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_writable(fd)
@@ -30,6 +32,7 @@ async def wait_writable(fd: (int | socket)) -> None:
 
 
 def notify_closing(fd: (int | socket)) -> None:
+    """TODO"""
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.notify_closing(fd)

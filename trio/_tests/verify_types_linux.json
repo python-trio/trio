@@ -8,33 +8,16 @@
   },
   "typeCompleteness": {
     "completenessScore": 1,
-    "diagnostics": [
-      {
-        "message": "No docstring found for function \"trio.lowlevel.notify_closing\"",
-        "name": "trio.lowlevel.notify_closing"
-      },
-      {
-        "message": "No docstring found for function \"trio.lowlevel.wait_readable\"",
-        "name": "trio.lowlevel.wait_readable"
-      },
-      {
-        "message": "No docstring found for function \"trio.lowlevel.wait_writable\"",
-        "name": "trio.lowlevel.wait_writable"
-      },
-      {
-        "message": "No docstring found for class \"trio.tests.TestsDeprecationWrapper\"",
-        "name": "trio.tests.TestsDeprecationWrapper"
-      }
-    ],
+    "diagnostics": [],
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
       "withKnownType": 628,
       "withUnknownType": 0
     },
     "ignoreUnknownTypesFromImports": true,
-    "missingClassDocStringCount": 1,
+    "missingClassDocStringCount": 0,
     "missingDefaultParamCount": 0,
-    "missingFunctionDocStringCount": 3,
+    "missingFunctionDocStringCount": 0,
     "moduleName": "trio",
     "modules": [
       {
@@ -64,7 +47,7 @@
     ],
     "otherSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 684,
+      "withKnownType": 685,
       "withUnknownType": 0
     },
     "packageName": "trio"

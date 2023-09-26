@@ -729,14 +729,17 @@ class WindowsIOManager:
 
     @_public
     async def wait_readable(self, sock: _HasFileNo | int) -> None:
+        """TODO"""
         await self._afd_poll(sock, "read_task")
 
     @_public
     async def wait_writable(self, sock: _HasFileNo | int) -> None:
+        """TODO"""
         await self._afd_poll(sock, "write_task")
 
     @_public
     def notify_closing(self, handle: Handle | int | _HasFileNo) -> None:
+        """TODO"""
         handle = _get_base_socket(handle)
         waiters = self._afd_waiters.get(handle)
         if waiters is not None:
@@ -749,12 +752,14 @@ class WindowsIOManager:
 
     @_public
     def register_with_iocp(self, handle: int | CData) -> None:
+        """TODO"""
         self._register_with_iocp(handle, CKeys.WAIT_OVERLAPPED)
 
     @_public
     async def wait_overlapped(
         self, handle_: int | CData, lpOverlapped: CData | int
     ) -> object:
+        """TODO"""
         handle = _handle(handle_)
         if isinstance(lpOverlapped, int):
             lpOverlapped = ffi.cast("LPOVERLAPPED", lpOverlapped)
@@ -846,6 +851,7 @@ class WindowsIOManager:
     async def write_overlapped(
         self, handle: int | CData, data: Buffer, file_offset: int = 0
     ) -> int:
+        """TODO"""
         with ffi.from_buffer(data) as cbuf:
 
             def submit_write(lpOverlapped: _Overlapped) -> None:
@@ -871,6 +877,7 @@ class WindowsIOManager:
     async def readinto_overlapped(
         self, handle: int | CData, buffer: Buffer, file_offset: int = 0
     ) -> int:
+        """TODO"""
         with ffi.from_buffer(buffer, require_writable=True) as cbuf:
 
             def submit_read(lpOverlapped: _Overlapped) -> None:
@@ -896,12 +903,14 @@ class WindowsIOManager:
 
     @_public
     def current_iocp(self) -> int:
+        """TODO"""
         assert self._iocp is not None
         return int(ffi.cast("uintptr_t", self._iocp))
 
     @contextmanager
     @_public
     def monitor_completion_key(self) -> Iterator[tuple[int, UnboundedQueue[object]]]:
+        """TODO"""
         key = next(self._completion_key_counter)
         queue = _core.UnboundedQueue[object]()
         self._completion_key_queues[key] = queue
