@@ -26,7 +26,6 @@ exclude_lines =
   @overload
   class .*\bProtocol\b.*\):
   raise NotImplementedError
-  @_public
 
 partial_branches =
   pragma: no branch
