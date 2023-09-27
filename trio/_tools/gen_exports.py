@@ -125,8 +125,8 @@ def run_black(file: File, source: str) -> tuple[bool, str]:
         )
     except subprocess.CalledProcessError as exc:
         error = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
-        return (False, f"Failed to run black!\n{error}")
-    return (True, result.stdout)
+        return False, f"Failed to run black!\n{error}\n\nstderr:\n{result.stderr}"
+    return True, result.stdout
 
 
 def run_ruff(file: File, source: str) -> tuple[bool, str]:
@@ -157,10 +157,10 @@ def run_ruff(file: File, source: str) -> tuple[bool, str]:
         )
     except subprocess.CalledProcessError as exc:
         error = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
-        return (False, f"Failed to run ruff!\n{error}")
+        return False, f"Failed to run ruff!\n{error}\n\nstderr:\n{result.stderr}"
     if result.stderr:
         return False, f"Ruff: {result.stderr}"
-    return (True, result.stdout)
+    return True, result.stdout
 
 
 def run_linters(file: File, source: str) -> str:
