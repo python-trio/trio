@@ -212,7 +212,7 @@ async def test_native_agen_protection():
 
 
 async def _check_agen(agen_fn):
-    async for _ in agen_fn():  # noqa
+    async for _ in agen_fn():
         assert not _core.currently_ki_protected()
 
     # asynccontextmanager insists that the function passed must itself be an

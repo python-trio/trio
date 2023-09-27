@@ -4,7 +4,7 @@ import operator as _operator
 import ssl as _stdlib_ssl
 from collections.abc import Awaitable, Callable
 from enum import Enum as _Enum
-from typing import Any, Final as TFinal, TypeVar
+from typing import Any, ClassVar, Final as TFinal, TypeVar
 
 import trio
 
@@ -378,7 +378,7 @@ class SSLStream(Stream):
 
         self._estimated_receive_size = STARTING_RECEIVE_SIZE
 
-    _forwarded = {
+    _forwarded: ClassVar = {
         "context",
         "server_side",
         "server_hostname",
@@ -395,7 +395,7 @@ class SSLStream(Stream):
         "version",
     }
 
-    _after_handshake = {
+    _after_handshake: ClassVar = {
         "session_reused",
         "getpeercert",
         "selected_npn_protocol",

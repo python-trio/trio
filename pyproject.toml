@@ -15,11 +15,14 @@ target-version = "py38"
 respect-gitignore = true
 fix = true
 
+allowed-confusables = ["–"]
+
 # The directories to consider when resolving first vs. third-party imports.
 # Does not control what files to include/exclude!
 src = ["trio", "notes-to-self"]
 
 select = [
+  "RUF",  # Ruff-specific rules
   "E",  # Error
   "F",  # pyflakes
   "I",  # isort
