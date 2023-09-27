@@ -10,7 +10,6 @@ import ast
 import os
 import subprocess
 import sys
-import traceback
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 from textwrap import indent
@@ -114,18 +113,16 @@ def run_black(file: File, source: str) -> tuple[bool, str]:
     # Black has an undocumented API, but it doesn't easily allow reading configuration from
     # pyproject.toml, and simultaneously pass in / receive the code as a string.
     # https://github.com/psf/black/issues/779
-    try:
-        result = subprocess.run(
-            # "-" as a filename = use stdin, return on stdout.
-            [sys.executable, "-m", "black", "--stdin-filename", file.path, "-"],
-            input=source,
-            capture_output=True,
-            encoding="utf8",
-            check=True,
-        )
-    except subprocess.CalledProcessError as exc:
-        error = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
-        return False, f"Failed to run black!\n{error}\n\nstderr:\n{result.stderr}"
+    result = subprocess.run(
+        # "-" as a filename = use stdin, return on stdout.
+        [sys.executable, "-m", "black", "--stdin-filename", file.path, "-"],
+        input=source,
+        capture_output=True,
+        encoding="utf8",
+    )
+
+    if result.returncode != 0:
+        return False, f"Failed to run black!\n{result.stderr}"
     return True, result.stdout
 
 
@@ -137,29 +134,25 @@ def run_ruff(file: File, source: str) -> tuple[bool, str]:
     # imported to check that `subprocess` calls will succeed
     import ruff  # noqa: F401
 
-    try:
-        result = subprocess.run(
-            # "-" as a filename = use stdin, return on stdout.
-            [
-                sys.executable,
-                "-m",
-                "ruff",
-                "--fix-only",
-                "--output-format=text",
-                "--stdin-filename",
-                file.path,
-                "-",
-            ],
-            input=source,
-            capture_output=True,
-            encoding="utf8",
-            check=True,
-        )
-    except subprocess.CalledProcessError as exc:
-        error = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
-        return False, f"Failed to run ruff!\n{error}\n\nstderr:\n{result.stderr}"
-    if result.stderr:
-        return False, f"Ruff: {result.stderr}"
+    result = subprocess.run(
+        # "-" as a filename = use stdin, return on stdout.
+        [
+            sys.executable,
+            "-m",
+            "ruff",
+            "--fix-only",
+            "--output-format=text",
+            "--stdin-filename",
+            file.path,
+            "-",
+        ],
+        input=source,
+        capture_output=True,
+        encoding="utf8",
+    )
+
+    if result.returncode != 0 or result.stderr:
+        return False, f"Failed to run ruff!\n{result.stderr}"
     return True, result.stdout
 
 
