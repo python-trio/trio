@@ -13,7 +13,7 @@ from .._highlevel_ssl_helpers import (
     serve_ssl_over_tcp,
 )
 
-# is needed because flake8 doesn't understand how pytest fixtures work.
+# using noqa because linters don't understand how pytest fixtures work.
 from .test_ssl import SERVER_CTX, client_ctx  # noqa: F401
 
 
@@ -43,7 +43,7 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
 
 
 # This uses serve_ssl_over_tcp, which uses open_ssl_over_tcp_listeners...
-# is needed because flake8 doesn't understand how pytest fixtures work.
+# using noqa because linters don't understand how pytest fixtures work.
 async def test_open_ssl_over_tcp_stream_and_everything_else(client_ctx):  # noqa: F811
     async with trio.open_nursery() as nursery:
         (listener,) = await nursery.start(
