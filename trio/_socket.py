@@ -928,7 +928,7 @@ class _SocketType(SocketType):
             ) -> Awaitable[tuple[bytes, list[tuple[int, int, bytes]], int, Any]]:
                 ...
 
-        recvmsg = _make_simple_sock_method_wrapper(
+        recvmsg = _make_simple_sock_method_wrapper(  # noqa: F811
             _stdlib_socket.socket.recvmsg, _core.wait_readable, maybe_avail=True
         )
 
@@ -947,7 +947,7 @@ class _SocketType(SocketType):
             ) -> Awaitable[tuple[int, list[tuple[int, int, bytes]], int, Any]]:
                 ...
 
-        recvmsg_into = _make_simple_sock_method_wrapper(
+        recvmsg_into = _make_simple_sock_method_wrapper(  # noqa: F811
             _stdlib_socket.socket.recvmsg_into, _core.wait_readable, maybe_avail=True
         )
 

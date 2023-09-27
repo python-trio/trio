@@ -323,7 +323,7 @@ def memory_stream_one_way_pair() -> tuple[MemorySendStream, MemoryReceiveStream]
 
     You can think of this as being a no-operating-system-involved
     Trio-streamsified version of :func:`os.pipe` (except that :func:`os.pipe`
-    returns the streams in the wrong order - we follow the superior convention
+    returns the streams in the wrong order – we follow the superior convention
     that data flows from left to right).
 
     Returns:

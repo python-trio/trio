@@ -407,7 +407,7 @@ class Semaphore(AsyncContextManagerMixin):
     """A `semaphore <https://en.wikipedia.org/wiki/Semaphore_(programming)>`__.
 
     A semaphore holds an integer value, which can be incremented by
-    calling :meth:`release` and decremented by calling :meth:`acquire` - but
+    calling :meth:`release` and decremented by calling :meth:`acquire` – but
     the value is never allowed to drop below zero. If the value is zero, then
     :meth:`acquire` will block until someone calls :meth:`release`.
 
@@ -698,7 +698,7 @@ class StrictFIFOLock(_LockImpl):
     First we do all our interaction with the state machine in a single
     scheduling quantum (notice there are no ``await``\s in there), so it's
     automatically atomic with respect to other tasks. And then if and only if
-    we have data to send, we get in line to send it - and
+    we have data to send, we get in line to send it – and
     :class:`StrictFIFOLock` guarantees that each task will send its data in
     the same order that the state machine generated it.
 

@@ -1,7 +1,7 @@
-from docutils.parsers.rst import directives as directives
+from docutils.parsers.rst import directives as directives  # noqa: F401
 from sphinx import addnodes
 from sphinx.domains.python import PyClasslike
-from sphinx.ext.autodoc import (
+from sphinx.ext.autodoc import (  # noqa: F401
     ClassLevelDocumenter as ClassLevelDocumenter,
     FunctionDocumenter as FunctionDocumenter,
     MethodDocumenter as MethodDocumenter,

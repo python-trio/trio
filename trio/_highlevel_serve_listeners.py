@@ -81,7 +81,7 @@ async def serve_listeners(  # type: ignore[misc]
     .. warning::
 
        If ``handler`` raises an exception, then this function doesn't do
-       anything special to catch it - so by default the exception will
+       anything special to catch it – so by default the exception will
        propagate out and crash your server. If you don't want this, then catch
        exceptions inside your ``handler``, or use a ``handler_nursery`` object
        that responds to exceptions in some other way.
@@ -115,8 +115,8 @@ async def serve_listeners(  # type: ignore[misc]
     Error handling:
 
       Most errors coming from :meth:`~trio.abc.Listener.accept` are allowed to
-      propagate out (crashing the server in the process). However, some errors -
-      those which indicate that the server is temporarily overloaded - are
+      propagate out (crashing the server in the process). However, some errors –
+      those which indicate that the server is temporarily overloaded – are
       handled specially. These are :class:`OSError`\s with one of the following
       errnos:
 

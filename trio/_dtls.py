@@ -816,7 +816,7 @@ class DTLSChannelStatistics:
 class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
     """A DTLS connection.
 
-    This class has no public constructor - you get instances by calling
+    This class has no public constructor – you get instances by calling
     `DTLSEndpoint.serve` or `~DTLSEndpoint.connect`.
 
     .. attribute:: endpoint
@@ -881,7 +881,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
     def close(self) -> None:
         """Close this connection.
 
-        `DTLSChannel`\\s don't actually own any OS-level resources - the
+        `DTLSChannel`\\s don't actually own any OS-level resources – the
         socket is owned by the `DTLSEndpoint`, not the individual connections. So
         you don't really *have* to call this. But it will interrupt any other tasks
         calling `receive` with a `ClosedResourceError`, and cause future attempts to use
@@ -934,14 +934,14 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
     async def do_handshake(self, *, initial_retransmit_timeout: float = 1.0) -> None:
         """Perform the handshake.
 
-        Calling this is optional - if you don't, then it will be automatically called
+        Calling this is optional – if you don't, then it will be automatically called
         the first time you call `send` or `receive`. But calling it explicitly can be
         useful in case you want to control the retransmit timeout, use a cancel scope to
         place an overall timeout on the handshake, or catch errors from the handshake
         specifically.
 
         It's safe to call this multiple times, or call it simultaneously from multiple
-        tasks - the first call will perform the handshake, and the rest will be no-ops.
+        tasks – the first call will perform the handshake, and the rest will be no-ops.
 
         Args:
 
@@ -1108,7 +1108,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         """Tells Trio the `largest amount of data that can be sent in a single packet to
         this peer <https://en.wikipedia.org/wiki/Maximum_transmission_unit>`__.
 
-        Trio doesn't actually enforce this limit - if you pass a huge packet to `send`,
+        Trio doesn't actually enforce this limit – if you pass a huge packet to `send`,
         then we'll dutifully encrypt it and attempt to send it. But calling this method
         does have two useful effects:
 
@@ -1328,7 +1328,7 @@ class DTLSEndpoint:
         """Initiate an outgoing DTLS connection.
 
         Notice that this is a synchronous method. That's because it doesn't actually
-        initiate any I/O - it just sets up a `DTLSChannel` object. The actual handshake
+        initiate any I/O – it just sets up a `DTLSChannel` object. The actual handshake
         doesn't occur until you start using the `DTLSChannel`. This gives you a chance
         to do further configuration first, like setting MTU etc.
 

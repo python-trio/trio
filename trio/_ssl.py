@@ -4,7 +4,7 @@ import operator as _operator
 import ssl as _stdlib_ssl
 from collections.abc import Awaitable, Callable
 from enum import Enum as _Enum
-from typing import Any, ClassVar, Final as TFinal, TypeVar
+from typing import Any, Final as TFinal, TypeVar
 
 import trio
 
@@ -67,7 +67,7 @@ from .abc import Listener, Stream
 # 1) Normally in TLS 1.2 and below, when the client side of a connection wants
 # to present a certificate to prove their identity, that certificate gets sent
 # in plaintext. This is bad, because it means that anyone eavesdropping can
-# see who's connecting - it's like sending your username in plain text. Not as
+# see who's connecting – it's like sending your username in plain text. Not as
 # bad as sending your password in plain text, but still, pretty bad. However,
 # renegotiations *are* encrypted. So as a workaround, it's not uncommon for
 # systems that want to use client certificates to first do an anonymous
@@ -111,7 +111,7 @@ from .abc import Listener, Stream
 # If it doesn't raise an error, then the operation completed successfully
 # (though we still need to take any outgoing data out of the memory buffer and
 # put it onto the wire). If it *does* raise an error, then we need to retry
-# *exactly that method call* later - in particular, if a 'write' failed, we
+# *exactly that method call* later – in particular, if a 'write' failed, we
 # need to try again later *with the same data*, because openssl might have
 # already committed some of the initial parts of our data to its output even
 # though it didn't tell us that, and has remembered that the next time we call
@@ -378,7 +378,7 @@ class SSLStream(Stream):
 
         self._estimated_receive_size = STARTING_RECEIVE_SIZE
 
-    _forwarded: ClassVar = {
+    _forwarded = {
         "context",
         "server_side",
         "server_hostname",
@@ -395,7 +395,7 @@ class SSLStream(Stream):
         "version",
     }
 
-    _after_handshake: ClassVar = {
+    _after_handshake = {
         "session_reused",
         "getpeercert",
         "selected_npn_protocol",
@@ -470,7 +470,7 @@ class SSLStream(Stream):
             # Call the SSLObject method, and get its result.
             #
             # NB: despite what the docs say, SSLWantWriteError can't
-            # happen - "Writes to memory BIOs will always succeed if
+            # happen – "Writes to memory BIOs will always succeed if
             # memory is available: that is their size can grow
             # indefinitely."
             # https://wiki.openssl.org/index.php/Manual:BIO_s_mem(3)
@@ -552,10 +552,10 @@ class SSLStream(Stream):
             # If both need to happen, then we only send. Why? Well, we
             # know that *right now* we have to both send and receive_some
             # before the operation can complete. But as soon as we yield,
-            # that information becomes potentially stale - e.g. while
+            # that information becomes potentially stale – e.g. while
             # we're sending, some other task might go and receive_some the
             # data we need and put it into the incoming BIO. And if it
-            # does, then we *definitely don't* want to do a receive_some -
+            # does, then we *definitely don't* want to do a receive_some –
             # there might not be any more data coming, and we'd deadlock!
             # We could do something tricky to keep track of whether a
             # receive_some happens while we're sending, but the case where
@@ -632,9 +632,9 @@ class SSLStream(Stream):
         actual data can be sent or received. You don't have to call this
         method; if you don't, then :class:`SSLStream` will automatically
         perform the handshake as needed, the first time you try to send or
-        receive data. But if you want to trigger it manually - for example,
+        receive data. But if you want to trigger it manually – for example,
         because you want to look at the peer's certificate before you start
-        talking to them - then you can call this method.
+        talking to them – then you can call this method.
 
         If the initial handshake is already in progress in another task, this
         waits for it to complete and then returns.
@@ -866,7 +866,7 @@ class SSLStream(Stream):
             # have two tasks doing write-related operations on
             # transport_stream simultaneously, which is not allowed. We
             # *don't* want to raise this conflict to our caller, because it's
-            # purely an internal affair - all they did was call
+            # purely an internal affair – all they did was call
             # wait_send_all_might_not_block and receive_some at the same time,
             # which is totally valid. And waiting for the lock is OK, because
             # a call to send_all certainly wouldn't complete while the other

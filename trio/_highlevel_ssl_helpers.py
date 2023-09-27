@@ -109,13 +109,13 @@ async def serve_ssl_over_tcp(
     running ``handler(stream)``.
 
     This is a thin convenience wrapper around
-    :func:`open_ssl_over_tcp_listeners` and :func:`serve_listeners` - see them
+    :func:`open_ssl_over_tcp_listeners` and :func:`serve_listeners` – see them
     for full details.
 
     .. warning::
 
        If ``handler`` raises an exception, then this function doesn't do
-       anything special to catch it - so by default the exception will
+       anything special to catch it – so by default the exception will
        propagate out and crash your server. If you don't want this, then catch
        exceptions inside your ``handler``, or use a ``handler_nursery`` object
        that responds to exceptions in some other way.

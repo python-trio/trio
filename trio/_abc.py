@@ -585,7 +585,7 @@ class Listener(AsyncResource, Generic[T_resource]):
         because for listeners there is no general condition of "the
         network/remote peer broke the connection" that can be handled in a
         generic way, like there is for streams. Other errors *can* occur and
-        be raised from :meth:`accept` - for example, if you run out of file
+        be raised from :meth:`accept` – for example, if you run out of file
         descriptors then you might get an :class:`OSError` with its errno set
         to ``EMFILE``.
 

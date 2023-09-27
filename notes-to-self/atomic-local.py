@@ -20,7 +20,7 @@ new_code = CodeType(
     f.__code__.co_code,
     f.__code__.co_consts,
     f.__code__.co_names,
-    (*f.__code__.co_varnames, sentinel),
+    f.__code__.co_varnames + (sentinel,),
     f.__code__.co_filename,
     f.__code__.co_name,
     f.__code__.co_firstlineno,

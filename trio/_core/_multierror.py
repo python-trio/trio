@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 from collections.abc import Callable, Sequence
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, ClassVar, cast, overload
+from typing import TYPE_CHECKING, Any, cast, overload
 
 import attr
 
@@ -295,7 +295,7 @@ class MultiError(_BaseExceptionGroup):
 
         Returns:
           A new exception object in which each component exception ``exc`` has
-          been replaced by the result of running ``handler(exc)`` - or, if
+          been replaced by the result of running ``handler(exc)`` – or, if
           ``handler`` returned None for all the inputs, returns None.
 
         """
@@ -375,7 +375,7 @@ except ImportError:
     import _ctypes
 
     class CTraceback(ctypes.Structure):
-        _fields_: ClassVar = [
+        _fields_ = [
             ("PyObject_HEAD", ctypes.c_byte * object().__sizeof__()),
             ("tb_next", ctypes.c_void_p),
             ("tb_frame", ctypes.c_void_p),

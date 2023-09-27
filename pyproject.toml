@@ -20,7 +20,6 @@ fix = true
 src = ["trio", "notes-to-self"]
 
 select = [
-  "RUF",  # Ruff-specific rules
   "E",  # Error
   "F",  # pyflakes
   "I",  # isort

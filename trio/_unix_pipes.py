@@ -40,7 +40,7 @@ class _FdHolder:
     # used the old fd after being closed, we might end up doing something to
     # another unrelated fd that happened to get assigned the same integer
     # value. By throwing away the integer value immediately, it becomes
-    # impossible to make this mistake - we'll just get an EBADF.
+    # impossible to make this mistake – we'll just get an EBADF.
     #
     # (This trick was copied from the stdlib socket module.)
     fd: int

@@ -424,7 +424,7 @@ async def test_can_survive_unnotified_close() -> None:
     # do that has been pulled out from under our feet... so test that we can
     # survive this.
     a, b = stdlib_socket.socketpair()
-    with a, b, a.dup() as a2:
+    with a, b, a.dup() as a2:  # noqa: F841
         a.setblocking(False)
         b.setblocking(False)
         fill_socket(a)
@@ -439,7 +439,7 @@ async def test_can_survive_unnotified_close() -> None:
     # arriving, not a cancellation, so the operation gets re-issued from
     # handle_io context rather than abort context.
     a, b = stdlib_socket.socketpair()
-    with a, b, a.dup() as a2:
+    with a, b, a.dup() as a2:  # noqa: F841
         print(f"a={a.fileno()}, b={b.fileno()}, a2={a2.fileno()}")
         a.setblocking(False)
         b.setblocking(False)

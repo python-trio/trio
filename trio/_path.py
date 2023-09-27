@@ -239,7 +239,7 @@ class Path(metaclass=AsyncAutoWrapperType):
         return [*super().__dir__(), *self._forward]
 
     def __repr__(self) -> str:
-        return f"trio.Path({str(self)!r})"
+        return f"trio.Path({repr(str(self))})"
 
     def __fspath__(self) -> str:
         return os.fspath(self._wrapped)
