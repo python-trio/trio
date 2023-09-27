@@ -141,7 +141,7 @@ def run_ruff(file: File, source: str) -> tuple[bool, str]:
             "-m",
             "ruff",
             "--fix-only",
-            "--output-format=text",
+            "--format=text",
             "--stdin-filename",
             file.path,
             "-",
