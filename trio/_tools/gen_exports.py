@@ -145,8 +145,7 @@ def run_ruff(file: File, source: str) -> tuple[bool, str]:
                 "-m",
                 "ruff",
                 "--fix-only",
-                "--format",
-                "text",
+                "--output-format=text",
                 "--stdin-filename",
                 file.path,
                 "-",
@@ -159,6 +158,8 @@ def run_ruff(file: File, source: str) -> tuple[bool, str]:
     except subprocess.CalledProcessError as exc:
         error = traceback.format_exception(type(exc), exc, exc.__traceback__)
         return (False, f"Failed to run ruff!\n{error}")
+    if result.stderr:
+        return False, f"Ruff: {result.stderr}"
     return (True, result.stdout)
 
 

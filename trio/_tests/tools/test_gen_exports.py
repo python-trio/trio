@@ -149,11 +149,31 @@ def test_run_ruff(tmp_path) -> None:
 
     file = File(tmp_path / "module.py", "module")
 
-    success, _ = run_ruff(file, "class not valid code ><")
+    success, response = run_ruff(file, "class not valid code ><")
     assert not success
+    assert response.startswith("error: Failed to parse")
 
-    success, _ = run_ruff(file, "import waffle\n;import trio")
-    assert not success
+    success, response = run_ruff(
+        file,
+        '''def combine_and(data: list[str]) -> str:
+    """Join values of text, and have 'and' with the last one properly."""
+    if len(data) >= 2:
+        data[-1] = 'and ' + data[-1]
+    if len(data) > 2:
+        return ', '.join(data)
+    return ' '.join(data)''',
+    )
+    assert success
+    assert (
+        response
+        == '''def combine_and(data: list[str]) -> str:
+    """Join values of text, and have 'and' with the last one properly."""
+    if len(data) >= 2:
+        data[-1] = 'and ' + data[-1]
+    if len(data) > 2:
+        return ', '.join(data)
+    return ' '.join(data)'''
+    )
 
 
 @skip_lints
