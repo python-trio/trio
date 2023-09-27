@@ -103,15 +103,13 @@ def create_passthrough_args(funcdef: ast.FunctionDef | ast.AsyncFunctionDef) -> 
     return "({})".format(", ".join(call_args))
 
 
-def run_linters(file: File, source: str) -> str:
-    """Run isort and black on the specified file, returning the new source.
+def run_black(file: File, source: str) -> tuple[bool, str]:
+    """Run black on the specified file, returning tuple of success and result string.
 
     :raises ImportError: If black is not installed
-    :raises SystemExit: If either failed.
-    """
+    :raises SystemExit: If black failed."""
     # imported to check that `subprocess` calls will succeed
     import black  # noqa: F401
-    import ruff  # noqa: F401
 
     # Black has an undocumented API, but it doesn't easily allow reading configuration from
     # pyproject.toml, and simultaneously pass in / receive the code as a string.
@@ -126,11 +124,21 @@ def run_linters(file: File, source: str) -> str:
             check=True,
         )
     except subprocess.CalledProcessError as exc:
-        print("Failed to run black!")
-        traceback.print_exception(type(exc), exc, exc.__traceback__)
-        sys.exit(1)
+        error = traceback.format_exception(exc)
+        return (False, f"Failed to run black!\n{error}")
+    return (True, result.stdout)
+
+
+def run_ruff(file: File, source: str) -> tuple[bool, str]:
+    """Run ruff on the specified file, returning tuple of success and result string.
+
+    :raises ImportError: If ruff is not installed
+    :raises SystemExit: If ruff failed."""
+    # imported to check that `subprocess` calls will succeed
+    import ruff  # noqa: F401
+
     try:
-        ruff_res = subprocess.run(
+        result = subprocess.run(
             # "-" as a filename = use stdin, return on stdout.
             [
                 sys.executable,
@@ -143,16 +151,35 @@ def run_linters(file: File, source: str) -> str:
                 file.path,
                 "-",
             ],
-            input=result.stdout,
+            input=source,
             capture_output=True,
             encoding="utf8",
             check=True,
         )
     except subprocess.CalledProcessError as exc:
-        print("Failed to run ruff!")
-        traceback.print_exception(type(exc), exc, exc.__traceback__)
+        error = traceback.format_exception(exc)
+        return (False, f"Failed to run ruff!\n{error}")
+    return (True, result.stdout)
+
+
+def run_linters(file: File, source: str) -> str:
+    """Run isort and black on the specified file, returning the new source.
+
+    :raises ImportError: If either is not installed
+    :raises SystemExit: If either failed.
+    """
+
+    success, response = run_black(file, source)
+    if not success:
+        print(response)
         sys.exit(1)
-    return ruff_res.stdout
+
+    success, response = run_ruff(file, response)
+    if not success:
+        print(response)
+        sys.exit(1)
+
+    return response
 
 
 def gen_public_wrappers_source(file: File) -> str:
