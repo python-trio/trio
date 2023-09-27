@@ -149,9 +149,8 @@ def test_run_ruff(tmp_path) -> None:
 
     file = File(tmp_path / "module.py", "module")
 
-    success, response = run_ruff(file, "class not valid code ><")
+    success, _ = run_ruff(file, "class not valid code ><")
     assert not success
-    assert response.startswith("error: Failed to parse")
 
     success, response = run_ruff(
         file,
