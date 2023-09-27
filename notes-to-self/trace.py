@@ -12,7 +12,7 @@ import trio
 # Trace format docs: https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview#
 #
 # Things learned so far:
-# - I don't understand how the ph="s"/ph="f" flow events work – I think
+# - I don't understand how the ph="s"/ph="f" flow events work - I think
 #   they're supposed to show up as arrows, and I'm emitting them between tasks
 #   that wake each other up, but they're not showing up.
 # - I think writing out json synchronously from each event is creating gaps in

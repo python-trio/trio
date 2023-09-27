@@ -7,7 +7,7 @@ class TrioInternalError(Exception):
 
     This should never happen! If you get this error, please file a bug.
 
-    Unfortunately, if you get this error it also means that all bets are off –
+    Unfortunately, if you get this error it also means that all bets are off -
     Trio doesn't know what is going on and its normal invariants may be void.
     (For example, we might have "lost track" of a task. Or lost track of all
     tasks.) Again, though, this shouldn't happen.
@@ -80,9 +80,9 @@ class ClosedResourceError(Exception):
 
     Note that "closed" here means that *your* code closed the resource,
     generally by calling a method with a name like ``close`` or ``aclose``, or
-    by exiting a context manager. If a problem arises elsewhere – for example,
+    by exiting a context manager. If a problem arises elsewhere - for example,
     because of a network failure, or because a remote peer closed their end of
-    a connection – then that should be indicated by a different exception
+    a connection - then that should be indicated by a different exception
     class, like :exc:`BrokenResourceError` or an :exc:`OSError` subclass.
 
     """
@@ -95,7 +95,7 @@ class BrokenResourceError(Exception):
     For example, you might get this if you try to send data on a stream where
     the remote side has already closed the connection.
 
-    You *don't* get this error if *you* closed the resource – in that case you
+    You *don't* get this error if *you* closed the resource - in that case you
     get :class:`ClosedResourceError`.
 
     This exception's ``__cause__`` attribute will often contain more

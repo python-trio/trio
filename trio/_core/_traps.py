@@ -130,7 +130,7 @@ async def wait_task_rescheduled(abort_func: Callable[[RaiseCancelT], Abort]) -> 
        cancelling the operation, but for some reason isn't able to report that
        right away. (Example: on Windows, it's possible to request that an
        async ("overlapped") I/O operation be cancelled, but this request is
-       *also* asynchronous – you don't find out until later whether the
+       *also* asynchronous - you don't find out until later whether the
        operation was actually cancelled or not.)  To report a delayed
        cancellation, then you should reschedule the task yourself, and call
        the ``raise_cancel`` callback passed to ``abort_func`` to raise a
@@ -229,12 +229,12 @@ async def temporarily_detach_coroutine_object(
     The Trio :class:`Task` will continue to exist, but will be suspended until
     you use :func:`reattach_detached_coroutine_object` to resume it. In the
     mean time, you can use another coroutine runner to schedule the coroutine
-    object. In fact, you have to – the function doesn't return until the
+    object. In fact, you have to - the function doesn't return until the
     coroutine is advanced from outside.
 
     Note that you'll need to save the current :class:`Task` object to later
     resume; you can retrieve it with :func:`current_task`. You can also use
-    this :class:`Task` object to retrieve the coroutine object – see
+    this :class:`Task` object to retrieve the coroutine object - see
     :data:`Task.coro`.
 
     Args:
@@ -274,7 +274,7 @@ async def reattach_detached_coroutine_object(task: Task, yield_value: object) ->
           runner.
 
     """
-    # This is a kind of crude check – in particular, it can fail if the
+    # This is a kind of crude check - in particular, it can fail if the
     # passed-in task is where the coroutine *runner* is running. But this is
     # an experts-only interface, and there's no easy way to do a more accurate
     # check, so I guess that's OK.

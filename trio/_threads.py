@@ -130,7 +130,7 @@ async def to_thread_run_sync(  # type: ignore[misc]
 
     * If ``cancellable=True``, then this function immediately raises
       `~trio.Cancelled`. In this case **the thread keeps running in
-      background** – we just abandon it to do whatever it's going to do, and
+      background** - we just abandon it to do whatever it's going to do, and
       silently discard any return value or errors that it raises. Only use
       this if you know that the operation is safe and side-effect free. (For
       example: :func:`trio.socket.getaddrinfo` uses a thread with
@@ -138,7 +138,7 @@ async def to_thread_run_sync(  # type: ignore[misc]
       stray hostname lookup keeps running in the background.)
 
       The ``limiter`` is only released after the thread has *actually*
-      finished – which in the case of cancellation may be some time after this
+      finished - which in the case of cancellation may be some time after this
       function has returned. If :func:`trio.run` finishes before the thread
       does, then the limiter release method will never be called at all.
 
@@ -167,7 +167,7 @@ async def to_thread_run_sync(  # type: ignore[misc]
         limiter = current_default_thread_limiter()
 
     # Holds a reference to the task that's blocked in this function waiting
-    # for the result – or None if this function was cancelled and we should
+    # for the result - or None if this function was cancelled and we should
     # discard the result.
     task_register: list[trio.lowlevel.Task | None] = [trio.lowlevel.current_task()]
     name = f"trio.to_thread.run_sync-{next(_thread_counter)}"

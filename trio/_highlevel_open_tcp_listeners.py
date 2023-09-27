@@ -70,7 +70,7 @@ async def open_tcp_listeners(
           binding to multiple IP addresses, then each IP address will get its
           own random port, and the returned listeners will probably be
           listening on different ports. In particular, this will happen if you
-          use ``host=None`` – which is the default – because in this case
+          use ``host=None`` - which is the default - because in this case
           :func:`open_tcp_listeners` will bind to both the IPv4 wildcard
           address (``0.0.0.0``) and also the IPv6 wildcard address (``::``).
 
@@ -177,12 +177,12 @@ async def serve_tcp(
     running ``handler(stream)``.
 
     This is a thin convenience wrapper around :func:`open_tcp_listeners` and
-    :func:`serve_listeners` – see them for full details.
+    :func:`serve_listeners` - see them for full details.
 
     .. warning::
 
        If ``handler`` raises an exception, then this function doesn't do
-       anything special to catch it – so by default the exception will
+       anything special to catch it - so by default the exception will
        propagate out and crash your server. If you don't want this, then catch
        exceptions inside your ``handler``, or use a ``handler_nursery`` object
        that responds to exceptions in some other way.

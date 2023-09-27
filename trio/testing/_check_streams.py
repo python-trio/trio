@@ -416,7 +416,7 @@ async def check_two_way_stream(
     :class:`~trio.abc.Stream` interface.
 
     This function tests a *superset* of what :func:`check_one_way_stream`
-    checks – if you call this, then you don't need to also call
+    checks - if you call this, then you don't need to also call
     :func:`check_one_way_stream`.
 
     """
@@ -494,7 +494,7 @@ async def check_half_closeable_stream(
     :class:`~trio.abc.HalfCloseableStream` interface.
 
     This function tests a *superset* of what :func:`check_two_way_stream`
-    checks – if you call this, then you don't need to also call
+    checks - if you call this, then you don't need to also call
     :func:`check_two_way_stream`.
 
     """

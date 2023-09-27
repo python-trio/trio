@@ -174,7 +174,7 @@ class _EpollStatistics:
 # all-zeros. So we could still end up with an fd hanging around in the
 # interest set for a long time, even if we're not using it.
 #
-# Fortunately, this isn't a problem, because it's only a weak reference – if
+# Fortunately, this isn't a problem, because it's only a weak reference - if
 # we have a stale fd that's been silenced by EPOLLONESHOT, then it wastes a
 # tiny bit of kernel memory remembering this fd that can never be revived, but
 # when the underlying file object is eventually closed, that memory will be

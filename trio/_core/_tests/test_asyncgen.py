@@ -182,7 +182,7 @@ def test_interdependent_asyncgen_cleanup_order() -> None:
         assert record == []
 
     _core.run(async_main)
-    assert record == ["innermost"] + list(range(100))
+    assert record == ["innermost", *list(range(100))]
 
 
 @restore_unraisablehook()

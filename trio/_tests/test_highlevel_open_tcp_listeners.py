@@ -41,7 +41,7 @@ async def test_open_tcp_listeners_basic():
     assert await c1.receive_some(1) == b"x"
     assert await c2.receive_some(1) == b"x"
 
-    for resource in [c1, c2, s1, s2] + listeners:
+    for resource in [c1, c2, s1, s2, *listeners]:
         await resource.aclose()
 
 
