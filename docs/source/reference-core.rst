@@ -1174,7 +1174,7 @@ the previous version, and then exits cleanly. The only change is the
 addition of ``async with`` blocks inside the producer and consumer:
 
 .. literalinclude:: reference-core/channels-shutdown.py
-   :emphasize-lines: 11,17
+   :emphasize-lines: 12,18
 
 The really important thing here is the producer's ``async with`` .
 When the producer exits, this closes the ``send_channel``, and that
