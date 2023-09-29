@@ -169,7 +169,7 @@ def run_linters(file: File, source: str) -> str:
         sys.exit(1)
 
     success, response = run_ruff(file, response)
-    if not success:
+    if not success:  # pragma: no cover  # Test for run_ruff should catch
         print(response)
         sys.exit(1)
 
