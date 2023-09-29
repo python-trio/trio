@@ -12,9 +12,8 @@ if TYPE_CHECKING:
     import select
 
     from .. import _core
-    from ._traps import Abort, RaiseCancelT
     from .._file_io import _HasFileNo
-
+    from ._traps import Abort, RaiseCancelT
 import sys
 
 assert not TYPE_CHECKING or sys.platform == "darwin"
