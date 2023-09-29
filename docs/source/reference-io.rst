@@ -504,13 +504,6 @@ Socket objects
    * :meth:`~socket.socket.set_inheritable`
    * :meth:`~socket.socket.get_inheritable`
 
-The internal SocketType
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-.. autoclass:: _SocketType
-..
-    TODO: adding `:members:` here gives error due to overload+_wraps on `sendto`
-    TODO: rewrite ... all of the above when fixing _SocketType vs SocketType
-
 
 .. currentmodule:: trio
 

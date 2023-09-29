@@ -306,7 +306,10 @@ from ._instrumentation import Instrument
 """
 
 IMPORTS_EPOLL = """\
-from socket import socket
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .._file_io import _HasFileNo
 """
 
 IMPORTS_KQUEUE = """\
@@ -314,11 +317,11 @@ from typing import Callable, ContextManager, TYPE_CHECKING
 
 if TYPE_CHECKING:
     import select
-    from socket import socket
 
     from ._traps import Abort, RaiseCancelT
 
     from .. import _core
+    from .._file_io import _HasFileNo
 
 """
 
