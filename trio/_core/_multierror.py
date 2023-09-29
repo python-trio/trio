@@ -87,7 +87,7 @@ def _filter_impl(
             new_exceptions = []
             changed = False
             for child_exc in exc.exceptions:
-                new_child_exc = filter_tree(  # noqa: F821  # Recursive function
+                new_child_exc = filter_tree(  # noqa: F821  # Deleted in local scope below, causes ruff to think it's not defined
                     child_exc, preserved
                 )
                 if new_child_exc is not child_exc:
@@ -116,7 +116,7 @@ def _filter_impl(
         new_tb = concat_tb(tb, exc.__traceback__)
         if isinstance(exc, MultiError):
             for child_exc in exc.exceptions:
-                push_tb_down(  # noqa: F821  # Recursive function
+                push_tb_down(  # noqa: F821  # Deleted in local scope below, causes ruff to think it's not defined
                     new_tb, child_exc, preserved
                 )
             exc.__traceback__ = None
