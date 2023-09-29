@@ -60,7 +60,7 @@
     ],
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 631,
+      "withKnownType": 630,
       "withUnknownType": 0
     },
     "ignoreUnknownTypesFromImports": true,
@@ -96,7 +96,7 @@
     ],
     "otherSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 680,
+      "withKnownType": 676,
       "withUnknownType": 0
     },
     "packageName": "trio"

@@ -192,11 +192,12 @@ async def serve_tcp(
     connect to it to check that it's working properly, you can use something
     like::
 
+        from trio import SocketListener, SocketStream
         from trio.testing import open_stream_to_socket_listener
 
         async with trio.open_nursery() as nursery:
-            listeners = await nursery.start(serve_tcp, handler, 0)
-            client_stream = await open_stream_to_socket_listener(listeners[0])
+            listeners: list[SocketListener] = await nursery.start(serve_tcp, handler, 0)
+            client_stream: SocketStream = await open_stream_to_socket_listener(listeners[0])
 
             # Then send and receive data on 'client_stream', for example:
             await client_stream.send_all(b"GET / HTTP/1.0\\r\\n\\r\\n")

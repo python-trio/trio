@@ -1345,14 +1345,14 @@ class Task(metaclass=NoPublicConstructor):
                 # cannot extract the generator directly, see https://github.com/python/cpython/issues/76991
                 # we can however use the gc to look through the object
                 for referent in gc.get_referents(coro):
-                    if hasattr(referent, "ag_frame"):
+                    if hasattr(referent, "ag_frame"):  # pragma: no branch
                         yield referent.ag_frame, referent.ag_frame.f_lineno
                         coro = referent.ag_await
                         break
-                else:
+                else:  # pragma: no cover
                     # either cpython changed or we are running on an alternative python implementation
                     return
-            else:
+            else:  # pragma: no cover
                 return
 
     ################

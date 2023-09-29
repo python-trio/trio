@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import builtins
 import errno
 import ipaddress
 import os
@@ -22,7 +23,9 @@ if TYPE_CHECKING:
     from socket import AddressFamily, SocketKind
     from types import TracebackType
 
-IPAddress = Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
+    from typing_extensions import TypeAlias
+
+IPAddress: TypeAlias = Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
 
 
 def _family_for(ip: IPAddress) -> int:
@@ -176,7 +179,9 @@ class FakeNet:
 
 @final
 class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
-    def __init__(self, fake_net: FakeNet, family: int, type: int, proto: int):
+    def __init__(
+        self, fake_net: FakeNet, family: AddressFamily, type: SocketKind, proto: int
+    ):
         self._fake_net = fake_net
 
         if not family:
@@ -189,9 +194,9 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         if type != trio.socket.SOCK_DGRAM:
             raise NotImplementedError(f"FakeNet doesn't (yet) support type={type}")
 
-        self.family = family
-        self.type = type
-        self.proto = proto
+        self._family = family
+        self._type = type
+        self._proto = proto
 
         self._closed = False
 
@@ -201,6 +206,18 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
 
         # This is the source-of-truth for what port etc. this socket is bound to
         self._binding: Optional[UDPBinding] = None
+
+    @property
+    def type(self) -> SocketKind:
+        return self._type
+
+    @property
+    def family(self) -> AddressFamily:
+        return self._family
+
+    @property
+    def proto(self) -> int:
+        return self._proto
 
     def _check_closed(self):
         if self._closed:
@@ -364,7 +381,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
 
     def __exit__(
         self,
-        exc_type: type[BaseException] | None,
+        exc_type: builtins.type[BaseException] | None,
         exc_value: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:

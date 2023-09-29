@@ -15,7 +15,7 @@ from .abc import HalfCloseableStream, Listener
 if TYPE_CHECKING:
     from typing_extensions import Buffer
 
-    from ._socket import _SocketType as SocketType
+    from ._socket import SocketType
 
 # XX TODO: this number was picked arbitrarily. We should do experiments to
 # tune it. (Or make it dynamic -- one idea is to start small and increase it
