@@ -152,27 +152,17 @@ def test_run_ruff(tmp_path) -> None:
     success, _ = run_ruff(file, "class not valid code ><")
     assert not success
 
-    success, response = run_ruff(
-        file,
-        '''def combine_and(data: list[str]) -> str:
-    """Join values of text, and have 'and' with the last one properly."""
-    if len(data) >= 2:
-        data[-1] = 'and ' + data[-1]
-    if len(data) > 2:
-        return ', '.join(data)
-    return ' '.join(data)''',
-    )
-    assert success
-    assert (
-        response
-        == '''def combine_and(data: list[str]) -> str:
+    test_function = '''def combine_and(data: list[str]) -> str:
     """Join values of text, and have 'and' with the last one properly."""
     if len(data) >= 2:
         data[-1] = 'and ' + data[-1]
     if len(data) > 2:
         return ', '.join(data)
     return ' '.join(data)'''
-    )
+
+    success, response = run_ruff(file, test_function)
+    assert success
+    assert response == test_function
 
 
 @skip_lints
