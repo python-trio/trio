@@ -23,6 +23,7 @@ from typing import (
 import idna as _idna
 
 import trio
+from trio._util import wraps as _wraps
 
 from . import _core
 
@@ -36,23 +37,8 @@ if TYPE_CHECKING:
 
     P = ParamSpec("P")
 
+
 T = TypeVar("T")
-
-# work around a pyright error
-if TYPE_CHECKING:
-    from typing import Sequence
-
-    Fn = TypeVar("Fn", bound=Callable[..., object])
-
-    def _wraps(
-        wrapped: Callable[..., object],
-        assigned: Sequence[str] = ...,
-        updated: Sequence[str] = ...,
-    ) -> Callable[[Fn], Fn]:
-        ...
-
-else:
-    from functools import wraps as _wraps
 
 # must use old-style typing because it's evaluated at runtime
 Address: TypeAlias = Union[

@@ -22,7 +22,7 @@ from typing import (
 
 import trio
 from trio._file_io import AsyncIOWrapper as _AsyncIOWrapper
-from trio._util import Final, async_wraps
+from trio._util import Final, async_wraps, wraps
 
 if TYPE_CHECKING:
     from _typeshed import (
@@ -35,22 +35,6 @@ if TYPE_CHECKING:
     from typing_extensions import Concatenate, Literal, ParamSpec, TypeAlias
 
     P = ParamSpec("P")
-
-# work around a pyright error
-if TYPE_CHECKING:
-    from typing import Sequence
-
-    Fn = TypeVar("Fn", bound=Callable[..., object])
-
-    def wraps(
-        wrapped: Callable[..., object],
-        assigned: Sequence[str] = ...,
-        updated: Sequence[str] = ...,
-    ) -> Callable[[Fn], Fn]:
-        ...
-
-else:
-    from functools import wraps
 
 T = TypeVar("T")
 StrPath: TypeAlias = Union[str, "os.PathLike[str]"]  # Only subscriptable in 3.9+
