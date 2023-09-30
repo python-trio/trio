@@ -72,7 +72,7 @@ if TYPE_CHECKING:
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: Final = 1000
 
 # Passed as a sentinel
-_NO_SEND: Final = cast("Outcome[Any]", object())
+_NO_SEND: Final["Outcome[Any]"] = cast("Outcome[Any]", object())
 
 FnT = TypeVar("FnT", bound="Callable[..., Any]")
 StatusT = TypeVar("StatusT")

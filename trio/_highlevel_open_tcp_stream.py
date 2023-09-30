@@ -288,7 +288,7 @@ async def open_tcp_stream(
     reorder_for_rfc_6555_section_5_4(targets)
 
     # This list records all the connection failures that we ignored.
-    oserrors = []
+    oserrors: list[OSError] = []
 
     # Keeps track of the socket that we're going to complete with,
     # need to make sure this isn't automatically closed
