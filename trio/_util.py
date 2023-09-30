@@ -403,4 +403,4 @@ if TYPE_CHECKING:
     ) -> Callable[[Fn], Fn]:
         ...
 else:
-    from functools import wraps
+    from functools import wraps as wraps
