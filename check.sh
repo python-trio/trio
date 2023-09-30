@@ -98,6 +98,7 @@ fi
 
 codespell || EXIT_STATUS=$?
 
+echo "::group::Pyright interface tests"
 python trio/_tests/check_type_completeness.py --overwrite-file || EXIT_STATUS=$?
 if git status --porcelain trio/_tests/verify_types*.json | grep -q "M"; then
     echo "* Type completeness changed, please update!" >> $GITHUB_STEP_SUMMARY
@@ -105,6 +106,9 @@ if git status --porcelain trio/_tests/verify_types*.json | grep -q "M"; then
     git --no-pager diff --color trio/_tests/verify_types*.json
     EXIT_STATUS=1
 fi
+
+pyright trio/_tests/type_tests || EXIT_STATUS=$?
+echo "::endgroup::"
 
 # Finally, leave a really clear warning of any issues and exit
 if [ $EXIT_STATUS -ne 0 ]; then
