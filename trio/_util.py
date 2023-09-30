@@ -391,16 +391,14 @@ def name_asyncgen(agen: AsyncGeneratorType[object, t.NoReturn]) -> str:
     return f"{module}.{qualname}"
 
 # work around a pyright error
-if TYPE_CHECKING:
-    from typing import Sequence
-
-    Fn = TypeVar("Fn", bound=Callable[..., object])
+if t.TYPE_CHECKING:
+    Fn = TypeVar("Fn", bound=t.Callable[..., object])
 
     def wraps(
-        wrapped: Callable[..., object],
-        assigned: Sequence[str] = ...,
-        updated: Sequence[str] = ...,
-    ) -> Callable[[Fn], Fn]:
+        wrapped: t.Callable[..., object],
+        assigned: t.Sequence[str] = ...,
+        updated: t.Sequence[str] = ...,
+    ) -> t.Callable[[Fn], Fn]:
         ...
 else:
-    from functools import wraps as wraps
+    from functools import wraps  # noqa: F401  # this is re-exported
