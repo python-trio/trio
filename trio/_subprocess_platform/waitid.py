@@ -43,7 +43,7 @@ typedef struct siginfo_s {
 int waitid(int idtype, int id, siginfo_t* result, int options);
 """
     )
-    waitid_cffi = waitid_ffi.dlopen(None).waitid
+    waitid_cffi = waitid_ffi.dlopen(None).waitid  # type: ignore[attr-defined]
 
     def sync_wait_reapable(pid: int) -> None:
         P_PID = 1

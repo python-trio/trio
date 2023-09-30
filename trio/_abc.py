@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
     # both of these introduce circular imports if outside a TYPE_CHECKING guard
-    from ._socket import _SocketType
+    from ._socket import SocketType
     from .lowlevel import Task
 
 
@@ -211,10 +211,10 @@ class SocketFactory(metaclass=ABCMeta):
     @abstractmethod
     def socket(
         self,
-        family: socket.AddressFamily | int | None = None,
-        type: socket.SocketKind | int | None = None,
-        proto: int | None = None,
-    ) -> _SocketType:
+        family: socket.AddressFamily | int = socket.AF_INET,
+        type: socket.SocketKind | int = socket.SOCK_STREAM,
+        proto: int = 0,
+    ) -> SocketType:
         """Create and return a socket object.
 
         Your socket object must inherit from :class:`trio.socket.SocketType`,

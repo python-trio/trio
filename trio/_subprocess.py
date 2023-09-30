@@ -23,7 +23,7 @@ from ._subprocess_platform import (
     wait_child_exiting,
 )
 from ._sync import Lock
-from ._util import NoPublicConstructor
+from ._util import NoPublicConstructor, final
 
 if TYPE_CHECKING:
     from typing_extensions import TypeAlias
@@ -49,6 +49,8 @@ else:
         from os import pidfd_open
     except ImportError:
         if sys.platform == "linux":
+            # This workaround is only needed on 3.8 and pypy
+            assert sys.version_info < (3, 9) or sys.implementation.name != "cpython"
             import ctypes
 
             _cdll_for_pidfd_open = ctypes.CDLL(None, use_errno=True)
@@ -69,7 +71,7 @@ else:
 
             def pidfd_open(fd: int, flags: int) -> int:
                 result = _cdll_for_pidfd_open.syscall(__NR_pidfd_open, fd, flags)
-                if result < 0:
+                if result < 0:  # pragma: no cover
                     err = ctypes.get_errno()
                     raise OSError(err, os.strerror(err))
                 return result
@@ -85,6 +87,7 @@ class HasFileno(Protocol):
         ...
 
 
+@final
 class Process(AsyncResource, metaclass=NoPublicConstructor):
     r"""A child process. Like :class:`subprocess.Popen`, but async.
 

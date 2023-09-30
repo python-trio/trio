@@ -22,6 +22,7 @@ codespell
 # https://github.com/python-trio/trio/pull/654#issuecomment-420518745
 mypy-extensions; implementation_name == "cpython"
 typing-extensions
+types-cffi; implementation_name == "cpython"
 
 # Trio's own dependencies
 cffi; os_name == "nt"

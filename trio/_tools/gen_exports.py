@@ -16,11 +16,14 @@ from pathlib import Path
 from textwrap import indent
 from typing import TYPE_CHECKING
 
+import attr
+
 if TYPE_CHECKING:
     from typing_extensions import TypeGuard
 
+# keep these imports up to date with conditional imports in test_gen_exports
+# isort: split
 import astor
-import attr
 import isort.api
 import isort.exceptions
 
@@ -105,8 +108,12 @@ def create_passthrough_args(funcdef: ast.FunctionDef | ast.AsyncFunctionDef) -> 
 def run_linters(file: File, source: str) -> str:
     """Run isort and black on the specified file, returning the new source.
 
-    :raises ValueError: If either failed.
+    :raises ImportError: If black is not installed
+    :raises SystemExit: If either failed.
     """
+    # imported to check that `subprocess` calls to black will succeed
+    import black  # noqa: F401
+
     # Black has an undocumented API, but it doesn't easily allow reading configuration from
     # pyproject.toml, and simultaneously pass in / receive the code as a string.
     # https://github.com/psf/black/issues/779
@@ -260,7 +267,12 @@ def main() -> None:  # pragma: no cover
             "runner.instruments",
             imports=IMPORTS_INSTRUMENT,
         ),
-        File(core / "_io_windows.py", "runner.io_manager", platform="win32"),
+        File(
+            core / "_io_windows.py",
+            "runner.io_manager",
+            platform="win32",
+            imports=IMPORTS_WINDOWS,
+        ),
         File(
             core / "_io_epoll.py",
             "runner.io_manager",
@@ -294,7 +306,10 @@ from ._instrumentation import Instrument
 """
 
 IMPORTS_EPOLL = """\
-from socket import socket
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .._file_io import _HasFileNo
 """
 
 IMPORTS_KQUEUE = """\
@@ -302,12 +317,23 @@ from typing import Callable, ContextManager, TYPE_CHECKING
 
 if TYPE_CHECKING:
     import select
-    from socket import socket
 
     from ._traps import Abort, RaiseCancelT
 
     from .. import _core
+    from .._file_io import _HasFileNo
 
+"""
+
+IMPORTS_WINDOWS = """\
+from typing import TYPE_CHECKING, ContextManager
+
+if TYPE_CHECKING:
+    from .._file_io import _HasFileNo
+    from ._windows_cffi import Handle, CData
+    from typing_extensions import Buffer
+
+    from ._unbounded_queue import UnboundedQueue
 """
 
 
