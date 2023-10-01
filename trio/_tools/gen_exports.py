@@ -103,10 +103,16 @@ def create_passthrough_args(funcdef: ast.FunctionDef | ast.AsyncFunctionDef) -> 
 
 
 def run_black(file: File, source: str) -> tuple[bool, str]:
-    """Run black on the specified file, returning tuple of success and result string.
+    """Run black on the specified file.
 
-    :raises ImportError: If black is not installed
-    :raises SystemExit: If black failed."""
+    Returns:
+      Tuple of success and result string.
+      ex.:
+        (False, "Failed to run black!\nerror: cannot format ...")
+        (True, "<formatted source>")
+
+    Raises:
+      ImportError: If black is not installed."""
     # imported to check that `subprocess` calls will succeed
     import black  # noqa: F401
 
@@ -127,10 +133,16 @@ def run_black(file: File, source: str) -> tuple[bool, str]:
 
 
 def run_ruff(file: File, source: str) -> tuple[bool, str]:
-    """Run ruff on the specified file, returning tuple of success and result string.
+    """Run ruff on the specified file.
 
-    :raises ImportError: If ruff is not installed
-    :raises SystemExit: If ruff failed."""
+    Returns:
+      Tuple of success and result string.
+      ex.:
+        (False, "Failed to run ruff!\nerror: Failed to parse ...")
+        (True, "<formatted source>")
+
+    Raises:
+      ImportError: If ruff is not installed."""
     # imported to check that `subprocess` calls will succeed
     import ruff  # noqa: F401
 
@@ -157,10 +169,14 @@ def run_ruff(file: File, source: str) -> tuple[bool, str]:
 
 
 def run_linters(file: File, source: str) -> str:
-    """Run isort and black on the specified file, returning the new source.
+    """Format the specified file using black and ruff.
 
-    :raises ImportError: If either is not installed
-    :raises SystemExit: If either failed.
+    Returns:
+      Formatted source code.
+
+    Raises:
+      ImportError: If either is not installed.
+      SystemExit: If either failed.
     """
 
     success, response = run_black(file, source)
