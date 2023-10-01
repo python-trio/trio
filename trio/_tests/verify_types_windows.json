@@ -100,7 +100,7 @@
     ],
     "otherSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 676,
+      "withKnownType": 677,
       "withUnknownType": 0
     },
     "packageName": "trio"
