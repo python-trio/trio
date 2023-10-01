@@ -112,7 +112,8 @@ def run_black(file: File, source: str) -> tuple[bool, str]:
         (True, "<formatted source>")
 
     Raises:
-      ImportError: If black is not installed."""
+      ImportError: If black is not installed.
+    """
     # imported to check that `subprocess` calls will succeed
     import black  # noqa: F401
 
@@ -142,7 +143,8 @@ def run_ruff(file: File, source: str) -> tuple[bool, str]:
         (True, "<formatted source>")
 
     Raises:
-      ImportError: If ruff is not installed."""
+      ImportError: If ruff is not installed.
+    """
     # imported to check that `subprocess` calls will succeed
     import ruff  # noqa: F401
 
