@@ -28,6 +28,7 @@ select = [
   "W",  # Warning
   "I",  # isort
   "B",  # flake8-bugbear
+  "YTT",  # flake8-2020
 ]
 extend-ignore = [
     'F403',  # undefined-local-with-import-star
