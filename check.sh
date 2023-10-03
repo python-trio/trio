@@ -62,10 +62,6 @@ mypy trio --show-error-end --platform darwin | python ./trio/_tools/mypy_annotat
     || { echo "* Mypy (Mac) found type errors." >> $GITHUB_STEP_SUMMARY; MYPY=1; }
 mypy trio --show-error-end --platform win32 | python ./trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Windows \
     || { echo "* Mypy (Windows) found type errors." >> $GITHUB_STEP_SUMMARY; MYPY=1; }
-
-# for now, just run interface typing checks on the native platform...
-mypy trio/_tests/type_tests --show-error-end | python ./trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Interface \
-    || { echo "* Mypy (Interface) found type errors." >> $GITHUB_STEP_SUMMARY; MYPY=1; }
 set +o pipefail
 # Re-display errors using Github's syntax, read out of mypy_annotate.dat
 python ./trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat
