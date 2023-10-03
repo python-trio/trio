@@ -27,6 +27,7 @@ select = [
   "F",  # pyflakes
   "I",  # isort
   "YTT",  # flake8-2020
+  "ASYNC",  # flake8-async
 ]
 extend-ignore = [
     'F403',  # undefined-local-with-import-star

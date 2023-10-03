@@ -6,7 +6,7 @@ import trio
 async def loopy():
     try:
         while True:
-            time.sleep(0.01)
+            time.sleep(0.01)  # noqa: ASYNC101  # OS sleep so no CPU fire
             await trio.sleep(0)
     except KeyboardInterrupt:
         print("KI!")

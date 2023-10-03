@@ -331,7 +331,7 @@ async def test_run_in_worker_thread_cancellation():
     # Put the thread out of its misery:
     q.put(None)
     while register[0] != "finished":
-        time.sleep(0.01)
+        time.sleep(0.01)  # noqa: ASYNC101  # Need to wait for OS thread
 
     # This one can't be cancelled
     record = []
