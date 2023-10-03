@@ -1,5 +1,7 @@
 # How to manually call the SIGINT handler on Windows without using raise() or
 # similar.
+import os
+import sys
 
 if os.name == "nt":
     import cffi

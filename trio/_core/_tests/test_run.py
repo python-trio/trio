@@ -2015,7 +2015,7 @@ async def test_Nursery_init() -> None:
 async def test_Nursery_private_init() -> None:
     # context manager creation should not raise
     async with _core.open_nursery() as nursery:
-        assert False == nursery._closed
+        assert not nursery._closed
 
 
 def test_Nursery_subclass() -> None:

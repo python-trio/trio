@@ -120,9 +120,6 @@ else
     INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
     cp ../pyproject.toml $INSTALLDIR
 
-    # TODO: remove this once we have a py.typed file
-    touch "$INSTALLDIR/py.typed"
-
     # get mypy tests a nice cache
     MYPYPATH=".." mypy --config-file= --cache-dir=./.mypy_cache -c "import trio" >/dev/null 2>/dev/null || true
 

@@ -329,11 +329,11 @@ class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
         # all the sockets that were created did in fact go in there.
         assert self.socket_count == len(self.sockets)
 
-        for ip, socket in self.sockets.items():
+        for ip, socket_ in self.sockets.items():
             assert ip in self.ip_dict
-            if socket is not succeeded:
-                assert socket.closed
-            assert socket.port == self.port
+            if socket_ is not succeeded:
+                assert socket_.closed
+            assert socket_.port == self.port
 
 
 async def run_scenario(

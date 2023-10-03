@@ -7,12 +7,11 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import trio
 from sphinx.addnodes import Element, pending_xref
 from sphinx.application import Sphinx
 from sphinx.environment import BuildEnvironment
 from sphinx.errors import NoUri
-
-import trio
 
 
 def identify_typevars(trio_folder: Path) -> None:

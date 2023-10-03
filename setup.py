@@ -1,5 +1,7 @@
 from setuptools import find_packages, setup
 
+__version__ = "0.0.0"  # Overwritten from _version.py below, needed for linter to identify that this variable is defined.
+
 exec(open("trio/_version.py", encoding="utf-8").read())
 
 LONG_DESC = """\

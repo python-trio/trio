@@ -10,7 +10,6 @@ from ._run import GLOBAL_RUN_CONTEXT
 
 if TYPE_CHECKING:
     from .._file_io import _HasFileNo
-
 import sys
 
 assert not TYPE_CHECKING or sys.platform == "linux"

@@ -10,26 +10,49 @@ force-exclude = '''
 [tool.codespell]
 ignore-words-list = 'astroid,crasher,asend'
 
-[tool.flake8]
-extend-ignore = ['D', 'E', 'W', 'F403', 'F405', 'F821', 'F822']
-per-file-ignores = [
-  'trio/__init__.py: F401',
-  'trio/_core/__init__.py: F401',
-  'trio/_core/_tests/test_multierror_scripts/*: F401',
-  'trio/abc.py: F401',
-  'trio/lowlevel.py: F401',
-  'trio/socket.py: F401',
-  'trio/testing/__init__.py: F401'
+[tool.ruff]
+target-version = "py38"
+respect-gitignore = true
+fix = true
+
+allowed-confusables = ["–"]
+
+# The directories to consider when resolving first vs. third-party imports.
+# Does not control what files to include/exclude!
+src = ["trio", "notes-to-self"]
+
+select = [
+  "RUF",  # Ruff-specific rules
+  "E",  # Error
+  "F",  # pyflakes
+  "I",  # isort
+  "YTT",  # flake8-2020
+]
+extend-ignore = [
+    'F403',  # undefined-local-with-import-star
+    'F405',  # undefined-local-with-import-star-usage
+    'E402',  # module-import-not-at-top-of-file (usually OS-specific)
+    'E501',  # line-too-long
 ]
 
-[tool.isort]
-combine_as_imports = true
-profile = "black"
-skip_gitignore = true
-skip_glob = [
+include = ["*.py", "*.pyi", "**/pyproject.toml"]
+
+extend-exclude = [
   "docs/source/reference-*",
-  "docs/source/tutorial/*"
+  "docs/source/tutorial/*",
 ]
+
+[tool.ruff.per-file-ignores]
+'trio/__init__.py' = ['F401']
+'trio/_core/__init__.py' = ['F401']
+'trio/_core/_tests/test_multierror_scripts/*' = ['F401']
+'trio/abc.py' = ['F401']
+'trio/lowlevel.py' = ['F401']
+'trio/socket.py' = ['F401']
+'trio/testing/__init__.py' = ['F401']
+
+[tool.ruff.isort]
+combine-as-imports = true
 
 [tool.mypy]
 python_version = "3.8"
