@@ -469,7 +469,7 @@ async def test_cancel_scope_multierror_filtering() -> None:
         # KeyError from crasher()
         assert type(exc) is KeyError
     else:  # pragma: no cover
-        assert False
+        raise AssertionError()
 
 
 async def test_precancelled_task() -> None:
@@ -829,7 +829,7 @@ async def test_timekeeping() -> None:
         if 1.0 <= accuracy < 2:  # pragma: no branch
             break
     else:  # pragma: no cover
-        assert False
+        raise AssertionError()
 
 
 async def test_failed_abort() -> None:
@@ -963,7 +963,7 @@ def test_system_task_crash_plus_Cancelled() -> None:
         try:
             await sleep_forever()
         except _core.Cancelled:
-            raise ValueError
+            raise ValueError from None
 
     async def cancelme() -> None:
         await sleep_forever()

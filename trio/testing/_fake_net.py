@@ -33,7 +33,7 @@ def _family_for(ip: IPAddress) -> int:
         return trio.socket.AF_INET
     elif isinstance(ip, ipaddress.IPv6Address):
         return trio.socket.AF_INET6
-    assert False  # pragma: no cover
+    raise AssertionError()  # pragma: no cover
 
 
 def _wildcard_ip_for(family: int) -> IPAddress:
@@ -42,7 +42,7 @@ def _wildcard_ip_for(family: int) -> IPAddress:
     elif family == trio.socket.AF_INET6:
         return ipaddress.ip_address("::")
     else:
-        assert False
+        raise AssertionError()
 
 
 def _localhost_ip_for(family: int) -> IPAddress:
@@ -51,7 +51,7 @@ def _localhost_ip_for(family: int) -> IPAddress:
     elif family == trio.socket.AF_INET6:
         return ipaddress.ip_address("::1")
     else:
-        assert False
+        raise AssertionError()
 
 
 def _fake_err(code):

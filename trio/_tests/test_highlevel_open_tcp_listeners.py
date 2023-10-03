@@ -156,7 +156,7 @@ class FakeSocket(tsocket.SocketType):
     ) -> int | bytes:
         if (level, optname) == (tsocket.SOL_SOCKET, tsocket.SO_ACCEPTCONN):
             return True
-        assert False  # pragma: no cover
+        raise AssertionError()  # pragma: no cover
 
     @overload
     def setsockopt(self, /, level: int, optname: int, value: int | Buffer) -> None:
@@ -292,7 +292,7 @@ async def test_serve_tcp() -> None:
         listeners: list[SocketListener] = await nursery.start(serve_tcp, handler, 0)
         stream = await open_stream_to_socket_listener(listeners[0])
         async with stream:
-            await stream.receive_some(1) == b"x"
+            assert await stream.receive_some(1) == b"x"
             nursery.cancel_scope.cancel()
 
 

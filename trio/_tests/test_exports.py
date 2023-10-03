@@ -230,7 +230,7 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
             static_names.update(ignored_missing_names)
 
     else:  # pragma: no cover
-        assert False
+        raise AssertionError()
 
     # remove py.typed file
     if tool in ("mypy", "pyright_verifytypes") and not py_typed_exists:
@@ -256,7 +256,7 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         print()
         for name in sorted(missing_names):
             print(f"    {name}")
-        assert False
+        raise AssertionError()
 
 
 # this could be sped up by only invoking mypy once per module, or even once for all
@@ -413,7 +413,7 @@ def test_static_tool_sees_class_members(
             static_names -= ignore_names
 
         else:  # pragma: no cover
-            assert False, "unknown tool"
+            raise AssertionError("unknown tool")
 
         missing = runtime_names - static_names
         extra = static_names - runtime_names
@@ -523,7 +523,7 @@ def test_nopublic_is_final() -> None:
     assert class_is_final(_util.NoPublicConstructor)  # This is itself final.
 
     for module in ALL_MODULES:
-        for name, class_ in module.__dict__.items():
+        for _name, class_ in module.__dict__.items():
             if isinstance(class_, _util.NoPublicConstructor):
                 assert class_is_final(class_)
 

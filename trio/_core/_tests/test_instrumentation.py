@@ -236,7 +236,7 @@ def test_instruments_monkeypatch():
 def test_instrument_that_raises_on_getattr():
     class EvilInstrument:
         def task_exited(self, task):
-            assert False  # pragma: no cover
+            raise AssertionError()  # pragma: no cover
 
         @property
         def after_run(self):

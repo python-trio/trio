@@ -282,7 +282,7 @@ def _run_fn_as_system_task(
         except AttributeError:
             raise RuntimeError(
                 "this thread wasn't created by Trio, pass kwarg trio_token=..."
-            )
+            ) from None
 
     # Avoid deadlock by making sure we're not called from Trio thread
     try:

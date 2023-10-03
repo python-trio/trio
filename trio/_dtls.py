@@ -841,10 +841,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         # support and isn't useful anyway -- especially for DTLS where it's equivalent
         # to just performing a new handshake.
         ctx.set_options(
-            (
-                SSL.OP_NO_QUERY_MTU
-                | SSL.OP_NO_RENEGOTIATION  # type: ignore[attr-defined]
-            )
+            SSL.OP_NO_QUERY_MTU | SSL.OP_NO_RENEGOTIATION  # type: ignore[attr-defined]
         )
         self._ssl = SSL.Connection(ctx)
         self._handshake_mtu = 0
@@ -1231,7 +1228,10 @@ class DTLSEndpoint:
                 pass
             # Do this last, because it might raise an exception
             warnings.warn(
-                f"unclosed DTLS endpoint {self!r}", ResourceWarning, source=self
+                f"unclosed DTLS endpoint {self!r}",
+                ResourceWarning,
+                source=self,
+                stacklevel=1,
             )
 
     def close(self) -> None:
@@ -1305,7 +1305,9 @@ class DTLSEndpoint:
         try:
             self.socket.getsockname()
         except OSError:
-            raise RuntimeError("DTLS socket must be bound before it can serve")
+            raise RuntimeError(
+                "DTLS socket must be bound before it can serve"
+            ) from None
         self._ensure_receive_loop()
         # We do cookie verification ourselves, so tell OpenSSL not to worry about it.
         # (See also _inject_client_hello_untrusted.)

@@ -74,7 +74,9 @@ class Sequencer:
                 self._broken = True
                 for event in self._sequence_points.values():
                     event.set()
-                raise RuntimeError("Sequencer wait cancelled -- sequence broken")
+                raise RuntimeError(
+                    "Sequencer wait cancelled -- sequence broken"
+                ) from None
             else:
                 if self._broken:
                     raise RuntimeError("sequence broken!")

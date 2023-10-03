@@ -39,7 +39,7 @@ TEMPLATE = """locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
 try:
     return{}GLOBAL_RUN_CONTEXT.{}.{}
 except AttributeError:
-    raise RuntimeError("must be called from async context")
+    raise RuntimeError("must be called from async context") from None
 """
 
 

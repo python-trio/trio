@@ -78,7 +78,7 @@ def test_unsupported_not_forwarded():
     assert hasattr(async_file.wrapped, "unsupported_attr")
 
     with pytest.raises(AttributeError):
-        getattr(async_file, "unsupported_attr")
+        async_file.unsupported_attr  # noqa: B018
 
 
 def test_type_stubs_match_lists() -> None:
