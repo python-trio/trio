@@ -5,7 +5,9 @@ import re
 from typing import TYPE_CHECKING, NewType, Protocol, cast
 
 if TYPE_CHECKING:
-    from typing_extensions import NoReturn, TypeAlias
+    from typing import NoReturn
+
+    from typing_extensions import TypeAlias
 
 import cffi
 

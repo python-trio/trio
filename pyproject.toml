@@ -26,6 +26,7 @@ select = [
   "E",  # Error
   "F",  # pyflakes
   "I",  # isort
+  "UP",  # pyupgrade
   "YTT",  # flake8-2020
 ]
 extend-ignore = [

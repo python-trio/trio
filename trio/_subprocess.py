@@ -385,7 +385,7 @@ async def _open_process(
         if options.get(key):
             raise TypeError(
                 "trio.Process only supports communicating over "
-                "unbuffered byte streams; the '{}' option is not supported".format(key)
+                f"unbuffered byte streams; the '{key}' option is not supported"
             )
 
     if os.name == "posix":
@@ -798,7 +798,7 @@ if TYPE_CHECKING:
     if sys.platform == "win32":
 
         async def open_process(
-            command: Union[StrOrBytesPath, Sequence[StrOrBytesPath]],
+            command: StrOrBytesPath | Sequence[StrOrBytesPath],
             *,
             stdin: int | HasFileno | None = None,
             stdout: int | HasFileno | None = None,

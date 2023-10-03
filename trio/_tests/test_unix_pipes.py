@@ -25,7 +25,7 @@ else:
 
 
 # Have to use quoted types so import doesn't crash on windows
-async def make_pipe() -> "tuple[FdStream, FdStream]":
+async def make_pipe() -> tuple[FdStream, FdStream]:
     """Makes a new pair of pipes."""
     (r, w) = os.pipe()
     return FdStream(w), FdStream(r)
