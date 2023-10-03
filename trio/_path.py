@@ -6,7 +6,7 @@ import pathlib
 import sys
 import types
 from collections.abc import Awaitable, Callable, Iterable
-from functools import partial, wraps
+from functools import partial
 from io import BufferedRandom, BufferedReader, BufferedWriter, FileIO, TextIOWrapper
 from typing import (
     IO,
@@ -22,7 +22,7 @@ from typing import (
 
 import trio
 from trio._file_io import AsyncIOWrapper as _AsyncIOWrapper
-from trio._util import async_wraps, final
+from trio._util import async_wraps, final, wraps
 
 if TYPE_CHECKING:
     from _typeshed import (

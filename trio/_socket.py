@@ -4,7 +4,6 @@ import os
 import select
 import socket as _stdlib_socket
 import sys
-from functools import wraps as _wraps
 from operator import index
 from socket import AddressFamily, SocketKind
 from typing import (
@@ -22,6 +21,7 @@ from typing import (
 import idna as _idna
 
 import trio
+from trio._util import wraps as _wraps
 
 from . import _core
 
@@ -1180,7 +1180,7 @@ class _SocketType(SocketType):
     @_wraps(_stdlib_socket.socket.sendto, assigned=(), updated=())  # type: ignore[misc]
     async def sendto(self, *args: Any) -> int:
         """Similar to :meth:`socket.socket.sendto`, but async."""
-        # args is: data[, flags], address)
+        # args is: data[, flags], address
         # and kwargs are not accepted
         args_list = list(args)
         args_list[-1] = await self._resolve_address_nocp(args[-1], local=False)
