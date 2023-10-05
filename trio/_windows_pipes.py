@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 from typing import TYPE_CHECKING
 
@@ -50,7 +52,7 @@ class PipeSendStream(SendStream):
             "another task is currently using this pipe"
         )
 
-    async def send_all(self, data: bytes):
+    async def send_all(self, data: bytes) -> None:
         with self._conflict_detector:
             if self._handle_holder.closed:
                 raise _core.ClosedResourceError("this pipe is already closed")

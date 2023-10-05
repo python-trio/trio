@@ -14,6 +14,8 @@ if sys.platform == "win32":
 else:
     pytestmark = pytest.mark.skip(reason="windows only")
     pipe: Any = None
+    _handle: Any = None
+    kernel32: Any = None
     PipeSendStream: Any = None
     PipeReceiveStream: Any = None
 
@@ -26,9 +28,9 @@ async def make_pipe() -> Tuple[PipeSendStream, PipeReceiveStream]:
 
 async def test_pipe_typecheck() -> None:
     with pytest.raises(TypeError):
-        PipeSendStream(1.0)
+        PipeSendStream(1.0)  # type: ignore[arg-type]
     with pytest.raises(TypeError):
-        PipeReceiveStream(None)
+        PipeReceiveStream(None)  # type: ignore[arg-type]
 
 
 async def test_pipe_error_on_close() -> None:
