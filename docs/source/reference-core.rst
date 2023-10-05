@@ -330,9 +330,9 @@ they might find it easier to work with absolute deadlines instead of
 relative timeouts. If they're the ones calling into the cancellation
 machinery, then they get to pick, and you don't have to worry about
 it. Second, and more importantly, this makes it easier for others to
-re-use your code. If you write a ``http_get`` function, and then I
-come along later and write a ``log_in_to_twitter`` function that needs
-to internally make several ``http_get`` calls, I don't want to have to
+reuse your code. If you write a ``http_get`` function, and then I come
+along later and write a ``log_in_to_twitter`` function that needs to
+internally make several ``http_get`` calls, I don't want to have to
 figure out how to configure the individual timeouts on each of those
 calls – and with Trio's timeout system, it's totally unnecessary.
 

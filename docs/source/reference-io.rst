@@ -444,7 +444,7 @@ Socket objects
          has begun. If :meth:`connect` is cancelled, and is unable to
          abort the connection attempt, then it will:
 
-         1. forcibly close the socket to prevent accidental re-use
+         1. forcibly close the socket to prevent accidental reuse
          2. raise :exc:`~trio.Cancelled`.
 
          tl;dr: if :meth:`connect` is cancelled then the socket is
