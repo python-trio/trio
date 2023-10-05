@@ -23,10 +23,10 @@ class _HandleHolder:
         _core.register_with_iocp(self.handle)
 
     @property
-    def closed(self):
+    def closed(self) -> bool:
         return self.handle == -1
 
-    def close(self):
+    def close(self) -> None:
         if self.closed:
             return
         handle = self.handle
@@ -34,7 +34,7 @@ class _HandleHolder:
         if not kernel32.CloseHandle(_handle(handle)):
             raise_winerror()
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.close()
 
 
@@ -76,10 +76,10 @@ class PipeSendStream(SendStream):
             # not implemented yet, and probably not needed
             await _core.checkpoint()
 
-    def close(self):
+    def close(self) -> None:
         self._handle_holder.close()
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         self.close()
         await _core.checkpoint()
 
@@ -94,7 +94,7 @@ class PipeReceiveStream(ReceiveStream):
             "another task is currently using this pipe"
         )
 
-    async def receive_some(self, max_bytes=None) -> bytes:
+    async def receive_some(self, max_bytes: int | None = None) -> bytes:
         with self._conflict_detector:
             if self._handle_holder.closed:
                 raise _core.ClosedResourceError("this pipe is already closed")
@@ -133,9 +133,9 @@ class PipeReceiveStream(ReceiveStream):
                 del buffer[size:]
                 return buffer
 
-    def close(self):
+    def close(self) -> None:
         self._handle_holder.close()
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         self.close()
         await _core.checkpoint()
