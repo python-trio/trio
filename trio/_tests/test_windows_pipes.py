@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import sys
-from typing import Any, Tuple
+from typing import Any
 
 import pytest
 
@@ -45,7 +47,7 @@ else:
     PipeSendStream = _fake_send
 
 
-async def make_pipe() -> Tuple[PipeSendStream, PipeReceiveStream]:
+async def make_pipe() -> tuple[PipeSendStream, PipeReceiveStream]:
     """Makes a new pair of pipes."""
     (r, w) = pipe()
     return PipeSendStream(w), PipeReceiveStream(r)
