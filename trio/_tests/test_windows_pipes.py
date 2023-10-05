@@ -16,8 +16,33 @@ else:
     pipe: Any = None
     _handle: Any = None
     kernel32: Any = None
-    PipeSendStream: Any = None
-    PipeReceiveStream: Any = None
+    from .._abc import ReceiveStream, SendStream
+
+    class _fake_recieve(ReceiveStream):
+        def __init__(self, _: int) -> None:
+            ...
+
+        async def receive_some(self, max_bytes: int | None = None) -> bytes | bytearray:
+            return b""
+
+        async def aclose(self) -> None:
+            ...
+
+    class _fake_send(SendStream):
+        def __init__(self, _: int) -> None:
+            ...
+
+        async def send_all(self, data: bytes | bytearray | memoryview) -> None:
+            ...
+
+        async def wait_send_all_might_not_block(self) -> None:
+            ...
+
+        async def aclose(self) -> None:
+            ...
+
+    PipeReceiveStream = _fake_recieve
+    PipeSendStream = _fake_send
 
 
 async def make_pipe() -> Tuple[PipeSendStream, PipeReceiveStream]:
