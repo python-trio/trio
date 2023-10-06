@@ -245,7 +245,7 @@ class Path(metaclass=AsyncAutoWrapperType):
         return os.fspath(self._wrapped)
 
     @overload
-    def open(
+    async def open(
         self,
         mode: OpenTextMode = "r",
         buffering: int = -1,
@@ -256,7 +256,7 @@ class Path(metaclass=AsyncAutoWrapperType):
         ...
 
     @overload
-    def open(
+    async def open(
         self,
         mode: OpenBinaryMode,
         buffering: Literal[0],
@@ -267,7 +267,7 @@ class Path(metaclass=AsyncAutoWrapperType):
         ...
 
     @overload
-    def open(
+    async def open(
         self,
         mode: OpenBinaryModeUpdating,
         buffering: Literal[-1, 1] = -1,
@@ -278,7 +278,7 @@ class Path(metaclass=AsyncAutoWrapperType):
         ...
 
     @overload
-    def open(
+    async def open(
         self,
         mode: OpenBinaryModeWriting,
         buffering: Literal[-1, 1] = -1,
@@ -289,7 +289,7 @@ class Path(metaclass=AsyncAutoWrapperType):
         ...
 
     @overload
-    def open(
+    async def open(
         self,
         mode: OpenBinaryModeReading,
         buffering: Literal[-1, 1] = -1,
@@ -300,7 +300,7 @@ class Path(metaclass=AsyncAutoWrapperType):
         ...
 
     @overload
-    def open(
+    async def open(
         self,
         mode: OpenBinaryMode,
         buffering: int = -1,
@@ -311,7 +311,7 @@ class Path(metaclass=AsyncAutoWrapperType):
         ...
 
     @overload
-    def open(
+    async def open(
         self,
         mode: str,
         buffering: int = -1,
