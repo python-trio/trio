@@ -20,7 +20,7 @@ else:
     kernel32: Any = None
     from .._abc import ReceiveStream, SendStream
 
-    class _fake_recieve(ReceiveStream):
+    class PipeReceiveStream(ReceiveStream):
         def __init__(self, _: int) -> None:
             ...
 
@@ -30,7 +30,7 @@ else:
         async def aclose(self) -> None:
             ...
 
-    class _fake_send(SendStream):
+    class PipeSendStream(SendStream):
         def __init__(self, _: int) -> None:
             ...
 
@@ -42,9 +42,6 @@ else:
 
         async def aclose(self) -> None:
             ...
-
-    PipeReceiveStream = _fake_recieve
-    PipeSendStream = _fake_send
 
 
 async def make_pipe() -> tuple[PipeSendStream, PipeReceiveStream]:
