@@ -104,6 +104,7 @@ setup(
     keywords=["async", "io", "networking", "trio"],
     classifiers=[
         "Development Status :: 3 - Alpha",
+        "Framework :: Trio",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
         "License :: OSI Approved :: Apache Software License",
@@ -120,7 +121,7 @@ setup(
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Topic :: System :: Networking",
-        "Framework :: Trio",
+        "Typing :: Typed",
     ],
     project_urls={
         "Documentation": "https://trio.readthedocs.io/",
