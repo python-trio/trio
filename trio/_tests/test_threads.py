@@ -813,19 +813,23 @@ def test_from_thread_run_during_shutdown():
         try:
             yield
         finally:
-            with pytest.raises(_core.RunFinishedError), _core.CancelScope(shield=True):
-                await to_thread_run_sync(
-                    partial(from_thread_run, sleep, 0, trio_token=token)
-                )
-            record.append("ok")
+            with _core.CancelScope(shield=True):
+                try:
+                    await to_thread_run_sync(
+                        partial(from_thread_run, sleep, 0, trio_token=token)
+                    )
+                except _core.RunFinishedError:
+                    record.append("finished")
+                else:
+                    record.append("clean")
 
     async def main(use_system_task):
         save.append(agen(_core.current_trio_token() if use_system_task else None))
         await save[-1].asend(None)
 
     _core.run(main, True)  # System nursery will be closed and raise RunFinishedError
-    _core.run(main, False)  # host task will not be rescheduled
-    assert record == ["ok"]
+    _core.run(main, False)  # host task will be rescheduled as normal
+    assert record == ["finished", "clean"]
 
 
 async def test_trio_token_weak_referenceable():
