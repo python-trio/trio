@@ -29,15 +29,16 @@ from ._util import coroutine_or_error
 RetT = TypeVar("RetT")
 
 
-class _TokenLocal(threading.local):
-    """Global due to Threading API, thread local storage for trio token."""
+class _ParentTaskData(threading.local):
+    """Global due to Threading API, thread local storage for data related to the
+    parent task of native Trio threads."""
 
     token: TrioToken
     cancel_register: list[RaiseCancelT | None]
     task_register: list[trio.lowlevel.Task | None]
 
 
-TOKEN_LOCAL = _TokenLocal()
+PARENT_TASK_DATA = _ParentTaskData()
 
 _limiter_local: RunVar[CapacityLimiter] = RunVar("limiter")
 # I pulled this number out of the air; it isn't based on anything. Probably we
@@ -125,7 +126,7 @@ class RunSync(Generic[RetT]):
             # Manually close coroutine to avoid RuntimeWarnings
             ret.close()
             raise TypeError(
-                "Trio expected a sync function, but {!r} appears to be "
+                "Trio expected a synchronous function, but {!r} appears to be "
                 "asynchronous".format(getattr(self.fn, "__qualname__", self.fn))
             )
 
@@ -273,9 +274,9 @@ async def to_thread_run_sync(  # type: ignore[misc]
         # the new thread sees that it's not running in async context.
         current_async_library_cvar.set(None)
 
-        TOKEN_LOCAL.token = current_trio_token
-        TOKEN_LOCAL.cancel_register = cancel_register
-        TOKEN_LOCAL.task_register = task_register
+        PARENT_TASK_DATA.token = current_trio_token
+        PARENT_TASK_DATA.cancel_register = cancel_register
+        PARENT_TASK_DATA.task_register = task_register
         try:
             ret = sync_fn(*args)
 
@@ -289,9 +290,9 @@ async def to_thread_run_sync(  # type: ignore[misc]
 
             return ret
         finally:
-            del TOKEN_LOCAL.token
-            del TOKEN_LOCAL.cancel_register
-            del TOKEN_LOCAL.task_register
+            del PARENT_TASK_DATA.token
+            del PARENT_TASK_DATA.cancel_register
+            del PARENT_TASK_DATA.task_register
 
     context = contextvars.copy_context()
     # Partial confuses type checkers, coerce to a callable.
@@ -330,11 +331,11 @@ async def to_thread_run_sync(  # type: ignore[misc]
         msg_from_thread: ThreadDone[RetT] | Run[object] | RunSync[
             object
         ] = await trio.lowlevel.wait_task_rescheduled(abort)
-        if type(msg_from_thread) is ThreadDone:
+        if isinstance(msg_from_thread, ThreadDone):
             return msg_from_thread.result.unwrap()  # type: ignore[no-any-return]
-        elif type(msg_from_thread) is Run:
+        elif isinstance(msg_from_thread, Run):
             await msg_from_thread.run()
-        elif type(msg_from_thread) is RunSync:
+        elif isinstance(msg_from_thread, RunSync):
             msg_from_thread.run_sync()
         else:  # pragma: no cover, internal debugging guard
             raise TypeError(
@@ -359,7 +360,7 @@ def from_thread_check_cancelled() -> None:
         RuntimeError: If this thread is not spawned from `trio.to_thread.run_sync`.
     """
     try:
-        raise_cancel = TOKEN_LOCAL.cancel_register[0]
+        raise_cancel = PARENT_TASK_DATA.cancel_register[0]
     except AttributeError:
         raise RuntimeError(
             "this thread wasn't created by Trio, can't check for cancellation"
@@ -380,7 +381,7 @@ def _check_token(trio_token: TrioToken | None) -> TrioToken:
 
     if trio_token is None:
         try:
-            trio_token = TOKEN_LOCAL.token
+            trio_token = PARENT_TASK_DATA.token
         except AttributeError:
             raise RuntimeError(
                 "this thread wasn't created by Trio, pass kwarg trio_token=..."
@@ -400,8 +401,8 @@ def _check_token(trio_token: TrioToken | None) -> TrioToken:
 def _send_message_to_host_task(
     message: Run[RetT] | RunSync[RetT], trio_token: TrioToken
 ) -> None:
-    task_register = TOKEN_LOCAL.task_register
-    cancel_register = TOKEN_LOCAL.cancel_register
+    task_register = PARENT_TASK_DATA.task_register
+    cancel_register = PARENT_TASK_DATA.cancel_register
 
     def in_trio_thread() -> None:
         task = task_register[0]

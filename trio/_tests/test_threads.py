@@ -644,7 +644,7 @@ async def test_trio_from_thread_run_sync():
     def thread_fn():
         from_thread_run_sync(async_fn)
 
-    with pytest.raises(TypeError, match="expected a sync function"):
+    with pytest.raises(TypeError, match="expected a synchronous function"):
         await to_thread_run_sync(thread_fn)
 
 
