@@ -14,9 +14,9 @@ babel==2.12.1
     # via sphinx
 certifi==2023.7.22
     # via requests
-cffi==1.15.1
+cffi==1.16.0
     # via cryptography
-charset-normalizer==3.2.0
+charset-normalizer==3.3.0
     # via requests
 click==8.1.7
     # via
@@ -24,7 +24,7 @@ click==8.1.7
     #   towncrier
 click-default-group==1.2.4
     # via towncrier
-cryptography==41.0.3
+cryptography==41.0.4
     # via pyopenssl
 docutils==0.18.1
     # via
@@ -42,7 +42,7 @@ immutables==0.20
     # via -r docs-requirements.in
 importlib-metadata==6.8.0
     # via sphinx
-importlib-resources==6.0.1
+importlib-resources==6.1.0
     # via towncrier
 incremental==22.10.0
     # via towncrier
@@ -63,7 +63,7 @@ pygments==2.16.1
     # via sphinx
 pyopenssl==23.2.0
     # via -r docs-requirements.in
-pytz==2023.3
+pytz==2023.3.post1
     # via babel
 requests==2.31.0
     # via sphinx
@@ -103,9 +103,9 @@ tomli==2.0.1
     # via towncrier
 towncrier==23.6.0
     # via -r docs-requirements.in
-urllib3==2.0.4
+urllib3==2.0.5
     # via requests
-zipp==3.16.2
+zipp==3.17.0
     # via
     #   importlib-metadata
     #   importlib-resources

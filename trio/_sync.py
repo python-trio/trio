@@ -9,7 +9,7 @@ import trio
 
 from . import _core
 from ._core import Abort, ParkingLot, RaiseCancelT, enable_ki_protection
-from ._util import Final
+from ._util import final
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -32,8 +32,9 @@ class EventStatistics:
     tasks_waiting: int = attr.ib()
 
 
+@final
 @attr.s(repr=False, eq=False, hash=False, slots=True)
-class Event(metaclass=Final):
+class Event:
     """A waitable boolean value useful for inter-task synchronization,
     inspired by :class:`threading.Event`.
 
@@ -158,7 +159,8 @@ class CapacityLimiterStatistics:
 # Can be a generic type with a default of Task if/when PEP 696 is released
 # and implemented in type checkers. Making it fully generic would currently
 # introduce a lot of unnecessary hassle.
-class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
+@final
+class CapacityLimiter(AsyncContextManagerMixin):
     """An object for controlling access to a resource with limited capacity.
 
     Sometimes you need to put a limit on how many tasks can do something at
@@ -400,7 +402,8 @@ class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
         )
 
 
-class Semaphore(AsyncContextManagerMixin, metaclass=Final):
+@final
+class Semaphore(AsyncContextManagerMixin):
     """A `semaphore <https://en.wikipedia.org/wiki/Semaphore_(programming)>`__.
 
     A semaphore holds an integer value, which can be incremented by
@@ -631,7 +634,8 @@ class _LockImpl(AsyncContextManagerMixin):
         )
 
 
-class Lock(_LockImpl, metaclass=Final):
+@final
+class Lock(_LockImpl):
     """A classic `mutex
     <https://en.wikipedia.org/wiki/Lock_(computer_science)>`__.
 
@@ -645,7 +649,8 @@ class Lock(_LockImpl, metaclass=Final):
     """
 
 
-class StrictFIFOLock(_LockImpl, metaclass=Final):
+@final
+class StrictFIFOLock(_LockImpl):
     r"""A variant of :class:`Lock` where tasks are guaranteed to acquire the
     lock in strict first-come-first-served order.
 
@@ -724,7 +729,8 @@ class ConditionStatistics:
     lock_statistics: LockStatistics = attr.ib()
 
 
-class Condition(AsyncContextManagerMixin, metaclass=Final):
+@final
+class Condition(AsyncContextManagerMixin):
     """A classic `condition variable
     <https://en.wikipedia.org/wiki/Monitor_(synchronization)>`__, similar to
     :class:`threading.Condition`.
@@ -742,7 +748,7 @@ class Condition(AsyncContextManagerMixin, metaclass=Final):
     def __init__(self, lock: Lock | None = None):
         if lock is None:
             lock = Lock()
-        if not type(lock) is Lock:
+        if type(lock) is not Lock:
             raise TypeError("lock must be a trio.Lock")
         self._lock = lock
         self._lot = trio.lowlevel.ParkingLot()

@@ -10,26 +10,49 @@ force-exclude = '''
 [tool.codespell]
 ignore-words-list = 'astroid,crasher,asend'
 
-[tool.flake8]
-extend-ignore = ['D', 'E', 'W', 'F403', 'F405', 'F821', 'F822']
-per-file-ignores = [
-  'trio/__init__.py: F401',
-  'trio/_core/__init__.py: F401',
-  'trio/_core/_tests/test_multierror_scripts/*: F401',
-  'trio/abc.py: F401',
-  'trio/lowlevel.py: F401',
-  'trio/socket.py: F401',
-  'trio/testing/__init__.py: F401'
+[tool.ruff]
+target-version = "py38"
+respect-gitignore = true
+fix = true
+
+allowed-confusables = ["–"]
+
+# The directories to consider when resolving first vs. third-party imports.
+# Does not control what files to include/exclude!
+src = ["trio", "notes-to-self"]
+
+select = [
+  "RUF",  # Ruff-specific rules
+  "E",  # Error
+  "F",  # pyflakes
+  "I",  # isort
+  "YTT",  # flake8-2020
+]
+extend-ignore = [
+    'F403',  # undefined-local-with-import-star
+    'F405',  # undefined-local-with-import-star-usage
+    'E402',  # module-import-not-at-top-of-file (usually OS-specific)
+    'E501',  # line-too-long
 ]
 
-[tool.isort]
-combine_as_imports = true
-profile = "black"
-skip_gitignore = true
-skip_glob = [
+include = ["*.py", "*.pyi", "**/pyproject.toml"]
+
+extend-exclude = [
   "docs/source/reference-*",
-  "docs/source/tutorial/*"
+  "docs/source/tutorial/*",
 ]
+
+[tool.ruff.per-file-ignores]
+'trio/__init__.py' = ['F401']
+'trio/_core/__init__.py' = ['F401']
+'trio/_core/_tests/test_multierror_scripts/*' = ['F401']
+'trio/abc.py' = ['F401']
+'trio/lowlevel.py' = ['F401']
+'trio/socket.py' = ['F401']
+'trio/testing/__init__.py' = ['F401']
+
+[tool.ruff.isort]
+combine-as-imports = true
 
 [tool.mypy]
 python_version = "3.8"
@@ -60,18 +83,11 @@ disallow_untyped_calls = false
 # files not yet fully typed
 [[tool.mypy.overrides]]
 module = [
-# 2761
-"trio/_core/_generated_io_windows",
-"trio/_core/_io_windows",
-
-"trio/_signals",
-
 # internal
 "trio/_windows_pipes",
 
 # tests
 "trio/testing/_fake_net",
-"trio/_core/_tests/test_asyncgen",
 "trio/_core/_tests/test_guest_mode",
 "trio/_core/_tests/test_instrumentation",
 "trio/_core/_tests/test_ki",
@@ -82,28 +98,15 @@ module = [
 "trio/_core/_tests/test_multierror_scripts/simple_excepthook",
 "trio/_core/_tests/test_parking_lot",
 "trio/_core/_tests/test_thread_cache",
-"trio/_core/_tests/test_tutil",
 "trio/_core/_tests/test_unbounded_queue",
-"trio/_core/_tests/test_windows",
-"trio/_core/_tests/tutil",
-"trio/_tests/pytest_plugin",
-"trio/_tests/test_abc",
-"trio/_tests/test_channel",
-"trio/_tests/test_deprecate",
-"trio/_tests/test_dtls",
 "trio/_tests/test_exports",
 "trio/_tests/test_file_io",
 "trio/_tests/test_highlevel_generic",
-"trio/_tests/test_highlevel_open_tcp_listeners",
-"trio/_tests/test_highlevel_open_tcp_stream",
 "trio/_tests/test_highlevel_open_unix_stream",
 "trio/_tests/test_highlevel_serve_listeners",
-"trio/_tests/test_highlevel_socket",
 "trio/_tests/test_highlevel_ssl_helpers",
 "trio/_tests/test_path",
 "trio/_tests/test_scheduler_determinism",
-"trio/_tests/test_signals",
-"trio/_tests/test_socket",
 "trio/_tests/test_ssl",
 "trio/_tests/test_subprocess",
 "trio/_tests/test_sync",

@@ -6,7 +6,7 @@ import pathlib
 import sys
 import types
 from collections.abc import Awaitable, Callable, Iterable
-from functools import partial, wraps
+from functools import partial
 from io import BufferedRandom, BufferedReader, BufferedWriter, FileIO, TextIOWrapper
 from typing import (
     IO,
@@ -22,7 +22,7 @@ from typing import (
 
 import trio
 from trio._file_io import AsyncIOWrapper as _AsyncIOWrapper
-from trio._util import Final, async_wraps
+from trio._util import async_wraps, final, wraps
 
 if TYPE_CHECKING:
     from _typeshed import (
@@ -129,7 +129,7 @@ def classmethod_wrapper_factory(
     return classmethod(wrapper)
 
 
-class AsyncAutoWrapperType(Final):
+class AsyncAutoWrapperType(type):
     _forwards: type
     _wraps: type
     _forward_magic: list[str]
@@ -197,6 +197,7 @@ class AsyncAutoWrapperType(Final):
                 setattr(cls, attr_name, wrapper)
 
 
+@final
 class Path(metaclass=AsyncAutoWrapperType):
     """A :class:`pathlib.Path` wrapper that executes blocking methods in
     :meth:`trio.to_thread.run_sync`.
@@ -238,7 +239,7 @@ class Path(metaclass=AsyncAutoWrapperType):
         return [*super().__dir__(), *self._forward]
 
     def __repr__(self) -> str:
-        return f"trio.Path({repr(str(self))})"
+        return f"trio.Path({str(self)!r})"
 
     def __fspath__(self) -> str:
         return os.fspath(self._wrapped)

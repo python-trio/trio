@@ -3,12 +3,24 @@ import sys
 
 import pytest
 
+from trio._tests.pytest_plugin import skip_if_optional_else_raise
+
+# imports in gen_exports that are not in `install_requires` in setup.py
+try:
+    import astor  # noqa: F401
+    import isort  # noqa: F401
+except ImportError as error:
+    skip_if_optional_else_raise(error)
+
+
 from trio._tools.gen_exports import (
     File,
     create_passthrough_args,
     get_public_methods,
     process,
+    run_black,
     run_linters,
+    run_ruff,
 )
 
 SOURCE = '''from _run import _public
@@ -80,6 +92,12 @@ skip_lints = pytest.mark.skipif(
 @skip_lints
 @pytest.mark.parametrize("imports", ["", IMPORT_1, IMPORT_2, IMPORT_3])
 def test_process(tmp_path, imports):
+    try:
+        import black  # noqa: F401
+    # there's no dedicated CI run that has astor+isort, but lacks black.
+    except ImportError as error:  # pragma: no cover
+        skip_if_optional_else_raise(error)
+
     modpath = tmp_path / "_module.py"
     genpath = tmp_path / "_generated_module.py"
     modpath.write_text(SOURCE, encoding="utf-8")
@@ -105,12 +123,61 @@ def test_process(tmp_path, imports):
 
 
 @skip_lints
+def test_run_black(tmp_path) -> None:
+    """Test that processing properly fails if black does."""
+    try:
+        import black  # noqa: F401
+    except ImportError as error:  # pragma: no cover
+        skip_if_optional_else_raise(error)
+
+    file = File(tmp_path / "module.py", "module")
+
+    success, _ = run_black(file, "class not valid code ><")
+    assert not success
+
+    success, _ = run_black(file, "import waffle\n;import trio")
+    assert not success
+
+
+@skip_lints
+def test_run_ruff(tmp_path) -> None:
+    """Test that processing properly fails if black does."""
+    try:
+        import ruff  # noqa: F401
+    except ImportError as error:  # pragma: no cover
+        skip_if_optional_else_raise(error)
+
+    file = File(tmp_path / "module.py", "module")
+
+    success, _ = run_ruff(file, "class not valid code ><")
+    assert not success
+
+    test_function = '''def combine_and(data: list[str]) -> str:
+    """Join values of text, and have 'and' with the last one properly."""
+    if len(data) >= 2:
+        data[-1] = 'and ' + data[-1]
+    if len(data) > 2:
+        return ', '.join(data)
+    return ' '.join(data)'''
+
+    success, response = run_ruff(file, test_function)
+    assert success
+    assert response == test_function
+
+
+@skip_lints
 def test_lint_failure(tmp_path) -> None:
-    """Test that processing properly fails if black or isort does."""
+    """Test that processing properly fails if black or ruff does."""
+    try:
+        import black  # noqa: F401
+        import ruff  # noqa: F401
+    except ImportError as error:  # pragma: no cover
+        skip_if_optional_else_raise(error)
+
     file = File(tmp_path / "module.py", "module")
 
     with pytest.raises(SystemExit):
         run_linters(file, "class not valid code ><")
 
     with pytest.raises(SystemExit):
-        run_linters(file, "# isort: skip_file")
+        run_linters(file, "import waffle\n;import trio")

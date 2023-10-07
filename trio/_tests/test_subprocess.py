@@ -44,7 +44,7 @@ else:
 # Since Windows has very few command-line utilities generally available,
 # all of our subprocesses are Python processes running short bits of
 # (mostly) cross-platform code.
-def python(code):
+def python(code: str) -> list[str]:
     return [sys.executable, "-u", "-c", "import sys; " + code]
 
 
@@ -53,9 +53,14 @@ EXIT_FALSE = python("sys.exit(1)")
 CAT = python("sys.stdout.buffer.write(sys.stdin.buffer.read())")
 
 if posix:
-    SLEEP = lambda seconds: ["/bin/sleep", str(seconds)]
+
+    def SLEEP(seconds: int) -> list[str]:
+        return ["/bin/sleep", str(seconds)]
+
 else:
-    SLEEP = lambda seconds: python(f"import time; time.sleep({seconds})")
+
+    def SLEEP(seconds: int) -> list[str]:
+        return python(f"import time; time.sleep({seconds})")
 
 
 def got_signal(proc, sig):

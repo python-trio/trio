@@ -10,19 +10,19 @@ import ast
 import os
 import subprocess
 import sys
-import traceback
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 from textwrap import indent
 from typing import TYPE_CHECKING
 
+import attr
+
 if TYPE_CHECKING:
     from typing_extensions import TypeGuard
 
+# keep these imports up to date with conditional imports in test_gen_exports
+# isort: split
 import astor
-import attr
-import isort.api
-import isort.exceptions
 
 PREFIX = "_generated"
 
@@ -102,38 +102,96 @@ def create_passthrough_args(funcdef: ast.FunctionDef | ast.AsyncFunctionDef) -> 
     return "({})".format(", ".join(call_args))
 
 
-def run_linters(file: File, source: str) -> str:
-    """Run isort and black on the specified file, returning the new source.
+def run_black(file: File, source: str) -> tuple[bool, str]:
+    """Run black on the specified file.
 
-    :raises ValueError: If either failed.
+    Returns:
+      Tuple of success and result string.
+      ex.:
+        (False, "Failed to run black!\nerror: cannot format ...")
+        (True, "<formatted source>")
+
+    Raises:
+      ImportError: If black is not installed.
     """
+    # imported to check that `subprocess` calls will succeed
+    import black  # noqa: F401
+
     # Black has an undocumented API, but it doesn't easily allow reading configuration from
     # pyproject.toml, and simultaneously pass in / receive the code as a string.
     # https://github.com/psf/black/issues/779
-    try:
-        result = subprocess.run(
-            # "-" as a filename = use stdin, return on stdout.
-            [sys.executable, "-m", "black", "--stdin-filename", file.path, "-"],
-            input=source,
-            capture_output=True,
-            encoding="utf8",
-            check=True,
-        )
-    except subprocess.CalledProcessError as exc:
-        print("Failed to run black!")
-        traceback.print_exception(type(exc), exc, exc.__traceback__)
+    result = subprocess.run(
+        # "-" as a filename = use stdin, return on stdout.
+        [sys.executable, "-m", "black", "--stdin-filename", file.path, "-"],
+        input=source,
+        capture_output=True,
+        encoding="utf8",
+    )
+
+    if result.returncode != 0:
+        return False, f"Failed to run black!\n{result.stderr}"
+    return True, result.stdout
+
+
+def run_ruff(file: File, source: str) -> tuple[bool, str]:
+    """Run ruff on the specified file.
+
+    Returns:
+      Tuple of success and result string.
+      ex.:
+        (False, "Failed to run ruff!\nerror: Failed to parse ...")
+        (True, "<formatted source>")
+
+    Raises:
+      ImportError: If ruff is not installed.
+    """
+    # imported to check that `subprocess` calls will succeed
+    import ruff  # noqa: F401
+
+    result = subprocess.run(
+        # "-" as a filename = use stdin, return on stdout.
+        [
+            sys.executable,
+            "-m",
+            "ruff",
+            "--fix-only",
+            "--output-format=text",
+            "--stdin-filename",
+            file.path,
+            "-",
+        ],
+        input=source,
+        capture_output=True,
+        encoding="utf8",
+    )
+
+    if result.returncode != 0 or result.stderr:
+        return False, f"Failed to run ruff!\n{result.stderr}"
+    return True, result.stdout
+
+
+def run_linters(file: File, source: str) -> str:
+    """Format the specified file using black and ruff.
+
+    Returns:
+      Formatted source code.
+
+    Raises:
+      ImportError: If either is not installed.
+      SystemExit: If either failed.
+    """
+
+    success, response = run_black(file, source)
+    if not success:
+        print(response)
         sys.exit(1)
-    # isort does have a public API, makes things easy.
-    try:
-        isort_res = isort.api.sort_code_string(
-            result.stdout,
-            file_path=file.path,
-        )
-    except isort.exceptions.ISortError as exc:
-        print("Failed to run isort!")
-        traceback.print_exception(type(exc), exc, exc.__traceback__)
+
+    success, response = run_ruff(file, response)
+    if not success:  # pragma: no cover  # Test for run_ruff should catch
+        print(response)
         sys.exit(1)
-    return isort_res
+
+    return response
 
 
 def gen_public_wrappers_source(file: File) -> str:
@@ -260,7 +318,12 @@ def main() -> None:  # pragma: no cover
             "runner.instruments",
             imports=IMPORTS_INSTRUMENT,
         ),
-        File(core / "_io_windows.py", "runner.io_manager", platform="win32"),
+        File(
+            core / "_io_windows.py",
+            "runner.io_manager",
+            platform="win32",
+            imports=IMPORTS_WINDOWS,
+        ),
         File(
             core / "_io_epoll.py",
             "runner.io_manager",
@@ -294,7 +357,10 @@ from ._instrumentation import Instrument
 """
 
 IMPORTS_EPOLL = """\
-from socket import socket
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .._file_io import _HasFileNo
 """
 
 IMPORTS_KQUEUE = """\
@@ -302,12 +368,21 @@ from typing import Callable, ContextManager, TYPE_CHECKING
 
 if TYPE_CHECKING:
     import select
-    from socket import socket
-
-    from ._traps import Abort, RaiseCancelT
 
     from .. import _core
+    from ._traps import Abort, RaiseCancelT
+    from .._file_io import _HasFileNo
+"""
 
+IMPORTS_WINDOWS = """\
+from typing import TYPE_CHECKING, ContextManager
+
+if TYPE_CHECKING:
+    from .._file_io import _HasFileNo
+    from ._windows_cffi import Handle, CData
+    from typing_extensions import Buffer
+
+    from ._unbounded_queue import UnboundedQueue
 """
 
 

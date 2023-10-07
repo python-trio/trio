@@ -3,8 +3,11 @@ from __future__ import annotations
 from collections import OrderedDict, deque
 from math import inf
 from types import TracebackType
-from typing import Tuple  # only needed for typechecking on <3.9
-from typing import TYPE_CHECKING, Generic
+from typing import (
+    TYPE_CHECKING,
+    Generic,
+    Tuple,  # only needed for typechecking on <3.9
+)
 
 import attr
 from outcome import Error, Value
@@ -13,7 +16,7 @@ import trio
 
 from ._abc import ReceiveChannel, ReceiveType, SendChannel, SendType, T
 from ._core import Abort, RaiseCancelT, Task, enable_ki_protection
-from ._util import NoPublicConstructor, generic_function
+from ._util import NoPublicConstructor, final, generic_function
 
 if TYPE_CHECKING:
     from typing_extensions import Self
@@ -138,6 +141,7 @@ class MemoryChannelState(Generic[T]):
         )
 
 
+@final
 @attr.s(eq=False, repr=False)
 class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
     _state: MemoryChannelState[SendType] = attr.ib()
@@ -282,6 +286,7 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
         await trio.lowlevel.checkpoint()
 
 
+@final
 @attr.s(eq=False, repr=False)
 class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstructor):
     _state: MemoryChannelState[ReceiveType] = attr.ib()
