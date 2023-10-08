@@ -8,11 +8,12 @@ import pytest
 from .. import _core
 from ..testing import check_one_way_stream, wait_all_tasks_blocked
 
-on_windows = sys.platform == "win32"
 # Mark all the tests in this file as being windows-only
-pytestmark = pytest.mark.skipif(not on_windows, reason="windows only")
+pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="windows only")
 
-assert on_windows or not TYPE_CHECKING  # Skip type checking when not on Windows
+assert (
+    sys.platform == "win32" or not TYPE_CHECKING
+)  # Skip type checking when not on Windows
 
 if sys.platform == "win32":
     from asyncio.windows_utils import pipe
