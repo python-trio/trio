@@ -878,9 +878,8 @@ async def test_from_thread_host_cancelled():
         from_thread_run_sync(cancel_scope.cancel)
         try:
             from_thread_run_sync(bool)
-        except _core.Cancelled:
-            # pragma: no cover, sync functions don't raise Cancelled
-            queue.put(True)
+        except _core.Cancelled:  # pragma: no cover
+            queue.put(True)  # sync functions don't raise Cancelled
         else:
             queue.put(False)
 
@@ -903,8 +902,8 @@ async def test_from_thread_host_cancelled():
         from_thread_run_sync(cancel_scope.cancel)
         try:
             assert from_thread_run(no_checkpoint)
-        except _core.Cancelled:
-            queue.put(True)
+        except _core.Cancelled:  # pragma: no cover
+            queue.put(True)  # async functions raise Cancelled at checkpoints
         else:
             queue.put(False)
 
