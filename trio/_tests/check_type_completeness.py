@@ -6,8 +6,11 @@ import argparse
 import json
 import subprocess
 import sys
-from collections.abc import Mapping
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 # the result file is not marked in MANIFEST.in so it's not included in the package
 failed = False

@@ -5,16 +5,14 @@ import functools
 import inspect
 import queue as stdlib_queue
 import threading
-from collections.abc import Awaitable, Callable
 from itertools import count
-from typing import TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 import attr
 import outcome
 from sniffio import current_async_library_cvar
 
 import trio
-from trio._core._traps import RaiseCancelT
 
 from ._core import (
     RunVar,
@@ -25,6 +23,11 @@ from ._core import (
 )
 from ._sync import CapacityLimiter
 from ._util import coroutine_or_error
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+    from trio._core._traps import RaiseCancelT
 
 RetT = TypeVar("RetT")
 Ret2T = TypeVar("Ret2T")

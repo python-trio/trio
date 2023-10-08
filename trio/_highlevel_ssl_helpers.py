@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import ssl
-from collections.abc import Awaitable, Callable
-from typing import NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 import trio
 
 from ._highlevel_open_tcp_stream import DEFAULT_DELAY
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 
 # It might have been nice to take a ssl_protocols= argument here to set up

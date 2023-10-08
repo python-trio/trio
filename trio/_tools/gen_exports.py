@@ -10,7 +10,6 @@ import ast
 import os
 import subprocess
 import sys
-from collections.abc import Iterable, Iterator
 from pathlib import Path
 from textwrap import indent
 from typing import TYPE_CHECKING
@@ -18,6 +17,8 @@ from typing import TYPE_CHECKING
 import attr
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
+
     from typing_extensions import TypeGuard
 
 # keep these imports up to date with conditional imports in test_gen_exports

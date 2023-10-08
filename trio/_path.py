@@ -3,11 +3,8 @@ from __future__ import annotations
 import inspect
 import os
 import pathlib
-import sys
 import types
-from collections.abc import Awaitable, Callable, Iterable
 from functools import partial
-from io import BufferedRandom, BufferedReader, BufferedWriter, FileIO, TextIOWrapper
 from typing import (
     IO,
     TYPE_CHECKING,
@@ -21,10 +18,13 @@ from typing import (
 )
 
 import trio
-from trio._file_io import AsyncIOWrapper as _AsyncIOWrapper
 from trio._util import async_wraps, final, wraps
 
 if TYPE_CHECKING:
+    import sys
+    from collections.abc import Awaitable, Callable, Iterable
+    from io import BufferedRandom, BufferedReader, BufferedWriter, FileIO, TextIOWrapper
+
     from _typeshed import (
         OpenBinaryMode,
         OpenBinaryModeReading,
@@ -33,6 +33,8 @@ if TYPE_CHECKING:
         OpenTextMode,
     )
     from typing_extensions import Concatenate, Literal, ParamSpec, TypeAlias
+
+    from trio._file_io import AsyncIOWrapper as _AsyncIOWrapper
 
     P = ParamSpec("P")
 

@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import operator as _operator
 import ssl as _stdlib_ssl
-from collections.abc import Awaitable, Callable
 from enum import Enum as _Enum
-from typing import Any, ClassVar, Final as TFinal, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Final as TFinal, TypeVar
 
 import trio
 
@@ -12,6 +11,9 @@ from . import _sync
 from ._highlevel_generic import aclose_forcefully
 from ._util import ConflictDetector, final
 from .abc import Listener, Stream
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 # General theory of operation:
 #

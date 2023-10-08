@@ -8,16 +8,9 @@ import threading
 import time
 import types
 import weakref
-from collections.abc import (
-    AsyncGenerator,
-    AsyncIterator,
-    Awaitable,
-    Callable,
-    Generator,
-)
 from contextlib import ExitStack, contextmanager
 from math import inf
-from typing import NoReturn, TypeVar
+from typing import TYPE_CHECKING, NoReturn, TypeVar
 
 import outcome
 import pytest
@@ -38,6 +31,15 @@ from .tutil import (
     restore_unraisablehook,
     slow,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import (
+        AsyncGenerator,
+        AsyncIterator,
+        Awaitable,
+        Callable,
+        Generator,
+    )
 
 if sys.version_info < (3, 11):
     from exceptiongroup import ExceptionGroup

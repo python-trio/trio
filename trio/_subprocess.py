@@ -1,14 +1,11 @@
 from __future__ import annotations
 
 import os
-import signal
 import subprocess
 import sys
 import warnings
-from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import ExitStack
 from functools import partial
-from io import TextIOWrapper
 from typing import TYPE_CHECKING, Final, Literal, Protocol, Union, overload
 
 import trio
@@ -26,6 +23,10 @@ from ._sync import Lock
 from ._util import NoPublicConstructor, final
 
 if TYPE_CHECKING:
+    import signal
+    from collections.abc import Awaitable, Callable, Mapping, Sequence
+    from io import TextIOWrapper
+
     from typing_extensions import TypeAlias
 
 

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import random
-from collections.abc import Generator
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Awaitable, Callable, Generic, Tuple, TypeVar
 
@@ -12,6 +11,7 @@ from .._highlevel_generic import aclose_forcefully
 from ._checkpoints import assert_checkpoints
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
     from types import TracebackType
 
     from typing_extensions import ParamSpec, TypeAlias

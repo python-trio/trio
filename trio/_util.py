@@ -9,7 +9,6 @@ import threading
 import typing as t
 from abc import ABCMeta
 from functools import update_wrapper
-from types import AsyncGeneratorType, TracebackType
 
 from sniffio import thread_local as sniffio_loop
 
@@ -20,6 +19,8 @@ T = t.TypeVar("T")
 RetT = t.TypeVar("RetT")
 
 if t.TYPE_CHECKING:
+    from types import AsyncGeneratorType, TracebackType
+
     from typing_extensions import ParamSpec, Self
 
     ArgsT = ParamSpec("ArgsT")

@@ -30,6 +30,7 @@ from typing import (
 from weakref import ReferenceType, WeakValueDictionary
 
 import attr
+from OpenSSL import SSL
 
 import trio
 
@@ -39,7 +40,6 @@ if TYPE_CHECKING:
     from types import TracebackType
 
     # See DTLSEndpoint.__init__ for why this is imported here
-    from OpenSSL import SSL
     from OpenSSL.SSL import Context
     from typing_extensions import Self, TypeAlias
 

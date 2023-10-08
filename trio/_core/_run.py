@@ -10,20 +10,11 @@ import sys
 import threading
 import warnings
 from collections import deque
-from collections.abc import (
-    Awaitable,
-    Callable,
-    Coroutine,
-    Generator,
-    Iterator,
-    Sequence,
-)
 from contextlib import AbstractAsyncContextManager, contextmanager
 from contextvars import copy_context
 from heapq import heapify, heappop, heappush
 from math import inf
 from time import perf_counter
-from types import TracebackType
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -62,10 +53,18 @@ from ._traps import (
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
 
-from types import FrameType
 
 if TYPE_CHECKING:
     import contextvars
+    from collections.abc import (
+        Awaitable,
+        Callable,
+        Coroutine,
+        Generator,
+        Iterator,
+        Sequence,
+    )
+    from types import FrameType, TracebackType
 
     from typing_extensions import Self
 
