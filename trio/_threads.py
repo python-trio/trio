@@ -93,6 +93,7 @@ class Run(Generic[RetT]):
         return await coro
 
     async def run(self) -> None:
+        # we use extra checkpoints to pick up and reset any context changes
         task = trio.lowlevel.current_task()
         old_context = task.context
         task.context = self.context.copy()
