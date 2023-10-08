@@ -1,47 +1,23 @@
 from __future__ import annotations
 
 import sys
-from typing import Any
+from typing import TYPE_CHECKING
 
 import pytest
 
 from .. import _core
 from ..testing import check_one_way_stream, wait_all_tasks_blocked
 
-if sys.platform == "win32":
-    from asyncio.windows_utils import pipe
+on_windows = sys.platform == "win32"
+# Mark all the tests in this file as being windows-only
+pytestmark = pytest.mark.skipif(not on_windows, reason="windows only")
 
-    from .._core._windows_cffi import _handle, kernel32
-    from .._windows_pipes import PipeReceiveStream, PipeSendStream
-else:
-    pytestmark = pytest.mark.skip(reason="windows only")
-    pipe: Any = None
-    _handle: Any = None
-    kernel32: Any = None
-    from .._abc import ReceiveStream, SendStream
+assert on_windows or not TYPE_CHECKING  # Skip type checking when not on Windows
 
-    class PipeReceiveStream(ReceiveStream):
-        def __init__(self, _: int) -> None:
-            ...
+from asyncio.windows_utils import pipe
 
-        async def receive_some(self, max_bytes: int | None = None) -> bytes | bytearray:
-            return b""
-
-        async def aclose(self) -> None:
-            ...
-
-    class PipeSendStream(SendStream):
-        def __init__(self, _: int) -> None:
-            ...
-
-        async def send_all(self, data: bytes | bytearray | memoryview) -> None:
-            ...
-
-        async def wait_send_all_might_not_block(self) -> None:
-            ...
-
-        async def aclose(self) -> None:
-            ...
+from .._core._windows_cffi import _handle, kernel32
+from .._windows_pipes import PipeReceiveStream, PipeSendStream
 
 
 async def make_pipe() -> tuple[PipeSendStream, PipeReceiveStream]:
