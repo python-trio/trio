@@ -338,7 +338,7 @@ async def to_thread_run_sync(  # type: ignore[misc]
             await msg_from_thread.run()
         elif isinstance(msg_from_thread, RunSync):
             msg_from_thread.run_sync()
-        else:  # pragma: no cover, internal debugging guard
+        else:  # pragma: no cover, internal debugging guard TODO: use assert_never
             raise TypeError(
                 "trio.to_thread.run_sync received unrecognized thread message {!r}."
                 "".format(msg_from_thread)
@@ -433,7 +433,7 @@ def _send_message_to_system_task(
                     outcome.Error(trio.RunFinishedError("system nursery is closed"))
                 )
 
-    else:  # pragma: no cover, internal debugging guard
+    else:  # pragma: no cover, internal debugging guard TODO: use assert_never
         raise TypeError(
             "trio.to_thread.run_sync received unrecognized thread message {!r}."
             "".format(message)
