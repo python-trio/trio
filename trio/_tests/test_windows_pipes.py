@@ -14,10 +14,11 @@ pytestmark = pytest.mark.skipif(not on_windows, reason="windows only")
 
 assert on_windows or not TYPE_CHECKING  # Skip type checking when not on Windows
 
-from asyncio.windows_utils import pipe
+if sys.platform == "win32":
+    from asyncio.windows_utils import pipe
 
-from .._core._windows_cffi import _handle, kernel32
-from .._windows_pipes import PipeReceiveStream, PipeSendStream
+    from .._core._windows_cffi import _handle, kernel32
+    from .._windows_pipes import PipeReceiveStream, PipeSendStream
 
 
 async def make_pipe() -> tuple[PipeSendStream, PipeReceiveStream]:
