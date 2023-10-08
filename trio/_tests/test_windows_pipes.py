@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -19,6 +19,12 @@ if sys.platform == "win32":
 
     from .._core._windows_cffi import _handle, kernel32
     from .._windows_pipes import PipeReceiveStream, PipeSendStream
+else:
+    pipe = Any
+    _handle = Any
+    kernel32 = Any
+    PipeReceiveStream = Any
+    PipeSendStream = Any
 
 
 async def make_pipe() -> tuple[PipeSendStream, PipeReceiveStream]:
