@@ -107,7 +107,7 @@ async def open_results(path: trio.Path, some_int: int, some_str: str) -> None:
     assert_type(await path.open(some_str), _AsyncIOWrapper[IO[Any]])
 
     # Check they produce the right types.
-    file_bin = await path.open("rb")
+    file_bin = await path.open("rb+")
     assert_type(await file_bin.read(), bytes)
     assert_type(await file_bin.write(b"test"), int)
     assert_type(await file_bin.seek(32), int)
