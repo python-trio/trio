@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+a#!/usr/bin/env python3
 #
 # Trio documentation build configuration file, created by
 # sphinx-quickstart on Sat Jan 21 19:11:14 2017.
@@ -125,6 +125,7 @@ extensions = [
 ]
 
 intersphinx_mapping = {
+    # make sure that this matches the rtd build version
     "python": ("https://docs.python.org/3.11", None),
     "outcome": ("https://outcome.readthedocs.io/en/latest/", None),
     "pyopenssl": ("https://www.pyopenssl.org/en/stable/", None),
