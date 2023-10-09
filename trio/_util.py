@@ -389,3 +389,18 @@ def name_asyncgen(agen: AsyncGeneratorType[object, t.NoReturn]) -> str:
     except AttributeError:
         qualname = agen.ag_code.co_name
     return f"{module}.{qualname}"
+
+
+# work around a pyright error
+if t.TYPE_CHECKING:
+    Fn = t.TypeVar("Fn", bound=t.Callable[..., object])
+
+    def wraps(
+        wrapped: t.Callable[..., object],
+        assigned: t.Sequence[str] = ...,
+        updated: t.Sequence[str] = ...,
+    ) -> t.Callable[[Fn], Fn]:
+        ...
+
+else:
+    from functools import wraps  # noqa: F401  # this is re-exported

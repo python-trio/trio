@@ -14,11 +14,10 @@ from ._run import _public
 from ._wakeup_socketpair import WakeupSocketpair
 
 if TYPE_CHECKING:
-    from socket import socket
-
     from typing_extensions import TypeAlias
 
     from .._core import Abort, RaiseCancelT, Task, UnboundedQueue
+    from .._file_io import _HasFileNo
 
 assert not TYPE_CHECKING or (sys.platform != "linux" and sys.platform != "win32")
 
@@ -161,7 +160,7 @@ class KqueueIOManager:
         # wait_task_rescheduled does not have its return type typed
         return await _core.wait_task_rescheduled(abort)  # type: ignore[no-any-return]
 
-    async def _wait_common(self, fd: int | socket, filter: int) -> None:
+    async def _wait_common(self, fd: int | _HasFileNo, filter: int) -> None:
         if not isinstance(fd, int):
             fd = fd.fileno()
         flags = select.KQ_EV_ADD | select.KQ_EV_ONESHOT
@@ -193,7 +192,7 @@ class KqueueIOManager:
         await self.wait_kevent(fd, filter, abort)
 
     @_public
-    async def wait_readable(self, fd: int | socket) -> None:
+    async def wait_readable(self, fd: int | _HasFileNo) -> None:
         """Block until the kernel reports that the given object is readable.
 
         On Unix systems, ``obj`` must either be an integer file descriptor,
@@ -218,7 +217,7 @@ class KqueueIOManager:
         await self._wait_common(fd, select.KQ_FILTER_READ)
 
     @_public
-    async def wait_writable(self, fd: int | socket) -> None:
+    async def wait_writable(self, fd: int | _HasFileNo) -> None:
         """Block until the kernel reports that the given object is writable.
 
         See `wait_readable` for the definition of ``obj``.
@@ -233,7 +232,7 @@ class KqueueIOManager:
         await self._wait_common(fd, select.KQ_FILTER_WRITE)
 
     @_public
-    def notify_closing(self, fd: int | socket) -> None:
+    def notify_closing(self, fd: int | _HasFileNo) -> None:
         """Call this before closing a file descriptor (on Unix) or socket (on
         Windows). This will cause any `wait_readable` or `wait_writable`
         calls on the given object to immediately wake up and raise

@@ -27,7 +27,6 @@
 from datetime import datetime, timedelta, timezone
 
 import cffi
-
 import trio
 from trio._core._windows_cffi import ffi, kernel32, raise_winerror
 

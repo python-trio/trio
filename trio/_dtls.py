@@ -43,26 +43,26 @@ if TYPE_CHECKING:
     from OpenSSL.SSL import Context
     from typing_extensions import Self, TypeAlias
 
-    from trio.socket import Address, _SocketType
+    from trio.socket import SocketType
 
 MAX_UDP_PACKET_SIZE = 65527
 
 
-def packet_header_overhead(sock: _SocketType) -> int:
+def packet_header_overhead(sock: SocketType) -> int:
     if sock.family == trio.socket.AF_INET:
         return 28
     else:
         return 48
 
 
-def worst_case_mtu(sock: _SocketType) -> int:
+def worst_case_mtu(sock: SocketType) -> int:
     if sock.family == trio.socket.AF_INET:
         return 576 - packet_header_overhead(sock)
     else:
         return 1280 - packet_header_overhead(sock)
 
 
-def best_guess_mtu(sock: _SocketType) -> int:
+def best_guess_mtu(sock: SocketType) -> int:
     return 1500 - packet_header_overhead(sock)
 
 
@@ -563,7 +563,7 @@ def _signable(*fields: bytes) -> bytes:
 
 
 def _make_cookie(
-    key: bytes, salt: bytes, tick: int, address: Address, client_hello_bits: bytes
+    key: bytes, salt: bytes, tick: int, address: Any, client_hello_bits: bytes
 ) -> bytes:
     assert len(salt) == SALT_BYTES
     assert len(key) == KEY_BYTES
@@ -581,7 +581,7 @@ def _make_cookie(
 
 
 def valid_cookie(
-    key: bytes, cookie: bytes, address: Address, client_hello_bits: bytes
+    key: bytes, cookie: bytes, address: Any, client_hello_bits: bytes
 ) -> bool:
     if len(cookie) > SALT_BYTES:
         salt = cookie[:SALT_BYTES]
@@ -603,7 +603,7 @@ def valid_cookie(
 
 
 def challenge_for(
-    key: bytes, address: Address, epoch_seqno: int, client_hello_bits: bytes
+    key: bytes, address: Any, epoch_seqno: int, client_hello_bits: bytes
 ) -> bytes:
     salt = os.urandom(SALT_BYTES)
     tick = _current_cookie_tick()
@@ -664,7 +664,7 @@ def _read_loop(read_fn: Callable[[int], bytes]) -> bytes:
 
 
 async def handle_client_hello_untrusted(
-    endpoint: DTLSEndpoint, address: Address, packet: bytes
+    endpoint: DTLSEndpoint, address: Any, packet: bytes
 ) -> None:
     if endpoint._listening_context is None:
         return
@@ -739,7 +739,7 @@ async def handle_client_hello_untrusted(
 
 
 async def dtls_receive_loop(
-    endpoint_ref: ReferenceType[DTLSEndpoint], sock: _SocketType
+    endpoint_ref: ReferenceType[DTLSEndpoint], sock: SocketType
 ) -> None:
     try:
         while True:
@@ -829,7 +829,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
 
     """
 
-    def __init__(self, endpoint: DTLSEndpoint, peer_address: Address, ctx: Context):
+    def __init__(self, endpoint: DTLSEndpoint, peer_address: Any, ctx: Context):
         self.endpoint = endpoint
         self.peer_address = peer_address
         self._packets_dropped_in_trio = 0
@@ -1180,7 +1180,7 @@ class DTLSEndpoint:
 
     """
 
-    def __init__(self, socket: _SocketType, *, incoming_packets_buffer: int = 10):
+    def __init__(self, socket: SocketType, *, incoming_packets_buffer: int = 10):
         # We do this lazily on first construction, so only people who actually use DTLS
         # have to install PyOpenSSL.
         global SSL
@@ -1191,7 +1191,7 @@ class DTLSEndpoint:
         if socket.type != trio.socket.SOCK_DGRAM:
             raise ValueError("DTLS requires a SOCK_DGRAM socket")
         self._initialized = True
-        self.socket: _SocketType = socket
+        self.socket: SocketType = socket
 
         self.incoming_packets_buffer = incoming_packets_buffer
         self._token = trio.lowlevel.current_trio_token()
@@ -1200,7 +1200,7 @@ class DTLSEndpoint:
         # as a peer provides a valid cookie, we can immediately tear down the
         # old connection.
         # {remote address: DTLSChannel}
-        self._streams: WeakValueDictionary[Address, DTLSChannel] = WeakValueDictionary()
+        self._streams: WeakValueDictionary[Any, DTLSChannel] = WeakValueDictionary()
         self._listening_context: Context | None = None
         self._listening_key: bytes | None = None
         self._incoming_connections_q = _Queue[DTLSChannel](float("inf"))

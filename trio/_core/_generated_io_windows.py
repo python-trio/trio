@@ -3,10 +3,9 @@
 # *************************************************************
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ContextManager
-
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 from ._run import GLOBAL_RUN_CONTEXT
+from typing import TYPE_CHECKING, ContextManager
 
 if TYPE_CHECKING:
     from .._file_io import _HasFileNo
@@ -14,7 +13,6 @@ if TYPE_CHECKING:
     from typing_extensions import Buffer
 
     from ._unbounded_queue import UnboundedQueue
-
 import sys
 
 assert not TYPE_CHECKING or sys.platform == "win32"

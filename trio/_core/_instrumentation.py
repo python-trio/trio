@@ -98,7 +98,7 @@ class Instruments(Dict[str, Dict[Instrument, None]]):
         for instrument in list(self[hookname]):
             try:
                 getattr(instrument, hookname)(*args)
-            except:
+            except BaseException:
                 self.remove_instrument(instrument)
                 INSTRUMENT_LOGGER.exception(
                     "Exception raised when calling %r on instrument %r. "

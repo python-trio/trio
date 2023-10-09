@@ -228,7 +228,7 @@ def start_thread_soon(
 
     This is a low-level, no-frills interface, very similar to using
     `threading.Thread` to spawn a thread directly. The main difference is
-    that this function tries to re-use threads when possible, so it can be
+    that this function tries to reuse threads when possible, so it can be
     a bit faster than `threading.Thread`.
 
     Worker threads have the `~threading.Thread.daemon` flag set, which means

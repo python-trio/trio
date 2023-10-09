@@ -265,7 +265,7 @@ Headline features
 Features
 ~~~~~~~~
 
-- To speed up `trio.to_thread.run_sync`, Trio now caches and re-uses
+- To speed up `trio.to_thread.run_sync`, Trio now caches and reuses
   worker threads.
 
   And in case you have some exotic use case where you need to spawn
@@ -419,7 +419,7 @@ Features
 
   If you're using higher-level interfaces outside of the `trio.hazmat <trio.lowlevel>`
   module, then you don't need to worry about any of this; those
-  intefaces already take care of calling `~trio.lowlevel.notify_closing`
+  interfaces already take care of calling `~trio.lowlevel.notify_closing`
   for you. (`#1272 <https://github.com/python-trio/trio/issues/1272>`__)
 
 

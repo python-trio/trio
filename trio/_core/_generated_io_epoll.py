@@ -3,39 +3,18 @@
 # *************************************************************
 from __future__ import annotations
 
-import sys
-from socket import socket
-from typing import TYPE_CHECKING
-
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 from ._run import GLOBAL_RUN_CONTEXT
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .._file_io import _HasFileNo
+import sys
 
 assert not TYPE_CHECKING or sys.platform == "linux"
 
 
-async def wait_readable(fd: (int | socket)) -> None:
-    """
-    Block until the kernel reports that the given object is readable.
-
-    On Unix systems, ``obj`` must either be an integer file descriptor,
-    or else an object with a ``.fileno()`` method which returns an
-    integer file descriptor. Any kind of file descriptor can be passed,
-    though the exact semantics will depend on your kernel. For example,
-    this probably won't do anything useful for on-disk files.
-
-    On Windows systems, ``obj`` must either be an integer ``SOCKET``
-    handle, or else an object with a ``.fileno()`` method which returns
-    an integer ``SOCKET`` handle. File descriptors aren't supported,
-    and neither are handles that refer to anything besides a
-    ``SOCKET``.
-
-    :raises trio.BusyResourceError:
-        if another task is already waiting for the given socket to
-        become readable.
-    :raises trio.ClosedResourceError:
-        if another task calls :func:`notify_closing` while this
-        function is still working.
-    """
+async def wait_readable(fd: (int | _HasFileNo)) -> None:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_readable(fd)
@@ -43,7 +22,7 @@ async def wait_readable(fd: (int | socket)) -> None:
         raise RuntimeError("must be called from async context")
 
 
-async def wait_writable(fd: (int | socket)) -> None:
+async def wait_writable(fd: (int | _HasFileNo)) -> None:
     """Block until the kernel reports that the given object is writable.
 
     See `wait_readable` for the definition of ``obj``.
@@ -62,7 +41,7 @@ async def wait_writable(fd: (int | socket)) -> None:
         raise RuntimeError("must be called from async context")
 
 
-def notify_closing(fd: (int | socket)) -> None:
+def notify_closing(fd: (int | _HasFileNo)) -> None:
     """Call this before closing a file descriptor (on Unix) or socket (on
     Windows). This will cause any `wait_readable` or `wait_writable`
     calls on the given object to immediately wake up and raise

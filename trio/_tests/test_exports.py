@@ -1,4 +1,5 @@
 from __future__ import annotations  # isort: split
+
 import __future__  # Regular import, not special!
 
 import functools

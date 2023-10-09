@@ -54,8 +54,6 @@ nitpick_ignore = [
     ("py:class", "sync function"),
     # why aren't these found in stdlib?
     ("py:class", "types.FrameType"),
-    # TODO: temporary type
-    ("py:class", "_SocketType"),
     # these are not defined in https://docs.python.org/3/objects.inv
     ("py:class", "socket.AddressFamily"),
     ("py:class", "socket.SocketKind"),

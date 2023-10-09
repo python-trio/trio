@@ -72,7 +72,7 @@ if TYPE_CHECKING:
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: Final = 1000
 
 # Passed as a sentinel
-_NO_SEND: Final = cast("Outcome[Any]", object())
+_NO_SEND: Final["Outcome[Any]"] = cast("Outcome[Any]", object())
 
 FnT = TypeVar("FnT", bound="Callable[..., Any]")
 StatusT = TypeVar("StatusT")
@@ -1345,14 +1345,14 @@ class Task(metaclass=NoPublicConstructor):
                 # cannot extract the generator directly, see https://github.com/python/cpython/issues/76991
                 # we can however use the gc to look through the object
                 for referent in gc.get_referents(coro):
-                    if hasattr(referent, "ag_frame"):
+                    if hasattr(referent, "ag_frame"):  # pragma: no branch
                         yield referent.ag_frame, referent.ag_frame.f_lineno
                         coro = referent.ag_await
                         break
-                else:
+                else:  # pragma: no cover
                     # either cpython changed or we are running on an alternative python implementation
                     return
-            else:
+            else:  # pragma: no cover
                 return
 
     ################
@@ -1478,6 +1478,8 @@ class RunStatistics:
 # So this object can reference Runner, but Runner can't reference it. The only
 # references to it are the "in flight" callback chain on the host loop /
 # worker thread.
+
+
 @attr.s(eq=False, hash=False, slots=True)
 class GuestState:
     runner: Runner = attr.ib()
@@ -1485,8 +1487,7 @@ class GuestState:
     run_sync_soon_not_threadsafe: Callable[[Callable[[], object]], object] = attr.ib()
     done_callback: Callable[[Outcome[Any]], object] = attr.ib()
     unrolled_run_gen: Generator[float, EventResult, None] = attr.ib()
-    _value_factory: Callable[[], Value[Any]] = lambda: Value(None)
-    unrolled_run_next_send: Outcome[Any] = attr.ib(factory=_value_factory)
+    unrolled_run_next_send: Outcome[Any] = attr.ib(factory=lambda: Value(None))
 
     def guest_tick(self) -> None:
         prev_library, sniffio_library.name = sniffio_library.name, "trio"

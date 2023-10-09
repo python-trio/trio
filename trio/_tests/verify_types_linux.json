@@ -8,16 +8,21 @@
   },
   "typeCompleteness": {
     "completenessScore": 1,
-    "diagnostics": [],
+    "diagnostics": [
+      {
+        "message": "No docstring found for function \"trio.lowlevel.wait_readable\"",
+        "name": "trio.lowlevel.wait_readable"
+      }
+    ],
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 628,
+      "withKnownType": 627,
       "withUnknownType": 0
     },
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 0,
     "missingDefaultParamCount": 0,
-    "missingFunctionDocStringCount": 0,
+    "missingFunctionDocStringCount": 1,
     "moduleName": "trio",
     "modules": [
       {
@@ -47,7 +52,7 @@
     ],
     "otherSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 684,
+      "withKnownType": 685,
       "withUnknownType": 0
     },
     "packageName": "trio"
