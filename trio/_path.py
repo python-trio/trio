@@ -341,7 +341,7 @@ class Path(metaclass=AsyncAutoWrapperType):
 
         # The following are ordered the same as in typeshed.
 
-        # PurePath methods and properties - synchronous.
+        # Properties produced by __getattr__() - all synchronous.
         @property
         def parts(self) -> tuple[str, ...]: ...
         @property
@@ -363,6 +363,7 @@ class Path(metaclass=AsyncAutoWrapperType):
         @property
         def parent(self) -> Path: ...
 
+        # PurePath methods - synchronous.
         def as_posix(self) -> str: ...
         def as_uri(self) -> str: ...
         def is_absolute(self) -> bool: ...

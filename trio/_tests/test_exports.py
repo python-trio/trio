@@ -494,9 +494,25 @@ def test_static_tool_sees_class_members(
                 missing.remove("__aiter__")
                 missing.remove("__anext__")
 
-        # intentionally hidden behind type guard
+            # __getattr__ is intentionally hidden behind type guard. That hook then
+            # forwards property accesses to PurePath, meaning these names aren't directly on
+            # the class.
         if class_ == trio.Path:
             missing.remove("__getattr__")
+            before = len(extra)
+            extra -= {
+                "anchor",
+                "drive",
+                "name",
+                "parent",
+                "parents",
+                "parts",
+                "root",
+                "stem",
+                "suffix",
+                "suffixes",
+            }
+            assert len(extra) == before - 10
 
         if missing or extra:  # pragma: no cover
             errors[f"{module_name}.{class_name}"] = {
