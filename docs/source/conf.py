@@ -125,7 +125,7 @@ extensions = [
 ]
 
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/3", None),
+    "python": ("https://docs.python.org/3.11", None),
     "outcome": ("https://outcome.readthedocs.io/en/latest/", None),
     "pyopenssl": ("https://www.pyopenssl.org/en/stable/", None),
     "sniffio": ("https://sniffio.readthedocs.io/en/latest/", None),
