@@ -150,7 +150,7 @@ def test_run_ruff(tmp_path) -> None:
     file = File(tmp_path / "module.py", "module")
 
     success, _ = run_ruff(file, "class not valid code ><")
-    assert not success
+    assert not success, success
 
     test_function = '''def combine_and(data: list[str]) -> str:
     """Join values of text, and have 'and' with the last one properly."""
