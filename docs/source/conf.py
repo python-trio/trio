@@ -1,4 +1,4 @@
-a#!/usr/bin/env python3
+#!/usr/bin/env python3
 #
 # Trio documentation build configuration file, created by
 # sphinx-quickstart on Sat Jan 21 19:11:14 2017.
