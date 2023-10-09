@@ -163,10 +163,13 @@ def run_ruff(file: File, source: str) -> tuple[bool, str]:
         capture_output=True,
         encoding="utf8",
     )
+    warnings = ""
 
-    if result.returncode != 0 or result.stderr:
+    if result.returncode != 0:
         return False, f"Failed to run ruff!\n{result.stderr}"
-    return True, result.stdout
+    elif result.stderr:
+        print(f"Warnings when running ruff:\n{result.stderr}")
+    return True, warnings + result.stdout
 
 
 def run_linters(file: File, source: str) -> str:

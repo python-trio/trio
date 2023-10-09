@@ -310,6 +310,7 @@ if sys.platform == "win32" or (
 
     @_wraps(_stdlib_socket.fromshare, assigned=(), updated=())
     def fromshare(info: bytes) -> SocketType:
+        """Like :func:`socket.fromshare`, but returns a Trio socket object."""
         return from_stdlib_socket(_stdlib_socket.fromshare(info))
 
 

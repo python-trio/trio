@@ -15,6 +15,28 @@ assert not TYPE_CHECKING or sys.platform == "linux"
 
 
 async def wait_readable(fd: (int | _HasFileNo)) -> None:
+    """
+    Block until the kernel reports that the given object is readable.
+
+    On Unix systems, ``obj`` must either be an integer file descriptor,
+    or else an object with a ``.fileno()`` method which returns an
+    integer file descriptor. Any kind of file descriptor can be passed,
+    though the exact semantics will depend on your kernel. For example,
+    this probably won't do anything useful for on-disk files.
+
+    On Windows systems, ``obj`` must either be an integer ``SOCKET``
+    handle, or else an object with a ``.fileno()`` method which returns
+    an integer ``SOCKET`` handle. File descriptors aren't supported,
+    and neither are handles that refer to anything besides a
+    ``SOCKET``.
+
+    :raises trio.BusyResourceError:
+        if another task is already waiting for the given socket to
+        become readable.
+    :raises trio.ClosedResourceError:
+        if another task calls :func:`notify_closing` while this
+        function is still working.
+    """
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_readable(fd)
