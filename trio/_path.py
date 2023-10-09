@@ -449,7 +449,7 @@ class Path(metaclass=AsyncAutoWrapperType):
                 errors: str | None = None,
             ) -> int: ...
 
-        if sys.version_info >= (3, 8) and sys.version_info < (3, 12):
+        if sys.version_info < (3, 12):
             async def link_to(self, target: StrPath | bytes) -> None: ...
         if sys.version_info >= (3, 12):
             async def is_junction(self) -> bool: ...
@@ -471,6 +471,15 @@ Path.iterdir.__doc__ = """
     <https://github.com/python-trio/trio/issues/501>`__ for discussion.)
 
 """
+
+if sys.version_info < (3, 12):
+    Path.link_to.__doc__ = """
+        Like :meth:`!link_to`, but async.
+
+    :deprecated: This method was deprecated in Python 3.10 and entirely \
+    removed in 3.12. Use :meth:`hardlink_to` instead which has \
+    a more meaningful parameter order.
+    """
 
 # The value of Path.absolute.__doc__ makes a reference to
 # :meth:~pathlib.Path.absolute, which does not exist. Removing this makes more
