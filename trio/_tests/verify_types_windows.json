@@ -8,12 +8,7 @@
   },
   "typeCompleteness": {
     "completenessScore": 1,
-    "diagnostics": [
-      {
-        "message": "No docstring found for function \"trio.socket.fromshare\"",
-        "name": "trio.socket.fromshare"
-      }
-    ],
+    "diagnostics": [],
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
       "withKnownType": 630,
@@ -22,7 +17,7 @@
     "ignoreUnknownTypesFromImports": true,
     "missingClassDocStringCount": 0,
     "missingDefaultParamCount": 0,
-    "missingFunctionDocStringCount": 1,
+    "missingFunctionDocStringCount": 0,
     "moduleName": "trio",
     "modules": [
       {
