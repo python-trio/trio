@@ -3,16 +3,17 @@
 # *************************************************************
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Callable, ContextManager
+
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 from ._run import GLOBAL_RUN_CONTEXT
-from typing import Callable, ContextManager, TYPE_CHECKING
 
 if TYPE_CHECKING:
     import select
 
     from .. import _core
-    from ._traps import Abort, RaiseCancelT
     from .._file_io import _HasFileNo
+    from ._traps import Abort, RaiseCancelT
 import sys
 
 assert not TYPE_CHECKING or sys.platform == "darwin"

@@ -3,17 +3,16 @@
 # *************************************************************
 from __future__ import annotations
 
-from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
-from ._run import GLOBAL_RUN_CONTEXT
+import contextvars
 from collections.abc import Awaitable, Callable
 from typing import Any
 
 from outcome import Outcome
-import contextvars
 
-from ._run import _NO_SEND, RunStatistics, Task
-from ._entry_queue import TrioToken
 from .._abc import Clock
+from ._entry_queue import TrioToken
+from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
+from ._run import _NO_SEND, GLOBAL_RUN_CONTEXT, RunStatistics, Task
 
 
 def current_statistics() -> RunStatistics:

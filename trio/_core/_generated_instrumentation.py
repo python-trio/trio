@@ -3,9 +3,9 @@
 # *************************************************************
 from __future__ import annotations
 
+from ._instrumentation import Instrument
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 from ._run import GLOBAL_RUN_CONTEXT
-from ._instrumentation import Instrument
 
 
 def add_instrument(instrument: Instrument) -> None:

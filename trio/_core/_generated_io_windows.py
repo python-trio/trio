@@ -3,16 +3,17 @@
 # *************************************************************
 from __future__ import annotations
 
-from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
-from ._run import GLOBAL_RUN_CONTEXT
 from typing import TYPE_CHECKING, ContextManager
 
+from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
+from ._run import GLOBAL_RUN_CONTEXT
+
 if TYPE_CHECKING:
-    from .._file_io import _HasFileNo
-    from ._windows_cffi import Handle, CData
     from typing_extensions import Buffer
 
+    from .._file_io import _HasFileNo
     from ._unbounded_queue import UnboundedQueue
+    from ._windows_cffi import CData, Handle
 import sys
 
 assert not TYPE_CHECKING or sys.platform == "win32"
