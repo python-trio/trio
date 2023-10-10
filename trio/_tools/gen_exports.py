@@ -168,7 +168,7 @@ def run_ruff(file: File, source: str) -> tuple[bool, str]:
     if result.returncode != 0:
         return False, f"Failed to run ruff!\n{result.stderr}"
     elif result.stderr:
-        print(f"Warnings when running ruff:\n{result.stderr}", file=sys.stderr)
+        return False, f"Warnings when running ruff:\n{result.stderr}"
     return True, result.stdout
 
 
@@ -185,12 +185,12 @@ def run_linters(file: File, source: str) -> str:
 
     success, response = run_black(file, source)
     if not success:
-        print(response)
+        print(response, file=sys.stderr)
         sys.exit(1)
 
     success, response = run_ruff(file, response)
     if not success:  # pragma: no cover  # Test for run_ruff should catch
-        print(response)
+        print(response, file=sys.stderr)
         sys.exit(1)
 
     return response
