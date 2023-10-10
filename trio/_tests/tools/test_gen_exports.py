@@ -149,8 +149,8 @@ def test_run_ruff(tmp_path) -> None:
 
     file = File(tmp_path / "module.py", "module")
 
-    success, _ = run_ruff(file, "class not valid code ><")
-    assert not success, success
+    success, response = run_ruff(file, "class not valid code ><")
+    assert not success, response
 
     test_function = '''def combine_and(data: list[str]) -> str:
     """Join values of text, and have 'and' with the last one properly."""
@@ -161,7 +161,7 @@ def test_run_ruff(tmp_path) -> None:
     return ' '.join(data)'''
 
     success, response = run_ruff(file, test_function)
-    assert success
+    assert success, response
     assert response == test_function
 
 
