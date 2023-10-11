@@ -458,7 +458,7 @@ class Path(metaclass=AsyncAutoWrapperType):
 
 
 Path.iterdir.__doc__ = """
-    Like :meth:`pathlib.Path.iterdir`, but async.
+    Like :meth:`~pathlib.Path.iterdir`, but async.
 
     This is an async method that returns a synchronous iterator, so you
     use it like::
@@ -473,8 +473,10 @@ Path.iterdir.__doc__ = """
 """
 
 if sys.version_info < (3, 12):
+    # Since we synthesise methods from the stdlib, this automatically will
+    # have deprecation warnings, and disappear entirely in 3.12+.
     Path.link_to.__doc__ = """
-        Like :meth:`!link_to`, but async.
+        Like Python 3.8-3.11's :meth:`~pathlib.Path.link_to`, but async.
 
     :deprecated: This method was deprecated in Python 3.10 and entirely \
     removed in 3.12. Use :meth:`hardlink_to` instead which has \
