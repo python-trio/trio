@@ -114,7 +114,7 @@ async def test_compare_async_stat_methods(method_name):
 
 async def test_invalid_name_not_wrapped(path):
     with pytest.raises(AttributeError):
-        path.invalid_fake_attr  # noqa: B018  # "useless expression"
+        getattr(path, "invalid_fake_attr")  # noqa: B009  # "get-attr-with-constant"
 
 
 @pytest.mark.parametrize("method_name", ["absolute", "resolve"])
