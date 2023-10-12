@@ -26,13 +26,12 @@ for bufsize in [1, None, 0]:
         a.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, bufsize)
         b.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, bufsize)
 
-    i = 0
-    for i in range(10000000):  # noqa: B007  # i unused inside loop
-        try:
+    try:
+        for _count in range(10000000):
             a.send(b"\x00")
-        except BlockingIOError:
-            break
+    except BlockingIOError:
+        break
 
-    print(f"setsockopt bufsize {bufsize}: {i}")
+    print(f"setsockopt bufsize {bufsize}: {_count}")
     a.close()
     b.close()

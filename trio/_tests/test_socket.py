@@ -1111,8 +1111,7 @@ async def test_interrupted_by_close() -> None:
 async def test_many_sockets() -> None:
     total = 5000  # Must be more than MAX_AFD_GROUP_SIZE
     sockets = []
-    x = 0
-    for x in range(total // 2):  # noqa: B007  # Used for check below
+    for _x in range(total // 2):
         try:
             a, b = stdlib_socket.socketpair()
         except OSError as e:  # pragma: no cover
@@ -1126,5 +1125,5 @@ async def test_many_sockets() -> None:
         nursery.cancel_scope.cancel()
     for sock in sockets:
         sock.close()
-    if x != total // 2 - 1:  # pragma: no cover
-        print(f"Unable to open more than {(x-1)*2} sockets.")
+    if _x != total // 2 - 1:  # pragma: no cover
+        print(f"Unable to open more than {(_x-1)*2} sockets.")

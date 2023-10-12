@@ -463,7 +463,7 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
         async with _core.open_nursery() as nursery:
             print("spawning")
             events = []
-            for _i in range(COUNT):
+            for _ in range(COUNT):
                 events.append(Event())
                 nursery.start_soon(run_thread, events[-1])
                 await wait_all_tasks_blocked()

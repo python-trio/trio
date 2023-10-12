@@ -53,7 +53,7 @@ print(
 )
 
 print("""                              """, end="")
-for _mode in modes:
+for _ in modes:
     print(" | " + " | ".join(["%8s" % bind_type for bind_type in bind_types]), end="")
 
 print(
