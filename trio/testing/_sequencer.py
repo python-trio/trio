@@ -63,7 +63,7 @@ class Sequencer:
     @asynccontextmanager
     async def __call__(self, position: int) -> AsyncIterator[None]:
         if position in self._claimed:
-            raise RuntimeError(f"Attempted to re-use sequence point {position}")
+            raise RuntimeError(f"Attempted to reuse sequence point {position}")
         if self._broken:
             raise RuntimeError("sequence broken!")
         self._claimed.add(position)
