@@ -26,10 +26,7 @@ def test_instrument_implements_hook_methods() -> None:
         assert hasattr(mayonnaise, method_name)
         method = getattr(mayonnaise, method_name)
         assert callable(method)
-        try:
-            method(*args)
-        except Exception as exc:
-            raise AssertionError("Raised exception") from exc
+        method(*args)
 
 
 async def test_AsyncResource_defaults() -> None:
