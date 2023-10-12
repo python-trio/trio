@@ -8,8 +8,7 @@ formats:
 build:
   os: "ubuntu-22.04"
   tools:
-    # make sure that this matches the intersphinx inventory we use for Python
-    python: "3.11"
+    python: "3"
 
 python:
   install:
