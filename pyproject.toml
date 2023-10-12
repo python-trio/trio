@@ -56,9 +56,6 @@ extend-exclude = [
 [tool.ruff.isort]
 combine-as-imports = true
 
-[tool.ruff.flake8-annotations]
-ignore-fully-untyped = true
-
 [tool.mypy]
 python_version = "3.8"
 
