@@ -110,7 +110,7 @@ async def test_assert_checkpoints(recwarn):
 
     with pytest.raises(AssertionError):
         with assert_checkpoints():
-            1 + 1  # noqa: B018
+            1 + 1  # noqa: B018  # "useless expression"
 
     # partial yield cases
     # if you have a schedule point but not a cancel point, or vice-versa, then
@@ -132,7 +132,7 @@ async def test_assert_checkpoints(recwarn):
 
 async def test_assert_no_checkpoints(recwarn):
     with assert_no_checkpoints():
-        1 + 1  # noqa: B018
+        1 + 1  # noqa: B018  # "useless expression"
 
     with pytest.raises(AssertionError):
         with assert_no_checkpoints():
@@ -233,11 +233,11 @@ async def test_Sequencer_cancel():
 async def test__assert_raises():
     with pytest.raises(AssertionError):
         with _assert_raises(RuntimeError):
-            1 + 1  # noqa: B018
+            1 + 1  # noqa: B018  # "useless expression"
 
     with pytest.raises(TypeError):
         with _assert_raises(RuntimeError):
-            "foo" + 1  # noqa: B018
+            "foo" + 1  # noqa: B018  # "useless expression"
 
     with _assert_raises(RuntimeError):
         raise RuntimeError

@@ -468,7 +468,7 @@ async def test_attributes(client_ctx):
         assert s.server_side == False  # noqa
         assert s.server_hostname == "trio-test-1.example.org"
         with pytest.raises(AttributeError):
-            s.asfdasdfsa  # noqa: B018
+            s.asfdasdfsa  # noqa: B018  # "useless expression"
 
         # __dir__
         assert "transport_stream" in dir(s)
