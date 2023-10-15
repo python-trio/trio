@@ -241,10 +241,10 @@ async def test_interactive(background_process) -> None:
     ) as proc:
         newline = b"\n" if posix else b"\r\n"
 
-        async def expect(idx, request) -> None:
+        async def expect(idx: int, request) -> None:
             async with _core.open_nursery() as nursery:
 
-                async def drain_one(stream, count, digit) -> None:
+                async def drain_one(stream, count: int, digit) -> None:
                     while count > 0:
                         result = await stream.receive_some(count)
                         assert result == (f"{digit}".encode() * len(result))

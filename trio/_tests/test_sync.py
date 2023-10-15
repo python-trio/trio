@@ -527,7 +527,7 @@ async def test_generic_lock_fifo_fairness(lock_factory) -> None:
     record = []
     LOOPS = 5
 
-    async def loopy(name, lock_like) -> None:
+    async def loopy(name: str, lock_like) -> None:
         # Record the order each task was initially scheduled in
         initial_order.append(name)
         for _ in range(LOOPS):

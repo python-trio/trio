@@ -88,7 +88,7 @@ def client_ctx(request):
 
 
 # The blocking socket server.
-def ssl_echo_serve_sync(sock, *, expect_fail=False):
+def ssl_echo_serve_sync(sock, *, expect_fail: bool = False):
     try:
         wrapped = SERVER_CTX.wrap_socket(
             sock, server_side=True, suppress_ragged_eofs=False

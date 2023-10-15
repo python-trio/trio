@@ -5,7 +5,7 @@ async def scheduler_trace():
     """Returns a scheduler-dependent value we can use to check determinism."""
     trace = []
 
-    async def tracer(name) -> None:
+    async def tracer(name: str) -> None:
         for i in range(50):
             trace.append((name, i))
             await trio.sleep(0)

@@ -126,7 +126,7 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
     # https://github.com/pypa/setuptools/issues/3274
     "ignore:module 'sre_constants' is deprecated:DeprecationWarning",
 )
-def test_static_tool_sees_all_symbols(tool, modname, tmpdir) -> None:
+def test_static_tool_sees_all_symbols(tool, modname: str, tmpdir) -> None:
     module = importlib.import_module(modname)
 
     def no_underscores(symbols):
