@@ -13,15 +13,15 @@ from ..testing._check_streams import _assert_raises
 from ..testing._memory_streams import _UnboundedByteQueue
 
 
-async def test_wait_all_tasks_blocked():
+async def test_wait_all_tasks_blocked() -> None:
     record = []
 
-    async def busy_bee():
+    async def busy_bee() -> None:
         for _ in range(10):
             await _core.checkpoint()
         record.append("busy bee exhausted")
 
-    async def waiting_for_bee_to_leave():
+    async def waiting_for_bee_to_leave() -> None:
         await wait_all_tasks_blocked()
         record.append("quiet at last!")
 
@@ -33,7 +33,7 @@ async def test_wait_all_tasks_blocked():
     # check cancellation
     record = []
 
-    async def cancelled_while_waiting():
+    async def cancelled_while_waiting() -> None:
         try:
             await wait_all_tasks_blocked()
         except _core.Cancelled:
@@ -45,10 +45,10 @@ async def test_wait_all_tasks_blocked():
     assert record == ["ok"]
 
 
-async def test_wait_all_tasks_blocked_with_timeouts(mock_clock):
+async def test_wait_all_tasks_blocked_with_timeouts(mock_clock) -> None:
     record = []
 
-    async def timeout_task():
+    async def timeout_task() -> None:
         record.append("tt start")
         await sleep(5)
         record.append("tt finished")
@@ -62,25 +62,25 @@ async def test_wait_all_tasks_blocked_with_timeouts(mock_clock):
         assert record == ["tt start", "tt finished"]
 
 
-async def test_wait_all_tasks_blocked_with_cushion():
+async def test_wait_all_tasks_blocked_with_cushion() -> None:
     record = []
 
-    async def blink():
+    async def blink() -> None:
         record.append("blink start")
         await sleep(0.01)
         await sleep(0.01)
         await sleep(0.01)
         record.append("blink end")
 
-    async def wait_no_cushion():
+    async def wait_no_cushion() -> None:
         await wait_all_tasks_blocked()
         record.append("wait_no_cushion end")
 
-    async def wait_small_cushion():
+    async def wait_small_cushion() -> None:
         await wait_all_tasks_blocked(0.02)
         record.append("wait_small_cushion end")
 
-    async def wait_big_cushion():
+    async def wait_big_cushion() -> None:
         await wait_all_tasks_blocked(0.03)
         record.append("wait_big_cushion end")
 
@@ -104,7 +104,7 @@ async def test_wait_all_tasks_blocked_with_cushion():
 ################################################################
 
 
-async def test_assert_checkpoints(recwarn):
+async def test_assert_checkpoints(recwarn) -> None:
     with assert_checkpoints():
         await _core.checkpoint()
 
@@ -130,7 +130,7 @@ async def test_assert_checkpoints(recwarn):
         await _core.cancel_shielded_checkpoint()
 
 
-async def test_assert_no_checkpoints(recwarn):
+async def test_assert_no_checkpoints(recwarn) -> None:
     with assert_no_checkpoints():
         1 + 1
 
@@ -160,14 +160,14 @@ async def test_assert_no_checkpoints(recwarn):
 ################################################################
 
 
-async def test_Sequencer():
+async def test_Sequencer() -> None:
     record = []
 
-    def t(val):
+    def t(val) -> None:
         print(val)
         record.append(val)
 
-    async def f1(seq):
+    async def f1(seq) -> None:
         async with seq(1):
             t(("f1", 1))
         async with seq(3):
@@ -175,7 +175,7 @@ async def test_Sequencer():
         async with seq(4):
             t(("f1", 4))
 
-    async def f2(seq):
+    async def f2(seq) -> None:
         async with seq(0):
             t(("f2", 0))
         async with seq(2):
@@ -198,12 +198,12 @@ async def test_Sequencer():
             pass  # pragma: no cover
 
 
-async def test_Sequencer_cancel():
+async def test_Sequencer_cancel() -> None:
     # Killing a blocked task makes everything blow up
     record = []
     seq = Sequencer()
 
-    async def child(i):
+    async def child(i) -> None:
         with _core.CancelScope() as scope:
             if i == 1:
                 scope.cancel()
@@ -245,7 +245,7 @@ async def test__assert_raises():
 
 # This is a private implementation detail, but it's complex enough to be worth
 # testing directly
-async def test__UnboundeByteQueue():
+async def test__UnboundeByteQueue() -> None:
     ubq = _UnboundedByteQueue()
 
     ubq.put(b"123")
@@ -273,11 +273,11 @@ async def test__UnboundeByteQueue():
     with assert_checkpoints():
         assert await ubq.get() == b"efghi"
 
-    async def putter(data):
+    async def putter(data) -> None:
         await wait_all_tasks_blocked()
         ubq.put(data)
 
-    async def getter(expect):
+    async def getter(expect) -> None:
         with assert_checkpoints():
             assert await ubq.get() == expect
 
@@ -308,7 +308,7 @@ async def test__UnboundeByteQueue():
     # close wakes up blocked getters
     ubq2 = _UnboundedByteQueue()
 
-    async def closer():
+    async def closer() -> None:
         await wait_all_tasks_blocked()
         ubq2.close()
 
@@ -317,10 +317,10 @@ async def test__UnboundeByteQueue():
         nursery.start_soon(closer)
 
 
-async def test_MemorySendStream():
+async def test_MemorySendStream() -> None:
     mss = MemorySendStream()
 
-    async def do_send_all(data):
+    async def do_send_all(data) -> None:
         with assert_checkpoints():
             await mss.send_all(data)
 
@@ -346,7 +346,7 @@ async def test_MemorySendStream():
     # and we don't know which one will get the error.
     resource_busy_count = 0
 
-    async def do_send_all_count_resourcebusy():
+    async def do_send_all_count_resourcebusy() -> None:
         nonlocal resource_busy_count
         try:
             await do_send_all(b"xxx")
@@ -375,15 +375,15 @@ async def test_MemorySendStream():
 
     record = []
 
-    async def send_all_hook():
+    async def send_all_hook() -> None:
         # hook runs after send_all does its work (can pull data out)
         assert mss2.get_data_nowait() == b"abc"
         record.append("send_all_hook")
 
-    async def wait_send_all_might_not_block_hook():
+    async def wait_send_all_might_not_block_hook() -> None:
         record.append("wait_send_all_might_not_block_hook")
 
-    def close_hook():
+    def close_hook() -> None:
         record.append("close_hook")
 
     mss2 = MemorySendStream(
@@ -407,7 +407,7 @@ async def test_MemorySendStream():
     ]
 
 
-async def test_MemoryReceiveStream():
+async def test_MemoryReceiveStream() -> None:
     mrs = MemoryReceiveStream()
 
     async def do_receive_some(max_bytes):
@@ -438,12 +438,12 @@ async def test_MemoryReceiveStream():
     with pytest.raises(_core.ClosedResourceError):
         mrs.put_data(b"---")
 
-    async def receive_some_hook():
+    async def receive_some_hook() -> None:
         mrs2.put_data(b"xxx")
 
     record = []
 
-    def close_hook():
+    def close_hook() -> None:
         record.append("closed")
 
     mrs2 = MemoryReceiveStream(receive_some_hook, close_hook)
@@ -468,7 +468,7 @@ async def test_MemoryReceiveStream():
         await mrs2.receive_some(10)
 
 
-async def test_MemoryRecvStream_closing():
+async def test_MemoryRecvStream_closing() -> None:
     mrs = MemoryReceiveStream()
     # close with no pending data
     mrs.close()
@@ -488,7 +488,7 @@ async def test_MemoryRecvStream_closing():
         await mrs2.receive_some(10)
 
 
-async def test_memory_stream_pump():
+async def test_memory_stream_pump() -> None:
     mss = MemorySendStream()
     mrs = MemoryReceiveStream()
 
@@ -512,7 +512,7 @@ async def test_memory_stream_pump():
     assert await mrs.receive_some(10) == b""
 
 
-async def test_memory_stream_one_way_pair():
+async def test_memory_stream_one_way_pair() -> None:
     s, r = memory_stream_one_way_pair()
     assert s.send_all_hook is not None
     assert s.wait_send_all_might_not_block_hook is None
@@ -521,7 +521,7 @@ async def test_memory_stream_one_way_pair():
     await s.send_all(b"123")
     assert await r.receive_some(10) == b"123"
 
-    async def receiver(expected):
+    async def receiver(expected) -> None:
         assert await r.receive_some(10) == expected
 
     # This fails if we pump on r.receive_some_hook; we need to pump on s.send_all_hook
@@ -549,11 +549,11 @@ async def test_memory_stream_one_way_pair():
     s.send_all_hook = None
     await s.send_all(b"456")
 
-    async def cancel_after_idle(nursery):
+    async def cancel_after_idle(nursery) -> None:
         await wait_all_tasks_blocked()
         nursery.cancel_scope.cancel()
 
-    async def check_for_cancel():
+    async def check_for_cancel() -> None:
         with pytest.raises(_core.Cancelled):
             # This should block forever... or until cancelled. Even though we
             # sent some data on the send stream.
@@ -568,7 +568,7 @@ async def test_memory_stream_one_way_pair():
     assert await r.receive_some(10) == b"456789"
 
 
-async def test_memory_stream_pair():
+async def test_memory_stream_pair() -> None:
     a, b = memory_stream_pair()
     await a.send_all(b"123")
     await b.send_all(b"abc")
@@ -578,11 +578,11 @@ async def test_memory_stream_pair():
     await a.send_eof()
     assert await b.receive_some(10) == b""
 
-    async def sender():
+    async def sender() -> None:
         await wait_all_tasks_blocked()
         await b.send_all(b"xyz")
 
-    async def receiver():
+    async def receiver() -> None:
         assert await a.receive_some(10) == b"xyz"
 
     async with _core.open_nursery() as nursery:
@@ -590,7 +590,7 @@ async def test_memory_stream_pair():
         nursery.start_soon(sender)
 
 
-async def test_memory_streams_with_generic_tests():
+async def test_memory_streams_with_generic_tests() -> None:
     async def one_way_stream_maker():
         return memory_stream_one_way_pair()
 
@@ -602,7 +602,7 @@ async def test_memory_streams_with_generic_tests():
     await check_half_closeable_stream(half_closeable_stream_maker, None)
 
 
-async def test_lockstep_streams_with_generic_tests():
+async def test_lockstep_streams_with_generic_tests() -> None:
     async def one_way_stream_maker():
         return lockstep_stream_one_way_pair()
 
@@ -614,8 +614,8 @@ async def test_lockstep_streams_with_generic_tests():
     await check_two_way_stream(two_way_stream_maker, two_way_stream_maker)
 
 
-async def test_open_stream_to_socket_listener():
-    async def check(listener):
+async def test_open_stream_to_socket_listener() -> None:
+    async def check(listener) -> None:
         async with listener:
             client_stream = await open_stream_to_socket_listener(listener)
             async with client_stream:

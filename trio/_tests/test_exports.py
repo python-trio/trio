@@ -34,7 +34,7 @@ except ImportError:  # pragma: no cover
     Protocol_ext = Protocol  # type: ignore[assignment]
 
 
-def _ensure_mypy_cache_updated():
+def _ensure_mypy_cache_updated() -> None:
     # This pollutes the `empty` dir. Should this be changed?
     try:
         from mypy.api import run
@@ -59,7 +59,7 @@ def _ensure_mypy_cache_updated():
         mypy_cache_updated = True
 
 
-def test_core_is_properly_reexported():
+def test_core_is_properly_reexported() -> None:
     # Each export from _core should be re-exported by exactly one of these
     # three modules:
     sources = [trio, trio.lowlevel, trio.testing]
@@ -126,7 +126,7 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
     # https://github.com/pypa/setuptools/issues/3274
     "ignore:module 'sre_constants' is deprecated:DeprecationWarning",
 )
-def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
+def test_static_tool_sees_all_symbols(tool, modname, tmpdir) -> None:
     module = importlib.import_module(modname)
 
     def no_underscores(symbols):

@@ -17,7 +17,7 @@ from .._highlevel_ssl_helpers import (
 from .test_ssl import SERVER_CTX, client_ctx  # noqa: F401
 
 
-async def echo_handler(stream):
+async def echo_handler(stream) -> None:
     async with stream:
         try:
             while True:
@@ -44,7 +44,9 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
 
 # This uses serve_ssl_over_tcp, which uses open_ssl_over_tcp_listeners...
 # using noqa because linters don't understand how pytest fixtures work.
-async def test_open_ssl_over_tcp_stream_and_everything_else(client_ctx):  # noqa: F811
+async def test_open_ssl_over_tcp_stream_and_everything_else(
+    client_ctx,  # noqa: F811 # linters doesn't understand fixture
+) -> None:
     async with trio.open_nursery() as nursery:
         (listener,) = await nursery.start(
             partial(serve_ssl_over_tcp, echo_handler, 0, SERVER_CTX, host="127.0.0.1")
@@ -97,7 +99,7 @@ async def test_open_ssl_over_tcp_stream_and_everything_else(client_ctx):  # noqa
             nursery.cancel_scope.cancel()
 
 
-async def test_open_ssl_over_tcp_listeners():
+async def test_open_ssl_over_tcp_listeners() -> None:
     (listener,) = await open_ssl_over_tcp_listeners(0, SERVER_CTX, host="127.0.0.1")
     async with listener:
         assert isinstance(listener, trio.SSLListener)

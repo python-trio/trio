@@ -32,33 +32,33 @@ class MemoryListener(trio.abc.Listener):
         self.accepted_streams.append(stream)
         return stream
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         self.closed = True
         await trio.lowlevel.checkpoint()
 
 
-async def test_serve_listeners_basic():
+async def test_serve_listeners_basic() -> None:
     listeners = [MemoryListener(), MemoryListener()]
 
     record = []
 
-    def close_hook():
+    def close_hook() -> None:
         # Make sure this is a forceful close
         assert trio.current_effective_deadline() == float("-inf")
         record.append("closed")
 
-    async def handler(stream):
+    async def handler(stream) -> None:
         await stream.send_all(b"123")
         assert await stream.receive_some(10) == b"456"
         stream.send_stream.close_hook = close_hook
         stream.receive_stream.close_hook = close_hook
 
-    async def client(listener):
+    async def client(listener) -> None:
         s = await listener.connect()
         assert await s.receive_some(10) == b"123"
         await s.send_all(b"456")
 
-    async def do_tests(parent_nursery):
+    async def do_tests(parent_nursery) -> None:
         async with trio.open_nursery() as nursery:
             for listener in listeners:
                 for _ in range(3):
@@ -82,7 +82,7 @@ async def test_serve_listeners_basic():
         assert listener.closed
 
 
-async def test_serve_listeners_accept_unrecognized_error():
+async def test_serve_listeners_accept_unrecognized_error() -> None:
     for error in [KeyError(), OSError(errno.ECONNABORTED, "ECONNABORTED")]:
         listener = MemoryListener()
 
@@ -96,7 +96,7 @@ async def test_serve_listeners_accept_unrecognized_error():
         assert excinfo.value is error
 
 
-async def test_serve_listeners_accept_capacity_error(autojump_clock, caplog):
+async def test_serve_listeners_accept_capacity_error(autojump_clock, caplog) -> None:
     listener = MemoryListener()
 
     async def raise_EMFILE():
@@ -115,10 +115,10 @@ async def test_serve_listeners_accept_capacity_error(autojump_clock, caplog):
         assert record.exc_info[1].errno == errno.EMFILE
 
 
-async def test_serve_listeners_connection_nursery(autojump_clock):
+async def test_serve_listeners_connection_nursery(autojump_clock) -> None:
     listener = MemoryListener()
 
-    async def handler(stream):
+    async def handler(stream) -> None:
         await trio.sleep(1)
 
     class Done(Exception):

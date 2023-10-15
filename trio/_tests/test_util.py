@@ -24,10 +24,10 @@ from .._util import (
 from ..testing import wait_all_tasks_blocked
 
 
-def test_signal_raise():
+def test_signal_raise() -> None:
     record = []
 
-    def handler(signum, _):
+    def handler(signum, _) -> None:
         record.append(signum)
 
     old = signal.signal(signal.SIGFPE, handler)
@@ -38,7 +38,7 @@ def test_signal_raise():
     assert record == [signal.SIGFPE]
 
 
-async def test_ConflictDetector():
+async def test_ConflictDetector() -> None:
     ul1 = ConflictDetector("ul1")
     ul2 = ConflictDetector("ul2")
 
@@ -52,7 +52,7 @@ async def test_ConflictDetector():
                 pass  # pragma: no cover
     assert "ul1" in str(excinfo.value)
 
-    async def wait_with_ul1():
+    async def wait_with_ul1() -> None:
         with ul1:
             await wait_all_tasks_blocked()
 
@@ -63,7 +63,7 @@ async def test_ConflictDetector():
     assert "ul1" in str(excinfo.value)
 
 
-def test_module_metadata_is_fixed_up():
+def test_module_metadata_is_fixed_up() -> None:
     import trio
     import trio.testing
 
@@ -87,10 +87,10 @@ def test_module_metadata_is_fixed_up():
     assert trio.to_thread.run_sync.__qualname__ == "run_sync"
 
 
-async def test_is_main_thread():
+async def test_is_main_thread() -> None:
     assert is_main_thread()
 
-    def not_main_thread():
+    def not_main_thread() -> None:
         assert not is_main_thread()
 
     await trio.to_thread.run_sync(not_main_thread)
@@ -98,13 +98,13 @@ async def test_is_main_thread():
 
 # @coroutine is deprecated since python 3.8, which is fine with us.
 @pytest.mark.filterwarnings("ignore:.*@coroutine.*:DeprecationWarning")
-def test_coroutine_or_error():
+def test_coroutine_or_error() -> None:
     class Deferred:
         "Just kidding"
 
     with ignore_coroutine_never_awaited_warnings():
 
-        async def f():  # pragma: no cover
+        async def f() -> None:  # pragma: no cover
             pass
 
         with pytest.raises(TypeError) as excinfo:
@@ -156,7 +156,7 @@ def test_coroutine_or_error():
         del excinfo
 
 
-def test_generic_function():
+def test_generic_function() -> None:
     @generic_function
     def test_func(arg):
         """Look, a docstring!"""
@@ -187,11 +187,11 @@ def test_final_decorator() -> None:
             pass
 
 
-def test_no_public_constructor_metaclass():
+def test_no_public_constructor_metaclass() -> None:
     """The NoPublicConstructor metaclass prevents calling the constructor directly."""
 
     class SpecialClass(metaclass=NoPublicConstructor):
-        def __init__(self, a: int, b: float):
+        def __init__(self, a: int, b: float) -> None:
             """Check arguments can be passed to __init__."""
             assert a == 8
             assert b == 3.14
@@ -203,7 +203,7 @@ def test_no_public_constructor_metaclass():
     assert isinstance(SpecialClass._create(8, b=3.14), SpecialClass)
 
 
-def test_fixup_module_metadata():
+def test_fixup_module_metadata() -> None:
     # Ignores modules not in the trio.X tree.
     non_trio_module = types.ModuleType("not_trio")
     non_trio_module.some_func = lambda: None

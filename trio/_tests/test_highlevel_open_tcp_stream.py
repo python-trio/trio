@@ -244,7 +244,7 @@ class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
         port: int,
         ip_list: Sequence[tuple[str, float, str]],
         supported_families: set[AddressFamily],
-    ):
+    ) -> None:
         # ip_list have to be unique
         ip_order = [ip for (ip, _, _) in ip_list]
         assert len(set(ip_order)) == len(ip_list)

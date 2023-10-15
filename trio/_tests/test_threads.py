@@ -27,13 +27,13 @@ from .._threads import (
 from ..testing import wait_all_tasks_blocked
 
 
-async def test_do_in_trio_thread():
+async def test_do_in_trio_thread() -> None:
     trio_thread = threading.current_thread()
 
-    async def check_case(do_in_trio_thread, fn, expected, trio_token=None):
+    async def check_case(do_in_trio_thread, fn, expected, trio_token=None) -> None:
         record = []
 
-        def threadfn():
+        def threadfn() -> None:
             try:
                 record.append(("start", threading.current_thread()))
                 x = do_in_trio_thread(fn, record, trio_token=trio_token)
@@ -51,7 +51,7 @@ async def test_do_in_trio_thread():
 
     token = _core.current_trio_token()
 
-    def f(record):
+    def f(record) -> int:
         assert not _core.currently_ki_protected()
         record.append(("f", threading.current_thread()))
         return 2
@@ -65,7 +65,7 @@ async def test_do_in_trio_thread():
 
     await check_case(from_thread_run_sync, f, ("error", ValueError), trio_token=token)
 
-    async def f(record):
+    async def f(record) -> int:
         assert not _core.currently_ki_protected()
         await _core.checkpoint()
         record.append(("f", threading.current_thread()))
@@ -82,26 +82,26 @@ async def test_do_in_trio_thread():
     await check_case(from_thread_run, f, ("error", KeyError), trio_token=token)
 
 
-async def test_do_in_trio_thread_from_trio_thread():
+async def test_do_in_trio_thread_from_trio_thread() -> None:
     with pytest.raises(RuntimeError):
         from_thread_run_sync(lambda: None)  # pragma: no branch
 
-    async def foo():  # pragma: no cover
+    async def foo() -> None:  # pragma: no cover
         pass
 
     with pytest.raises(RuntimeError):
         from_thread_run(foo)
 
 
-def test_run_in_trio_thread_ki():
+def test_run_in_trio_thread_ki() -> None:
     # if we get a control-C during a run_in_trio_thread, then it propagates
     # back to the caller (slick!)
     record = set()
 
-    async def check_run_in_trio_thread():
+    async def check_run_in_trio_thread() -> None:
         token = _core.current_trio_token()
 
-        def trio_thread_fn():
+        def trio_thread_fn() -> None:
             print("in Trio thread")
             assert not _core.currently_ki_protected()
             print("ki_self")
@@ -112,10 +112,10 @@ def test_run_in_trio_thread_ki():
 
                 print("finally", sys.exc_info())
 
-        async def trio_thread_afn():
+        async def trio_thread_afn() -> None:
             trio_thread_fn()
 
-        def external_thread_fn():
+        def external_thread_fn() -> None:
             try:
                 print("running")
                 from_thread_run_sync(trio_thread_fn, trio_token=token)
@@ -141,16 +141,16 @@ def test_run_in_trio_thread_ki():
     assert record == {"ok1", "ok2"}
 
 
-def test_await_in_trio_thread_while_main_exits():
+def test_await_in_trio_thread_while_main_exits() -> None:
     record = []
     ev = Event()
 
-    async def trio_fn():
+    async def trio_fn() -> None:
         record.append("sleeping")
         ev.set()
         await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
 
-    def thread_fn(token):
+    def thread_fn(token) -> None:
         try:
             from_thread_run(trio_fn, trio_token=token)
         except _core.Cancelled:
@@ -169,7 +169,7 @@ def test_await_in_trio_thread_while_main_exits():
     assert record == ["sleeping", "cancelled"]
 
 
-async def test_named_thread():
+async def test_named_thread() -> None:
     ending = " from trio._tests.test_threads.test_named_thread"
 
     def inner(name: str = "inner" + ending) -> threading.Thread:
@@ -236,7 +236,7 @@ def _get_thread_name(ident: Optional[int] = None) -> Optional[str]:
 # this depends on pthread being available, which is the case on 99.9% of linux machines
 # and most mac machines. So unless the platform is linux it will just skip
 # in case it fails to fetch the os thread name.
-async def test_named_thread_os():
+async def test_named_thread_os() -> None:
     def inner(name: str) -> threading.Thread:
         os_thread_name = _get_thread_name()
         if os_thread_name is None and sys.platform != "linux":
@@ -271,7 +271,7 @@ async def test_named_thread_os():
     await test_thread_name("💙", expected="?")
 
 
-async def test_has_pthread_setname_np():
+async def test_has_pthread_setname_np() -> None:
     from trio._core._thread_cache import get_os_thread_name_func
 
     k = get_os_thread_name_func()
@@ -280,7 +280,7 @@ async def test_has_pthread_setname_np():
         pytest.skip(f"no pthread_setname_np on {sys.platform}")
 
 
-async def test_run_in_worker_thread():
+async def test_run_in_worker_thread() -> None:
     trio_thread = threading.current_thread()
 
     def f(x):
@@ -299,10 +299,10 @@ async def test_run_in_worker_thread():
     assert excinfo.value.args[0] != trio_thread
 
 
-async def test_run_in_worker_thread_cancellation():
+async def test_run_in_worker_thread_cancellation() -> None:
     register = [None]
 
-    def f(q):
+    def f(q) -> None:
         # Make the thread block for a controlled amount of time
         register[0] = "blocking"
         q.get()
@@ -359,18 +359,18 @@ async def test_run_in_worker_thread_cancellation():
 # Make sure that if trio.run exits, and then the thread finishes, then that's
 # handled gracefully. (Requires that the thread result machinery be prepared
 # for call_soon to raise RunFinishedError.)
-def test_run_in_worker_thread_abandoned(capfd, monkeypatch):
+def test_run_in_worker_thread_abandoned(capfd, monkeypatch) -> None:
     monkeypatch.setattr(_core._thread_cache, "IDLE_TIMEOUT", 0.01)
 
     q1 = stdlib_queue.Queue()
     q2 = stdlib_queue.Queue()
 
-    def thread_fn():
+    def thread_fn() -> None:
         q1.get()
         q2.put(threading.current_thread())
 
-    async def main():
-        async def child():
+    async def main() -> None:
+        async def child() -> None:
             await to_thread_run_sync(thread_fn, cancellable=True)
 
         async with _core.open_nursery() as nursery:
@@ -397,7 +397,7 @@ def test_run_in_worker_thread_abandoned(capfd, monkeypatch):
 @pytest.mark.parametrize("MAX", [3, 5, 10])
 @pytest.mark.parametrize("cancel", [False, True])
 @pytest.mark.parametrize("use_default_limiter", [False, True])
-async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
+async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter) -> None:
     # This test is a bit tricky. The goal is to make sure that if we set
     # limiter=CapacityLimiter(MAX), then in fact only MAX threads are ever
     # running at a time, even if there are more concurrent calls to
@@ -436,7 +436,7 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
 
         token = _core.current_trio_token()
 
-        def thread_fn(cancel_scope):
+        def thread_fn(cancel_scope) -> None:
             print("thread_fn start")
             from_thread_run_sync(cancel_scope.cancel, trio_token=token)
             with lock:
@@ -452,7 +452,7 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
                 state.running -= 1
             print("thread_fn exiting")
 
-        async def run_thread(event):
+        async def run_thread(event) -> None:
             with _core.CancelScope() as cancel_scope:
                 await to_thread_run_sync(
                     thread_fn, cancel_scope, limiter=limiter_arg, cancellable=cancel
@@ -501,17 +501,17 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
         c.total_tokens = orig_total_tokens
 
 
-async def test_run_in_worker_thread_custom_limiter():
+async def test_run_in_worker_thread_custom_limiter() -> None:
     # Basically just checking that we only call acquire_on_behalf_of and
     # release_on_behalf_of, since that's part of our documented API.
     record = []
 
     class CustomLimiter:
-        async def acquire_on_behalf_of(self, borrower):
+        async def acquire_on_behalf_of(self, borrower) -> None:
             record.append("acquire")
             self._borrower = borrower
 
-        def release_on_behalf_of(self, borrower):
+        def release_on_behalf_of(self, borrower) -> None:
             record.append("release")
             assert borrower == self._borrower
 
@@ -519,11 +519,11 @@ async def test_run_in_worker_thread_custom_limiter():
     assert record == ["acquire", "release"]
 
 
-async def test_run_in_worker_thread_limiter_error():
+async def test_run_in_worker_thread_limiter_error() -> None:
     record = []
 
     class BadCapacityLimiter:
-        async def acquire_on_behalf_of(self, borrower):
+        async def acquire_on_behalf_of(self, borrower) -> None:
             record.append("acquire")
 
         def release_on_behalf_of(self, borrower):
@@ -547,7 +547,7 @@ async def test_run_in_worker_thread_limiter_error():
     assert record == ["acquire", "release"]
 
 
-async def test_run_in_worker_thread_fail_to_spawn(monkeypatch):
+async def test_run_in_worker_thread_fail_to_spawn(monkeypatch) -> None:
     # Test the unlikely but possible case where trying to spawn a thread fails
     def bad_start(self, *args):
         raise RuntimeError("the engines canna take it captain")
@@ -565,7 +565,7 @@ async def test_run_in_worker_thread_fail_to_spawn(monkeypatch):
     assert limiter.borrowed_tokens == 0
 
 
-async def test_trio_to_thread_run_sync_token():
+async def test_trio_to_thread_run_sync_token() -> None:
     # Test that to_thread_run_sync automatically injects the current trio token
     # into a spawned thread
     def thread_fn():
@@ -577,9 +577,9 @@ async def test_trio_to_thread_run_sync_token():
     assert callee_token == caller_token
 
 
-async def test_trio_to_thread_run_sync_expected_error():
+async def test_trio_to_thread_run_sync_expected_error() -> None:
     # Test correct error when passed async function
-    async def async_fn():  # pragma: no cover
+    async def async_fn() -> None:  # pragma: no cover
         pass
 
     with pytest.raises(TypeError, match="expected a sync function"):
@@ -591,7 +591,7 @@ trio_test_contextvar: contextvars.ContextVar[str] = contextvars.ContextVar(
 )
 
 
-async def test_trio_to_thread_run_sync_contextvars():
+async def test_trio_to_thread_run_sync_contextvars() -> None:
     trio_thread = threading.current_thread()
     trio_test_contextvar.set("main")
 
@@ -628,7 +628,7 @@ async def test_trio_to_thread_run_sync_contextvars():
     assert sniffio.current_async_library() == "trio"
 
 
-async def test_trio_from_thread_run_sync():
+async def test_trio_from_thread_run_sync() -> None:
     # Test that to_thread_run_sync correctly "hands off" the trio token to
     # trio.from_thread.run_sync()
     def thread_fn():
@@ -639,26 +639,26 @@ async def test_trio_from_thread_run_sync():
     assert isinstance(trio_time, float)
 
     # Test correct error when passed async function
-    async def async_fn():  # pragma: no cover
+    async def async_fn() -> None:  # pragma: no cover
         pass
 
-    def thread_fn():
+    def thread_fn() -> None:
         from_thread_run_sync(async_fn)
 
     with pytest.raises(TypeError, match="expected a sync function"):
         await to_thread_run_sync(thread_fn)
 
 
-async def test_trio_from_thread_run():
+async def test_trio_from_thread_run() -> None:
     # Test that to_thread_run_sync correctly "hands off" the trio token to
     # trio.from_thread.run()
     record = []
 
-    async def back_in_trio_fn():
+    async def back_in_trio_fn() -> None:
         _core.current_time()  # implicitly checks that we're in trio
         record.append("back in trio")
 
-    def thread_fn():
+    def thread_fn() -> None:
         record.append("in thread")
         from_thread_run(back_in_trio_fn)
 
@@ -666,14 +666,14 @@ async def test_trio_from_thread_run():
     assert record == ["in thread", "back in trio"]
 
     # Test correct error when passed sync function
-    def sync_fn():  # pragma: no cover
+    def sync_fn() -> None:  # pragma: no cover
         pass
 
     with pytest.raises(TypeError, match="appears to be synchronous"):
         await to_thread_run_sync(from_thread_run, sync_fn)
 
 
-async def test_trio_from_thread_token():
+async def test_trio_from_thread_token() -> None:
     # Test that to_thread_run_sync and spawned trio.from_thread.run_sync()
     # share the same Trio token
     def thread_fn():
@@ -685,7 +685,7 @@ async def test_trio_from_thread_token():
     assert callee_token == caller_token
 
 
-async def test_trio_from_thread_token_kwarg():
+async def test_trio_from_thread_token_kwarg() -> None:
     # Test that to_thread_run_sync and spawned trio.from_thread.run_sync() can
     # use an explicitly defined token
     def thread_fn(token):
@@ -697,7 +697,7 @@ async def test_trio_from_thread_token_kwarg():
     assert callee_token == caller_token
 
 
-async def test_from_thread_no_token():
+async def test_from_thread_no_token() -> None:
     # Test that a "raw call" to trio.from_thread.run() fails because no token
     # has been provided
 
@@ -705,7 +705,7 @@ async def test_from_thread_no_token():
         from_thread_run_sync(_core.current_time)
 
 
-async def test_trio_from_thread_run_sync_contextvars():
+async def test_trio_from_thread_run_sync_contextvars() -> None:
     trio_test_contextvar.set("main")
 
     def thread_fn():
@@ -748,7 +748,7 @@ async def test_trio_from_thread_run_sync_contextvars():
     assert back_current_value == "back_in_main"
 
 
-async def test_trio_from_thread_run_contextvars():
+async def test_trio_from_thread_run_contextvars() -> None:
     trio_test_contextvar.set("main")
 
     def thread_fn():
@@ -791,13 +791,13 @@ async def test_trio_from_thread_run_contextvars():
     assert sniffio.current_async_library() == "trio"
 
 
-def test_run_fn_as_system_task_catched_badly_typed_token():
+def test_run_fn_as_system_task_catched_badly_typed_token() -> None:
     with pytest.raises(RuntimeError):
         from_thread_run_sync(_core.current_time, trio_token="Not TrioTokentype")
 
 
-async def test_from_thread_inside_trio_thread():
-    def not_called():  # pragma: no cover
+async def test_from_thread_inside_trio_thread() -> None:
+    def not_called() -> None:  # pragma: no cover
         assert False
 
     trio_token = _core.current_trio_token()
@@ -806,7 +806,7 @@ async def test_from_thread_inside_trio_thread():
 
 
 @pytest.mark.skipif(buggy_pypy_asyncgens, reason="pypy 7.2.0 is buggy")
-def test_from_thread_run_during_shutdown():
+def test_from_thread_run_during_shutdown() -> None:
     save = []
     record = []
 
@@ -818,7 +818,7 @@ def test_from_thread_run_during_shutdown():
                 await to_thread_run_sync(from_thread_run, sleep, 0)
             record.append("ok")
 
-    async def main():
+    async def main() -> None:
         save.append(agen())
         await save[-1].asend(None)
 
@@ -826,18 +826,18 @@ def test_from_thread_run_during_shutdown():
     assert record == ["ok"]
 
 
-async def test_trio_token_weak_referenceable():
+async def test_trio_token_weak_referenceable() -> None:
     token = current_trio_token()
     assert isinstance(token, TrioToken)
     weak_reference = weakref.ref(token)
     assert token is weak_reference()
 
 
-async def test_unsafe_cancellable_kwarg():
+async def test_unsafe_cancellable_kwarg() -> None:
     # This is a stand in for a numpy ndarray or other objects
     # that (maybe surprisingly) lack a notion of truthiness
     class BadBool:
-        def __bool__(self):
+        def __bool__(self) -> bool:
             raise NotImplementedError
 
     with pytest.raises(NotImplementedError):

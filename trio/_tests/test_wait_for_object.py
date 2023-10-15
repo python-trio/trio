@@ -16,7 +16,7 @@ if on_windows:
     from .._wait_for_object import WaitForMultipleObjects_sync, WaitForSingleObject
 
 
-async def test_WaitForMultipleObjects_sync():
+async def test_WaitForMultipleObjects_sync() -> None:
     # This does a series of tests where we set/close the handle before
     # initiating the waiting for it.
     #
@@ -70,7 +70,7 @@ async def test_WaitForMultipleObjects_sync():
 
 
 @slow
-async def test_WaitForMultipleObjects_sync_slow():
+async def test_WaitForMultipleObjects_sync_slow() -> None:
     # This does a series of test in which the main thread sync-waits for
     # handles, while we spawn a thread to set the handles after a short while.
 
@@ -125,7 +125,7 @@ async def test_WaitForMultipleObjects_sync_slow():
     print("test_WaitForMultipleObjects_sync_slow thread-set second OK")
 
 
-async def test_WaitForSingleObject():
+async def test_WaitForSingleObject() -> None:
     # This does a series of test for setting/closing the handle before
     # initiating the wait.
 
@@ -160,7 +160,7 @@ async def test_WaitForSingleObject():
 
 
 @slow
-async def test_WaitForSingleObject_slow():
+async def test_WaitForSingleObject_slow() -> None:
     # This does a series of test for setting the handle in another task,
     # and cancelling the wait task.
 
@@ -168,7 +168,7 @@ async def test_WaitForSingleObject_slow():
     # the timeout with a certain margin.
     TIMEOUT = 0.3
 
-    async def signal_soon_async(handle):
+    async def signal_soon_async(handle) -> None:
         await _timeouts.sleep(TIMEOUT)
         kernel32.SetEvent(handle)
 

@@ -25,7 +25,7 @@ async def coro3_async_gen(event: trio.Event) -> None:
         pass
 
 
-async def test_task_iter_await_frames():
+async def test_task_iter_await_frames() -> None:
     async with trio.open_nursery() as nursery:
         event = trio.Event()
         nursery.start_soon(coro3, event)
@@ -42,7 +42,7 @@ async def test_task_iter_await_frames():
         nursery.cancel_scope.cancel()
 
 
-async def test_task_iter_await_frames_async_gen():
+async def test_task_iter_await_frames_async_gen() -> None:
     async with trio.open_nursery() as nursery:
         event = trio.Event()
         nursery.start_soon(coro3_async_gen, event)

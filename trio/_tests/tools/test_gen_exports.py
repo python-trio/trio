@@ -60,12 +60,12 @@ if TYPE_CHECKING:
 """
 
 
-def test_get_public_methods():
+def test_get_public_methods() -> None:
     methods = list(get_public_methods(ast.parse(SOURCE)))
     assert {m.name for m in methods} == {"public_func", "public_async_func"}
 
 
-def test_create_pass_through_args():
+def test_create_pass_through_args() -> None:
     testcases = [
         ("def f()", "()"),
         ("def f(one)", "(one)"),
@@ -91,7 +91,7 @@ skip_lints = pytest.mark.skipif(
 
 @skip_lints
 @pytest.mark.parametrize("imports", ["", IMPORT_1, IMPORT_2, IMPORT_3])
-def test_process(tmp_path, imports):
+def test_process(tmp_path, imports) -> None:
     try:
         import black  # noqa: F401
     # there's no dedicated CI run that has astor+isort, but lacks black.

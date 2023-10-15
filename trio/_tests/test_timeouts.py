@@ -43,13 +43,13 @@ TARGET = 1.0
 
 
 @slow
-async def test_sleep():
-    async def sleep_1():
+async def test_sleep() -> None:
+    async def sleep_1() -> None:
         await sleep_until(_core.current_time() + TARGET)
 
     await check_takes_about(sleep_1, TARGET)
 
-    async def sleep_2():
+    async def sleep_2() -> None:
         await sleep(TARGET)
 
     await check_takes_about(sleep_2, TARGET)
@@ -63,8 +63,8 @@ async def test_sleep():
 
 
 @slow
-async def test_move_on_after():
-    async def sleep_3():
+async def test_move_on_after() -> None:
+    async def sleep_3() -> None:
         with move_on_after(TARGET):
             await sleep(100)
 
@@ -72,8 +72,8 @@ async def test_move_on_after():
 
 
 @slow
-async def test_fail():
-    async def sleep_4():
+async def test_fail() -> None:
+    async def sleep_4() -> None:
         with fail_at(_core.current_time() + TARGET):
             await sleep(100)
 
@@ -83,7 +83,7 @@ async def test_fail():
     with fail_at(_core.current_time() + 100):
         await sleep(0)
 
-    async def sleep_5():
+    async def sleep_5() -> None:
         with fail_after(TARGET):
             await sleep(100)
 
@@ -94,7 +94,7 @@ async def test_fail():
         await sleep(0)
 
 
-async def test_timeouts_raise_value_error():
+async def test_timeouts_raise_value_error() -> None:
     # deadlines are allowed to be negative, but not delays.
     # neither delays nor deadlines are allowed to be NaN
 
