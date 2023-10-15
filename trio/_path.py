@@ -476,12 +476,12 @@ if sys.version_info < (3, 12):
     # Since we synthesise methods from the stdlib, this automatically will
     # have deprecation warnings, and disappear entirely in 3.12+.
     Path.link_to.__doc__ = """
-        Like Python 3.8-3.11's :meth:`~pathlib.Path.link_to`, but async.
+    Like Python 3.8-3.11's :meth:`~pathlib.Path.link_to`, but async.
 
     :deprecated: This method was deprecated in Python 3.10 and entirely \
     removed in 3.12. Use :meth:`hardlink_to` instead which has \
     a more meaningful parameter order.
-    """
+"""
 
 # The value of Path.absolute.__doc__ makes a reference to
 # :meth:~pathlib.Path.absolute, which does not exist. Removing this makes more
