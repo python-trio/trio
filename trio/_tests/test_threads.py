@@ -933,14 +933,16 @@ async def test_from_thread_host_cancelled():
 async def test_from_thread_check_cancelled():
     q = stdlib_queue.Queue()
 
-    async def child(cancellable):
-        record.append("start")
-        try:
-            return await to_thread_run_sync(f, cancellable=cancellable)
-        except _core.Cancelled:
-            record.append("cancel")
-        finally:
-            record.append("exit")
+    async def child(cancellable, scope):
+        with scope:
+            record.append("start")
+            try:
+                return await to_thread_run_sync(f, cancellable=cancellable)
+            except _core.Cancelled:
+                record.append("cancel")
+                raise
+            finally:
+                record.append("exit")
 
     def f():
         try:
@@ -956,7 +958,7 @@ async def test_from_thread_check_cancelled():
     record = []
     ev = threading.Event()
     async with _core.open_nursery() as nursery:
-        nursery.start_soon(child, False)
+        nursery.start_soon(child, False, _core.CancelScope())
         await wait_all_tasks_blocked()
         assert record[0] == "start"
         assert q.get(timeout=1) == "Not Cancelled"
@@ -968,14 +970,15 @@ async def test_from_thread_check_cancelled():
     # the appropriate cancel scope
     record = []
     ev = threading.Event()
+    scope = _core.CancelScope()  # Nursery cancel scope gives false positives
     async with _core.open_nursery() as nursery:
-        nursery.start_soon(child, False)
+        nursery.start_soon(child, False, scope)
         await wait_all_tasks_blocked()
         assert record[0] == "start"
         assert q.get(timeout=1) == "Not Cancelled"
-        nursery.cancel_scope.cancel()
+        scope.cancel()
         ev.set()
-    assert nursery.cancel_scope.cancelled_caught
+    assert scope.cancelled_caught
     assert "cancel" in record
     assert record[-1] == "exit"
 
@@ -992,13 +995,14 @@ async def test_from_thread_check_cancelled():
 
     record = []
     ev = threading.Event()
+    scope = _core.CancelScope()
     async with _core.open_nursery() as nursery:
-        nursery.start_soon(child, True)
+        nursery.start_soon(child, True, scope)
         await wait_all_tasks_blocked()
         assert record[0] == "start"
-        nursery.cancel_scope.cancel()
+        scope.cancel()
         ev.set()
-    assert nursery.cancel_scope.cancelled_caught
+    assert scope.cancelled_caught
     assert "cancel" in record
     assert record[-1] == "exit"
     assert q.get(timeout=1) == "Cancelled"

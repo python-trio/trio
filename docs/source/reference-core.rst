@@ -1823,9 +1823,20 @@ to spawn a child thread, and then use a :ref:`memory channel
 
 .. literalinclude:: reference-core/from-thread-example.py
 
+.. note::
+
+   The ``from_thread.run*`` functions reuse the host task that called
+   :func:`trio.to_thread.run_sync` to run your provided function in the typical case,
+   namely when ``cancellable=False`` so Trio can be sure that the task will always be
+   around to perform the work. If you pass ``cancellable=True`` at the outset, or if
+   you provide a :class:`~trio.lowlevel.TrioToken` when calling back in to Trio, your
+   functions will be executed in a new system task. Therefore, the
+   :func:`~trio.lowlevel.current_task`, :func:`current_effective_deadline`, or other
+   task-tree specific values may differ depending on keyword argument values.
+
 You can also use :func:`trio.from_thread.check_cancelled` to check for cancellation from
 a thread that was spawned by :func:`trio.to_thread.run_sync`. If the call to
-:func:`~trio.to_thread.run_sync` was cancelled, then
+:func:`~trio.to_thread.run_sync` was cancelled (even if ``cancellable=False``!), then
 :func:`~trio.from_thread.check_cancelled` will raise :func:`trio.Cancelled`.
 It's like ``trio.from_thread.run(trio.sleep, 0)``, but much faster.
 
