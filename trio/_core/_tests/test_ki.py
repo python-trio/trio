@@ -15,6 +15,7 @@ except ImportError:  # pragma: no cover
     async_generator = yield_ = None
 
 from ... import _core
+from ..._abc import Instrument
 from ..._timeouts import sleep
 from ..._util import signal_raise
 from ...testing import wait_all_tasks_blocked
@@ -283,33 +284,33 @@ def test_ki_protection_works():
 
     # simulated control-C during raiser, which is *unprotected*
     print("check 1")
-    record = set()
+    record_set: set[str] = set()
 
     async def check_unprotected_kill():
         async with _core.open_nursery() as nursery:
-            nursery.start_soon(sleeper, "s1", record)
-            nursery.start_soon(sleeper, "s2", record)
-            nursery.start_soon(raiser, "r1", record)
+            nursery.start_soon(sleeper, "s1", record_set)
+            nursery.start_soon(sleeper, "s2", record_set)
+            nursery.start_soon(raiser, "r1", record_set)
 
     with pytest.raises(KeyboardInterrupt):
         _core.run(check_unprotected_kill)
-    assert record == {"s1 ok", "s2 ok", "r1 raise ok"}
+    assert record_set == {"s1 ok", "s2 ok", "r1 raise ok"}
 
     # simulated control-C during raiser, which is *protected*, so the KI gets
     # delivered to the main task instead
     print("check 2")
-    record = set()
+    record_set = set()
 
     async def check_protected_kill():
         async with _core.open_nursery() as nursery:
-            nursery.start_soon(sleeper, "s1", record)
-            nursery.start_soon(sleeper, "s2", record)
-            nursery.start_soon(_core.enable_ki_protection(raiser), "r1", record)
+            nursery.start_soon(sleeper, "s1", record_set)
+            nursery.start_soon(sleeper, "s2", record_set)
+            nursery.start_soon(_core.enable_ki_protection(raiser), "r1", record_set)
             # __aexit__ blocks, and then receives the KI
 
     with pytest.raises(KeyboardInterrupt):
         _core.run(check_protected_kill)
-    assert record == {"s1 ok", "s2 ok", "r1 cancel ok"}
+    assert record_set == {"s1 ok", "s2 ok", "r1 cancel ok"}
 
     # kill at last moment still raises (run_sync_soon until it raises an
     # error, then kill)
@@ -335,33 +336,33 @@ def test_ki_protection_works():
     # KI arrives very early, before main is even spawned
     print("check 4")
 
-    class InstrumentOfDeath:
-        def before_run(self):
+    class InstrumentOfDeath(Instrument):
+        def before_run(self) -> None:
             ki_self()
 
-    async def main():
+    async def main_1():
         await _core.checkpoint()
 
     with pytest.raises(KeyboardInterrupt):
-        _core.run(main, instruments=[InstrumentOfDeath()])
+        _core.run(main_1, instruments=[InstrumentOfDeath()])
 
     # checkpoint_if_cancelled notices pending KI
     print("check 5")
 
     @_core.enable_ki_protection
-    async def main():
+    async def main_2():
         assert _core.currently_ki_protected()
         ki_self()
         with pytest.raises(KeyboardInterrupt):
             await _core.checkpoint_if_cancelled()
 
-    _core.run(main)
+    _core.run(main_2)
 
     # KI arrives while main task is not abortable, b/c already scheduled
     print("check 6")
 
     @_core.enable_ki_protection
-    async def main():
+    async def main_3():
         assert _core.currently_ki_protected()
         ki_self()
         await _core.cancel_shielded_checkpoint()
@@ -370,13 +371,13 @@ def test_ki_protection_works():
         with pytest.raises(KeyboardInterrupt):
             await _core.checkpoint()
 
-    _core.run(main)
+    _core.run(main_3)
 
     # KI arrives while main task is not abortable, b/c refuses to be aborted
     print("check 7")
 
     @_core.enable_ki_protection
-    async def main():
+    async def main_4():
         assert _core.currently_ki_protected()
         ki_self()
         task = _core.current_task()
@@ -389,13 +390,13 @@ def test_ki_protection_works():
         with pytest.raises(KeyboardInterrupt):
             await _core.checkpoint()
 
-    _core.run(main)
+    _core.run(main_4)
 
     # KI delivered via slow abort
     print("check 8")
 
     @_core.enable_ki_protection
-    async def main():
+    async def main_5():
         assert _core.currently_ki_protected()
         ki_self()
         task = _core.current_task()
@@ -409,7 +410,7 @@ def test_ki_protection_works():
             assert await _core.wait_task_rescheduled(abort)
         await _core.checkpoint()
 
-    _core.run(main)
+    _core.run(main_5)
 
     # KI arrives just before main task exits, so the run_sync_soon machinery
     # is still functioning and will accept the callback to deliver the KI, but
@@ -418,42 +419,42 @@ def test_ki_protection_works():
     print("check 9")
 
     @_core.enable_ki_protection
-    async def main():
+    async def main_6():
         ki_self()
 
     with pytest.raises(KeyboardInterrupt):
-        _core.run(main)
+        _core.run(main_6)
 
     print("check 10")
     # KI in unprotected code, with
     # restrict_keyboard_interrupt_to_checkpoints=True
-    record = []
+    record_list = []
 
-    async def main():
+    async def main_7():
         # We're not KI protected...
         assert not _core.currently_ki_protected()
         ki_self()
         # ...but even after the KI, we keep running uninterrupted...
-        record.append("ok")
+        record_list.append("ok")
         # ...until we hit a checkpoint:
         with pytest.raises(KeyboardInterrupt):
             await sleep(10)
 
-    _core.run(main, restrict_keyboard_interrupt_to_checkpoints=True)
-    assert record == ["ok"]
-    record = []
+    _core.run(main_7, restrict_keyboard_interrupt_to_checkpoints=True)
+    assert record_list == ["ok"]
+    record_list = []
     # Exact same code raises KI early if we leave off the argument, doesn't
     # even reach the record.append call:
     with pytest.raises(KeyboardInterrupt):
-        _core.run(main)
-    assert record == []
+        _core.run(main_7)
+    assert record_list == []
 
     # KI arrives while main task is inside a cancelled cancellation scope
     # the KeyboardInterrupt should take priority
     print("check 11")
 
     @_core.enable_ki_protection
-    async def main():
+    async def main_8():
         assert _core.currently_ki_protected()
         with _core.CancelScope() as cancel_scope:
             cancel_scope.cancel()
@@ -465,7 +466,7 @@ def test_ki_protection_works():
             with pytest.raises(_core.Cancelled):
                 await _core.checkpoint()
 
-    _core.run(main)
+    _core.run(main_8)
 
 
 def test_ki_is_good_neighbor():
@@ -488,16 +489,17 @@ def test_ki_is_good_neighbor():
 
 
 # Regression test for #461
+# don't know if _active not being visible is a problem
 def test_ki_with_broken_threads():
     thread = threading.main_thread()
 
     # scary!
-    original = threading._active[thread.ident]
+    original = threading._active[thread.ident]  # type: ignore[attr-defined]
 
     # put this in a try finally so we don't have a chance of cascading a
     # breakage down to everything else
     try:
-        del threading._active[thread.ident]
+        del threading._active[thread.ident]  # type: ignore[attr-defined]
 
         @_core.enable_ki_protection
         async def inner():
@@ -505,4 +507,4 @@ def test_ki_with_broken_threads():
 
         _core.run(inner)
     finally:
-        threading._active[thread.ident] = original
+        threading._active[thread.ident] = original  # type: ignore[attr-defined]

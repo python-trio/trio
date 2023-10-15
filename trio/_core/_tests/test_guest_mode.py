@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import contextvars
 import queue
@@ -10,8 +12,10 @@ import traceback
 import warnings
 from functools import partial
 from math import inf
+from typing import Callable
 
 import pytest
+from outcome import Outcome
 
 import trio
 import trio.testing
@@ -27,11 +31,11 @@ from .tutil import buggy_pypy_asyncgens, gc_collect_harder, restore_unraisableho
 # - final result is returned
 # - any unhandled exceptions cause an immediate crash
 def trivial_guest_run(trio_fn, *, in_host_after_start=None, **start_guest_run_kwargs):
-    todo = queue.Queue()
+    todo: queue.Queue[tuple[str, Outcome]] = queue.Queue()
 
     host_thread = threading.current_thread()
 
-    def run_sync_soon_threadsafe(fn):
+    def run_sync_soon_threadsafe(fn: Callable):
         nonlocal todo
         if host_thread is threading.current_thread():  # pragma: no cover
             crash = partial(
@@ -40,7 +44,7 @@ def trivial_guest_run(trio_fn, *, in_host_after_start=None, **start_guest_run_kw
             todo.put(("run", crash))
         todo.put(("run", fn))
 
-    def run_sync_soon_not_threadsafe(fn):
+    def run_sync_soon_not_threadsafe(fn: Callable):
         nonlocal todo
         if host_thread is not threading.current_thread():  # pragma: no cover
             crash = partial(
@@ -49,7 +53,7 @@ def trivial_guest_run(trio_fn, *, in_host_after_start=None, **start_guest_run_kw
             todo.put(("run", crash))
         todo.put(("run", fn))
 
-    def done_callback(outcome):
+    def done_callback(outcome: Outcome):
         nonlocal todo
         todo.put(("unwrap", outcome))
 
@@ -322,18 +326,18 @@ def test_host_wakeup_doesnt_trigger_wait_all_tasks_blocked():
                 # 'sit_in_wait_all_tasks_blocked', we want the test to
                 # actually end. So in after_io_wait we schedule a second host
                 # call to tear things down.
-                class InstrumentHelper:
-                    def __init__(self):
+                class InstrumentHelper(trio._abc.Instrument):
+                    def __init__(self) -> None:
                         self.primed = False
 
-                    def before_io_wait(self, timeout):
+                    def before_io_wait(self, timeout: float) -> None:
                         print(f"before_io_wait({timeout})")
                         if timeout == 9999:  # pragma: no branch
                             assert not self.primed
                             in_host(lambda: set_deadline(cscope, 1e9))
                             self.primed = True
 
-                    def after_io_wait(self, timeout):
+                    def after_io_wait(self, timeout: float) -> None:
                         if self.primed:  # pragma: no branch
                             print("instrument triggered")
                             in_host(lambda: cscope.cancel())
@@ -429,8 +433,8 @@ def test_guest_mode_on_asyncio():
     async def trio_main():
         print("trio_main!")
 
-        to_trio, from_aio = trio.open_memory_channel(float("inf"))
-        from_trio = asyncio.Queue()
+        to_trio, from_aio = trio.open_memory_channel[int](float("inf"))
+        from_trio = asyncio.Queue[int]()
 
         aio_task = asyncio.ensure_future(aio_pingpong(from_trio, to_trio))
 

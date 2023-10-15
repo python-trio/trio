@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 import threading
 import time
 from contextlib import contextmanager
 from queue import Queue
+from typing import NoReturn
 
 import pytest
+from outcome import Outcome
 
 from .. import _thread_cache
 from .._thread_cache import ThreadCache, start_thread_soon
@@ -11,9 +15,9 @@ from .tutil import gc_collect_harder, slow
 
 
 def test_thread_cache_basics():
-    q = Queue()
+    q = Queue[Outcome]()
 
-    def fn():
+    def fn() -> NoReturn:
         raise RuntimeError("hi")
 
     def deliver(outcome):
