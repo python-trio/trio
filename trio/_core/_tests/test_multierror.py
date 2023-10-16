@@ -486,7 +486,7 @@ def test_pickle_multierror(protocol: int) -> None:
     my_except = ZeroDivisionError()
 
     try:
-        1 / 0  # noqa: B018  # Need exception to fire
+        1 / 0  # noqa: B018  # "useless statement"
     except ZeroDivisionError as exc:
         my_except = exc
 

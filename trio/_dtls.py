@@ -1305,7 +1305,8 @@ class DTLSEndpoint:
         try:
             self.socket.getsockname()
         except OSError:
-            raise RuntimeError(
+            # TODO: Write test that makes triggers this
+            raise RuntimeError(  # pragma: no cover
                 "DTLS socket must be bound before it can serve"
             ) from None
         self._ensure_receive_loop()

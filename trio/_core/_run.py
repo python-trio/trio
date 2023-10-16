@@ -2746,7 +2746,7 @@ async def checkpoint_if_cancelled() -> None:
         task is task._runner.main_task and task._runner.ki_pending
     ):
         await _core.checkpoint()
-        raise AssertionError()  # pragma: no cover
+        raise AssertionError("this should never happen")  # pragma: no cover
     task._cancel_points += 1
 
 

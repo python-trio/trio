@@ -72,7 +72,7 @@ def trivial_guest_run(trio_fn, *, in_host_after_start=None, **start_guest_run_kw
             elif op == "unwrap":
                 return obj.unwrap()
             else:  # pragma: no cover
-                raise AssertionError()
+                raise NotImplementedError(f"{op!r} not handled")
     finally:
         # Make sure that exceptions raised here don't capture these, so that
         # if an exception does cause us to abandon a run then the Trio state
@@ -301,7 +301,10 @@ def test_host_wakeup_doesnt_trigger_wait_all_tasks_blocked():
                 # wait_all_tasks_blocked should *not* return normally, but
                 # only by cancellation.
                 await trio.testing.wait_all_tasks_blocked(cushion=9999)
-                raise AssertionError()  # pragma: no cover
+                raise AssertionError(  # pragma: no cover
+                    "wait_all_tasks_blocked should *not* return normally, "
+                    "only by cancellation."
+                )
             assert watb_cscope.cancelled_caught
 
         async def get_woken_by_host_deadline(watb_cscope):
