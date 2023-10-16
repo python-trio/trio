@@ -10,6 +10,29 @@ from trio._path import _AsyncIOWrapper
 from typing_extensions import assert_type
 
 
+def operator_checks(text: str, tpath: trio.Path, ppath: pathlib.Path) -> None:
+    """Verify operators produce the right results."""
+    assert_type(tpath / ppath, trio.Path)
+    assert_type(tpath / tpath, trio.Path)
+    assert_type(tpath / text, trio.Path)
+    assert_type(text / tpath, trio.Path)
+
+    assert_type(tpath > tpath, bool)
+    assert_type(tpath >= tpath, bool)
+    assert_type(tpath < tpath, bool)
+    assert_type(tpath <= tpath, bool)
+
+    assert_type(tpath > ppath, bool)
+    assert_type(tpath >= ppath, bool)
+    assert_type(tpath < ppath, bool)
+    assert_type(tpath <= ppath, bool)
+
+    assert_type(ppath > tpath, bool)
+    assert_type(ppath >= tpath, bool)
+    assert_type(ppath < tpath, bool)
+    assert_type(ppath <= tpath, bool)
+
+
 def sync_attrs(path: trio.Path) -> None:
     assert_type(path.parts, Tuple[str, ...])
     assert_type(path.drive, str)
