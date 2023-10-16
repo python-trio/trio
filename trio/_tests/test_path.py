@@ -9,9 +9,8 @@ from trio._path import AsyncAutoWrapperType as Type
 
 
 @pytest.fixture
-def path(tmpdir):
-    p = str(tmpdir.join("test"))
-    return trio.Path(p)
+def path(tmp_path: pathlib.Path) -> trio.Path:
+    return trio.Path(tmp_path / "test")
 
 
 def method_pair(path, method_name):
@@ -128,21 +127,21 @@ async def test_async_methods_rewrap(method_name):
     assert str(result) == str(async_result)
 
 
-async def test_forward_methods_rewrap(path, tmpdir):
+async def test_forward_methods_rewrap(path, tmp_path: pathlib.Path):
     with_name = path.with_name("foo")
     with_suffix = path.with_suffix(".py")
 
     assert isinstance(with_name, trio.Path)
-    assert with_name == tmpdir.join("foo")
+    assert with_name == tmp_path / "foo"
     assert isinstance(with_suffix, trio.Path)
-    assert with_suffix == tmpdir.join("test.py")
+    assert with_suffix == tmp_path / "test.py"
 
 
 async def test_forward_properties_rewrap(path):
     assert isinstance(path.parent, trio.Path)
 
 
-async def test_forward_methods_without_rewrap(path, tmpdir):
+async def test_forward_methods_without_rewrap(path, tmp_path: pathlib.Path):
     path = await path.parent.resolve()
 
     assert path.as_uri().startswith("file:///")

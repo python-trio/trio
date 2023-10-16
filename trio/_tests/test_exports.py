@@ -126,7 +126,7 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
     # https://github.com/pypa/setuptools/issues/3274
     "ignore:module 'sre_constants' is deprecated:DeprecationWarning",
 )
-def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
+def test_static_tool_sees_all_symbols(tool, modname, tmp_path):
     module = importlib.import_module(modname)
 
     def no_underscores(symbols):
@@ -273,7 +273,7 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
 @pytest.mark.parametrize("module_name", PUBLIC_MODULE_NAMES)
 @pytest.mark.parametrize("tool", ["jedi", "mypy"])
 def test_static_tool_sees_class_members(
-    tool: str, module_name: str, tmpdir: Path
+    tool: str, module_name: str, tmp_path: Path
 ) -> None:
     module = PUBLIC_MODULES[PUBLIC_MODULE_NAMES.index(module_name)]
 
