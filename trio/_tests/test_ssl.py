@@ -10,6 +10,7 @@ from functools import partial
 
 import pytest
 
+from trio._core import MockClock
 from trio._tests.pytest_plugin import skip_if_optional_else_raise
 
 try:
@@ -579,7 +580,7 @@ async def test_renegotiation_simple(client_ctx) -> None:
 
 
 @slow
-async def test_renegotiation_randomized(mock_clock, client_ctx) -> None:
+async def test_renegotiation_randomized(mock_clock: MockClock, client_ctx) -> None:
     # The only blocking things in this function are our random sleeps, so 0 is
     # a good threshold.
     mock_clock.autojump_threshold = 0

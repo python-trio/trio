@@ -7,6 +7,7 @@ import sys
 from typing import TYPE_CHECKING
 
 import pytest
+from pytest import MonkeyPatch
 
 from .. import _core
 from .._core._tests.tutil import gc_collect_harder, skip_if_fbsd_pipes_broken
@@ -182,7 +183,7 @@ async def test_misdirected_aclose_regression() -> None:
             os.close(w2_fd)
 
 
-async def test_close_at_bad_time_for_receive_some(monkeypatch) -> None:
+async def test_close_at_bad_time_for_receive_some(monkeypatch: MonkeyPatch) -> None:
     # We used to have race conditions where if one task was using the pipe,
     # and another closed it at *just* the wrong moment, it would give an
     # unexpected error instead of ClosedResourceError:
@@ -210,7 +211,7 @@ async def test_close_at_bad_time_for_receive_some(monkeypatch) -> None:
             await s.send_all(b"x")
 
 
-async def test_close_at_bad_time_for_send_all(monkeypatch) -> None:
+async def test_close_at_bad_time_for_send_all(monkeypatch: MonkeyPatch) -> None:
     # We used to have race conditions where if one task was using the pipe,
     # and another closed it at *just* the wrong moment, it would give an
     # unexpected error instead of ClosedResourceError:

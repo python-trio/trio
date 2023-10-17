@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import NoReturn
+
 import attr
 import pytest
 
@@ -11,7 +13,7 @@ from ..abc import ReceiveStream, SendStream
 class RecordSendStream(SendStream):
     record: list[str | tuple[str, object]] = attr.ib(factory=list)
 
-    async def send_all(self, data) -> None:
+    async def send_all(self, data: object) -> None:
         self.record.append(("send_all", data))
 
     async def wait_send_all_might_not_block(self) -> None:
@@ -76,12 +78,12 @@ async def test_StapledStream_with_erroring_close() -> None:
     # Make sure that if one of the aclose methods errors out, then the other
     # one still gets called.
     class BrokenSendStream(RecordSendStream):
-        async def aclose(self):
+        async def aclose(self) -> NoReturn:
             await super().aclose()
             raise ValueError
 
     class BrokenReceiveStream(RecordReceiveStream):
-        async def aclose(self):
+        async def aclose(self) -> NoReturn:
             await super().aclose()
             raise ValueError
 

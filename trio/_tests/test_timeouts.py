@@ -1,4 +1,5 @@
 import time
+from typing import Awaitable, Callable, TypeVar
 
 import outcome
 import pytest
@@ -8,8 +9,12 @@ from .._core._tests.tutil import slow
 from .._timeouts import *
 from ..testing import assert_checkpoints
 
+T = TypeVar("T")
 
-async def check_takes_about(f, expected_dur):
+
+async def check_takes_about(
+    f: Callable[[], Awaitable[T]], expected_dur: float
+) -> Awaitable[T]:
     start = time.perf_counter()
     result = await outcome.acapture(f)
     dur = time.perf_counter() - start
@@ -34,7 +39,9 @@ async def check_takes_about(f, expected_dur):
     # value above is exactly 128 ULPs below 1.0, which would make sense if it
     # started as a 1 ULP error at a different dynamic range.)
     assert (1 - 1e-8) <= (dur / expected_dur) < 1.5
-    return result.unwrap()
+
+    # outcome is not typed
+    return result.unwrap()  # type: ignore[no-any-return]
 
 
 # How long to (attempt to) sleep for when testing. Smaller numbers make the

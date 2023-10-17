@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Callable, Optional
 
 import pytest
 import sniffio
+from pytest import MonkeyPatch
 
 from trio._core import TrioToken, current_trio_token
 
@@ -359,7 +360,7 @@ async def test_run_in_worker_thread_cancellation() -> None:
 # Make sure that if trio.run exits, and then the thread finishes, then that's
 # handled gracefully. (Requires that the thread result machinery be prepared
 # for call_soon to raise RunFinishedError.)
-def test_run_in_worker_thread_abandoned(capfd, monkeypatch) -> None:
+def test_run_in_worker_thread_abandoned(capfd, monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(_core._thread_cache, "IDLE_TIMEOUT", 0.01)
 
     q1 = stdlib_queue.Queue[None]()
@@ -554,7 +555,7 @@ async def test_run_in_worker_thread_limiter_error() -> None:
     assert record == ["acquire", "release"]
 
 
-async def test_run_in_worker_thread_fail_to_spawn(monkeypatch) -> None:
+async def test_run_in_worker_thread_fail_to_spawn(monkeypatch: MonkeyPatch) -> None:
     # Test the unlikely but possible case where trying to spawn a thread fails
     def bad_start(self, *args):
         raise RuntimeError("the engines canna take it captain")

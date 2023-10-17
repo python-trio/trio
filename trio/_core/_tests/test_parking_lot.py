@@ -15,7 +15,7 @@ T = TypeVar("T")
 async def test_parking_lot_basic() -> None:
     record = []
 
-    async def waiter(i, lot) -> None:
+    async def waiter(i: int, lot: ParkingLot) -> None:
         record.append(f"sleep {i}")
         await lot.park()
         record.append(f"wake {i}")
@@ -83,7 +83,7 @@ async def test_parking_lot_basic() -> None:
 
 
 async def cancellable_waiter(
-    name: T, lot, scopes: dict[T, _core.CancelScope], record: list[str]
+    name: T, lot: ParkingLot, scopes: dict[T, _core.CancelScope], record: list[str]
 ) -> None:
     with _core.CancelScope() as scope:
         scopes[name] = scope

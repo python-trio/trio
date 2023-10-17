@@ -12,7 +12,7 @@ from .. import _core, _timeouts
 from .._core._tests.tutil import slow
 
 if on_windows:
-    from .._core._windows_cffi import ffi, kernel32
+    from .._core._windows_cffi import Handle, ffi, kernel32
     from .._wait_for_object import WaitForMultipleObjects_sync, WaitForSingleObject
 
 
@@ -168,7 +168,7 @@ async def test_WaitForSingleObject_slow() -> None:
     # the timeout with a certain margin.
     TIMEOUT = 0.3
 
-    async def signal_soon_async(handle) -> None:
+    async def signal_soon_async(handle: Handle) -> None:
         await _timeouts.sleep(TIMEOUT)
         kernel32.SetEvent(handle)
 

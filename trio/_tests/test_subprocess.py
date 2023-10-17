@@ -11,6 +11,7 @@ from pathlib import Path as SyncPath
 from typing import TYPE_CHECKING, AsyncIterator
 
 import pytest
+from pytest import MonkeyPatch
 
 from .. import (
     ClosedResourceError,
@@ -538,7 +539,7 @@ async def test_custom_deliver_cancel() -> None:
     assert custom_deliver_cancel_called
 
 
-async def test_warn_on_failed_cancel_terminate(monkeypatch) -> None:
+async def test_warn_on_failed_cancel_terminate(monkeypatch: MonkeyPatch) -> None:
     original_terminate = Process.terminate
 
     def broken_terminate(self):
@@ -555,7 +556,9 @@ async def test_warn_on_failed_cancel_terminate(monkeypatch) -> None:
 
 
 @pytest.mark.skipif(not posix, reason="posix only")
-async def test_warn_on_cancel_SIGKILL_escalation(autojump_clock, monkeypatch) -> None:
+async def test_warn_on_cancel_SIGKILL_escalation(
+    autojump_clock, monkeypatch: MonkeyPatch
+) -> None:
     monkeypatch.setattr(Process, "terminate", lambda *args: None)
 
     with pytest.warns(RuntimeWarning, match=".*ignored SIGTERM.*"):

@@ -16,6 +16,7 @@ from typing import Callable
 
 import pytest
 from outcome import Outcome
+from pytest import MonkeyPatch
 
 import trio
 import trio.testing
@@ -490,7 +491,7 @@ def test_guest_mode_on_asyncio() -> None:
     )
 
 
-def test_guest_mode_internal_errors(monkeypatch, recwarn) -> None:
+def test_guest_mode_internal_errors(monkeypatch: MonkeyPatch, recwarn) -> None:
     with monkeypatch.context() as m:
 
         async def crash_in_run_loop(in_host) -> None:

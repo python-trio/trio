@@ -45,7 +45,7 @@ async def test_wait_all_tasks_blocked() -> None:
     assert record == ["ok"]
 
 
-async def test_wait_all_tasks_blocked_with_timeouts(mock_clock) -> None:
+async def test_wait_all_tasks_blocked_with_timeouts(mock_clock: MockClock) -> None:
     record = []
 
     async def timeout_task() -> None:
