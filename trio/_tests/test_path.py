@@ -14,20 +14,20 @@ def path(tmpdir):
     return trio.Path(p)
 
 
-def method_pair(path, method_name: str):
+def method_pair(path, method_name):
     path = pathlib.Path(path)
     async_path = trio.Path(path)
     return getattr(path, method_name), getattr(async_path, method_name)
 
 
-async def test_open_is_async_context_manager(path) -> None:
+async def test_open_is_async_context_manager(path):
     async with await path.open("w") as f:
         assert isinstance(f, AsyncIOWrapper)
 
     assert f.closed
 
 
-async def test_magic() -> None:
+async def test_magic():
     path = trio.Path("test")
 
     assert str(path) == "test"
@@ -42,7 +42,7 @@ cls_pairs = [
 
 
 @pytest.mark.parametrize("cls_a,cls_b", cls_pairs)
-async def test_cmp_magic(cls_a, cls_b) -> None:
+async def test_cmp_magic(cls_a, cls_b):
     a, b = cls_a(""), cls_b("")
     assert a == b
     assert not a != b
@@ -69,7 +69,7 @@ cls_pairs = [
 
 
 @pytest.mark.parametrize("cls_a,cls_b", cls_pairs)
-async def test_div_magic(cls_a, cls_b) -> None:
+async def test_div_magic(cls_a, cls_b):
     a, b = cls_a("a"), cls_b("b")
 
     result = a / b
@@ -81,19 +81,19 @@ async def test_div_magic(cls_a, cls_b) -> None:
     "cls_a,cls_b", [(trio.Path, pathlib.Path), (trio.Path, trio.Path)]
 )
 @pytest.mark.parametrize("path", ["foo", "foo/bar/baz", "./foo"])
-async def test_hash_magic(cls_a, cls_b, path) -> None:
+async def test_hash_magic(cls_a, cls_b, path):
     a, b = cls_a(path), cls_b(path)
     assert hash(a) == hash(b)
 
 
-async def test_forwarded_properties(path) -> None:
+async def test_forwarded_properties(path):
     # use `name` as a representative of forwarded properties
 
     assert "name" in dir(path)
     assert path.name == "test"
 
 
-async def test_async_method_signature(path) -> None:
+async def test_async_method_signature(path):
     # use `resolve` as a representative of wrapped methods
 
     assert path.resolve.__name__ == "resolve"
@@ -103,7 +103,7 @@ async def test_async_method_signature(path) -> None:
 
 
 @pytest.mark.parametrize("method_name", ["is_dir", "is_file"])
-async def test_compare_async_stat_methods(method_name: str) -> None:
+async def test_compare_async_stat_methods(method_name):
     method, async_method = method_pair(".", method_name)
 
     result = method()
@@ -112,13 +112,13 @@ async def test_compare_async_stat_methods(method_name: str) -> None:
     assert result == async_result
 
 
-async def test_invalid_name_not_wrapped(path) -> None:
+async def test_invalid_name_not_wrapped(path):
     with pytest.raises(AttributeError):
         getattr(path, "invalid_fake_attr")
 
 
 @pytest.mark.parametrize("method_name", ["absolute", "resolve"])
-async def test_async_methods_rewrap(method_name: str) -> None:
+async def test_async_methods_rewrap(method_name):
     method, async_method = method_pair(".", method_name)
 
     result = method()
@@ -128,7 +128,7 @@ async def test_async_methods_rewrap(method_name: str) -> None:
     assert str(result) == str(async_result)
 
 
-async def test_forward_methods_rewrap(path, tmpdir) -> None:
+async def test_forward_methods_rewrap(path, tmpdir):
     with_name = path.with_name("foo")
     with_suffix = path.with_suffix(".py")
 
@@ -138,17 +138,17 @@ async def test_forward_methods_rewrap(path, tmpdir) -> None:
     assert with_suffix == tmpdir.join("test.py")
 
 
-async def test_forward_properties_rewrap(path) -> None:
+async def test_forward_properties_rewrap(path):
     assert isinstance(path.parent, trio.Path)
 
 
-async def test_forward_methods_without_rewrap(path, tmpdir) -> None:
+async def test_forward_methods_without_rewrap(path, tmpdir):
     path = await path.parent.resolve()
 
     assert path.as_uri().startswith("file:///")
 
 
-async def test_repr() -> None:
+async def test_repr():
     path = trio.Path(".")
 
     assert repr(path) == "trio.Path('.')"
@@ -164,30 +164,30 @@ class MockWrapper:
     _wraps = MockWrapped
 
 
-async def test_type_forwards_unsupported() -> None:
+async def test_type_forwards_unsupported():
     with pytest.raises(TypeError):
         Type.generate_forwards(MockWrapper, {})
 
 
-async def test_type_wraps_unsupported() -> None:
+async def test_type_wraps_unsupported():
     with pytest.raises(TypeError):
         Type.generate_wraps(MockWrapper, {})
 
 
-async def test_type_forwards_private() -> None:
+async def test_type_forwards_private():
     Type.generate_forwards(MockWrapper, {"unsupported": None})
 
     assert not hasattr(MockWrapper, "_private")
 
 
-async def test_type_wraps_private() -> None:
+async def test_type_wraps_private():
     Type.generate_wraps(MockWrapper, {"unsupported": None})
 
     assert not hasattr(MockWrapper, "_private")
 
 
 @pytest.mark.parametrize("meth", [trio.Path.__init__, trio.Path.joinpath])
-async def test_path_wraps_path(path, meth) -> None:
+async def test_path_wraps_path(path, meth):
     wrapped = await path.absolute()
     result = meth(path, wrapped)
     if result is None:
@@ -196,17 +196,17 @@ async def test_path_wraps_path(path, meth) -> None:
     assert wrapped == result
 
 
-async def test_path_nonpath() -> None:
+async def test_path_nonpath():
     with pytest.raises(TypeError):
         trio.Path(1)
 
 
-async def test_open_file_can_open_path(path) -> None:
+async def test_open_file_can_open_path(path):
     async with await trio.open_file(path, "w") as f:
         assert f.name == os.fspath(path)
 
 
-async def test_globmethods(path) -> None:
+async def test_globmethods(path):
     # Populate a directory tree
     await path.mkdir()
     await (path / "foo").mkdir()
@@ -235,7 +235,7 @@ async def test_globmethods(path) -> None:
     assert entries == {"_bar.txt", "bar.txt"}
 
 
-async def test_iterdir(path) -> None:
+async def test_iterdir(path):
     # Populate a directory
     await path.mkdir()
     await (path / "foo").mkdir()
@@ -249,7 +249,7 @@ async def test_iterdir(path) -> None:
     assert entries == {"bar.txt", "foo"}
 
 
-async def test_classmethods() -> None:
+async def test_classmethods():
     assert isinstance(await trio.Path.home(), trio.Path)
 
     # pathlib.Path has only two classmethods

@@ -231,7 +231,7 @@ async def test_aclose_cancelled(path) -> None:
 
 async def test_detach_rewraps_asynciobase() -> None:
     raw = io.BytesIO()
-    buffered = io.BufferedReader(raw)
+    buffered = io.BufferedReader(raw)  # type: ignore[arg-type] # ????????????
 
     async_file = trio.wrap_file(buffered)
 

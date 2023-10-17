@@ -176,7 +176,7 @@ async def test_CapacityLimiter_memleak_548() -> None:
 
 async def test_Semaphore() -> None:
     with pytest.raises(TypeError):
-        Semaphore(1.0)
+        Semaphore(1.0)  # type: ignore[arg-type]
     with pytest.raises(ValueError):
         Semaphore(-1)
     s = Semaphore(1)
@@ -224,7 +224,7 @@ async def test_Semaphore() -> None:
 
 async def test_Semaphore_bounded() -> None:
     with pytest.raises(TypeError):
-        Semaphore(1, max_value=1.0)
+        Semaphore(1, max_value=1.0)  # type: ignore[arg-type]
     with pytest.raises(ValueError):
         Semaphore(2, max_value=1)
     bs = Semaphore(1, max_value=1)
@@ -317,9 +317,9 @@ async def test_Lock_and_StrictFIFOLock(lockcls) -> None:
 
 async def test_Condition() -> None:
     with pytest.raises(TypeError):
-        Condition(Semaphore(1))
+        Condition(Semaphore(1))  # type: ignore[arg-type]
     with pytest.raises(TypeError):
-        Condition(StrictFIFOLock)
+        Condition(StrictFIFOLock)  # type: ignore[arg-type]
     l = Lock()  # noqa
     c = Condition(l)
     assert not l.locked()
@@ -407,8 +407,8 @@ from .._sync import AsyncContextManagerMixin
 
 
 class ChannelLock1(AsyncContextManagerMixin):
-    def __init__(self, capacity) -> None:
-        self.s, self.r = open_memory_channel(capacity)
+    def __init__(self, capacity: int) -> None:
+        self.s, self.r = open_memory_channel[None](capacity)
         for _ in range(capacity - 1):
             self.s.send_nowait(None)
 
@@ -424,7 +424,7 @@ class ChannelLock1(AsyncContextManagerMixin):
 
 class ChannelLock2(AsyncContextManagerMixin):
     def __init__(self) -> None:
-        self.s, self.r = open_memory_channel(10)
+        self.s, self.r = open_memory_channel[None](10)
         self.s.send_nowait(None)
 
     def acquire_nowait(self) -> None:
@@ -439,7 +439,7 @@ class ChannelLock2(AsyncContextManagerMixin):
 
 class ChannelLock3(AsyncContextManagerMixin):
     def __init__(self) -> None:
-        self.s, self.r = open_memory_channel(0)
+        self.s, self.r = open_memory_channel[None](0)
         # self.acquired is true when one task acquires the lock and
         # only becomes false when it's released and no tasks are
         # waiting to acquire.

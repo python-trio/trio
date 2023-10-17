@@ -14,13 +14,13 @@ from .._thread_cache import ThreadCache, start_thread_soon
 from .tutil import gc_collect_harder, slow
 
 
-def test_thread_cache_basics():
+def test_thread_cache_basics() -> None:
     q = Queue[Outcome]()
 
     def fn() -> NoReturn:
         raise RuntimeError("hi")
 
-    def deliver(outcome):
+    def deliver(outcome) -> None:
         q.put(outcome)
 
     start_thread_soon(fn, deliver)
@@ -30,19 +30,19 @@ def test_thread_cache_basics():
         outcome.unwrap()
 
 
-def test_thread_cache_deref():
+def test_thread_cache_deref() -> None:
     res = [False]
 
     class del_me:
-        def __call__(self):
+        def __call__(self) -> int:
             return 42
 
-        def __del__(self):
+        def __del__(self) -> None:
             res[0] = True
 
-    q = Queue()
+    q = Queue[Outcome]()
 
-    def deliver(outcome):
+    def deliver(outcome) -> None:
         q.put(outcome)
 
     start_thread_soon(del_me(), deliver)
@@ -54,7 +54,7 @@ def test_thread_cache_deref():
 
 
 @slow
-def test_spawning_new_thread_from_deliver_reuses_starting_thread():
+def test_spawning_new_thread_from_deliver_reuses_starting_thread() -> None:
     # We know that no-one else is using the thread cache, so if we keep
     # submitting new jobs the instant the previous one is finished, we should
     # keep getting the same thread over and over. This tests both that the
@@ -63,7 +63,7 @@ def test_spawning_new_thread_from_deliver_reuses_starting_thread():
 
     # Make sure there are a few threads running, so if we weren't LIFO then we
     # could grab the wrong one.
-    q = Queue()
+    q = Queue[Outcome]()
     COUNT = 5
     for _ in range(COUNT):
         start_thread_soon(lambda: time.sleep(1), lambda result: q.put(result))
@@ -73,7 +73,7 @@ def test_spawning_new_thread_from_deliver_reuses_starting_thread():
     seen_threads = set()
     done = threading.Event()
 
-    def deliver(n, _):
+    def deliver(n, _) -> None:
         print(n)
         seen_threads.add(threading.current_thread())
         if n == 0:
@@ -89,13 +89,13 @@ def test_spawning_new_thread_from_deliver_reuses_starting_thread():
 
 
 @slow
-def test_idle_threads_exit(monkeypatch):
+def test_idle_threads_exit(monkeypatch) -> None:
     # Temporarily set the idle timeout to something tiny, to speed up the
     # test. (But non-zero, so that the worker loop will at least yield the
     # CPU.)
     monkeypatch.setattr(_thread_cache, "IDLE_TIMEOUT", 0.0001)
 
-    q = Queue()
+    q = Queue[threading.Thread]()
     start_thread_soon(lambda: None, lambda _: q.put(threading.current_thread()))
     seen_thread = q.get()
     # Since the idle timeout is 0, after sleeping for 1 second, the thread
@@ -116,7 +116,7 @@ def _join_started_threads():
                 assert not thread.is_alive()
 
 
-def test_race_between_idle_exit_and_job_assignment(monkeypatch):
+def test_race_between_idle_exit_and_job_assignment(monkeypatch) -> None:
     # This is a lock where the first few times you try to acquire it with a
     # timeout, it waits until the lock is available and then pretends to time
     # out. Using this in our thread cache implementation causes the following
@@ -135,11 +135,11 @@ def test_race_between_idle_exit_and_job_assignment(monkeypatch):
     #    everything proceeds as normal.
 
     class JankyLock:
-        def __init__(self):
+        def __init__(self) -> None:
             self._lock = threading.Lock()
             self._counter = 3
 
-        def acquire(self, timeout=-1):
+        def acquire(self, timeout=-1) -> bool:
             got_it = self._lock.acquire(timeout=timeout)
             if timeout == -1:
                 return True
@@ -152,7 +152,7 @@ def test_race_between_idle_exit_and_job_assignment(monkeypatch):
             else:
                 return False
 
-        def release(self):
+        def release(self) -> None:
             self._lock.release()
 
     monkeypatch.setattr(_thread_cache, "Lock", JankyLock)
@@ -169,10 +169,10 @@ def test_race_between_idle_exit_and_job_assignment(monkeypatch):
         tc.start_thread_soon(lambda: None, lambda _: None)
 
 
-def test_raise_in_deliver(capfd):
+def test_raise_in_deliver(capfd) -> None:
     seen_threads = set()
 
-    def track_threads():
+    def track_threads() -> None:
         seen_threads.add(threading.current_thread())
 
     def deliver(_):

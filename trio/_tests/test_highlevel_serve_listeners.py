@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import errno
 from functools import partial
 
@@ -72,7 +74,9 @@ async def test_serve_listeners_basic() -> None:
         parent_nursery.cancel_scope.cancel()
 
     async with trio.open_nursery() as nursery:
-        l2 = await nursery.start(trio.serve_listeners, handler, listeners)
+        l2: list[MemoryListener] = await nursery.start(
+            trio.serve_listeners, handler, listeners
+        )
         assert l2 == listeners
         # This is just split into another function because gh-136 isn't
         # implemented yet
@@ -92,7 +96,7 @@ async def test_serve_listeners_accept_unrecognized_error() -> None:
         listener.accept_hook = raise_error
 
         with pytest.raises(type(error)) as excinfo:
-            await trio.serve_listeners(None, [listener])
+            await trio.serve_listeners(None, [listener])  # type: ignore[arg-type]
         assert excinfo.value is error
 
 
@@ -107,7 +111,7 @@ async def test_serve_listeners_accept_capacity_error(autojump_clock, caplog) -> 
     # It retries every 100 ms, so in 950 ms it will retry at 0, 100, ..., 900
     # = 10 times total
     with trio.move_on_after(0.950):
-        await trio.serve_listeners(None, [listener])
+        await trio.serve_listeners(None, [listener])  # type: ignore[arg-type]
 
     assert len(caplog.records) == 10
     for record in caplog.records:
@@ -133,7 +137,7 @@ async def test_serve_listeners_connection_nursery(autojump_clock) -> None:
 
     with pytest.raises(Done):
         async with trio.open_nursery() as nursery:
-            handler_nursery = await nursery.start(connection_watcher)
+            handler_nursery: trio.Nursery = await nursery.start(connection_watcher)
             await nursery.start(
                 partial(
                     trio.serve_listeners,

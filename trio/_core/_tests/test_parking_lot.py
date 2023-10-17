@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import TypeVar
+
 import pytest
 
 from ... import _core
@@ -5,11 +9,13 @@ from ...testing import wait_all_tasks_blocked
 from .._parking_lot import ParkingLot
 from .tutil import check_sequence_matches
 
+T = TypeVar("T")
 
-async def test_parking_lot_basic():
+
+async def test_parking_lot_basic() -> None:
     record = []
 
-    async def waiter(i, lot):
+    async def waiter(i, lot) -> None:
         record.append(f"sleep {i}")
         await lot.park()
         record.append(f"wake {i}")
@@ -76,7 +82,9 @@ async def test_parking_lot_basic():
         lot.unpark(count=1.5)
 
 
-async def cancellable_waiter(name, lot, scopes, record):
+async def cancellable_waiter(
+    name: T, lot, scopes: dict[T, _core.CancelScope], record: list[str]
+) -> None:
     with _core.CancelScope() as scope:
         scopes[name] = scope
         record.append(f"sleep {name}")
@@ -88,9 +96,9 @@ async def cancellable_waiter(name, lot, scopes, record):
             record.append(f"wake {name}")
 
 
-async def test_parking_lot_cancel():
-    record = []
-    scopes = {}
+async def test_parking_lot_cancel() -> None:
+    record: list[str] = []
+    scopes: dict[int, _core.CancelScope] = {}
 
     async with _core.open_nursery() as nursery:
         lot = ParkingLot()
@@ -114,14 +122,14 @@ async def test_parking_lot_cancel():
     )
 
 
-async def test_parking_lot_repark():
-    record = []
-    scopes = {}
+async def test_parking_lot_repark() -> None:
+    record: list[str] = []
+    scopes: dict[int, _core.CancelScope] = {}
     lot1 = ParkingLot()
     lot2 = ParkingLot()
 
     with pytest.raises(TypeError):
-        lot1.repark([])
+        lot1.repark([])  # type: ignore[arg-type]
 
     async with _core.open_nursery() as nursery:
         nursery.start_soon(cancellable_waiter, 1, lot1, scopes, record)
@@ -168,9 +176,9 @@ async def test_parking_lot_repark():
         ]
 
 
-async def test_parking_lot_repark_with_count():
-    record = []
-    scopes = {}
+async def test_parking_lot_repark_with_count() -> None:
+    record: list[str] = []
+    scopes: dict[int, _core.CancelScope] = {}
     lot1 = ParkingLot()
     lot2 = ParkingLot()
     async with _core.open_nursery() as nursery:

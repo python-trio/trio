@@ -35,7 +35,7 @@ def trivial_guest_run(trio_fn, *, in_host_after_start=None, **start_guest_run_kw
 
     host_thread = threading.current_thread()
 
-    def run_sync_soon_threadsafe(fn: Callable):
+    def run_sync_soon_threadsafe(fn: Callable) -> None:
         nonlocal todo
         if host_thread is threading.current_thread():  # pragma: no cover
             crash = partial(
@@ -44,7 +44,7 @@ def trivial_guest_run(trio_fn, *, in_host_after_start=None, **start_guest_run_kw
             todo.put(("run", crash))
         todo.put(("run", fn))
 
-    def run_sync_soon_not_threadsafe(fn: Callable):
+    def run_sync_soon_not_threadsafe(fn: Callable) -> None:
         nonlocal todo
         if host_thread is not threading.current_thread():  # pragma: no cover
             crash = partial(
@@ -53,7 +53,7 @@ def trivial_guest_run(trio_fn, *, in_host_after_start=None, **start_guest_run_kw
             todo.put(("run", crash))
         todo.put(("run", fn))
 
-    def done_callback(outcome: Outcome):
+    def done_callback(outcome: Outcome) -> None:
         nonlocal todo
         todo.put(("unwrap", outcome))
 
@@ -84,8 +84,8 @@ def trivial_guest_run(trio_fn, *, in_host_after_start=None, **start_guest_run_kw
         del todo, run_sync_soon_threadsafe, done_callback
 
 
-def test_guest_trivial():
-    async def trio_return(in_host):
+def test_guest_trivial() -> None:
+    async def trio_return(in_host) -> str:
         await trio.sleep(0)
         return "ok"
 
@@ -98,14 +98,14 @@ def test_guest_trivial():
         trivial_guest_run(trio_fail)
 
 
-def test_guest_can_do_io():
-    async def trio_main(in_host):
+def test_guest_can_do_io() -> None:
+    async def trio_main(in_host) -> None:
         record = []
         a, b = trio.socket.socketpair()
         with a, b:
             async with trio.open_nursery() as nursery:
 
-                async def do_receive():
+                async def do_receive() -> None:
                     record.append(await a.recv(1))
 
                 nursery.start_soon(do_receive)
@@ -118,17 +118,17 @@ def test_guest_can_do_io():
     trivial_guest_run(trio_main)
 
 
-def test_guest_is_initialized_when_start_returns():
+def test_guest_is_initialized_when_start_returns() -> None:
     trio_token = None
     record = []
 
-    async def trio_main(in_host):
+    async def trio_main(in_host) -> str:
         record.append("main task ran")
         await trio.sleep(0)
         assert trio.lowlevel.current_trio_token() is trio_token
         return "ok"
 
-    def after_start():
+    def after_start() -> None:
         # We should get control back before the main task executes any code
         assert record == []
 
@@ -137,7 +137,7 @@ def test_guest_is_initialized_when_start_returns():
         trio_token.run_sync_soon(record.append, "run_sync_soon cb ran")
 
         @trio.lowlevel.spawn_system_task
-        async def early_task():
+        async def early_task() -> None:
             record.append("system task ran")
             await trio.sleep(0)
 
@@ -153,7 +153,7 @@ def test_guest_is_initialized_when_start_returns():
             def start_clock(self):
                 raise ValueError("whoops")
 
-        def after_start_never_runs():  # pragma: no cover
+        def after_start_never_runs() -> None:  # pragma: no cover
             pytest.fail("shouldn't get here")
 
         trivial_guest_run(
@@ -161,8 +161,8 @@ def test_guest_is_initialized_when_start_returns():
         )
 
 
-def test_host_can_directly_wake_trio_task():
-    async def trio_main(in_host):
+def test_host_can_directly_wake_trio_task() -> None:
+    async def trio_main(in_host) -> str:
         ev = trio.Event()
         in_host(ev.set)
         await ev.wait()
@@ -171,11 +171,11 @@ def test_host_can_directly_wake_trio_task():
     assert trivial_guest_run(trio_main) == "ok"
 
 
-def test_host_altering_deadlines_wakes_trio_up():
-    def set_deadline(cscope, new_deadline):
+def test_host_altering_deadlines_wakes_trio_up() -> None:
+    def set_deadline(cscope, new_deadline) -> None:
         cscope.deadline = new_deadline
 
-    async def trio_main(in_host):
+    async def trio_main(in_host) -> str:
         with trio.CancelScope() as cscope:
             in_host(lambda: set_deadline(cscope, -inf))
             await trio.sleep_forever()
@@ -194,11 +194,11 @@ def test_host_altering_deadlines_wakes_trio_up():
     assert trivial_guest_run(trio_main) == "ok"
 
 
-def test_guest_mode_sniffio_integration():
+def test_guest_mode_sniffio_integration() -> None:
     from sniffio import current_async_library, thread_local as sniffio_library
 
-    async def trio_main(in_host):
-        async def synchronize():
+    async def trio_main(in_host) -> str:
+        async def synchronize() -> None:
             """Wait for all in_host() calls issued so far to complete."""
             evt = trio.Event()
             in_host(evt.set)
@@ -223,10 +223,10 @@ def test_guest_mode_sniffio_integration():
         sniffio_library.name = None
 
 
-def test_warn_set_wakeup_fd_overwrite():
+def test_warn_set_wakeup_fd_overwrite() -> None:
     assert signal.set_wakeup_fd(-1) == -1
 
-    async def trio_main(in_host):
+    async def trio_main(in_host) -> str:
         return "ok"
 
     a, b = socket.socketpair()
@@ -268,7 +268,7 @@ def test_warn_set_wakeup_fd_overwrite():
         signal.set_wakeup_fd(a.fileno())
         try:
 
-            async def trio_check_wakeup_fd_unaltered(in_host):
+            async def trio_check_wakeup_fd_unaltered(in_host) -> str:
                 fd = signal.set_wakeup_fd(-1)
                 assert fd == a.fileno()
                 signal.set_wakeup_fd(fd)
@@ -287,19 +287,19 @@ def test_warn_set_wakeup_fd_overwrite():
             assert signal.set_wakeup_fd(-1) == a.fileno()
 
 
-def test_host_wakeup_doesnt_trigger_wait_all_tasks_blocked():
+def test_host_wakeup_doesnt_trigger_wait_all_tasks_blocked() -> None:
     # This is designed to hit the branch in unrolled_run where:
     #   idle_primed=True
     #   runner.runq is empty
     #   events is Truth-y
     # ...and confirm that in this case, wait_all_tasks_blocked does not get
     # triggered.
-    def set_deadline(cscope, new_deadline):
+    def set_deadline(cscope, new_deadline) -> None:
         print(f"setting deadline {new_deadline}")
         cscope.deadline = new_deadline
 
-    async def trio_main(in_host):
-        async def sit_in_wait_all_tasks_blocked(watb_cscope):
+    async def trio_main(in_host) -> str:
+        async def sit_in_wait_all_tasks_blocked(watb_cscope) -> None:
             with watb_cscope:
                 # Overall point of this test is that this
                 # wait_all_tasks_blocked should *not* return normally, but
@@ -308,7 +308,7 @@ def test_host_wakeup_doesnt_trigger_wait_all_tasks_blocked():
                 assert False  # pragma: no cover
             assert watb_cscope.cancelled_caught
 
-        async def get_woken_by_host_deadline(watb_cscope):
+        async def get_woken_by_host_deadline(watb_cscope) -> None:
             with trio.CancelScope() as cscope:
                 print("scheduling stuff to happen")
 
@@ -360,13 +360,13 @@ def test_host_wakeup_doesnt_trigger_wait_all_tasks_blocked():
 
 
 @restore_unraisablehook()
-def test_guest_warns_if_abandoned():
+def test_guest_warns_if_abandoned() -> None:
     # This warning is emitted from the garbage collector. So we have to make
     # sure that our abandoned run is garbage. The easiest way to do this is to
     # put it into a function, so that we're sure all the local state,
     # traceback frames, etc. are garbage once it returns.
-    def do_abandoned_guest_run():
-        async def abandoned_main(in_host):
+    def do_abandoned_guest_run() -> None:
+        async def abandoned_main(in_host) -> None:
             in_host(lambda: 1 / 0)
             while True:
                 await trio.sleep(0)
@@ -401,13 +401,13 @@ def test_guest_warns_if_abandoned():
             trio.current_time()
 
 
-def aiotrio_run(trio_fn, *, pass_not_threadsafe=True, **start_guest_run_kwargs):
+def aiotrio_run(trio_fn, *, pass_not_threadsafe: bool = True, **start_guest_run_kwargs):
     loop = asyncio.new_event_loop()
 
     async def aio_main():
         trio_done_fut = loop.create_future()
 
-        def trio_done_callback(main_outcome):
+        def trio_done_callback(main_outcome) -> None:
             print(f"trio_fn finished: {main_outcome!r}")
             trio_done_fut.set_result(main_outcome)
 
@@ -429,8 +429,8 @@ def aiotrio_run(trio_fn, *, pass_not_threadsafe=True, **start_guest_run_kwargs):
         loop.close()
 
 
-def test_guest_mode_on_asyncio():
-    async def trio_main():
+def test_guest_mode_on_asyncio() -> None:
+    async def trio_main() -> str:
         print("trio_main!")
 
         to_trio, from_aio = trio.open_memory_channel[int](float("inf"))
@@ -450,6 +450,8 @@ def test_guest_mode_on_asyncio():
             if n >= 10:
                 aio_task.cancel()
                 return "trio-main-done"
+
+        raise AssertionError("should never be reached")
 
     async def aio_pingpong(from_trio, to_trio):
         print("aio_pingpong!")
@@ -488,10 +490,10 @@ def test_guest_mode_on_asyncio():
     )
 
 
-def test_guest_mode_internal_errors(monkeypatch, recwarn):
+def test_guest_mode_internal_errors(monkeypatch, recwarn) -> None:
     with monkeypatch.context() as m:
 
-        async def crash_in_run_loop(in_host):
+        async def crash_in_run_loop(in_host) -> None:
             m.setattr("trio._core._run.GLOBAL_RUN_CONTEXT.runner.runq", "HI")
             await trio.sleep(1)
 
@@ -500,7 +502,7 @@ def test_guest_mode_internal_errors(monkeypatch, recwarn):
 
     with monkeypatch.context() as m:
 
-        async def crash_in_io(in_host):
+        async def crash_in_io(in_host) -> None:
             m.setattr("trio._core._run.TheIOManager.get_events", None)
             await trio.sleep(0)
 
@@ -509,7 +511,7 @@ def test_guest_mode_internal_errors(monkeypatch, recwarn):
 
     with monkeypatch.context() as m:
 
-        async def crash_in_worker_thread_io(in_host):
+        async def crash_in_worker_thread_io(in_host) -> None:
             t = threading.current_thread()
             old_get_events = trio._core._run.TheIOManager.get_events
 
@@ -529,11 +531,11 @@ def test_guest_mode_internal_errors(monkeypatch, recwarn):
     gc_collect_harder()
 
 
-def test_guest_mode_ki():
+def test_guest_mode_ki() -> None:
     assert signal.getsignal(signal.SIGINT) is signal.default_int_handler
 
     # Check SIGINT in Trio func and in host func
-    async def trio_main(in_host):
+    async def trio_main(in_host) -> None:
         with pytest.raises(KeyboardInterrupt):
             signal_raise(signal.SIGINT)
 
@@ -561,7 +563,7 @@ def test_guest_mode_ki():
     assert signal.getsignal(signal.SIGINT) is signal.default_int_handler
 
 
-def test_guest_mode_autojump_clock_threshold_changing():
+def test_guest_mode_autojump_clock_threshold_changing() -> None:
     # This is super obscure and probably no-one will ever notice, but
     # technically mutating the MockClock.autojump_threshold from the host
     # should wake up the guest, so let's test it.
@@ -570,7 +572,7 @@ def test_guest_mode_autojump_clock_threshold_changing():
 
     DURATION = 120
 
-    async def trio_main(in_host):
+    async def trio_main(in_host) -> None:
         assert trio.current_time() == 0
         in_host(lambda: setattr(clock, "autojump_threshold", 0))
         await trio.sleep(DURATION)
@@ -586,12 +588,12 @@ def test_guest_mode_autojump_clock_threshold_changing():
 
 @pytest.mark.skipif(buggy_pypy_asyncgens, reason="PyPy 7.2 is buggy")
 @restore_unraisablehook()
-def test_guest_mode_asyncgens():
+def test_guest_mode_asyncgens() -> None:
     import sniffio
 
     record = set()
 
-    async def agen(label):
+    async def agen(label: str):
         assert sniffio.current_async_library() == label
         try:
             yield 1
@@ -603,10 +605,10 @@ def test_guest_mode_asyncgens():
                 pass
             record.add((label, library))
 
-    async def iterate_in_aio():
+    async def iterate_in_aio() -> None:
         await agen("asyncio").asend(None)
 
-    async def trio_main():
+    async def trio_main() -> None:
         task = asyncio.ensure_future(iterate_in_aio())
         done_evt = trio.Event()
         task.add_done_callback(lambda _: done_evt.set())

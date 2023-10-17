@@ -261,7 +261,7 @@ async def test__UnboundeByteQueue() -> None:
         ubq.get_nowait()
 
     with pytest.raises(TypeError):
-        ubq.put("string")
+        ubq.put("string")  # type: ignore[arg-type]
 
     ubq.put(b"abc")
     with assert_checkpoints():

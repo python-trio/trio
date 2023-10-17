@@ -1878,7 +1878,7 @@ async def test_nursery_stop_iteration() -> None:
 
 async def test_nursery_stop_async_iteration() -> None:
     class it:
-        def __init__(self, count: int):
+        def __init__(self, count: int) -> None:
             self.count = count
             self.val = 0
 
@@ -1891,7 +1891,7 @@ async def test_nursery_stop_async_iteration() -> None:
             return val
 
     class async_zip:
-        def __init__(self, *largs: it):
+        def __init__(self, *largs: it) -> None:
             self.nexts = [obj.__anext__ for obj in largs]
 
         async def _accumulate(

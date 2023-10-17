@@ -108,7 +108,7 @@ def test_coroutine_or_error() -> None:
             pass
 
         with pytest.raises(TypeError) as excinfo:
-            coroutine_or_error(f())
+            coroutine_or_error(f())  # type: ignore[arg-type, unused-coroutine]
         assert "expecting an async function" in str(excinfo.value)
 
         import asyncio
@@ -120,35 +120,37 @@ def test_coroutine_or_error() -> None:
                 yield from asyncio.sleep(1)
 
             with pytest.raises(TypeError) as excinfo:
-                coroutine_or_error(generator_based_coro())
+                coroutine_or_error(generator_based_coro())  # type: ignore[arg-type, unused-coroutine]
             assert "asyncio" in str(excinfo.value)
 
         with pytest.raises(TypeError) as excinfo:
-            coroutine_or_error(create_asyncio_future_in_new_loop())
+            coroutine_or_error(create_asyncio_future_in_new_loop())  # type: ignore[arg-type, unused-coroutine]
+        assert "asyncio" in str(excinfo.value)
+
+        # does not raise arg-type error
+        with pytest.raises(TypeError) as excinfo:
+            coroutine_or_error(create_asyncio_future_in_new_loop)  # type: ignore[unused-coroutine]
         assert "asyncio" in str(excinfo.value)
 
         with pytest.raises(TypeError) as excinfo:
-            coroutine_or_error(create_asyncio_future_in_new_loop)
-        assert "asyncio" in str(excinfo.value)
-
-        with pytest.raises(TypeError) as excinfo:
-            coroutine_or_error(Deferred())
+            coroutine_or_error(Deferred())  # type: ignore[arg-type, unused-coroutine]
         assert "twisted" in str(excinfo.value)
 
         with pytest.raises(TypeError) as excinfo:
-            coroutine_or_error(lambda: Deferred())
+            coroutine_or_error(lambda: Deferred())  # type: ignore[arg-type, unused-coroutine, return-value]
         assert "twisted" in str(excinfo.value)
 
         with pytest.raises(TypeError) as excinfo:
-            coroutine_or_error(len, [[1, 2, 3]])
+            coroutine_or_error(len, [[1, 2, 3]])  # type: ignore[arg-type, unused-coroutine]
 
         assert "appears to be synchronous" in str(excinfo.value)
 
         async def async_gen(arg):  # pragma: no cover
             yield
 
+        # does not give arg-type typing error
         with pytest.raises(TypeError) as excinfo:
-            coroutine_or_error(async_gen, [0])
+            coroutine_or_error(async_gen, [0])  # type: ignore[unused-coroutine]
         msg = "expected an async function but got an async generator"
         assert msg in str(excinfo.value)
 
@@ -165,8 +167,8 @@ def test_generic_function() -> None:
     assert test_func is test_func[int] is test_func[int, str]
     assert test_func(42) == test_func[int](42) == 42
     assert test_func.__doc__ == "Look, a docstring!"
-    assert test_func.__qualname__ == "test_generic_function.<locals>.test_func"
-    assert test_func.__name__ == "test_func"
+    assert test_func.__qualname__ == "test_generic_function.<locals>.test_func"  # type: ignore[attr-defined]
+    assert test_func.__name__ == "test_func"  # type: ignore[attr-defined]
     assert test_func.__module__ == __name__
 
 
@@ -206,7 +208,7 @@ def test_no_public_constructor_metaclass() -> None:
 def test_fixup_module_metadata() -> None:
     # Ignores modules not in the trio.X tree.
     non_trio_module = types.ModuleType("not_trio")
-    non_trio_module.some_func = lambda: None
+    non_trio_module.some_func = lambda: None  # type: ignore[attr-defined]
     non_trio_module.some_func.__name__ = "some_func"
     non_trio_module.some_func.__qualname__ = "some_func"
 
@@ -217,26 +219,26 @@ def test_fixup_module_metadata() -> None:
 
     # Bulild up a fake module to test. Just use lambdas since all we care about is the names.
     mod = types.ModuleType("trio._somemodule_impl")
-    mod.some_func = lambda: None
+    mod.some_func = lambda: None  # type: ignore[attr-defined]
     mod.some_func.__name__ = "_something_else"
     mod.some_func.__qualname__ = "_something_else"
 
     # No __module__ means it's unchanged.
-    mod.not_funclike = types.SimpleNamespace()
+    mod.not_funclike = types.SimpleNamespace()  # type: ignore[attr-defined]
     mod.not_funclike.__name__ = "not_funclike"
 
     # Check __qualname__ being absent works.
-    mod.only_has_name = types.SimpleNamespace()
+    mod.only_has_name = types.SimpleNamespace()  # type: ignore[attr-defined]
     mod.only_has_name.__module__ = "trio._somemodule_impl"
     mod.only_has_name.__name__ = "only_name"
 
     # Underscored names are unchanged.
-    mod._private = lambda: None
+    mod._private = lambda: None  # type: ignore[attr-defined]
     mod._private.__module__ = "trio._somemodule_impl"
     mod._private.__name__ = mod._private.__qualname__ = "_private"
 
     # We recurse into classes.
-    mod.SomeClass = type(
+    mod.SomeClass = type(  # type: ignore[attr-defined]
         "SomeClass",
         (),
         {
@@ -244,7 +246,8 @@ def test_fixup_module_metadata() -> None:
             "method": lambda self: None,
         },
     )
-    mod.SomeClass.recursion = mod.SomeClass  # Reference loop is fine.
+    # Reference loop is fine.
+    mod.SomeClass.recursion = mod.SomeClass  # type: ignore[attr-defined]
 
     fixup_module_metadata("trio.somemodule", vars(mod))
     assert mod.some_func.__name__ == "some_func"
@@ -260,9 +263,9 @@ def test_fixup_module_metadata() -> None:
     assert mod.only_has_name.__module__ == "trio.somemodule"
     assert not hasattr(mod.only_has_name, "__qualname__")
 
-    assert mod.SomeClass.method.__name__ == "method"
-    assert mod.SomeClass.method.__module__ == "trio.somemodule"
-    assert mod.SomeClass.method.__qualname__ == "SomeClass.method"
+    assert mod.SomeClass.method.__name__ == "method"  # type: ignore[attr-defined]
+    assert mod.SomeClass.method.__module__ == "trio.somemodule"  # type: ignore[attr-defined]
+    assert mod.SomeClass.method.__qualname__ == "SomeClass.method"  # type: ignore[attr-defined]
     # Make coverage happy.
     non_trio_module.some_func()
     mod.some_func()

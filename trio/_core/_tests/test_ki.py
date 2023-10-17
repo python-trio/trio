@@ -24,16 +24,16 @@ if TYPE_CHECKING:
     from ..._core import Abort, RaiseCancelT
 
 
-def ki_self():
+def ki_self() -> None:
     signal_raise(signal.SIGINT)
 
 
-def test_ki_self():
+def test_ki_self() -> None:
     with pytest.raises(KeyboardInterrupt):
         ki_self()
 
 
-async def test_ki_enabled():
+async def test_ki_enabled() -> None:
     # Regular tasks aren't KI-protected
     assert not _core.currently_ki_protected()
 
@@ -41,7 +41,7 @@ async def test_ki_enabled():
     token = _core.current_trio_token()
     record = []
 
-    def check():
+    def check() -> None:
         record.append(_core.currently_ki_protected())
 
     token.run_sync_soon(check)
@@ -49,23 +49,23 @@ async def test_ki_enabled():
     assert record == [True]
 
     @_core.enable_ki_protection
-    def protected():
+    def protected() -> None:
         assert _core.currently_ki_protected()
         unprotected()
 
     @_core.disable_ki_protection
-    def unprotected():
+    def unprotected() -> None:
         assert not _core.currently_ki_protected()
 
     protected()
 
     @_core.enable_ki_protection
-    async def aprotected():
+    async def aprotected() -> None:
         assert _core.currently_ki_protected()
         await aunprotected()
 
     @_core.disable_ki_protection
-    async def aunprotected():
+    async def aunprotected() -> None:
         assert not _core.currently_ki_protected()
 
     await aprotected()
@@ -102,16 +102,16 @@ async def test_ki_enabled():
 # .throw(), not the actual caller. So child() here would have a caller deep in
 # the guts of the run loop, and always be protected, even when it shouldn't
 # have been. (Solution: we don't use .throw() anymore.)
-async def test_ki_enabled_after_yield_briefly():
+async def test_ki_enabled_after_yield_briefly() -> None:
     @_core.enable_ki_protection
-    async def protected():
+    async def protected() -> None:
         await child(True)
 
     @_core.disable_ki_protection
-    async def unprotected():
+    async def unprotected() -> None:
         await child(False)
 
-    async def child(expected):
+    async def child(expected) -> None:
         import traceback
 
         traceback.print_stack()
@@ -146,10 +146,10 @@ async def test_generator_based_context_manager_throw():
 
 
 @pytest.mark.skipif(async_generator is None, reason="async_generator not installed")
-async def test_async_generator_agen_protection():
+async def test_async_generator_agen_protection() -> None:
     @_core.enable_ki_protection
-    @async_generator
-    async def agen_protected1():
+    @async_generator  # type: ignore[misc] # untyped generator
+    async def agen_protected1() -> None:
         assert _core.currently_ki_protected()
         try:
             await yield_()
@@ -157,8 +157,8 @@ async def test_async_generator_agen_protection():
             assert _core.currently_ki_protected()
 
     @_core.disable_ki_protection
-    @async_generator
-    async def agen_unprotected1():
+    @async_generator  # type: ignore[misc] # untyped generator
+    async def agen_unprotected1() -> None:
         assert not _core.currently_ki_protected()
         try:
             await yield_()
@@ -166,18 +166,18 @@ async def test_async_generator_agen_protection():
             assert not _core.currently_ki_protected()
 
     # Swap the order of the decorators:
-    @async_generator
+    @async_generator  # type: ignore[misc] # untyped generator
     @_core.enable_ki_protection
-    async def agen_protected2():
+    async def agen_protected2() -> None:
         assert _core.currently_ki_protected()
         try:
             await yield_()
         finally:
             assert _core.currently_ki_protected()
 
-    @async_generator
+    @async_generator  # type: ignore[misc] # untyped generator
     @_core.disable_ki_protection
-    async def agen_unprotected2():
+    async def agen_unprotected2() -> None:
         assert not _core.currently_ki_protected()
         try:
             await yield_()
@@ -190,7 +190,7 @@ async def test_async_generator_agen_protection():
     await _check_agen(agen_unprotected2)
 
 
-async def test_native_agen_protection():
+async def test_native_agen_protection() -> None:
     # Native async generators
     @_core.enable_ki_protection
     async def agen_protected():
@@ -230,20 +230,20 @@ async def _check_agen(agen_fn):
 
 
 # Test the case where there's no magic local anywhere in the call stack
-def test_ki_disabled_out_of_context():
+def test_ki_disabled_out_of_context() -> None:
     assert _core.currently_ki_protected()
 
 
-def test_ki_disabled_in_del():
+def test_ki_disabled_in_del() -> None:
     def nestedfunction():
         return _core.currently_ki_protected()
 
-    def __del__():
+    def __del__() -> None:
         assert _core.currently_ki_protected()
         assert nestedfunction()
 
     @_core.disable_ki_protection
-    def outerfunction():
+    def outerfunction() -> None:
         assert not _core.currently_ki_protected()
         assert not nestedfunction()
         __del__()
@@ -253,15 +253,15 @@ def test_ki_disabled_in_del():
     assert nestedfunction()
 
 
-def test_ki_protection_works():
-    async def sleeper(name, record):
+def test_ki_protection_works() -> None:
+    async def sleeper(name: str, record) -> None:
         try:
             while True:
                 await _core.checkpoint()
         except _core.Cancelled:
             record.add(name + " ok")
 
-    async def raiser(name, record):
+    async def raiser(name: str, record):
         try:
             # os.kill runs signal handlers before returning, so we don't need
             # to worry that the handler will be delayed
@@ -286,7 +286,7 @@ def test_ki_protection_works():
     print("check 1")
     record_set: set[str] = set()
 
-    async def check_unprotected_kill():
+    async def check_unprotected_kill() -> None:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(sleeper, "s1", record_set)
             nursery.start_soon(sleeper, "s2", record_set)
@@ -301,7 +301,7 @@ def test_ki_protection_works():
     print("check 2")
     record_set = set()
 
-    async def check_protected_kill():
+    async def check_protected_kill() -> None:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(sleeper, "s1", record_set)
             nursery.start_soon(sleeper, "s2", record_set)
@@ -316,10 +316,10 @@ def test_ki_protection_works():
     # error, then kill)
     print("check 3")
 
-    async def check_kill_during_shutdown():
+    async def check_kill_during_shutdown() -> None:
         token = _core.current_trio_token()
 
-        def kill_during_shutdown():
+        def kill_during_shutdown() -> None:
             assert _core.currently_ki_protected()
             try:
                 token.run_sync_soon(kill_during_shutdown)
@@ -340,7 +340,7 @@ def test_ki_protection_works():
         def before_run(self) -> None:
             ki_self()
 
-    async def main_1():
+    async def main_1() -> None:
         await _core.checkpoint()
 
     with pytest.raises(KeyboardInterrupt):
@@ -350,7 +350,7 @@ def test_ki_protection_works():
     print("check 5")
 
     @_core.enable_ki_protection
-    async def main_2():
+    async def main_2() -> None:
         assert _core.currently_ki_protected()
         ki_self()
         with pytest.raises(KeyboardInterrupt):
@@ -362,7 +362,7 @@ def test_ki_protection_works():
     print("check 6")
 
     @_core.enable_ki_protection
-    async def main_3():
+    async def main_3() -> None:
         assert _core.currently_ki_protected()
         ki_self()
         await _core.cancel_shielded_checkpoint()
@@ -377,7 +377,7 @@ def test_ki_protection_works():
     print("check 7")
 
     @_core.enable_ki_protection
-    async def main_4():
+    async def main_4() -> None:
         assert _core.currently_ki_protected()
         ki_self()
         task = _core.current_task()
@@ -396,7 +396,7 @@ def test_ki_protection_works():
     print("check 8")
 
     @_core.enable_ki_protection
-    async def main_5():
+    async def main_5() -> None:
         assert _core.currently_ki_protected()
         ki_self()
         task = _core.current_task()
@@ -419,7 +419,7 @@ def test_ki_protection_works():
     print("check 9")
 
     @_core.enable_ki_protection
-    async def main_6():
+    async def main_6() -> None:
         ki_self()
 
     with pytest.raises(KeyboardInterrupt):
@@ -430,7 +430,7 @@ def test_ki_protection_works():
     # restrict_keyboard_interrupt_to_checkpoints=True
     record_list = []
 
-    async def main_7():
+    async def main_7() -> None:
         # We're not KI protected...
         assert not _core.currently_ki_protected()
         ki_self()
@@ -454,7 +454,7 @@ def test_ki_protection_works():
     print("check 11")
 
     @_core.enable_ki_protection
-    async def main_8():
+    async def main_8() -> None:
         assert _core.currently_ki_protected()
         with _core.CancelScope() as cancel_scope:
             cancel_scope.cancel()
@@ -469,16 +469,16 @@ def test_ki_protection_works():
     _core.run(main_8)
 
 
-def test_ki_is_good_neighbor():
+def test_ki_is_good_neighbor() -> None:
     # in the unlikely event someone overwrites our signal handler, we leave
     # the overwritten one be
     try:
         orig = signal.getsignal(signal.SIGINT)
 
-        def my_handler(signum, frame):  # pragma: no cover
+        def my_handler(signum, frame) -> None:  # pragma: no cover
             pass
 
-        async def main():
+        async def main() -> None:
             signal.signal(signal.SIGINT, my_handler)
 
         _core.run(main)
@@ -490,7 +490,7 @@ def test_ki_is_good_neighbor():
 
 # Regression test for #461
 # don't know if _active not being visible is a problem
-def test_ki_with_broken_threads():
+def test_ki_with_broken_threads() -> None:
     thread = threading.main_thread()
 
     # scary!
@@ -502,7 +502,7 @@ def test_ki_with_broken_threads():
         del threading._active[thread.ident]  # type: ignore[attr-defined]
 
         @_core.enable_ki_protection
-        async def inner():
+        async def inner() -> None:
             assert signal.getsignal(signal.SIGINT) != signal.default_int_handler
 
         _core.run(inner)

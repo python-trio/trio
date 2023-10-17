@@ -153,6 +153,8 @@ async def test_async_with_basics_deprecated(recwarn) -> None:
     ) as proc:
         pass
     assert proc.returncode is not None
+    assert proc.stdin is not None
+    assert proc.stdout is not None
     with pytest.raises(ClosedResourceError):
         await proc.stdin.send_all(b"x")
     with pytest.raises(ClosedResourceError):
@@ -418,7 +420,7 @@ async def test_stderr_stdout(background_process) -> None:
 
 async def test_errors() -> None:
     with pytest.raises(TypeError) as excinfo:
-        await open_process(["ls"], encoding="utf-8")
+        await open_process(["ls"], encoding="utf-8")  # type: ignore[call-overload]
     assert "unbuffered byte streams" in str(excinfo.value)
     assert "the 'encoding' option is not supported" in str(excinfo.value)
 
@@ -563,7 +565,9 @@ async def test_warn_on_cancel_SIGKILL_escalation(autojump_clock, monkeypatch) ->
 async def test_run_process_background_fail() -> None:
     with pytest.raises(subprocess.CalledProcessError):
         async with _core.open_nursery() as nursery:
-            proc = await nursery.start(run_process, EXIT_FALSE)
+            proc: subprocess.CompletedProcess[bytes] = await nursery.start(
+                run_process, EXIT_FALSE
+            )
     assert proc.returncode == 1
 
 

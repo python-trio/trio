@@ -8,7 +8,7 @@ import threading
 import time
 import weakref
 from functools import partial
-from typing import Callable, Optional
+from typing import TYPE_CHECKING, Callable, Optional
 
 import pytest
 import sniffio
@@ -31,7 +31,7 @@ async def test_do_in_trio_thread() -> None:
     trio_thread = threading.current_thread()
 
     async def check_case(do_in_trio_thread, fn, expected, trio_token=None) -> None:
-        record = []
+        record: list[tuple[str, threading.Thread | type[BaseException]]] = []
 
         def threadfn() -> None:
             try:
@@ -51,35 +51,35 @@ async def test_do_in_trio_thread() -> None:
 
     token = _core.current_trio_token()
 
-    def f(record) -> int:
+    def f1(record) -> int:
         assert not _core.currently_ki_protected()
         record.append(("f", threading.current_thread()))
         return 2
 
-    await check_case(from_thread_run_sync, f, ("got", 2), trio_token=token)
+    await check_case(from_thread_run_sync, f1, ("got", 2), trio_token=token)
 
-    def f(record):
+    def f2(record):
         assert not _core.currently_ki_protected()
         record.append(("f", threading.current_thread()))
         raise ValueError
 
-    await check_case(from_thread_run_sync, f, ("error", ValueError), trio_token=token)
+    await check_case(from_thread_run_sync, f2, ("error", ValueError), trio_token=token)
 
-    async def f(record) -> int:
+    async def f3(record) -> int:
         assert not _core.currently_ki_protected()
         await _core.checkpoint()
         record.append(("f", threading.current_thread()))
         return 3
 
-    await check_case(from_thread_run, f, ("got", 3), trio_token=token)
+    await check_case(from_thread_run, f3, ("got", 3), trio_token=token)
 
-    async def f(record):
+    async def f4(record):
         assert not _core.currently_ki_protected()
         await _core.checkpoint()
         record.append(("f", threading.current_thread()))
         raise KeyError
 
-    await check_case(from_thread_run, f, ("error", KeyError), trio_token=token)
+    await check_case(from_thread_run, f4, ("error", KeyError), trio_token=token)
 
 
 async def test_do_in_trio_thread_from_trio_thread() -> None:
@@ -300,7 +300,7 @@ async def test_run_in_worker_thread() -> None:
 
 
 async def test_run_in_worker_thread_cancellation() -> None:
-    register = [None]
+    register: list[str | None] = [None]
 
     def f(q) -> None:
         # Make the thread block for a controlled amount of time
@@ -315,8 +315,8 @@ async def test_run_in_worker_thread_cancellation() -> None:
         finally:
             record.append("exit")
 
-    record = []
-    q = stdlib_queue.Queue()
+    record: list[str] = []
+    q = stdlib_queue.Queue[None]()
     async with _core.open_nursery() as nursery:
         nursery.start_soon(child, q, True)
         # Give it a chance to get started. (This is important because
@@ -362,8 +362,8 @@ async def test_run_in_worker_thread_cancellation() -> None:
 def test_run_in_worker_thread_abandoned(capfd, monkeypatch) -> None:
     monkeypatch.setattr(_core._thread_cache, "IDLE_TIMEOUT", 0.01)
 
-    q1 = stdlib_queue.Queue()
-    q2 = stdlib_queue.Queue()
+    q1 = stdlib_queue.Queue[None]()
+    q2 = stdlib_queue.Queue[threading.Thread]()
 
     def thread_fn() -> None:
         q1.get()
@@ -427,6 +427,11 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter) ->
         # Mutating them in-place is OK though (as long as you use proper
         # locking etc.).
         class state:
+            if TYPE_CHECKING:
+                ran: int
+                high_water: int
+                running: int
+                parked: int
             pass
 
         state.ran = 0
@@ -515,7 +520,9 @@ async def test_run_in_worker_thread_custom_limiter() -> None:
             record.append("release")
             assert borrower == self._borrower
 
-    await to_thread_run_sync(lambda: None, limiter=CustomLimiter())
+    # TODO: should CapacityLimiter have an abc or protocol so users can modify it?
+    # because currently it's `final` so writing code like this is not allowed.
+    await to_thread_run_sync(lambda: None, limiter=CustomLimiter())  # type: ignore[arg-type]
     assert record == ["acquire", "release"]
 
 
@@ -533,16 +540,16 @@ async def test_run_in_worker_thread_limiter_error() -> None:
     bs = BadCapacityLimiter()
 
     with pytest.raises(ValueError) as excinfo:
-        await to_thread_run_sync(lambda: None, limiter=bs)
+        await to_thread_run_sync(lambda: None, limiter=bs)  # type: ignore[arg-type]
     assert excinfo.value.__context__ is None
     assert record == ["acquire", "release"]
     record = []
 
     # If the original function raised an error, then the semaphore error
     # chains with it
-    d = {}
+    d: dict[str, object] = {}
     with pytest.raises(ValueError) as excinfo:
-        await to_thread_run_sync(lambda: d["x"], limiter=bs)
+        await to_thread_run_sync(lambda: d["x"], limiter=bs)  # type: ignore[arg-type]
     assert isinstance(excinfo.value.__context__, KeyError)
     assert record == ["acquire", "release"]
 
@@ -583,7 +590,7 @@ async def test_trio_to_thread_run_sync_expected_error() -> None:
         pass
 
     with pytest.raises(TypeError, match="expected a sync function"):
-        await to_thread_run_sync(async_fn)
+        await to_thread_run_sync(async_fn)  # type: ignore[unused-coroutine]
 
 
 trio_test_contextvar: contextvars.ContextVar[str] = contextvars.ContextVar(
@@ -631,22 +638,22 @@ async def test_trio_to_thread_run_sync_contextvars() -> None:
 async def test_trio_from_thread_run_sync() -> None:
     # Test that to_thread_run_sync correctly "hands off" the trio token to
     # trio.from_thread.run_sync()
-    def thread_fn():
+    def thread_fn_1():
         trio_time = from_thread_run_sync(_core.current_time)
         return trio_time
 
-    trio_time = await to_thread_run_sync(thread_fn)
+    trio_time = await to_thread_run_sync(thread_fn_1)
     assert isinstance(trio_time, float)
 
     # Test correct error when passed async function
     async def async_fn() -> None:  # pragma: no cover
         pass
 
-    def thread_fn() -> None:
-        from_thread_run_sync(async_fn)
+    def thread_fn_2() -> None:
+        from_thread_run_sync(async_fn)  # type: ignore[unused-coroutine]
 
     with pytest.raises(TypeError, match="expected a sync function"):
-        await to_thread_run_sync(thread_fn)
+        await to_thread_run_sync(thread_fn_2)
 
 
 async def test_trio_from_thread_run() -> None:
@@ -793,7 +800,10 @@ async def test_trio_from_thread_run_contextvars() -> None:
 
 def test_run_fn_as_system_task_catched_badly_typed_token() -> None:
     with pytest.raises(RuntimeError):
-        from_thread_run_sync(_core.current_time, trio_token="Not TrioTokentype")
+        from_thread_run_sync(
+            _core.current_time,
+            trio_token="Not TrioTokentype",  # type: ignore[arg-type]
+        )
 
 
 async def test_from_thread_inside_trio_thread() -> None:
@@ -841,4 +851,4 @@ async def test_unsafe_cancellable_kwarg() -> None:
             raise NotImplementedError
 
     with pytest.raises(NotImplementedError):
-        await to_thread_run_sync(int, cancellable=BadBool())
+        await to_thread_run_sync(int, cancellable=BadBool())  # type: ignore[arg-type]

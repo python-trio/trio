@@ -9,6 +9,7 @@ import sys
 import warnings
 from pathlib import Path
 from traceback import extract_tb, print_exception
+from typing import List
 
 import pytest
 
@@ -38,11 +39,11 @@ async def raise_nothashable(code):
     raise NotHashableException(code)
 
 
-def raiser1():
+def raiser1() -> None:
     raiser1_2()
 
 
-def raiser1_2():
+def raiser1_2() -> None:
     raiser1_3()
 
 
@@ -50,7 +51,7 @@ def raiser1_3():
     raise ValueError("raiser1_string")
 
 
-def raiser2():
+def raiser2() -> None:
     raiser2_2()
 
 
@@ -73,7 +74,7 @@ def get_tb(raiser):
     return get_exc(raiser).__traceback__
 
 
-def test_concat_tb():
+def test_concat_tb() -> None:
     tb1 = get_tb(raiser1)
     tb2 = get_tb(raiser2)
 
@@ -98,7 +99,7 @@ def test_concat_tb():
     assert extract_tb(get_tb(raiser2)) == entries2
 
 
-def test_MultiError():
+def test_MultiError() -> None:
     exc1 = get_exc(raiser1)
     exc2 = get_exc(raiser2)
 
@@ -109,12 +110,12 @@ def test_MultiError():
     assert "ValueError" in repr(m)
 
     with pytest.raises(TypeError):
-        MultiError(object())
+        MultiError(object())  # type: ignore[arg-type]
     with pytest.raises(TypeError):
-        MultiError([KeyError(), ValueError])
+        MultiError([KeyError(), ValueError])  # type: ignore[list-item]
 
 
-def test_MultiErrorOfSingleMultiError():
+def test_MultiErrorOfSingleMultiError() -> None:
     # For MultiError([MultiError]), ensure there is no bad recursion by the
     # constructor where __init__ is called if __new__ returns a bare MultiError.
     exceptions = (KeyError(), ValueError())
@@ -124,7 +125,7 @@ def test_MultiErrorOfSingleMultiError():
     assert b.exceptions == exceptions
 
 
-async def test_MultiErrorNotHashable():
+async def test_MultiErrorNotHashable() -> None:
     exc1 = NotHashableException(42)
     exc2 = NotHashableException(4242)
     exc3 = ValueError()
@@ -137,7 +138,7 @@ async def test_MultiErrorNotHashable():
             nursery.start_soon(raise_nothashable, 4242)
 
 
-def test_MultiError_filter_NotHashable():
+def test_MultiError_filter_NotHashable() -> None:
     excs = MultiError([NotHashableException(42), ValueError()])
 
     def handle_ValueError(exc):
@@ -173,7 +174,7 @@ def make_tree():
         return MultiError([m12, exc3])
 
 
-def assert_tree_eq(m1, m2):
+def assert_tree_eq(m1, m2) -> None:
     if m1 is None or m2 is None:
         assert m1 is m2
         return
@@ -240,7 +241,7 @@ def test_MultiError_filter():
         + extract_tb(orig.exceptions[0].exceptions[1].__traceback__)
     )
 
-    def p(exc):
+    def p(exc) -> None:
         print_exception(type(exc), exc, exc.__traceback__)
 
     p(orig)
@@ -275,7 +276,7 @@ def test_MultiError_filter():
 def test_MultiError_catch():
     # No exception to catch
 
-    def noop(_):
+    def noop(_) -> None:
         pass  # pragma: no cover
 
     with pytest.warns(TrioDeprecationWarning), MultiError.catch(noop):
@@ -391,7 +392,7 @@ def test_MultiError_catch_doesnt_create_cyclic_garbage():
         gc.garbage.clear()
 
 
-def assert_match_in_seq(pattern_list, string):
+def assert_match_in_seq(pattern_list: List[str], string: str) -> None:
     offset = 0
     print("looking for pattern matches...")
     for pattern in pattern_list:
@@ -402,14 +403,14 @@ def assert_match_in_seq(pattern_list, string):
         offset = match.end()
 
 
-def test_assert_match_in_seq():
+def test_assert_match_in_seq() -> None:
     assert_match_in_seq(["a", "b"], "xx a xx b xx")
     assert_match_in_seq(["b", "a"], "xx b xx a xx")
     with pytest.raises(AssertionError):
         assert_match_in_seq(["a", "b"], "xx b xx a xx")
 
 
-def test_base_multierror():
+def test_base_multierror() -> None:
     """
     Test that MultiError() with at least one base exception will return a MultiError
     object.
@@ -419,7 +420,7 @@ def test_base_multierror():
     assert type(exc) is MultiError
 
 
-def test_non_base_multierror():
+def test_non_base_multierror() -> None:
     """
     Test that MultiError() without base exceptions will return a NonBaseMultiError
     object.
@@ -462,7 +463,7 @@ def run_script(name: str) -> subprocess.CompletedProcess[bytes]:
     not Path("/usr/lib/python3/dist-packages/apport_python_hook.py").exists(),
     reason="need Ubuntu with python3-apport installed",
 )
-def test_apport_excepthook_monkeypatch_interaction():
+def test_apport_excepthook_monkeypatch_interaction() -> None:
     completed = run_script("apport_excepthook.py")
     stdout = completed.stdout.decode("utf-8")
 

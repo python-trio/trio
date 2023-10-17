@@ -75,9 +75,9 @@ def test_instruments(recwarn: object) -> None:
     # reschedules the task immediately upon yielding, before the
     # after_task_step event fires.
     expected = (
-        [("before_run",), ("schedule", task)]
+        [("before_run", None), ("schedule", task)]
         + [("before", task), ("schedule", task), ("after", task)] * 5
-        + [("before", task), ("after", task), ("after_run",)]
+        + [("before", task), ("after", task), ("after_run", None)]
     )
     assert r1.record == r2.record + r3.record
     assert task is not None
@@ -104,7 +104,7 @@ def test_instruments_interleave() -> None:
     _core.run(main, instruments=[r])
 
     expected = [
-        ("before_run",),
+        ("before_run", None),
         ("schedule", tasks["t1"]),
         ("schedule", tasks["t2"]),
         {
@@ -121,7 +121,7 @@ def test_instruments_interleave() -> None:
             ("before", tasks["t2"]),
             ("after", tasks["t2"]),
         },
-        ("after_run",),
+        ("after_run", None),
     ]
     print(list(r.filter_tasks(tasks.values())))
     check_sequence_matches(list(r.filter_tasks(tasks.values())), expected)
@@ -199,7 +199,7 @@ def test_instruments_crash(caplog: pytest.LogCaptureFixture) -> None:
     # the TaskRecorder kept going throughout, even though the BrokenInstrument
     # was disabled
     assert ("after", main_task) in r.record
-    assert ("after_run",) in r.record
+    assert ("after_run", None) in r.record
     # And we got a log message
     assert caplog.records[0].exc_info is not None
     exc_type, exc_value, exc_traceback = caplog.records[0].exc_info

@@ -24,14 +24,14 @@ async def make_pipe() -> Tuple[PipeSendStream, PipeReceiveStream]:
     return PipeSendStream(w), PipeReceiveStream(r)
 
 
-async def test_pipe_typecheck() -> None:
+async def test_pipe_typecheck():
     with pytest.raises(TypeError):
         PipeSendStream(1.0)
     with pytest.raises(TypeError):
         PipeReceiveStream(None)
 
 
-async def test_pipe_error_on_close() -> None:
+async def test_pipe_error_on_close():
     # Make sure we correctly handle a failure from kernel32.CloseHandle
     r, w = pipe()
 
@@ -47,18 +47,18 @@ async def test_pipe_error_on_close() -> None:
         await receive_stream.aclose()
 
 
-async def test_pipes_combined() -> None:
+async def test_pipes_combined():
     write, read = await make_pipe()
     count = 2**20
     replicas = 3
 
-    async def sender() -> None:
+    async def sender():
         async with write:
             big = bytearray(count)
             for _ in range(replicas):
                 await write.send_all(big)
 
-    async def reader() -> None:
+    async def reader():
         async with read:
             await wait_all_tasks_blocked()
             total_received = 0
@@ -76,7 +76,7 @@ async def test_pipes_combined() -> None:
         n.start_soon(reader)
 
 
-async def test_async_with() -> None:
+async def test_async_with():
     w, r = await make_pipe()
     async with w, r:
         pass
@@ -87,11 +87,11 @@ async def test_async_with() -> None:
         await r.receive_some(10)
 
 
-async def test_close_during_write() -> None:
+async def test_close_during_write():
     w, r = await make_pipe()
     async with _core.open_nursery() as nursery:
 
-        async def write_forever() -> None:
+        async def write_forever():
             with pytest.raises(_core.ClosedResourceError) as excinfo:
                 while True:
                     await w.send_all(b"x" * 4096)
@@ -102,7 +102,7 @@ async def test_close_during_write() -> None:
         await w.aclose()
 
 
-async def test_pipe_fully() -> None:
+async def test_pipe_fully():
     # passing make_clogged_pipe tests wait_send_all_might_not_block, and we
     # can't implement that on Windows
     await check_one_way_stream(make_pipe, None)

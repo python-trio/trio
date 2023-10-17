@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import attr
 import pytest
 
@@ -7,7 +9,7 @@ from ..abc import ReceiveStream, SendStream
 
 @attr.s
 class RecordSendStream(SendStream):
-    record = attr.ib(factory=list)
+    record: list[str | tuple[str, object]] = attr.ib(factory=list)
 
     async def send_all(self, data) -> None:
         self.record.append(("send_all", data))
@@ -21,9 +23,9 @@ class RecordSendStream(SendStream):
 
 @attr.s
 class RecordReceiveStream(ReceiveStream):
-    record = attr.ib(factory=list)
+    record: list[str | tuple[str, int | None]] = attr.ib(factory=list)
 
-    async def receive_some(self, max_bytes=None) -> None:
+    async def receive_some(self, max_bytes: int | None = None) -> None:  # type: ignore[override]
         self.record.append(("receive_some", max_bytes))
 
     async def aclose(self) -> None:
@@ -53,7 +55,7 @@ async def test_StapledStream() -> None:
     async def fake_send_eof() -> None:
         send_stream.record.append("send_eof")
 
-    send_stream.send_eof = fake_send_eof
+    send_stream.send_eof = fake_send_eof  # type: ignore[attr-defined]
     await stapled.send_eof()
     assert send_stream.record == ["send_eof"]
 

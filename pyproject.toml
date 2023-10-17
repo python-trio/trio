@@ -80,26 +80,6 @@ disallow_untyped_defs = true
 check_untyped_defs = true
 disallow_untyped_calls = false
 
-
-# partially typed tests
-[[tool.mypy.overrides]]
-module = [
-"trio/_core/_tests/test_guest_mode",
-"trio/_core/_tests/test_ki",
-"trio/_core/_tests/test_mock_clock",
-"trio/_core/_tests/test_multierror",
-"trio/_core/_tests/test_multierror_scripts/ipython_custom_exc",
-"trio/_core/_tests/test_multierror_scripts/simple_excepthook",
-"trio/_core/_tests/test_parking_lot",
-"trio/_core/_tests/test_thread_cache",
-]
-check_untyped_defs = true
-disallow_any_decorated = false
-disallow_any_generics = false
-disallow_any_unimported = false
-disallow_incomplete_defs = false
-disallow_untyped_defs = false
-
 # files not yet fully typed
 [[tool.mypy.overrides]]
 module = [
@@ -108,6 +88,15 @@ module = [
 
 # tests
 "trio/testing/_fake_net",
+"trio/_core/_tests/test_guest_mode",
+"trio/_core/_tests/test_ki",
+"trio/_core/_tests/test_mock_clock",
+"trio/_core/_tests/test_multierror",
+"trio/_core/_tests/test_multierror_scripts/ipython_custom_exc",
+"trio/_core/_tests/test_multierror_scripts/simple_excepthook",
+"trio/_core/_tests/test_parking_lot",
+"trio/_core/_tests/test_thread_cache",
+"trio/_core/_tests/test_unbounded_queue",
 "trio/_tests/test_exports",
 "trio/_tests/test_file_io",
 "trio/_tests/test_highlevel_generic",

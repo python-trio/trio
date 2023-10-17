@@ -21,6 +21,7 @@ except ImportError as error:
 import trio
 
 from .. import _core, socket as tsocket
+from .._abc import Stream
 from .._core import BrokenResourceError, ClosedResourceError
 from .._core._tests.tutil import slow
 from .._highlevel_generic import aclose_forcefully
@@ -737,9 +738,19 @@ async def test_resource_busy_errors(client_ctx) -> None:
 async def test_wait_writable_calls_underlying_wait_writable() -> None:
     record = []
 
-    class NotAStream:
+    class NotAStream(Stream):
         async def wait_send_all_might_not_block(self) -> None:
             record.append("ok")
+
+        # define methods that are abstract in Stream
+        async def aclose(self) -> None:
+            raise AssertionError("Should not get called")
+
+        async def receive_some(self, max_bytes: int | None = None) -> bytes | bytearray:
+            raise AssertionError("Should not get called")
+
+        async def send_all(self, data: bytes | bytearray | memoryview) -> None:
+            raise AssertionError("Should not get called")
 
     ctx = ssl.create_default_context()
     s = SSLStream(NotAStream(), ctx, server_hostname="x")

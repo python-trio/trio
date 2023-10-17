@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from functools import partial
 
 import attr
@@ -7,11 +9,13 @@ import trio
 import trio.testing
 from trio.socket import AF_INET, IPPROTO_TCP, SOCK_STREAM
 
+from .._highlevel_socket import SocketListener
 from .._highlevel_ssl_helpers import (
     open_ssl_over_tcp_listeners,
     open_ssl_over_tcp_stream,
     serve_ssl_over_tcp,
 )
+from .._ssl import SSLListener
 
 # using noqa because linters don't understand how pytest fixtures work.
 from .test_ssl import SERVER_CTX, client_ctx  # noqa: F401
@@ -48,11 +52,17 @@ async def test_open_ssl_over_tcp_stream_and_everything_else(
     client_ctx,  # noqa: F811 # linters doesn't understand fixture
 ) -> None:
     async with trio.open_nursery() as nursery:
-        (listener,) = await nursery.start(
+        # TODO: the types are *very* funky here, this seems like an error in some signature
+        # unless this is doing stuff we don't want/expect end users to do
+        res: list[SSLListener] = await nursery.start(
             partial(serve_ssl_over_tcp, echo_handler, 0, SERVER_CTX, host="127.0.0.1")
         )
+        (listener,) = res
         async with listener:
-            sockaddr = listener.transport_listener.socket.getsockname()
+            # listener.transport_listener is of type Listener[Stream]
+            tp_listener: SocketListener = listener.transport_listener  # type: ignore[assignment]
+
+            sockaddr = tp_listener.socket.getsockname()
             hostname_resolver = FakeHostnameResolver(sockaddr)
             trio.socket.set_custom_hostname_resolver(hostname_resolver)
 
