@@ -1,31 +1,49 @@
 from __future__ import annotations
 
 import errno
+import sys
 from functools import partial
+from typing import Awaitable, Callable, NoReturn
 
 import attr
 import pytest
 
 import trio
-from trio.testing import memory_stream_pair, wait_all_tasks_blocked
+from trio import Nursery, StapledStream, TaskStatus
+from trio._channel import MemoryReceiveChannel, MemorySendChannel
+from trio.abc import Stream
+from trio.testing import (
+    MemoryReceiveStream,
+    MemorySendStream,
+    MockClock,
+    memory_stream_pair,
+    wait_all_tasks_blocked,
+)
+
+if sys.version_info < (3, 11):
+    from exceptiongroup import ExceptionGroup
+
+# types are somewhat tentative - I just bruteforced them until I got something that didn't
+# give errors
+TypeThing = StapledStream[MemorySendStream, MemoryReceiveStream]
 
 
 @attr.s(hash=False, eq=False)
-class MemoryListener(trio.abc.Listener):
-    closed = attr.ib(default=False)
+class MemoryListener(trio.abc.Listener[TypeThing]):
+    closed: bool = attr.ib(default=False)
     accepted_streams: list[trio.abc.Stream] = attr.ib(factory=list)
-    queued_streams = attr.ib(
-        factory=(lambda: trio.open_memory_channel[trio.StapledStream](1))
-    )
-    accept_hook = attr.ib(default=None)
+    queued_streams: tuple[
+        MemorySendChannel[TypeThing], MemoryReceiveChannel[TypeThing]
+    ] = attr.ib(factory=(lambda: trio.open_memory_channel[TypeThing](1)))
+    accept_hook: Callable[[], Awaitable[object]] | None = attr.ib(default=None)
 
-    async def connect(self):
+    async def connect(self) -> StapledStream[MemorySendStream, MemoryReceiveStream]:
         assert not self.closed
         client, server = memory_stream_pair()
         await self.queued_streams[0].send(server)
         return client
 
-    async def accept(self):
+    async def accept(self) -> TypeThing:
         await trio.lowlevel.checkpoint()
         assert not self.closed
         if self.accept_hook is not None:
@@ -49,18 +67,20 @@ async def test_serve_listeners_basic() -> None:
         assert trio.current_effective_deadline() == float("-inf")
         record.append("closed")
 
-    async def handler(stream) -> None:
+    async def handler(
+        stream: StapledStream[MemorySendStream, MemoryReceiveStream]
+    ) -> None:
         await stream.send_all(b"123")
         assert await stream.receive_some(10) == b"456"
         stream.send_stream.close_hook = close_hook
         stream.receive_stream.close_hook = close_hook
 
-    async def client(listener) -> None:
+    async def client(listener: MemoryListener) -> None:
         s = await listener.connect()
         assert await s.receive_some(10) == b"123"
         await s.send_all(b"456")
 
-    async def do_tests(parent_nursery) -> None:
+    async def do_tests(parent_nursery: Nursery) -> None:
         async with trio.open_nursery() as nursery:
             for listener in listeners:
                 for _ in range(3):
@@ -90,7 +110,7 @@ async def test_serve_listeners_accept_unrecognized_error() -> None:
     for error in [KeyError(), OSError(errno.ECONNABORTED, "ECONNABORTED")]:
         listener = MemoryListener()
 
-        async def raise_error():
+        async def raise_error() -> NoReturn:
             raise error
 
         listener.accept_hook = raise_error
@@ -100,10 +120,12 @@ async def test_serve_listeners_accept_unrecognized_error() -> None:
         assert excinfo.value is error
 
 
-async def test_serve_listeners_accept_capacity_error(autojump_clock, caplog) -> None:
+async def test_serve_listeners_accept_capacity_error(
+    autojump_clock: MockClock, caplog: pytest.LogCaptureFixture
+) -> None:
     listener = MemoryListener()
 
-    async def raise_EMFILE():
+    async def raise_EMFILE() -> NoReturn:
         raise OSError(errno.EMFILE, "out of file descriptors")
 
     listener.accept_hook = raise_EMFILE
@@ -116,19 +138,22 @@ async def test_serve_listeners_accept_capacity_error(autojump_clock, caplog) -> 
     assert len(caplog.records) == 10
     for record in caplog.records:
         assert "retrying" in record.msg
+        assert isinstance(record.exc_info, ExceptionGroup)
         assert record.exc_info[1].errno == errno.EMFILE
 
 
-async def test_serve_listeners_connection_nursery(autojump_clock) -> None:
+async def test_serve_listeners_connection_nursery(autojump_clock: MockClock) -> None:
     listener = MemoryListener()
 
-    async def handler(stream) -> None:
+    async def handler(stream: Stream) -> None:
         await trio.sleep(1)
 
     class Done(Exception):
         pass
 
-    async def connection_watcher(*, task_status=trio.TASK_STATUS_IGNORED):
+    async def connection_watcher(
+        *, task_status: TaskStatus[Nursery] = trio.TASK_STATUS_IGNORED
+    ) -> NoReturn:
         async with trio.open_nursery() as nursery:
             task_status.started(nursery)
             await wait_all_tasks_blocked()

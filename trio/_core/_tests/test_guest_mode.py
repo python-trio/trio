@@ -35,7 +35,7 @@ def trivial_guest_run(trio_fn, *, in_host_after_start=None, **start_guest_run_kw
 
     host_thread = threading.current_thread()
 
-    def run_sync_soon_threadsafe(fn: Callable) -> None:
+    def run_sync_soon_threadsafe(fn: Callable[[], object]) -> None:
         nonlocal todo
         if host_thread is threading.current_thread():  # pragma: no cover
             crash = partial(
@@ -44,7 +44,7 @@ def trivial_guest_run(trio_fn, *, in_host_after_start=None, **start_guest_run_kw
             todo.put(("run", crash))
         todo.put(("run", fn))
 
-    def run_sync_soon_not_threadsafe(fn: Callable) -> None:
+    def run_sync_soon_not_threadsafe(fn: Callable[[], object]) -> None:
         nonlocal todo
         if host_thread is not threading.current_thread():  # pragma: no cover
             crash = partial(

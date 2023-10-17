@@ -98,7 +98,6 @@ module = [
 "trio/_tests/test_file_io",
 "trio/_tests/test_highlevel_generic",
 "trio/_tests/test_highlevel_open_unix_stream",
-"trio/_tests/test_highlevel_serve_listeners",
 "trio/_tests/test_highlevel_ssl_helpers",
 "trio/_tests/test_scheduler_determinism",
 "trio/_tests/test_ssl",
@@ -113,7 +112,6 @@ module = [
 "trio/_tests/tools/test_gen_exports",
 ]
 disallow_any_decorated = false
-disallow_any_generics = false
 disallow_any_unimported = false
 disallow_incomplete_defs = false
 disallow_untyped_defs = false
