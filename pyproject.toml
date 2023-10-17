@@ -105,7 +105,6 @@ module = [
 "trio/_tests/test_highlevel_open_unix_stream",
 "trio/_tests/test_highlevel_serve_listeners",
 "trio/_tests/test_highlevel_ssl_helpers",
-"trio/_tests/test_path",
 "trio/_tests/test_scheduler_determinism",
 "trio/_tests/test_ssl",
 "trio/_tests/test_subprocess",
