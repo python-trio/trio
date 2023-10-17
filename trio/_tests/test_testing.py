@@ -237,7 +237,7 @@ async def test__assert_raises():
 
     with pytest.raises(TypeError):
         with _assert_raises(RuntimeError):
-            "foo" + 1
+            "foo" + 1  # type: ignore[operator]
 
     with _assert_raises(RuntimeError):
         raise RuntimeError

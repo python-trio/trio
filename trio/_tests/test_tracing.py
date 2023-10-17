@@ -1,3 +1,5 @@
+from typing import AsyncGenerator
+
 import trio
 
 
@@ -14,10 +16,15 @@ async def coro3(event: trio.Event) -> None:
     await coro2(event)
 
 
-async def coro2_async_gen(event):
-    yield await trio.lowlevel.checkpoint()
-    yield await coro1(event)
-    yield await trio.lowlevel.checkpoint()
+async def coro2_async_gen(event) -> AsyncGenerator[None, None]:
+    # mypy does not like `yield await trio.lowlevel.checkpoint()` - but that
+    # should be equivalent to splitting the statement
+    await trio.lowlevel.checkpoint()
+    yield
+    await coro1(event)
+    yield
+    await trio.lowlevel.checkpoint()
+    yield
 
 
 async def coro3_async_gen(event: trio.Event) -> None:

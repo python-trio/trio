@@ -13,7 +13,7 @@ from trio.testing import memory_stream_pair, wait_all_tasks_blocked
 @attr.s(hash=False, eq=False)
 class MemoryListener(trio.abc.Listener):
     closed = attr.ib(default=False)
-    accepted_streams = attr.ib(factory=list)
+    accepted_streams: list[trio.abc.Stream] = attr.ib(factory=list)
     queued_streams = attr.ib(
         factory=(lambda: trio.open_memory_channel[trio.StapledStream](1))
     )

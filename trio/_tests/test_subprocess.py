@@ -8,7 +8,7 @@ import sys
 from contextlib import asynccontextmanager
 from functools import partial
 from pathlib import Path as SyncPath
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, AsyncIterator
 
 import pytest
 
@@ -80,11 +80,16 @@ async def open_process_then_kill(*args, **kwargs):
         await proc.wait()
 
 
+# not entirely sure about this annotation
 @asynccontextmanager
-async def run_process_in_nursery(*args, **kwargs):
+async def run_process_in_nursery(
+    *args, **kwargs
+) -> AsyncIterator[subprocess.CompletedProcess[bytes]]:
     async with _core.open_nursery() as nursery:
         kwargs.setdefault("check", False)
-        proc = await nursery.start(partial(run_process, *args, **kwargs))
+        proc: subprocess.CompletedProcess[bytes] = await nursery.start(
+            partial(run_process, *args, **kwargs)
+        )
         yield proc
         nursery.cancel_scope.cancel()
 

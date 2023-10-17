@@ -167,7 +167,9 @@ async def ssl_echo_server(client_ctx, **kwargs):
 # The weird in-memory server ... thing.
 # Doesn't inherit from Stream because I left out the methods that we don't
 # actually need.
-class PyOpenSSLEchoStream:
+# jakkdl: it seems to implement all the abstract methods (now), so I made it inherit
+#         from Stream for the sake of typechecking.
+class PyOpenSSLEchoStream(Stream):
     def __init__(self, sleeper=None) -> None:
         ctx = SSL.Context(SSL.SSLv23_METHOD)
         # TLS 1.3 removes renegotiation support. Which is great for them, but

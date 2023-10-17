@@ -112,7 +112,6 @@ module = [
 "trio/_tests/test_wait_for_object",
 "trio/_tests/tools/test_gen_exports",
 ]
-check_untyped_defs = false
 disallow_any_decorated = false
 disallow_any_generics = false
 disallow_any_unimported = false
