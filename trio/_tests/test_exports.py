@@ -126,7 +126,7 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
     # https://github.com/pypa/setuptools/issues/3274
     "ignore:module 'sre_constants' is deprecated:DeprecationWarning",
 )
-def test_static_tool_sees_all_symbols(tool, modname: str, tmpdir) -> None:
+def test_static_tool_sees_all_symbols(tool, modname: str, tmp_path) -> None:
     module = importlib.import_module(modname)
 
     def no_underscores(symbols):
@@ -273,7 +273,7 @@ def test_static_tool_sees_all_symbols(tool, modname: str, tmpdir) -> None:
 @pytest.mark.parametrize("module_name", PUBLIC_MODULE_NAMES)
 @pytest.mark.parametrize("tool", ["jedi", "mypy"])
 def test_static_tool_sees_class_members(
-    tool: str, module_name: str, tmpdir: Path
+    tool: str, module_name: str, tmp_path: Path
 ) -> None:
     module = PUBLIC_MODULES[PUBLIC_MODULE_NAMES.index(module_name)]
 
@@ -494,9 +494,25 @@ def test_static_tool_sees_class_members(
                 missing.remove("__aiter__")
                 missing.remove("__anext__")
 
-        # intentionally hidden behind type guard
+        # __getattr__ is intentionally hidden behind type guard. That hook then
+        # forwards property accesses to PurePath, meaning these names aren't directly on
+        # the class.
         if class_ == trio.Path:
             missing.remove("__getattr__")
+            before = len(extra)
+            extra -= {
+                "anchor",
+                "drive",
+                "name",
+                "parent",
+                "parents",
+                "parts",
+                "root",
+                "stem",
+                "suffix",
+                "suffixes",
+            }
+            assert len(extra) == before - 10
 
         if missing or extra:  # pragma: no cover
             errors[f"{module_name}.{class_name}"] = {
