@@ -1305,7 +1305,7 @@ class DTLSEndpoint:
         try:
             self.socket.getsockname()
         except OSError:
-            # TODO: Write test that makes triggers this
+            # TODO: Write test that triggers this
             raise RuntimeError(  # pragma: no cover
                 "DTLS socket must be bound before it can serve"
             ) from None
