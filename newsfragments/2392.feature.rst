@@ -1,0 +1,5 @@
+If called from a thread spawned by `trio.to_thread.run_sync`, `trio.from_thread.run` and
+`trio.from_thread.run_sync` now reuse the task and cancellation status of the host task;
+this means that context variables and cancel scopes naturally propagate 'through'
+threads spawned by Trio. You can also use `trio.from_thread.check_cancelled`
+to efficiently check for cancellation without reentering the Trio thread.
