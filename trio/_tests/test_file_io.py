@@ -20,12 +20,12 @@ def path(tmp_path: pathlib.Path) -> str:
 
 
 @pytest.fixture
-def wrapped():
+def wrapped() -> mock.Mock:
     return mock.Mock(spec_set=io.StringIO)
 
 
 @pytest.fixture
-def async_file(wrapped):
+def async_file(wrapped: mock.Mock) -> AsyncIOWrapper[mock.Mock]:
     return trio.wrap_file(wrapped)
 
 
@@ -54,11 +54,15 @@ def test_wrap_non_iobase() -> None:
         trio.wrap_file(FakeFile())
 
 
-def test_wrapped_property(async_file, wrapped) -> None:
+def test_wrapped_property(
+    async_file: AsyncIOWrapper[mock.Mock], wrapped: mock.Mock
+) -> None:
     assert async_file.wrapped is wrapped
 
 
-def test_dir_matches_wrapped(async_file, wrapped) -> None:
+def test_dir_matches_wrapped(
+    async_file: AsyncIOWrapper[mock.Mock], wrapped: mock.Mock
+) -> None:
     attrs = _FILE_SYNC_ATTRS.union(_FILE_ASYNC_METHODS)
 
     # all supported attrs in wrapped should be available in async_file
@@ -122,7 +126,9 @@ def test_type_stubs_match_lists() -> None:
     assert found == expected
 
 
-def test_sync_attrs_forwarded(async_file, wrapped) -> None:
+def test_sync_attrs_forwarded(
+    async_file: AsyncIOWrapper[mock.Mock], wrapped: mock.Mock
+) -> None:
     for attr_name in _FILE_SYNC_ATTRS:
         if attr_name not in dir(async_file):
             continue
@@ -130,7 +136,9 @@ def test_sync_attrs_forwarded(async_file, wrapped) -> None:
         assert getattr(async_file, attr_name) is getattr(wrapped, attr_name)
 
 
-def test_sync_attrs_match_wrapper(async_file, wrapped) -> None:
+def test_sync_attrs_match_wrapper(
+    async_file: AsyncIOWrapper[mock.Mock], wrapped: mock.Mock
+) -> None:
     for attr_name in _FILE_SYNC_ATTRS:
         if attr_name in dir(async_file):
             continue
@@ -142,7 +150,7 @@ def test_sync_attrs_match_wrapper(async_file, wrapped) -> None:
             getattr(wrapped, attr_name)
 
 
-def test_async_methods_generated_once(async_file) -> None:
+def test_async_methods_generated_once(async_file: AsyncIOWrapper[mock.Mock]) -> None:
     for meth_name in _FILE_ASYNC_METHODS:
         if meth_name not in dir(async_file):
             continue
@@ -150,15 +158,19 @@ def test_async_methods_generated_once(async_file) -> None:
         assert getattr(async_file, meth_name) is getattr(async_file, meth_name)
 
 
-def test_async_methods_signature(async_file) -> None:
+# I gave up on typing this one
+def test_async_methods_signature(async_file: AsyncIOWrapper[mock.Mock]) -> None:
     # use read as a representative of all async methods
     assert async_file.read.__name__ == "read"
     assert async_file.read.__qualname__ == "AsyncIOWrapper.read"
 
+    assert async_file.read.__doc__ is not None
     assert "io.StringIO.read" in async_file.read.__doc__
 
 
-async def test_async_methods_wrap(async_file, wrapped) -> None:
+async def test_async_methods_wrap(
+    async_file: AsyncIOWrapper[mock.Mock], wrapped: mock.Mock
+) -> None:
     for meth_name in _FILE_ASYNC_METHODS:
         if meth_name not in dir(async_file):
             continue
@@ -176,7 +188,9 @@ async def test_async_methods_wrap(async_file, wrapped) -> None:
         wrapped.reset_mock()
 
 
-async def test_async_methods_match_wrapper(async_file, wrapped) -> None:
+async def test_async_methods_match_wrapper(
+    async_file: AsyncIOWrapper[mock.Mock], wrapped: mock.Mock
+) -> None:
     for meth_name in _FILE_ASYNC_METHODS:
         if meth_name in dir(async_file):
             continue
@@ -188,7 +202,7 @@ async def test_async_methods_match_wrapper(async_file, wrapped) -> None:
             getattr(wrapped, meth_name)
 
 
-async def test_open(path) -> None:
+async def test_open(path: pathlib.Path) -> None:
     f = await trio.open_file(path, "w")
 
     assert isinstance(f, AsyncIOWrapper)
@@ -196,7 +210,7 @@ async def test_open(path) -> None:
     await f.aclose()
 
 
-async def test_open_context_manager(path) -> None:
+async def test_open_context_manager(path: pathlib.Path) -> None:
     async with await trio.open_file(path, "w") as f:
         assert isinstance(f, AsyncIOWrapper)
         assert not f.closed
@@ -216,7 +230,7 @@ async def test_async_iter() -> None:
     assert result == expected
 
 
-async def test_aclose_cancelled(path) -> None:
+async def test_aclose_cancelled(path: pathlib.Path) -> None:
     with _core.CancelScope() as cscope:
         f = await trio.open_file(path, "w")
         cscope.cancel()

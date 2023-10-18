@@ -87,7 +87,6 @@ module = [
 "trio/_core/_tests/test_guest_mode",
 "trio/_core/_tests/test_ki",
 "trio/_core/_tests/test_multierror",
-"trio/_tests/test_file_io",
 "trio/_tests/test_subprocess",
 "trio/_tests/test_threads",
 ]
