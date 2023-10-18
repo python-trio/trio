@@ -1184,12 +1184,12 @@ class _SocketType(SocketType):
         # and kwargs are not accepted
         args_list = list(args)
         args_list[-1] = await self._resolve_address_nocp(args[-1], local=False)
+        # args_list is Any, which isn't the signature of sendto().
+        # We don't care about invalid types, sendto() will do the checking.
         return await self._nonblocking_helper(
-            # args_list is Any, which isn't the signature of sendto().
-            # We don't care about invalid types, sendto() will do the checking.
             _core.wait_writable,
-            _stdlib_socket.socket.sendto,
-            *args_list,  # type: ignore[arg-type]
+            _stdlib_socket.socket.sendto,  # type: ignore[arg-type]
+            *args_list,
         )
 
     ################################################################
