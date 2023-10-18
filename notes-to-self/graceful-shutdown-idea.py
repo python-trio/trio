@@ -1,3 +1,6 @@
+import signal
+
+import gsm
 import trio
 
 

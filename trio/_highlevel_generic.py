@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Generic, TypeVar
 import attr
 
 import trio
-from trio._util import Final
+from trio._util import final
 
 from .abc import AsyncResource, HalfCloseableStream, ReceiveStream, SendStream
 
@@ -52,11 +52,11 @@ def _is_halfclosable(stream: SendStream) -> TypeGuard[HalfCloseableStream]:
     return hasattr(stream, "send_eof")
 
 
+@final
 @attr.s(eq=False, hash=False)
 class StapledStream(
     HalfCloseableStream,
     Generic[SendStreamT, ReceiveStreamT],
-    metaclass=Final,
 ):
     """This class `staples <https://en.wikipedia.org/wiki/Staple_(fastener)>`__
     together two unidirectional streams to make single bidirectional stream.

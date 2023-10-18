@@ -27,11 +27,11 @@ from types import TracebackType
 from typing import (
     TYPE_CHECKING,
     Any,
+    Final,
     NoReturn,
     Protocol,
     TypeVar,
     cast,
-    final,
     overload,
 )
 
@@ -42,7 +42,7 @@ from sortedcontainers import SortedDict
 
 from .. import _core
 from .._abc import Clock, Instrument
-from .._util import Final, NoPublicConstructor, coroutine_or_error
+from .._util import NoPublicConstructor, coroutine_or_error, final
 from ._asyncgens import AsyncGenerators
 from ._entry_queue import EntryQueue, TrioToken
 from ._exceptions import Cancelled, RunFinishedError, TrioInternalError
@@ -67,15 +67,12 @@ from types import FrameType
 if TYPE_CHECKING:
     import contextvars
 
-    # An unfortunate name collision here with trio._util.Final
-    from typing import Final as FinalT
-
     from typing_extensions import Self
 
-DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: FinalT = 1000
+DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: Final = 1000
 
 # Passed as a sentinel
-_NO_SEND: FinalT = cast("Outcome[Any]", object())
+_NO_SEND: Final["Outcome[Any]"] = cast("Outcome[Any]", object())
 
 FnT = TypeVar("FnT", bound="Callable[..., Any]")
 StatusT = TypeVar("StatusT")
@@ -100,7 +97,7 @@ def _public(fn: FnT) -> FnT:
 # variable to True, and registers the Random instance _r for Hypothesis
 # to manage for each test case, which together should make Trio's task
 # scheduling loop deterministic.  We have a test for that, of course.
-_ALLOW_DETERMINISTIC_SCHEDULING: FinalT = False
+_ALLOW_DETERMINISTIC_SCHEDULING: Final = False
 _r = random.Random()
 
 
@@ -145,7 +142,7 @@ def _count_context_run_tb_frames() -> int:
         )
 
 
-CONTEXT_RUN_TB_FRAMES: FinalT = _count_context_run_tb_frames()
+CONTEXT_RUN_TB_FRAMES: Final = _count_context_run_tb_frames()
 
 
 @attr.s(frozen=True, slots=True)
@@ -473,7 +470,7 @@ https://github.com/python-trio/trio/issues/new
 
 @final
 @attr.s(eq=False, repr=False, slots=True)
-class CancelScope(metaclass=Final):
+class CancelScope:
     """A *cancellation scope*: the link between a unit of cancellable
     work and Trio's cancellation system.
 
@@ -1348,14 +1345,14 @@ class Task(metaclass=NoPublicConstructor):
                 # cannot extract the generator directly, see https://github.com/python/cpython/issues/76991
                 # we can however use the gc to look through the object
                 for referent in gc.get_referents(coro):
-                    if hasattr(referent, "ag_frame"):
+                    if hasattr(referent, "ag_frame"):  # pragma: no branch
                         yield referent.ag_frame, referent.ag_frame.f_lineno
                         coro = referent.ag_await
                         break
-                else:
+                else:  # pragma: no cover
                     # either cpython changed or we are running on an alternative python implementation
                     return
-            else:
+            else:  # pragma: no cover
                 return
 
     ################
@@ -1428,7 +1425,7 @@ class RunContext(threading.local):
     task: Task
 
 
-GLOBAL_RUN_CONTEXT: FinalT = RunContext()
+GLOBAL_RUN_CONTEXT: Final = RunContext()
 
 
 @attr.frozen
@@ -1481,6 +1478,8 @@ class RunStatistics:
 # So this object can reference Runner, but Runner can't reference it. The only
 # references to it are the "in flight" callback chain on the host loop /
 # worker thread.
+
+
 @attr.s(eq=False, hash=False, slots=True)
 class GuestState:
     runner: Runner = attr.ib()
@@ -1488,8 +1487,7 @@ class GuestState:
     run_sync_soon_not_threadsafe: Callable[[Callable[[], object]], object] = attr.ib()
     done_callback: Callable[[Outcome[Any]], object] = attr.ib()
     unrolled_run_gen: Generator[float, EventResult, None] = attr.ib()
-    _value_factory: Callable[[], Value[Any]] = lambda: Value(None)
-    unrolled_run_next_send: Outcome[Any] = attr.ib(factory=_value_factory)
+    unrolled_run_next_send: Outcome[Any] = attr.ib(factory=lambda: Value(None))
 
     def guest_tick(self) -> None:
         prev_library, sniffio_library.name = sniffio_library.name, "trio"
@@ -2398,7 +2396,7 @@ def start_guest_run(
 
 # 24 hours is arbitrary, but it avoids issues like people setting timeouts of
 # 10**20 and then getting integer overflows in the underlying system calls.
-_MAX_TIMEOUT: FinalT = 24 * 60 * 60
+_MAX_TIMEOUT: Final = 24 * 60 * 60
 
 
 # Weird quirk: this is written as a generator in order to support "guest
@@ -2656,7 +2654,7 @@ class _TaskStatusIgnored(TaskStatus[Any]):
         pass
 
 
-TASK_STATUS_IGNORED: FinalT[TaskStatus[Any]] = _TaskStatusIgnored()
+TASK_STATUS_IGNORED: Final[TaskStatus[Any]] = _TaskStatusIgnored()
 
 
 def current_task() -> Task:

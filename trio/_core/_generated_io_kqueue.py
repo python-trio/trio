@@ -10,12 +10,10 @@ from ._run import GLOBAL_RUN_CONTEXT
 
 if TYPE_CHECKING:
     import select
-    from socket import socket
-
-    from ._traps import Abort, RaiseCancelT
 
     from .. import _core
-
+    from .._file_io import _HasFileNo
+    from ._traps import Abort, RaiseCancelT
 import sys
 
 assert not TYPE_CHECKING or sys.platform == "darwin"
@@ -51,7 +49,7 @@ async def wait_kevent(
         raise RuntimeError("must be called from async context")
 
 
-async def wait_readable(fd: (int | socket)) -> None:
+async def wait_readable(fd: (int | _HasFileNo)) -> None:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_readable(fd)
@@ -59,7 +57,7 @@ async def wait_readable(fd: (int | socket)) -> None:
         raise RuntimeError("must be called from async context")
 
 
-async def wait_writable(fd: (int | socket)) -> None:
+async def wait_writable(fd: (int | _HasFileNo)) -> None:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_writable(fd)
@@ -67,7 +65,7 @@ async def wait_writable(fd: (int | socket)) -> None:
         raise RuntimeError("must be called from async context")
 
 
-def notify_closing(fd: (int | socket)) -> None:
+def notify_closing(fd: (int | _HasFileNo)) -> None:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.notify_closing(fd)
