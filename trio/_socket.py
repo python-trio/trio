@@ -694,7 +694,7 @@ class SocketType:
 
     @overload
     async def sendto(
-        self, __data: Buffer, __address: tuple[Any, ...] | str | Buffer
+        self, __data: Buffer, __address: tuple[object, ...] | str | Buffer
     ) -> int:
         ...
 
@@ -703,7 +703,7 @@ class SocketType:
         self,
         __data: Buffer,
         __flags: int,
-        __address: tuple[Any, ...] | str | Buffer,
+        __address: tuple[object, ...] | str | Buffer,
     ) -> int:
         ...
 
@@ -1167,13 +1167,13 @@ class _SocketType(SocketType):
 
     @overload
     async def sendto(
-        self, __data: Buffer, __address: tuple[Any, ...] | str | Buffer
+        self, __data: Buffer, __address: tuple[object, ...] | str | Buffer
     ) -> int:
         ...
 
     @overload
     async def sendto(
-        self, __data: Buffer, __flags: int, __address: tuple[Any, ...] | str | Buffer
+        self, __data: Buffer, __flags: int, __address: tuple[object, ...] | str | Buffer
     ) -> int:
         ...
 
@@ -1185,7 +1185,11 @@ class _SocketType(SocketType):
         args_list = list(args)
         args_list[-1] = await self._resolve_address_nocp(args[-1], local=False)
         return await self._nonblocking_helper(
-            _core.wait_writable, _stdlib_socket.socket.sendto, *args_list
+            # args_list is Any, which isn't the signature of sendto().
+            # We don't care about invalid types, sendto() will do the checking.
+            _core.wait_writable,
+            _stdlib_socket.socket.sendto,
+            *args_list,  # type: ignore[arg-type]
         )
 
     ################################################################
