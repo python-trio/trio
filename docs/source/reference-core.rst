@@ -1826,8 +1826,8 @@ to spawn a child thread, and then use a :ref:`memory channel
 .. note::
 
    The ``from_thread.run*`` functions reuse the host task that called
-   :func:`trio.to_thread.run_sync` to run your provided function in the typical case,
-   namely when ``cancellable=False`` so Trio can be sure that the task will always be
+   :func:`trio.to_thread.run_sync` to run your provided function, as long as you're
+   using the default ``cancellable=False`` so Trio can be sure that the task will remain
    around to perform the work. If you pass ``cancellable=True`` at the outset, or if
    you provide a :class:`~trio.lowlevel.TrioToken` when calling back in to Trio, your
    functions will be executed in a new system task. Therefore, the

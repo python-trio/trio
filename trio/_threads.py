@@ -119,7 +119,7 @@ class Run(Generic[RetT]):
         def in_trio_thread() -> None:
             try:
                 trio.lowlevel.spawn_system_task(
-                    self.run, name=self.afn, context=self.context
+                    self.run_system, name=self.afn, context=self.context
                 )
             except RuntimeError:  # system nursery is closed
                 self.queue.put_nowait(
@@ -394,10 +394,16 @@ def from_thread_check_cancelled() -> None:
 
     .. note::
 
-       The check for cancellation attempts of ``cancellable=False`` threads is
-       interrupted while executing ``from_thread.run*`` functions, which can lead to
-       edge cases where this function may raise or not depending on the timing of
-       :class:`~trio.CancelScope` shields being raised or lowered in the Trio threads.
+       To be precise, :func:`~trio.from_thread.check_cancelled` checks whether the task
+       running :func:`trio.to_thread.run_sync` has ever been cancelled since the last
+       time it was running a :func:`trio.from_thread.run` or :func:`trio.from_thread.run_sync`
+       function. It may raise `trio.Cancelled` even if a cancellation occurred that was
+       later hidden by a modification to `trio.CancelScope.shield` between the cancelled
+       `~trio.CancelScope` and :func:`trio.to_thread.run_sync`. This differs from the
+       behavior of normal Trio checkpoints, which raise `~trio.Cancelled` only if the
+       cancellation is still active when the checkpoint executes. The distinction here is
+       *exceedingly* unlikely to be relevant to your application, but we mention it
+       for completeness.
     """
     try:
         raise_cancel = PARENT_TASK_DATA.cancel_register[0]
@@ -456,7 +462,10 @@ def from_thread_run(
         RunFinishedError: if the corresponding call to :func:`trio.run` has
             already completed, or if the run has started its final cleanup phase
             and can no longer spawn new system tasks.
-        Cancelled: if the task enters cancelled status or call to :func:`trio.run`
+        Cancelled: If the original call to :func:`trio.to_thread.run_sync` is cancelled
+            (if *trio_token* is None) or the call to :func:`trio.run` completes
+            (if *trio_token* is not None) while ``afn(*args)`` is running,
+            then *afn* is likely to raise
             completes while ``afn(*args)`` is running, then ``afn`` is likely to raise
             :exc:`trio.Cancelled`.
         RuntimeError: if you try calling this from inside the Trio thread,
