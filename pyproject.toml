@@ -83,9 +83,6 @@ disallow_untyped_calls = false
 # files not yet fully typed
 [[tool.mypy.overrides]]
 module = [
-# internal
-"trio/_windows_pipes",
-
 # tests
 "trio/testing/_fake_net",
 "trio/_core/_tests/test_guest_mode",
@@ -105,7 +102,6 @@ module = [
 "trio/_tests/test_highlevel_open_unix_stream",
 "trio/_tests/test_highlevel_serve_listeners",
 "trio/_tests/test_highlevel_ssl_helpers",
-"trio/_tests/test_path",
 "trio/_tests/test_scheduler_determinism",
 "trio/_tests/test_ssl",
 "trio/_tests/test_subprocess",
@@ -116,7 +112,6 @@ module = [
 "trio/_tests/test_tracing",
 "trio/_tests/test_util",
 "trio/_tests/test_wait_for_object",
-"trio/_tests/test_windows_pipes",
 "trio/_tests/tools/test_gen_exports",
 ]
 check_untyped_defs = false
