@@ -20,6 +20,7 @@ from typing import (
     Callable,
     NoReturn,
     TypeVar,
+    cast,
 )
 
 import pytest
@@ -458,7 +459,7 @@ def test_guest_mode_on_asyncio() -> None:
         print("trio_main!")
 
         to_trio, from_aio = trio.open_memory_channel[int](float("inf"))
-        from_trio = asyncio.Queue[int]()
+        from_trio = cast("asyncio.Queue[int]", asyncio.Queue)()
 
         aio_task = asyncio.ensure_future(aio_pingpong(from_trio, to_trio))
 
