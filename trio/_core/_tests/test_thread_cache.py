@@ -16,7 +16,7 @@ from .tutil import gc_collect_harder, slow
 
 
 def test_thread_cache_basics() -> None:
-    q = cast("Queue[Outcome]", Queue)()
+    q = cast("Queue[Outcome]", Queue())
 
     def fn() -> NoReturn:
         raise RuntimeError("hi")
@@ -41,7 +41,7 @@ def test_thread_cache_deref() -> None:
         def __del__(self) -> None:
             res[0] = True
 
-    q = cast("Queue[Outcome]", Queue)()
+    q = cast("Queue[Outcome]", Queue())
 
     def deliver(outcome: Outcome) -> None:
         q.put(outcome)
@@ -64,7 +64,7 @@ def test_spawning_new_thread_from_deliver_reuses_starting_thread() -> None:
 
     # Make sure there are a few threads running, so if we weren't LIFO then we
     # could grab the wrong one.
-    q = cast("Queue[Outcome]", Queue)()
+    q = cast("Queue[Outcome]", Queue())
     COUNT = 5
     for _ in range(COUNT):
         start_thread_soon(lambda: time.sleep(1), lambda result: q.put(result))
@@ -96,7 +96,7 @@ def test_idle_threads_exit(monkeypatch: MonkeyPatch) -> None:
     # CPU.)
     monkeypatch.setattr(_thread_cache, "IDLE_TIMEOUT", 0.0001)
 
-    q = cast("Queue[threading.Thread]", Queue)()
+    q = cast("Queue[threading.Thread]", Queue())
     start_thread_soon(lambda: None, lambda _: q.put(threading.current_thread()))
     seen_thread = q.get()
     # Since the idle timeout is 0, after sleeping for 1 second, the thread

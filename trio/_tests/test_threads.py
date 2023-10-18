@@ -347,7 +347,7 @@ async def test_run_in_worker_thread_cancellation() -> None:
             record.append("exit")
 
     record: list[str] = []
-    q = cast("stdlib_queue.Queue[None]", stdlib_queue.Queue)()
+    q = cast("stdlib_queue.Queue[None]", stdlib_queue.Queue())
     async with _core.open_nursery() as nursery:
         nursery.start_soon(child, q, True)
         # Give it a chance to get started. (This is important because
@@ -395,8 +395,8 @@ def test_run_in_worker_thread_abandoned(
 ) -> None:
     monkeypatch.setattr(_core._thread_cache, "IDLE_TIMEOUT", 0.01)
 
-    q1 = cast("stdlib_queue.Queue[None]", stdlib_queue.Queue)()
-    q2 = cast("stdlib_queue.Queue[threading.Thread]", stdlib_queue.Queue)()
+    q1 = cast("stdlib_queue.Queue[None]", stdlib_queue.Queue())
+    q2 = cast("stdlib_queue.Queue[threading.Thread]", stdlib_queue.Queue())
 
     def thread_fn() -> None:
         q1.get()
@@ -919,7 +919,7 @@ async def test_recursive_to_thread() -> None:
 
 
 async def test_from_thread_host_cancelled() -> None:
-    queue = cast("stdlib_queue.Queue[bool]", stdlib_queue.Queue)()
+    queue = cast("stdlib_queue.Queue[bool]", stdlib_queue.Queue())
 
     def sync_check() -> None:
         from_thread_run_sync(cancel_scope.cancel)
@@ -978,7 +978,7 @@ async def test_from_thread_host_cancelled() -> None:
 
 
 async def test_from_thread_check_cancelled() -> None:
-    q = cast("stdlib_queue.Queue[str]", stdlib_queue.Queue)()
+    q = cast("stdlib_queue.Queue[str]", stdlib_queue.Queue())
 
     async def child(cancellable: bool, scope: CancelScope) -> None:
         with scope:
@@ -1058,7 +1058,7 @@ async def test_from_thread_check_cancelled() -> None:
 async def test_from_thread_check_cancelled_raises_in_foreign_threads() -> None:
     with pytest.raises(RuntimeError):
         from_thread_check_cancelled()
-    q = cast("stdlib_queue.Queue[Outcome]", stdlib_queue.Queue)()
+    q = cast("stdlib_queue.Queue[Outcome]", stdlib_queue.Queue())
     _core.start_thread_soon(from_thread_check_cancelled, lambda _: q.put(_))
     with pytest.raises(RuntimeError):
         q.get(timeout=1).unwrap()
