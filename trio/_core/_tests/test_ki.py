@@ -4,7 +4,7 @@ import contextlib
 import inspect
 import signal
 import threading
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, AsyncIterator, Callable, Iterator
 
 import outcome
 import pytest
@@ -77,7 +77,7 @@ async def test_ki_enabled() -> None:
         nursery.start_soon(aunprotected)
 
     @_core.enable_ki_protection
-    def gen_protected():
+    def gen_protected() -> Iterator[None]:
         assert _core.currently_ki_protected()
         yield
 
@@ -85,7 +85,7 @@ async def test_ki_enabled() -> None:
         pass
 
     @_core.disable_ki_protection
-    def gen_unprotected():
+    def gen_unprotected() -> Iterator[None]:
         assert not _core.currently_ki_protected()
         yield
 
@@ -111,7 +111,7 @@ async def test_ki_enabled_after_yield_briefly() -> None:
     async def unprotected() -> None:
         await child(False)
 
-    async def child(expected) -> None:
+    async def child(expected: bool) -> None:
         import traceback
 
         traceback.print_stack()
@@ -126,10 +126,10 @@ async def test_ki_enabled_after_yield_briefly() -> None:
 
 # This also used to be broken due to
 #   https://bugs.python.org/issue29590
-async def test_generator_based_context_manager_throw():
+async def test_generator_based_context_manager_throw() -> None:
     @contextlib.contextmanager
     @_core.enable_ki_protection
-    def protected_manager():
+    def protected_manager() -> Iterator[None]:
         assert _core.currently_ki_protected()
         try:
             yield
@@ -193,7 +193,7 @@ async def test_async_generator_agen_protection() -> None:
 async def test_native_agen_protection() -> None:
     # Native async generators
     @_core.enable_ki_protection
-    async def agen_protected():
+    async def agen_protected() -> AsyncIterator[None]:
         assert _core.currently_ki_protected()
         try:
             yield
@@ -201,7 +201,7 @@ async def test_native_agen_protection() -> None:
             assert _core.currently_ki_protected()
 
     @_core.disable_ki_protection
-    async def agen_unprotected():
+    async def agen_unprotected() -> AsyncIterator[None]:
         assert not _core.currently_ki_protected()
         try:
             yield
@@ -212,7 +212,7 @@ async def test_native_agen_protection() -> None:
     await _check_agen(agen_unprotected)
 
 
-async def _check_agen(agen_fn):
+async def _check_agen(agen_fn: Callable[[], AsyncIterator[None]]) -> None:
     async for _ in agen_fn():
         assert not _core.currently_ki_protected()
 
@@ -235,7 +235,7 @@ def test_ki_disabled_out_of_context() -> None:
 
 
 def test_ki_disabled_in_del() -> None:
-    def nestedfunction():
+    def nestedfunction() -> bool:
         return _core.currently_ki_protected()
 
     def __del__() -> None:
@@ -254,14 +254,14 @@ def test_ki_disabled_in_del() -> None:
 
 
 def test_ki_protection_works() -> None:
-    async def sleeper(name: str, record) -> None:
+    async def sleeper(name: str, record: set[str]) -> None:
         try:
             while True:
                 await _core.checkpoint()
         except _core.Cancelled:
             record.add(name + " ok")
 
-    async def raiser(name: str, record):
+    async def raiser(name: str, record: set[str]) -> None:
         try:
             # os.kill runs signal handlers before returning, so we don't need
             # to worry that the handler will be delayed
@@ -475,7 +475,7 @@ def test_ki_is_good_neighbor() -> None:
     try:
         orig = signal.getsignal(signal.SIGINT)
 
-        def my_handler(signum, frame) -> None:  # pragma: no cover
+        def my_handler(signum: object, frame: object) -> None:  # pragma: no cover
             pass
 
         async def main() -> None:
