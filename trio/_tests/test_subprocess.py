@@ -215,7 +215,6 @@ async def test_pipes(background_process: BackgroundProcessType) -> None:
             await proc.stdin.aclose()
 
         async def check_output(stream: Stream, expected: bytes) -> None:
-            assert type(stream) is None
             seen = bytearray()
             async for chunk in stream:
                 seen += chunk

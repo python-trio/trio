@@ -9,7 +9,8 @@ import sys
 import warnings
 from pathlib import Path
 from traceback import extract_tb, print_exception
-from typing import List
+from types import TracebackType
+from typing import Callable, List, NoReturn
 
 import pytest
 
@@ -35,42 +36,43 @@ class NotHashableException(Exception):
         return self.code == other.code
 
 
-async def raise_nothashable(code):
+async def raise_nothashable(code: int) -> NoReturn:
     raise NotHashableException(code)
 
 
-def raiser1() -> None:
+def raiser1() -> NoReturn:
     raiser1_2()
 
 
-def raiser1_2() -> None:
+def raiser1_2() -> NoReturn:
     raiser1_3()
 
 
-def raiser1_3():
+def raiser1_3() -> NoReturn:
     raise ValueError("raiser1_string")
 
 
-def raiser2() -> None:
+def raiser2() -> NoReturn:
     raiser2_2()
 
 
-def raiser2_2():
+def raiser2_2() -> NoReturn:
     raise KeyError("raiser2_string")
 
 
-def raiser3():
+def raiser3() -> NoReturn:
     raise NameError
 
 
-def get_exc(raiser):
+def get_exc(raiser: Callable[[], NoReturn]) -> BaseException:
     try:
         raiser()
     except Exception as exc:
         return exc
+    raise AssertionError("raiser should always raise")
 
 
-def get_tb(raiser):
+def get_tb(raiser: Callable[[], NoReturn]) -> TracebackType | None:
     return get_exc(raiser).__traceback__
 
 
@@ -141,7 +143,7 @@ async def test_MultiErrorNotHashable() -> None:
 def test_MultiError_filter_NotHashable() -> None:
     excs = MultiError([NotHashableException(42), ValueError()])
 
-    def handle_ValueError(exc):
+    def handle_ValueError(exc: BaseException) -> BaseException | None:
         if isinstance(exc, ValueError):
             return None
         else:
@@ -153,7 +155,7 @@ def test_MultiError_filter_NotHashable() -> None:
     assert isinstance(filtered_excs, NotHashableException)
 
 
-def make_tree():
+def make_tree() -> MultiError:
     # Returns an object like:
     #   MultiError([
     #     MultiError([
@@ -174,7 +176,9 @@ def make_tree():
         return MultiError([m12, exc3])
 
 
-def assert_tree_eq(m1, m2) -> None:
+def assert_tree_eq(
+    m1: BaseException | MultiError | None, m2: BaseException | MultiError | None
+) -> None:
     if m1 is None or m2 is None:
         assert m1 is m2
         return
@@ -183,13 +187,14 @@ def assert_tree_eq(m1, m2) -> None:
     assert_tree_eq(m1.__cause__, m2.__cause__)
     assert_tree_eq(m1.__context__, m2.__context__)
     if isinstance(m1, MultiError):
+        assert isinstance(m2, MultiError)
         assert len(m1.exceptions) == len(m2.exceptions)
         for e1, e2 in zip(m1.exceptions, m2.exceptions):
             assert_tree_eq(e1, e2)
 
 
-def test_MultiError_filter():
-    def null_handler(exc):
+def test_MultiError_filter() -> None:
+    def null_handler(exc: BaseException) -> BaseException:
         return exc
 
     m = make_tree()
@@ -209,7 +214,7 @@ def test_MultiError_filter():
             assert MultiError.filter(null_handler, m) is m
     assert_tree_eq(m, make_tree())
 
-    def simple_filter(exc):
+    def simple_filter(exc: BaseException) -> BaseException | None:
         if isinstance(exc, ValueError):
             return None
         if isinstance(exc, KeyError):
@@ -233,6 +238,7 @@ def test_MultiError_filter():
     # traceback on its parent MultiError
     orig = make_tree()
     # make sure we have the right path
+    assert isinstance(orig.exceptions[0], MultiError)
     assert isinstance(orig.exceptions[0].exceptions[1], KeyError)
     # get original traceback summary
     orig_extracted = (
@@ -241,7 +247,7 @@ def test_MultiError_filter():
         + extract_tb(orig.exceptions[0].exceptions[1].__traceback__)
     )
 
-    def p(exc) -> None:
+    def p(exc: BaseException) -> None:
         print_exception(type(exc), exc, exc.__traceback__)
 
     p(orig)
@@ -254,7 +260,7 @@ def test_MultiError_filter():
     assert orig_extracted == new_extracted
 
     # check preserving partial tree
-    def filter_NameError(exc):
+    def filter_NameError(exc: BaseException) -> BaseException | None:
         if isinstance(exc, NameError):
             return None
         return exc
@@ -266,17 +272,17 @@ def test_MultiError_filter():
     assert new_m is m.exceptions[0]
 
     # check fully handling everything
-    def filter_all(exc):
+    def filter_all(exc: BaseException) -> None:
         return None
 
     with pytest.warns(TrioDeprecationWarning):
         assert MultiError.filter(filter_all, make_tree()) is None
 
 
-def test_MultiError_catch():
+def test_MultiError_catch() -> None:
     # No exception to catch
 
-    def noop(_) -> None:
+    def noop(_: object) -> None:
         pass  # pragma: no cover
 
     with pytest.warns(TrioDeprecationWarning), MultiError.catch(noop):
@@ -363,16 +369,16 @@ def test_MultiError_catch():
 @pytest.mark.skipif(
     sys.implementation.name != "cpython", reason="Only makes sense with refcounting GC"
 )
-def test_MultiError_catch_doesnt_create_cyclic_garbage():
+def test_MultiError_catch_doesnt_create_cyclic_garbage() -> None:
     # https://github.com/python-trio/trio/pull/2063
     gc.collect()
     old_flags = gc.get_debug()
 
-    def make_multi():
+    def make_multi() -> NoReturn:
         # make_tree creates cycles itself, so a simple
         raise MultiError([get_exc(raiser1), get_exc(raiser2)])
 
-    def simple_filter(exc):
+    def simple_filter(exc: BaseException) -> Exception | RuntimeError:
         if isinstance(exc, ValueError):
             return Exception()
         if isinstance(exc, KeyError):
