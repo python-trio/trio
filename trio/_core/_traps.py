@@ -182,10 +182,10 @@ async def wait_task_rescheduled(abort_func: Callable[[RaiseCancelT], Abort]) -> 
 # Not exported in the trio._core namespace, but imported directly by _run.
 @attr.s(frozen=True)
 class PermanentlyDetachCoroutineObject:
-    final_outcome: Outcome = attr.ib()
+    final_outcome: Outcome[Any] = attr.ib()
 
 
-async def permanently_detach_coroutine_object(final_outcome: Outcome) -> Any:
+async def permanently_detach_coroutine_object(final_outcome: Outcome[Any]) -> Any:
     """Permanently detach the current task from the Trio scheduler.
 
     Normally, a Trio task doesn't exit until its coroutine object exits. When
