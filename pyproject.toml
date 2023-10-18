@@ -84,7 +84,6 @@ disallow_untyped_calls = false
 [[tool.mypy.overrides]]
 module = [
 # tests
-"trio/_core/_tests/test_guest_mode",
 "trio/_core/_tests/test_ki",
 "trio/_core/_tests/test_multierror",
 ]

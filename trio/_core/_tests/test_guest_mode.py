@@ -12,7 +12,15 @@ import traceback
 import warnings
 from functools import partial
 from math import inf
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, NoReturn, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    AsyncGenerator,
+    Awaitable,
+    Callable,
+    NoReturn,
+    TypeVar,
+)
 
 import pytest
 from outcome import Outcome
@@ -613,7 +621,7 @@ def test_guest_mode_asyncgens() -> None:
 
     record = set()
 
-    async def agen(label: str):  # TODO: some asyncgenerator thing
+    async def agen(label: str) -> AsyncGenerator[int, None]:
         assert sniffio.current_async_library() == label
         try:
             yield 1
