@@ -1295,7 +1295,7 @@ async def test_getpeercert(client_ctx: SSLContext) -> None:
 async def test_SSLListener(client_ctx: SSLContext) -> None:
     async def setup(
         **kwargs: Any,
-    ) -> tuple[tsocket.SocketType, SSLListener, SSLStream[SocketStream]]:
+    ) -> tuple[tsocket.SocketType, SSLListener[SocketStream], SSLStream[SocketStream]]:
         listen_sock = tsocket.socket()
         await listen_sock.bind(("127.0.0.1", 0))
         listen_sock.listen(1)

@@ -893,7 +893,7 @@ class SSLStream(Stream, Generic[T_Stream]):
 
 
 @final
-class SSLListener(Listener[SSLStream]):
+class SSLListener(Listener[SSLStream[T_Stream]]):
     """A :class:`~trio.abc.Listener` for SSL/TLS-encrypted servers.
 
     :class:`SSLListener` wraps around another Listener, and converts
@@ -917,7 +917,7 @@ class SSLListener(Listener[SSLStream]):
 
     def __init__(
         self,
-        transport_listener: Listener[Stream],
+        transport_listener: Listener[T_Stream],
         ssl_context: _stdlib_ssl.SSLContext,
         *,
         https_compatible: bool = False,
@@ -926,7 +926,7 @@ class SSLListener(Listener[SSLStream]):
         self._ssl_context = ssl_context
         self._https_compatible = https_compatible
 
-    async def accept(self) -> SSLStream:
+    async def accept(self) -> SSLStream[T_Stream]:
         """Accept the next connection and wrap it in an :class:`SSLStream`.
 
         See :meth:`trio.abc.Listener.accept` for details.

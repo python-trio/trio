@@ -74,13 +74,13 @@ async def test_open_ssl_over_tcp_stream_and_everything_else(
     async with trio.open_nursery() as nursery:
         # TODO: the types are *very* funky here, this seems like an error in some signature
         # unless this is doing stuff we don't want/expect end users to do
-        res: list[SSLListener] = await nursery.start(
+        res: list[SSLListener[SocketListener]] = await nursery.start(
             partial(serve_ssl_over_tcp, echo_handler, 0, SERVER_CTX, host="127.0.0.1")
         )
         (listener,) = res
         async with listener:
             # listener.transport_listener is of type Listener[Stream]
-            tp_listener: SocketListener = listener.transport_listener  # type: ignore[assignment]
+            tp_listener: SocketListener = listener.transport_listener
 
             sockaddr = tp_listener.socket.getsockname()
             hostname_resolver = FakeHostnameResolver(sockaddr)
