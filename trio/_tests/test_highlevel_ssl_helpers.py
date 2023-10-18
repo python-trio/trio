@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 from functools import partial
+from socket import AddressFamily, SocketKind
+from ssl import SSLContext
+from typing import Any, NoReturn
 
 import attr
 import pytest
 
 import trio
 import trio.testing
+from trio.abc import Stream
 from trio.socket import AF_INET, IPPROTO_TCP, SOCK_STREAM
 
 from .._highlevel_socket import SocketListener
@@ -21,7 +25,7 @@ from .._ssl import SSLListener
 from .test_ssl import SERVER_CTX, client_ctx  # noqa: F401
 
 
-async def echo_handler(stream) -> None:
+async def echo_handler(stream: Stream) -> None:
     async with stream:
         try:
             while True:
@@ -37,19 +41,35 @@ async def echo_handler(stream) -> None:
 # you ask for.
 @attr.s
 class FakeHostnameResolver(trio.abc.HostnameResolver):
-    sockaddr = attr.ib()
+    sockaddr: tuple[str, int] | tuple[str, int, int, int] = attr.ib()
 
-    async def getaddrinfo(self, *args):
+    async def getaddrinfo(
+        self,
+        host: bytes | str | None,
+        port: bytes | str | int | None,
+        family: int = 0,
+        type: int = 0,
+        proto: int = 0,
+        flags: int = 0,
+    ) -> list[
+        tuple[
+            AddressFamily,
+            SocketKind,
+            int,
+            str,
+            tuple[str, int] | tuple[str, int, int, int],
+        ]
+    ]:
         return [(AF_INET, SOCK_STREAM, IPPROTO_TCP, "", self.sockaddr)]
 
-    async def getnameinfo(self, *args):  # pragma: no cover
+    async def getnameinfo(self, *args: Any) -> NoReturn:  # pragma: no cover
         raise NotImplementedError
 
 
 # This uses serve_ssl_over_tcp, which uses open_ssl_over_tcp_listeners...
 # using noqa because linters don't understand how pytest fixtures work.
 async def test_open_ssl_over_tcp_stream_and_everything_else(
-    client_ctx,  # noqa: F811 # linters doesn't understand fixture
+    client_ctx: SSLContext,  # noqa: F811 # linters doesn't understand fixture
 ) -> None:
     async with trio.open_nursery() as nursery:
         # TODO: the types are *very* funky here, this seems like an error in some signature

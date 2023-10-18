@@ -153,7 +153,7 @@ async def test_WaitForSingleObject() -> None:
 
     # Not a handle
     with pytest.raises(TypeError):
-        await WaitForSingleObject("not a handle")  # Wrong type
+        await WaitForSingleObject("not a handle")  # type: ignore[arg-type] # Wrong type
     # with pytest.raises(OSError):
     #     await WaitForSingleObject(99)  # If you're unlucky, it actually IS a handle :(
     print("test_WaitForSingleObject not a handle OK")

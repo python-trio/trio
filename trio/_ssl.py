@@ -4,7 +4,7 @@ import operator as _operator
 import ssl as _stdlib_ssl
 from collections.abc import Awaitable, Callable
 from enum import Enum as _Enum
-from typing import Any, ClassVar, Final as TFinal, TypeVar
+from typing import Any, ClassVar, Final as TFinal, Generic, TypeVar
 
 import trio
 
@@ -239,9 +239,12 @@ class _Once:
 
 _State = _Enum("_State", ["OK", "BROKEN", "CLOSED"])
 
+# TODO: variance
+T_Stream = TypeVar("T_Stream", bound=Stream)
+
 
 @final
-class SSLStream(Stream):
+class SSLStream(Stream, Generic[T_Stream]):
     r"""Encrypted communication using SSL/TLS.
 
     :class:`SSLStream` wraps an arbitrary :class:`~trio.abc.Stream`, and
@@ -339,14 +342,14 @@ class SSLStream(Stream):
     # SSLListener.__init__, and maybe the open_ssl_over_tcp_* helpers.
     def __init__(
         self,
-        transport_stream: Stream,
+        transport_stream: T_Stream,
         ssl_context: _stdlib_ssl.SSLContext,
         *,
         server_hostname: str | bytes | None = None,
         server_side: bool = False,
         https_compatible: bool = False,
     ) -> None:
-        self.transport_stream: Stream = transport_stream
+        self.transport_stream: T_Stream = transport_stream
         self._state = _State.OK
         self._https_compatible = https_compatible
         self._outgoing = _stdlib_ssl.MemoryBIO()

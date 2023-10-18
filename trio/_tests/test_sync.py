@@ -1,6 +1,10 @@
+from __future__ import annotations
+
 import weakref
+from typing import Callable, Union
 
 import pytest
+from typing_extensions import TypeAlias
 
 from .. import _core
 from .._sync import *
@@ -204,7 +208,7 @@ async def test_Semaphore() -> None:
 
     record = []
 
-    async def do_acquire(s) -> None:
+    async def do_acquire(s: Semaphore) -> None:
         record.append("started")
         await s.acquire()
         record.append("finished")
@@ -240,7 +244,9 @@ async def test_Semaphore_bounded() -> None:
 
 
 @pytest.mark.parametrize("lockcls", [Lock, StrictFIFOLock], ids=lambda fn: fn.__name__)
-async def test_Lock_and_StrictFIFOLock(lockcls) -> None:
+async def test_Lock_and_StrictFIFOLock(
+    lockcls: type[Lock] | type[StrictFIFOLock],
+) -> None:
     l = lockcls()  # noqa
     assert not l.locked()
 
@@ -349,7 +355,7 @@ async def test_Condition() -> None:
 
     finished_waiters = set()
 
-    async def waiter(i) -> None:
+    async def waiter(i: int) -> None:
         async with c:
             await c.wait()
         finished_waiters.add(i)
@@ -489,17 +495,28 @@ generic_lock_test = pytest.mark.parametrize(
     "lock_factory", lock_factories, ids=lock_factory_names
 )
 
+LockLike: TypeAlias = Union[
+    CapacityLimiter,
+    Semaphore,
+    Lock,
+    StrictFIFOLock,
+    ChannelLock1,
+    ChannelLock2,
+    ChannelLock3,
+]
+LockFactory: TypeAlias = Callable[[], LockLike]
+
 
 # Spawn a bunch of workers that take a lock and then yield; make sure that
 # only one worker is ever in the critical section at a time.
 @generic_lock_test
-async def test_generic_lock_exclusion(lock_factory) -> None:
+async def test_generic_lock_exclusion(lock_factory: LockFactory) -> None:
     LOOPS = 10
     WORKERS = 5
     in_critical_section = False
     acquires = 0
 
-    async def worker(lock_like) -> None:
+    async def worker(lock_like: LockLike) -> None:
         nonlocal in_critical_section, acquires
         for _ in range(LOOPS):
             async with lock_like:
@@ -522,12 +539,12 @@ async def test_generic_lock_exclusion(lock_factory) -> None:
 # Several workers queue on the same lock; make sure they each get it, in
 # order.
 @generic_lock_test
-async def test_generic_lock_fifo_fairness(lock_factory) -> None:
+async def test_generic_lock_fifo_fairness(lock_factory: LockFactory) -> None:
     initial_order = []
     record = []
     LOOPS = 5
 
-    async def loopy(name: str, lock_like) -> None:
+    async def loopy(name: str, lock_like: LockLike) -> None:
         # Record the order each task was initially scheduled in
         initial_order.append(name)
         for _ in range(LOOPS):
@@ -546,7 +563,9 @@ async def test_generic_lock_fifo_fairness(lock_factory) -> None:
 
 
 @generic_lock_test
-async def test_generic_lock_acquire_nowait_blocks_acquire(lock_factory) -> None:
+async def test_generic_lock_acquire_nowait_blocks_acquire(
+    lock_factory: LockFactory,
+) -> None:
     lock_like = lock_factory()
 
     record = []

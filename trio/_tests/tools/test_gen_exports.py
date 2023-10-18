@@ -1,5 +1,6 @@
 import ast
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -91,7 +92,7 @@ skip_lints = pytest.mark.skipif(
 
 @skip_lints
 @pytest.mark.parametrize("imports", ["", IMPORT_1, IMPORT_2, IMPORT_3])
-def test_process(tmp_path, imports) -> None:
+def test_process(tmp_path: Path, imports: str) -> None:
     try:
         import black  # noqa: F401
     # there's no dedicated CI run that has astor+isort, but lacks black.
@@ -123,7 +124,7 @@ def test_process(tmp_path, imports) -> None:
 
 
 @skip_lints
-def test_run_black(tmp_path) -> None:
+def test_run_black(tmp_path: Path) -> None:
     """Test that processing properly fails if black does."""
     try:
         import black  # noqa: F401
@@ -140,7 +141,7 @@ def test_run_black(tmp_path) -> None:
 
 
 @skip_lints
-def test_run_ruff(tmp_path) -> None:
+def test_run_ruff(tmp_path: Path) -> None:
     """Test that processing properly fails if black does."""
     try:
         import ruff  # noqa: F401
@@ -166,7 +167,7 @@ def test_run_ruff(tmp_path) -> None:
 
 
 @skip_lints
-def test_lint_failure(tmp_path) -> None:
+def test_lint_failure(tmp_path: Path) -> None:
     """Test that processing properly fails if black or ruff does."""
     try:
         import black  # noqa: F401

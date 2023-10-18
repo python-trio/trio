@@ -12,7 +12,7 @@ import types
 from collections.abc import Iterator
 from pathlib import Path
 from types import ModuleType
-from typing import Protocol
+from typing import Iterable, Protocol
 
 import attrs
 import pytest
@@ -126,10 +126,10 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
     # https://github.com/pypa/setuptools/issues/3274
     "ignore:module 'sre_constants' is deprecated:DeprecationWarning",
 )
-def test_static_tool_sees_all_symbols(tool, modname: str, tmp_path) -> None:
+def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -> None:
     module = importlib.import_module(modname)
 
-    def no_underscores(symbols):
+    def no_underscores(symbols: Iterable[str]) -> set[str]:
         return {symbol for symbol in symbols if not symbol.startswith("_")}
 
     runtime_names = no_underscores(dir(module))
@@ -278,7 +278,7 @@ def test_static_tool_sees_class_members(
     module = PUBLIC_MODULES[PUBLIC_MODULE_NAMES.index(module_name)]
 
     # ignore hidden, but not dunder, symbols
-    def no_hidden(symbols):
+    def no_hidden(symbols: Iterable[str]) -> set[str]:
         return {
             symbol
             for symbol in symbols
@@ -316,7 +316,7 @@ def test_static_tool_sees_class_members(
 
         # skip a bunch of file-system activity (probably can un-memoize?)
         @functools.lru_cache
-        def lookup_symbol(symbol):
+        def lookup_symbol(symbol: str) -> dict[str, str]:
             topname, *modname, name = symbol.split(".")
             version = next(cache.glob("3.*/"))
             mod_cache = version / topname
@@ -333,7 +333,7 @@ def test_static_tool_sees_class_members(
                     mod_cache = mod_cache / (modname[-1] + ".data.json")
 
             with mod_cache.open() as f:
-                return json.loads(f.read())["names"][name]
+                return json.loads(f.read())["names"][name]  # type: ignore[no-any-return]
 
     errors: dict[str, object] = {}
     for class_name, class_ in module.__dict__.items():
@@ -440,6 +440,16 @@ def test_static_tool_sees_class_members(
             before = len(extra)
             extra = {e for e in extra if not e.endswith("AttrsAttributes__")}
             assert len(extra) == before - 1
+
+        import enum
+
+        # mypy does not see these attributes in Enum subclasses
+        if (
+            tool == "mypy"
+            and enum.Enum in class_.__mro__
+            and sys.version_info >= (3, 11)
+        ):
+            extra.difference_update({"__copy__", "__deepcopy__"})
 
         # TODO: this *should* be visible via `dir`!!
         if tool == "mypy" and class_ == trio.Nursery:

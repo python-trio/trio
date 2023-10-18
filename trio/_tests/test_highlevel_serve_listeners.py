@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import errno
-import sys
 from functools import partial
 from typing import Awaitable, Callable, NoReturn
 
@@ -19,9 +18,6 @@ from trio.testing import (
     memory_stream_pair,
     wait_all_tasks_blocked,
 )
-
-if sys.version_info < (3, 11):
-    from exceptiongroup import ExceptionGroup
 
 # types are somewhat tentative - I just bruteforced them until I got something that didn't
 # give errors
@@ -138,7 +134,8 @@ async def test_serve_listeners_accept_capacity_error(
     assert len(caplog.records) == 10
     for record in caplog.records:
         assert "retrying" in record.msg
-        assert isinstance(record.exc_info, ExceptionGroup)
+        assert record.exc_info is not None
+        assert isinstance(record.exc_info[1], OSError)
         assert record.exc_info[1].errno == errno.EMFILE
 
 

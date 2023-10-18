@@ -11,7 +11,7 @@ from pathlib import Path as SyncPath
 from typing import TYPE_CHECKING, AsyncIterator
 
 import pytest
-from pytest import MonkeyPatch
+from pytest import MonkeyPatch, WarningsRecorder
 
 from .. import (
     ClosedResourceError,
@@ -153,7 +153,7 @@ async def test_multi_wait(background_process) -> None:
 
 
 # Test for deprecated 'async with process:' semantics
-async def test_async_with_basics_deprecated(recwarn) -> None:
+async def test_async_with_basics_deprecated(recwarn: WarningsRecorder) -> None:
     async with await open_process(
         CAT, stdin=subprocess.PIPE, stdout=subprocess.PIPE
     ) as proc:
@@ -168,7 +168,7 @@ async def test_async_with_basics_deprecated(recwarn) -> None:
 
 
 # Test for deprecated 'async with process:' semantics
-async def test_kill_when_context_cancelled(recwarn) -> None:
+async def test_kill_when_context_cancelled(recwarn: WarningsRecorder) -> None:
     with move_on_after(100) as scope:
         async with await open_process(SLEEP(10)) as proc:
             assert proc.poll() is None

@@ -4,7 +4,7 @@ import threading
 import time
 from contextlib import contextmanager
 from queue import Queue
-from typing import NoReturn
+from typing import Iterator, NoReturn
 
 import pytest
 from outcome import Outcome
@@ -21,7 +21,7 @@ def test_thread_cache_basics() -> None:
     def fn() -> NoReturn:
         raise RuntimeError("hi")
 
-    def deliver(outcome) -> None:
+    def deliver(outcome: Outcome) -> None:
         q.put(outcome)
 
     start_thread_soon(fn, deliver)
@@ -43,7 +43,7 @@ def test_thread_cache_deref() -> None:
 
     q = Queue[Outcome]()
 
-    def deliver(outcome) -> None:
+    def deliver(outcome: Outcome) -> None:
         q.put(outcome)
 
     start_thread_soon(del_me(), deliver)
@@ -74,7 +74,7 @@ def test_spawning_new_thread_from_deliver_reuses_starting_thread() -> None:
     seen_threads = set()
     done = threading.Event()
 
-    def deliver(n, _) -> None:
+    def deliver(n: int, _: object) -> None:
         print(n)
         seen_threads.add(threading.current_thread())
         if n == 0:
@@ -106,7 +106,7 @@ def test_idle_threads_exit(monkeypatch: MonkeyPatch) -> None:
 
 
 @contextmanager
-def _join_started_threads():
+def _join_started_threads() -> Iterator[None]:
     before = frozenset(threading.enumerate())
     try:
         yield
@@ -140,7 +140,7 @@ def test_race_between_idle_exit_and_job_assignment(monkeypatch: MonkeyPatch) -> 
             self._lock = threading.Lock()
             self._counter = 3
 
-        def acquire(self, timeout=-1) -> bool:
+        def acquire(self, timeout: int = -1) -> bool:
             got_it = self._lock.acquire(timeout=timeout)
             if timeout == -1:
                 return True
@@ -170,13 +170,13 @@ def test_race_between_idle_exit_and_job_assignment(monkeypatch: MonkeyPatch) -> 
         tc.start_thread_soon(lambda: None, lambda _: None)
 
 
-def test_raise_in_deliver(capfd) -> None:
+def test_raise_in_deliver(capfd: pytest.CaptureFixture[str]) -> None:
     seen_threads = set()
 
     def track_threads() -> None:
         seen_threads.add(threading.current_thread())
 
-    def deliver(_):
+    def deliver(_: object) -> NoReturn:
         done.set()
         raise RuntimeError("don't do this")
 

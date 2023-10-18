@@ -1,12 +1,17 @@
-# XX this should get broken up, like testing.py did
+from __future__ import annotations
 
+# XX this should get broken up, like testing.py did
 import tempfile
 
 import pytest
+from pytest import WarningsRecorder
+
+from trio import Nursery
+from trio.abc import ReceiveStream, SendStream
 
 from .. import _core, sleep, socket as tsocket
 from .._core._tests.tutil import can_bind_ipv6
-from .._highlevel_generic import aclose_forcefully
+from .._highlevel_generic import StapledStream, aclose_forcefully
 from .._highlevel_socket import SocketListener
 from ..testing import *
 from ..testing._check_streams import _assert_raises
@@ -104,7 +109,7 @@ async def test_wait_all_tasks_blocked_with_cushion() -> None:
 ################################################################
 
 
-async def test_assert_checkpoints(recwarn) -> None:
+async def test_assert_checkpoints(recwarn: WarningsRecorder) -> None:
     with assert_checkpoints():
         await _core.checkpoint()
 
@@ -130,7 +135,7 @@ async def test_assert_checkpoints(recwarn) -> None:
         await _core.cancel_shielded_checkpoint()
 
 
-async def test_assert_no_checkpoints(recwarn) -> None:
+async def test_assert_no_checkpoints(recwarn: WarningsRecorder) -> None:
     with assert_no_checkpoints():
         1 + 1
 
@@ -163,11 +168,11 @@ async def test_assert_no_checkpoints(recwarn) -> None:
 async def test_Sequencer() -> None:
     record = []
 
-    def t(val) -> None:
+    def t(val: object) -> None:
         print(val)
         record.append(val)
 
-    async def f1(seq) -> None:
+    async def f1(seq: Sequencer) -> None:
         async with seq(1):
             t(("f1", 1))
         async with seq(3):
@@ -175,7 +180,7 @@ async def test_Sequencer() -> None:
         async with seq(4):
             t(("f1", 4))
 
-    async def f2(seq) -> None:
+    async def f2(seq: Sequencer) -> None:
         async with seq(0):
             t(("f2", 0))
         async with seq(2):
@@ -203,7 +208,7 @@ async def test_Sequencer_cancel() -> None:
     record = []
     seq = Sequencer()
 
-    async def child(i) -> None:
+    async def child(i: int) -> None:
         with _core.CancelScope() as scope:
             if i == 1:
                 scope.cancel()
@@ -230,7 +235,7 @@ async def test_Sequencer_cancel() -> None:
 ################################################################
 
 
-async def test__assert_raises():
+async def test__assert_raises() -> None:
     with pytest.raises(AssertionError):
         with _assert_raises(RuntimeError):
             1 + 1
@@ -273,11 +278,11 @@ async def test__UnboundeByteQueue() -> None:
     with assert_checkpoints():
         assert await ubq.get() == b"efghi"
 
-    async def putter(data) -> None:
+    async def putter(data: bytes) -> None:
         await wait_all_tasks_blocked()
         ubq.put(data)
 
-    async def getter(expect) -> None:
+    async def getter(expect: bytes) -> None:
         with assert_checkpoints():
             assert await ubq.get() == expect
 
@@ -320,7 +325,7 @@ async def test__UnboundeByteQueue() -> None:
 async def test_MemorySendStream() -> None:
     mss = MemorySendStream()
 
-    async def do_send_all(data) -> None:
+    async def do_send_all(data: bytes) -> None:
         with assert_checkpoints():
             await mss.send_all(data)
 
@@ -410,7 +415,7 @@ async def test_MemorySendStream() -> None:
 async def test_MemoryReceiveStream() -> None:
     mrs = MemoryReceiveStream()
 
-    async def do_receive_some(max_bytes):
+    async def do_receive_some(max_bytes: int | None) -> bytes:
         with assert_checkpoints():
             return await mrs.receive_some(max_bytes)
 
@@ -521,7 +526,7 @@ async def test_memory_stream_one_way_pair() -> None:
     await s.send_all(b"123")
     assert await r.receive_some(10) == b"123"
 
-    async def receiver(expected) -> None:
+    async def receiver(expected: bytes) -> None:
         assert await r.receive_some(10) == expected
 
     # This fails if we pump on r.receive_some_hook; we need to pump on s.send_all_hook
@@ -549,7 +554,7 @@ async def test_memory_stream_one_way_pair() -> None:
     s.send_all_hook = None
     await s.send_all(b"456")
 
-    async def cancel_after_idle(nursery) -> None:
+    async def cancel_after_idle(nursery: Nursery) -> None:
         await wait_all_tasks_blocked()
         nursery.cancel_scope.cancel()
 
@@ -591,31 +596,37 @@ async def test_memory_stream_pair() -> None:
 
 
 async def test_memory_streams_with_generic_tests() -> None:
-    async def one_way_stream_maker():
+    async def one_way_stream_maker() -> tuple[MemorySendStream, MemoryReceiveStream]:
         return memory_stream_one_way_pair()
 
     await check_one_way_stream(one_way_stream_maker, None)
 
-    async def half_closeable_stream_maker():
+    async def half_closeable_stream_maker() -> tuple[
+        StapledStream[MemorySendStream, MemoryReceiveStream],
+        StapledStream[MemorySendStream, MemoryReceiveStream],
+    ]:
         return memory_stream_pair()
 
     await check_half_closeable_stream(half_closeable_stream_maker, None)
 
 
 async def test_lockstep_streams_with_generic_tests() -> None:
-    async def one_way_stream_maker():
+    async def one_way_stream_maker() -> tuple[SendStream, ReceiveStream]:
         return lockstep_stream_one_way_pair()
 
     await check_one_way_stream(one_way_stream_maker, one_way_stream_maker)
 
-    async def two_way_stream_maker():
+    async def two_way_stream_maker() -> tuple[
+        StapledStream[SendStream, ReceiveStream],
+        StapledStream[SendStream, ReceiveStream],
+    ]:
         return lockstep_stream_pair()
 
     await check_two_way_stream(two_way_stream_maker, two_way_stream_maker)
 
 
 async def test_open_stream_to_socket_listener() -> None:
-    async def check(listener) -> None:
+    async def check(listener: SocketListener) -> None:
         async with listener:
             client_stream = await open_stream_to_socket_listener(listener)
             async with client_stream:

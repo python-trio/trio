@@ -87,17 +87,9 @@ module = [
 "trio/_core/_tests/test_guest_mode",
 "trio/_core/_tests/test_ki",
 "trio/_core/_tests/test_multierror",
-"trio/_core/_tests/test_thread_cache",
-"trio/_tests/test_exports",
 "trio/_tests/test_file_io",
-"trio/_tests/test_highlevel_ssl_helpers",
-"trio/_tests/test_ssl",
 "trio/_tests/test_subprocess",
-"trio/_tests/test_sync",
-"trio/_tests/test_testing",
 "trio/_tests/test_threads",
-"trio/_tests/test_util",
-"trio/_tests/tools/test_gen_exports",
 ]
 disallow_any_decorated = false
 disallow_incomplete_defs = false

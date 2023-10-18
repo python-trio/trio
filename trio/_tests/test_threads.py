@@ -360,7 +360,9 @@ async def test_run_in_worker_thread_cancellation() -> None:
 # Make sure that if trio.run exits, and then the thread finishes, then that's
 # handled gracefully. (Requires that the thread result machinery be prepared
 # for call_soon to raise RunFinishedError.)
-def test_run_in_worker_thread_abandoned(capfd, monkeypatch: MonkeyPatch) -> None:
+def test_run_in_worker_thread_abandoned(
+    capfd: pytest.CaptureFixture[str], monkeypatch: MonkeyPatch
+) -> None:
     monkeypatch.setattr(_core._thread_cache, "IDLE_TIMEOUT", 0.01)
 
     q1 = stdlib_queue.Queue[None]()

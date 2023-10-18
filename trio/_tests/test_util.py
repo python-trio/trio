@@ -1,6 +1,7 @@
 import signal
 import sys
 import types
+from typing import Any, TypeVar
 
 import pytest
 
@@ -23,11 +24,13 @@ from .._util import (
 )
 from ..testing import wait_all_tasks_blocked
 
+T = TypeVar("T")
+
 
 def test_signal_raise() -> None:
     record = []
 
-    def handler(signum, _) -> None:
+    def handler(signum: int, _: object) -> None:
         record.append(signum)
 
     old = signal.signal(signal.SIGFPE, handler)
@@ -114,9 +117,9 @@ def test_coroutine_or_error() -> None:
         import asyncio
 
         if sys.version_info < (3, 11):
-
-            @asyncio.coroutine
-            def generator_based_coro():  # pragma: no cover
+            # not bothering to type this one
+            @asyncio.coroutine  # type: ignore[misc]
+            def generator_based_coro() -> Any:  # pragma: no cover
                 yield from asyncio.sleep(1)
 
             with pytest.raises(TypeError) as excinfo:
@@ -145,7 +148,7 @@ def test_coroutine_or_error() -> None:
 
         assert "appears to be synchronous" in str(excinfo.value)
 
-        async def async_gen(arg):  # pragma: no cover
+        async def async_gen(_: object) -> Any:  # pragma: no cover
             yield
 
         # does not give arg-type typing error
@@ -160,7 +163,7 @@ def test_coroutine_or_error() -> None:
 
 def test_generic_function() -> None:
     @generic_function
-    def test_func(arg):
+    def test_func(arg: T) -> T:
         """Look, a docstring!"""
         return arg
 
