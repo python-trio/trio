@@ -113,7 +113,7 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
 # they might be using a newer version of Python with additional symbols which
 # won't be reflected in trio.socket, and this shouldn't cause downstream test
 # runs to start failing.
-@pytest.mark.redistributors_should_skip
+@pytest.mark.redistributors_should_skip()
 # Static analysis tools often have trouble with alpha releases, where Python's
 # internals are in flux, grammar may not have settled down, etc.
 @pytest.mark.skipif(
@@ -263,7 +263,7 @@ def test_static_tool_sees_all_symbols(tool, modname, tmp_path):
 # modules, instead of once per class.
 @slow
 # see comment on test_static_tool_sees_all_symbols
-@pytest.mark.redistributors_should_skip
+@pytest.mark.redistributors_should_skip()
 # Static analysis tools often have trouble with alpha releases, where Python's
 # internals are in flux, grammar may not have settled down, etc.
 @pytest.mark.skipif(

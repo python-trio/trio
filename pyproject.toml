@@ -27,6 +27,7 @@ select = [
   "F",  # pyflakes
   "I",  # isort
   "YTT",  # flake8-2020
+  "PT",  # flake8-pytest-style
 ]
 extend-ignore = [
     'F403',  # undefined-local-with-import-star
@@ -53,6 +54,9 @@ extend-exclude = [
 
 [tool.ruff.isort]
 combine-as-imports = true
+
+[tool.ruff.flake8-pytest-style]
+fixture-parentheses = false
 
 [tool.mypy]
 python_version = "3.8"
