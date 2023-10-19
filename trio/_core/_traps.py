@@ -184,7 +184,9 @@ class PermanentlyDetachCoroutineObject:
     final_outcome: outcome.Outcome[Any] = attr.ib()
 
 
-async def permanently_detach_coroutine_object(final_outcome: outcome.Outcome[Any]) -> Any:
+async def permanently_detach_coroutine_object(
+    final_outcome: outcome.Outcome[Any],
+) -> Any:
     """Permanently detach the current task from the Trio scheduler.
 
     Normally, a Trio task doesn't exit until its coroutine object exits. When
