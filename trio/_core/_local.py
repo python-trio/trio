@@ -17,7 +17,7 @@ class _NoValue:
 
 
 @final
-@attr.s(eq=False, hash=False, slots=False)
+@attr.s(eq=False, hash=False, slots=True)
 class RunVarToken(Generic[T], metaclass=NoPublicConstructor):
     _var: RunVar[T] = attr.ib()
     previous_value: T | type[_NoValue] = attr.ib(default=_NoValue)

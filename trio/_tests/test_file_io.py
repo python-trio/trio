@@ -244,13 +244,15 @@ async def test_aclose_cancelled(path: pathlib.Path) -> None:
     assert f.closed
 
 
-async def test_detach_rewraps_asynciobase() -> None:
-    raw = io.BytesIO()
-    buffered = io.BufferedReader(raw)  # type: ignore[arg-type] # ????????????
+async def test_detach_rewraps_asynciobase(tmp_path: pathlib.Path) -> None:
+    tmp_file = tmp_path / "filename"
+    tmp_file.touch()
+    with open(tmp_file, mode="rb", buffering=0) as raw:
+        buffered = io.BufferedReader(raw)
 
-    async_file = trio.wrap_file(buffered)
+        async_file = trio.wrap_file(buffered)
 
-    detached = await async_file.detach()
+        detached = await async_file.detach()
 
-    assert isinstance(detached, AsyncIOWrapper)
-    assert detached.wrapped is raw
+        assert isinstance(detached, AsyncIOWrapper)
+        assert detached.wrapped is raw

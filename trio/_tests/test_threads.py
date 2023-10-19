@@ -9,7 +9,6 @@ import time
 import weakref
 from functools import partial
 from typing import (
-    TYPE_CHECKING,
     AsyncGenerator,
     Awaitable,
     Callable,
@@ -462,12 +461,10 @@ async def test_run_in_worker_thread_limiter(
         # Mutating them in-place is OK though (as long as you use proper
         # locking etc.).
         class state:
-            if TYPE_CHECKING:
-                ran: int
-                high_water: int
-                running: int
-                parked: int
-            pass
+            ran: int
+            high_water: int
+            running: int
+            parked: int
 
         state.ran = 0
         state.high_water = 0

@@ -24,7 +24,6 @@ from typing import (
 )
 
 import attr
-from typing_extensions import Buffer, Self
 
 import trio
 from trio._util import NoPublicConstructor, final
@@ -33,7 +32,7 @@ if TYPE_CHECKING:
     from socket import AddressFamily, SocketKind
     from types import TracebackType
 
-    from typing_extensions import TypeAlias
+    from typing_extensions import Buffer, Self, TypeAlias
 
 IPAddress: TypeAlias = Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
 

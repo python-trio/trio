@@ -239,7 +239,7 @@ class _Once:
 
 _State = _Enum("_State", ["OK", "BROKEN", "CLOSED"])
 
-# TODO: variance
+# invariant
 T_Stream = TypeVar("T_Stream", bound=Stream)
 
 

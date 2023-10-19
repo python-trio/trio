@@ -26,14 +26,17 @@ from typing import (
 import pytest
 from outcome import Outcome
 from pytest import MonkeyPatch, WarningsRecorder
-from typing_extensions import TypeAlias
 
 import trio
 import trio.testing
 from trio._channel import MemorySendChannel
+from trio.abc import Instrument
 
 from ..._util import signal_raise
 from .tutil import buggy_pypy_asyncgens, gc_collect_harder, restore_unraisablehook
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeAlias
 
 T = TypeVar("T")
 InHost: TypeAlias = Callable[[object], None]
@@ -346,7 +349,7 @@ def test_host_wakeup_doesnt_trigger_wait_all_tasks_blocked() -> None:
                 # 'sit_in_wait_all_tasks_blocked', we want the test to
                 # actually end. So in after_io_wait we schedule a second host
                 # call to tear things down.
-                class InstrumentHelper(trio._abc.Instrument):
+                class InstrumentHelper(Instrument):
                     def __init__(self) -> None:
                         self.primed = False
 

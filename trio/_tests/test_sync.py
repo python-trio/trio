@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import weakref
-from typing import Callable, Union
+from typing import TYPE_CHECKING, Callable, Union
 
 import pytest
-from typing_extensions import TypeAlias
 
 from .. import _core
 from .._sync import *
 from .._timeouts import sleep_forever
 from ..testing import assert_checkpoints, wait_all_tasks_blocked
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeAlias
 
 
 async def test_Event() -> None:

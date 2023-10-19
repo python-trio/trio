@@ -8,10 +8,9 @@ import threading
 from contextlib import asynccontextmanager, contextmanager
 from functools import partial
 from ssl import SSLContext
-from typing import Any, AsyncIterator, Iterator, NoReturn
+from typing import TYPE_CHECKING, Any, AsyncIterator, Iterator, NoReturn
 
 import pytest
-from typing_extensions import TypeAlias
 
 from trio import StapledStream
 from trio._core import MockClock
@@ -45,6 +44,9 @@ from ..testing import (
     lockstep_stream_pair,
     memory_stream_pair,
 )
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeAlias
 
 # We have two different kinds of echo server fixtures we use for testing. The
 # first is a real server written using the stdlib ssl module and blocking

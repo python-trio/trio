@@ -20,7 +20,6 @@ from typing import (
 
 import pytest
 from pytest import MonkeyPatch, WarningsRecorder
-from typing_extensions import TypeAlias
 
 from .. import (
     ClosedResourceError,
@@ -37,6 +36,9 @@ from .._abc import Stream
 from .._core._tests.tutil import skip_if_fbsd_pipes_broken, slow
 from ..lowlevel import open_process
 from ..testing import MockClock, assert_no_checkpoints, wait_all_tasks_blocked
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeAlias
 
 if sys.platform == "win32":
     SignalType: TypeAlias = None
