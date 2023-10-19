@@ -80,8 +80,6 @@ def autodoc_process_signature(
     """Modify found signatures to fix various issues."""
     if signature is not None:
         signature = signature.replace("~_contextvars.Context", "~contextvars.Context")
-        if name == "trio.lowlevel.start_guest_run":
-            signature = signature.replace("Outcome", "~outcome.Outcome")
         if name == "trio.lowlevel.RunVar":  # Typevar is not useful here.
             signature = signature.replace(": ~trio._core._local.T", "")
         if "_NoValue" in signature:
