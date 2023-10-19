@@ -70,8 +70,6 @@ autodoc_type_aliases = {
     # aliasing doesn't actually fix the warning for types.FrameType, but displaying
     # "types.FrameType" is more helpful than just "frame"
     "FrameType": "types.FrameType",
-    # unaliasing these makes intersphinx able to resolve them
-    "Outcome": "outcome.Outcome",
     "Context": "OpenSSL.SSL.Context",
 }
 
