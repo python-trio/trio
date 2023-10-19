@@ -149,5 +149,6 @@ async def parent():
     print("parent: all done!")
 
 
-t = Trace(open("/tmp/t.json", "w"))
-trio.run(parent, instruments=[t])
+with open("/tmp/t.json", "w") as t_json:
+    t = Trace(t_json)
+    trio.run(parent, instruments=[t])

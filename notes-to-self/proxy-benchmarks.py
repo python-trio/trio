@@ -156,24 +156,24 @@ def check(cls):
 for cls in classes:
     check(cls)
 
-f = open("/etc/passwd")
-objs = [c(f) for c in classes]
+with open("/etc/passwd") as f:
+    objs = [c(f) for c in classes]
 
-COUNT = 1000000
-try:
-    import __pypy__  # noqa: F401  # __pypy__ imported but unused
-except ImportError:
-    pass
-else:
-    COUNT *= 10
+    COUNT = 1000000
+    try:
+        import __pypy__  # noqa: F401  # __pypy__ imported but unused
+    except ImportError:
+        pass
+    else:
+        COUNT *= 10
 
-while True:
-    print("-------")
-    for obj in objs:
-        start = time.perf_counter()
-        for _ in range(COUNT):
-            obj.fileno()
-            # obj.fileno
-        end = time.perf_counter()
-        per_usec = COUNT / (end - start) / 1e6
-        print("{:7.2f} / us: {} ({})".format(per_usec, obj.strategy, obj.works_for))
+    while True:
+        print("-------")
+        for obj in objs:
+            start = time.perf_counter()
+            for _ in range(COUNT):
+                obj.fileno()
+                # obj.fileno
+            end = time.perf_counter()
+            per_usec = COUNT / (end - start) / 1e6
+            print("{:7.2f} / us: {} ({})".format(per_usec, obj.strategy, obj.works_for))

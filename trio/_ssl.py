@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import operator as _operator
 import ssl as _stdlib_ssl
 from collections.abc import Awaitable, Callable
@@ -834,10 +835,8 @@ class SSLStream(Stream):
             # Also, if someone else is blocked in send/receive, then we aren't
             # going to be able to do a clean shutdown. If that happens, we'll
             # just do an unclean shutdown.
-            try:
+            with contextlib.suppress(trio.BrokenResourceError, trio.BusyResourceError):
                 await self._retry(self._ssl_object.unwrap, ignore_want_read=True)
-            except (trio.BrokenResourceError, trio.BusyResourceError):
-                pass
         except:
             # Failure! Kill the stream and move on.
             await aclose_forcefully(self.transport_stream)

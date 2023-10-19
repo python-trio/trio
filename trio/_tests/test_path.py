@@ -53,7 +53,7 @@ cls_pairs: list[tuple[EitherPathType, EitherPathType]] = [
 async def test_cmp_magic(cls_a: EitherPathType, cls_b: EitherPathType) -> None:
     a, b = cls_a(""), cls_b("")
     assert a == b
-    assert not a != b
+    assert a == b
 
     a, b = cls_a("a"), cls_b("b")
     assert a < b

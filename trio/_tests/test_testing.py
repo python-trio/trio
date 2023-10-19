@@ -108,9 +108,8 @@ async def test_assert_checkpoints(recwarn):
     with assert_checkpoints():
         await _core.checkpoint()
 
-    with pytest.raises(AssertionError):
-        with assert_checkpoints():
-            1 + 1
+    with pytest.raises(AssertionError), assert_checkpoints():
+        1 + 1
 
     # partial yield cases
     # if you have a schedule point but not a cancel point, or vice-versa, then
@@ -120,9 +119,8 @@ async def test_assert_checkpoints(recwarn):
         _core.cancel_shielded_checkpoint,
     ]:
         print(partial_yield)
-        with pytest.raises(AssertionError):
-            with assert_checkpoints():
-                await partial_yield()
+        with pytest.raises(AssertionError), assert_checkpoints():
+            await partial_yield()
 
     # But both together count as a checkpoint
     with assert_checkpoints():
@@ -134,9 +132,8 @@ async def test_assert_no_checkpoints(recwarn):
     with assert_no_checkpoints():
         1 + 1
 
-    with pytest.raises(AssertionError):
-        with assert_no_checkpoints():
-            await _core.checkpoint()
+    with pytest.raises(AssertionError), assert_no_checkpoints():
+        await _core.checkpoint()
 
     # partial yield cases
     # if you have a schedule point but not a cancel point, or vice-versa, then
@@ -146,15 +143,13 @@ async def test_assert_no_checkpoints(recwarn):
         _core.cancel_shielded_checkpoint,
     ]:
         print(partial_yield)
-        with pytest.raises(AssertionError):
-            with assert_no_checkpoints():
-                await partial_yield()
+        with pytest.raises(AssertionError), assert_no_checkpoints():
+            await partial_yield()
 
     # And both together also count as a checkpoint
-    with pytest.raises(AssertionError):
-        with assert_no_checkpoints():
-            await _core.checkpoint_if_cancelled()
-            await _core.cancel_shielded_checkpoint()
+    with pytest.raises(AssertionError), assert_no_checkpoints():
+        await _core.checkpoint_if_cancelled()
+        await _core.cancel_shielded_checkpoint()
 
 
 ################################################################
@@ -231,13 +226,11 @@ async def test_Sequencer_cancel():
 
 
 async def test__assert_raises():
-    with pytest.raises(AssertionError):
-        with _assert_raises(RuntimeError):
-            1 + 1
+    with pytest.raises(AssertionError), _assert_raises(RuntimeError):
+        1 + 1
 
-    with pytest.raises(TypeError):
-        with _assert_raises(RuntimeError):
-            "foo" + 1
+    with pytest.raises(TypeError), _assert_raises(RuntimeError):
+        "foo" + 1
 
     with _assert_raises(RuntimeError):
         raise RuntimeError

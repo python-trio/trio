@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import enum
 import errno
 import hmac
@@ -986,10 +987,8 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
             # If we're a client, we send the initial volley. If we're a server, then
             # the initial ClientHello has already been inserted into self._ssl's
             # read BIO. So either way, we start by generating a new volley.
-            try:
+            with contextlib.suppress(SSL.WantReadError):
                 self._ssl.do_handshake()
-            except SSL.WantReadError:
-                pass
             volley_messages = read_volley()
             # If we don't have messages to send in our initial volley, then something
             # has gone very wrong. (I'm not sure this can actually happen without an
@@ -1225,10 +1224,8 @@ class DTLSEndpoint:
         # Close the socket in Trio context (if our Trio context still exists), so that
         # the background task gets notified about the closure and can exit.
         if not self._closed:
-            try:
+            with contextlib.suppress(RuntimeError):
                 self._token.run_sync_soon(self.close)
-            except RuntimeError:
-                pass
             # Do this last, because it might raise an exception
             warnings.warn(
                 f"unclosed DTLS endpoint {self!r}", ResourceWarning, source=self

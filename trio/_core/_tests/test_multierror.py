@@ -283,7 +283,9 @@ def test_MultiError_catch():
 
     # Simple pass-through of all exceptions
     m = make_tree()
-    with pytest.raises(MultiError) as excinfo:
+    with pytest.raises(  # noqa: SIM117  # multiple-with-statements
+        MultiError
+    ) as excinfo:
         with pytest.warns(TrioDeprecationWarning), MultiError.catch(lambda exc: exc):
             raise m
     assert excinfo.value is m
@@ -306,7 +308,9 @@ def test_MultiError_catch():
             return RuntimeError()
         return exc
 
-    with pytest.raises(MultiError) as excinfo:
+    with pytest.raises(  # noqa: SIM117  # multiple-with-statements
+        MultiError
+    ) as excinfo:
         with pytest.warns(TrioDeprecationWarning), MultiError.catch(simple_filter):
             raise make_tree()
     new_m = excinfo.value
@@ -324,7 +328,9 @@ def test_MultiError_catch():
     # check preservation of __cause__ and __context__
     v = ValueError()
     v.__cause__ = KeyError()
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(  # noqa: SIM117  # multiple-with-statements
+        ValueError
+    ) as excinfo:
         with pytest.warns(TrioDeprecationWarning), MultiError.catch(lambda exc: exc):
             raise v
     assert isinstance(excinfo.value.__cause__, KeyError)
@@ -332,7 +338,9 @@ def test_MultiError_catch():
     v = ValueError()
     context = KeyError()
     v.__context__ = context
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(  # noqa: SIM117  # multiple-with-statements
+        ValueError
+    ) as excinfo:
         with pytest.warns(TrioDeprecationWarning), MultiError.catch(lambda exc: exc):
             raise v
     assert excinfo.value.__context__ is context
@@ -352,7 +360,9 @@ def test_MultiError_catch():
                 else:
                     return exc
 
-            with pytest.warns(TrioDeprecationWarning):
+            with pytest.warns(  # noqa: SIM117  # multiple-with-statements
+                TrioDeprecationWarning
+            ):
                 with MultiError.catch(catch_RuntimeError):
                     raise MultiError([v, distractor])
         assert excinfo.value.__context__ is context
@@ -380,7 +390,7 @@ def test_MultiError_catch_doesnt_create_cyclic_garbage():
 
     try:
         gc.set_debug(gc.DEBUG_SAVEALL)
-        with pytest.raises(MultiError):
+        with pytest.raises(MultiError):  # noqa: SIM117  # multiple-with-statements
             # covers MultiErrorCatcher.__exit__ and _multierror.copy_tb
             with pytest.warns(TrioDeprecationWarning), MultiError.catch(simple_filter):
                 raise make_multi()
@@ -438,7 +448,9 @@ def run_script(name: str) -> subprocess.CompletedProcess[bytes]:
 
     env = dict(os.environ)
     print("parent PYTHONPATH:", env.get("PYTHONPATH"))
-    if "PYTHONPATH" in env:  # pragma: no cover
+    if (  # pragma: no cover  # noqa: SIM108  # if-else-block-instead-of-if-exp
+        "PYTHONPATH" in env
+    ):
         pp = env["PYTHONPATH"].split(os.pathsep)
     else:
         pp = []

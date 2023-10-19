@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import contextvars
 import queue
 import signal
@@ -593,10 +594,8 @@ def test_guest_mode_asyncgens():
             yield 1
         finally:
             library = sniffio.current_async_library()
-            try:
+            with contextlib.suppress(trio.Cancelled):
                 await sys.modules[library].sleep(0)
-            except trio.Cancelled:
-                pass
             record.add((label, library))
 
     async def iterate_in_aio():

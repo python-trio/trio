@@ -41,17 +41,15 @@ def test_close_all() -> None:
     assert c.closed
 
     c = CloseMe()
-    with pytest.raises(RuntimeError):
-        with close_all() as to_close:
-            to_close.add(c)
-            raise RuntimeError
+    with pytest.raises(RuntimeError), close_all() as to_close:
+        to_close.add(c)
+        raise RuntimeError
     assert c.closed
 
     c = CloseMe()
-    with pytest.raises(OSError):
-        with close_all() as to_close:
-            to_close.add(CloseKiller())
-            to_close.add(c)
+    with pytest.raises(OSError), close_all() as to_close:
+        to_close.add(CloseKiller())
+        to_close.add(c)
     assert c.closed
 
 
@@ -152,10 +150,7 @@ async def test_local_address_real() -> None:
         # properly -- passing local_address=127.0.0.1 is indistinguishable
         # from not passing local_address= at all. But, we can still do a smoke
         # test to make sure the local_address= code doesn't crash.
-        if can_bind_127_0_0_2():
-            local_address = "127.0.0.2"
-        else:
-            local_address = "127.0.0.1"
+        local_address = "127.0.0.2" if can_bind_127_0_0_2() else "127.0.0.1"
 
         async with await open_tcp_stream(
             *listener.getsockname(), local_address=local_address
@@ -250,7 +245,7 @@ class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
         assert len(set(ip_order)) == len(ip_list)
         ip_dict: dict[str | int, tuple[float, str]] = {}
         for ip, delay, result in ip_list:
-            assert 0 <= delay
+            assert delay >= 0
             assert result in ["error", "success", "postconnect_fail"]
             ip_dict[ip] = (delay, result)
 

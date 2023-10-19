@@ -5,7 +5,7 @@ import socket as stdlib_socket
 import ssl
 import sys
 import threading
-from contextlib import asynccontextmanager, contextmanager
+from contextlib import asynccontextmanager, contextmanager, suppress
 from functools import partial
 
 import pytest
@@ -102,10 +102,8 @@ def ssl_echo_serve_sync(sock, *, expect_fail=False):
                     # respond in kind but it's legal for them to have already
                     # gone away.
                     exceptions = (BrokenPipeError, ssl.SSLZeroReturnError)
-                    try:
+                    with suppress(exceptions):
                         wrapped.unwrap()
-                    except exceptions:
-                        pass
                     return
                 wrapped.sendall(data)
     # This is an obscure workaround for an openssl bug. In server mode, in
@@ -1122,13 +1120,11 @@ async def test_send_error_during_handshake(client_ctx):
 
     client.transport_stream.send_stream.send_all_hook = bad_hook
 
-    with pytest.raises(KeyError):
-        with assert_checkpoints():
-            await client.do_handshake()
+    with pytest.raises(KeyError), assert_checkpoints():
+        await client.do_handshake()
 
-    with pytest.raises(BrokenResourceError):
-        with assert_checkpoints():
-            await client.do_handshake()
+    with pytest.raises(BrokenResourceError), assert_checkpoints():
+        await client.do_handshake()
 
 
 async def test_receive_error_during_handshake(client_ctx):
@@ -1140,18 +1136,16 @@ async def test_receive_error_during_handshake(client_ctx):
     client.transport_stream.receive_stream.receive_some_hook = bad_hook
 
     async def client_side(cancel_scope):
-        with pytest.raises(KeyError):
-            with assert_checkpoints():
-                await client.do_handshake()
+        with pytest.raises(KeyError), assert_checkpoints():
+            await client.do_handshake()
         cancel_scope.cancel()
 
     async with _core.open_nursery() as nursery:
         nursery.start_soon(client_side, nursery.cancel_scope)
         nursery.start_soon(server.do_handshake)
 
-    with pytest.raises(BrokenResourceError):
-        with assert_checkpoints():
-            await client.do_handshake()
+    with pytest.raises(BrokenResourceError), assert_checkpoints():
+        await client.do_handshake()
 
 
 async def test_selected_alpn_protocol_before_handshake(client_ctx):

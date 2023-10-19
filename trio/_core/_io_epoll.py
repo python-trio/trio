@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import select
 import sys
 from collections import defaultdict
@@ -324,7 +325,5 @@ class EpollIOManager:
             _core.ClosedResourceError("another task closed this fd"),
         )
         del self._registered[fd]
-        try:
+        with contextlib.suppress(OSError, ValueError):
             self._epoll.unregister(fd)
-        except (OSError, ValueError):
-            pass

@@ -81,10 +81,9 @@ async def test__try_sync() -> None:
         async with _try_sync():
             pass
 
-    with assert_checkpoints():
-        with pytest.raises(KeyError):
-            async with _try_sync():
-                raise KeyError
+    with assert_checkpoints(), pytest.raises(KeyError):
+        async with _try_sync():
+            raise KeyError
 
     async with _try_sync():
         raise BlockingIOError
@@ -95,10 +94,9 @@ async def test__try_sync() -> None:
     async with _try_sync(_is_ValueError):
         raise ValueError
 
-    with assert_checkpoints():
-        with pytest.raises(BlockingIOError):
-            async with _try_sync(_is_ValueError):
-                raise BlockingIOError
+    with assert_checkpoints(), pytest.raises(BlockingIOError):
+        async with _try_sync(_is_ValueError):
+            raise BlockingIOError
 
 
 ################################################################
@@ -188,9 +186,8 @@ async def test_getaddrinfo(monkeygai: MonkeypatchedGAI) -> None:
     assert monkeygai.record[-1] == (b"host", "port", 0, 0, 0, 0)
 
     # check raising an error from a non-blocking getaddrinfo
-    with assert_checkpoints():
-        with pytest.raises(tsocket.gaierror) as excinfo:
-            await tsocket.getaddrinfo("::1", "12345", type=-1)
+    with assert_checkpoints(), pytest.raises(tsocket.gaierror) as excinfo:
+        await tsocket.getaddrinfo("::1", "12345", type=-1)
     # Linux + glibc, Windows
     expected_errnos = {tsocket.EAI_SOCKTYPE}
     # Linux + musl
@@ -203,9 +200,8 @@ async def test_getaddrinfo(monkeygai: MonkeypatchedGAI) -> None:
     # check raising an error from a blocking getaddrinfo (exploits the fact
     # that monkeygai raises if it gets a non-numeric request it hasn't been
     # given an answer for)
-    with assert_checkpoints():
-        with pytest.raises(RuntimeError):
-            await tsocket.getaddrinfo("asdf", "12345")
+    with assert_checkpoints(), pytest.raises(RuntimeError):
+        await tsocket.getaddrinfo("asdf", "12345")
 
 
 async def test_getnameinfo() -> None:
@@ -216,13 +212,11 @@ async def test_getnameinfo() -> None:
     assert got == ("127.0.0.1", "1234")
 
     # getnameinfo requires a numeric address as input:
-    with assert_checkpoints():
-        with pytest.raises(tsocket.gaierror):
-            await tsocket.getnameinfo(("google.com", 80), 0)
+    with assert_checkpoints(), pytest.raises(tsocket.gaierror):
+        await tsocket.getnameinfo(("google.com", 80), 0)
 
-    with assert_checkpoints():
-        with pytest.raises(tsocket.gaierror):
-            await tsocket.getnameinfo(("localhost", 80), 0)
+    with assert_checkpoints(), pytest.raises(tsocket.gaierror):
+        await tsocket.getnameinfo(("localhost", 80), 0)
 
     # Blocking call to get expected values:
     host, service = stdlib_socket.getnameinfo(("127.0.0.1", 80), 0)
@@ -260,9 +254,8 @@ async def test_from_stdlib_socket() -> None:
     class MySocket(stdlib_socket.socket):
         pass
 
-    with MySocket() as mysock:
-        with pytest.raises(TypeError):
-            tsocket.from_stdlib_socket(mysock)
+    with MySocket() as mysock, pytest.raises(TypeError):
+        tsocket.from_stdlib_socket(mysock)
 
 
 async def test_from_fd() -> None:
@@ -315,7 +308,7 @@ async def test_socket_v6() -> None:
         assert s.family == tsocket.AF_INET6
 
 
-@pytest.mark.skipif(not sys.platform == "linux", reason="linux only")
+@pytest.mark.skipif(sys.platform != "linux", reason="linux only")
 async def test_sniff_sockopts() -> None:
     from socket import AF_INET, AF_INET6, SOCK_DGRAM, SOCK_STREAM
 
@@ -667,10 +660,9 @@ async def test_SocketType_unresolved_names() -> None:
             assert sock2.getpeername() == sock.getsockname()
 
     # check gaierror propagates out
-    with tsocket.socket() as sock:
-        with pytest.raises(tsocket.gaierror):
-            # definitely not a valid request
-            await sock.bind(("1.2:3", -1))
+    with tsocket.socket() as sock, pytest.raises(tsocket.gaierror):
+        # definitely not a valid request
+        await sock.bind(("1.2:3", -1))
 
 
 # This tests all the complicated paths through _nonblocking_helper, using recv
@@ -685,17 +677,15 @@ async def test_SocketType_non_blocking_paths() -> None:
         b.send(b"1")
         with _core.CancelScope() as cscope:
             cscope.cancel()
-            with assert_checkpoints():
-                with pytest.raises(_core.Cancelled):
-                    await ta.recv(10)
+            with assert_checkpoints(), pytest.raises(_core.Cancelled):
+                await ta.recv(10)
         # immediate success (also checks that the previous attempt didn't
         # actually read anything)
         with assert_checkpoints():
             await ta.recv(10) == b"1"
         # immediate failure
-        with assert_checkpoints():
-            with pytest.raises(TypeError):
-                await ta.recv("haha")  # type: ignore[arg-type]
+        with assert_checkpoints(), pytest.raises(TypeError):
+            await ta.recv("haha")  # type: ignore[arg-type]
         # block then succeed
 
         async def do_successful_blocking_recv() -> None:
@@ -709,9 +699,8 @@ async def test_SocketType_non_blocking_paths() -> None:
         # block then cancelled
 
         async def do_cancelled_blocking_recv() -> None:
-            with assert_checkpoints():
-                with pytest.raises(_core.Cancelled):
-                    await ta.recv(10)
+            with assert_checkpoints(), pytest.raises(_core.Cancelled):
+                await ta.recv(10)
 
         async with _core.open_nursery() as nursery:
             nursery.start_soon(do_cancelled_blocking_recv)
@@ -751,20 +740,18 @@ async def test_SocketType_non_blocking_paths() -> None:
 
 # This tests the complicated paths through connect
 async def test_SocketType_connect_paths() -> None:
-    with tsocket.socket() as sock:
-        with pytest.raises(ValueError):
-            # Should be a tuple
-            await sock.connect("localhost")
+    with tsocket.socket() as sock, pytest.raises(ValueError):
+        # Should be a tuple
+        await sock.connect("localhost")
 
     # cancelled before we start
-    with tsocket.socket() as sock:
-        with _core.CancelScope() as cancel_scope:
-            cancel_scope.cancel()
-            with pytest.raises(_core.Cancelled):
-                await sock.connect(("127.0.0.1", 80))
+    with tsocket.socket() as sock, _core.CancelScope() as cancel_scope:
+        cancel_scope.cancel()
+        with pytest.raises(_core.Cancelled):
+            await sock.connect(("127.0.0.1", 80))
 
     # Cancelled in between the connect() call and the connect completing
-    with _core.CancelScope() as cancel_scope:
+    with _core.CancelScope() as cancel_scope:  # noqa: SIM117  # multiple-with-statements
         with tsocket.socket() as sock, tsocket.socket() as listener:
             await listener.bind(("127.0.0.1", 0))
             listener.listen()
@@ -790,22 +777,20 @@ async def test_SocketType_connect_paths() -> None:
             sock._sock.close()
             sock._sock = CancelSocket()
 
-            with assert_checkpoints():
-                with pytest.raises(_core.Cancelled):
-                    await sock.connect(listener.getsockname())
+            with assert_checkpoints(), pytest.raises(_core.Cancelled):
+                await sock.connect(listener.getsockname())
             assert sock.fileno() == -1
 
     # Failed connect (hopefully after raising BlockingIOError)
-    with tsocket.socket() as sock:
-        with pytest.raises(OSError):
-            # TCP port 2 is not assigned. Pretty sure nothing will be
-            # listening there. (We used to bind a port and then *not* call
-            # listen() to ensure nothing was listening there, but it turns
-            # out on macOS if you do this it takes 30 seconds for the
-            # connect to fail. Really. Also if you use a non-routable
-            # address. This way fails instantly though. As long as nothing
-            # is listening on port 2.)
-            await sock.connect(("127.0.0.1", 2))
+    with tsocket.socket() as sock, pytest.raises(OSError):
+        # TCP port 2 is not assigned. Pretty sure nothing will be
+        # listening there. (We used to bind a port and then *not* call
+        # listen() to ensure nothing was listening there, but it turns
+        # out on macOS if you do this it takes 30 seconds for the
+        # connect to fail. Really. Also if you use a non-routable
+        # address. This way fails instantly though. As long as nothing
+        # is listening on port 2.)
+        await sock.connect(("127.0.0.1", 2))
 
 
 # Fix issue #1810
@@ -820,7 +805,7 @@ async def test_address_in_socket_error() -> None:
 
 async def test_resolve_address_exception_in_connect_closes_socket() -> None:
     # Here we are testing issue 247, any cancellation will leave the socket closed
-    with _core.CancelScope() as cancel_scope:
+    with _core.CancelScope() as cancel_scope:  # noqa: SIM117  # multiple-with-statements
         with tsocket.socket() as sock:
 
             async def _resolve_address_nocp(
@@ -831,9 +816,8 @@ async def test_resolve_address_exception_in_connect_closes_socket() -> None:
 
             assert isinstance(sock, _SocketType)
             sock._resolve_address_nocp = _resolve_address_nocp  # type: ignore[method-assign, assignment]
-            with assert_checkpoints():
-                with pytest.raises(_core.Cancelled):
-                    await sock.connect("")
+            with assert_checkpoints(), pytest.raises(_core.Cancelled):
+                await sock.connect("")
             assert sock.fileno() == -1
 
 
@@ -944,11 +928,11 @@ async def test_idna(monkeygai: MonkeypatchedGAI) -> None:
     # We always call socket.getaddrinfo with bytes objects:
     monkeygai.set("bad", "xn--fa-hia.de", 80)
 
-    assert "ok ::1" == await tsocket.getaddrinfo("::1", 80)
-    assert "ok ::1" == await tsocket.getaddrinfo(b"::1", 80)
-    assert "ok faß.de" == await tsocket.getaddrinfo("faß.de", 80)
-    assert "ok faß.de" == await tsocket.getaddrinfo("xn--fa-hia.de", 80)
-    assert "ok faß.de" == await tsocket.getaddrinfo(b"xn--fa-hia.de", 80)
+    assert await tsocket.getaddrinfo("::1", 80) == "ok ::1"
+    assert await tsocket.getaddrinfo(b"::1", 80) == "ok ::1"
+    assert await tsocket.getaddrinfo("faß.de", 80) == "ok faß.de"
+    assert await tsocket.getaddrinfo("xn--fa-hia.de", 80) == "ok faß.de"
+    assert await tsocket.getaddrinfo(b"xn--fa-hia.de", 80) == "ok faß.de"
 
 
 async def test_getprotobyname() -> None:

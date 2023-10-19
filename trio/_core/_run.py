@@ -18,7 +18,7 @@ from collections.abc import (
     Iterator,
     Sequence,
 )
-from contextlib import AbstractAsyncContextManager, contextmanager
+from contextlib import AbstractAsyncContextManager, contextmanager, suppress
 from contextvars import copy_context
 from heapq import heapify, heappop, heappush
 from math import inf
@@ -792,15 +792,19 @@ class CancelScope:
         cancelled, then :attr:`cancelled_caught` is usually more
         appropriate.
         """
-        if self._cancel_status is not None or not self._has_been_entered:
+        if (
+            self._cancel_status is not None
+            or not self._has_been_entered
+            and not self._cancel_called
+            and current_time() >= self._deadline
+        ):
             # Scope is active or not yet entered: make sure cancel_called
             # is true if the deadline has passed. This shouldn't
             # be able to actually change behavior, since we check for
             # deadline expiry on scope entry and at every checkpoint,
             # but it makes the value returned by cancel_called more
             # closely match expectations.
-            if not self._cancel_called and current_time() >= self._deadline:
-                self.cancel()
+            self.cancel()
         return self._cancel_called
 
 
@@ -1705,10 +1709,7 @@ class Runner:
         # Propagate contextvars
         ######
         if context is None:
-            if system_task:
-                context = self.system_context.copy()
-            else:
-                context = copy_context()
+            context = self.system_context.copy() if system_task else copy_context()
 
         ######
         # Call the function and get the coroutine object, while giving helpful
@@ -1940,10 +1941,8 @@ class Runner:
     # This gets called from signal context
     def deliver_ki(self) -> None:
         self.ki_pending = True
-        try:
+        with suppress(RunFinishedError):
             self.entry_queue.run_sync_soon(self._deliver_ki_cb)
-        except RunFinishedError:
-            pass
 
     def _deliver_ki_cb(self) -> None:
         if not self.ki_pending:
