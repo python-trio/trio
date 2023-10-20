@@ -359,7 +359,7 @@ class SSLStream(Stream, Generic[T_Stream]):
             self._incoming,
             self._outgoing,
             server_side=server_side,
-            server_hostname=server_hostname,  # type: ignore[arg-type]  # Typeshed bug, does accept bytes as well (typeshed#10590)
+            server_hostname=server_hostname,
         )
         # Tracks whether we've already done the initial handshake
         self._handshook = _Once(self._do_handshake)

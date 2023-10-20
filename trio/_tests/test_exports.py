@@ -364,6 +364,10 @@ def test_static_tool_sees_class_members(
             "__setstate__",
             "__slots__",
             "__weakref__",
+            # ignore errors about dunders inherited from stdlib that tools might
+            # not see
+            "__copy__",
+            "__deepcopy__",
         }
 
         # pypy seems to have some additional dunders that differ
