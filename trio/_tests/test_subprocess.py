@@ -79,7 +79,7 @@ else:
 
 
 def got_signal(proc: Process, sig: SignalType) -> bool:
-    if posix:
+    if (not TYPE_CHECKING and posix) or sys.platform != "win32":
         return proc.returncode == -sig
     else:
         return proc.returncode != 0
@@ -444,7 +444,8 @@ async def test_stderr_stdout(background_process: BackgroundProcessType) -> None:
 
 async def test_errors() -> None:
     with pytest.raises(TypeError) as excinfo:
-        await open_process(["ls"], encoding="utf-8")  # type: ignore[call-overload]
+        # call-overload on unix, call-arg on windows
+        await open_process(["ls"], encoding="utf-8")  # type: ignore
     assert "unbuffered byte streams" in str(excinfo.value)
     assert "the 'encoding' option is not supported" in str(excinfo.value)
 
@@ -480,13 +481,15 @@ async def test_signals(background_process: BackgroundProcessType) -> None:
     # tries to handle SIGINT during startup. SIGUSR1's default disposition is
     # to terminate the target process, and Python doesn't try to do anything
     # clever to handle it.
-    if posix:
+    if (not TYPE_CHECKING and posix) or sys.platform != "win32":
         await test_one_signal(lambda proc: proc.send_signal(SIGUSR1), SIGUSR1)
 
 
 @pytest.mark.skipif(not posix, reason="POSIX specific")
 @background_process_param
 async def test_wait_reapable_fails(background_process: BackgroundProcessType) -> None:
+    if TYPE_CHECKING and sys.platform == "win32":
+        return
     old_sigchld = signal.signal(signal.SIGCHLD, signal.SIG_IGN)
     try:
         # With SIGCHLD disabled, the wait() syscall will wait for the
@@ -509,6 +512,9 @@ def test_waitid_eintr() -> None:
     # This only matters on PyPy (where we're coding EINTR handling
     # ourselves) but the test works on all waitid platforms.
     from .._subprocess_platform import wait_child_exiting
+
+    if TYPE_CHECKING and sys.platform == "win32":
+        return
 
     if not wait_child_exiting.__module__.endswith("waitid"):
         pytest.skip("waitid only")

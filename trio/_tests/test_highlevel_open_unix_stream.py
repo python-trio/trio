@@ -1,11 +1,15 @@
 import os
 import socket
+import sys
 import tempfile
+from typing import TYPE_CHECKING
 
 import pytest
 
 from trio import Path, open_unix_socket
 from trio._highlevel_open_unix_stream import close_on_error
+
+assert not TYPE_CHECKING or sys.platform != "win32"
 
 if not hasattr(socket, "AF_UNIX"):
     pytestmark = pytest.mark.skip("Needs unix socket support")

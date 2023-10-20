@@ -157,8 +157,9 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
             skip_if_optional_else_raise(error)
 
         linter = PyLinter()
+        assert module.__file__ is not None
         ast = linter.get_ast(module.__file__, modname)
-        static_names = no_underscores(ast)
+        static_names = no_underscores(ast)  # type: ignore[arg-type]
     elif tool == "jedi":
         try:
             import jedi

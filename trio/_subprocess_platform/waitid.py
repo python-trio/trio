@@ -8,13 +8,13 @@ from .. import _core, _subprocess
 from .._sync import CapacityLimiter, Event
 from .._threads import to_thread_run_sync
 
-assert (sys.platform != "win32" and sys.platform != "darwin") or not TYPE_CHECKING
-
 if TYPE_CHECKING:
 
     def sync_wait_reapable(pid: int) -> None:
         ...
 
+
+assert (sys.platform != "win32" and sys.platform != "darwin") or not TYPE_CHECKING
 
 try:
     from os import waitid
