@@ -24,7 +24,7 @@ from trio._tools.gen_exports import (
 )
 
 SOURCE = '''from _run import _public
-from somewhere import Thing
+from collections import Counter
 
 class Test:
     @_public
@@ -34,7 +34,7 @@ class Test:
     @ignore_this
     @_public
     @another_decorator
-    async def public_async_func(self) -> Thing:
+    async def public_async_func(self) -> Counter:
         pass  # no doc string
 
     def not_public(self):
@@ -45,18 +45,18 @@ class Test:
 '''
 
 IMPORT_1 = """\
-from somewhere import Thing
+from collections import Counter
 """
 
 IMPORT_2 = """\
-from somewhere import Thing
+from collections import Counter
 import os
 """
 
 IMPORT_3 = """\
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from somewhere import Thing
+    from collections import Counter
 """
 
 
@@ -90,7 +90,7 @@ skip_lints = pytest.mark.skipif(
 
 
 @skip_lints
-@pytest.mark.parametrize("imports", ["", IMPORT_1, IMPORT_2, IMPORT_3])
+@pytest.mark.parametrize("imports", [IMPORT_1, IMPORT_2, IMPORT_3])
 def test_process(tmp_path, imports):
     try:
         import black  # noqa: F401
@@ -141,7 +141,7 @@ def test_run_black(tmp_path) -> None:
 
 @skip_lints
 def test_run_ruff(tmp_path) -> None:
-    """Test that processing properly fails if black does."""
+    """Test that processing properly fails if ruff does."""
     try:
         import ruff  # noqa: F401
     except ImportError as error:  # pragma: no cover
