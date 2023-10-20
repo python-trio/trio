@@ -22,7 +22,7 @@ T = TypeVar("T")
 # So... let's punt on that for now. Hopefully we'll be getting a new Python
 # TLS API soon and can revisit this then.
 async def open_ssl_over_tcp_stream(
-    host: str | bytes,
+    host: str,
     port: int,
     *,
     https_compatible: bool = False,
@@ -40,7 +40,7 @@ async def open_ssl_over_tcp_stream(
     data.
 
     Args:
-      host (bytes or str): The host to connect to. We require the server
+      host (str): The host to connect to. We require the server
           to have a TLS certificate valid for this hostname.
       port (int): The port to connect to.
       https_compatible (bool): Set this to True if you're connecting to a web

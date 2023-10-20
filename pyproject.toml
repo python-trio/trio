@@ -70,15 +70,13 @@ warn_return_any = true
 # Avoid subtle backsliding
 disallow_any_decorated = true
 disallow_any_generics = true
+disallow_any_unimported = true
 disallow_incomplete_defs = true
 disallow_subclassing_any = true
+disallow_untyped_calls = true
 disallow_untyped_decorators = true
 disallow_untyped_defs = true
 check_untyped_defs = true
-
-# Enable once other problems are dealt with
-disallow_untyped_calls = false
-disallow_any_unimported = false  # Enable once Outcome has stubs.
 
 [tool.pytest.ini_options]
 addopts = ["--strict-markers", "--strict-config"]

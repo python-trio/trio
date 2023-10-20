@@ -72,15 +72,20 @@ async def test_open_ssl_over_tcp_stream_and_everything_else(
     client_ctx: SSLContext,  # noqa: F811 # linters doesn't understand fixture
 ) -> None:
     async with trio.open_nursery() as nursery:
-        # TODO: the types are *very* funky here, this seems like an error in some signature
-        # unless this is doing stuff we don't want/expect end users to do
-        res: list[SSLListener[SocketListener]] = await nursery.start(
-            partial(serve_ssl_over_tcp, echo_handler, 0, SERVER_CTX, host="127.0.0.1")
+        # TODO: this function wraps an SSLListener around a SocketListener, this is illegal
+        # according to current type hints, and probably for good reason. But there should
+        # maybe be a different wrapper class/function that could be used instead?
+        res: list[SSLListener[SocketListener]] = (  # type: ignore[type-var]
+            await nursery.start(
+                partial(
+                    serve_ssl_over_tcp, echo_handler, 0, SERVER_CTX, host="127.0.0.1"
+                )
+            )
         )
         (listener,) = res
         async with listener:
             # listener.transport_listener is of type Listener[Stream]
-            tp_listener: SocketListener = listener.transport_listener
+            tp_listener: SocketListener = listener.transport_listener  # type: ignore[assignment]
 
             sockaddr = tp_listener.socket.getsockname()
             hostname_resolver = FakeHostnameResolver(sockaddr)

@@ -311,7 +311,7 @@ class Path(metaclass=AsyncAutoWrapperType):
         ...
 
     @overload
-    async def open(  # type: ignore[misc]  # Any usage matches builtins.open().
+    async def open(
         self,
         mode: str,
         buffering: int = -1,

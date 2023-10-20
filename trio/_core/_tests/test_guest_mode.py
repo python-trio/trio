@@ -20,7 +20,6 @@ from typing import (
     Callable,
     NoReturn,
     TypeVar,
-    cast,
 )
 
 import pytest
@@ -54,7 +53,7 @@ def trivial_guest_run(
     in_host_after_start: Callable[[], None] | None = None,
     **start_guest_run_kwargs: Any,
 ) -> T:
-    todo: queue.Queue[tuple[str, Outcome]] = queue.Queue()
+    todo: queue.Queue[tuple[str, Outcome[T] | Callable[..., object]]] = queue.Queue()
 
     host_thread = threading.current_thread()
 
@@ -76,7 +75,7 @@ def trivial_guest_run(
             todo.put(("run", crash))
         todo.put(("run", fn))
 
-    def done_callback(outcome: Outcome) -> None:
+    def done_callback(outcome: Outcome[T]) -> None:
         nonlocal todo
         todo.put(("unwrap", outcome))
 
@@ -95,9 +94,11 @@ def trivial_guest_run(
         while True:
             op, obj = todo.get()
             if op == "run":
+                assert not isinstance(obj, Outcome)
                 obj()
             elif op == "unwrap":
-                return obj.unwrap()  # type: ignore[no-any-return]
+                assert isinstance(obj, Outcome)
+                return obj.unwrap()
             else:  # pragma: no cover
                 assert False
     finally:
@@ -435,7 +436,7 @@ def aiotrio_run(
     async def aio_main() -> T:
         trio_done_fut = loop.create_future()
 
-        def trio_done_callback(main_outcome: Outcome) -> None:
+        def trio_done_callback(main_outcome: Outcome[object]) -> None:
             print(f"trio_fn finished: {main_outcome!r}")
             trio_done_fut.set_result(main_outcome)
 
@@ -462,7 +463,7 @@ def test_guest_mode_on_asyncio() -> None:
         print("trio_main!")
 
         to_trio, from_aio = trio.open_memory_channel[int](float("inf"))
-        from_trio = cast("asyncio.Queue[int]", asyncio.Queue())
+        from_trio: asyncio.Queue[int] = asyncio.Queue()
 
         aio_task = asyncio.ensure_future(aio_pingpong(from_trio, to_trio))
 

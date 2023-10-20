@@ -12,9 +12,7 @@ from ..testing import assert_checkpoints
 T = TypeVar("T")
 
 
-async def check_takes_about(
-    f: Callable[[], Awaitable[T]], expected_dur: float
-) -> Awaitable[T]:
+async def check_takes_about(f: Callable[[], Awaitable[T]], expected_dur: float) -> T:
     start = time.perf_counter()
     result = await outcome.acapture(f)
     dur = time.perf_counter() - start
@@ -41,7 +39,7 @@ async def check_takes_about(
     assert (1 - 1e-8) <= (dur / expected_dur) < 1.5
 
     # outcome is not typed
-    return result.unwrap()  # type: ignore[no-any-return]
+    return result.unwrap()
 
 
 # How long to (attempt to) sleep for when testing. Smaller numbers make the

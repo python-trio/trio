@@ -1188,7 +1188,7 @@ class _SocketType(SocketType):
         # We don't care about invalid types, sendto() will do the checking.
         return await self._nonblocking_helper(
             _core.wait_writable,
-            _stdlib_socket.socket.sendto,  # type: ignore[arg-type]
+            _stdlib_socket.socket.sendto,
             *args_list,
         )
 
