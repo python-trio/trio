@@ -41,7 +41,7 @@ if sys.version_info < (3, 11):
 # so this is unnecessary -- we can just pass in "infinity" and get the maximum
 # that way. (Verified on Windows, Linux, macOS using
 # notes-to-self/measure-listen-backlog.py)
-def _compute_backlog(backlog: int | float | None) -> int:
+def _compute_backlog(backlog: float | None) -> int:
     # Many systems (Linux, BSDs, ...) store the backlog in a uint16 and are
     # missing overflow protection, so we apply our own overflow protection.
     # https://github.com/golang/go/issues/5030
@@ -57,7 +57,7 @@ def _compute_backlog(backlog: int | float | None) -> int:
 
 
 async def open_tcp_listeners(
-    port: int, *, host: str | bytes | None = None, backlog: int | float | None = None
+    port: int, *, host: str | bytes | None = None, backlog: float | None = None
 ) -> list[trio.SocketListener]:
     """Create :class:`SocketListener` objects to listen for TCP connections.
 
@@ -169,7 +169,7 @@ async def serve_tcp(
     port: int,
     *,
     host: str | bytes | None = None,
-    backlog: int | float | None = None,
+    backlog: float | None = None,
     handler_nursery: trio.Nursery | None = None,
     task_status: TaskStatus[list[trio.SocketListener]] = trio.TASK_STATUS_IGNORED,
 ) -> None:
