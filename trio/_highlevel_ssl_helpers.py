@@ -8,10 +8,8 @@ import trio
 
 from ._highlevel_open_tcp_stream import DEFAULT_DELAY
 from ._highlevel_socket import SocketStream
-from .abc import Stream
 
 T = TypeVar("T")
-T_Stream = TypeVar("T_Stream", bound=Stream)
 
 
 # It might have been nice to take a ssl_protocols= argument here to set up
@@ -100,7 +98,7 @@ async def open_ssl_over_tcp_listeners(
 
 
 async def serve_ssl_over_tcp(
-    handler: Callable[[trio.SSLStream[T_Stream]], Awaitable[object]],
+    handler: Callable[[trio.SSLStream[SocketStream]], Awaitable[object]],
     port: int,
     ssl_context: ssl.SSLContext,
     *,
@@ -109,7 +107,7 @@ async def serve_ssl_over_tcp(
     backlog: int | float | None = None,
     handler_nursery: trio.Nursery | None = None,
     task_status: trio.TaskStatus[
-        list[trio.SSLListener[T_Stream]]
+        list[trio.SSLListener[SocketStream]]
     ] = trio.TASK_STATUS_IGNORED,
 ) -> NoReturn:
     """Listen for incoming TCP connections, and for each one start a task

@@ -10,6 +10,11 @@ from .._threads import to_thread_run_sync
 
 assert (sys.platform != "win32" and sys.platform != "darwin") or not TYPE_CHECKING
 
+if TYPE_CHECKING:
+
+    def sync_wait_reapable(pid: int) -> None:
+        ...
+
 
 try:
     from os import waitid

@@ -67,10 +67,10 @@ def _fake_err(code: int) -> NoReturn:
     raise OSError(code, os.strerror(code))
 
 
-def _scatter(data: bytes, buffers: Iterable[bytes]) -> int:
+def _scatter(data: bytes, buffers: Iterable[Buffer]) -> int:
     written = 0
     for buf in buffers:
-        next_piece = data[written : written + len(buf)]
+        next_piece = data[written : written + memoryview(buf).nbytes]
         with memoryview(buf) as mbuf:
             mbuf[: len(next_piece)] = next_piece
         written += len(next_piece)
@@ -107,6 +107,7 @@ class UDPEndpoint:
 @attr.frozen
 class UDPBinding:
     local: UDPEndpoint
+    # remote: UDPEndpoint # ??
 
 
 @attr.frozen
@@ -299,6 +300,10 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         ancdata = []
         flags = 0
         address = None
+
+        # This does *not* match up with socket.socket.sendmsg (!!!)
+        # https://docs.python.org/3/library/socket.html#socket.socket.sendmsg
+        # they always have (buffers, ancdata, flags, address)
         if len(args) == 1:
             (buffers,) = args
         elif len(args) == 2:
@@ -377,10 +382,17 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
             assert self.family == trio.socket.AF_INET6
             return ("::", 0)
 
-    def getpeername(self) -> None:
+    # TODO: This method is not tested, and seems to make incorrect assumptions. It should maybe raise NotImplementedError.
+    def getpeername(self) -> tuple[str, int] | tuple[str, int, int, int]:
         self._check_closed()
         if self._binding is not None:
+            assert hasattr(
+                self._binding, "remote"
+            ), "This method seems to assume that self._binding has a remote UDPEndpoint"
             if self._binding.remote is not None:
+                assert isinstance(
+                    self._binding.remote, UDPEndpoint
+                ), "Self._binding.remote should be a UDPEndpoint"
                 return self._binding.remote.as_python_sockaddr()
         _fake_err(errno.ENOTCONN)
 
@@ -416,9 +428,11 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
     ) -> None:
         self._check_closed()
 
-        if (level, optname) == (trio.socket.IPPROTO_IPV6, trio.socket.IPV6_V6ONLY):
-            if not value:
-                raise NotImplementedError("FakeNet always has IPV6_V6ONLY=True")
+        if (level, optname) == (
+            trio.socket.IPPROTO_IPV6,
+            trio.socket.IPV6_V6ONLY,
+        ) and not value:
+            raise NotImplementedError("FakeNet always has IPV6_V6ONLY=True")
 
         raise OSError(f"FakeNet doesn't implement setsockopt({level}, {optname}, ...)")
 
@@ -465,7 +479,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
     async def recvfrom_into(
         self, buf: Buffer, nbytes: int = 0, flags: int = 0
     ) -> tuple[int, Any]:
-        if nbytes != 0 and nbytes != len(buf):
+        if nbytes != 0 and nbytes != memoryview(buf).nbytes:
             raise NotImplementedError("partial recvfrom_into")
         got_nbytes, ancdata, msg_flags, address = await self.recvmsg_into(
             [buf], 0, flags
