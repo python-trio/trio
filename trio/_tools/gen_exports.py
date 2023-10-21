@@ -154,7 +154,8 @@ def run_ruff(file: File, source: str) -> tuple[bool, str]:
             sys.executable,
             "-m",
             "ruff",
-            "--fix-only",
+            "check",
+            "--fix",
             "--output-format=text",
             "--stdin-filename",
             file.path,
@@ -165,7 +166,7 @@ def run_ruff(file: File, source: str) -> tuple[bool, str]:
         encoding="utf8",
     )
 
-    if result.returncode != 0 or result.stderr:
+    if result.returncode != 0:
         return False, f"Failed to run ruff!\n{result.stderr}"
     return True, result.stdout
 

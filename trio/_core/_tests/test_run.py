@@ -17,7 +17,7 @@ from collections.abc import (
 )
 from contextlib import ExitStack, contextmanager
 from math import inf
-from typing import NoReturn, TypeVar
+from typing import Any, NoReturn, TypeVar, cast
 
 import outcome
 import pytest
@@ -2121,12 +2121,13 @@ async def test_permanently_detach_coroutine_object() -> None:
         nursery.start_soon(detachable_coroutine, outcome.Value(None), "I'm free!")
 
     # If we get here then Trio thinks the task has exited... but the coroutine
-    # is still iterable
+    # is still iterable. At that point anything can be sent into the coroutine, so the .coro type
+    # is wrong.
     assert pdco_outcome is None
-    assert not_none(task).coro.send("be free!") == "I'm free!"
+    assert not_none(task).coro.send(cast(Any, "be free!")) == "I'm free!"
     assert pdco_outcome == outcome.Value("be free!")
     with pytest.raises(StopIteration):
-        not_none(task).coro.send(None)
+        not_none(task).coro.send(cast(Any, None))
 
     # Check the exception paths too
     task = None
@@ -2139,7 +2140,7 @@ async def test_permanently_detach_coroutine_object() -> None:
     assert not_none(task).coro.throw(throw_in) == "uh oh"
     assert pdco_outcome == outcome.Error(throw_in)
     with pytest.raises(StopIteration):
-        task.coro.send(None)
+        task.coro.send(cast(Any, None))
 
     async def bad_detach() -> None:
         async with _core.open_nursery():
@@ -2190,9 +2191,9 @@ async def test_detach_and_reattach_coroutine_object() -> None:
         await wait_all_tasks_blocked()
 
         # Okay, it's detached. Here's our coroutine runner:
-        assert not_none(task).coro.send("not trio!") == 1
-        assert not_none(task).coro.send(None) == 2
-        assert not_none(task).coro.send(None) == "byebye"
+        assert not_none(task).coro.send(cast(Any, "not trio!")) == 1
+        assert not_none(task).coro.send(cast(Any, None)) == 2
+        assert not_none(task).coro.send(cast(Any, None)) == "byebye"
 
         # Now it's been reattached, and we can leave the nursery
 
@@ -2222,7 +2223,7 @@ async def test_detached_coroutine_cancellation() -> None:
         await wait_all_tasks_blocked()
         assert task is not None
         nursery.cancel_scope.cancel()
-        task.coro.send(None)
+        task.coro.send(cast(Any, None))
 
     assert abort_fn_called
 
