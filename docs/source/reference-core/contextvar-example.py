@@ -10,7 +10,7 @@ def log(msg):
     # Read from task-local storage:
     request_tag = request_info.get()
 
-    print("request {}: {}".format(request_tag, msg))
+    print(f"request {request_tag}: {msg}")
 
 
 # An example "request handler" that does some work itself and also
@@ -29,9 +29,9 @@ async def handle_request(tag):
 
 
 async def concurrent_helper(job):
-    log("Helper task {} started".format(job))
+    log(f"Helper task {job} started")
     await trio.sleep(random.random())
-    log("Helper task {} finished".format(job))
+    log(f"Helper task {job} finished")
 
 
 # Spawn several "request handlers" simultaneously, to simulate a

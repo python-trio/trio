@@ -1,7 +1,6 @@
 import logging
 import types
-import attr
-from typing import Any, Callable, Dict, List, Sequence, Iterator, TypeVar
+from typing import Any, Callable, Dict, Sequence, TypeVar
 
 from .._abc import Instrument
 
@@ -10,6 +9,7 @@ INSTRUMENT_LOGGER = logging.getLogger("trio.abc.Instrument")
 
 
 F = TypeVar("F", bound=Callable[..., Any])
+
 
 # Decorator to mark methods public. This does nothing by itself, but
 # trio/_tools/gen_exports.py looks for it.
@@ -98,7 +98,7 @@ class Instruments(Dict[str, Dict[Instrument, None]]):
         for instrument in list(self[hookname]):
             try:
                 getattr(instrument, hookname)(*args)
-            except:
+            except BaseException:
                 self.remove_instrument(instrument)
                 INSTRUMENT_LOGGER.exception(
                     "Exception raised when calling %r on instrument %r. "

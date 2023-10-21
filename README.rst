@@ -9,14 +9,14 @@
 .. image:: https://img.shields.io/badge/docs-read%20now-blue.svg
    :target: https://trio.readthedocs.io
    :alt: Documentation
-   
+
 .. image:: https://img.shields.io/pypi/v/trio.svg
    :target: https://pypi.org/project/trio
    :alt: Latest PyPi version
 
 .. image:: https://img.shields.io/conda/vn/conda-forge/trio.svg
    :target: https://anaconda.org/conda-forge/trio
-   :alt: Latest conda-forge version   
+   :alt: Latest conda-forge version
 
 .. image:: https://codecov.io/gh/python-trio/trio/branch/master/graph/badge.svg
    :target: https://codecov.io/gh/python-trio/trio
@@ -29,14 +29,14 @@ Trio – a friendly Python library for async concurrency and I/O
    :width: 200px
    :align: right
 
-The Trio project's goal is to produce a production-quality,
+The Trio project aims to produce a production-quality,
 `permissively licensed
 <https://github.com/python-trio/trio/blob/master/LICENSE>`__,
 async/await-native I/O library for Python. Like all async libraries,
 its main purpose is to help you write programs that do **multiple
 things at the same time** with **parallelized I/O**. A web spider that
 wants to fetch lots of pages in parallel, a web server that needs to
-juggle lots of downloads and websocket connections at the same time, a
+juggle lots of downloads and websocket connections simultaneously, a
 process supervisor monitoring multiple subprocesses... that sort of
 thing. Compared to other libraries, Trio attempts to distinguish
 itself with an obsessive focus on **usability** and
@@ -57,11 +57,11 @@ fun. `Perhaps you'll find the same
 <https://github.com/python-trio/trio/wiki/Testimonials>`__.
 
 This project is young and still somewhat experimental: the overall
-design is solid and the existing features are fully tested and
+design is solid, and the existing features are fully tested and
 documented, but you may encounter missing functionality or rough
 edges. We *do* encourage you to use it, but you should `read and
 subscribe to issue #1
-<https://github.com/python-trio/trio/issues/1>`__ to get warning and a
+<https://github.com/python-trio/trio/issues/1>`__ to get a warning and a
 chance to give feedback about any compatibility-breaking changes.
 
 
@@ -92,14 +92,15 @@ demonstration of implementing the "Happy Eyeballs" algorithm in an
 older library versus Trio.
 
 **Cool, but will it work on my system?** Probably! As long as you have
-some kind of Python 3.6-or-better (CPython or the latest PyPy3 are
-both fine), and are using Linux, macOS, Windows, or FreeBSD, then Trio
-should definitely work. Other environments might work too, but those
+some kind of Python 3.8-or-better (CPython or [currently maintained versions of
+PyPy3](https://doc.pypy.org/en/latest/faq.html#which-python-versions-does-pypy-implement)
+are both fine), and are using Linux, macOS, Windows, or FreeBSD, then Trio
+will work. Other environments might work too, but those
 are the ones we test on. And all of our dependencies are pure Python,
-except for CFFI on Windows, and that has wheels available, so
+except for CFFI on Windows, which has wheels available, so
 installation should be easy (no C compiler needed).
 
-**I tried it but it's not working.** Sorry to hear that! You can try
+**I tried it, but it's not working.** Sorry to hear that! You can try
 asking for help in our `chat room
 <https://gitter.im/python-trio/general>`__ or `forum
 <https://trio.discourse.group>`__, `filing a bug
@@ -108,7 +109,7 @@ question on StackOverflow
 <https://stackoverflow.com/questions/ask?tags=python+python-trio>`__,
 and we'll do our best to help you out.
 
-**Trio is awesome and I want to help make it more awesome!** You're
+**Trio is awesome, and I want to help make it more awesome!** You're
 the best! There's tons of work to do – filling in missing
 functionality, building up an ecosystem of Trio-using libraries,
 usability testing (e.g., maybe try teaching yourself or a friend to

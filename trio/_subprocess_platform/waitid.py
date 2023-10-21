@@ -2,17 +2,20 @@ import errno
 import math
 import os
 import sys
+from typing import TYPE_CHECKING
 
 from .. import _core, _subprocess
 from .._sync import CapacityLimiter, Event
 from .._threads import to_thread_run_sync
 
+assert (sys.platform != "win32" and sys.platform != "darwin") or not TYPE_CHECKING
+
+
 try:
     from os import waitid
 
-    def sync_wait_reapable(pid):
+    def sync_wait_reapable(pid: int) -> None:
         waitid(os.P_PID, pid, os.WEXITED | os.WNOWAIT)
-
 
 except ImportError:
     # pypy doesn't define os.waitid so we need to pull it out ourselves
@@ -40,9 +43,9 @@ typedef struct siginfo_s {
 int waitid(int idtype, int id, siginfo_t* result, int options);
 """
     )
-    waitid = waitid_ffi.dlopen(None).waitid
+    waitid_cffi = waitid_ffi.dlopen(None).waitid  # type: ignore[attr-defined]
 
-    def sync_wait_reapable(pid):
+    def sync_wait_reapable(pid: int) -> None:
         P_PID = 1
         WEXITED = 0x00000004
         if sys.platform == "darwin":  # pragma: no cover
@@ -53,7 +56,7 @@ int waitid(int idtype, int id, siginfo_t* result, int options);
         else:
             WNOWAIT = 0x01000000
         result = waitid_ffi.new("siginfo_t *")
-        while waitid(P_PID, pid, result, WEXITED | WNOWAIT) < 0:
+        while waitid_cffi(P_PID, pid, result, WEXITED | WNOWAIT) < 0:
             got_errno = waitid_ffi.errno
             if got_errno == errno.EINTR:
                 continue
@@ -102,7 +105,7 @@ async def wait_child_exiting(process: "_subprocess.Process") -> None:
     #   process.
 
     if process._wait_for_exit_data is None:
-        process._wait_for_exit_data = event = Event()  # type: ignore
+        process._wait_for_exit_data = event = Event()
         _core.spawn_system_task(_waitid_system_task, process.pid, event)
     assert isinstance(process._wait_for_exit_data, Event)
     await process._wait_for_exit_data.wait()

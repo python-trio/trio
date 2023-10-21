@@ -1,2 +1,0 @@
-Add synchronous ``.close()`` methods and context manager (``with x``) support
-for `.MemorySendChannel` and `.MemoryReceiveChannel`.

@@ -1,8 +1,19 @@
-# coding: utf-8
+from __future__ import annotations
 
+import socket
 from abc import ABCMeta, abstractmethod
-from typing import Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar
+
 import trio
+
+if TYPE_CHECKING:
+    from types import TracebackType
+
+    from typing_extensions import Self
+
+    # both of these introduce circular imports if outside a TYPE_CHECKING guard
+    from ._socket import SocketType
+    from .lowlevel import Task
 
 
 # We use ABCMeta instead of ABC, plus set __slots__=(), so as not to force a
@@ -13,7 +24,7 @@ class Clock(metaclass=ABCMeta):
     __slots__ = ()
 
     @abstractmethod
-    def start_clock(self):
+    def start_clock(self) -> None:
         """Do any setup this clock might need.
 
         Called at the beginning of the run.
@@ -21,7 +32,7 @@ class Clock(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def current_time(self):
+    def current_time(self) -> float:
         """Return the current time, according to this clock.
 
         This is used to implement functions like :func:`trio.current_time` and
@@ -33,7 +44,7 @@ class Clock(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def deadline_to_sleep_time(self, deadline):
+    def deadline_to_sleep_time(self, deadline: float) -> float:
         """Compute the real time until the given deadline.
 
         This is called before we enter a system-specific wait function like
@@ -67,13 +78,13 @@ class Instrument(metaclass=ABCMeta):
 
     __slots__ = ()
 
-    def before_run(self):
+    def before_run(self) -> None:
         """Called at the beginning of :func:`trio.run`."""
 
-    def after_run(self):
+    def after_run(self) -> None:
         """Called just before :func:`trio.run` returns."""
 
-    def task_spawned(self, task):
+    def task_spawned(self, task: Task) -> None:
         """Called when the given task is created.
 
         Args:
@@ -81,7 +92,7 @@ class Instrument(metaclass=ABCMeta):
 
         """
 
-    def task_scheduled(self, task):
+    def task_scheduled(self, task: Task) -> None:
         """Called when the given task becomes runnable.
 
         It may still be some time before it actually runs, if there are other
@@ -92,7 +103,7 @@ class Instrument(metaclass=ABCMeta):
 
         """
 
-    def before_task_step(self, task):
+    def before_task_step(self, task: Task) -> None:
         """Called immediately before we resume running the given task.
 
         Args:
@@ -100,7 +111,7 @@ class Instrument(metaclass=ABCMeta):
 
         """
 
-    def after_task_step(self, task):
+    def after_task_step(self, task: Task) -> None:
         """Called when we return to the main run loop after a task has yielded.
 
         Args:
@@ -108,7 +119,7 @@ class Instrument(metaclass=ABCMeta):
 
         """
 
-    def task_exited(self, task):
+    def task_exited(self, task: Task) -> None:
         """Called when the given task exits.
 
         Args:
@@ -116,7 +127,7 @@ class Instrument(metaclass=ABCMeta):
 
         """
 
-    def before_io_wait(self, timeout):
+    def before_io_wait(self, timeout: float) -> None:
         """Called before blocking to wait for I/O readiness.
 
         Args:
@@ -124,7 +135,7 @@ class Instrument(metaclass=ABCMeta):
 
         """
 
-    def after_io_wait(self, timeout):
+    def after_io_wait(self, timeout: float) -> None:
         """Called after handling pending I/O.
 
         Args:
@@ -146,7 +157,23 @@ class HostnameResolver(metaclass=ABCMeta):
     __slots__ = ()
 
     @abstractmethod
-    async def getaddrinfo(self, host, port, family=0, type=0, proto=0, flags=0):
+    async def getaddrinfo(
+        self,
+        host: bytes | str | None,
+        port: bytes | str | int | None,
+        family: int = 0,
+        type: int = 0,
+        proto: int = 0,
+        flags: int = 0,
+    ) -> list[
+        tuple[
+            socket.AddressFamily,
+            socket.SocketKind,
+            int,
+            str,
+            tuple[str, int] | tuple[str, int, int, int],
+        ]
+    ]:
         """A custom implementation of :func:`~trio.socket.getaddrinfo`.
 
         Called by :func:`trio.socket.getaddrinfo`.
@@ -163,7 +190,9 @@ class HostnameResolver(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    async def getnameinfo(self, sockaddr, flags):
+    async def getnameinfo(
+        self, sockaddr: tuple[str, int] | tuple[str, int, int, int], flags: int
+    ) -> tuple[str, str]:
         """A custom implementation of :func:`~trio.socket.getnameinfo`.
 
         Called by :func:`trio.socket.getnameinfo`.
@@ -180,7 +209,12 @@ class SocketFactory(metaclass=ABCMeta):
     """
 
     @abstractmethod
-    def socket(self, family=None, type=None, proto=None):
+    def socket(
+        self,
+        family: socket.AddressFamily | int = socket.AF_INET,
+        type: socket.SocketKind | int = socket.SOCK_STREAM,
+        proto: int = 0,
+    ) -> SocketType:
         """Create and return a socket object.
 
         Your socket object must inherit from :class:`trio.socket.SocketType`,
@@ -226,7 +260,7 @@ class AsyncResource(metaclass=ABCMeta):
     __slots__ = ()
 
     @abstractmethod
-    async def aclose(self):
+    async def aclose(self) -> None:
         """Close this resource, possibly blocking.
 
         IMPORTANT: This method may block in order to perform a "graceful"
@@ -254,10 +288,15 @@ class AsyncResource(metaclass=ABCMeta):
 
         """
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Self:
         return self
 
-    async def __aexit__(self, *args):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         await self.aclose()
 
 
@@ -280,7 +319,7 @@ class SendStream(AsyncResource):
     __slots__ = ()
 
     @abstractmethod
-    async def send_all(self, data):
+    async def send_all(self, data: bytes | bytearray | memoryview) -> None:
         """Sends the given data through the stream, blocking if necessary.
 
         Args:
@@ -306,7 +345,7 @@ class SendStream(AsyncResource):
         """
 
     @abstractmethod
-    async def wait_send_all_might_not_block(self):
+    async def wait_send_all_might_not_block(self) -> None:
         """Block until it's possible that :meth:`send_all` might not block.
 
         This method may return early: it's possible that after it returns,
@@ -333,7 +372,7 @@ class SendStream(AsyncResource):
 
           This method is intended to aid in implementing protocols that want
           to delay choosing which data to send until the last moment. E.g.,
-          suppose you're working on an implemention of a remote display server
+          suppose you're working on an implementation of a remote display server
           like `VNC
           <https://en.wikipedia.org/wiki/Virtual_Network_Computing>`__, and
           the network connection is currently backed up so that if you call
@@ -386,7 +425,7 @@ class ReceiveStream(AsyncResource):
     __slots__ = ()
 
     @abstractmethod
-    async def receive_some(self, max_bytes=None):
+    async def receive_some(self, max_bytes: int | None = None) -> bytes | bytearray:
         """Wait until there is data available on this stream, and then return
         some of it.
 
@@ -414,10 +453,10 @@ class ReceiveStream(AsyncResource):
 
         """
 
-    def __aiter__(self):
+    def __aiter__(self) -> Self:
         return self
 
-    async def __anext__(self):
+    async def __anext__(self) -> bytes | bytearray:
         data = await self.receive_some()
         if not data:
             raise StopAsyncIteration
@@ -447,7 +486,7 @@ class HalfCloseableStream(Stream):
     __slots__ = ()
 
     @abstractmethod
-    async def send_eof(self):
+    async def send_eof(self) -> None:
         """Send an end-of-file indication on this stream, if possible.
 
         The difference between :meth:`send_eof` and
@@ -526,7 +565,7 @@ class Listener(AsyncResource, Generic[T_resource]):
     __slots__ = ()
 
     @abstractmethod
-    async def accept(self):
+    async def accept(self) -> T_resource:
         """Wait until an incoming connection arrives, and then return it.
 
         Returns:
@@ -633,7 +672,7 @@ class ReceiveChannel(AsyncResource, Generic[ReceiveType]):
 
         """
 
-    def __aiter__(self):
+    def __aiter__(self) -> Self:
         return self
 
     async def __anext__(self) -> ReceiveType:

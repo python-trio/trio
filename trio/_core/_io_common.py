@@ -1,10 +1,19 @@
+from __future__ import annotations
+
 import copy
+from typing import TYPE_CHECKING
+
 import outcome
+
 from .. import _core
+
+if TYPE_CHECKING:
+    from ._io_epoll import EpollWaiters
+    from ._io_windows import AFDWaiters
 
 
 # Utility function shared between _io_epoll and _io_windows
-def wake_all(waiters, exc):
+def wake_all(waiters: EpollWaiters | AFDWaiters, exc: BaseException) -> None:
     try:
         current_task = _core.current_task()
     except RuntimeError:

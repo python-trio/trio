@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 import sys
 from typing import TYPE_CHECKING
+
 from . import _core
-from ._abc import SendStream, ReceiveStream
-from ._util import ConflictDetector, Final
-from ._core._windows_cffi import _handle, raise_winerror, kernel32, ffi
+from ._abc import ReceiveStream, SendStream
+from ._core._windows_cffi import _handle, kernel32, raise_winerror
+from ._util import ConflictDetector, final
 
 assert sys.platform == "win32" or not TYPE_CHECKING
 
@@ -22,10 +25,10 @@ class _HandleHolder:
         _core.register_with_iocp(self.handle)
 
     @property
-    def closed(self):
+    def closed(self) -> bool:
         return self.handle == -1
 
-    def _close(self):
+    def close(self) -> None:
         if self.closed:
             return
         handle = self.handle
@@ -33,15 +36,12 @@ class _HandleHolder:
         if not kernel32.CloseHandle(_handle(handle)):
             raise_winerror()
 
-    async def aclose(self):
-        self._close()
-        await _core.checkpoint()
-
-    def __del__(self):
-        self._close()
+    def __del__(self) -> None:
+        self.close()
 
 
-class PipeSendStream(SendStream, metaclass=Final):
+@final
+class PipeSendStream(SendStream):
     """Represents a send stream over a Windows named pipe that has been
     opened in OVERLAPPED mode.
     """
@@ -52,7 +52,7 @@ class PipeSendStream(SendStream, metaclass=Final):
             "another task is currently using this pipe"
         )
 
-    async def send_all(self, data: bytes):
+    async def send_all(self, data: bytes) -> None:
         with self._conflict_detector:
             if self._handle_holder.closed:
                 raise _core.ClosedResourceError("this pipe is already closed")
@@ -78,11 +78,16 @@ class PipeSendStream(SendStream, metaclass=Final):
             # not implemented yet, and probably not needed
             await _core.checkpoint()
 
-    async def aclose(self):
-        await self._handle_holder.aclose()
+    def close(self) -> None:
+        self._handle_holder.close()
+
+    async def aclose(self) -> None:
+        self.close()
+        await _core.checkpoint()
 
 
-class PipeReceiveStream(ReceiveStream, metaclass=Final):
+@final
+class PipeReceiveStream(ReceiveStream):
     """Represents a receive stream over an os.pipe object."""
 
     def __init__(self, handle: int) -> None:
@@ -91,7 +96,7 @@ class PipeReceiveStream(ReceiveStream, metaclass=Final):
             "another task is currently using this pipe"
         )
 
-    async def receive_some(self, max_bytes=None) -> bytes:
+    async def receive_some(self, max_bytes: int | None = None) -> bytes:
         with self._conflict_detector:
             if self._handle_holder.closed:
                 raise _core.ClosedResourceError("this pipe is already closed")
@@ -130,5 +135,9 @@ class PipeReceiveStream(ReceiveStream, metaclass=Final):
                 del buffer[size:]
                 return buffer
 
-    async def aclose(self):
-        await self._handle_holder.aclose()
+    def close(self) -> None:
+        self._handle_holder.close()
+
+    async def aclose(self) -> None:
+        self.close()
+        await _core.checkpoint()

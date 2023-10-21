@@ -1,16 +1,21 @@
+from __future__ import annotations
+
 import math
-from . import _timeouts
+
 import trio
+
 from ._core._windows_cffi import (
-    ffi,
-    kernel32,
+    CData,
     ErrorCodes,
-    raise_winerror,
     _handle,
+    ffi,
+    handle_array,
+    kernel32,
+    raise_winerror,
 )
 
 
-async def WaitForSingleObject(obj):
+async def WaitForSingleObject(obj: int | CData) -> None:
     """Async and cancellable variant of WaitForSingleObject. Windows only.
 
     Args:
@@ -50,10 +55,10 @@ async def WaitForSingleObject(obj):
         kernel32.CloseHandle(cancel_handle)
 
 
-def WaitForMultipleObjects_sync(*handles):
+def WaitForMultipleObjects_sync(*handles: int | CData) -> None:
     """Wait for any of the given Windows handles to be signaled."""
     n = len(handles)
-    handle_arr = ffi.new("HANDLE[{}]".format(n))
+    handle_arr = handle_array(n)
     for i in range(n):
         handle_arr[i] = handles[i]
     timeout = 0xFFFFFFFF  # INFINITE

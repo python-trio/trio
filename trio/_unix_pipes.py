@@ -1,10 +1,19 @@
-import os
-import errno
+from __future__ import annotations
 
-from ._abc import Stream
-from ._util import ConflictDetector, Final
+import errno
+import os
+import sys
+from typing import TYPE_CHECKING
 
 import trio
+
+from ._abc import Stream
+from ._util import ConflictDetector, final
+
+if TYPE_CHECKING:
+    from typing import Final as FinalType
+
+assert not TYPE_CHECKING or sys.platform != "win32"
 
 if os.name != "posix":
     # We raise an error here rather than gating the import in lowlevel.py
@@ -13,7 +22,7 @@ if os.name != "posix":
 
 # XX TODO: is this a good number? who knows... it does match the default Linux
 # pipe capacity though.
-DEFAULT_RECEIVE_SIZE = 65536
+DEFAULT_RECEIVE_SIZE: FinalType = 65536
 
 
 class _FdHolder:
@@ -34,7 +43,9 @@ class _FdHolder:
     # impossible to make this mistake – we'll just get an EBADF.
     #
     # (This trick was copied from the stdlib socket module.)
-    def __init__(self, fd: int):
+    fd: int
+
+    def __init__(self, fd: int) -> None:
         # make sure self.fd is always initialized to *something*, because even
         # if we error out here then __del__ will run and access it.
         self.fd = -1
@@ -46,10 +57,10 @@ class _FdHolder:
         os.set_blocking(fd, False)
 
     @property
-    def closed(self):
+    def closed(self) -> bool:
         return self.fd == -1
 
-    def _raw_close(self):
+    def _raw_close(self) -> None:
         # This doesn't assume it's in a Trio context, so it can be called from
         # __del__. You should never call it from Trio context, because it
         # skips calling notify_fd_close. But from __del__, skipping that is
@@ -64,17 +75,17 @@ class _FdHolder:
         os.set_blocking(fd, self._original_is_blocking)
         os.close(fd)
 
-    def __del__(self):
+    def __del__(self) -> None:
         self._raw_close()
 
-    async def aclose(self):
+    def close(self) -> None:
         if not self.closed:
             trio.lowlevel.notify_closing(self.fd)
             self._raw_close()
-        await trio.lowlevel.checkpoint()
 
 
-class FdStream(Stream, metaclass=Final):
+@final
+class FdStream(Stream):
     """
     Represents a stream given the file descriptor to a pipe, TTY, etc.
 
@@ -94,7 +105,7 @@ class FdStream(Stream, metaclass=Final):
     thrust upon them.  For example, you can use
     ``FdStream(os.dup(sys.stdin.fileno()))`` to obtain a stream for reading
     from standard input, but it is only safe to do so with heavy caveats: your
-    stdin must not be shared by any other processes and you must not make any
+    stdin must not be shared by any other processes, and you must not make any
     calls to synchronous methods of `sys.stdin` until the stream returned by
     `FdStream` is closed. See `issue #174
     <https://github.com/python-trio/trio/issues/174>`__ for a discussion of the
@@ -107,7 +118,7 @@ class FdStream(Stream, metaclass=Final):
       A new `FdStream` object.
     """
 
-    def __init__(self, fd: int):
+    def __init__(self, fd: int) -> None:
         self._fd_holder = _FdHolder(fd)
         self._send_conflict_detector = ConflictDetector(
             "another task is using this stream for send"
@@ -116,7 +127,7 @@ class FdStream(Stream, metaclass=Final):
             "another task is using this stream for receive"
         )
 
-    async def send_all(self, data: bytes):
+    async def send_all(self, data: bytes) -> None:
         with self._send_conflict_detector:
             # have to check up front, because send_all(b"") on a closed pipe
             # should raise
@@ -152,7 +163,7 @@ class FdStream(Stream, metaclass=Final):
                 # of sending, which is annoying
                 raise trio.BrokenResourceError from e
 
-    async def receive_some(self, max_bytes=None) -> bytes:
+    async def receive_some(self, max_bytes: int | None = None) -> bytes:
         with self._receive_conflict_detector:
             if max_bytes is None:
                 max_bytes = DEFAULT_RECEIVE_SIZE
@@ -180,8 +191,12 @@ class FdStream(Stream, metaclass=Final):
 
             return data
 
-    async def aclose(self):
-        await self._fd_holder.aclose()
+    def close(self) -> None:
+        self._fd_holder.close()
 
-    def fileno(self):
+    async def aclose(self) -> None:
+        self.close()
+        await trio.lowlevel.checkpoint()
+
+    def fileno(self) -> int:
         return self._fd_holder.fd

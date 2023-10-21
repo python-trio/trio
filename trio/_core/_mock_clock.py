@@ -2,9 +2,9 @@ import time
 from math import inf
 
 from .. import _core
-from ._run import GLOBAL_RUN_CONTEXT
 from .._abc import Clock
-from .._util import Final
+from .._util import final
+from ._run import GLOBAL_RUN_CONTEXT
 
 ################################################################
 # The glorious MockClock
@@ -14,7 +14,8 @@ from .._util import Final
 # Prior art:
 #   https://twistedmatrix.com/documents/current/api/twisted.internet.task.Clock.html
 #   https://github.com/ztellman/manifold/issues/57
-class MockClock(Clock, metaclass=Final):
+@final
+class MockClock(Clock):
     """A user-controllable clock suitable for writing tests.
 
     Args:
@@ -62,7 +63,7 @@ class MockClock(Clock, metaclass=Final):
 
     """
 
-    def __init__(self, rate=0.0, autojump_threshold=inf):
+    def __init__(self, rate: float = 0.0, autojump_threshold: float = inf):
         # when the real clock said 'real_base', the virtual time was
         # 'virtual_base', and since then it's advanced at 'rate' virtual
         # seconds per real second.
@@ -77,17 +78,17 @@ class MockClock(Clock, metaclass=Final):
         self.rate = rate
         self.autojump_threshold = autojump_threshold
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<MockClock, time={:.7f}, rate={} @ {:#x}>".format(
             self.current_time(), self._rate, id(self)
         )
 
     @property
-    def rate(self):
+    def rate(self) -> float:
         return self._rate
 
     @rate.setter
-    def rate(self, new_rate):
+    def rate(self, new_rate: float) -> None:
         if new_rate < 0:
             raise ValueError("rate must be >= 0")
         else:
@@ -98,11 +99,11 @@ class MockClock(Clock, metaclass=Final):
             self._rate = float(new_rate)
 
     @property
-    def autojump_threshold(self):
+    def autojump_threshold(self) -> float:
         return self._autojump_threshold
 
     @autojump_threshold.setter
-    def autojump_threshold(self, new_autojump_threshold):
+    def autojump_threshold(self, new_autojump_threshold: float) -> None:
         self._autojump_threshold = float(new_autojump_threshold)
         self._try_resync_autojump_threshold()
 
@@ -112,7 +113,7 @@ class MockClock(Clock, metaclass=Final):
     # API. Discussion:
     #
     #     https://github.com/python-trio/trio/issues/1587
-    def _try_resync_autojump_threshold(self):
+    def _try_resync_autojump_threshold(self) -> None:
         try:
             runner = GLOBAL_RUN_CONTEXT.runner
             if runner.is_guest:
@@ -124,24 +125,24 @@ class MockClock(Clock, metaclass=Final):
 
     # Invoked by the run loop when runner.clock_autojump_threshold is
     # exceeded.
-    def _autojump(self):
+    def _autojump(self) -> None:
         statistics = _core.current_statistics()
         jump = statistics.seconds_to_next_deadline
         if 0 < jump < inf:
             self.jump(jump)
 
-    def _real_to_virtual(self, real):
+    def _real_to_virtual(self, real: float) -> float:
         real_offset = real - self._real_base
         virtual_offset = self._rate * real_offset
         return self._virtual_base + virtual_offset
 
-    def start_clock(self):
+    def start_clock(self) -> None:
         self._try_resync_autojump_threshold()
 
-    def current_time(self):
+    def current_time(self) -> float:
         return self._real_to_virtual(self._real_clock())
 
-    def deadline_to_sleep_time(self, deadline):
+    def deadline_to_sleep_time(self, deadline: float) -> float:
         virtual_timeout = deadline - self.current_time()
         if virtual_timeout <= 0:
             return 0
@@ -150,7 +151,7 @@ class MockClock(Clock, metaclass=Final):
         else:
             return 999999999
 
-    def jump(self, seconds):
+    def jump(self, seconds: float) -> None:
         """Manually advance the clock by the given number of seconds.
 
         Args:

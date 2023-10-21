@@ -1,5 +1,7 @@
-import trio
 import time
+
+import trio
+
 
 async def loopy():
     try:
@@ -9,10 +11,12 @@ async def loopy():
     except KeyboardInterrupt:
         print("KI!")
 
+
 async def main():
     async with trio.open_nursery() as nursery:
         nursery.start_soon(loopy)
         nursery.start_soon(loopy)
         nursery.start_soon(loopy)
+
 
 trio.run(main)

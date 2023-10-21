@@ -461,15 +461,9 @@ of our public APIs without having to modify Trio internals.
 Inside ``trio._core``
 ~~~~~~~~~~~~~~~~~~~~~
 
-There are two notable sub-modules that are largely independent of
-the rest of Trio, and could (possibly should?) be extracted into their
-own independent packages:
-
-* ``_multierror.py``: Implements :class:`MultiError` and associated
-  infrastructure.
-
-* ``_ki.py``: Implements the core infrastructure for safe handling of
-  :class:`KeyboardInterrupt`.
+The ``_ki.py`` module implements the core infrastructure for safe handling
+of :class:`KeyboardInterrupt`.  It's largely independent of the rest of Trio,
+and could (possibly should?) be extracted into its own independent package.
 
 The most important submodule, where everything is integrated, is
 ``_run.py``. (This is also by far the largest submodule; it'd be nice
@@ -505,7 +499,7 @@ several reasons:
   with whatever we get. We want more control over our users'
   experience than that.
 
-* Impedence mismatch: the :mod:`selectors` API isn't particularly
+* Impedance mismatch: the :mod:`selectors` API isn't particularly
   well-fitted to how we want to use it. For example, kqueue natively
   treats an interest in readability of some fd as a separate thing
   from an interest in that same fd's writability, which neatly matches

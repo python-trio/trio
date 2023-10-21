@@ -49,7 +49,11 @@ attributes, :meth:`trio.Lock.statistics`, etc.). Here are some more.
 Global statistics
 -----------------
 
-.. autofunction:: current_statistics
+.. function:: current_statistics() -> RunStatistics
+
+   Returns an object containing run-loop-level debugging information:
+
+.. autoclass:: RunStatistics()
 
 
 The current clock
@@ -104,6 +108,12 @@ And here's the interface to implement if you want to build your own
 The tutorial has a :ref:`fully-worked example
 <tutorial-instrument-example>` of defining a custom instrument to log
 Trio's internal scheduling decisions.
+
+
+Low-level process spawning
+==========================
+
+.. autofunction:: trio.lowlevel.open_process
 
 
 Low-level I/O primitives
@@ -372,6 +382,8 @@ Wait queue abstraction
    :members:
    :undoc-members:
 
+.. autoclass:: ParkingLotStatistics
+   :members:
 
 Low-level checkpoint functions
 ------------------------------
@@ -454,13 +466,22 @@ this does serve to illustrate the basic structure of the
            self._held = False
 
        async def acquire(self):
+           # We might have to try several times to acquire the lock.
            while self._held:
+               # Someone else has the lock, so we have to wait.
                task = trio.lowlevel.current_task()
                self._blocked_tasks.append(task)
                def abort_fn(_):
                    self._blocked_tasks.remove(task)
                    return trio.lowlevel.Abort.SUCCEEDED
                await trio.lowlevel.wait_task_rescheduled(abort_fn)
+               # At this point the lock was released -- but someone else
+               # might have swooped in and taken it again before we
+               # woke up. So we loop around to check the 'while' condition
+               # again.
+           # if we reach this point, it means that the 'while' condition
+           # has just failed, so we know no-one is holding the lock, and
+           # we can take it.
            self._held = True
 
        def release(self):
@@ -495,25 +516,9 @@ Task API
 
    .. attribute:: coro
 
-      This task's coroutine object. Example usage: extracting a stack
-      trace::
+      This task's coroutine object.
 
-          import traceback
-
-          def walk_coro_stack(coro):
-              while coro is not None:
-                  if hasattr(coro, "cr_frame"):
-                      # A real coroutine
-                      yield coro.cr_frame, coro.cr_frame.f_lineno
-                      coro = coro.cr_await
-                  else:
-                      # A generator decorated with @types.coroutine
-                      yield coro.gi_frame, coro.gi_frame.f_lineno
-                      coro = coro.gi_yieldfrom
-
-          def print_stack_for_task(task):
-              ss = traceback.StackSummary.extract(walk_coro_stack(task.coro))
-              print("".join(ss.format()))
+   .. automethod:: iter_await_frames
 
    .. attribute:: context
 
@@ -532,7 +537,6 @@ Task API
       used to share data between the different tasks involved in
       putting a task to sleep and then waking it up again. (See
       :func:`wait_task_rescheduled` for details.)
-
 
 .. _guest-mode:
 
@@ -695,8 +699,8 @@ can use as a model::
 
     # A tiny Trio program
     async def trio_main():
-        for i in range(5):
-            print(f"Hello from Trio!")
+        for _ in range(5):
+            print("Hello from Trio!")
             # This is inside Trio, so we have to use Trio APIs
             await trio.sleep(1)
         return "trio done!"
@@ -785,7 +789,7 @@ Here's how we'd extend our asyncio example to implement this pattern:
            asyncio_loop.call_soon_threadsafe(fn)
 
        # Revised 'done' callback: set a Future
-       done_fut = asyncio.Future()
+       done_fut = asyncio_loop.create_future()
        def done_callback(trio_main_outcome):
            done_fut.set_result(trio_main_outcome)
 

@@ -1,8 +1,10 @@
-import trio
 import time
+
+import trio
 
 LOOPS = 0
 RUNNING = True
+
 
 async def reschedule_loop(depth):
     if depth == 0:
@@ -10,9 +12,10 @@ async def reschedule_loop(depth):
         while RUNNING:
             LOOPS += 1
             await trio.sleep(0)
-            #await trio.lowlevel.cancel_shielded_checkpoint()
+            # await trio.lowlevel.cancel_shielded_checkpoint()
     else:
         await reschedule_loop(depth - 1)
+
 
 async def report_loop():
     global RUNNING
@@ -25,13 +28,15 @@ async def report_loop():
             end_count = LOOPS
             loops = end_count - start_count
             duration = end_time - start_time
-            print("{} loops/sec".format(loops / duration))
+            print(f"{loops / duration} loops/sec")
     finally:
         RUNNING = False
+
 
 async def main():
     async with trio.open_nursery() as nursery:
         nursery.start_soon(reschedule_loop, 10)
         nursery.start_soon(report_loop)
+
 
 trio.run(main)
