@@ -1653,7 +1653,7 @@ async def test_trivial_yields() -> None:
 
     before_schedule_points = task._schedule_points
 
-    async def noop_with_no_checkpoint():
+    async def noop_with_no_checkpoint() -> None:
         pass
 
     with _core.CancelScope() as cs:
@@ -1755,8 +1755,10 @@ async def test_nursery_start(autojump_clock: _core.MockClock) -> None:
 
     # but if the task does not execute any checkpoints, and exits, then start()
     # doesn't raise Cancelled, since the task completed successfully.
-    async def started_with_no_checkpoint(task_status=_core.TASK_STATUS_IGNORED):
-        task_status.started("hi")
+    async def started_with_no_checkpoint(
+        *, task_status: _core.TaskStatus[None] = _core.TASK_STATUS_IGNORED
+    ) -> None:
+        task_status.started(None)
 
     async with _core.open_nursery() as nursery:
         with _core.CancelScope() as cs:
