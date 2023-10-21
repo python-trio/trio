@@ -1080,21 +1080,24 @@ class Nursery(metaclass=NoPublicConstructor):
         self._check_nursery_closed()
 
         if not self._closed:
-            # If we get cancelled (or have an exception injected, like
-            # KeyboardInterrupt), then save that, but still wait until our
-            # children finish.
+            # If we have a KeyboardInterrupt injected, we want to save it in
+            # the nursery's final exceptions list. But if it's just a
+            # Cancelled, then we don't -- see gh-1457.
             def aborted(raise_cancel: _core.RaiseCancelT) -> Abort:
-                self._add_exc(capture(raise_cancel).error)
+                exn = capture(raise_cancel).error
+                if not isinstance(exn, Cancelled):
+                    self._add_exc(exn)
+                del exn  # prevent cyclic garbage creation
                 return Abort.FAILED
 
             self._parent_waiting_in_aexit = True
             await wait_task_rescheduled(aborted)
         else:
-            # Nothing to wait for, so just execute a checkpoint -- but we
-            # still need to mix any exception (e.g. from an external
-            # cancellation) in with the rest of our exceptions.
+            # Nothing to wait for, so execute a schedule point, but don't
+            # allow us to be cancelled, just like the other branch.  We
+            # still need to catch and store non-Cancelled exceptions.
             try:
-                await checkpoint()
+                await cancel_shielded_checkpoint()
             except BaseException as exc:
                 self._add_exc(exc)
 
