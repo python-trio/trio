@@ -27,7 +27,7 @@ async def trio_main():
     to_trio, from_aio = trio.open_memory_channel(float("inf"))
     from_trio = asyncio.Queue()
 
-    asyncio.create_task(aio_pingpong(from_trio, to_trio))
+    _task_ref = asyncio.create_task(aio_pingpong(from_trio, to_trio))
 
     from_trio.put_nowait(0)
 

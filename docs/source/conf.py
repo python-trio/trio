@@ -54,8 +54,6 @@ nitpick_ignore = [
     ("py:class", "sync function"),
     # why aren't these found in stdlib?
     ("py:class", "types.FrameType"),
-    # TODO: temporary type
-    ("py:class", "_SocketType"),
     # these are not defined in https://docs.python.org/3/objects.inv
     ("py:class", "socket.AddressFamily"),
     ("py:class", "socket.SocketKind"),
@@ -72,8 +70,6 @@ autodoc_type_aliases = {
     # aliasing doesn't actually fix the warning for types.FrameType, but displaying
     # "types.FrameType" is more helpful than just "frame"
     "FrameType": "types.FrameType",
-    # unaliasing these makes intersphinx able to resolve them
-    "Outcome": "outcome.Outcome",
     "Context": "OpenSSL.SSL.Context",
 }
 
@@ -84,8 +80,6 @@ def autodoc_process_signature(
     """Modify found signatures to fix various issues."""
     if signature is not None:
         signature = signature.replace("~_contextvars.Context", "~contextvars.Context")
-        if name == "trio.lowlevel.start_guest_run":
-            signature = signature.replace("Outcome", "~outcome.Outcome")
         if name == "trio.lowlevel.RunVar":  # Typevar is not useful here.
             signature = signature.replace(": ~trio._core._local.T", "")
         if "_NoValue" in signature:
@@ -104,6 +98,8 @@ def autodoc_process_signature(
 def setup(app):
     app.add_css_file("hackrtd.css")
     app.connect("autodoc-process-signature", autodoc_process_signature)
+    # After Intersphinx runs, add additional mappings.
+    app.connect("builder-inited", add_intersphinx, priority=1000)
 
 
 # -- General configuration ------------------------------------------------
@@ -132,6 +128,18 @@ intersphinx_mapping = {
     "pyopenssl": ("https://www.pyopenssl.org/en/stable/", None),
     "sniffio": ("https://sniffio.readthedocs.io/en/latest/", None),
 }
+
+
+def add_intersphinx(app) -> None:
+    """Add some specific intersphinx mappings."""
+    # This has been removed in Py3.12, so add a link to the 3.11 version with deprecation warnings.
+    app.builder.env.intersphinx_inventory["py:method"]["pathlib.Path.link_to"] = (
+        "Python",
+        "3.11",
+        "https://docs.python.org/3.11/library/pathlib.html#pathlib.Path.link_to",
+        "-",
+    )
+
 
 autodoc_member_order = "bysource"
 

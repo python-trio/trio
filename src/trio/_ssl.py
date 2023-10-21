@@ -4,13 +4,13 @@ import operator as _operator
 import ssl as _stdlib_ssl
 from collections.abc import Awaitable, Callable
 from enum import Enum as _Enum
-from typing import Any, Final as TFinal, TypeVar
+from typing import Any, ClassVar, Final as TFinal, TypeVar
 
 import trio
 
 from . import _sync
 from ._highlevel_generic import aclose_forcefully
-from ._util import ConflictDetector, Final
+from ._util import ConflictDetector, final
 from .abc import Listener, Stream
 
 # General theory of operation:
@@ -240,7 +240,8 @@ class _Once:
 _State = _Enum("_State", ["OK", "BROKEN", "CLOSED"])
 
 
-class SSLStream(Stream, metaclass=Final):
+@final
+class SSLStream(Stream):
     r"""Encrypted communication using SSL/TLS.
 
     :class:`SSLStream` wraps an arbitrary :class:`~trio.abc.Stream`, and
@@ -355,7 +356,7 @@ class SSLStream(Stream, metaclass=Final):
             self._incoming,
             self._outgoing,
             server_side=server_side,
-            server_hostname=server_hostname,  # type: ignore[arg-type]  # Typeshed bug, does accept bytes as well (typeshed#10590)
+            server_hostname=server_hostname,
         )
         # Tracks whether we've already done the initial handshake
         self._handshook = _Once(self._do_handshake)
@@ -377,7 +378,7 @@ class SSLStream(Stream, metaclass=Final):
 
         self._estimated_receive_size = STARTING_RECEIVE_SIZE
 
-    _forwarded = {
+    _forwarded: ClassVar = {
         "context",
         "server_side",
         "server_hostname",
@@ -394,7 +395,7 @@ class SSLStream(Stream, metaclass=Final):
         "version",
     }
 
-    _after_handshake = {
+    _after_handshake: ClassVar = {
         "session_reused",
         "getpeercert",
         "selected_npn_protocol",
@@ -888,7 +889,8 @@ class SSLStream(Stream, metaclass=Final):
                 await self.transport_stream.wait_send_all_might_not_block()
 
 
-class SSLListener(Listener[SSLStream], metaclass=Final):
+@final
+class SSLListener(Listener[SSLStream]):
     """A :class:`~trio.abc.Listener` for SSL/TLS-encrypted servers.
 
     :class:`SSLListener` wraps around another Listener, and converts

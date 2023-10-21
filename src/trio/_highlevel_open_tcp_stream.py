@@ -4,11 +4,11 @@ import sys
 from collections.abc import Generator
 from contextlib import contextmanager
 from socket import AddressFamily, SocketKind
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import trio
 from trio._core._multierror import MultiError
-from trio.socket import SOCK_STREAM, Address, _SocketType, getaddrinfo, socket
+from trio.socket import SOCK_STREAM, SocketType, getaddrinfo, socket
 
 if sys.version_info < (3, 11):
     from exceptiongroup import ExceptionGroup
@@ -114,8 +114,8 @@ DEFAULT_DELAY = 0.250
 
 
 @contextmanager
-def close_all() -> Generator[set[_SocketType], None, None]:
-    sockets_to_close: set[_SocketType] = set()
+def close_all() -> Generator[set[SocketType], None, None]:
+    sockets_to_close: set[SocketType] = set()
     try:
         yield sockets_to_close
     finally:
@@ -138,7 +138,7 @@ def reorder_for_rfc_6555_section_5_4(
             SocketKind,
             int,
             str,
-            tuple[str, int] | tuple[str, int, int, int],
+            Any,
         ]
     ]
 ) -> None:
@@ -159,7 +159,7 @@ def reorder_for_rfc_6555_section_5_4(
             break
 
 
-def format_host_port(host: str | bytes, port: int) -> str:
+def format_host_port(host: str | bytes, port: int | str) -> str:
     host = host.decode("ascii") if isinstance(host, bytes) else host
     if ":" in host:
         return f"[{host}]:{port}"
@@ -193,7 +193,7 @@ async def open_tcp_stream(
     *,
     happy_eyeballs_delay: float | None = DEFAULT_DELAY,
     local_address: str | None = None,
-) -> trio.abc.Stream:
+) -> trio.SocketStream:
     """Connect to the given host and port over TCP.
 
     If the given ``host`` has multiple IP addresses associated with it, then
@@ -288,11 +288,11 @@ async def open_tcp_stream(
     reorder_for_rfc_6555_section_5_4(targets)
 
     # This list records all the connection failures that we ignored.
-    oserrors = []
+    oserrors: list[OSError] = []
 
     # Keeps track of the socket that we're going to complete with,
     # need to make sure this isn't automatically closed
-    winning_socket: _SocketType | None = None
+    winning_socket: SocketType | None = None
 
     # Try connecting to the specified address. Possible outcomes:
     # - success: record connected socket in winning_socket and cancel
@@ -303,7 +303,7 @@ async def open_tcp_stream(
     # face of crash or cancellation
     async def attempt_connect(
         socket_args: tuple[AddressFamily, SocketKind, int],
-        sockaddr: Address,
+        sockaddr: Any,
         attempt_failed: trio.Event,
     ) -> None:
         nonlocal winning_socket

@@ -190,7 +190,7 @@ async def test_Sequencer():
         assert record == [("f2", 0), ("f1", 1), ("f2", 2), ("f1", 3), ("f1", 4)]
 
     seq = Sequencer()
-    # Catches us if we try to re-use a sequence point:
+    # Catches us if we try to reuse a sequence point:
     async with seq(0):
         pass
     with pytest.raises(RuntimeError):

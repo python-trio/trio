@@ -79,7 +79,7 @@ from typing import TYPE_CHECKING
 import attr
 
 from .. import _core
-from .._util import Final
+from .._util import final
 
 if TYPE_CHECKING:
     from ._run import Task
@@ -89,7 +89,7 @@ if TYPE_CHECKING:
 class ParkingLotStatistics:
     """An object containing debugging information for a ParkingLot.
 
-    Currently the following fields are defined:
+    Currently, the following fields are defined:
 
     * ``tasks_waiting`` (int): The number of tasks blocked on this lot's
       :meth:`trio.lowlevel.ParkingLot.park` method.
@@ -99,8 +99,9 @@ class ParkingLotStatistics:
     tasks_waiting: int = attr.ib()
 
 
+@final
 @attr.s(eq=False, hash=False, slots=True)
-class ParkingLot(metaclass=Final):
+class ParkingLot:
     """A fair wait queue with cancellation and requeueing.
 
     This class encapsulates the tricky parts of implementing a wait

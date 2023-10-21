@@ -8,8 +8,15 @@ from typing import NoReturn
 
 import attr
 import pytest
-import trustme
-from OpenSSL import SSL
+
+from trio._tests.pytest_plugin import skip_if_optional_else_raise
+
+try:
+    import trustme
+    from OpenSSL import SSL
+except ImportError as error:
+    skip_if_optional_else_raise(error)
+
 
 import trio
 import trio.testing

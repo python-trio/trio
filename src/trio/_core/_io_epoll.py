@@ -13,11 +13,10 @@ from ._run import Task, _public
 from ._wakeup_socketpair import WakeupSocketpair
 
 if TYPE_CHECKING:
-    from socket import socket
-
     from typing_extensions import TypeAlias
 
     from .._core import Abort, RaiseCancelT
+    from .._file_io import _HasFileNo
 
 
 @attr.s(slots=True, eq=False)
@@ -290,7 +289,7 @@ class EpollIOManager:
         if not wanted_flags:
             del self._registered[fd]
 
-    async def _epoll_wait(self, fd: int | socket, attr_name: str) -> None:
+    async def _epoll_wait(self, fd: int | _HasFileNo, attr_name: str) -> None:
         if not isinstance(fd, int):
             fd = fd.fileno()
         waiters = self._registered[fd]
@@ -309,15 +308,15 @@ class EpollIOManager:
         await _core.wait_task_rescheduled(abort)
 
     @_public
-    async def wait_readable(self, fd: int | socket) -> None:
+    async def wait_readable(self, fd: int | _HasFileNo) -> None:
         await self._epoll_wait(fd, "read_task")
 
     @_public
-    async def wait_writable(self, fd: int | socket) -> None:
+    async def wait_writable(self, fd: int | _HasFileNo) -> None:
         await self._epoll_wait(fd, "write_task")
 
     @_public
-    def notify_closing(self, fd: int | socket) -> None:
+    def notify_closing(self, fd: int | _HasFileNo) -> None:
         if not isinstance(fd, int):
             fd = fd.fileno()
         wake_all(
