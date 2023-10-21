@@ -1087,6 +1087,7 @@ class Nursery(metaclass=NoPublicConstructor):
                 exn = capture(raise_cancel).error
                 if not isinstance(exn, Cancelled):
                     self._add_exc(exn)
+                del exn  # prevent cyclic garbage creation
                 return Abort.FAILED
 
             self._parent_waiting_in_aexit = True
