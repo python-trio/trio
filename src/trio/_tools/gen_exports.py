@@ -311,7 +311,7 @@ def main() -> None:  # pragma: no cover
     source_root = Path.cwd()
     # Double-check we found the right directory
     assert (source_root / "LICENSE").exists()
-    core = source_root / "trio/_core"
+    core = source_root / "src/trio/_core"
     to_wrap = [
         File(core / "_run.py", "runner", imports=IMPORTS_RUN),
         File(

@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 
 __version__ = "0.0.0"  # Overwritten from _version.py below, needed for linter to identify that this variable is defined.
 
-exec(open("trio/_version.py", encoding="utf-8").read())
+exec(open("src/trio/_version.py", encoding="utf-8").read())
 
 LONG_DESC = """\
 .. image:: https://raw.githubusercontent.com/python-trio/trio/9b0bec646a31e0d0f67b8b6ecc6939726faf3e17/logo/logo-with-background.svg
@@ -82,7 +82,8 @@ setup(
     author_email="njs@pobox.com",
     url="https://github.com/python-trio/trio",
     license="MIT OR Apache-2.0",
-    packages=find_packages(),
+    packages=find_packages(where="src"),
+    package_dir={"": "src"},
     install_requires=[
         # attrs 19.2.0 adds `eq` option to decorators
         # attrs 20.1.0 adds @frozen

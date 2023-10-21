@@ -14,6 +14,11 @@ omit=
 # this doesn't corrupt the coverage files
 parallel=True
 
+[paths]
+source =
+  src/trio
+  **/site-packages/trio
+
 [report]
 precision = 1
 skip_covered = True
