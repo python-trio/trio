@@ -355,7 +355,7 @@ async def open_tcp_stream(
                     raise OSError(
                         f"local_address={local_address!r} is incompatible "
                         f"with remote address {sockaddr!r}"
-                    )
+                    ) from None
 
             await sock.connect(sockaddr)
 

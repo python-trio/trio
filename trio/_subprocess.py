@@ -452,7 +452,10 @@ async def _windows_deliver_cancel(p: Process) -> None:
     try:
         p.terminate()
     except OSError as exc:
-        warnings.warn(RuntimeWarning(f"TerminateProcess on {p!r} failed with: {exc!r}"))
+        warnings.warn(
+            RuntimeWarning(f"TerminateProcess on {p!r} failed with: {exc!r}"),
+            stacklevel=1,
+        )
 
 
 async def _posix_deliver_cancel(p: Process) -> None:
@@ -464,12 +467,14 @@ async def _posix_deliver_cancel(p: Process) -> None:
                 f"process {p!r} ignored SIGTERM for 5 seconds. "
                 "(Maybe you should pass a custom deliver_cancel?) "
                 "Trying SIGKILL."
-            )
+            ),
+            stacklevel=1,
         )
         p.kill()
     except OSError as exc:
         warnings.warn(
-            RuntimeWarning(f"tried to kill process {p!r}, but failed with: {exc!r}")
+            RuntimeWarning(f"tried to kill process {p!r}, but failed with: {exc!r}"),
+            stacklevel=1,
         )
 
 

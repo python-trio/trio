@@ -73,6 +73,6 @@ try:
 except ssl.SSLWantReadError:
     print("client got SSLWantReadError as expected")
 else:
-    assert False
+    raise AssertionError()
 client.close()
 client_done.set()

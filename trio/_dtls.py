@@ -1228,7 +1228,10 @@ class DTLSEndpoint:
                 pass
             # Do this last, because it might raise an exception
             warnings.warn(
-                f"unclosed DTLS endpoint {self!r}", ResourceWarning, source=self
+                f"unclosed DTLS endpoint {self!r}",
+                ResourceWarning,
+                source=self,
+                stacklevel=1,
             )
 
     def close(self) -> None:
@@ -1302,7 +1305,10 @@ class DTLSEndpoint:
         try:
             self.socket.getsockname()
         except OSError:
-            raise RuntimeError("DTLS socket must be bound before it can serve")
+            # TODO: Write test that triggers this
+            raise RuntimeError(  # pragma: no cover
+                "DTLS socket must be bound before it can serve"
+            ) from None
         self._ensure_receive_loop()
         # We do cookie verification ourselves, so tell OpenSSL not to worry about it.
         # (See also _inject_client_hello_untrusted.)
