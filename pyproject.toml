@@ -23,9 +23,11 @@ src = ["trio", "notes-to-self"]
 
 select = [
   "RUF",  # Ruff-specific rules
-  "E",  # Error
   "F",  # pyflakes
+  "E",  # Error
+  "W",  # Warning
   "I",  # isort
+  "B",  # flake8-bugbear
   "YTT",  # flake8-2020
 ]
 extend-ignore = [

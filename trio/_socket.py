@@ -464,7 +464,7 @@ async def _resolve_address_nocp(
             raise ValueError(
                 "address should be a (host, port, [flowinfo, [scopeid]]) tuple"
             )
-    elif family == getattr(_stdlib_socket, "AF_UNIX"):
+    elif hasattr(_stdlib_socket, "AF_UNIX") and family == _stdlib_socket.AF_UNIX:
         # unwrap path-likes
         assert isinstance(address, (str, bytes))
         return os.fspath(address)
