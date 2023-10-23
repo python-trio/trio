@@ -83,7 +83,8 @@ def test_unsupported_not_forwarded() -> None:
     assert hasattr(async_file.wrapped, "unsupported_attr")
 
     with pytest.raises(AttributeError):
-        async_file.unsupported_attr  # noqa: B018  # "useless expression"
+        # B018 "useless expression"
+        async_file.unsupported_attr  # type: ignore[attr-defined] # noqa: B018
 
 
 def test_type_stubs_match_lists() -> None:
@@ -247,7 +248,8 @@ async def test_aclose_cancelled(path: pathlib.Path) -> None:
 async def test_detach_rewraps_asynciobase(tmp_path: pathlib.Path) -> None:
     tmp_file = tmp_path / "filename"
     tmp_file.touch()
-    with open(tmp_file, mode="rb", buffering=0) as raw:
+    # flake8-async does not like opening files in async mode
+    with open(tmp_file, mode="rb", buffering=0) as raw:  # noqa: ASYNC101
         buffered = io.BufferedReader(raw)
 
         async_file = trio.wrap_file(buffered)
