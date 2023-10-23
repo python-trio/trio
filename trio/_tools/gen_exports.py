@@ -40,7 +40,7 @@ TEMPLATE = """locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
 try:
     return{}GLOBAL_RUN_CONTEXT.{}.{}
 except AttributeError:
-    raise RuntimeError("must be called from async context")
+    raise RuntimeError("must be called from async context") from None
 """
 
 
@@ -155,7 +155,8 @@ def run_ruff(file: File, source: str) -> tuple[bool, str]:
             sys.executable,
             "-m",
             "ruff",
-            "--fix-only",
+            "check",
+            "--fix",
             "--output-format=text",
             "--stdin-filename",
             file.path,
@@ -166,7 +167,7 @@ def run_ruff(file: File, source: str) -> tuple[bool, str]:
         encoding="utf8",
     )
 
-    if result.returncode != 0 or result.stderr:
+    if result.returncode != 0:
         return False, f"Failed to run ruff!\n{result.stderr}"
     return True, result.stdout
 

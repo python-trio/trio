@@ -1,6 +1,7 @@
 import importlib
 import io
 import os
+import pathlib
 import re
 from typing import List, Tuple
 from unittest import mock
@@ -14,8 +15,8 @@ from trio._file_io import _FILE_ASYNC_METHODS, _FILE_SYNC_ATTRS, AsyncIOWrapper
 
 
 @pytest.fixture
-def path(tmpdir):
-    return os.fspath(tmpdir.join("test"))
+def path(tmp_path: pathlib.Path) -> str:
+    return os.fspath(tmp_path / "test")
 
 
 @pytest.fixture
@@ -78,7 +79,7 @@ def test_unsupported_not_forwarded():
     assert hasattr(async_file.wrapped, "unsupported_attr")
 
     with pytest.raises(AttributeError):
-        getattr(async_file, "unsupported_attr")
+        async_file.unsupported_attr  # noqa: B018  # "useless expression"
 
 
 def test_type_stubs_match_lists() -> None:

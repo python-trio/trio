@@ -45,7 +45,7 @@ def current_statistics() -> RunStatistics:
     try:
         return GLOBAL_RUN_CONTEXT.runner.current_statistics()
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None
 
 
 def current_time() -> float:
@@ -62,7 +62,7 @@ def current_time() -> float:
     try:
         return GLOBAL_RUN_CONTEXT.runner.current_time()
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None
 
 
 def current_clock() -> Clock:
@@ -71,7 +71,7 @@ def current_clock() -> Clock:
     try:
         return GLOBAL_RUN_CONTEXT.runner.current_clock()
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None
 
 
 def current_root_task() -> Task | None:
@@ -84,7 +84,7 @@ def current_root_task() -> Task | None:
     try:
         return GLOBAL_RUN_CONTEXT.runner.current_root_task()
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None
 
 
 def reschedule(task: Task, next_send: Outcome[Any] = _NO_SEND) -> None:
@@ -109,7 +109,7 @@ def reschedule(task: Task, next_send: Outcome[Any] = _NO_SEND) -> None:
     try:
         return GLOBAL_RUN_CONTEXT.runner.reschedule(task, next_send)
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None
 
 
 def spawn_system_task(
@@ -175,7 +175,7 @@ def spawn_system_task(
             async_fn, *args, name=name, context=context
         )
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None
 
 
 def current_trio_token() -> TrioToken:
@@ -187,7 +187,7 @@ def current_trio_token() -> TrioToken:
     try:
         return GLOBAL_RUN_CONTEXT.runner.current_trio_token()
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None
 
 
 async def wait_all_tasks_blocked(cushion: float = 0.0) -> None:
@@ -252,4 +252,4 @@ async def wait_all_tasks_blocked(cushion: float = 0.0) -> None:
     try:
         return await GLOBAL_RUN_CONTEXT.runner.wait_all_tasks_blocked(cushion)
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None

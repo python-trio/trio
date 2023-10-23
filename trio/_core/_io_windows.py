@@ -368,7 +368,7 @@ def _get_base_socket(sock: _HasFileNo | int | Handle) -> Handle:
                     "https://github.com/python-trio/trio/issues/new, "
                     "and include the output of running: "
                     "netsh winsock show catalog"
-                )
+                ) from ex
             # Otherwise we've gotten at least one layer deeper, so
             # loop back around to keep digging.
             sock = next_sock
