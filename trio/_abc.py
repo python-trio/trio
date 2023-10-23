@@ -80,9 +80,11 @@ class Instrument(metaclass=ABCMeta):
 
     def before_run(self) -> None:
         """Called at the beginning of :func:`trio.run`."""
+        return
 
     def after_run(self) -> None:
         """Called just before :func:`trio.run` returns."""
+        return
 
     def task_spawned(self, task: Task) -> None:
         """Called when the given task is created.
@@ -91,6 +93,7 @@ class Instrument(metaclass=ABCMeta):
             task (trio.lowlevel.Task): The new task.
 
         """
+        return
 
     def task_scheduled(self, task: Task) -> None:
         """Called when the given task becomes runnable.
@@ -102,6 +105,7 @@ class Instrument(metaclass=ABCMeta):
             task (trio.lowlevel.Task): The task that became runnable.
 
         """
+        return
 
     def before_task_step(self, task: Task) -> None:
         """Called immediately before we resume running the given task.
@@ -110,6 +114,7 @@ class Instrument(metaclass=ABCMeta):
             task (trio.lowlevel.Task): The task that is about to run.
 
         """
+        return
 
     def after_task_step(self, task: Task) -> None:
         """Called when we return to the main run loop after a task has yielded.
@@ -118,6 +123,7 @@ class Instrument(metaclass=ABCMeta):
             task (trio.lowlevel.Task): The task that just ran.
 
         """
+        return
 
     def task_exited(self, task: Task) -> None:
         """Called when the given task exits.
@@ -126,6 +132,7 @@ class Instrument(metaclass=ABCMeta):
             task (trio.lowlevel.Task): The finished task.
 
         """
+        return
 
     def before_io_wait(self, timeout: float) -> None:
         """Called before blocking to wait for I/O readiness.
@@ -134,6 +141,7 @@ class Instrument(metaclass=ABCMeta):
             timeout (float): The number of seconds we are willing to wait.
 
         """
+        return
 
     def after_io_wait(self, timeout: float) -> None:
         """Called after handling pending I/O.
@@ -144,6 +152,7 @@ class Instrument(metaclass=ABCMeta):
                 whether any I/O was ready.
 
         """
+        return
 
 
 class HostnameResolver(metaclass=ABCMeta):
@@ -679,7 +688,7 @@ class ReceiveChannel(AsyncResource, Generic[ReceiveType]):
         try:
             return await self.receive()
         except trio.EndOfChannel:
-            raise StopAsyncIteration
+            raise StopAsyncIteration from None
 
 
 class Channel(SendChannel[T], ReceiveChannel[T]):

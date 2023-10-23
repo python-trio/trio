@@ -433,7 +433,7 @@ def _check_token(trio_token: TrioToken | None) -> TrioToken:
         except AttributeError:
             raise RuntimeError(
                 "this thread wasn't created by Trio, pass kwarg trio_token=..."
-            )
+            ) from None
 
     # Avoid deadlock by making sure we're not called from Trio thread
     try:
