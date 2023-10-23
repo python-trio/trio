@@ -128,7 +128,13 @@ else
 
     echo "::endgroup::"
     echo "::group:: Run Tests"
-    if COVERAGE_PROCESS_START=$(pwd)/../.coveragerc coverage run --rcfile=../.coveragerc -m pytest -r a -p trio._tests.pytest_plugin --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --verbose --durations=10 $flags; then
+
+    # set the location of .coveragerc for multi-process coverage to work
+    COVERAGE_PROCESS_START=$(pwd)/../.coveragerc
+
+    # timeout coverage/pytest with SIGINT before the CI runner kills it, to get in-progress
+    # data and print out the slowest tests
+    if timeout --signal=INT 9m coverage run --rcfile=../.coveragerc -m pytest -r a -p trio._tests.pytest_plugin --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --verbose --durations=10 $flags; then
         PASSED=true
     else
         PASSED=false
