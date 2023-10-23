@@ -99,6 +99,7 @@ del sys
 # exported. There's a test in test_exports.py to make sure that the list is
 # kept up to date.
 if _t.TYPE_CHECKING:
+    import contextlib
     from socket import (  # type: ignore[attr-defined]
         AF_ALG as AF_ALG,
         AF_APPLETALK as AF_APPLETALK,
