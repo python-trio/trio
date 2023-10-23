@@ -151,7 +151,7 @@ class CapacityLimiterStatistics:
     """
 
     borrowed_tokens: int = attr.ib()
-    total_tokens: float = attr.ib()
+    total_tokens: int | float = attr.ib()
     borrowers: list[Task | object] = attr.ib()
     tasks_waiting: int = attr.ib()
 
@@ -215,13 +215,13 @@ class CapacityLimiter(AsyncContextManagerMixin):
     """
 
     # total_tokens would ideally be int|Literal[math.inf] - but that's not valid typing
-    def __init__(self, total_tokens: float):
+    def __init__(self, total_tokens: int | float):  # noqa: PYI041
         self._lot = ParkingLot()
         self._borrowers: set[Task | object] = set()
         # Maps tasks attempting to acquire -> borrower, to handle on-behalf-of
         self._pending_borrowers: dict[Task, Task | object] = {}
         # invoke the property setter for validation
-        self.total_tokens: float = total_tokens
+        self.total_tokens: int | float = total_tokens
         assert self._total_tokens == total_tokens
 
     def __repr__(self) -> str:
@@ -230,7 +230,7 @@ class CapacityLimiter(AsyncContextManagerMixin):
         )
 
     @property
-    def total_tokens(self) -> float:
+    def total_tokens(self) -> int | float:
         """The total capacity available.
 
         You can change :attr:`total_tokens` by assigning to this attribute. If
@@ -245,7 +245,7 @@ class CapacityLimiter(AsyncContextManagerMixin):
         return self._total_tokens
 
     @total_tokens.setter
-    def total_tokens(self, new_total_tokens: float) -> None:
+    def total_tokens(self, new_total_tokens: int | float) -> None:  # noqa: PYI041
         if not isinstance(new_total_tokens, int) and new_total_tokens != math.inf:
             raise TypeError("total_tokens must be an int or math.inf")
         if new_total_tokens < 1:
@@ -264,7 +264,7 @@ class CapacityLimiter(AsyncContextManagerMixin):
         return len(self._borrowers)
 
     @property
-    def available_tokens(self) -> float:
+    def available_tokens(self) -> int | float:
         """The amount of capacity that's available to use."""
         return self.total_tokens - self.borrowed_tokens
 
