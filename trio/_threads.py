@@ -415,7 +415,7 @@ def from_thread_check_cancelled() -> None:
     except AttributeError:
         raise RuntimeError(
             "this thread wasn't created by Trio, can't check for cancellation"
-        )
+        ) from None
     if raise_cancel is not None:
         raise_cancel()
 

@@ -3,8 +3,8 @@ from __future__ import annotations
 import inspect
 import os
 import pathlib
+import sys
 import types
-from collections.abc import Awaitable, Callable, Iterable, Sequence
 from functools import partial
 from typing import (
     IO,
@@ -22,8 +22,7 @@ import trio
 from trio._util import async_wraps, final, wraps
 
 if TYPE_CHECKING:
-    import sys
-    from collections.abc import Awaitable, Callable, Iterable
+    from collections.abc import Awaitable, Callable, Iterable, Sequence
     from io import BufferedRandom, BufferedReader, BufferedWriter, FileIO, TextIOWrapper
 
     from _typeshed import (
