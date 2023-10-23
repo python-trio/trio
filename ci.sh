@@ -10,6 +10,7 @@ export PYRIGHT_PYTHON_IGNORE_WARNINGS=1
 echo "::group::Environment"
 uname -a
 env | sort
+date
 echo "::endgroup::"
 
 # Curl's built-in retry system is not very robust; it gives up on lots of
@@ -126,9 +127,6 @@ else
     # support subprocess spawning with coverage.py
     echo "import coverage; coverage.process_startup()" | tee -a "$INSTALLDIR/../sitecustomize.py"
 
-    echo "::endgroup::"
-    echo "::group:: Run Tests"
-
     # set the location of .coveragerc for multi-process coverage to work
     COVERAGE_PROCESS_START=$(pwd)/../.coveragerc
 
@@ -139,7 +137,7 @@ else
     # timeout can be changed with an environment variable, but if empty or unset
     # default to 9m to not hit 10m limit
     if [ -z "$TESTS_TIMEOUT" ]; then
-        TESTS_TIMEOUT=9m
+        TESTS_TIMEOUT=7m
     fi
 
     # if available, timeout coverage/pytest with SIGINT before the CI runner kills it, to
@@ -149,6 +147,12 @@ else
     elif type gtimeout > /dev/null; then
         RUN_TESTS="gtimeout --signal=INT $TESTS_TIMEOUT $RUN_TESTS"
     fi
+
+    # print datetime
+    date
+
+    echo "::endgroup::"
+    echo "::group:: Run Tests"
 
     if $RUN_TESTS; then
         PASSED=true
