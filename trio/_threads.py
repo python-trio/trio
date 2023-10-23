@@ -154,7 +154,9 @@ class RunSync(Generic[RetT]):
         return ret
 
     def run_sync(self) -> None:
-        result = outcome.capture(self.context.run, self.unprotected_fn)
+        # Two paramspecs + overload is a bit too hard for mypy to handle. Tell it what to infer.
+        runner: Callable[[Callable[[], RetT]], RetT] = self.context.run
+        result = outcome.capture(runner, self.unprotected_fn)
         self.queue.put_nowait(result)
 
     def run_in_host_task(self, token: TrioToken) -> None:
@@ -286,7 +288,7 @@ async def to_thread_run_sync(  # type: ignore[misc]
             # replace the regular return value, and if the regular return was
             # already an exception then we want them to chain.
             try:
-                return result.unwrap()  # type: ignore[no-any-return]  # Until outcome is typed
+                return result.unwrap()
             finally:
                 limiter.release_on_behalf_of(placeholder)
 
@@ -364,7 +366,7 @@ async def to_thread_run_sync(  # type: ignore[misc]
             object
         ] = await trio.lowlevel.wait_task_rescheduled(abort)
         if isinstance(msg_from_thread, outcome.Outcome):
-            return msg_from_thread.unwrap()  # type: ignore[no-any-return]
+            return msg_from_thread.unwrap()
         elif isinstance(msg_from_thread, Run):
             await msg_from_thread.run()
         elif isinstance(msg_from_thread, RunSync):
@@ -430,7 +432,7 @@ def _check_token(trio_token: TrioToken | None) -> TrioToken:
         except AttributeError:
             raise RuntimeError(
                 "this thread wasn't created by Trio, pass kwarg trio_token=..."
-            )
+            ) from None
 
     # Avoid deadlock by making sure we're not called from Trio thread
     try:
@@ -495,7 +497,7 @@ def from_thread_run(
     else:
         message_to_trio.run_in_host_task(trio_token)
 
-    return message_to_trio.queue.get().unwrap()  # type: ignore[no-any-return]
+    return message_to_trio.queue.get().unwrap()
 
 
 def from_thread_run_sync(
@@ -543,4 +545,4 @@ def from_thread_run_sync(
     else:
         message_to_trio.run_in_host_task(trio_token)
 
-    return message_to_trio.queue.get().unwrap()  # type: ignore[no-any-return]
+    return message_to_trio.queue.get().unwrap()

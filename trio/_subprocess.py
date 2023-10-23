@@ -388,7 +388,7 @@ async def _open_process(
         if options.get(key):
             raise TypeError(
                 "trio.Process only supports communicating over "
-                "unbuffered byte streams; the '{}' option is not supported".format(key)
+                f"unbuffered byte streams; the '{key}' option is not supported"
             )
 
     if os.name == "posix":
@@ -455,7 +455,10 @@ async def _windows_deliver_cancel(p: Process) -> None:
     try:
         p.terminate()
     except OSError as exc:
-        warnings.warn(RuntimeWarning(f"TerminateProcess on {p!r} failed with: {exc!r}"))
+        warnings.warn(
+            RuntimeWarning(f"TerminateProcess on {p!r} failed with: {exc!r}"),
+            stacklevel=1,
+        )
 
 
 async def _posix_deliver_cancel(p: Process) -> None:
@@ -467,12 +470,14 @@ async def _posix_deliver_cancel(p: Process) -> None:
                 f"process {p!r} ignored SIGTERM for 5 seconds. "
                 "(Maybe you should pass a custom deliver_cancel?) "
                 "Trying SIGKILL."
-            )
+            ),
+            stacklevel=1,
         )
         p.kill()
     except OSError as exc:
         warnings.warn(
-            RuntimeWarning(f"tried to kill process {p!r}, but failed with: {exc!r}")
+            RuntimeWarning(f"tried to kill process {p!r}, but failed with: {exc!r}"),
+            stacklevel=1,
         )
 
 

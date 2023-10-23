@@ -405,7 +405,7 @@ class SocketListener(Listener[SocketStream]):
                 sock, _ = await self.socket.accept()
             except OSError as exc:
                 if exc.errno in _closed_stream_errnos:
-                    raise trio.ClosedResourceError
+                    raise trio.ClosedResourceError from None
                 if exc.errno not in _ignorable_accept_errnos:
                     raise
             else:

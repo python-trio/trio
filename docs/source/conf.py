@@ -70,8 +70,6 @@ autodoc_type_aliases = {
     # aliasing doesn't actually fix the warning for types.FrameType, but displaying
     # "types.FrameType" is more helpful than just "frame"
     "FrameType": "types.FrameType",
-    # unaliasing these makes intersphinx able to resolve them
-    "Outcome": "outcome.Outcome",
     "Context": "OpenSSL.SSL.Context",
 }
 
@@ -82,8 +80,6 @@ def autodoc_process_signature(
     """Modify found signatures to fix various issues."""
     if signature is not None:
         signature = signature.replace("~_contextvars.Context", "~contextvars.Context")
-        if name == "trio.lowlevel.start_guest_run":
-            signature = signature.replace("Outcome", "~outcome.Outcome")
         if name == "trio.lowlevel.RunVar":  # Typevar is not useful here.
             signature = signature.replace(": ~trio._core._local.T", "")
         if "_NoValue" in signature:

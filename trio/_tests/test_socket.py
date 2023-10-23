@@ -380,7 +380,7 @@ async def test_SocketType_basics() -> None:
 
     # our __getattr__ handles unknown names
     with pytest.raises(AttributeError):
-        sock.asdf  # type: ignore[attr-defined]
+        sock.asdf  # type: ignore[attr-defined]  # noqa: B018
 
     # type family proto
     stdlib_sock = stdlib_socket.socket()
@@ -579,7 +579,10 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
                 | tuple[str, str, int]
                 | tuple[str, str, int, int]
             ) -> Any:
-                return await sock._resolve_address_nocp(args, local=local)
+                return await sock._resolve_address_nocp(
+                    args,
+                    local=local,  # noqa: B023  # local is not bound in function definition
+                )
 
             assert_eq(await res((addrs.arbitrary, "http")), (addrs.arbitrary, 80))
             if v6:
@@ -682,7 +685,7 @@ async def test_SocketType_non_blocking_paths() -> None:
         # immediate success (also checks that the previous attempt didn't
         # actually read anything)
         with assert_checkpoints():
-            await ta.recv(10) == b"1"
+            assert await ta.recv(10) == b"1"
         # immediate failure
         with assert_checkpoints(), pytest.raises(TypeError):
             await ta.recv("haha")  # type: ignore[arg-type]
@@ -1092,7 +1095,7 @@ async def test_interrupted_by_close() -> None:
 async def test_many_sockets() -> None:
     total = 5000  # Must be more than MAX_AFD_GROUP_SIZE
     sockets = []
-    for x in range(total // 2):
+    for _x in range(total // 2):
         try:
             a, b = stdlib_socket.socketpair()
         except OSError as e:  # pragma: no cover
@@ -1106,5 +1109,5 @@ async def test_many_sockets() -> None:
         nursery.cancel_scope.cancel()
     for sock in sockets:
         sock.close()
-    if x != total // 2 - 1:  # pragma: no cover
-        print(f"Unable to open more than {(x-1)*2} sockets.")
+    if _x != total // 2 - 1:  # pragma: no cover
+        print(f"Unable to open more than {(_x-1)*2} sockets.")

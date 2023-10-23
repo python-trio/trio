@@ -386,7 +386,9 @@ def test_MultiError_catch_doesnt_create_cyclic_garbage():
             return Exception()
         if isinstance(exc, KeyError):
             return RuntimeError()
-        assert False, "only ValueError and KeyError should exist"  # pragma: no cover
+        raise AssertionError(
+            "only ValueError and KeyError should exist"
+        )  # pragma: no cover
 
     try:
         gc.set_debug(gc.DEBUG_SAVEALL)
@@ -496,9 +498,9 @@ def test_pickle_multierror(protocol: int) -> None:
     my_except = ZeroDivisionError()
 
     try:
-        1 / 0
-    except ZeroDivisionError as e:
-        my_except = e
+        1 / 0  # noqa: B018  # "useless statement"
+    except ZeroDivisionError as exc:
+        my_except = exc
 
     # MultiError will collapse into different classes depending on the errors
     for cls, errors in (

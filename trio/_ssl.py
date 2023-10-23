@@ -357,7 +357,7 @@ class SSLStream(Stream):
             self._incoming,
             self._outgoing,
             server_side=server_side,
-            server_hostname=server_hostname,  # type: ignore[arg-type]  # Typeshed bug, does accept bytes as well (typeshed#10590)
+            server_hostname=server_hostname,
         )
         # Tracks whether we've already done the initial handshake
         self._handshook = _Once(self._do_handshake)
@@ -434,7 +434,7 @@ class SSLStream(Stream):
         elif self._state is _State.CLOSED:
             raise trio.ClosedResourceError
         else:  # pragma: no cover
-            assert False
+            raise AssertionError()
 
     # This is probably the single trickiest function in Trio. It has lots of
     # comments, though, just make sure to think carefully if you ever have to

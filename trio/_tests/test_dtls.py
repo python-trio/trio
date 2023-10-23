@@ -861,7 +861,7 @@ async def test_association_replaced_before_handshake_starts() -> None:
 
     # This test shouldn't send any packets
     def route_packet(packet: UDPPacket) -> NoReturn:  # pragma: no cover
-        assert False
+        raise AssertionError()
 
     fn.route_packet = route_packet  # type: ignore[assignment]  # TODO add type annotations for FakeNet
 
