@@ -266,7 +266,7 @@ async def test_current_time() -> None:
     t1 = _core.current_time()
     # Windows clock is pretty low-resolution -- appveyor tests fail unless we
     # sleep for a bit here.
-    time.sleep(time.get_clock_info("perf_counter").resolution)
+    time.sleep(time.get_clock_info("perf_counter").resolution)  # noqa: ASYNC101
     t2 = _core.current_time()
     assert t1 < t2
 
@@ -454,12 +454,12 @@ async def test_cancel_scope_multierror_filtering() -> None:
                 # nursery block exited, all cancellations inside the
                 # nursery block continue propagating to reach the
                 # outer scope.
-                assert len(multi_exc.exceptions) == 5
+                assert len(multi_exc.exceptions) == 4
                 summary: dict[type, int] = {}
                 for exc in multi_exc.exceptions:
                     summary.setdefault(type(exc), 0)
                     summary[type(exc)] += 1
-                assert summary == {_core.Cancelled: 4, KeyError: 1}
+                assert summary == {_core.Cancelled: 3, KeyError: 1}
                 raise
     except AssertionError:  # pragma: no cover
         raise
@@ -469,7 +469,7 @@ async def test_cancel_scope_multierror_filtering() -> None:
         # KeyError from crasher()
         assert type(exc) is KeyError
     else:  # pragma: no cover
-        assert False
+        raise AssertionError()
 
 
 async def test_precancelled_task() -> None:
@@ -829,7 +829,7 @@ async def test_timekeeping() -> None:
         if 1.0 <= accuracy < 2:  # pragma: no branch
             break
     else:  # pragma: no cover
-        assert False
+        raise AssertionError()
 
 
 async def test_failed_abort() -> None:
@@ -963,7 +963,7 @@ def test_system_task_crash_plus_Cancelled() -> None:
         try:
             await sleep_forever()
         except _core.Cancelled:
-            raise ValueError
+            raise ValueError from None
 
     async def cancelme() -> None:
         await sleep_forever()
@@ -1125,6 +1125,9 @@ async def test_exception_chaining_after_yield_error() -> None:
     assert isinstance(excinfo.value.__context__, KeyError)
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 6, 2), reason="https://bugs.python.org/issue29600"
+)
 async def test_nursery_exception_chaining_doesnt_make_context_loops() -> None:
     async def crasher() -> NoReturn:
         raise KeyError
@@ -1637,20 +1640,35 @@ async def test_trivial_yields() -> None:
         await _core.checkpoint_if_cancelled()
         await _core.cancel_shielded_checkpoint()
 
-    with assert_checkpoints():
+    # Weird case: opening and closing a nursery schedules, but doesn't check
+    # for cancellation (unless something inside the nursery does)
+    task = _core.current_task()
+    before_schedule_points = task._schedule_points
+    with _core.CancelScope() as cs:
+        cs.cancel()
         async with _core.open_nursery():
             pass
+    assert not cs.cancelled_caught
+    assert task._schedule_points > before_schedule_points
+
+    before_schedule_points = task._schedule_points
+
+    async def noop_with_no_checkpoint() -> None:
+        pass
+
+    with _core.CancelScope() as cs:
+        cs.cancel()
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(noop_with_no_checkpoint)
+    assert not cs.cancelled_caught
+
+    assert task._schedule_points > before_schedule_points
 
     with _core.CancelScope() as cancel_scope:
         cancel_scope.cancel()
-        with pytest.raises(MultiError) as excinfo:
+        with pytest.raises(KeyError):
             async with _core.open_nursery():
                 raise KeyError
-        assert len(excinfo.value.exceptions) == 2
-        assert {type(e) for e in excinfo.value.exceptions} == {
-            KeyError,
-            _core.Cancelled,
-        }
 
 
 async def test_nursery_start(autojump_clock: _core.MockClock) -> None:
@@ -1727,6 +1745,7 @@ async def test_nursery_start(autojump_clock: _core.MockClock) -> None:
         task_status: _core.TaskStatus[str] = _core.TASK_STATUS_IGNORED,
     ) -> None:
         task_status.started("hi")
+        await _core.checkpoint()
 
     async with _core.open_nursery() as nursery:
         with _core.CancelScope() as cs:
@@ -1734,8 +1753,22 @@ async def test_nursery_start(autojump_clock: _core.MockClock) -> None:
             with pytest.raises(_core.Cancelled):
                 await nursery.start(just_started)
 
-    # and if after the no-op started(), the child crashes, the error comes out
-    # of start()
+    # but if the task does not execute any checkpoints, and exits, then start()
+    # doesn't raise Cancelled, since the task completed successfully.
+    async def started_with_no_checkpoint(
+        *, task_status: _core.TaskStatus[None] = _core.TASK_STATUS_IGNORED
+    ) -> None:
+        task_status.started(None)
+
+    async with _core.open_nursery() as nursery:
+        with _core.CancelScope() as cs:
+            cs.cancel()
+            await nursery.start(started_with_no_checkpoint)
+        assert not cs.cancelled_caught
+
+    # and since starting in a cancelled context makes started() a no-op, if
+    # the child crashes after calling started(), the error can *still* come
+    # out of start()
     async def raise_keyerror_after_started(
         *, task_status: _core.TaskStatus[None] = _core.TASK_STATUS_IGNORED
     ) -> None:
@@ -1745,12 +1778,8 @@ async def test_nursery_start(autojump_clock: _core.MockClock) -> None:
     async with _core.open_nursery() as nursery:
         with _core.CancelScope() as cs:
             cs.cancel()
-            with pytest.raises(MultiError) as excinfo2:
+            with pytest.raises(KeyError):
                 await nursery.start(raise_keyerror_after_started)
-    assert {type(e) for e in excinfo2.value.exceptions} == {
-        _core.Cancelled,
-        KeyError,
-    }
 
     # trying to start in a closed nursery raises an error immediately
     async with _core.open_nursery() as closed_nursery:

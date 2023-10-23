@@ -107,7 +107,7 @@ async def test_serve_listeners_accept_unrecognized_error() -> None:
         listener = MemoryListener()
 
         async def raise_error() -> NoReturn:
-            raise error
+            raise error  # noqa: B023  # Set from loop
 
         listener.accept_hook = raise_error
 

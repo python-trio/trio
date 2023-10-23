@@ -360,7 +360,7 @@ async def test_run_in_worker_thread_cancellation() -> None:
     # Put the thread out of its misery:
     q.put(None)
     while register[0] != "finished":
-        time.sleep(0.01)
+        time.sleep(0.01)  # noqa: ASYNC101  # Need to wait for OS thread
 
     # This one can't be cancelled
     record = []
@@ -499,7 +499,7 @@ async def test_run_in_worker_thread_limiter(
         async with _core.open_nursery() as nursery:
             print("spawning")
             events = []
-            for i in range(COUNT):
+            for _ in range(COUNT):
                 events.append(Event())
                 nursery.start_soon(run_thread, events[-1])
                 await wait_all_tasks_blocked()
@@ -839,7 +839,7 @@ def test_run_fn_as_system_task_catched_badly_typed_token() -> None:
 
 async def test_from_thread_inside_trio_thread() -> None:
     def not_called() -> None:  # pragma: no cover
-        assert False
+        raise AssertionError()
 
     trio_token = _core.current_trio_token()
     with pytest.raises(RuntimeError):

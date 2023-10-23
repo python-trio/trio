@@ -243,7 +243,7 @@ def test_instruments_monkeypatch() -> None:
 def test_instrument_that_raises_on_getattr() -> None:
     class EvilInstrument(_abc.Instrument):
         def task_exited(self, task: Task) -> NoReturn:
-            assert False  # pragma: no cover
+            raise AssertionError("this should never happen")  # pragma: no cover
 
         @property
         def after_run(self) -> NoReturn:

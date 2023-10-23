@@ -97,7 +97,7 @@ class RunVar(Generic[T]):
             else:
                 _run.GLOBAL_RUN_CONTEXT.runner._locals[self] = previous
         except AttributeError:
-            raise RuntimeError("Cannot be used outside of a run context")
+            raise RuntimeError("Cannot be used outside of a run context") from None
 
         token.redeemed = True
 

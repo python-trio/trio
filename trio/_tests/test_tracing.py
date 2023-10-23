@@ -28,7 +28,7 @@ async def coro2_async_gen(event: trio.Event) -> AsyncGenerator[None, None]:
 
 
 async def coro3_async_gen(event: trio.Event) -> None:
-    async for x in coro2_async_gen(event):
+    async for _ in coro2_async_gen(event):
         pass
 
 

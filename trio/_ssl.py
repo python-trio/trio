@@ -436,7 +436,7 @@ class SSLStream(Stream, Generic[T_Stream]):
         elif self._state is _State.CLOSED:
             raise trio.ClosedResourceError
         else:  # pragma: no cover
-            assert False
+            raise AssertionError()
 
     # This is probably the single trickiest function in Trio. It has lots of
     # comments, though, just make sure to think carefully if you ever have to
