@@ -42,11 +42,14 @@ async def test_ConflictDetector():
     ul1 = ConflictDetector("ul1")
     ul2 = ConflictDetector("ul2")
 
-    with ul1, ul2:
-        print("ok")
+    with ul1:
+        with ul2:
+            print("ok")
 
-    with pytest.raises(_core.BusyResourceError) as excinfo, ul1, ul1:
-        pass  # pragma: no cover
+    with pytest.raises(_core.BusyResourceError) as excinfo:
+        with ul1:
+            with ul1:
+                pass  # pragma: no cover
     assert "ul1" in str(excinfo.value)
 
     async def wait_with_ul1():

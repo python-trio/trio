@@ -328,10 +328,7 @@ class MultiError(_BaseExceptionGroup):
         return MultiErrorCatcher(handler)
 
 
-if TYPE_CHECKING:  # noqa: SIM108
-    _ExceptionGroup = ExceptionGroup[Exception]
-else:
-    _ExceptionGroup = ExceptionGroup
+_ExceptionGroup = ExceptionGroup[Exception] if TYPE_CHECKING else ExceptionGroup
 
 
 class NonBaseMultiError(MultiError, _ExceptionGroup):

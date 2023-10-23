@@ -57,8 +57,9 @@ async def test_sleep():
     with assert_checkpoints():
         await sleep(0)
     # This also serves as a test of the trivial move_on_at
-    with move_on_at(_core.current_time()), pytest.raises(_core.Cancelled):
-        await sleep(0)
+    with move_on_at(_core.current_time()):
+        with pytest.raises(_core.Cancelled):
+            await sleep(0)
 
 
 @slow
@@ -115,5 +116,6 @@ async def test_timeouts_raise_value_error():
         (move_on_after, nan),
         (move_on_at, nan),
     ):
-        with pytest.raises(ValueError), cm(val):
-            pass  # pragma: no cover
+        with pytest.raises(ValueError):
+            with cm(val):
+                pass  # pragma: no cover

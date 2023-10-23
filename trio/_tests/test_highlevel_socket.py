@@ -20,13 +20,15 @@ from .test_socket import setsockopt_tests
 async def test_SocketStream_basics() -> None:
     # stdlib socket bad (even if connected)
     stdlib_a, stdlib_b = stdlib_socket.socketpair()
-    with stdlib_a, stdlib_b, pytest.raises(TypeError):
-        SocketStream(stdlib_a)  # type: ignore[arg-type]
+    with stdlib_a, stdlib_b:
+        with pytest.raises(TypeError):
+            SocketStream(stdlib_a)  # type: ignore[arg-type]
 
     # DGRAM socket bad
-    with tsocket.socket(type=tsocket.SOCK_DGRAM) as sock, pytest.raises(ValueError):
-        # TODO: does not raise an error?
-        SocketStream(sock)
+    with tsocket.socket(type=tsocket.SOCK_DGRAM) as sock:
+        with pytest.raises(ValueError):
+            # TODO: does not raise an error?
+            SocketStream(sock)
 
     a, b = tsocket.socketpair()
     with a, b:
@@ -184,8 +186,9 @@ async def test_SocketListener() -> None:
     with assert_checkpoints():
         await listener.aclose()
 
-    with assert_checkpoints(), pytest.raises(_core.ClosedResourceError):
-        await listener.accept()
+    with assert_checkpoints():
+        with pytest.raises(_core.ClosedResourceError):
+            await listener.accept()
 
     client_sock.close()
     await server_stream.aclose()
@@ -201,8 +204,9 @@ async def test_SocketListener_socket_closed_underfoot() -> None:
     listen_sock.close()
 
     # SocketListener gives correct error
-    with assert_checkpoints(), pytest.raises(_core.ClosedResourceError):
-        await listener.accept()
+    with assert_checkpoints():
+        with pytest.raises(_core.ClosedResourceError):
+            await listener.accept()
 
 
 async def test_SocketListener_accept_errors() -> None:

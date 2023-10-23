@@ -792,19 +792,15 @@ class CancelScope:
         cancelled, then :attr:`cancelled_caught` is usually more
         appropriate.
         """
-        if (
-            self._cancel_status is not None
-            or not self._has_been_entered
-            and not self._cancel_called
-            and current_time() >= self._deadline
-        ):
+        if self._cancel_status is not None or not self._has_been_entered:
             # Scope is active or not yet entered: make sure cancel_called
             # is true if the deadline has passed. This shouldn't
             # be able to actually change behavior, since we check for
             # deadline expiry on scope entry and at every checkpoint,
             # but it makes the value returned by cancel_called more
             # closely match expectations.
-            self.cancel()
+            if not self._cancel_called and current_time() >= self._deadline:
+                self.cancel()
         return self._cancel_called
 
 

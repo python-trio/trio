@@ -619,11 +619,12 @@ async def test_basic_timeout(mock_clock: _core.MockClock) -> None:
 
 async def test_cancel_scope_nesting() -> None:
     # Nested scopes: if two triggering at once, the outer one wins
-    with _core.CancelScope() as scope1, _core.CancelScope() as scope2:  # noqa: SIM117  # multiple-with-statements
-        with _core.CancelScope() as scope3:
-            scope3.cancel()
-            scope2.cancel()
-            await sleep_forever()
+    with _core.CancelScope() as scope1:
+        with _core.CancelScope() as scope2:
+            with _core.CancelScope() as scope3:
+                scope3.cancel()
+                scope2.cancel()
+                await sleep_forever()
     assert scope3.cancel_called
     assert not scope3.cancelled_caught
     assert scope2.cancel_called
@@ -632,17 +633,18 @@ async def test_cancel_scope_nesting() -> None:
     assert not scope1.cancelled_caught
 
     # shielding
-    with _core.CancelScope() as scope1, _core.CancelScope() as scope2:
-        scope1.cancel()
-        with pytest.raises(_core.Cancelled):
+    with _core.CancelScope() as scope1:
+        with _core.CancelScope() as scope2:
+            scope1.cancel()
+            with pytest.raises(_core.Cancelled):
+                await _core.checkpoint()
+            with pytest.raises(_core.Cancelled):
+                await _core.checkpoint()
+            scope2.shield = True
             await _core.checkpoint()
-        with pytest.raises(_core.Cancelled):
-            await _core.checkpoint()
-        scope2.shield = True
-        await _core.checkpoint()
-        scope2.cancel()
-        with pytest.raises(_core.Cancelled):
-            await _core.checkpoint()
+            scope2.cancel()
+            with pytest.raises(_core.Cancelled):
+                await _core.checkpoint()
 
     # if a scope is pending, but then gets popped off the stack, then it
     # isn't delivered
@@ -655,12 +657,13 @@ async def test_cancel_scope_nesting() -> None:
 
 # Regression test for https://github.com/python-trio/trio/issues/1175
 async def test_unshield_while_cancel_propagating() -> None:
-    with _core.CancelScope() as outer, _core.CancelScope() as inner:
-        outer.cancel()
-        try:
-            await _core.checkpoint()
-        finally:
-            inner.shield = True
+    with _core.CancelScope() as outer:
+        with _core.CancelScope() as inner:
+            outer.cancel()
+            try:
+                await _core.checkpoint()
+            finally:
+                inner.shield = True
     assert outer.cancelled_caught and not inner.cancelled_caught
 
 
@@ -699,14 +702,16 @@ async def test_cancel_unbound() -> None:
     await _core.checkpoint()
     assert scope.cancel_called
     assert not scope.cancelled_caught
-    with pytest.raises(RuntimeError) as exc_info, scope:
-        pass  # pragma: no cover
+    with pytest.raises(RuntimeError) as exc_info:
+        with scope:
+            pass  # pragma: no cover
     assert "single 'with' block" in str(exc_info.value)
 
     # Can't reenter
     with _core.CancelScope() as scope:
-        with pytest.raises(RuntimeError) as exc_info, scope:
-            pass  # pragma: no cover
+        with pytest.raises(RuntimeError) as exc_info:
+            with scope:
+                pass  # pragma: no cover
         assert "single 'with' block" in str(exc_info.value)
 
     # Can't enter from multiple tasks simultaneously
@@ -720,8 +725,9 @@ async def test_cancel_unbound() -> None:
         nursery.start_soon(enter_scope, name="this one")
         await wait_all_tasks_blocked()
 
-        with pytest.raises(RuntimeError) as exc_info, scope:
-            pass  # pragma: no cover
+        with pytest.raises(RuntimeError) as exc_info:
+            with scope:
+                pass  # pragma: no cover
         assert "single 'with' block" in str(exc_info.value)
         nursery.cancel_scope.cancel()
 
@@ -740,8 +746,9 @@ async def test_cancel_scope_misnesting() -> None:
     inner = _core.CancelScope()
     with ExitStack() as stack:
         stack.enter_context(outer)
-        with inner, pytest.raises(RuntimeError, match="still within its child"):
-            stack.close()
+        with inner:
+            with pytest.raises(RuntimeError, match="still within its child"):
+                stack.close()
         # No further error is raised when exiting the inner context
 
     # If there are other tasks inside the abandoned part of the cancel tree,
@@ -752,8 +759,9 @@ async def test_cancel_scope_misnesting() -> None:
 
     # Even if inside another cancel scope
     async def task2() -> None:
-        with _core.CancelScope(), pytest.raises(_core.Cancelled):
-            await sleep_forever()
+        with _core.CancelScope():
+            with pytest.raises(_core.Cancelled):
+                await sleep_forever()
 
     with ExitStack() as stack:
         stack.enter_context(_core.CancelScope())
@@ -889,10 +897,9 @@ def test_error_in_run_loop() -> None:
         task._schedule_points = "hello!"  # type: ignore
         await _core.checkpoint()
 
-    with ignore_coroutine_never_awaited_warnings(), pytest.raises(
-        _core.TrioInternalError
-    ):
-        _core.run(main)
+    with ignore_coroutine_never_awaited_warnings():
+        with pytest.raises(_core.TrioInternalError):
+            _core.run(main)
 
 
 async def test_spawn_system_task() -> None:
@@ -1407,25 +1414,26 @@ async def test_slow_abort_edge_cases() -> None:
         await _core.checkpoint()
         record.append("done")
 
-    with _core.CancelScope() as outer1, _core.CancelScope() as outer2:
-        async with _core.open_nursery() as nursery:
-            # So we have a task blocked on an operation that can't be
-            # aborted immediately
-            nursery.start_soon(slow_aborter)
-            await wait_all_tasks_blocked()
-            assert record == ["sleeping"]
-            # And then we cancel it, so the abort callback gets run
-            outer1.cancel()
-            assert record == ["sleeping", "abort-called"]
-            # In fact that happens twice! (This used to cause the abort
-            # callback to be run twice)
-            outer2.cancel()
-            assert record == ["sleeping", "abort-called"]
-            # But then before the abort finishes, the task gets shielded!
-            nursery.cancel_scope.shield = True
-            # Now we wait for the task to finish...
-        # The cancellation was delivered, even though it was shielded
-        assert record == ["sleeping", "abort-called", "cancelled", "done"]
+    with _core.CancelScope() as outer1:
+        with _core.CancelScope() as outer2:
+            async with _core.open_nursery() as nursery:
+                # So we have a task blocked on an operation that can't be
+                # aborted immediately
+                nursery.start_soon(slow_aborter)
+                await wait_all_tasks_blocked()
+                assert record == ["sleeping"]
+                # And then we cancel it, so the abort callback gets run
+                outer1.cancel()
+                assert record == ["sleeping", "abort-called"]
+                # In fact that happens twice! (This used to cause the abort
+                # callback to be run twice)
+                outer2.cancel()
+                assert record == ["sleeping", "abort-called"]
+                # But then before the abort finishes, the task gets shielded!
+                nursery.cancel_scope.shield = True
+                # Now we wait for the task to finish...
+            # The cancellation was delivered, even though it was shielded
+            assert record == ["sleeping", "abort-called", "cancelled", "done"]
 
 
 async def test_task_tree_introspection() -> None:
@@ -1439,7 +1447,7 @@ async def test_task_tree_introspection() -> None:
 
         assert tasks["parent"].child_nurseries == []
 
-        async with _core.open_nursery() as nursery1:  # noqa: SIM117  # multiple-with-statements
+        async with _core.open_nursery() as nursery1:
             async with _core.open_nursery() as nursery2:
                 assert tasks["parent"].child_nurseries == [nursery1, nursery2]
 
@@ -2522,8 +2530,9 @@ async def test_cancel_scope_no_cancellederror() -> None:
     a Cancelled exception, it will NOT set the ``cancelled_caught`` flag.
     """
 
-    with pytest.raises(ExceptionGroup), _core.CancelScope() as scope:
-        scope.cancel()
-        raise ExceptionGroup("test", [RuntimeError(), RuntimeError()])
+    with pytest.raises(ExceptionGroup):
+        with _core.CancelScope() as scope:
+            scope.cancel()
+            raise ExceptionGroup("test", [RuntimeError(), RuntimeError()])
 
     assert not scope.cancelled_caught

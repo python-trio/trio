@@ -138,7 +138,7 @@ async def test_generator_based_context_manager_throw():
     with protected_manager():
         assert not _core.currently_ki_protected()
 
-    with pytest.raises(KeyError):  # noqa: SIM117  # multiple-with-statements
+    with pytest.raises(KeyError):
         # This is the one that used to fail
         with protected_manager():
             raise KeyError

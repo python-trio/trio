@@ -22,8 +22,9 @@ def test_close_on_error():
         pass
     assert not c.closed
 
-    with pytest.raises(RuntimeError), close_on_error(CloseMe()) as c:
-        raise RuntimeError
+    with pytest.raises(RuntimeError):
+        with close_on_error(CloseMe()) as c:
+            raise RuntimeError
     assert c.closed
 
 

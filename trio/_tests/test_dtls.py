@@ -118,10 +118,7 @@ async def test_handshake_over_terrible_network(
     # avoid spurious timeouts on slow machines
     autojump_clock.autojump_threshold = 0.001
 
-    async with dtls_echo_server() as (  # noqa: SIM117  # multiple-with-statements
-        _,
-        address,
-    ):
+    async with dtls_echo_server() as (_, address):
         async with trio.open_nursery() as nursery:
 
             async def route_packet(packet: UDPPacket) -> None:
@@ -289,8 +286,9 @@ async def test_client_multiplex() -> None:
 
 
 async def test_dtls_over_dgram_only() -> None:
-    with trio.socket.socket() as s, pytest.raises(ValueError):
-        DTLSEndpoint(s)
+    with trio.socket.socket() as s:
+        with pytest.raises(ValueError):
+            DTLSEndpoint(s)
 
 
 async def test_double_serve() -> None:
@@ -823,9 +821,10 @@ async def test_socket_closed_while_processing_clienthello(
 
         fn.route_packet = route_packet  # type: ignore[assignment]  # TODO add type annotations for FakeNet
 
-        with endpoint() as client_endpoint, trio.move_on_after(10):
-            client = client_endpoint.connect(address, client_ctx)
-            await client.do_handshake()
+        with endpoint() as client_endpoint:
+            with trio.move_on_after(10):
+                client = client_endpoint.connect(address, client_ctx)
+                await client.do_handshake()
 
 
 async def test_association_replaced_while_handshake_running(

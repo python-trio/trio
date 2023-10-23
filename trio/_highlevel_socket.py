@@ -100,7 +100,7 @@ class SocketStream(HalfCloseableStream):
     async def send_all(self, data: bytes | bytearray | memoryview) -> None:
         if self.socket.did_shutdown_SHUT_WR:
             raise trio.ClosedResourceError("can't send data after sending EOF")
-        with self._send_conflict_detector:  # noqa: SIM117  # multiple-with-statements
+        with self._send_conflict_detector:
             with _translate_socket_errors_to_stream_errors():
                 with memoryview(data) as data:
                     if not data:

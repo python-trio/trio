@@ -120,8 +120,9 @@ async def test_assert_checkpoints(recwarn):
         _core.cancel_shielded_checkpoint,
     ]:
         print(partial_yield)
-        with pytest.raises(AssertionError), assert_checkpoints():
-            await partial_yield()
+        with pytest.raises(AssertionError):
+            with assert_checkpoints():
+                await partial_yield()
 
     # But both together count as a checkpoint
     with assert_checkpoints():
@@ -133,8 +134,9 @@ async def test_assert_no_checkpoints(recwarn):
     with assert_no_checkpoints():
         1 + 1  # noqa: B018  # "useless expression"
 
-    with pytest.raises(AssertionError), assert_no_checkpoints():
-        await _core.checkpoint()
+    with pytest.raises(AssertionError):
+        with assert_no_checkpoints():
+            await _core.checkpoint()
 
     # partial yield cases
     # if you have a schedule point but not a cancel point, or vice-versa, then
@@ -144,13 +146,15 @@ async def test_assert_no_checkpoints(recwarn):
         _core.cancel_shielded_checkpoint,
     ]:
         print(partial_yield)
-        with pytest.raises(AssertionError), assert_no_checkpoints():
-            await partial_yield()
+        with pytest.raises(AssertionError):
+            with assert_no_checkpoints():
+                await partial_yield()
 
     # And both together also count as a checkpoint
-    with pytest.raises(AssertionError), assert_no_checkpoints():
-        await _core.checkpoint_if_cancelled()
-        await _core.cancel_shielded_checkpoint()
+    with pytest.raises(AssertionError):
+        with assert_no_checkpoints():
+            await _core.checkpoint_if_cancelled()
+            await _core.cancel_shielded_checkpoint()
 
 
 ################################################################

@@ -202,11 +202,12 @@ async def test_close_at_bad_time_for_receive_some(monkeypatch):
 
     monkeypatch.setattr(_core._run.TheIOManager, "wait_readable", patched_wait_readable)
     s, r = await make_pipe()
-    async with s, r, _core.open_nursery() as nursery:
-        nursery.start_soon(expect_closedresourceerror)
-        await wait_all_tasks_blocked()
-        # Trigger everything by waking up the receiver
-        await s.send_all(b"x")
+    async with s, r:
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(expect_closedresourceerror)
+            await wait_all_tasks_blocked()
+            # Trigger everything by waking up the receiver
+            await s.send_all(b"x")
 
 
 async def test_close_at_bad_time_for_send_all(monkeypatch):
@@ -229,22 +230,23 @@ async def test_close_at_bad_time_for_send_all(monkeypatch):
 
     monkeypatch.setattr(_core._run.TheIOManager, "wait_writable", patched_wait_writable)
     s, r = await make_clogged_pipe()
-    async with s, r, _core.open_nursery() as nursery:
-        nursery.start_soon(expect_closedresourceerror)
-        await wait_all_tasks_blocked()
-        # Trigger everything by waking up the sender. On ppc64el, PIPE_BUF
-        # is 8192 but make_clogged_pipe() ends up writing a total of
-        # 1048576 bytes before the pipe is full, and then a subsequent
-        # receive_some(10000) isn't sufficient for orig_wait_writable() to
-        # return for our subsequent aclose() call. It's necessary to empty
-        # the pipe further before this happens. So we loop here until the
-        # pipe is empty to make sure that the sender wakes up even in this
-        # case. Otherwise patched_wait_writable() never gets to the
-        # aclose(), so expect_closedresourceerror() never returns, the
-        # nursery never finishes all tasks and this test hangs.
-        received_data = await r.receive_some(10000)
-        while received_data:
+    async with s, r:
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(expect_closedresourceerror)
+            await wait_all_tasks_blocked()
+            # Trigger everything by waking up the sender. On ppc64el, PIPE_BUF
+            # is 8192 but make_clogged_pipe() ends up writing a total of
+            # 1048576 bytes before the pipe is full, and then a subsequent
+            # receive_some(10000) isn't sufficient for orig_wait_writable() to
+            # return for our subsequent aclose() call. It's necessary to empty
+            # the pipe further before this happens. So we loop here until the
+            # pipe is empty to make sure that the sender wakes up even in this
+            # case. Otherwise patched_wait_writable() never gets to the
+            # aclose(), so expect_closedresourceerror() never returns, the
+            # nursery never finishes all tasks and this test hangs.
             received_data = await r.receive_some(10000)
+            while received_data:
+                received_data = await r.receive_some(10000)
 
 
 # On FreeBSD, directories are readable, and we haven't found any other trick

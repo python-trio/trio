@@ -37,6 +37,8 @@ extend-ignore = [
     'F405',  # undefined-local-with-import-star-usage
     'E402',  # module-import-not-at-top-of-file (usually OS-specific)
     'E501',  # line-too-long
+    'SIM102',  # collapsible-if (good idea, but ends up squashing things together, making them seem related - which they aren't)
+    'SIM117',  # multiple-with-statements (messes up lots of context-based stuff and looks bad)
 ]
 
 include = ["*.py", "*.pyi", "**/pyproject.toml"]

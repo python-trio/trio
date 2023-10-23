@@ -39,16 +39,15 @@ async def test_open_signal_receiver() -> None:
 
 async def test_open_signal_receiver_restore_handler_after_one_bad_signal() -> None:
     orig = signal.getsignal(signal.SIGILL)
-    with pytest.raises(ValueError), open_signal_receiver(signal.SIGILL, 1234567):
-        pass  # pragma: no cover
+    with pytest.raises(ValueError):
+        with open_signal_receiver(signal.SIGILL, 1234567):
+            pass  # pragma: no cover
     # Still restored even if we errored out
     assert signal.getsignal(signal.SIGILL) is orig
 
 
 async def test_open_signal_receiver_empty_fail() -> None:
-    with pytest.raises(  # noqa: SIM117  # multiple-with-statements
-        TypeError, match="No signals were provided"
-    ):
+    with pytest.raises(TypeError, match="No signals were provided"):
         with open_signal_receiver():
             pass
 
@@ -71,9 +70,7 @@ async def test_catch_signals_wrong_thread() -> None:
 
 
 async def test_open_signal_receiver_conflict() -> None:
-    with pytest.raises(  # noqa: SIM117  # multiple-with-statements
-        trio.BusyResourceError
-    ):
+    with pytest.raises(trio.BusyResourceError):
         with open_signal_receiver(signal.SIGILL) as receiver:
             async with trio.open_nursery() as nursery:
                 nursery.start_soon(receiver.__anext__)
@@ -140,9 +137,7 @@ async def test_catch_signals_race_condition_on_exit() -> None:
     print(2)
     # Test the version where the call_soon *does* have a chance to run before
     # we exit the with block:
-    with _signal_handler(  # noqa: SIM117  # multiple-with-statements
-        {signal.SIGILL, signal.SIGFPE}, direct_handler
-    ):
+    with _signal_handler({signal.SIGILL, signal.SIGFPE}, direct_handler):
         with open_signal_receiver(signal.SIGILL, signal.SIGFPE) as receiver:
             signal_raise(signal.SIGILL)
             signal_raise(signal.SIGFPE)
@@ -161,9 +156,7 @@ async def test_catch_signals_race_condition_on_exit() -> None:
     # test passes if the process reaches this point without dying
 
     print(4)
-    with _signal_handler(  # noqa: SIM117  # multiple-with-statements
-        {signal.SIGILL}, signal.SIG_IGN
-    ):
+    with _signal_handler({signal.SIGILL}, signal.SIG_IGN):
         with open_signal_receiver(signal.SIGILL) as receiver:
             signal_raise(signal.SIGILL)
             await wait_run_sync_soon_idempotent_queue_barrier()
@@ -176,9 +169,7 @@ async def test_catch_signals_race_condition_on_exit() -> None:
         raise RuntimeError(signum)
 
     with _signal_handler({signal.SIGILL, signal.SIGFPE}, raise_handler):
-        with pytest.raises(  # noqa: SIM117  # multiple-with-statements
-            RuntimeError
-        ) as excinfo:
+        with pytest.raises(RuntimeError) as excinfo:
             with open_signal_receiver(signal.SIGILL, signal.SIGFPE) as receiver:
                 signal_raise(signal.SIGILL)
                 signal_raise(signal.SIGFPE)

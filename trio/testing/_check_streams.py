@@ -193,8 +193,9 @@ async def check_one_way_stream(
             await do_send_all(b"")
 
         # ditto for wait_send_all_might_not_block
-        with _assert_raises(_core.ClosedResourceError), assert_checkpoints():
-            await s.wait_send_all_might_not_block()
+        with _assert_raises(_core.ClosedResourceError):
+            with assert_checkpoints():
+                await s.wait_send_all_might_not_block()
 
         # and again, repeated closing is fine
         await do_aclose(s)
@@ -388,17 +389,13 @@ async def check_one_way_stream(
             await _core.wait_all_tasks_blocked()
             await aclose_forcefully(s)
 
-        async with _ForceCloseBoth(  # noqa: SIM117  # multiple-with-statements
-            await clogged_stream_maker()
-        ) as (s, r):
+        async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
             async with _core.open_nursery() as nursery:
                 nursery.start_soon(close_soon, s)
                 with _assert_raises(_core.ClosedResourceError):
                     await s.send_all(b"xyzzy")
 
-        async with _ForceCloseBoth(  # noqa: SIM117  # multiple-with-statements
-            await clogged_stream_maker()
-        ) as (s, r):
+        async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
             async with _core.open_nursery() as nursery:
                 nursery.start_soon(close_soon, s)
                 with _assert_raises(_core.ClosedResourceError):
