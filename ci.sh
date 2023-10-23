@@ -132,14 +132,22 @@ else
     # set the location of .coveragerc for multi-process coverage to work
     COVERAGE_PROCESS_START=$(pwd)/../.coveragerc
 
-    RUN_TESTS=coverage run --rcfile=../.coveragerc -m pytest -r a -p trio._tests.pytest_plugin --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --verbose --durations=10 $flags
+    PYTEST_CMD="pytest -r a -p trio._tests.pytest_plugin --junitxml=../test-results.xml --run-slow --verbose --durations=10 $flags ${INSTALLDIR}"
 
-    # timeout coverage/pytest with SIGINT before the CI runner kills it, to get in-progress
-    # data and print out the slowest tests
+    RUN_TESTS="coverage run --rcfile=../.coveragerc -m $PYTEST_CMD"
+
+    # timeout can be changed with an environment variable, but if empty or unset
+    # default to 9m to not hit 10m limit
+    if [ -z "$TESTS_TIMEOUT" ]; then
+        TESTS_TIMEOUT=9m
+    fi
+
+    # if available, timeout coverage/pytest with SIGINT before the CI runner kills it, to
+    # get in-progress data and print out the slowest tests
     if type timeout > /dev/null; then
-        RUN_TESTS=timeout --signal=INT 9m $COMMAND
+        RUN_TESTS="timeout --signal=INT $TESTS_TIMEOUT $RUN_TESTS"
     elif type gtimeout > /dev/null; then
-        RUN_TESTS=gtimeout --signal=INT 9m $COMMAND
+        RUN_TESTS="gtimeout --signal=INT $TESTS_TIMEOUT $RUN_TESTS"
     fi
 
     if $RUN_TESTS; then
