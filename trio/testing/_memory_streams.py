@@ -313,7 +313,7 @@ def memory_stream_pump(
         else:
             memory_receive_stream.put_data(data)
     except _core.ClosedResourceError:
-        raise _core.BrokenResourceError("MemoryReceiveStream was closed")
+        raise _core.BrokenResourceError("MemoryReceiveStream was closed") from None
     return True
 
 

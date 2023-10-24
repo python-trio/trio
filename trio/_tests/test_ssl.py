@@ -84,7 +84,7 @@ def client_ctx(request):
         ctx.maximum_version = ssl.TLSVersion.TLSv1_2
         return ctx
     else:  # pragma: no cover
-        assert False
+        raise AssertionError()
 
 
 # The blocking socket server.
@@ -367,9 +367,13 @@ def ssl_wrap_pair(
     client_transport,
     server_transport,
     *,
-    client_kwargs={},
-    server_kwargs={},
+    client_kwargs=None,
+    server_kwargs=None,
 ):
+    if server_kwargs is None:
+        server_kwargs = {}
+    if client_kwargs is None:
+        client_kwargs = {}
     client_ssl = SSLStream(
         client_transport,
         client_ctx,
@@ -464,7 +468,7 @@ async def test_attributes(client_ctx):
         assert s.server_side == False  # noqa
         assert s.server_hostname == "trio-test-1.example.org"
         with pytest.raises(AttributeError):
-            s.asfdasdfsa
+            s.asfdasdfsa  # noqa: B018  # "useless expression"
 
         # __dir__
         assert "transport_stream" in dir(s)
@@ -914,7 +918,7 @@ async def test_closing_nice_case(client_ctx):
     # And once the connection is has been closed *locally*, then instead of
     # getting empty bytestrings we get a proper error
     with pytest.raises(ClosedResourceError):
-        await client_ssl.receive_some(10) == b""
+        assert await client_ssl.receive_some(10) == b""
 
     with pytest.raises(ClosedResourceError):
         await client_ssl.unwrap()

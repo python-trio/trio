@@ -21,7 +21,7 @@ def add_instrument(instrument: Instrument) -> None:
     try:
         return GLOBAL_RUN_CONTEXT.runner.instruments.add_instrument(instrument)
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None
 
 
 def remove_instrument(instrument: Instrument) -> None:
@@ -41,4 +41,4 @@ def remove_instrument(instrument: Instrument) -> None:
     try:
         return GLOBAL_RUN_CONTEXT.runner.instruments.remove_instrument(instrument)
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None
