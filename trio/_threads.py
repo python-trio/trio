@@ -409,10 +409,10 @@ def from_thread_check_cancelled() -> None:
     """
     try:
         raise_cancel = PARENT_TASK_DATA.cancel_register[0]
-    except AttributeError:
-        raise RuntimeError(  # noqa: B904
+    except AttributeError as exc:
+        raise RuntimeError(
             "this thread wasn't created by Trio, can't check for cancellation"
-        )
+        ) from exc
     if raise_cancel is not None:
         raise_cancel()
 
