@@ -31,4 +31,3 @@ ci:
   autoupdate_commit_msg: "[pre-commit.ci] pre-commit autoupdate"
   autoupdate_schedule: weekly
   submodules: false
-  show_diff_on_failure: true

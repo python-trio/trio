@@ -10,7 +10,7 @@ import warnings
 from pathlib import Path
 from traceback import extract_tb, print_exception
 from types import TracebackType
-from typing import Callable, List, NoReturn
+from typing import Callable, NoReturn
 
 import pytest
 
@@ -400,7 +400,7 @@ def test_MultiError_catch_doesnt_create_cyclic_garbage() -> None:
         gc.garbage.clear()
 
 
-def assert_match_in_seq(pattern_list: List[str], string: str) -> None:
+def assert_match_in_seq(pattern_list: list[str], string: str) -> None:
     offset = 0
     print("looking for pattern matches...")
     for pattern in pattern_list:
