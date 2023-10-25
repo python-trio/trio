@@ -43,6 +43,11 @@ python -m pip --version
 python setup.py sdist --formats=zip
 python -m pip install dist/*.zip
 
+IS_PYPY_39=$(python -c "import platform; import sys; platform.python_implementation() == 'PyPy' and sys.version_info[:2] == (3, 9)")
+if ($IS_PYPY_39); then
+    pip install --force-reinstall --no-deps cffi
+fi
+
 if [ "$CHECK_FORMATTING" = "1" ]; then
     python -m pip install -r test-requirements.txt
     echo "::endgroup::"
@@ -51,7 +56,7 @@ else
     # Actual tests
     # expands to 0 != 1 if NO_TEST_REQUIREMENTS is not set, if set the `-0` has no effect
     # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_06_02
-    if [ ${NO_TEST_REQUIREMENTS-0} == 1 ]; then
+    if [ "${NO_TEST_REQUIREMENTS-0}" == 1 ]; then
         python -m pip install pytest coverage
         flags="--skip-optional-imports"
     else
@@ -118,7 +123,7 @@ else
     cd empty
 
     INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
-    cp ../pyproject.toml $INSTALLDIR
+    cp ../pyproject.toml "$INSTALLDIR"
 
     # get mypy tests a nice cache
     MYPYPATH=".." mypy --config-file= --cache-dir=./.mypy_cache -c "import trio" >/dev/null 2>/dev/null || true
@@ -128,7 +133,7 @@ else
 
     echo "::endgroup::"
     echo "::group:: Run Tests"
-    if COVERAGE_PROCESS_START=$(pwd)/../.coveragerc coverage run --rcfile=../.coveragerc -m pytest -r a -p trio._tests.pytest_plugin --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --verbose --durations=10 $flags; then
+    if COVERAGE_PROCESS_START=$(pwd)/../.coveragerc coverage run --rcfile=../.coveragerc -m pytest -r a -p trio._tests.pytest_plugin --junitxml=../test-results.xml --run-slow "${INSTALLDIR}" --verbose --durations=10 $flags; then
         PASSED=true
     else
         PASSED=false
