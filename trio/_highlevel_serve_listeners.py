@@ -142,4 +142,4 @@ async def serve_listeners(
         # error or whatever.
         task_status.started(listeners)
 
-    raise AssertionError("_serve_one_listener should never complete")
+    raise AssertionError("_serve_one_listener should never complete")  # pragma: no cov

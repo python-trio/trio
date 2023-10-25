@@ -69,7 +69,7 @@ def get_exc(raiser: Callable[[], NoReturn]) -> BaseException:
         raiser()
     except Exception as exc:
         return exc
-    raise AssertionError("raiser should always raise")
+    raise AssertionError("raiser should always raise")  # pragma: no cov
 
 
 def get_tb(raiser: Callable[[], NoReturn]) -> TracebackType | None:
