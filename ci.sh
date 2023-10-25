@@ -43,11 +43,6 @@ python -m pip --version
 python setup.py sdist --formats=zip
 python -m pip install dist/*.zip
 
-IS_PYPY_39=$(python -c "import platform; import sys; platform.python_implementation() == 'PyPy' and sys.version_info[:2] == (3, 9)")
-if ($IS_PYPY_39); then
-    pip install --force-reinstall --no-deps cffi
-fi
-
 if [ "$CHECK_FORMATTING" = "1" ]; then
     python -m pip install -r test-requirements.txt
     echo "::endgroup::"
