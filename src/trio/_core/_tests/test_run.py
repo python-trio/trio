@@ -266,7 +266,7 @@ async def test_current_time() -> None:
     t1 = _core.current_time()
     # Windows clock is pretty low-resolution -- appveyor tests fail unless we
     # sleep for a bit here.
-    time.sleep(time.get_clock_info("perf_counter").resolution)
+    time.sleep(time.get_clock_info("perf_counter").resolution)  # noqa: ASYNC101
     t2 = _core.current_time()
     assert t1 < t2
 
@@ -469,7 +469,7 @@ async def test_cancel_scope_multierror_filtering() -> None:
         # KeyError from crasher()
         assert type(exc) is KeyError
     else:  # pragma: no cover
-        assert False
+        raise AssertionError()
 
 
 async def test_precancelled_task() -> None:
@@ -829,7 +829,7 @@ async def test_timekeeping() -> None:
         if 1.0 <= accuracy < 2:  # pragma: no branch
             break
     else:  # pragma: no cover
-        assert False
+        raise AssertionError()
 
 
 async def test_failed_abort() -> None:
@@ -963,7 +963,7 @@ def test_system_task_crash_plus_Cancelled() -> None:
         try:
             await sleep_forever()
         except _core.Cancelled:
-            raise ValueError
+            raise ValueError from None
 
     async def cancelme() -> None:
         await sleep_forever()
@@ -2374,10 +2374,6 @@ async def test_cancel_scope_exit_doesnt_create_cyclic_garbage() -> None:
         gc.garbage.clear()
 
 
-@pytest.mark.xfail(
-    sys.version_info >= (3, 12),
-    reason="Waiting on https://github.com/python/cpython/issues/100964",
-)
 @pytest.mark.skipif(
     sys.implementation.name != "cpython", reason="Only makes sense with refcounting GC"
 )

@@ -41,7 +41,7 @@ async def test_parking_lot_basic():
             nursery.start_soon(waiter, i, lot)
             await wait_all_tasks_blocked()
         assert len(record) == 3
-        for i in range(3):
+        for _ in range(3):
             lot.unpark()
             await wait_all_tasks_blocked()
         # 1-by-1 wakeups are strict FIFO

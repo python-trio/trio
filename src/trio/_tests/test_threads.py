@@ -13,9 +13,17 @@ from typing import Callable, Optional
 import pytest
 import sniffio
 
-from .. import CapacityLimiter, Event, _core, fail_after, sleep, sleep_forever
+from .. import (
+    CapacityLimiter,
+    Event,
+    _core,
+    fail_after,
+    move_on_after,
+    sleep,
+    sleep_forever,
+)
 from .._core._tests.test_ki import ki_self
-from .._core._tests.tutil import buggy_pypy_asyncgens
+from .._core._tests.tutil import buggy_pypy_asyncgens, slow
 from .._threads import (
     current_default_thread_limiter,
     from_thread_check_cancelled,
@@ -330,7 +338,7 @@ async def test_run_in_worker_thread_cancellation():
     # Put the thread out of its misery:
     q.put(None)
     while register[0] != "finished":
-        time.sleep(0.01)
+        time.sleep(0.01)  # noqa: ASYNC101  # Need to wait for OS thread
 
     # This one can't be cancelled
     record = []
@@ -462,7 +470,7 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
         async with _core.open_nursery() as nursery:
             print("spawning")
             events = []
-            for i in range(COUNT):
+            for _ in range(COUNT):
                 events.append(Event())
                 nursery.start_soon(run_thread, events[-1])
                 await wait_all_tasks_blocked()
@@ -797,7 +805,7 @@ def test_run_fn_as_system_task_catched_badly_typed_token():
 
 async def test_from_thread_inside_trio_thread():
     def not_called():  # pragma: no cover
-        assert False
+        raise AssertionError()
 
     trio_token = _core.current_trio_token()
     with pytest.raises(RuntimeError):
@@ -1015,3 +1023,19 @@ async def test_from_thread_check_cancelled_raises_in_foreign_threads():
     _core.start_thread_soon(from_thread_check_cancelled, lambda _: q.put(_))
     with pytest.raises(RuntimeError):
         q.get(timeout=1).unwrap()
+
+
+@slow
+async def test_reentry_doesnt_deadlock():
+    # Regression test for issue noticed in GH-2827
+    # The failure mode is to hang the whole test suite, unfortunately.
+    # XXX consider running this in a subprocess with a timeout, if it comes up again!
+
+    async def child() -> None:
+        while True:
+            await to_thread_run_sync(from_thread_run, sleep, 0, cancellable=False)
+
+    with move_on_after(2):
+        async with _core.open_nursery() as nursery:
+            for _ in range(4):
+                nursery.start_soon(child)

@@ -115,7 +115,7 @@ def _count_context_run_tb_frames() -> int:
 
     def function_with_unique_name_xyzzy() -> NoReturn:
         try:
-            1 / 0
+            1 / 0  # noqa: B018  # We need a ZeroDivisionError to fire
         except ZeroDivisionError:
             raise
         else:  # pragma: no cover
@@ -2361,7 +2361,7 @@ def start_guest_run(
     next_send = cast(
         EventResult, None
     )  # First iteration must be `None`, every iteration after that is EventResult
-    for tick in range(5):  # expected need is 2 iterations + leave some wiggle room
+    for _tick in range(5):  # expected need is 2 iterations + leave some wiggle room
         if runner.system_nursery is not None:
             # We're initialized enough to switch to async guest ticks
             break
@@ -2370,7 +2370,7 @@ def start_guest_run(
         except StopIteration:  # pragma: no cover
             raise TrioInternalError(
                 "Guest runner exited before system nursery was initialized"
-            )
+            ) from None
         if timeout != 0:  # pragma: no cover
             guest_state.unrolled_run_gen.throw(
                 TrioInternalError(
@@ -2625,7 +2625,8 @@ def unrolled_run(
             RuntimeWarning(
                 "Trio guest run got abandoned without properly finishing... "
                 "weird stuff might happen"
-            )
+            ),
+            stacklevel=1,
         )
     except TrioInternalError:
         raise
@@ -2748,7 +2749,7 @@ async def checkpoint_if_cancelled() -> None:
         task is task._runner.main_task and task._runner.ki_pending
     ):
         await _core.checkpoint()
-        assert False  # pragma: no cover
+        raise AssertionError("this should never happen")  # pragma: no cover
     task._cancel_points += 1
 
 

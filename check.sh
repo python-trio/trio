@@ -39,7 +39,7 @@ if ! ruff check .; then
     echo "* ruff found issues." >> "$GITHUB_STEP_SUMMARY"
     EXIT_STATUS=1
     if $ON_GITHUB_CI; then
-        ruff check --format github --diff .
+        ruff check --output-format github --diff .
     else
         ruff check --diff .
     fi

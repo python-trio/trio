@@ -93,13 +93,11 @@ class Run(Generic[RetT]):
         task = trio.lowlevel.current_task()
         old_context = task.context
         task.context = self.context.copy()
-        try:
-            await trio.lowlevel.cancel_shielded_checkpoint()
-            result = await outcome.acapture(self.unprotected_afn)
-            self.queue.put_nowait(result)
-        finally:
-            task.context = old_context
-            await trio.lowlevel.cancel_shielded_checkpoint()
+        await trio.lowlevel.cancel_shielded_checkpoint()
+        result = await outcome.acapture(self.unprotected_afn)
+        task.context = old_context
+        await trio.lowlevel.cancel_shielded_checkpoint()
+        self.queue.put_nowait(result)
 
     async def run_system(self) -> None:
         result = await outcome.acapture(self.unprotected_afn)
@@ -409,10 +407,10 @@ def from_thread_check_cancelled() -> None:
     """
     try:
         raise_cancel = PARENT_TASK_DATA.cancel_register[0]
-    except AttributeError:
+    except AttributeError as exc:
         raise RuntimeError(
             "this thread wasn't created by Trio, can't check for cancellation"
-        )
+        ) from exc
     if raise_cancel is not None:
         raise_cancel()
 
@@ -433,7 +431,7 @@ def _check_token(trio_token: TrioToken | None) -> TrioToken:
         except AttributeError:
             raise RuntimeError(
                 "this thread wasn't created by Trio, pass kwarg trio_token=..."
-            )
+            ) from None
 
     # Avoid deadlock by making sure we're not called from Trio thread
     try:
