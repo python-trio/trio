@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from functools import partial
 from pathlib import Path as SyncPath
 from signal import Signals
+from types import FrameType
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -523,7 +524,7 @@ def test_waitid_eintr() -> None:
     got_alarm = False
     sleeper = subprocess.Popen(["sleep", "3600"])
 
-    def on_alarm(sig: object, frame: object) -> None:
+    def on_alarm(sig: int, frame: FrameType | None) -> None:
         nonlocal got_alarm
         got_alarm = True
         sleeper.kill()

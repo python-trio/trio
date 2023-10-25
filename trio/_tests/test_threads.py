@@ -1062,7 +1062,7 @@ async def test_from_thread_check_cancelled_raises_in_foreign_threads() -> None:
 
 
 @slow
-async def test_reentry_doesnt_deadlock():
+async def test_reentry_doesnt_deadlock() -> None:
     # Regression test for issue noticed in GH-2827
     # The failure mode is to hang the whole test suite, unfortunately.
     # XXX consider running this in a subprocess with a timeout, if it comes up again!

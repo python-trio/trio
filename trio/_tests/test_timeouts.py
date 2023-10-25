@@ -38,7 +38,6 @@ async def check_takes_about(f: Callable[[], Awaitable[T]], expected_dur: float) 
     # started as a 1 ULP error at a different dynamic range.)
     assert (1 - 1e-8) <= (dur / expected_dur) < 1.5
 
-    # outcome is not typed
     return result.unwrap()
 
 
