@@ -792,7 +792,9 @@ class CancelScope:
         cancelled, then :attr:`cancelled_caught` is usually more
         appropriate.
         """
-        if self._cancel_status is not None or not self._has_been_entered:
+        if (  # noqa: SIM102  # collapsible-if but this way is nicer
+            self._cancel_status is not None or not self._has_been_entered
+        ):
             # Scope is active or not yet entered: make sure cancel_called
             # is true if the deadline has passed. This shouldn't
             # be able to actually change behavior, since we check for
