@@ -93,13 +93,11 @@ class Run(Generic[RetT]):
         task = trio.lowlevel.current_task()
         old_context = task.context
         task.context = self.context.copy()
-        try:
-            await trio.lowlevel.cancel_shielded_checkpoint()
-            result = await outcome.acapture(self.unprotected_afn)
-            self.queue.put_nowait(result)
-        finally:
-            task.context = old_context
-            await trio.lowlevel.cancel_shielded_checkpoint()
+        await trio.lowlevel.cancel_shielded_checkpoint()
+        result = await outcome.acapture(self.unprotected_afn)
+        task.context = old_context
+        await trio.lowlevel.cancel_shielded_checkpoint()
+        self.queue.put_nowait(result)
 
     async def run_system(self) -> None:
         result = await outcome.acapture(self.unprotected_afn)
