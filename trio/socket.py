@@ -54,7 +54,6 @@ if sys.platform == "win32" or not _t.TYPE_CHECKING:
         from ._socket import fromshare as fromshare
 
 # expose these functions to trio.socket
-import contextlib
 from socket import (
     gaierror as gaierror,
     gethostname as gethostname,
