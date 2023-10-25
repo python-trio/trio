@@ -32,11 +32,12 @@ from .. import (
     Event,
     _core,
     fail_after,
+    move_on_after,
     sleep,
     sleep_forever,
 )
 from .._core._tests.test_ki import ki_self
-from .._core._tests.tutil import buggy_pypy_asyncgens
+from .._core._tests.tutil import buggy_pypy_asyncgens, slow
 from .._threads import (
     current_default_thread_limiter,
     from_thread_check_cancelled,
@@ -1058,3 +1059,19 @@ async def test_from_thread_check_cancelled_raises_in_foreign_threads() -> None:
     _core.start_thread_soon(from_thread_check_cancelled, lambda _: q.put(_))
     with pytest.raises(RuntimeError):
         q.get(timeout=1).unwrap()
+
+
+@slow
+async def test_reentry_doesnt_deadlock():
+    # Regression test for issue noticed in GH-2827
+    # The failure mode is to hang the whole test suite, unfortunately.
+    # XXX consider running this in a subprocess with a timeout, if it comes up again!
+
+    async def child() -> None:
+        while True:
+            await to_thread_run_sync(from_thread_run, sleep, 0, cancellable=False)
+
+    with move_on_after(2):
+        async with _core.open_nursery() as nursery:
+            for _ in range(4):
+                nursery.start_soon(child)
