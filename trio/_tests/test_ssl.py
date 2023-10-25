@@ -778,13 +778,13 @@ async def test_wait_writable_calls_underlying_wait_writable() -> None:
 
         # define methods that are abstract in Stream
         async def aclose(self) -> None:
-            raise AssertionError("Should not get called")  # pragma: no cov
+            raise AssertionError("Should not get called")  # pragma: no cover
 
         async def receive_some(self, max_bytes: int | None = None) -> bytes | bytearray:
-            raise AssertionError("Should not get called")  # pragma: no cov
+            raise AssertionError("Should not get called")  # pragma: no cover
 
         async def send_all(self, data: bytes | bytearray | memoryview) -> None:
-            raise AssertionError("Should not get called")  # pragma: no cov
+            raise AssertionError("Should not get called")  # pragma: no cover
 
     ctx = ssl.create_default_context()
     s = SSLStream(NotAStream(), ctx, server_hostname="x")

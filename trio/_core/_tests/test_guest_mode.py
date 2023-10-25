@@ -483,7 +483,7 @@ def test_guest_mode_on_asyncio() -> None:
                 aio_task.cancel()
                 return "trio-main-done"
 
-        raise AssertionError("should never be reached")  # pragma: no cov
+        raise AssertionError("should never be reached")  # pragma: no cover
 
     async def aio_pingpong(
         from_trio: asyncio.Queue[int], to_trio: MemorySendChannel[int]
