@@ -8,7 +8,7 @@ import threading
 import time
 import weakref
 from functools import partial
-from typing import Callable, Optional
+from typing import Callable
 
 import pytest
 import sniffio
@@ -205,7 +205,7 @@ async def test_named_thread():
     await test_thread_name("💙")
 
 
-def _get_thread_name(ident: Optional[int] = None) -> Optional[str]:
+def _get_thread_name(ident: int | None = None) -> str | None:
     import ctypes
     import ctypes.util
 
@@ -262,7 +262,7 @@ async def test_named_thread_os():
     await to_thread_run_sync(f(default), thread_name=None)
 
     # test that you can set a custom name, and that it's reset afterwards
-    async def test_thread_name(name: str, expected: Optional[str] = None) -> None:
+    async def test_thread_name(name: str, expected: str | None = None) -> None:
         if expected is None:
             expected = name
         thread = await to_thread_run_sync(f(expected), thread_name=name)

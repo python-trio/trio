@@ -9,7 +9,7 @@ from .. import _core, _subprocess
 assert (sys.platform != "win32" and sys.platform != "linux") or not TYPE_CHECKING
 
 
-async def wait_child_exiting(process: "_subprocess.Process") -> None:
+async def wait_child_exiting(process: _subprocess.Process) -> None:
     kqueue = _core.current_kqueue()
     try:
         from select import KQ_NOTE_EXIT

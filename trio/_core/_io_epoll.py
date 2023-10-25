@@ -3,7 +3,7 @@ from __future__ import annotations
 import select
 import sys
 from collections import defaultdict
-from typing import TYPE_CHECKING, DefaultDict, Literal
+from typing import TYPE_CHECKING, Literal
 
 import attr
 
@@ -201,7 +201,7 @@ class _EpollStatistics:
 class EpollIOManager:
     _epoll: select.epoll = attr.ib(factory=select.epoll)
     # {fd: EpollWaiters}
-    _registered: DefaultDict[int, EpollWaiters] = attr.ib(
+    _registered: defaultdict[int, EpollWaiters] = attr.ib(
         factory=lambda: defaultdict(EpollWaiters)
     )
     _force_wakeup: WakeupSocketpair = attr.ib(factory=WakeupSocketpair)
