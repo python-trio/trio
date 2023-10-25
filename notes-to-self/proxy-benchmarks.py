@@ -51,12 +51,10 @@ class Proxy3:
 
 def add_wrapper(cls, method):
     code = textwrap.dedent(
-        """
+        f"""
         def wrapper(self, *args, **kwargs):
-            return self._wrapped.{}(*args, **kwargs)
-    """.format(
-            method
-        )
+            return self._wrapped.{method}(*args, **kwargs)
+    """
     )
     ns = {}
     exec(code, ns)
@@ -106,7 +104,7 @@ class Proxy5:
 
 def add_wrapper(cls, attr):
     code = textwrap.dedent(
-        """
+        f"""
         def getter(self):
             return self._wrapped.{attr}
 
@@ -115,9 +113,7 @@ def add_wrapper(cls, attr):
 
         def deleter(self):
             del self._wrapped.{attr}
-    """.format(
-            attr=attr
-        )
+    """
     )
     ns = {}
     exec(code, ns)
@@ -176,4 +172,4 @@ while True:
             # obj.fileno
         end = time.perf_counter()
         per_usec = COUNT / (end - start) / 1e6
-        print("{:7.2f} / us: {} ({})".format(per_usec, obj.strategy, obj.works_for))
+        print(f"{per_usec:7.2f} / us: {obj.strategy} ({obj.works_for})")

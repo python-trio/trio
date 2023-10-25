@@ -803,7 +803,7 @@ if TYPE_CHECKING:
     if sys.platform == "win32":
 
         async def open_process(
-            command: Union[StrOrBytesPath, Sequence[StrOrBytesPath]],
+            command: StrOrBytesPath | Sequence[StrOrBytesPath],
             *,
             stdin: int | HasFileno | None = None,
             stdout: int | HasFileno | None = None,
