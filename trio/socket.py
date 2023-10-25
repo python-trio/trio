@@ -33,7 +33,7 @@ globals().update(
 )
 
 # import the overwrites
-import contextlib
+from contextlib import suppress as _suppress
 
 from ._socket import (
     SocketType as SocketType,
@@ -50,7 +50,7 @@ from ._socket import (
 
 # not always available so expose only if
 if sys.platform == "win32" or not _t.TYPE_CHECKING:
-    with contextlib.suppress(ImportError):
+    with _suppress(ImportError):
         from ._socket import fromshare as fromshare
 
 # expose these functions to trio.socket
@@ -70,7 +70,7 @@ from socket import (
 
 # not always available so expose only if
 if sys.platform != "win32" or not _t.TYPE_CHECKING:
-    with contextlib.suppress(ImportError):
+    with _suppress(ImportError):
         from socket import (
             if_indextoname as if_indextoname,
             if_nameindex as if_nameindex,
@@ -99,7 +99,6 @@ del sys
 # exported. There's a test in test_exports.py to make sure that the list is
 # kept up to date.
 if _t.TYPE_CHECKING:
-    import contextlib
     from socket import (  # type: ignore[attr-defined]
         AF_ALG as AF_ALG,
         AF_APPLETALK as AF_APPLETALK,
