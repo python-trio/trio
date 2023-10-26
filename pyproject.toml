@@ -27,6 +27,7 @@ select = [
   "E",  # Error
   "W",  # Warning
   "I",  # isort
+  "UP",  # pyupgrade
   "B",  # flake8-bugbear
   "YTT",  # flake8-2020
   "ASYNC",  # flake8-async
