@@ -2560,7 +2560,7 @@ async def raise_custom_exception_group_before(
     raise ExceptionGroup("my group", [ValueError()])
 
 
-def _check_exception(exc: pytest.ExceptionInfo) -> None:
+def _check_exception(exc: pytest.ExceptionInfo[BaseException]) -> None:
     assert isinstance(exc.value, BaseExceptionGroup)
     assert len(exc.value.exceptions) == 1
     assert isinstance(exc.value.exceptions[0], ValueError)
