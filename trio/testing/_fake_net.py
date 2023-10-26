@@ -13,7 +13,7 @@ import contextlib
 import errno
 import ipaddress
 import os
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Union
 
 import attr
 
@@ -105,7 +105,7 @@ class UDPPacket:
 
 @attr.frozen
 class FakeSocketFactory(trio.abc.SocketFactory):
-    fake_net: "FakeNet"
+    fake_net: FakeNet
 
     def socket(self, family: int, type: int, proto: int) -> FakeSocket:  # type: ignore[override]
         return FakeSocket._create(self.fake_net, family, type, proto)
@@ -113,7 +113,7 @@ class FakeSocketFactory(trio.abc.SocketFactory):
 
 @attr.frozen
 class FakeHostnameResolver(trio.abc.HostnameResolver):
-    fake_net: "FakeNet"
+    fake_net: FakeNet
 
     async def getaddrinfo(
         self,
@@ -152,7 +152,7 @@ class FakeNet:
 
         self.route_packet = None
 
-    def _bind(self, binding: UDPBinding, socket: "FakeSocket") -> None:
+    def _bind(self, binding: UDPBinding, socket: FakeSocket) -> None:
         if binding in self._bound:
             _fake_err(errno.EADDRINUSE)
         self._bound[binding] = socket
@@ -204,7 +204,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         ](float("inf"))
 
         # This is the source-of-truth for what port etc. this socket is bound to
-        self._binding: Optional[UDPBinding] = None
+        self._binding: UDPBinding | None = None
 
     @property
     def type(self) -> SocketKind:

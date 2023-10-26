@@ -453,9 +453,7 @@ class Semaphore(AsyncContextManagerMixin):
             max_value_str = ""
         else:
             max_value_str = f", max_value={self._max_value}"
-        return "<trio.Semaphore({}{}) at {:#x}>".format(
-            self._value, max_value_str, id(self)
-        )
+        return f"<trio.Semaphore({self._value}{max_value_str}) at {id(self):#x}>"
 
     @property
     def value(self) -> int:
@@ -556,9 +554,7 @@ class _LockImpl(AsyncContextManagerMixin):
         else:
             s1 = "unlocked"
             s2 = ""
-        return "<{} {} object at {:#x}{}>".format(
-            s1, self.__class__.__name__, id(self), s2
-        )
+        return f"<{s1} {self.__class__.__name__} object at {id(self):#x}{s2}>"
 
     def locked(self) -> bool:
         """Check whether the lock is currently held.

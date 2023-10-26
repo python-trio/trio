@@ -155,9 +155,7 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
         self._state.open_send_channels += 1
 
     def __repr__(self) -> str:
-        return "<send channel at {:#x}, using buffer at {:#x}>".format(
-            id(self), id(self._state)
-        )
+        return f"<send channel at {id(self):#x}, using buffer at {id(self._state):#x}>"
 
     def statistics(self) -> MemoryChannelStats:
         # XX should we also report statistics specific to this object?
