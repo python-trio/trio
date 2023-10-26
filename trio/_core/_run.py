@@ -1101,6 +1101,13 @@ class Nursery(metaclass=NoPublicConstructor):
 
         popped = self._parent_task._child_nurseries.pop()
         assert popped is self
+
+        # don't unnecessarily wrap an exceptiongroup in another exceptiongroup
+        # see https://github.com/python-trio/trio/issues/2611
+        if len(self._pending_excs) == 1 and isinstance(
+            self._pending_excs[0], BaseExceptionGroup
+        ):
+            return self._pending_excs[0]
         if self._pending_excs:
             try:
                 return MultiError(
