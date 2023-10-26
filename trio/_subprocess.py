@@ -172,11 +172,8 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
             else:
                 # It worked! Wrap the raw fd up in a Python file object to
                 # make sure it'll get closed.
-                # fmt: off
-                self._pidfd = open(  # noqa: SIM115  # open-file-with-context-handler
-                    fd
-                )
-                # fmt: on
+                # SIM115: open-file-with-context-handler
+                self._pidfd = open(fd)  # noqa: SIM115
 
         self.args: StrOrBytesPath | Sequence[StrOrBytesPath] = self._proc.args
         self.pid: int = self._proc.pid
