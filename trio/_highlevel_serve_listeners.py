@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 import errno
 import logging
 import os
+from typing import Any, Awaitable, Callable, NoReturn, TypeVar
 
 import trio
-
-__all__ = ["serve_listeners"]
 
 # Errors that accept(2) can return, and which indicate that the system is
 # overloaded
@@ -22,14 +23,23 @@ SLEEP_TIME = 0.100
 LOGGER = logging.getLogger("trio.serve_listeners")
 
 
-async def _run_handler(stream, handler):
+StreamT = TypeVar("StreamT", bound=trio.abc.AsyncResource)
+ListenerT = TypeVar("ListenerT", bound=trio.abc.Listener[Any])
+Handler = Callable[[StreamT], Awaitable[object]]
+
+
+async def _run_handler(stream: StreamT, handler: Handler[StreamT]) -> None:
     try:
         await handler(stream)
     finally:
         await trio.aclose_forcefully(stream)
 
 
-async def _serve_one_listener(listener, handler_nursery, handler):
+async def _serve_one_listener(
+    listener: trio.abc.Listener[StreamT],
+    handler_nursery: trio.Nursery,
+    handler: Handler[StreamT],
+) -> NoReturn:
     async with listener:
         while True:
             try:
@@ -41,7 +51,7 @@ async def _serve_one_listener(listener, handler_nursery, handler):
                         errno.errorcode[exc.errno],
                         os.strerror(exc.errno),
                         SLEEP_TIME,
-                        exc_info=True
+                        exc_info=True,
                     )
                     await trio.sleep(SLEEP_TIME)
                 else:
@@ -50,13 +60,21 @@ async def _serve_one_listener(listener, handler_nursery, handler):
                 handler_nursery.start_soon(_run_handler, stream, handler)
 
 
-async def serve_listeners(
-    handler,
-    listeners,
+# This cannot be typed correctly, we need generic typevar bounds / HKT to indicate the
+# relationship between StreamT & ListenerT.
+# https://github.com/python/typing/issues/1226
+# https://github.com/python/typing/issues/548
+
+
+# It does never return (since _serve_one_listener never completes), but type checkers can't
+# understand nurseries.
+async def serve_listeners(  # type: ignore[misc]
+    handler: Handler[StreamT],
+    listeners: list[ListenerT],
     *,
-    handler_nursery=None,
-    task_status=trio.TASK_STATUS_IGNORED
-):
+    handler_nursery: trio.Nursery | None = None,
+    task_status: trio.TaskStatus[list[ListenerT]] = trio.TASK_STATUS_IGNORED,
+) -> NoReturn:
     r"""Listen for incoming connections on ``listeners``, and for each one
     start a task running ``handler(stream)``.
 
@@ -120,9 +138,7 @@ async def serve_listeners(
         if handler_nursery is None:
             handler_nursery = nursery
         for listener in listeners:
-            nursery.start_soon(
-                _serve_one_listener, listener, handler_nursery, handler
-            )
+            nursery.start_soon(_serve_one_listener, listener, handler_nursery, handler)
         # The listeners are already queueing connections when we're called,
         # but we wait until the end to call started() just in case we get an
         # error or whatever.

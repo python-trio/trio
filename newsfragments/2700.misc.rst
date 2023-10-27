@@ -1,0 +1,4 @@
+Trio now indicates its presence to `sniffio` using the ``sniffio.thread_local``
+interface that is preferred since sniffio v1.3.0. This should be less likely
+than the previous approach to cause :func:`sniffio.current_async_library` to
+return incorrect results due to unintended inheritance of contextvars.

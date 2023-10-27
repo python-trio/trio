@@ -1,1 +1,0 @@
-Use slots for memory channel state and statistics which should make memory channels slightly smaller and faster.

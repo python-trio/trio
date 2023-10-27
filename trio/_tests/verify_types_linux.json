@@ -1,0 +1,72 @@
+{
+  "generalDiagnostics": [],
+  "summary": {
+    "errorCount": 0,
+    "filesAnalyzed": 8,
+    "informationCount": 0,
+    "warningCount": 0
+  },
+  "typeCompleteness": {
+    "completenessScore": 1,
+    "diagnostics": [
+      {
+        "message": "No docstring found for function \"trio.lowlevel.notify_closing\"",
+        "name": "trio.lowlevel.notify_closing"
+      },
+      {
+        "message": "No docstring found for function \"trio.lowlevel.wait_readable\"",
+        "name": "trio.lowlevel.wait_readable"
+      },
+      {
+        "message": "No docstring found for function \"trio.lowlevel.wait_writable\"",
+        "name": "trio.lowlevel.wait_writable"
+      },
+      {
+        "message": "No docstring found for class \"trio.tests.TestsDeprecationWrapper\"",
+        "name": "trio.tests.TestsDeprecationWrapper"
+      }
+    ],
+    "exportedSymbolCounts": {
+      "withAmbiguousType": 0,
+      "withKnownType": 628,
+      "withUnknownType": 0
+    },
+    "ignoreUnknownTypesFromImports": true,
+    "missingClassDocStringCount": 1,
+    "missingDefaultParamCount": 0,
+    "missingFunctionDocStringCount": 3,
+    "moduleName": "trio",
+    "modules": [
+      {
+        "name": "trio"
+      },
+      {
+        "name": "trio.abc"
+      },
+      {
+        "name": "trio.from_thread"
+      },
+      {
+        "name": "trio.lowlevel"
+      },
+      {
+        "name": "trio.socket"
+      },
+      {
+        "name": "trio.testing"
+      },
+      {
+        "name": "trio.tests"
+      },
+      {
+        "name": "trio.to_thread"
+      }
+    ],
+    "otherSymbolCounts": {
+      "withAmbiguousType": 0,
+      "withKnownType": 699,
+      "withUnknownType": 0
+    },
+    "packageName": "trio"
+  }
+}

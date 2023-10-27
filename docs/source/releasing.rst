@@ -19,7 +19,7 @@ Things to do for releasing:
 
 * Do the actual release changeset
 
-   + update version number
+   + bump version number
 
       - increment as per Semantic Versioning rules
 
@@ -29,7 +29,7 @@ Things to do for releasing:
 
       - review history change
 
-      - ``git rm`` changes
+      - ``git rm`` the now outdated newfragments
 
    + commit
 
@@ -37,31 +37,26 @@ Things to do for releasing:
 
 * create pull request to ``python-trio/trio``'s "master" branch
 
-* announce PR on gitter
-
-   + wait for feedback
-
-   + fix problems, if any
-
 * verify that all checks succeeded
 
-* acknowledge the release PR
+* tag with vVERSION, push tag on ``python-trio/trio`` (not on your personal repository)
 
-   + or rather, somebody else should do that
+* push to PyPI::
 
-* tag with vVERSION
+    git clean -xdf   # maybe run 'git clean -xdn' first to see what it will delete
+    python3 setup.py sdist bdist_wheel
+    twine upload dist/*
 
-* push to PyPI
-
-   + ``python3 setup.py sdist bdist_wheel upload``
-
-* announce on gitter
-
-* update version number
+* update version number in the same pull request
 
    + add ``+dev`` tag to the end
 
-* prepare another pull request to "master"
+* merge the release pull request
 
-   + acknowledge it
+* make a GitHub release (go to the tag and press "Create release from tag")
 
+   + paste in the new content in ``history.rst`` and convert it to markdown: turn the parts under section into ``---``, update links to just be the links, and whatever else is necessary.
+
+   + include anything else that might be pertinent, like a link to the commits between the latest and current release.
+
+* announce on gitter

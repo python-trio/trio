@@ -1,7 +1,8 @@
-import trio
-import os
 import json
+import os
 from itertools import count
+
+import trio
 
 # Experiment with generating Chrome Event Trace format, which can be browsed
 # through chrome://tracing or other mechanisms.
@@ -28,6 +29,7 @@ from itertools import count
 #   events like "called stream.send_all", then the chrome trace format won't
 #   let us also show "task is running", because neither kind of event is
 #   strictly nested inside the other
+
 
 class Trace(trio.abc.Instrument):
     def __init__(self, out):
@@ -88,7 +90,7 @@ class Trace(trio.abc.Instrument):
 
     def task_scheduled(self, task):
         try:
-            waker = trio.hazmat.current_task()
+            waker = trio.lowlevel.current_task()
         except RuntimeError:
             pass
         else:
@@ -108,14 +110,14 @@ class Trace(trio.abc.Instrument):
 
     def before_io_wait(self, timeout):
         self._write(
-            name=f"I/O wait",
+            name="I/O wait",
             ph="B",
             tid=-1,
         )
 
     def after_io_wait(self, timeout):
         self._write(
-            name=f"I/O wait",
+            name="I/O wait",
             ph="E",
             tid=-1,
         )
@@ -126,10 +128,12 @@ async def child1():
     await trio.sleep(1)
     print("  child1: exiting!")
 
+
 async def child2():
     print("  child2: started! sleeping now...")
     await trio.sleep(1)
     print("  child2: exiting!")
+
 
 async def parent():
     print("parent: started!")
@@ -143,6 +147,7 @@ async def parent():
         print("parent: waiting for children to finish...")
         # -- we exit the nursery block here --
     print("parent: all done!")
+
 
 t = Trace(open("/tmp/t.json", "w"))
 trio.run(parent, instruments=[t])
