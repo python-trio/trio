@@ -1,3 +1,0 @@
-Trio no longer crashes when an async function is implemented in C or
-Cython and then passed directly to `trio.run` or
-``nursery.start_soon``.

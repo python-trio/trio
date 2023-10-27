@@ -1,6 +1,0 @@
-OpenSSL has a bug in its handling of TLS 1.3 session tickets that can
-cause deadlocks or data loss in some rare edge cases. These edge cases
-most frequently happen during tests. (OpenSSL bugs: `#7948
-<https://github.com/openssl/openssl/issues/7948>`__, `#7967
-<https://github.com/openssl/openssl/issues/7967>`__.) `trio.SSLStream`
-now works around this issue, so you don't have to worry about it.

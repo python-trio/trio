@@ -1,13 +1,18 @@
+from __future__ import annotations
+
 import signal
-from contextlib import contextmanager
 from collections import OrderedDict
+from collections.abc import AsyncIterator, Callable, Generator, Iterable
+from contextlib import contextmanager
+from types import FrameType
+from typing import TYPE_CHECKING
 
 import trio
-from ._util import (
-    signal_raise, aiter_compat, is_main_thread, ConflictDetector
-)
 
-__all__ = ["open_signal_receiver"]
+from ._util import ConflictDetector, is_main_thread, signal_raise
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
 # Discussion of signal handling strategies:
 #
@@ -46,7 +51,10 @@ __all__ = ["open_signal_receiver"]
 
 
 @contextmanager
-def _signal_handler(signals, handler):
+def _signal_handler(
+    signals: Iterable[int],
+    handler: Callable[[int, FrameType | None], object] | int | signal.Handlers | None,
+) -> Generator[None, None, None]:
     original_handlers = {}
     try:
         for signum in set(signals):
@@ -58,23 +66,23 @@ def _signal_handler(signals, handler):
 
 
 class SignalReceiver:
-    def __init__(self):
+    def __init__(self) -> None:
         # {signal num: None}
-        self._pending = OrderedDict()
-        self._lot = trio.hazmat.ParkingLot()
+        self._pending: OrderedDict[int, None] = OrderedDict()
+        self._lot = trio.lowlevel.ParkingLot()
         self._conflict_detector = ConflictDetector(
             "only one task can iterate on a signal receiver at a time"
         )
         self._closed = False
 
-    def _add(self, signum):
+    def _add(self, signum: int) -> None:
         if self._closed:
             signal_raise(signum)
         else:
             self._pending[signum] = None
             self._lot.unpark()
 
-    def _redeliver_remaining(self):
+    def _redeliver_remaining(self) -> None:
         # First make sure that any signals still in the delivery pipeline will
         # get redelivered
         self._closed = True
@@ -82,7 +90,7 @@ class SignalReceiver:
         # And then redeliver any that are sitting in pending. This is done
         # using a weird recursive construct to make sure we process everything
         # even if some of the handlers raise exceptions.
-        def deliver_next():
+        def deliver_next() -> None:
             if self._pending:
                 signum, _ = self._pending.popitem(last=False)
                 try:
@@ -92,15 +100,10 @@ class SignalReceiver:
 
         deliver_next()
 
-    # Helper for tests, not public or otherwise used
-    def _pending_signal_count(self):
-        return len(self._pending)
-
-    @aiter_compat
-    def __aiter__(self):
+    def __aiter__(self) -> Self:
         return self
 
-    async def __anext__(self):
+    async def __anext__(self) -> int:
         if self._closed:
             raise RuntimeError("open_signal_receiver block already exited")
         # In principle it would be possible to support multiple concurrent
@@ -110,13 +113,22 @@ class SignalReceiver:
             if not self._pending:
                 await self._lot.park()
             else:
-                await trio.hazmat.checkpoint()
+                await trio.lowlevel.checkpoint()
             signum, _ = self._pending.popitem(last=False)
             return signum
 
 
+def get_pending_signal_count(rec: AsyncIterator[int]) -> int:
+    """Helper for tests, not public or otherwise used."""
+    # open_signal_receiver() always produces SignalReceiver, this should not fail.
+    assert isinstance(rec, SignalReceiver)
+    return len(rec._pending)
+
+
 @contextmanager
-def open_signal_receiver(*signals):
+def open_signal_receiver(
+    *signals: signal.Signals | int,
+) -> Generator[AsyncIterator[int], None, None]:
     """A context manager for catching signals.
 
     Entering this context manager starts listening for the given signals and
@@ -134,6 +146,8 @@ def open_signal_receiver(*signals):
       signals: the signals to listen for.
 
     Raises:
+      TypeError: if no signals were provided.
+
       RuntimeError: if you try to use this anywhere except Python's main
           thread. (This is a Python limitation.)
 
@@ -149,15 +163,18 @@ def open_signal_receiver(*signals):
                  request_termination()
 
     """
+    if not signals:
+        raise TypeError("No signals were provided")
+
     if not is_main_thread():
         raise RuntimeError(
             "Sorry, open_signal_receiver is only possible when running in "
             "Python interpreter's main thread"
         )
-    token = trio.hazmat.current_trio_token()
+    token = trio.lowlevel.current_trio_token()
     queue = SignalReceiver()
 
-    def handler(signum, _):
+    def handler(signum: int, frame: FrameType | None) -> None:
         token.run_sync_soon(queue._add, signum, idempotent=True)
 
     try:

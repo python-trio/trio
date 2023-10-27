@@ -21,7 +21,7 @@ async def main():
 
     async with trio.open_nursery() as nursery:
         # In a background thread, run:
-        #   thread_fn(portal, receive_from_trio, send_to_trio)
+        #   thread_fn(receive_from_trio, send_to_trio)
         nursery.start_soon(
             trio.to_thread.run_sync, thread_fn, receive_from_trio, send_to_trio
         )

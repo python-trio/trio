@@ -1,1 +1,0 @@
-Fix the hash behavior of `trio.Path` to mach `pathlib.Path`. Previously `trio.Path`'s hash was inhereted from `object` instead of from `pathlib.PurePath`. Thus, hashing two `trio.Path`'s or a `trio.Path` and a `pathlib.Path` with the same underlying path would yield different results.
