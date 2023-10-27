@@ -136,28 +136,26 @@ def coroutine_or_error(
 
             raise TypeError(
                 "Trio was expecting an async function, but instead it got "
-                "a coroutine object {async_fn!r}\n"
+                f"a coroutine object {async_fn!r}\n"
                 "\n"
                 "Probably you did something like:\n"
                 "\n"
-                "  trio.run({async_fn.__name__}(...))            # incorrect!\n"
-                "  nursery.start_soon({async_fn.__name__}(...))  # incorrect!\n"
+                f"  trio.run({async_fn.__name__}(...))            # incorrect!\n"
+                f"  nursery.start_soon({async_fn.__name__}(...))  # incorrect!\n"
                 "\n"
                 "Instead, you want (notice the parentheses!):\n"
                 "\n"
-                "  trio.run({async_fn.__name__}, ...)            # correct!\n"
-                "  nursery.start_soon({async_fn.__name__}, ...)  # correct!".format(
-                    async_fn=async_fn
-                )
+                f"  trio.run({async_fn.__name__}, ...)            # correct!\n"
+                f"  nursery.start_soon({async_fn.__name__}, ...)  # correct!"
             ) from None
 
         # Give good error for: nursery.start_soon(future)
         if _return_value_looks_like_wrong_library(async_fn):
             raise TypeError(
                 "Trio was expecting an async function, but instead it got "
-                "{!r} – are you trying to use a library written for "
+                f"{async_fn!r} – are you trying to use a library written for "
                 "asyncio/twisted/tornado or similar? That won't work "
-                "without some sort of compatibility shim.".format(async_fn)
+                "without some sort of compatibility shim."
             ) from None
 
         raise
@@ -175,15 +173,15 @@ def coroutine_or_error(
         # Give good error for: nursery.start_soon(func_returning_future)
         if _return_value_looks_like_wrong_library(coro):
             raise TypeError(
-                "Trio got unexpected {!r} – are you trying to use a "
+                f"Trio got unexpected {coro!r} – are you trying to use a "
                 "library written for asyncio/twisted/tornado or similar? "
-                "That won't work without some sort of compatibility shim.".format(coro)
+                "That won't work without some sort of compatibility shim."
             )
 
         if inspect.isasyncgen(coro):
             raise TypeError(
                 "start_soon expected an async function but got an async "
-                "generator {!r}".format(coro)
+                f"generator {coro!r}"
             )
 
         # Give good error for: nursery.start_soon(some_sync_fn)
@@ -371,7 +369,7 @@ class NoPublicConstructor(ABCMeta):
             f"{cls.__module__}.{cls.__qualname__} has no public constructor"
         )
 
-    def _create(cls: t.Type[T], *args: object, **kwargs: object) -> T:
+    def _create(cls: type[T], *args: object, **kwargs: object) -> T:
         return super().__call__(*args, **kwargs)  # type: ignore
 
 

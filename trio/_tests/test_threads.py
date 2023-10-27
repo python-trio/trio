@@ -8,14 +8,22 @@ import threading
 import time
 import weakref
 from functools import partial
-from typing import Callable, Optional
+from typing import Callable
 
 import pytest
 import sniffio
 
-from .. import CapacityLimiter, Event, _core, fail_after, sleep, sleep_forever
+from .. import (
+    CapacityLimiter,
+    Event,
+    _core,
+    fail_after,
+    move_on_after,
+    sleep,
+    sleep_forever,
+)
 from .._core._tests.test_ki import ki_self
-from .._core._tests.tutil import buggy_pypy_asyncgens
+from .._core._tests.tutil import buggy_pypy_asyncgens, slow
 from .._threads import (
     current_default_thread_limiter,
     from_thread_check_cancelled,
@@ -197,7 +205,7 @@ async def test_named_thread():
     await test_thread_name("💙")
 
 
-def _get_thread_name(ident: Optional[int] = None) -> Optional[str]:
+def _get_thread_name(ident: int | None = None) -> str | None:
     import ctypes
     import ctypes.util
 
@@ -254,7 +262,7 @@ async def test_named_thread_os():
     await to_thread_run_sync(f(default), thread_name=None)
 
     # test that you can set a custom name, and that it's reset afterwards
-    async def test_thread_name(name: str, expected: Optional[str] = None) -> None:
+    async def test_thread_name(name: str, expected: str | None = None) -> None:
         if expected is None:
             expected = name
         thread = await to_thread_run_sync(f(expected), thread_name=name)
@@ -1015,3 +1023,19 @@ async def test_from_thread_check_cancelled_raises_in_foreign_threads():
     _core.start_thread_soon(from_thread_check_cancelled, lambda _: q.put(_))
     with pytest.raises(RuntimeError):
         q.get(timeout=1).unwrap()
+
+
+@slow
+async def test_reentry_doesnt_deadlock():
+    # Regression test for issue noticed in GH-2827
+    # The failure mode is to hang the whole test suite, unfortunately.
+    # XXX consider running this in a subprocess with a timeout, if it comes up again!
+
+    async def child() -> None:
+        while True:
+            await to_thread_run_sync(from_thread_run, sleep, 0, cancellable=False)
+
+    with move_on_after(2):
+        async with _core.open_nursery() as nursery:
+            for _ in range(4):
+                nursery.start_soon(child)
