@@ -153,7 +153,7 @@ def open_signal_receiver(
 
     Example:
 
-      In order to terminate a program the ``SIGTERM`` signal, which is also supported on 
+      In order to terminate a program the ``SIGTERM`` signal, which is also supported on
       windows, can be send. Here's a sketch of what that might look like using
       :func:`open_signal_receiver`::
 
