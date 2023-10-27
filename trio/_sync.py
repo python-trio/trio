@@ -1,25 +1,39 @@
+from __future__ import annotations
+
 import math
+from typing import TYPE_CHECKING, Protocol
 
 import attr
-import outcome
 
 import trio
 
-from ._util import aiter_compat
-from ._core import enable_ki_protection, ParkingLot
-from ._deprecate import deprecated
+from . import _core
+from ._core import Abort, ParkingLot, RaiseCancelT, enable_ki_protection
+from ._util import final
 
-__all__ = [
-    "Event",
-    "CapacityLimiter",
-    "Semaphore",
-    "Lock",
-    "StrictFIFOLock",
-    "Condition",
-]
+if TYPE_CHECKING:
+    from types import TracebackType
+
+    from ._core import Task
+    from ._core._parking_lot import ParkingLotStatistics
 
 
-@attr.s(repr=False, cmp=False, hash=False)
+@attr.s(frozen=True, slots=True)
+class EventStatistics:
+    """An object containing debugging information.
+
+    Currently the following fields are defined:
+
+    * ``tasks_waiting``: The number of tasks blocked on this event's
+      :meth:`trio.Event.wait` method.
+
+    """
+
+    tasks_waiting: int = attr.ib()
+
+
+@final
+@attr.s(repr=False, eq=False, hash=False, slots=True)
 class Event:
     """A waitable boolean value useful for inter-task synchronization,
     inspired by :class:`threading.Event`.
@@ -35,54 +49,52 @@ class Event:
     lost wakeups: it doesn't matter whether :meth:`set` gets called just
     before or after :meth:`wait`. If you want a lower-level wakeup
     primitive that doesn't have this protection, consider :class:`Condition`
-    or :class:`trio.hazmat.ParkingLot`.
+    or :class:`trio.lowlevel.ParkingLot`.
 
     .. note:: Unlike `threading.Event`, `trio.Event` has no
        `~threading.Event.clear` method. In Trio, once an `Event` has happened,
        it cannot un-happen. If you need to represent a series of events,
        consider creating a new `Event` object for each one (they're cheap!),
        or other synchronization methods like :ref:`channels <channels>` or
-       `trio.hazmat.ParkingLot`.
+       `trio.lowlevel.ParkingLot`.
 
     """
 
-    _lot = attr.ib(factory=ParkingLot, init=False)
-    _flag = attr.ib(default=False, init=False)
+    _tasks: set[Task] = attr.ib(factory=set, init=False)
+    _flag: bool = attr.ib(default=False, init=False)
 
-    def is_set(self):
-        """Return the current value of the internal flag.
-
-        """
+    def is_set(self) -> bool:
+        """Return the current value of the internal flag."""
         return self._flag
 
     @enable_ki_protection
-    def set(self):
-        """Set the internal flag value to True, and wake any waiting tasks.
+    def set(self) -> None:
+        """Set the internal flag value to True, and wake any waiting tasks."""
+        if not self._flag:
+            self._flag = True
+            for task in self._tasks:
+                _core.reschedule(task)
+            self._tasks.clear()
 
-        """
-        self._flag = True
-        self._lot.unpark_all()
-
-    @deprecated(
-        "0.12.0",
-        issue=637,
-        instead="multiple Event objects or other synchronization primitives"
-    )
-    def clear(self):
-        self._flag = False
-
-    async def wait(self):
+    async def wait(self) -> None:
         """Block until the internal flag value becomes True.
 
         If it's already True, then this method returns immediately.
 
         """
         if self._flag:
-            await trio.hazmat.checkpoint()
+            await trio.lowlevel.checkpoint()
         else:
-            await self._lot.park()
+            task = _core.current_task()
+            self._tasks.add(task)
 
-    def statistics(self):
+            def abort_fn(_: RaiseCancelT) -> Abort:
+                self._tasks.remove(task)
+                return _core.Abort.SUCCEEDED
+
+            await _core.wait_task_rescheduled(abort_fn)
+
+    def statistics(self) -> EventStatistics:
         """Return an object containing debugging information.
 
         Currently the following fields are defined:
@@ -91,36 +103,64 @@ class Event:
           :meth:`wait` method.
 
         """
-        return self._lot.statistics()
+        return EventStatistics(tasks_waiting=len(self._tasks))
 
 
-def async_cm(cls):
+class _HasAcquireRelease(Protocol):
+    """Only classes with acquire() and release() can use the mixin's implementations."""
+
+    async def acquire(self) -> object:
+        ...
+
+    def release(self) -> object:
+        ...
+
+
+class AsyncContextManagerMixin:
     @enable_ki_protection
-    async def __aenter__(self):
+    async def __aenter__(self: _HasAcquireRelease) -> None:
         await self.acquire()
 
-    __aenter__.__qualname__ = cls.__qualname__ + ".__aenter__"
-    cls.__aenter__ = __aenter__
-
     @enable_ki_protection
-    async def __aexit__(self, *args):
+    async def __aexit__(
+        self: _HasAcquireRelease,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         self.release()
 
-    __aexit__.__qualname__ = cls.__qualname__ + ".__aexit__"
-    cls.__aexit__ = __aexit__
-    return cls
+
+@attr.s(frozen=True, slots=True)
+class CapacityLimiterStatistics:
+    """An object containing debugging information.
+
+    Currently the following fields are defined:
+
+    * ``borrowed_tokens``: The number of tokens currently borrowed from
+      the sack.
+    * ``total_tokens``: The total number of tokens in the sack. Usually
+      this will be larger than ``borrowed_tokens``, but it's possibly for
+      it to be smaller if :attr:`trio.CapacityLimiter.total_tokens` was recently decreased.
+    * ``borrowers``: A list of all tasks or other entities that currently
+      hold a token.
+    * ``tasks_waiting``: The number of tasks blocked on this
+      :class:`CapacityLimiter`\'s :meth:`trio.CapacityLimiter.acquire` or
+      :meth:`trio.CapacityLimiter.acquire_on_behalf_of` methods.
+
+    """
+
+    borrowed_tokens: int = attr.ib()
+    total_tokens: int | float = attr.ib()
+    borrowers: list[Task | object] = attr.ib()
+    tasks_waiting: int = attr.ib()
 
 
-@attr.s(frozen=True)
-class _CapacityLimiterStatistics:
-    borrowed_tokens = attr.ib()
-    total_tokens = attr.ib()
-    borrowers = attr.ib()
-    tasks_waiting = attr.ib()
-
-
-@async_cm
-class CapacityLimiter:
+# Can be a generic type with a default of Task if/when PEP 696 is released
+# and implemented in type checkers. Making it fully generic would currently
+# introduce a lot of unnecessary hassle.
+@final
+class CapacityLimiter(AsyncContextManagerMixin):
     """An object for controlling access to a resource with limited capacity.
 
     Sometimes you need to put a limit on how many tasks can do something at
@@ -173,25 +213,24 @@ class CapacityLimiter:
        just borrowed and then put back.
 
     """
-    def __init__(self, total_tokens):
+
+    # total_tokens would ideally be int|Literal[math.inf] - but that's not valid typing
+    def __init__(self, total_tokens: int | float):
         self._lot = ParkingLot()
-        self._borrowers = set()
+        self._borrowers: set[Task | object] = set()
         # Maps tasks attempting to acquire -> borrower, to handle on-behalf-of
-        self._pending_borrowers = {}
+        self._pending_borrowers: dict[Task, Task | object] = {}
         # invoke the property setter for validation
-        self.total_tokens = total_tokens
+        self.total_tokens: int | float = total_tokens
         assert self._total_tokens == total_tokens
 
-    def __repr__(self):
-        return (
-            "<trio.CapacityLimiter at {:#x}, {}/{} with {} waiting>".format(
-                id(self), len(self._borrowers), self._total_tokens,
-                len(self._lot)
-            )
+    def __repr__(self) -> str:
+        return "<trio.CapacityLimiter at {:#x}, {}/{} with {} waiting>".format(
+            id(self), len(self._borrowers), self._total_tokens, len(self._lot)
         )
 
     @property
-    def total_tokens(self):
+    def total_tokens(self) -> int | float:
         """The total capacity available.
 
         You can change :attr:`total_tokens` by assigning to this attribute. If
@@ -206,37 +245,31 @@ class CapacityLimiter:
         return self._total_tokens
 
     @total_tokens.setter
-    def total_tokens(self, new_total_tokens):
-        if not isinstance(
-            new_total_tokens, int
-        ) and new_total_tokens != math.inf:
+    def total_tokens(self, new_total_tokens: int | float) -> None:
+        if not isinstance(new_total_tokens, int) and new_total_tokens != math.inf:
             raise TypeError("total_tokens must be an int or math.inf")
         if new_total_tokens < 1:
             raise ValueError("total_tokens must be >= 1")
         self._total_tokens = new_total_tokens
         self._wake_waiters()
 
-    def _wake_waiters(self):
+    def _wake_waiters(self) -> None:
         available = self._total_tokens - len(self._borrowers)
         for woken in self._lot.unpark(count=available):
             self._borrowers.add(self._pending_borrowers.pop(woken))
 
     @property
-    def borrowed_tokens(self):
-        """The amount of capacity that's currently in use.
-
-        """
+    def borrowed_tokens(self) -> int:
+        """The amount of capacity that's currently in use."""
         return len(self._borrowers)
 
     @property
-    def available_tokens(self):
-        """The amount of capacity that's available to use.
-
-        """
+    def available_tokens(self) -> int | float:
+        """The amount of capacity that's available to use."""
         return self.total_tokens - self.borrowed_tokens
 
     @enable_ki_protection
-    def acquire_nowait(self):
+    def acquire_nowait(self) -> None:
         """Borrow a token from the sack, without blocking.
 
         Raises:
@@ -245,15 +278,15 @@ class CapacityLimiter:
               tokens.
 
         """
-        self.acquire_on_behalf_of_nowait(trio.hazmat.current_task())
+        self.acquire_on_behalf_of_nowait(trio.lowlevel.current_task())
 
     @enable_ki_protection
-    def acquire_on_behalf_of_nowait(self, borrower):
+    def acquire_on_behalf_of_nowait(self, borrower: Task | object) -> None:
         """Borrow a token from the sack on behalf of ``borrower``, without
         blocking.
 
         Args:
-          borrower: A :class:`trio.hazmat.Task` or arbitrary opaque object
+          borrower: A :class:`trio.lowlevel.Task` or arbitrary opaque object
              used to record who is borrowing this token. This is used by
              :func:`trio.to_thread.run_sync` to allow threads to "hold
              tokens", with the intention in the future of using it to `allow
@@ -268,8 +301,7 @@ class CapacityLimiter:
         """
         if borrower in self._borrowers:
             raise RuntimeError(
-                "this borrower is already holding one of this "
-                "CapacityLimiter's tokens"
+                "this borrower is already holding one of this CapacityLimiter's tokens"
             )
         if len(self._borrowers) < self._total_tokens and not self._lot:
             self._borrowers.add(borrower)
@@ -277,7 +309,7 @@ class CapacityLimiter:
             raise trio.WouldBlock
 
     @enable_ki_protection
-    async def acquire(self):
+    async def acquire(self) -> None:
         """Borrow a token from the sack, blocking if necessary.
 
         Raises:
@@ -285,15 +317,15 @@ class CapacityLimiter:
               tokens.
 
         """
-        await self.acquire_on_behalf_of(trio.hazmat.current_task())
+        await self.acquire_on_behalf_of(trio.lowlevel.current_task())
 
     @enable_ki_protection
-    async def acquire_on_behalf_of(self, borrower):
+    async def acquire_on_behalf_of(self, borrower: Task | object) -> None:
         """Borrow a token from the sack on behalf of ``borrower``, blocking if
         necessary.
 
         Args:
-          borrower: A :class:`trio.hazmat.Task` or arbitrary opaque object
+          borrower: A :class:`trio.lowlevel.Task` or arbitrary opaque object
              used to record who is borrowing this token; see
              :meth:`acquire_on_behalf_of_nowait` for details.
 
@@ -302,11 +334,11 @@ class CapacityLimiter:
              tokens.
 
         """
-        await trio.hazmat.checkpoint_if_cancelled()
+        await trio.lowlevel.checkpoint_if_cancelled()
         try:
             self.acquire_on_behalf_of_nowait(borrower)
         except trio.WouldBlock:
-            task = trio.hazmat.current_task()
+            task = trio.lowlevel.current_task()
             self._pending_borrowers[task] = borrower
             try:
                 await self._lot.park()
@@ -314,10 +346,10 @@ class CapacityLimiter:
                 self._pending_borrowers.pop(task)
                 raise
         else:
-            await trio.hazmat.cancel_shielded_checkpoint()
+            await trio.lowlevel.cancel_shielded_checkpoint()
 
     @enable_ki_protection
-    def release(self):
+    def release(self) -> None:
         """Put a token back into the sack.
 
         Raises:
@@ -325,10 +357,10 @@ class CapacityLimiter:
               sack's tokens.
 
         """
-        self.release_on_behalf_of(trio.hazmat.current_task())
+        self.release_on_behalf_of(trio.lowlevel.current_task())
 
     @enable_ki_protection
-    def release_on_behalf_of(self, borrower):
+    def release_on_behalf_of(self, borrower: Task | object) -> None:
         """Put a token back into the sack on behalf of ``borrower``.
 
         Raises:
@@ -338,13 +370,12 @@ class CapacityLimiter:
         """
         if borrower not in self._borrowers:
             raise RuntimeError(
-                "this borrower isn't holding any of this CapacityLimiter's "
-                "tokens"
+                "this borrower isn't holding any of this CapacityLimiter's tokens"
             )
         self._borrowers.remove(borrower)
         self._wake_waiters()
 
-    def statistics(self):
+    def statistics(self) -> CapacityLimiterStatistics:
         """Return an object containing debugging information.
 
         Currently the following fields are defined:
@@ -361,7 +392,7 @@ class CapacityLimiter:
           :meth:`acquire_on_behalf_of` methods.
 
         """
-        return _CapacityLimiterStatistics(
+        return CapacityLimiterStatistics(
             borrowed_tokens=len(self._borrowers),
             total_tokens=self._total_tokens,
             # Use a list instead of a frozenset just in case we start to allow
@@ -371,8 +402,8 @@ class CapacityLimiter:
         )
 
 
-@async_cm
-class Semaphore:
+@final
+class Semaphore(AsyncContextManagerMixin):
     """A `semaphore <https://en.wikipedia.org/wiki/Semaphore_(programming)>`__.
 
     A semaphore holds an integer value, which can be incremented by
@@ -398,7 +429,8 @@ class Semaphore:
         ``max_value``.
 
     """
-    def __init__(self, initial_value, *, max_value=None):
+
+    def __init__(self, initial_value: int, *, max_value: int | None = None):
         if not isinstance(initial_value, int):
             raise TypeError("initial_value must be an int")
         if initial_value < 0:
@@ -412,37 +444,29 @@ class Semaphore:
         # Invariants:
         # bool(self._lot) implies self._value == 0
         # (or equivalently: self._value > 0 implies not self._lot)
-        self._lot = trio.hazmat.ParkingLot()
+        self._lot = trio.lowlevel.ParkingLot()
         self._value = initial_value
         self._max_value = max_value
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self._max_value is None:
             max_value_str = ""
         else:
-            max_value_str = ", max_value={}".format(self._max_value)
-        return (
-            "<trio.Semaphore({}{}) at {:#x}>".format(
-                self._value, max_value_str, id(self)
-            )
-        )
+            max_value_str = f", max_value={self._max_value}"
+        return f"<trio.Semaphore({self._value}{max_value_str}) at {id(self):#x}>"
 
     @property
-    def value(self):
-        """The current value of the semaphore.
-
-        """
+    def value(self) -> int:
+        """The current value of the semaphore."""
         return self._value
 
     @property
-    def max_value(self):
-        """The maximum allowed value. May be None to indicate no limit.
-
-        """
+    def max_value(self) -> int | None:
+        """The maximum allowed value. May be None to indicate no limit."""
         return self._max_value
 
     @enable_ki_protection
-    def acquire_nowait(self):
+    def acquire_nowait(self) -> None:
         """Attempt to decrement the semaphore value, without blocking.
 
         Raises:
@@ -456,21 +480,21 @@ class Semaphore:
             raise trio.WouldBlock
 
     @enable_ki_protection
-    async def acquire(self):
+    async def acquire(self) -> None:
         """Decrement the semaphore value, blocking if necessary to avoid
         letting it drop below zero.
 
         """
-        await trio.hazmat.checkpoint_if_cancelled()
+        await trio.lowlevel.checkpoint_if_cancelled()
         try:
             self.acquire_nowait()
         except trio.WouldBlock:
             await self._lot.park()
         else:
-            await trio.hazmat.cancel_shielded_checkpoint()
+            await trio.lowlevel.cancel_shielded_checkpoint()
 
     @enable_ki_protection
-    def release(self):
+    def release(self) -> None:
         """Increment the semaphore value, possibly waking a task blocked in
         :meth:`acquire`.
 
@@ -487,7 +511,7 @@ class Semaphore:
                 raise ValueError("semaphore released too many times")
             self._value += 1
 
-    def statistics(self):
+    def statistics(self) -> ParkingLotStatistics:
         """Return an object containing debugging information.
 
         Currently the following fields are defined:
@@ -499,16 +523,115 @@ class Semaphore:
         return self._lot.statistics()
 
 
-@attr.s(frozen=True)
-class _LockStatistics:
-    locked = attr.ib()
-    owner = attr.ib()
-    tasks_waiting = attr.ib()
+@attr.s(frozen=True, slots=True)
+class LockStatistics:
+    """An object containing debugging information for a Lock.
+
+    Currently the following fields are defined:
+
+    * ``locked`` (boolean): indicating whether the lock is held.
+    * ``owner``: the :class:`trio.lowlevel.Task` currently holding the lock,
+      or None if the lock is not held.
+    * ``tasks_waiting`` (int): The number of tasks blocked on this lock's
+      :meth:`trio.Lock.acquire` method.
+
+    """
+
+    locked: bool = attr.ib()
+    owner: Task | None = attr.ib()
+    tasks_waiting: int = attr.ib()
 
 
-@async_cm
-@attr.s(cmp=False, hash=False, repr=False)
-class Lock:
+@attr.s(eq=False, hash=False, repr=False)
+class _LockImpl(AsyncContextManagerMixin):
+    _lot: ParkingLot = attr.ib(factory=ParkingLot, init=False)
+    _owner: Task | None = attr.ib(default=None, init=False)
+
+    def __repr__(self) -> str:
+        if self.locked():
+            s1 = "locked"
+            s2 = f" with {len(self._lot)} waiters"
+        else:
+            s1 = "unlocked"
+            s2 = ""
+        return f"<{s1} {self.__class__.__name__} object at {id(self):#x}{s2}>"
+
+    def locked(self) -> bool:
+        """Check whether the lock is currently held.
+
+        Returns:
+          bool: True if the lock is held, False otherwise.
+
+        """
+        return self._owner is not None
+
+    @enable_ki_protection
+    def acquire_nowait(self) -> None:
+        """Attempt to acquire the lock, without blocking.
+
+        Raises:
+          WouldBlock: if the lock is held.
+
+        """
+
+        task = trio.lowlevel.current_task()
+        if self._owner is task:
+            raise RuntimeError("attempt to re-acquire an already held Lock")
+        elif self._owner is None and not self._lot:
+            # No-one owns it
+            self._owner = task
+        else:
+            raise trio.WouldBlock
+
+    @enable_ki_protection
+    async def acquire(self) -> None:
+        """Acquire the lock, blocking if necessary."""
+        await trio.lowlevel.checkpoint_if_cancelled()
+        try:
+            self.acquire_nowait()
+        except trio.WouldBlock:
+            # NOTE: it's important that the contended acquire path is just
+            # "_lot.park()", because that's how Condition.wait() acquires the
+            # lock as well.
+            await self._lot.park()
+        else:
+            await trio.lowlevel.cancel_shielded_checkpoint()
+
+    @enable_ki_protection
+    def release(self) -> None:
+        """Release the lock.
+
+        Raises:
+          RuntimeError: if the calling task does not hold the lock.
+
+        """
+        task = trio.lowlevel.current_task()
+        if task is not self._owner:
+            raise RuntimeError("can't release a Lock you don't own")
+        if self._lot:
+            (self._owner,) = self._lot.unpark(count=1)
+        else:
+            self._owner = None
+
+    def statistics(self) -> LockStatistics:
+        """Return an object containing debugging information.
+
+        Currently the following fields are defined:
+
+        * ``locked``: boolean indicating whether the lock is held.
+        * ``owner``: the :class:`trio.lowlevel.Task` currently holding the lock,
+          or None if the lock is not held.
+        * ``tasks_waiting``: The number of tasks blocked on this lock's
+          :meth:`acquire` method.
+
+        """
+        return LockStatistics(
+            locked=self.locked(), owner=self._owner, tasks_waiting=len(self._lot)
+        )
+
+
+@final
+class Lock(_LockImpl):
     """A classic `mutex
     <https://en.wikipedia.org/wiki/Lock_(computer_science)>`__.
 
@@ -521,101 +644,9 @@ class Lock:
 
     """
 
-    _lot = attr.ib(factory=ParkingLot, init=False)
-    _owner = attr.ib(default=None, init=False)
 
-    def __repr__(self):
-        if self.locked():
-            s1 = "locked"
-            s2 = " with {} waiters".format(len(self._lot))
-        else:
-            s1 = "unlocked"
-            s2 = ""
-        return (
-            "<{} {} object at {:#x}{}>".format(
-                s1, self.__class__.__name__, id(self), s2
-            )
-        )
-
-    def locked(self):
-        """Check whether the lock is currently held.
-
-        Returns:
-          bool: True if the lock is held, False otherwise.
-
-        """
-        return self._owner is not None
-
-    @enable_ki_protection
-    def acquire_nowait(self):
-        """Attempt to acquire the lock, without blocking.
-
-        Raises:
-          WouldBlock: if the lock is held.
-
-        """
-
-        task = trio.hazmat.current_task()
-        if self._owner is task:
-            raise RuntimeError("attempt to re-acquire an already held Lock")
-        elif self._owner is None and not self._lot:
-            # No-one owns it
-            self._owner = task
-        else:
-            raise trio.WouldBlock
-
-    @enable_ki_protection
-    async def acquire(self):
-        """Acquire the lock, blocking if necessary.
-
-        """
-        await trio.hazmat.checkpoint_if_cancelled()
-        try:
-            self.acquire_nowait()
-        except trio.WouldBlock:
-            # NOTE: it's important that the contended acquire path is just
-            # "_lot.park()", because that's how Condition.wait() acquires the
-            # lock as well.
-            await self._lot.park()
-        else:
-            await trio.hazmat.cancel_shielded_checkpoint()
-
-    @enable_ki_protection
-    def release(self):
-        """Release the lock.
-
-        Raises:
-          RuntimeError: if the calling task does not hold the lock.
-
-        """
-        task = trio.hazmat.current_task()
-        if task is not self._owner:
-            raise RuntimeError("can't release a Lock you don't own")
-        if self._lot:
-            (self._owner,) = self._lot.unpark(count=1)
-        else:
-            self._owner = None
-
-    def statistics(self):
-        """Return an object containing debugging information.
-
-        Currently the following fields are defined:
-
-        * ``locked``: boolean indicating whether the lock is held.
-        * ``owner``: the :class:`trio.hazmat.Task` currently holding the lock,
-          or None if the lock is not held.
-        * ``tasks_waiting``: The number of tasks blocked on this lock's
-          :meth:`acquire` method.
-
-        """
-        return _LockStatistics(
-            locked=self.locked(),
-            owner=self._owner,
-            tasks_waiting=len(self._lot),
-        )
-
-
-class StrictFIFOLock(Lock):
+@final
+class StrictFIFOLock(_LockImpl):
     r"""A variant of :class:`Lock` where tasks are guaranteed to acquire the
     lock in strict first-come-first-served order.
 
@@ -667,7 +698,7 @@ class StrictFIFOLock(Lock):
     :class:`StrictFIFOLock` guarantees that each task will send its data in
     the same order that the state machine generated it.
 
-    Currently, :class:`StrictFIFOLock` is simply an alias for :class:`Lock`,
+    Currently, :class:`StrictFIFOLock` is identical to :class:`Lock`,
     but (a) this may not always be true in the future, especially if Trio ever
     implements `more sophisticated scheduling policies
     <https://github.com/python-trio/trio/issues/32>`__, and (b) the above code
@@ -676,14 +707,26 @@ class StrictFIFOLock(Lock):
     on this property.
 
     """
-@attr.s(frozen=True)
-class _ConditionStatistics:
-    tasks_waiting = attr.ib()
-    lock_statistics = attr.ib()
 
 
-@async_cm
-class Condition:
+@attr.s(frozen=True, slots=True)
+class ConditionStatistics:
+    r"""An object containing debugging information for a Condition.
+
+    Currently the following fields are defined:
+
+    * ``tasks_waiting`` (int): The number of tasks blocked on this condition's
+      :meth:`trio.Condition.wait` method.
+    * ``lock_statistics``: The result of calling the underlying
+      :class:`Lock`\s  :meth:`~Lock.statistics` method.
+
+    """
+    tasks_waiting: int = attr.ib()
+    lock_statistics: LockStatistics = attr.ib()
+
+
+@final
+class Condition(AsyncContextManagerMixin):
     """A classic `condition variable
     <https://en.wikipedia.org/wiki/Monitor_(synchronization)>`__, similar to
     :class:`threading.Condition`.
@@ -697,15 +740,16 @@ class Condition:
           and used.
 
     """
-    def __init__(self, lock=None):
+
+    def __init__(self, lock: Lock | None = None):
         if lock is None:
             lock = Lock()
-        if not type(lock) is Lock:
+        if type(lock) is not Lock:
             raise TypeError("lock must be a trio.Lock")
         self._lock = lock
-        self._lot = trio.hazmat.ParkingLot()
+        self._lot = trio.lowlevel.ParkingLot()
 
-    def locked(self):
+    def locked(self) -> bool:
         """Check whether the underlying lock is currently held.
 
         Returns:
@@ -714,7 +758,7 @@ class Condition:
         """
         return self._lock.locked()
 
-    def acquire_nowait(self):
+    def acquire_nowait(self) -> None:
         """Attempt to acquire the underlying lock, without blocking.
 
         Raises:
@@ -723,21 +767,17 @@ class Condition:
         """
         return self._lock.acquire_nowait()
 
-    async def acquire(self):
-        """Acquire the underlying lock, blocking if necessary.
-
-        """
+    async def acquire(self) -> None:
+        """Acquire the underlying lock, blocking if necessary."""
         await self._lock.acquire()
 
-    def release(self):
-        """Release the underlying lock.
-
-        """
+    def release(self) -> None:
+        """Release the underlying lock."""
         self._lock.release()
 
     @enable_ki_protection
-    async def wait(self):
-        """Wait for another thread to call :meth:`notify` or
+    async def wait(self) -> None:
+        """Wait for another task to call :meth:`notify` or
         :meth:`notify_all`.
 
         When calling this method, you must hold the lock. It releases the lock
@@ -759,7 +799,7 @@ class Condition:
           RuntimeError: if the calling task does not hold the lock.
 
         """
-        if trio.hazmat.current_task() is not self._lock._owner:
+        if trio.lowlevel.current_task() is not self._lock._owner:
             raise RuntimeError("must hold the lock to wait")
         self.release()
         # NOTE: we go to sleep on self._lot, but we'll wake up on
@@ -771,7 +811,7 @@ class Condition:
                 await self.acquire()
             raise
 
-    def notify(self, n=1):
+    def notify(self, n: int = 1) -> None:
         """Wake one or more tasks that are blocked in :meth:`wait`.
 
         Args:
@@ -781,22 +821,22 @@ class Condition:
           RuntimeError: if the calling task does not hold the lock.
 
         """
-        if trio.hazmat.current_task() is not self._lock._owner:
+        if trio.lowlevel.current_task() is not self._lock._owner:
             raise RuntimeError("must hold the lock to notify")
         self._lot.repark(self._lock._lot, count=n)
 
-    def notify_all(self):
+    def notify_all(self) -> None:
         """Wake all tasks that are currently blocked in :meth:`wait`.
 
         Raises:
           RuntimeError: if the calling task does not hold the lock.
 
         """
-        if trio.hazmat.current_task() is not self._lock._owner:
+        if trio.lowlevel.current_task() is not self._lock._owner:
             raise RuntimeError("must hold the lock to notify")
         self._lot.repark_all(self._lock._lot)
 
-    def statistics(self):
+    def statistics(self) -> ConditionStatistics:
         r"""Return an object containing debugging information.
 
         Currently the following fields are defined:
@@ -807,7 +847,6 @@ class Condition:
           :class:`Lock`\s  :meth:`~Lock.statistics` method.
 
         """
-        return _ConditionStatistics(
-            tasks_waiting=len(self._lot),
-            lock_statistics=self._lock.statistics(),
+        return ConditionStatistics(
+            tasks_waiting=len(self._lot), lock_statistics=self._lock.statistics()
         )

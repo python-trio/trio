@@ -1,5 +1,5 @@
-from contextlib import contextmanager
 import ssl
+from contextlib import contextmanager
 
 client_ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
 client_ctx.check_hostname = False
@@ -15,6 +15,7 @@ sinb = ssl.MemoryBIO()
 soutb = ssl.MemoryBIO()
 sso = server_ctx.wrap_bio(sinb, soutb, server_side=True)
 
+
 @contextmanager
 def expect(etype):
     try:
@@ -22,7 +23,8 @@ def expect(etype):
     except etype:
         pass
     else:
-        raise AssertionError("expected {}".format(etype))
+        raise AssertionError(f"expected {etype}")
+
 
 with expect(ssl.SSLWantReadError):
     cso.do_handshake()

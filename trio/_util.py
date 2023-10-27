@@ -1,26 +1,39 @@
 # Little utilities we use internally
+from __future__ import annotations
 
-from abc import ABCMeta
+import collections.abc
+import inspect
 import os
 import signal
-import sys
-import pathlib
-from functools import wraps, update_wrapper
+import threading
 import typing as t
+from abc import ABCMeta
+from functools import update_wrapper
+from types import AsyncGeneratorType, TracebackType
 
-import async_generator
-
-# There's a dependency loop here... _core is allowed to use this file (in fact
-# it's the *only* file in the main trio/ package it's allowed to use), but
-# ConflictDetector needs checkpoint so it also has to import
-# _core. Possibly we should split this file into two: one for true generic
-# low-level utility code, and one for higher level helpers?
+from sniffio import thread_local as sniffio_loop
 
 import trio
 
+CallT = t.TypeVar("CallT", bound=t.Callable[..., t.Any])
+T = t.TypeVar("T")
+RetT = t.TypeVar("RetT")
+
+if t.TYPE_CHECKING:
+    from typing_extensions import ParamSpec, Self
+
+    ArgsT = ParamSpec("ArgsT")
+
+
+if t.TYPE_CHECKING:
+    # Don't type check the implementation below, pthread_kill does not exist on Windows.
+    def signal_raise(signum: int) -> None:
+        ...
+
+
 # Equivalent to the C function raise(), which Python doesn't wrap
-if os.name == "nt":
-    # On windows, os.kill exists but is really weird.
+elif os.name == "nt":
+    # On Windows, os.kill exists but is really weird.
     #
     # If you give it CTRL_C_EVENT or CTRL_BREAK_EVENT, it tries to deliver
     # those using GenerateConsoleCtrlEvent. But I found that when I tried
@@ -39,7 +52,7 @@ if os.name == "nt":
     # OTOH, if you pass os.kill any *other* signal number... then CPython
     # just calls TerminateProcess (wtf).
     #
-    # So, anyway, os.kill is not so useful for testing purposes. Instead
+    # So, anyway, os.kill is not so useful for testing purposes. Instead,
     # we use raise():
     #
     #   https://msdn.microsoft.com/en-us/library/dwwzkt4c.aspx
@@ -63,23 +76,8 @@ if os.name == "nt":
     signal_raise = getattr(_lib, "raise")
 else:
 
-    def signal_raise(signum):
-        os.kill(os.getpid(), signum)
-
-
-# Decorator to handle the change to __aiter__ in 3.5.2
-if sys.version_info < (3, 5, 2):
-
-    def aiter_compat(aiter_impl):
-        @wraps(aiter_impl)
-        async def __aiter__(*args, **kwargs):
-            return aiter_impl(*args, **kwargs)
-
-        return __aiter__
-else:
-
-    def aiter_compat(aiter_impl):
-        return aiter_impl
+    def signal_raise(signum: int) -> None:
+        signal.pthread_kill(threading.get_ident(), signum)
 
 
 # See: #461 as to why this is needed.
@@ -90,13 +88,108 @@ else:
 # Trying to use signal out of the main thread will fail, so we can then
 # reliably check if this is the main thread without relying on a
 # potentially modified threading.
-def is_main_thread():
+def is_main_thread() -> bool:
     """Attempt to reliably check if we are in the main thread."""
     try:
         signal.signal(signal.SIGINT, signal.getsignal(signal.SIGINT))
         return True
-    except ValueError:
+    except (TypeError, ValueError):
         return False
+
+
+######
+# Call the function and get the coroutine object, while giving helpful
+# errors for common mistakes. Returns coroutine object.
+######
+# TODO: Use TypeVarTuple here.
+def coroutine_or_error(
+    async_fn: t.Callable[..., t.Awaitable[RetT]], *args: t.Any
+) -> collections.abc.Coroutine[object, t.NoReturn, RetT]:
+    def _return_value_looks_like_wrong_library(value: object) -> bool:
+        # Returned by legacy @asyncio.coroutine functions, which includes
+        # a surprising proportion of asyncio builtins.
+        if isinstance(value, collections.abc.Generator):
+            return True
+        # The protocol for detecting an asyncio Future-like object
+        if getattr(value, "_asyncio_future_blocking", None) is not None:
+            return True
+        # This janky check catches tornado Futures and twisted Deferreds.
+        # By the time we're calling this function, we already know
+        # something has gone wrong, so a heuristic is pretty safe.
+        if value.__class__.__name__ in ("Future", "Deferred"):
+            return True
+        return False
+
+    # Make sure a sync-fn-that-returns-coroutine still sees itself as being
+    # in trio context
+    prev_loop, sniffio_loop.name = sniffio_loop.name, "trio"
+
+    try:
+        coro = async_fn(*args)
+
+    except TypeError:
+        # Give good error for: nursery.start_soon(trio.sleep(1))
+        if isinstance(async_fn, collections.abc.Coroutine):
+            # explicitly close coroutine to avoid RuntimeWarning
+            async_fn.close()
+
+            raise TypeError(
+                "Trio was expecting an async function, but instead it got "
+                f"a coroutine object {async_fn!r}\n"
+                "\n"
+                "Probably you did something like:\n"
+                "\n"
+                f"  trio.run({async_fn.__name__}(...))            # incorrect!\n"
+                f"  nursery.start_soon({async_fn.__name__}(...))  # incorrect!\n"
+                "\n"
+                "Instead, you want (notice the parentheses!):\n"
+                "\n"
+                f"  trio.run({async_fn.__name__}, ...)            # correct!\n"
+                f"  nursery.start_soon({async_fn.__name__}, ...)  # correct!"
+            ) from None
+
+        # Give good error for: nursery.start_soon(future)
+        if _return_value_looks_like_wrong_library(async_fn):
+            raise TypeError(
+                "Trio was expecting an async function, but instead it got "
+                f"{async_fn!r} – are you trying to use a library written for "
+                "asyncio/twisted/tornado or similar? That won't work "
+                "without some sort of compatibility shim."
+            ) from None
+
+        raise
+
+    finally:
+        sniffio_loop.name = prev_loop
+
+    # We can't check iscoroutinefunction(async_fn), because that will fail
+    # for things like functools.partial objects wrapping an async
+    # function. So we have to just call it and then check whether the
+    # return value is a coroutine object.
+    # Note: will not be necessary on python>=3.8, see https://bugs.python.org/issue34890
+    # TODO: python3.7 support is now dropped, so the above can be addressed.
+    if not isinstance(coro, collections.abc.Coroutine):
+        # Give good error for: nursery.start_soon(func_returning_future)
+        if _return_value_looks_like_wrong_library(coro):
+            raise TypeError(
+                f"Trio got unexpected {coro!r} – are you trying to use a "
+                "library written for asyncio/twisted/tornado or similar? "
+                "That won't work without some sort of compatibility shim."
+            )
+
+        if inspect.isasyncgen(coro):
+            raise TypeError(
+                "start_soon expected an async function but got an async "
+                f"generator {coro!r}"
+            )
+
+        # Give good error for: nursery.start_soon(some_sync_fn)
+        raise TypeError(
+            "Trio expected an async function, but {!r} appears to be "
+            "synchronous".format(getattr(async_fn, "__qualname__", async_fn))
+        )
+
+    return coro
 
 
 class ConflictDetector:
@@ -112,27 +205,36 @@ class ConflictDetector:
     tasks don't call sendall simultaneously on the same stream.
 
     """
-    def __init__(self, msg):
+
+    def __init__(self, msg: str) -> None:
         self._msg = msg
         self._held = False
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         if self._held:
             raise trio.BusyResourceError(self._msg)
         else:
             self._held = True
 
-    def __exit__(self, *args):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         self._held = False
 
 
-def async_wraps(cls, wrapped_cls, attr_name):
-    """Similar to wraps, but for async wrappers of non-async functions.
+def async_wraps(
+    cls: type[object],
+    wrapped_cls: type[object],
+    attr_name: str,
+) -> t.Callable[[CallT], CallT]:
+    """Similar to wraps, but for async wrappers of non-async functions."""
 
-    """
-    def decorator(func):
+    def decorator(func: CallT) -> CallT:
         func.__name__ = attr_name
-        func.__qualname__ = '.'.join((cls.__qualname__, attr_name))
+        func.__qualname__ = ".".join((cls.__qualname__, attr_name))
 
         func.__doc__ = """Like :meth:`~{}.{}.{}`, but async.
 
@@ -145,10 +247,12 @@ def async_wraps(cls, wrapped_cls, attr_name):
     return decorator
 
 
-def fixup_module_metadata(module_name, namespace):
-    seen_ids = set()
+def fixup_module_metadata(
+    module_name: str, namespace: collections.abc.Mapping[str, object]
+) -> None:
+    seen_ids: set[int] = set()
 
-    def fix_one(qualname, name, obj):
+    def fix_one(qualname: str, name: str, obj: object) -> None:
         # avoid infinite recursion (relevant when using
         # typing.Generic, for example)
         if id(obj) in seen_ids:
@@ -158,12 +262,13 @@ def fixup_module_metadata(module_name, namespace):
         mod = getattr(obj, "__module__", None)
         if mod is not None and mod.startswith("trio."):
             obj.__module__ = module_name
-            # Modules, unlike everything else in Python, put fully-qualitied
+            # Modules, unlike everything else in Python, put fully-qualified
             # names into their __name__ attribute. We check for "." to avoid
             # rewriting these.
             if hasattr(obj, "__name__") and "." not in obj.__name__:
                 obj.__name__ = name
-                obj.__qualname__ = qualname
+                if hasattr(obj, "__qualname__"):
+                    obj.__qualname__ = qualname
             if isinstance(obj, type):
                 for attr_name, attr_value in obj.__dict__.items():
                     fix_one(objname + "." + attr_name, attr_name, attr_value)
@@ -173,67 +278,10 @@ def fixup_module_metadata(module_name, namespace):
             fix_one(objname, objname, obj)
 
 
-# os.fspath is defined on Python 3.6+ but we need to support Python 3.5 too
-# This is why we provide our own implementation. On Python 3.6+ we use the
-# StdLib's version and on Python 3.5 our own version.
-# Our own implementation implementation is based on PEP 519 while it has also
-# been adapted to work with pathlib objects on python 3.5
-# The input typehint is removed as there is no os.PathLike on 3.5.
-# See: https://www.python.org/dev/peps/pep-0519/#os
-
-
-def fspath(path) -> t.Union[str, bytes]:
-    """Return the path representation of a path-like object.
-
-    Returns
-    -------
-    - If str or bytes is passed in, it is returned unchanged.
-    - If the os.PathLike interface is implemented it is used to get the path
-      representation.
-    - If the python version is 3.5 or earlier and a pathlib object is passed,
-      the object's string representation is returned.
-
-    Raises
-    ------
-    - Regardless of the input, if the path representation (e.g. the value
-      returned from __fspath__) is not str or bytes, TypeError is raised.
-    - If the provided path is not str, bytes, pathlib.PurePath or os.PathLike,
-      TypeError is raised.
-    """
-    if isinstance(path, (str, bytes)):
-        return path
-    # Work from the object's type to match method resolution of other magic
-    # methods.
-    path_type = type(path)
-    # On python 3.5, pathlib objects don't have the __fspath__ method,
-    # but we still want to get their string representation.
-    if issubclass(path_type, pathlib.PurePath):
-        return str(path)
-    try:
-        path_repr = path_type.__fspath__(path)
-    except AttributeError:
-        if hasattr(path_type, '__fspath__'):
-            raise
-        else:
-            raise TypeError(
-                "expected str, bytes or os.PathLike object, "
-                "not " + path_type.__name__
-            )
-    if isinstance(path_repr, (str, bytes)):
-        return path_repr
-    else:
-        raise TypeError(
-            "expected {}.__fspath__() to return str or bytes, "
-            "not {}".format(path_type.__name__,
-                            type(path_repr).__name__)
-        )
-
-
-if hasattr(os, "fspath"):
-    fspath = os.fspath  # noqa
-
-
-class generic_function:
+# We need ParamSpec to type this "properly", but that requires a runtime typing_extensions import
+# to use as a class base. This is only used at runtime and isn't correct for type checkers anyway,
+# so don't bother.
+class generic_function(t.Generic[RetT]):
     """Decorator that makes a function indexable, to communicate
     non-inferrable generic type parameters to a static type checker.
 
@@ -249,74 +297,108 @@ class generic_function:
     and currently won't type-check without a mypy plugin or clever stubs,
     but at least it becomes possible to write those.
     """
-    def __init__(self, fn):
+
+    def __init__(self, fn: t.Callable[..., RetT]) -> None:
         update_wrapper(self, fn)
         self._fn = fn
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args: t.Any, **kwargs: t.Any) -> RetT:
         return self._fn(*args, **kwargs)
 
-    def __getitem__(self, _):
+    def __getitem__(self, subscript: object) -> Self:
         return self
 
 
-# If a new class inherits from any ABC, then the new class's metaclass has to
-# inherit from ABCMeta. If a new class inherits from typing.Generic, and
-# you're using Python 3.6 or earlier, then the new class's metaclass has to
-# inherit from typing.GenericMeta. Some of the classes that want to use Final
-# or NoPublicConstructor inherit from ABCs and generics, so Final has to
-# inherit from these metaclasses. Fortunately, GenericMeta inherits from
-# ABCMeta, so inheriting from GenericMeta alone is sufficient (when it
-# exists at all).
-if hasattr(t, "GenericMeta"):
-    BaseMeta = t.GenericMeta
-else:
-    BaseMeta = ABCMeta
+def _init_final_cls(cls: type[object]) -> t.NoReturn:
+    """Raises an exception when a final class is subclassed."""
+    raise TypeError(f"{cls.__module__}.{cls.__qualname__} does not support subclassing")
 
 
-class Final(BaseMeta):
-    """Metaclass that enforces a class to be final (i.e., subclass not allowed).
+def _final_impl(decorated: type[T]) -> type[T]:
+    """Decorator that enforces a class to be final (i.e., subclass not allowed).
 
     If a class uses this metaclass like this::
 
-        class SomeClass(metaclass=Final):
+        @final
+        class SomeClass:
             pass
 
-    The metaclass will ensure that no sub class can be created.
+    The metaclass will ensure that no subclass can be created.
 
     Raises
     ------
-    - TypeError if a sub class is created
+    - TypeError if a subclass is created
     """
-    def __new__(cls, name, bases, cls_namespace):
-        for base in bases:
-            if isinstance(base, Final):
-                raise TypeError(
-                    "`%s` does not support subclassing" % base.__name__
-                )
-        return super().__new__(cls, name, bases, cls_namespace)
+    # Override the method blindly. We're always going to raise, so it doesn't
+    # matter what the original did (if anything).
+    decorated.__init_subclass__ = classmethod(_init_final_cls)  # type: ignore[assignment]
+    # Apply the typing decorator, in 3.11+ it adds a __final__ marker attribute.
+    return t.final(decorated)
 
 
-class NoPublicConstructor(Final):
-    """Metaclass that enforces a class to be final (i.e., subclass not allowed)
-    and ensures a private constructor.
+if t.TYPE_CHECKING:
+    from typing import final
+else:
+    final = _final_impl
+
+
+@final  # No subclassing of NoPublicConstructor itself.
+class NoPublicConstructor(ABCMeta):
+    """Metaclass that ensures a private constructor.
 
     If a class uses this metaclass like this::
 
+        @final
         class SomeClass(metaclass=NoPublicConstructor):
             pass
 
-    The metaclass will ensure that no sub class can be created, and that no instance
-    can be initialized.
+    The metaclass will ensure that no instance can be initialized. This should always be
+    used with @final.
 
-    If you try to instantiate your class (SomeClass()), a TypeError will be thrown.
+    If you try to instantiate your class (SomeClass()), a TypeError will be thrown. Use
+    _create() instead in the class's implementation.
 
     Raises
     ------
-    - TypeError if a sub class or an instance is created.
+    - TypeError if an instance is created.
     """
-    def __call__(self, *args, **kwargs):
-        raise TypeError("no public constructor available")
 
-    def _create(self, *args, **kwargs):
-        return super().__call__(*args, **kwargs)
+    def __call__(cls, *args: object, **kwargs: object) -> None:
+        raise TypeError(
+            f"{cls.__module__}.{cls.__qualname__} has no public constructor"
+        )
+
+    def _create(cls: type[T], *args: object, **kwargs: object) -> T:
+        return super().__call__(*args, **kwargs)  # type: ignore
+
+
+def name_asyncgen(agen: AsyncGeneratorType[object, t.NoReturn]) -> str:
+    """Return the fully-qualified name of the async generator function
+    that produced the async generator iterator *agen*.
+    """
+    if not hasattr(agen, "ag_code"):  # pragma: no cover
+        return repr(agen)
+    try:
+        module = agen.ag_frame.f_globals["__name__"]
+    except (AttributeError, KeyError):
+        module = f"<{agen.ag_code.co_filename}>"
+    try:
+        qualname = agen.__qualname__
+    except AttributeError:
+        qualname = agen.ag_code.co_name
+    return f"{module}.{qualname}"
+
+
+# work around a pyright error
+if t.TYPE_CHECKING:
+    Fn = t.TypeVar("Fn", bound=t.Callable[..., object])
+
+    def wraps(
+        wrapped: t.Callable[..., object],
+        assigned: t.Sequence[str] = ...,
+        updated: t.Sequence[str] = ...,
+    ) -> t.Callable[[Fn], Fn]:
+        ...
+
+else:
+    from functools import wraps  # noqa: F401  # this is re-exported

@@ -1,7 +1,14 @@
+from __future__ import annotations
+
+import sys
+from typing import TYPE_CHECKING
+
 from . import _core
-from ._abc import SendStream, ReceiveStream
-from ._util import ConflictDetector
-from ._core._windows_cffi import _handle, raise_winerror, kernel32, ffi
+from ._abc import ReceiveStream, SendStream
+from ._core._windows_cffi import _handle, kernel32, raise_winerror
+from ._util import ConflictDetector, final
+
+assert sys.platform == "win32" or not TYPE_CHECKING
 
 # XX TODO: don't just make this up based on nothing.
 DEFAULT_RECEIVE_SIZE = 65536
@@ -18,10 +25,10 @@ class _HandleHolder:
         _core.register_with_iocp(self.handle)
 
     @property
-    def closed(self):
+    def closed(self) -> bool:
         return self.handle == -1
 
-    def _close(self):
+    def close(self) -> None:
         if self.closed:
             return
         handle = self.handle
@@ -29,25 +36,23 @@ class _HandleHolder:
         if not kernel32.CloseHandle(_handle(handle)):
             raise_winerror()
 
-    async def aclose(self):
-        self._close()
-        await _core.checkpoint()
-
-    def __del__(self):
-        self._close()
+    def __del__(self) -> None:
+        self.close()
 
 
+@final
 class PipeSendStream(SendStream):
     """Represents a send stream over a Windows named pipe that has been
     opened in OVERLAPPED mode.
     """
+
     def __init__(self, handle: int) -> None:
         self._handle_holder = _HandleHolder(handle)
         self._conflict_detector = ConflictDetector(
             "another task is currently using this pipe"
         )
 
-    async def send_all(self, data: bytes):
+    async def send_all(self, data: bytes) -> None:
         with self._conflict_detector:
             if self._handle_holder.closed:
                 raise _core.ClosedResourceError("this pipe is already closed")
@@ -57,9 +62,7 @@ class PipeSendStream(SendStream):
                 return
 
             try:
-                written = await _core.write_overlapped(
-                    self._handle_holder.handle, data
-                )
+                written = await _core.write_overlapped(self._handle_holder.handle, data)
             except BrokenPipeError as ex:
                 raise _core.BrokenResourceError from ex
             # By my reading of MSDN, this assert is guaranteed to pass so long
@@ -75,19 +78,25 @@ class PipeSendStream(SendStream):
             # not implemented yet, and probably not needed
             await _core.checkpoint()
 
-    async def aclose(self):
-        await self._handle_holder.aclose()
+    def close(self) -> None:
+        self._handle_holder.close()
+
+    async def aclose(self) -> None:
+        self.close()
+        await _core.checkpoint()
 
 
+@final
 class PipeReceiveStream(ReceiveStream):
     """Represents a receive stream over an os.pipe object."""
+
     def __init__(self, handle: int) -> None:
         self._handle_holder = _HandleHolder(handle)
         self._conflict_detector = ConflictDetector(
             "another task is currently using this pipe"
         )
 
-    async def receive_some(self, max_bytes=None) -> bytes:
+    async def receive_some(self, max_bytes: int | None = None) -> bytes:
         with self._conflict_detector:
             if self._handle_holder.closed:
                 raise _core.ClosedResourceError("this pipe is already closed")
@@ -115,10 +124,20 @@ class PipeReceiveStream(ReceiveStream):
                 # whenever the other end closes, regardless of direction.
                 # Convert this to the Unix behavior of returning EOF to the
                 # reader when the writer closes.
+                #
+                # And since we're not raising an exception, we have to
+                # checkpoint. But readinto_overlapped did raise an exception,
+                # so it might not have checkpointed for us. So we have to
+                # checkpoint manually.
+                await _core.checkpoint()
                 return b""
             else:
                 del buffer[size:]
                 return buffer
 
-    async def aclose(self):
-        await self._handle_holder.aclose()
+    def close(self) -> None:
+        self._handle_holder.close()
+
+    async def aclose(self) -> None:
+        self.close()
+        await _core.checkpoint()

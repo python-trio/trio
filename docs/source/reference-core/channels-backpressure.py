@@ -4,6 +4,7 @@
 import trio
 import math
 
+
 async def producer(send_channel):
     count = 0
     while True:
@@ -14,6 +15,7 @@ async def producer(send_channel):
         print("Sent message:", count)
         count += 1
 
+
 async def consumer(receive_channel):
     async for value in receive_channel:
         print("Received message:", value)
@@ -21,10 +23,12 @@ async def consumer(receive_channel):
         # takes 1 second
         await trio.sleep(1)
 
+
 async def main():
     send_channel, receive_channel = trio.open_memory_channel(math.inf)
     async with trio.open_nursery() as nursery:
         nursery.start_soon(producer, send_channel)
         nursery.start_soon(consumer, receive_channel)
+
 
 trio.run(main)

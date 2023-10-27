@@ -38,7 +38,7 @@ END_CONTINUE = " " * len(END_PREFIX)
 
 
 def current_root_task():
-    task = trio.hazmat.current_task()
+    task = trio.lowlevel.current_task()
     while task.parent_nursery is not None:
         task = task.parent_nursery.parent_task
     return task

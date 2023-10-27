@@ -16,6 +16,8 @@ Test harness integration
 .. decorator:: trio_test
 
 
+.. _testing-time:
+
 Time and timeouts
 -----------------
 
@@ -118,7 +120,7 @@ some interesting hooks you can set, that let you customize the
 behavior of their methods. This is where you can insert the evil, if
 you want it. :func:`memory_stream_one_way_pair` takes advantage of
 these hooks in a relatively boring way: it just sets it up so that
-when you call ``sendall``, or when you close the send stream, then it
+when you call ``send_all``, or when you close the send stream, then it
 automatically triggers a call to :func:`memory_stream_pump`, which is
 a convenience function that takes data out of a
 :class:`MemorySendStream`\´s buffer and puts it into a
