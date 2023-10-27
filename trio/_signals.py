@@ -157,7 +157,7 @@ def open_signal_receiver(
       windows, can be send. Here's a sketch of what that might look like using
       :func:`open_signal_receiver`::
 
-         with trio.open_signal_receiver(signal.SIGHTERM) as signal_aiter:
+         with trio.open_signal_receiver(signal.SIGTERM) as signal_aiter:
              async for signum in signal_aiter:
                  assert signum == signal.SIGTERM
                  request_termination()
