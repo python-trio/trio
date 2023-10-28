@@ -315,10 +315,10 @@ async def test_run_in_worker_thread_cancellation():
         q.get()
         register[0] = "finished"
 
-    async def child(q, cancellable):
+    async def child(q, abandon_on_cancel):
         record.append("start")
         try:
-            return await to_thread_run_sync(f, q, cancellable=cancellable)
+            return await to_thread_run_sync(f, q, abandon_on_cancel=abandon_on_cancel)
         finally:
             record.append("exit")
 
@@ -378,7 +378,7 @@ def test_run_in_worker_thread_abandoned(capfd, monkeypatch):
 
     async def main():
         async def child():
-            await to_thread_run_sync(thread_fn, cancellable=True)
+            await to_thread_run_sync(thread_fn, abandon_on_cancel=True)
 
         async with _core.open_nursery() as nursery:
             nursery.start_soon(child)
@@ -462,7 +462,10 @@ async def test_run_in_worker_thread_limiter(MAX, cancel, use_default_limiter):
         async def run_thread(event):
             with _core.CancelScope() as cancel_scope:
                 await to_thread_run_sync(
-                    thread_fn, cancel_scope, limiter=limiter_arg, cancellable=cancel
+                    thread_fn,
+                    cancel_scope,
+                    abandon_on_cancel=cancel,
+                    limiter=limiter_arg,
                 )
             print("run_thread finished, cancelled:", cancel_scope.cancelled_caught)
             event.set()
@@ -847,7 +850,7 @@ async def test_trio_token_weak_referenceable():
     assert token is weak_reference()
 
 
-async def test_unsafe_cancellable_kwarg():
+async def test_unsafe_abandon_on_cancel_kwarg():
     # This is a stand in for a numpy ndarray or other objects
     # that (maybe surprisingly) lack a notion of truthiness
     class BadBool:
@@ -855,7 +858,7 @@ async def test_unsafe_cancellable_kwarg():
             raise NotImplementedError
 
     with pytest.raises(NotImplementedError):
-        await to_thread_run_sync(int, cancellable=BadBool())
+        await to_thread_run_sync(int, abandon_on_cancel=BadBool())
 
 
 async def test_from_thread_reuses_task():
@@ -898,7 +901,7 @@ async def test_from_thread_host_cancelled():
     assert not queue.get_nowait()
 
     with _core.CancelScope() as cancel_scope:
-        await to_thread_run_sync(sync_check, cancellable=True)
+        await to_thread_run_sync(sync_check, abandon_on_cancel=True)
 
     assert cancel_scope.cancelled_caught
     assert not await to_thread_run_sync(partial(queue.get, timeout=1))
@@ -922,7 +925,7 @@ async def test_from_thread_host_cancelled():
     assert not queue.get_nowait()
 
     with _core.CancelScope() as cancel_scope:
-        await to_thread_run_sync(async_check, cancellable=True)
+        await to_thread_run_sync(async_check, abandon_on_cancel=True)
 
     assert cancel_scope.cancelled_caught
     assert not await to_thread_run_sync(partial(queue.get, timeout=1))
@@ -941,11 +944,11 @@ async def test_from_thread_host_cancelled():
 async def test_from_thread_check_cancelled():
     q = stdlib_queue.Queue()
 
-    async def child(cancellable, scope):
+    async def child(abandon_on_cancel, scope):
         with scope:
             record.append("start")
             try:
-                return await to_thread_run_sync(f, cancellable=cancellable)
+                return await to_thread_run_sync(f, abandon_on_cancel=abandon_on_cancel)
             except _core.Cancelled:
                 record.append("cancel")
                 raise
@@ -974,7 +977,7 @@ async def test_from_thread_check_cancelled():
     # implicit assertion, Cancelled not raised via nursery
     assert record[1] == "exit"
 
-    # cancellable=False case: a cancel will pop out but be handled by
+    # abandon_on_cancel=False case: a cancel will pop out but be handled by
     # the appropriate cancel scope
     record = []
     ev = threading.Event()
@@ -990,7 +993,7 @@ async def test_from_thread_check_cancelled():
     assert "cancel" in record
     assert record[-1] == "exit"
 
-    # cancellable=True case: slightly different thread behavior needed
+    # abandon_on_cancel=True case: slightly different thread behavior needed
     # check thread is cancelled "soon" after abandonment
     def f():  # noqa: F811
         ev.wait()
@@ -1033,7 +1036,7 @@ async def test_reentry_doesnt_deadlock():
 
     async def child() -> None:
         while True:
-            await to_thread_run_sync(from_thread_run, sleep, 0, cancellable=False)
+            await to_thread_run_sync(from_thread_run, sleep, 0, abandon_on_cancel=False)
 
     with move_on_after(2):
         async with _core.open_nursery() as nursery:
