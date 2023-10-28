@@ -215,7 +215,7 @@ class CapacityLimiter(AsyncContextManagerMixin):
     """
 
     # total_tokens would ideally be int|Literal[math.inf] - but that's not valid typing
-    def __init__(self, total_tokens: int | float):
+    def __init__(self, total_tokens: int | float):  # noqa: PYI041
         self._lot = ParkingLot()
         self._borrowers: set[Task | object] = set()
         # Maps tasks attempting to acquire -> borrower, to handle on-behalf-of
@@ -245,7 +245,7 @@ class CapacityLimiter(AsyncContextManagerMixin):
         return self._total_tokens
 
     @total_tokens.setter
-    def total_tokens(self, new_total_tokens: int | float) -> None:
+    def total_tokens(self, new_total_tokens: int | float) -> None:  # noqa: PYI041
         if not isinstance(new_total_tokens, int) and new_total_tokens != math.inf:
             raise TypeError("total_tokens must be an int or math.inf")
         if new_total_tokens < 1:
