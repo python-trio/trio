@@ -3,7 +3,6 @@ from __future__ import annotations
 import errno
 import socket as stdlib_socket
 import sys
-from math import inf
 from socket import AddressFamily, SocketKind
 from typing import TYPE_CHECKING, Any, Sequence, overload
 
@@ -368,7 +367,6 @@ async def test_open_tcp_listeners_backlog() -> None:
     tsocket.set_custom_socket_factory(fsf)
     for given, expected in [
         (None, 0xFFFF),
-        (inf, 0xFFFF),
         (99999999, 0xFFFF),
         (10, 10),
         (1, 1),
@@ -385,6 +383,6 @@ async def test_open_tcp_listeners_backlog_float_error() -> None:
     tsocket.set_custom_socket_factory(fsf)
     for should_fail in (0.0, 2.18, 3.14, 9.75):
         with pytest.raises(
-            ValueError, match=f"Only accepts infinity, not {should_fail!r}"
+            TypeError, match=f"backlog must be an int or None not {should_fail!r}"
         ):
-            await open_tcp_listeners(0, backlog=should_fail)
+            await open_tcp_listeners(0, backlog=should_fail)  # type: ignore[arg-type]
