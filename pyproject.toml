@@ -31,6 +31,7 @@ select = [
   "B",  # flake8-bugbear
   "YTT",  # flake8-2020
   "ASYNC",  # flake8-async
+  "PYI",  # flake8-pyi
 ]
 extend-ignore = [
     'F403',  # undefined-local-with-import-star

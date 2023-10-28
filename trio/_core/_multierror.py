@@ -237,7 +237,7 @@ class MultiError(_BaseExceptionGroup):
             # In an earlier version of the code, we didn't define __init__ and
             # simply set the `exceptions` attribute directly on the new object.
             # However, linters expect attributes to be initialized in __init__.
-            from_class: type[Self] | type[NonBaseMultiError] = cls
+            from_class: type[Self | NonBaseMultiError] = cls
             if all(isinstance(exc, Exception) for exc in exceptions):
                 from_class = NonBaseMultiError
 
