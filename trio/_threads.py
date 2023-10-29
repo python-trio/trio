@@ -28,6 +28,7 @@ from ._util import coroutine_or_error
 
 RetT = TypeVar("RetT")
 
+
 class BlockingTrioPortal:
     """A portal that synchronous threads can reach through to run code in the
     Trio thread (i.e. the OS thread which invoked :func:`trio.run`)."""
@@ -41,9 +42,6 @@ class _ParentTaskData(threading.local):
     abandon_on_cancel: bool
     cancel_register: list[RaiseCancelT | None]
     task_register: list[trio.lowlevel.Task | None]
-
-
-PARENT_TASK_DATA = _ParentTaskData()
 
     def _do_it(self, cb, fn, *args):
         try:
@@ -93,6 +91,9 @@ PARENT_TASK_DATA = _ParentTaskData()
 
         """
         return self._do_it(self._run_sync_cb, fn, *args)
+
+
+PARENT_TASK_DATA = _ParentTaskData()
 
 
 ################################################################
