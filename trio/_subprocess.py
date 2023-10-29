@@ -26,7 +26,7 @@ from ._sync import Lock
 from ._util import NoPublicConstructor, final
 
 if TYPE_CHECKING:
-    from typing_extensions import TypeAlias
+    from typing_extensions import Self, TypeAlias
 
 
 # Only subscriptable in 3.9+
@@ -215,7 +215,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         issue=1104,
         instead="run_process or nursery.start(run_process, ...)",
     )
-    async def __aenter__(self) -> Process:
+    async def __aenter__(self) -> Self:
         return self
 
     @deprecated(
@@ -803,7 +803,7 @@ if TYPE_CHECKING:
     if sys.platform == "win32":
 
         async def open_process(
-            command: Union[StrOrBytesPath, Sequence[StrOrBytesPath]],
+            command: StrOrBytesPath | Sequence[StrOrBytesPath],
             *,
             stdin: int | HasFileno | None = None,
             stdout: int | HasFileno | None = None,

@@ -72,7 +72,7 @@ if TYPE_CHECKING:
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: Final = 1000
 
 # Passed as a sentinel
-_NO_SEND: Final["Outcome[Any]"] = cast("Outcome[Any]", object())
+_NO_SEND: Final[Outcome[Any]] = cast("Outcome[Any]", object())
 
 FnT = TypeVar("FnT", bound="Callable[..., Any]")
 StatusT = TypeVar("StatusT")
@@ -537,8 +537,8 @@ class CancelScope:
     def _close(self, exc: BaseException | None) -> BaseException | None:
         if self._cancel_status is None:
             new_exc = RuntimeError(
-                "Cancel scope stack corrupted: attempted to exit {!r} "
-                "which had already been exited".format(self)
+                f"Cancel scope stack corrupted: attempted to exit {self!r} "
+                "which had already been exited"
             )
             new_exc.__context__ = exc
             return new_exc
@@ -559,10 +559,8 @@ class CancelScope:
                 # cancel scope it's trying to close. Raise an error
                 # without changing any state.
                 new_exc = RuntimeError(
-                    "Cancel scope stack corrupted: attempted to exit {!r} "
-                    "from unrelated {!r}\n{}".format(
-                        self, scope_task, MISNESTING_ADVICE
-                    )
+                    f"Cancel scope stack corrupted: attempted to exit {self!r} "
+                    f"from unrelated {scope_task!r}\n{MISNESTING_ADVICE}"
                 )
                 new_exc.__context__ = exc
                 return new_exc
@@ -1103,6 +1101,13 @@ class Nursery(metaclass=NoPublicConstructor):
 
         popped = self._parent_task._child_nurseries.pop()
         assert popped is self
+
+        # don't unnecessarily wrap an exceptiongroup in another exceptiongroup
+        # see https://github.com/python-trio/trio/issues/2611
+        if len(self._pending_excs) == 1 and isinstance(
+            self._pending_excs[0], BaseExceptionGroup
+        ):
+            return self._pending_excs[0]
         if self._pending_excs:
             try:
                 return MultiError(
@@ -1773,9 +1778,7 @@ class Runner:
                 # traceback frame included
                 raise RuntimeError(
                     "Cancel scope stack corrupted: cancel scope surrounding "
-                    "{!r} was closed before the task exited\n{}".format(
-                        task, MISNESTING_ADVICE
-                    )
+                    f"{task!r} was closed before the task exited\n{MISNESTING_ADVICE}"
                 )
             except RuntimeError as new_exc:
                 if isinstance(outcome, Error):
@@ -2596,10 +2599,10 @@ def unrolled_run(
                         runner.task_exited(task, msg.final_outcome)
                     else:
                         exc = TypeError(
-                            "trio.run received unrecognized yield message {!r}. "
+                            f"trio.run received unrecognized yield message {msg!r}. "
                             "Are you trying to use a library written for some "
                             "other framework like asyncio? That won't work "
-                            "without some kind of compatibility shim.".format(msg)
+                            "without some kind of compatibility shim."
                         )
                         # The foreign library probably doesn't adhere to our
                         # protocol of unwrapping whatever outcome gets sent in.
