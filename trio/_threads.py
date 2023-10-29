@@ -43,9 +43,14 @@ class _ParentTaskData(threading.local):
     cancel_register: list[RaiseCancelT | None]
     task_register: list[trio.lowlevel.Task | None]
 
-    def _do_it(self, cb, fn, *args):
+    def _do_it(
+        self,
+        cb: Callable[..., object],
+        fn: Callable[..., Awaitable[RetT] | RetT],
+        *args: object,
+    ) -> RetT:
         try:
-            trio.hazmat.current_task()
+            trio.lowlevel.current_task()
         except RuntimeError:
             pass
         else:
@@ -53,11 +58,11 @@ class _ParentTaskData(threading.local):
                 "BlockingTrioPortal run() or run_async() was called from a "
                 " `trio.run` thread rather than an external, synchronous thread"
             )
-        q = stdlib_queue.Queue()
+        q: stdlib_queue.Queue[outcome.Outcome[RetT]] = stdlib_queue.Queue()
         self._trio_token.run_sync_soon(cb, q, fn, args)
         return q.get().unwrap()
 
-    def run(self, afn, *args):
+    def run(self, afn: Callable[..., Awaitable[RetT]], *args: object) -> RetT:
         """Run the given async function in the Trio thread, blocking until it
         is complete.
 
@@ -74,9 +79,10 @@ class _ParentTaskData(threading.local):
               which would otherwise cause a deadlock.
 
         """
-        return self._do_it(self._run_cb, afn, *args)
+        # Thinks afn should be Callable[..., Awaitable[<nothing>]] for some reason
+        return self._do_it(self._run_cb, afn, *args)  # type: ignore[arg-type]
 
-    def run_sync(self, fn, *args):
+    def run_sync(self, fn: Callable[..., RetT], *args: object) -> RetT:
         """Run the given synchronous function in the Trio thread, blocking
         until it is complete.
 
