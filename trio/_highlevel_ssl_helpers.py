@@ -74,7 +74,7 @@ async def open_ssl_over_tcp_listeners(
     *,
     host: str | bytes | None = None,
     https_compatible: bool = False,
-    backlog: int | float | None = None,
+    backlog: int | float | None = None,  # noqa: PYI041
 ) -> list[trio.SSLListener]:
     """Start listening for SSL/TLS-encrypted TCP connections to the given port.
 
@@ -103,7 +103,7 @@ async def serve_ssl_over_tcp(
     *,
     host: str | bytes | None = None,
     https_compatible: bool = False,
-    backlog: int | float | None = None,
+    backlog: int | float | None = None,  # noqa: PYI041
     handler_nursery: trio.Nursery | None = None,
     task_status: trio.TaskStatus[list[trio.SSLListener]] = trio.TASK_STATUS_IGNORED,
 ) -> NoReturn:

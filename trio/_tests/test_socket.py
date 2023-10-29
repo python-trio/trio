@@ -29,10 +29,10 @@ if TYPE_CHECKING:
         str,
         Union[Tuple[str, int], Tuple[str, int, int, int]],
     ]
-    getaddrinfoResponse: TypeAlias = List[GaiTuple]
+    GetAddrInfoResponse: TypeAlias = List[GaiTuple]
 else:
     GaiTuple: object
-    getaddrinfoResponse = object
+    GetAddrInfoResponse = object
 
 ################################################################
 # utils
@@ -40,9 +40,9 @@ else:
 
 
 class MonkeypatchedGAI:
-    def __init__(self, orig_getaddrinfo: Callable[..., getaddrinfoResponse]):
+    def __init__(self, orig_getaddrinfo: Callable[..., GetAddrInfoResponse]):
         self._orig_getaddrinfo = orig_getaddrinfo
-        self._responses: dict[tuple[Any, ...], getaddrinfoResponse | str] = {}
+        self._responses: dict[tuple[Any, ...], GetAddrInfoResponse | str] = {}
         self.record: list[tuple[Any, ...]] = []
 
     # get a normalized getaddrinfo argument tuple
@@ -55,11 +55,11 @@ class MonkeypatchedGAI:
         return frozenbound
 
     def set(
-        self, response: getaddrinfoResponse | str, *args: Any, **kwargs: Any
+        self, response: GetAddrInfoResponse | str, *args: Any, **kwargs: Any
     ) -> None:
         self._responses[self._frozenbind(*args, **kwargs)] = response
 
-    def getaddrinfo(self, *args: Any, **kwargs: Any) -> getaddrinfoResponse | str:
+    def getaddrinfo(self, *args: Any, **kwargs: Any) -> GetAddrInfoResponse | str:
         bound = self._frozenbind(*args, **kwargs)
         self.record.append(bound)
         if bound in self._responses:
@@ -120,7 +120,7 @@ def test_socket_has_some_reexports() -> None:
 
 
 async def test_getaddrinfo(monkeygai: MonkeypatchedGAI) -> None:
-    def check(got: getaddrinfoResponse, expected: getaddrinfoResponse) -> None:
+    def check(got: GetAddrInfoResponse, expected: GetAddrInfoResponse) -> None:
         # win32 returns 0 for the proto field
         # musl and glibc have inconsistent handling of the canonical name
         # field (https://github.com/python-trio/trio/issues/1499)
@@ -138,7 +138,7 @@ async def test_getaddrinfo(monkeygai: MonkeypatchedGAI) -> None:
             return (family, type, sockaddr)
 
         def filtered(
-            gai_list: getaddrinfoResponse,
+            gai_list: GetAddrInfoResponse,
         ) -> list[
             tuple[
                 AddressFamily,

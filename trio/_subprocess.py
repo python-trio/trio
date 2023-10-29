@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Mapping, Sequence
     from io import TextIOWrapper
 
-    from typing_extensions import TypeAlias
+    from typing_extensions import Self, TypeAlias
 
 
 # Only subscriptable in 3.9+
@@ -216,7 +216,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         issue=1104,
         instead="run_process or nursery.start(run_process, ...)",
     )
-    async def __aenter__(self) -> Process:
+    async def __aenter__(self) -> Self:
         return self
 
     @deprecated(
