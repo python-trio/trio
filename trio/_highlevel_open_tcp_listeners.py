@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import errno
+import math
 import sys
+import warnings
 from collections.abc import Awaitable, Callable
 
 import trio
@@ -44,8 +46,14 @@ def _compute_backlog(backlog: int | None) -> int:
     # Many systems (Linux, BSDs, ...) store the backlog in a uint16 and are
     # missing overflow protection, so we apply our own overflow protection.
     # https://github.com/golang/go/issues/5030
+    if backlog == math.inf:
+        backlog = None
+        warnings.warn(
+            "Accepting infinity for backlog for compatibility, please use `None` instead.",
+            stacklevel=2,
+        )
     if not isinstance(backlog, int) and backlog is not None:
-        raise TypeError(f"backlog must be an int or None not {backlog!r}")
+        raise TypeError(f"backlog must be an int or None, not {backlog!r}")
     if backlog is None:
         return 0xFFFF
     return min(backlog, 0xFFFF)
