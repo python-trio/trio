@@ -383,6 +383,6 @@ async def test_open_tcp_listeners_backlog_float_error() -> None:
     tsocket.set_custom_socket_factory(fsf)
     for should_fail in (0.0, 2.18, 3.14, 9.75):
         with pytest.raises(
-            TypeError, match=f"backlog must be an int or None not {should_fail!r}"
+            TypeError, match=f"backlog must be an int or None, not {should_fail!r}"
         ):
             await open_tcp_listeners(0, backlog=should_fail)  # type: ignore[arg-type]
