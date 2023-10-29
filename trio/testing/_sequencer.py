@@ -12,8 +12,9 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
 
+@_util.final
 @attr.s(eq=False, hash=False)
-class Sequencer(metaclass=_util.Final):
+class Sequencer:
     """A convenience class for forcing code in different tasks to run in an
     explicit linear order.
 
@@ -62,7 +63,7 @@ class Sequencer(metaclass=_util.Final):
     @asynccontextmanager
     async def __call__(self, position: int) -> AsyncIterator[None]:
         if position in self._claimed:
-            raise RuntimeError(f"Attempted to re-use sequence point {position}")
+            raise RuntimeError(f"Attempted to reuse sequence point {position}")
         if self._broken:
             raise RuntimeError("sequence broken!")
         self._claimed.add(position)
@@ -73,7 +74,9 @@ class Sequencer(metaclass=_util.Final):
                 self._broken = True
                 for event in self._sequence_points.values():
                     event.set()
-                raise RuntimeError("Sequencer wait cancelled -- sequence broken")
+                raise RuntimeError(
+                    "Sequencer wait cancelled -- sequence broken"
+                ) from None
             else:
                 if self._broken:
                     raise RuntimeError("sequence broken!")

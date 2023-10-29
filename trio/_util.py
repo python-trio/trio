@@ -135,28 +135,26 @@ def coroutine_or_error(
 
             raise TypeError(
                 "Trio was expecting an async function, but instead it got "
-                "a coroutine object {async_fn!r}\n"
+                f"a coroutine object {async_fn!r}\n"
                 "\n"
                 "Probably you did something like:\n"
                 "\n"
-                "  trio.run({async_fn.__name__}(...))            # incorrect!\n"
-                "  nursery.start_soon({async_fn.__name__}(...))  # incorrect!\n"
+                f"  trio.run({async_fn.__name__}(...))            # incorrect!\n"
+                f"  nursery.start_soon({async_fn.__name__}(...))  # incorrect!\n"
                 "\n"
                 "Instead, you want (notice the parentheses!):\n"
                 "\n"
-                "  trio.run({async_fn.__name__}, ...)            # correct!\n"
-                "  nursery.start_soon({async_fn.__name__}, ...)  # correct!".format(
-                    async_fn=async_fn
-                )
+                f"  trio.run({async_fn.__name__}, ...)            # correct!\n"
+                f"  nursery.start_soon({async_fn.__name__}, ...)  # correct!"
             ) from None
 
         # Give good error for: nursery.start_soon(future)
         if _return_value_looks_like_wrong_library(async_fn):
             raise TypeError(
                 "Trio was expecting an async function, but instead it got "
-                "{!r} – are you trying to use a library written for "
+                f"{async_fn!r} – are you trying to use a library written for "
                 "asyncio/twisted/tornado or similar? That won't work "
-                "without some sort of compatibility shim.".format(async_fn)
+                "without some sort of compatibility shim."
             ) from None
 
         raise
@@ -174,15 +172,15 @@ def coroutine_or_error(
         # Give good error for: nursery.start_soon(func_returning_future)
         if _return_value_looks_like_wrong_library(coro):
             raise TypeError(
-                "Trio got unexpected {!r} – are you trying to use a "
+                f"Trio got unexpected {coro!r} – are you trying to use a "
                 "library written for asyncio/twisted/tornado or similar? "
-                "That won't work without some sort of compatibility shim.".format(coro)
+                "That won't work without some sort of compatibility shim."
             )
 
         if inspect.isasyncgen(coro):
             raise TypeError(
                 "start_soon expected an async function but got an async "
-                "generator {!r}".format(coro)
+                f"generator {coro!r}"
             )
 
         # Give good error for: nursery.start_soon(some_sync_fn)
@@ -311,12 +309,18 @@ class generic_function(t.Generic[RetT]):
         return self
 
 
-class Final(ABCMeta):
-    """Metaclass that enforces a class to be final (i.e., subclass not allowed).
+def _init_final_cls(cls: type[object]) -> t.NoReturn:
+    """Raises an exception when a final class is subclassed."""
+    raise TypeError(f"{cls.__module__}.{cls.__qualname__} does not support subclassing")
+
+
+def _final_impl(decorated: type[T]) -> type[T]:
+    """Decorator that enforces a class to be final (i.e., subclass not allowed).
 
     If a class uses this metaclass like this::
 
-        class SomeClass(metaclass=Final):
+        @final
+        class SomeClass:
             pass
 
     The metaclass will ensure that no subclass can be created.
@@ -325,39 +329,38 @@ class Final(ABCMeta):
     ------
     - TypeError if a subclass is created
     """
-
-    def __new__(
-        cls,
-        name: str,
-        bases: tuple[type, ...],
-        cls_namespace: dict[str, object],
-    ) -> Final:
-        for base in bases:
-            if isinstance(base, Final):
-                raise TypeError(
-                    f"{base.__module__}.{base.__qualname__} does not support"
-                    " subclassing"
-                )
-        return super().__new__(cls, name, bases, cls_namespace)
+    # Override the method blindly. We're always going to raise, so it doesn't
+    # matter what the original did (if anything).
+    decorated.__init_subclass__ = classmethod(_init_final_cls)  # type: ignore[assignment]
+    # Apply the typing decorator, in 3.11+ it adds a __final__ marker attribute.
+    return t.final(decorated)
 
 
-class NoPublicConstructor(Final):
-    """Metaclass that enforces a class to be final (i.e., subclass not allowed)
-    and ensures a private constructor.
+if t.TYPE_CHECKING:
+    from typing import final
+else:
+    final = _final_impl
+
+
+@final  # No subclassing of NoPublicConstructor itself.
+class NoPublicConstructor(ABCMeta):
+    """Metaclass that ensures a private constructor.
 
     If a class uses this metaclass like this::
 
+        @final
         class SomeClass(metaclass=NoPublicConstructor):
             pass
 
-    The metaclass will ensure that no subclass can be created, and that no instance
-    can be initialized.
+    The metaclass will ensure that no instance can be initialized. This should always be
+    used with @final.
 
-    If you try to instantiate your class (SomeClass()), a TypeError will be thrown.
+    If you try to instantiate your class (SomeClass()), a TypeError will be thrown. Use
+    _create() instead in the class's implementation.
 
     Raises
     ------
-    - TypeError if a subclass or an instance is created.
+    - TypeError if an instance is created.
     """
 
     def __call__(cls, *args: object, **kwargs: object) -> None:
@@ -365,7 +368,7 @@ class NoPublicConstructor(Final):
             f"{cls.__module__}.{cls.__qualname__} has no public constructor"
         )
 
-    def _create(cls: t.Type[T], *args: object, **kwargs: object) -> T:
+    def _create(cls: type[T], *args: object, **kwargs: object) -> T:
         return super().__call__(*args, **kwargs)  # type: ignore
 
 
@@ -384,3 +387,18 @@ def name_asyncgen(agen: AsyncGeneratorType[object, t.NoReturn]) -> str:
     except AttributeError:
         qualname = agen.ag_code.co_name
     return f"{module}.{qualname}"
+
+
+# work around a pyright error
+if t.TYPE_CHECKING:
+    Fn = t.TypeVar("Fn", bound=t.Callable[..., object])
+
+    def wraps(
+        wrapped: t.Callable[..., object],
+        assigned: t.Sequence[str] = ...,
+        updated: t.Sequence[str] = ...,
+    ) -> t.Callable[[Fn], Fn]:
+        ...
+
+else:
+    from functools import wraps  # noqa: F401  # this is re-exported

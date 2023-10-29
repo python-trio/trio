@@ -24,7 +24,5 @@ while True:
     seek = (end - between) / COUNT * 1e9
     read = both - seek
     print(
-        "{:.2f} ns/(seek+read), {:.2f} ns/seek, estimate ~{:.2f} ns/read".format(
-            both, seek, read
-        )
+        f"{both:.2f} ns/(seek+read), {seek:.2f} ns/seek, estimate ~{read:.2f} ns/read"
     )

@@ -26,7 +26,7 @@ def bind(sock, bind_type):
     elif bind_type == "specific":
         sock.bind(("127.0.0.1", 12345))
     else:
-        assert False
+        raise AssertionError()
 
 
 def table_entry(mode1, bind_type1, mode2, bind_type2):
@@ -53,7 +53,7 @@ print(
 )
 
 print("""                              """, end="")
-for mode in modes:
+for _ in modes:
     print(" | " + " | ".join(["%8s" % bind_type for bind_type in bind_types]), end="")
 
 print(
@@ -62,11 +62,11 @@ first bind                     -------------------------------------------------
     #            default | wildcard |    INUSE |  Success |   ACCESS |  Success |    INUSE |  Success
 )
 
-for i, mode1 in enumerate(modes):
-    for j, bind_type1 in enumerate(bind_types):
+for mode1 in modes:
+    for bind_type1 in bind_types:
         row = []
-        for k, mode2 in enumerate(modes):
-            for l, bind_type2 in enumerate(bind_types):
+        for mode2 in modes:
+            for bind_type2 in bind_types:
                 entry = table_entry(mode1, bind_type1, mode2, bind_type2)
                 row.append(entry)
                 # print(mode1, bind_type1, mode2, bind_type2, entry)

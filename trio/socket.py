@@ -34,9 +34,7 @@ globals().update(
 
 # import the overwrites
 from ._socket import (
-    Address as Address,
     SocketType as SocketType,
-    _SocketType as _SocketType,
     from_stdlib_socket as from_stdlib_socket,
     fromfd as fromfd,
     getaddrinfo as getaddrinfo,
@@ -85,7 +83,7 @@ if _t.TYPE_CHECKING:
     IP_BIND_ADDRESS_NO_PORT: int
 else:
     try:
-        IP_BIND_ADDRESS_NO_PORT
+        IP_BIND_ADDRESS_NO_PORT  # noqa: B018  # "useless expression"
     except NameError:
         if sys.platform == "linux":
             IP_BIND_ADDRESS_NO_PORT = 24

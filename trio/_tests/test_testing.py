@@ -110,7 +110,7 @@ async def test_assert_checkpoints(recwarn):
 
     with pytest.raises(AssertionError):
         with assert_checkpoints():
-            1 + 1
+            1 + 1  # noqa: B018  # "useless expression"
 
     # partial yield cases
     # if you have a schedule point but not a cancel point, or vice-versa, then
@@ -132,7 +132,7 @@ async def test_assert_checkpoints(recwarn):
 
 async def test_assert_no_checkpoints(recwarn):
     with assert_no_checkpoints():
-        1 + 1
+        1 + 1  # noqa: B018  # "useless expression"
 
     with pytest.raises(AssertionError):
         with assert_no_checkpoints():
@@ -190,7 +190,7 @@ async def test_Sequencer():
         assert record == [("f2", 0), ("f1", 1), ("f2", 2), ("f1", 3), ("f1", 4)]
 
     seq = Sequencer()
-    # Catches us if we try to re-use a sequence point:
+    # Catches us if we try to reuse a sequence point:
     async with seq(0):
         pass
     with pytest.raises(RuntimeError):
@@ -233,11 +233,11 @@ async def test_Sequencer_cancel():
 async def test__assert_raises():
     with pytest.raises(AssertionError):
         with _assert_raises(RuntimeError):
-            1 + 1
+            1 + 1  # noqa: B018  # "useless expression"
 
     with pytest.raises(TypeError):
         with _assert_raises(RuntimeError):
-            "foo" + 1
+            "foo" + 1  # noqa: B018  # "useless expression"
 
     with _assert_raises(RuntimeError):
         raise RuntimeError
@@ -622,7 +622,7 @@ async def test_open_stream_to_socket_listener():
                 server_stream = await listener.accept()
                 async with server_stream:
                     await client_stream.send_all(b"x")
-                    await server_stream.receive_some(1) == b"x"
+                    assert await server_stream.receive_some(1) == b"x"
 
     # Listener bound to localhost
     sock = tsocket.socket()

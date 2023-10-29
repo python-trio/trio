@@ -8,21 +8,24 @@
 
 from __future__ import annotations
 
+import builtins
 import errno
 import ipaddress
 import os
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Union
 
 import attr
 
 import trio
-from trio._util import Final, NoPublicConstructor
+from trio._util import NoPublicConstructor, final
 
 if TYPE_CHECKING:
     from socket import AddressFamily, SocketKind
     from types import TracebackType
 
-IPAddress = Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
+    from typing_extensions import TypeAlias
+
+IPAddress: TypeAlias = Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
 
 
 def _family_for(ip: IPAddress) -> int:
@@ -30,7 +33,7 @@ def _family_for(ip: IPAddress) -> int:
         return trio.socket.AF_INET
     elif isinstance(ip, ipaddress.IPv6Address):
         return trio.socket.AF_INET6
-    assert False  # pragma: no cover
+    raise NotImplementedError("Unhandled IPAddress instance type")  # pragma: no cover
 
 
 def _wildcard_ip_for(family: int) -> IPAddress:
@@ -38,8 +41,7 @@ def _wildcard_ip_for(family: int) -> IPAddress:
         return ipaddress.ip_address("0.0.0.0")
     elif family == trio.socket.AF_INET6:
         return ipaddress.ip_address("::")
-    else:
-        assert False
+    raise NotImplementedError("Unhandled ip address family")  # pragma: no cover
 
 
 def _localhost_ip_for(family: int) -> IPAddress:
@@ -47,8 +49,7 @@ def _localhost_ip_for(family: int) -> IPAddress:
         return ipaddress.ip_address("127.0.0.1")
     elif family == trio.socket.AF_INET6:
         return ipaddress.ip_address("::1")
-    else:
-        assert False
+    raise NotImplementedError("Unhandled ip address family")  # pragma: no cover
 
 
 def _fake_err(code):
@@ -103,7 +104,7 @@ class UDPPacket:
 
 @attr.frozen
 class FakeSocketFactory(trio.abc.SocketFactory):
-    fake_net: "FakeNet"
+    fake_net: FakeNet
 
     def socket(self, family: int, type: int, proto: int) -> FakeSocket:  # type: ignore[override]
         return FakeSocket._create(self.fake_net, family, type, proto)
@@ -111,7 +112,7 @@ class FakeSocketFactory(trio.abc.SocketFactory):
 
 @attr.frozen
 class FakeHostnameResolver(trio.abc.HostnameResolver):
-    fake_net: "FakeNet"
+    fake_net: FakeNet
 
     async def getaddrinfo(
         self,
@@ -138,7 +139,8 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
         raise NotImplementedError("FakeNet doesn't do fake DNS yet")
 
 
-class FakeNet(metaclass=Final):
+@final
+class FakeNet:
     def __init__(self) -> None:
         # When we need to pick an arbitrary unique ip address/port, use these:
         self._auto_ipv4_iter = ipaddress.IPv4Network("1.0.0.0/8").hosts()
@@ -149,7 +151,7 @@ class FakeNet(metaclass=Final):
 
         self.route_packet = None
 
-    def _bind(self, binding: UDPBinding, socket: "FakeSocket") -> None:
+    def _bind(self, binding: UDPBinding, socket: FakeSocket) -> None:
         if binding in self._bound:
             _fake_err(errno.EADDRINUSE)
         self._bound[binding] = socket
@@ -173,8 +175,11 @@ class FakeNet(metaclass=Final):
             pass
 
 
+@final
 class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
-    def __init__(self, fake_net: FakeNet, family: int, type: int, proto: int):
+    def __init__(
+        self, fake_net: FakeNet, family: AddressFamily, type: SocketKind, proto: int
+    ):
         self._fake_net = fake_net
 
         if not family:
@@ -187,9 +192,9 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         if type != trio.socket.SOCK_DGRAM:
             raise NotImplementedError(f"FakeNet doesn't (yet) support type={type}")
 
-        self.family = family
-        self.type = type
-        self.proto = proto
+        self._family = family
+        self._type = type
+        self._proto = proto
 
         self._closed = False
 
@@ -198,7 +203,19 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         ](float("inf"))
 
         # This is the source-of-truth for what port etc. this socket is bound to
-        self._binding: Optional[UDPBinding] = None
+        self._binding: UDPBinding | None = None
+
+    @property
+    def type(self) -> SocketKind:
+        return self._type
+
+    @property
+    def family(self) -> AddressFamily:
+        return self._family
+
+    @property
+    def proto(self) -> int:
+        return self._proto
 
     def _check_closed(self):
         if self._closed:
@@ -362,7 +379,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
 
     def __exit__(
         self,
-        exc_type: type[BaseException] | None,
+        exc_type: builtins.type[BaseException] | None,
         exc_value: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:

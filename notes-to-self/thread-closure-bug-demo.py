@@ -35,9 +35,7 @@ def outer():
         # Force w_locals to be instantiated (only matters on PyPy; on CPython
         # you can comment this line out and everything stays the same)
         print(locals())
-        # Force x to be closed over (could use 'nonlocal' on py3)
-        if False:
-            x
+        nonlocal x  # Force x to be closed over
         # Random nonsense whose only purpose is to trigger lots of calls to
         # the trace func
         count = 0

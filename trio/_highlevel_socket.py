@@ -9,13 +9,13 @@ from typing import TYPE_CHECKING, overload
 import trio
 
 from . import socket as tsocket
-from ._util import ConflictDetector, Final
+from ._util import ConflictDetector, final
 from .abc import HalfCloseableStream, Listener
 
 if TYPE_CHECKING:
     from typing_extensions import Buffer
 
-    from ._socket import _SocketType as SocketType
+    from ._socket import SocketType
 
 # XX TODO: this number was picked arbitrarily. We should do experiments to
 # tune it. (Or make it dynamic -- one idea is to start small and increase it
@@ -42,7 +42,8 @@ def _translate_socket_errors_to_stream_errors() -> Generator[None, None, None]:
             raise trio.BrokenResourceError(f"socket connection broken: {exc}") from exc
 
 
-class SocketStream(HalfCloseableStream, metaclass=Final):
+@final
+class SocketStream(HalfCloseableStream):
     """An implementation of the :class:`trio.abc.HalfCloseableStream`
     interface based on a raw network socket.
 
@@ -354,7 +355,8 @@ for name in _ignorable_accept_errno_names:
         pass
 
 
-class SocketListener(Listener[SocketStream], metaclass=Final):
+@final
+class SocketListener(Listener[SocketStream]):
     """A :class:`~trio.abc.Listener` that uses a listening socket to accept
     incoming connections as :class:`SocketStream` objects.
 
@@ -409,7 +411,7 @@ class SocketListener(Listener[SocketStream], metaclass=Final):
                 sock, _ = await self.socket.accept()
             except OSError as exc:
                 if exc.errno in _closed_stream_errnos:
-                    raise trio.ClosedResourceError
+                    raise trio.ClosedResourceError from None
                 if exc.errno not in _ignorable_accept_errnos:
                     raise
             else:

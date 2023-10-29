@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import enum
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NewType, NoReturn, Protocol, cast
 
 if TYPE_CHECKING:
-    from typing_extensions import NoReturn, TypeAlias
+    from typing_extensions import TypeAlias
 
 import cffi
 
@@ -222,12 +222,196 @@ LIB = re.sub(r"\bFAR\b", " ", LIB)
 LIB = re.sub(r"\bPASCAL\b", "__stdcall", LIB)
 
 ffi = cffi.api.FFI()
-CData: TypeAlias = cffi.api.FFI.CData
 ffi.cdef(LIB)
 
-kernel32 = ffi.dlopen("kernel32.dll")
-ntdll = ffi.dlopen("ntdll.dll")
-ws2_32 = ffi.dlopen("ws2_32.dll")
+CData: TypeAlias = cffi.api.FFI.CData
+CType: TypeAlias = cffi.api.FFI.CType
+AlwaysNull: TypeAlias = CType  # We currently always pass ffi.NULL here.
+Handle = NewType("Handle", CData)
+HandleArray = NewType("HandleArray", CData)
+
+
+class _Kernel32(Protocol):
+    """Statically typed version of the kernel32.dll functions we use."""
+
+    def CreateIoCompletionPort(
+        self,
+        FileHandle: Handle,
+        ExistingCompletionPort: CData | AlwaysNull,
+        CompletionKey: int,
+        NumberOfConcurrentThreads: int,
+        /,
+    ) -> Handle:
+        ...
+
+    def CreateEventA(
+        self,
+        lpEventAttributes: AlwaysNull,
+        bManualReset: bool,
+        bInitialState: bool,
+        lpName: AlwaysNull,
+        /,
+    ) -> Handle:
+        ...
+
+    def SetFileCompletionNotificationModes(
+        self, handle: Handle, flags: CompletionModes, /
+    ) -> int:
+        ...
+
+    def PostQueuedCompletionStatus(
+        self,
+        CompletionPort: Handle,
+        dwNumberOfBytesTransferred: int,
+        dwCompletionKey: int,
+        lpOverlapped: CData | AlwaysNull,
+        /,
+    ) -> bool:
+        ...
+
+    def CancelIoEx(
+        self,
+        hFile: Handle,
+        lpOverlapped: CData | AlwaysNull,
+        /,
+    ) -> bool:
+        ...
+
+    def WriteFile(
+        self,
+        hFile: Handle,
+        # not sure about this type
+        lpBuffer: CData,
+        nNumberOfBytesToWrite: int,
+        lpNumberOfBytesWritten: AlwaysNull,
+        lpOverlapped: _Overlapped,
+        /,
+    ) -> bool:
+        ...
+
+    def ReadFile(
+        self,
+        hFile: Handle,
+        # not sure about this type
+        lpBuffer: CData,
+        nNumberOfBytesToRead: int,
+        lpNumberOfBytesRead: AlwaysNull,
+        lpOverlapped: _Overlapped,
+        /,
+    ) -> bool:
+        ...
+
+    def GetQueuedCompletionStatusEx(
+        self,
+        CompletionPort: Handle,
+        lpCompletionPortEntries: CData,
+        ulCount: int,
+        ulNumEntriesRemoved: CData,
+        dwMilliseconds: int,
+        fAlertable: bool | int,
+        /,
+    ) -> CData:
+        ...
+
+    def CreateFileW(
+        self,
+        lpFileName: CData,
+        dwDesiredAccess: FileFlags,
+        dwShareMode: FileFlags,
+        lpSecurityAttributes: AlwaysNull,
+        dwCreationDisposition: FileFlags,
+        dwFlagsAndAttributes: FileFlags,
+        hTemplateFile: AlwaysNull,
+        /,
+    ) -> Handle:
+        ...
+
+    def WaitForSingleObject(self, hHandle: Handle, dwMilliseconds: int, /) -> CData:
+        ...
+
+    def WaitForMultipleObjects(
+        self,
+        nCount: int,
+        lpHandles: HandleArray,
+        bWaitAll: bool,
+        dwMilliseconds: int,
+        /,
+    ) -> ErrorCodes:
+        ...
+
+    def SetEvent(self, handle: Handle, /) -> None:
+        ...
+
+    def CloseHandle(self, handle: Handle, /) -> bool:
+        ...
+
+    def DeviceIoControl(
+        self,
+        hDevice: Handle,
+        dwIoControlCode: int,
+        # this is wrong (it's not always null)
+        lpInBuffer: AlwaysNull,
+        nInBufferSize: int,
+        # this is also wrong
+        lpOutBuffer: AlwaysNull,
+        nOutBufferSize: int,
+        lpBytesReturned: AlwaysNull,
+        lpOverlapped: CData,
+        /,
+    ) -> bool:
+        ...
+
+
+class _Nt(Protocol):
+    """Statically typed version of the dtdll.dll functions we use."""
+
+    def RtlNtStatusToDosError(self, status: int, /) -> ErrorCodes:
+        ...
+
+
+class _Ws2(Protocol):
+    """Statically typed version of the ws2_32.dll functions we use."""
+
+    def WSAGetLastError(self) -> int:
+        ...
+
+    def WSAIoctl(
+        self,
+        socket: CData,
+        dwIoControlCode: WSAIoctls,
+        lpvInBuffer: AlwaysNull,
+        cbInBuffer: int,
+        lpvOutBuffer: CData,
+        cbOutBuffer: int,
+        lpcbBytesReturned: CData,  # int*
+        lpOverlapped: AlwaysNull,
+        # actually LPWSAOVERLAPPED_COMPLETION_ROUTINE
+        lpCompletionRoutine: AlwaysNull,
+        /,
+    ) -> int:
+        ...
+
+
+class _DummyStruct(Protocol):
+    Offset: int
+    OffsetHigh: int
+
+
+class _DummyUnion(Protocol):
+    DUMMYSTRUCTNAME: _DummyStruct
+    Pointer: object
+
+
+class _Overlapped(Protocol):
+    Internal: int
+    InternalHigh: int
+    DUMMYUNIONNAME: _DummyUnion
+    hEvent: Handle
+
+
+kernel32 = cast(_Kernel32, ffi.dlopen("kernel32.dll"))
+ntdll = cast(_Nt, ffi.dlopen("ntdll.dll"))
+ws2_32 = cast(_Ws2, ffi.dlopen("ws2_32.dll"))
 
 ################################################################
 # Magic numbers
@@ -237,7 +421,7 @@ ws2_32 = ffi.dlopen("ws2_32.dll")
 #   https://www.magnumdb.com
 # (Tip: check the box to see "Hex value")
 
-INVALID_HANDLE_VALUE = ffi.cast("HANDLE", -1)
+INVALID_HANDLE_VALUE = Handle(ffi.cast("HANDLE", -1))
 
 
 class ErrorCodes(enum.IntEnum):
@@ -255,7 +439,7 @@ class ErrorCodes(enum.IntEnum):
     ERROR_NOT_SOCKET = 10038
 
 
-class FileFlags(enum.IntEnum):
+class FileFlags(enum.IntFlag):
     GENERIC_READ = 0x80000000
     SYNCHRONIZE = 0x00100000
     FILE_FLAG_OVERLAPPED = 0x40000000
@@ -309,7 +493,7 @@ class IoControlCodes(enum.IntEnum):
 ################################################################
 
 
-def _handle(obj: int | CData) -> CData:
+def _handle(obj: int | CData) -> Handle:
     # For now, represent handles as either cffi HANDLEs or as ints.  If you
     # try to pass in a file descriptor instead, it's not going to work
     # out. (For that msvcrt.get_osfhandle does the trick, but I don't know if
@@ -317,8 +501,13 @@ def _handle(obj: int | CData) -> CData:
     # matter, Python never allocates an fd. So let's wait until we actually
     # encounter the problem before worrying about it.
     if isinstance(obj, int):
-        return ffi.cast("HANDLE", obj)
-    return obj
+        return Handle(ffi.cast("HANDLE", obj))
+    return Handle(obj)
+
+
+def handle_array(count: int) -> HandleArray:
+    """Make an array of handles."""
+    return HandleArray(ffi.new(f"HANDLE[{count}]"))
 
 
 def raise_winerror(
@@ -327,13 +516,17 @@ def raise_winerror(
     filename: str | None = None,
     filename2: str | None = None,
 ) -> NoReturn:
+    # assert sys.platform == "win32"  # TODO: make this work in MyPy
+    # ... in the meanwhile, ffi.getwinerror() is undefined on non-Windows, necessitating the type
+    # ignores.
+
     if winerror is None:
-        err = ffi.getwinerror()
+        err = ffi.getwinerror()  # type: ignore[attr-defined,unused-ignore]
         if err is None:
             raise RuntimeError("No error set?")
         winerror, msg = err
     else:
-        err = ffi.getwinerror(winerror)
+        err = ffi.getwinerror(winerror)  # type: ignore[attr-defined,unused-ignore]
         if err is None:
             raise RuntimeError("No error set?")
         _, msg = err

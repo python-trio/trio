@@ -1,0 +1,7 @@
+When exiting a nursery block, the parent task always waits for child
+tasks to exit. This wait cannot be cancelled. However, previously, if
+you tried to cancel it, it *would* inject a `Cancelled` exception,
+even though it wasn't cancelled. Most users probably never noticed
+either way, but injecting a `Cancelled` here is not really useful, and
+in some rare cases caused confusion or problems, so Trio no longer
+does that.

@@ -32,6 +32,7 @@ def trivial_guest_run(trio_fn, *, in_host_after_start=None, **start_guest_run_kw
     host_thread = threading.current_thread()
 
     def run_sync_soon_threadsafe(fn):
+        nonlocal todo
         if host_thread is threading.current_thread():  # pragma: no cover
             crash = partial(
                 pytest.fail, "run_sync_soon_threadsafe called from host thread"
@@ -40,6 +41,7 @@ def trivial_guest_run(trio_fn, *, in_host_after_start=None, **start_guest_run_kw
         todo.put(("run", fn))
 
     def run_sync_soon_not_threadsafe(fn):
+        nonlocal todo
         if host_thread is not threading.current_thread():  # pragma: no cover
             crash = partial(
                 pytest.fail, "run_sync_soon_not_threadsafe called from worker thread"
@@ -48,6 +50,7 @@ def trivial_guest_run(trio_fn, *, in_host_after_start=None, **start_guest_run_kw
         todo.put(("run", fn))
 
     def done_callback(outcome):
+        nonlocal todo
         todo.put(("unwrap", outcome))
 
     trio.lowlevel.start_guest_run(
@@ -69,7 +72,7 @@ def trivial_guest_run(trio_fn, *, in_host_after_start=None, **start_guest_run_kw
             elif op == "unwrap":
                 return obj.unwrap()
             else:  # pragma: no cover
-                assert False
+                raise NotImplementedError(f"{op!r} not handled")
     finally:
         # Make sure that exceptions raised here don't capture these, so that
         # if an exception does cause us to abandon a run then the Trio state
@@ -298,7 +301,10 @@ def test_host_wakeup_doesnt_trigger_wait_all_tasks_blocked():
                 # wait_all_tasks_blocked should *not* return normally, but
                 # only by cancellation.
                 await trio.testing.wait_all_tasks_blocked(cushion=9999)
-                assert False  # pragma: no cover
+                raise AssertionError(  # pragma: no cover
+                    "wait_all_tasks_blocked should *not* return normally, "
+                    "only by cancellation."
+                )
             assert watb_cscope.cancelled_caught
 
         async def get_woken_by_host_deadline(watb_cscope):

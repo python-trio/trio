@@ -41,7 +41,7 @@ if sys.version_info < (3, 11):
 # so this is unnecessary -- we can just pass in "infinity" and get the maximum
 # that way. (Verified on Windows, Linux, macOS using
 # notes-to-self/measure-listen-backlog.py)
-def _compute_backlog(backlog: int | float | None) -> int:
+def _compute_backlog(backlog: int | float | None) -> int:  # noqa: PYI041
     # Many systems (Linux, BSDs, ...) store the backlog in a uint16 and are
     # missing overflow protection, so we apply our own overflow protection.
     # https://github.com/golang/go/issues/5030
@@ -57,7 +57,10 @@ def _compute_backlog(backlog: int | float | None) -> int:
 
 
 async def open_tcp_listeners(
-    port: int, *, host: str | bytes | None = None, backlog: int | float | None = None
+    port: int,
+    *,
+    host: str | bytes | None = None,
+    backlog: int | float | None = None,  # noqa: PYI041
 ) -> list[trio.SocketListener]:
     """Create :class:`SocketListener` objects to listen for TCP connections.
 
@@ -169,7 +172,7 @@ async def serve_tcp(
     port: int,
     *,
     host: str | bytes | None = None,
-    backlog: int | float | None = None,
+    backlog: int | float | None = None,  # noqa: PYI041
     handler_nursery: trio.Nursery | None = None,
     task_status: TaskStatus[list[trio.SocketListener]] = trio.TASK_STATUS_IGNORED,
 ) -> None:
@@ -192,11 +195,12 @@ async def serve_tcp(
     connect to it to check that it's working properly, you can use something
     like::
 
+        from trio import SocketListener, SocketStream
         from trio.testing import open_stream_to_socket_listener
 
         async with trio.open_nursery() as nursery:
-            listeners = await nursery.start(serve_tcp, handler, 0)
-            client_stream = await open_stream_to_socket_listener(listeners[0])
+            listeners: list[SocketListener] = await nursery.start(serve_tcp, handler, 0)
+            client_stream: SocketStream = await open_stream_to_socket_listener(listeners[0])
 
             # Then send and receive data on 'client_stream', for example:
             await client_stream.send_all(b"GET / HTTP/1.0\\r\\n\\r\\n")

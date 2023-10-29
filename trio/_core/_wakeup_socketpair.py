@@ -63,7 +63,8 @@ class WakeupSocketpair:
                     "should set host_uses_signal_set_wakeup_fd=True. "
                     "Otherwise, file a bug on Trio and we'll help you figure "
                     "out what's going on."
-                )
+                ),
+                stacklevel=1,
             )
 
     def close(self) -> None:

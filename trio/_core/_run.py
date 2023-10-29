@@ -27,11 +27,11 @@ from types import TracebackType
 from typing import (
     TYPE_CHECKING,
     Any,
+    Final,
     NoReturn,
     Protocol,
     TypeVar,
     cast,
-    final,
     overload,
 )
 
@@ -42,7 +42,7 @@ from sortedcontainers import SortedDict
 
 from .. import _core
 from .._abc import Clock, Instrument
-from .._util import Final, NoPublicConstructor, coroutine_or_error
+from .._util import NoPublicConstructor, coroutine_or_error, final
 from ._asyncgens import AsyncGenerators
 from ._entry_queue import EntryQueue, TrioToken
 from ._exceptions import Cancelled, RunFinishedError, TrioInternalError
@@ -67,15 +67,12 @@ from types import FrameType
 if TYPE_CHECKING:
     import contextvars
 
-    # An unfortunate name collision here with trio._util.Final
-    from typing import Final as FinalT
-
     from typing_extensions import Self
 
-DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: FinalT = 1000
+DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: Final = 1000
 
 # Passed as a sentinel
-_NO_SEND: FinalT = cast("Outcome[Any]", object())
+_NO_SEND: Final[Outcome[Any]] = cast("Outcome[Any]", object())
 
 FnT = TypeVar("FnT", bound="Callable[..., Any]")
 StatusT = TypeVar("StatusT")
@@ -100,7 +97,7 @@ def _public(fn: FnT) -> FnT:
 # variable to True, and registers the Random instance _r for Hypothesis
 # to manage for each test case, which together should make Trio's task
 # scheduling loop deterministic.  We have a test for that, of course.
-_ALLOW_DETERMINISTIC_SCHEDULING: FinalT = False
+_ALLOW_DETERMINISTIC_SCHEDULING: Final = False
 _r = random.Random()
 
 
@@ -118,7 +115,7 @@ def _count_context_run_tb_frames() -> int:
 
     def function_with_unique_name_xyzzy() -> NoReturn:
         try:
-            1 / 0
+            1 / 0  # noqa: B018  # We need a ZeroDivisionError to fire
         except ZeroDivisionError:
             raise
         else:  # pragma: no cover
@@ -145,7 +142,7 @@ def _count_context_run_tb_frames() -> int:
         )
 
 
-CONTEXT_RUN_TB_FRAMES: FinalT = _count_context_run_tb_frames()
+CONTEXT_RUN_TB_FRAMES: Final = _count_context_run_tb_frames()
 
 
 @attr.s(frozen=True, slots=True)
@@ -473,7 +470,7 @@ https://github.com/python-trio/trio/issues/new
 
 @final
 @attr.s(eq=False, repr=False, slots=True)
-class CancelScope(metaclass=Final):
+class CancelScope:
     """A *cancellation scope*: the link between a unit of cancellable
     work and Trio's cancellation system.
 
@@ -540,8 +537,8 @@ class CancelScope(metaclass=Final):
     def _close(self, exc: BaseException | None) -> BaseException | None:
         if self._cancel_status is None:
             new_exc = RuntimeError(
-                "Cancel scope stack corrupted: attempted to exit {!r} "
-                "which had already been exited".format(self)
+                f"Cancel scope stack corrupted: attempted to exit {self!r} "
+                "which had already been exited"
             )
             new_exc.__context__ = exc
             return new_exc
@@ -562,10 +559,8 @@ class CancelScope(metaclass=Final):
                 # cancel scope it's trying to close. Raise an error
                 # without changing any state.
                 new_exc = RuntimeError(
-                    "Cancel scope stack corrupted: attempted to exit {!r} "
-                    "from unrelated {!r}\n{}".format(
-                        self, scope_task, MISNESTING_ADVICE
-                    )
+                    f"Cancel scope stack corrupted: attempted to exit {self!r} "
+                    f"from unrelated {scope_task!r}\n{MISNESTING_ADVICE}"
                 )
                 new_exc.__context__ = exc
                 return new_exc
@@ -1083,26 +1078,36 @@ class Nursery(metaclass=NoPublicConstructor):
         self._check_nursery_closed()
 
         if not self._closed:
-            # If we get cancelled (or have an exception injected, like
-            # KeyboardInterrupt), then save that, but still wait until our
-            # children finish.
+            # If we have a KeyboardInterrupt injected, we want to save it in
+            # the nursery's final exceptions list. But if it's just a
+            # Cancelled, then we don't -- see gh-1457.
             def aborted(raise_cancel: _core.RaiseCancelT) -> Abort:
-                self._add_exc(capture(raise_cancel).error)
+                exn = capture(raise_cancel).error
+                if not isinstance(exn, Cancelled):
+                    self._add_exc(exn)
+                del exn  # prevent cyclic garbage creation
                 return Abort.FAILED
 
             self._parent_waiting_in_aexit = True
             await wait_task_rescheduled(aborted)
         else:
-            # Nothing to wait for, so just execute a checkpoint -- but we
-            # still need to mix any exception (e.g. from an external
-            # cancellation) in with the rest of our exceptions.
+            # Nothing to wait for, so execute a schedule point, but don't
+            # allow us to be cancelled, just like the other branch.  We
+            # still need to catch and store non-Cancelled exceptions.
             try:
-                await checkpoint()
+                await cancel_shielded_checkpoint()
             except BaseException as exc:
                 self._add_exc(exc)
 
         popped = self._parent_task._child_nurseries.pop()
         assert popped is self
+
+        # don't unnecessarily wrap an exceptiongroup in another exceptiongroup
+        # see https://github.com/python-trio/trio/issues/2611
+        if len(self._pending_excs) == 1 and isinstance(
+            self._pending_excs[0], BaseExceptionGroup
+        ):
+            return self._pending_excs[0]
         if self._pending_excs:
             try:
                 return MultiError(
@@ -1348,14 +1353,14 @@ class Task(metaclass=NoPublicConstructor):
                 # cannot extract the generator directly, see https://github.com/python/cpython/issues/76991
                 # we can however use the gc to look through the object
                 for referent in gc.get_referents(coro):
-                    if hasattr(referent, "ag_frame"):
+                    if hasattr(referent, "ag_frame"):  # pragma: no branch
                         yield referent.ag_frame, referent.ag_frame.f_lineno
                         coro = referent.ag_await
                         break
-                else:
+                else:  # pragma: no cover
                     # either cpython changed or we are running on an alternative python implementation
                     return
-            else:
+            else:  # pragma: no cover
                 return
 
     ################
@@ -1428,7 +1433,7 @@ class RunContext(threading.local):
     task: Task
 
 
-GLOBAL_RUN_CONTEXT: FinalT = RunContext()
+GLOBAL_RUN_CONTEXT: Final = RunContext()
 
 
 @attr.frozen
@@ -1481,6 +1486,8 @@ class RunStatistics:
 # So this object can reference Runner, but Runner can't reference it. The only
 # references to it are the "in flight" callback chain on the host loop /
 # worker thread.
+
+
 @attr.s(eq=False, hash=False, slots=True)
 class GuestState:
     runner: Runner = attr.ib()
@@ -1488,8 +1495,7 @@ class GuestState:
     run_sync_soon_not_threadsafe: Callable[[Callable[[], object]], object] = attr.ib()
     done_callback: Callable[[Outcome[Any]], object] = attr.ib()
     unrolled_run_gen: Generator[float, EventResult, None] = attr.ib()
-    _value_factory: Callable[[], Value[Any]] = lambda: Value(None)
-    unrolled_run_next_send: Outcome[Any] = attr.ib(factory=_value_factory)
+    unrolled_run_next_send: Outcome[Any] = attr.ib(factory=lambda: Value(None))
 
     def guest_tick(self) -> None:
         prev_library, sniffio_library.name = sniffio_library.name, "trio"
@@ -1772,9 +1778,7 @@ class Runner:
                 # traceback frame included
                 raise RuntimeError(
                     "Cancel scope stack corrupted: cancel scope surrounding "
-                    "{!r} was closed before the task exited\n{}".format(
-                        task, MISNESTING_ADVICE
-                    )
+                    f"{task!r} was closed before the task exited\n{MISNESTING_ADVICE}"
                 )
             except RuntimeError as new_exc:
                 if isinstance(outcome, Error):
@@ -2360,7 +2364,7 @@ def start_guest_run(
     next_send = cast(
         EventResult, None
     )  # First iteration must be `None`, every iteration after that is EventResult
-    for tick in range(5):  # expected need is 2 iterations + leave some wiggle room
+    for _tick in range(5):  # expected need is 2 iterations + leave some wiggle room
         if runner.system_nursery is not None:
             # We're initialized enough to switch to async guest ticks
             break
@@ -2369,7 +2373,7 @@ def start_guest_run(
         except StopIteration:  # pragma: no cover
             raise TrioInternalError(
                 "Guest runner exited before system nursery was initialized"
-            )
+            ) from None
         if timeout != 0:  # pragma: no cover
             guest_state.unrolled_run_gen.throw(
                 TrioInternalError(
@@ -2398,7 +2402,7 @@ def start_guest_run(
 
 # 24 hours is arbitrary, but it avoids issues like people setting timeouts of
 # 10**20 and then getting integer overflows in the underlying system calls.
-_MAX_TIMEOUT: FinalT = 24 * 60 * 60
+_MAX_TIMEOUT: Final = 24 * 60 * 60
 
 
 # Weird quirk: this is written as a generator in order to support "guest
@@ -2595,10 +2599,10 @@ def unrolled_run(
                         runner.task_exited(task, msg.final_outcome)
                     else:
                         exc = TypeError(
-                            "trio.run received unrecognized yield message {!r}. "
+                            f"trio.run received unrecognized yield message {msg!r}. "
                             "Are you trying to use a library written for some "
                             "other framework like asyncio? That won't work "
-                            "without some kind of compatibility shim.".format(msg)
+                            "without some kind of compatibility shim."
                         )
                         # The foreign library probably doesn't adhere to our
                         # protocol of unwrapping whatever outcome gets sent in.
@@ -2624,7 +2628,8 @@ def unrolled_run(
             RuntimeWarning(
                 "Trio guest run got abandoned without properly finishing... "
                 "weird stuff might happen"
-            )
+            ),
+            stacklevel=1,
         )
     except TrioInternalError:
         raise
@@ -2656,7 +2661,7 @@ class _TaskStatusIgnored(TaskStatus[Any]):
         pass
 
 
-TASK_STATUS_IGNORED: FinalT[TaskStatus[Any]] = _TaskStatusIgnored()
+TASK_STATUS_IGNORED: Final[TaskStatus[Any]] = _TaskStatusIgnored()
 
 
 def current_task() -> Task:
@@ -2747,7 +2752,7 @@ async def checkpoint_if_cancelled() -> None:
         task is task._runner.main_task and task._runner.ki_pending
     ):
         await _core.checkpoint()
-        assert False  # pragma: no cover
+        raise AssertionError("this should never happen")  # pragma: no cover
     task._cancel_points += 1
 
 
