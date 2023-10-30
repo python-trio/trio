@@ -447,10 +447,9 @@ def run_script(name: str) -> subprocess.CompletedProcess[bytes]:
 
     env = dict(os.environ)
     print("parent PYTHONPATH:", env.get("PYTHONPATH"))
+    pp = []
     if "PYTHONPATH" in env:  # pragma: no cover
         pp = env["PYTHONPATH"].split(os.pathsep)
-    else:
-        pp = []
     pp.insert(0, str(trio_path))
     pp.insert(0, str(script_path.parent))
     env["PYTHONPATH"] = os.pathsep.join(pp)

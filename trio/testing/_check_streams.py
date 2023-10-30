@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import random
 from collections.abc import Generator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from typing import TYPE_CHECKING, Awaitable, Callable, Generic, Tuple, TypeVar
 
 from .. import CancelScope, _core
@@ -240,10 +240,8 @@ async def check_one_way_stream(
         # after the sender does a forceful close, the receiver might either
         # get BrokenResourceError or a clean b""; either is OK. Not OK would be
         # if it freezes, or returns data.
-        try:
+        with suppress(_core.BrokenResourceError):
             await checked_receive_1(b"")
-        except _core.BrokenResourceError:
-            pass
 
     # cancelled aclose still closes
     async with _ForceCloseBoth(await stream_maker()) as (s, r):

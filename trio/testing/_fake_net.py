@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import builtins
+import contextlib
 import errno
 import ipaddress
 import os
@@ -260,11 +261,9 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         )
 
     def _deliver_packet(self, packet: UDPPacket) -> None:
-        try:
+        # sending to a closed socket -- UDP packets get dropped
+        with contextlib.suppress(trio.BrokenResourceError):
             self._packet_sender.send_nowait(packet)
-        except trio.BrokenResourceError:
-            # sending to a closed socket -- UDP packets get dropped
-            pass
 
     ################################################################
     # Actual IO operation implementations
