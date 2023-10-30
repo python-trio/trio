@@ -476,9 +476,9 @@ def concat_tb(
 # hook.
 #
 # More details: https://github.com/python-trio/trio/issues/1065
-if (
-    sys.version_info < (3, 11)
-    and getattr(sys.excepthook, "__name__", None) == "apport_excepthook"
+if sys.version_info < (3, 11) and getattr(sys.excepthook, "__name__", None) in (
+    "apport_excepthook",
+    "partial_apport_excepthook",
 ):
     from types import ModuleType
 
