@@ -5,7 +5,7 @@ import socket as stdlib_socket
 import ssl
 import sys
 import threading
-from contextlib import asynccontextmanager, contextmanager
+from contextlib import asynccontextmanager, contextmanager, suppress
 from functools import partial
 from ssl import SSLContext
 from typing import TYPE_CHECKING, Any, AsyncIterator, Iterator, NoReturn
@@ -116,10 +116,8 @@ def ssl_echo_serve_sync(
                     # respond in kind but it's legal for them to have already
                     # gone away.
                     exceptions = (BrokenPipeError, ssl.SSLZeroReturnError)
-                    try:
+                    with suppress(*exceptions):
                         wrapped.unwrap()
-                    except exceptions:
-                        pass
                     return
                 wrapped.sendall(data)
     # This is an obscure workaround for an openssl bug. In server mode, in

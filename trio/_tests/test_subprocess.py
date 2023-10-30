@@ -231,7 +231,7 @@ async def test_pipes(background_process: BackgroundProcessType) -> None:
             nursery.start_soon(check_output, proc.stderr, msg[::-1])
 
         assert not nursery.cancel_scope.cancelled_caught
-        assert 0 == await proc.wait()
+        assert await proc.wait() == 0
 
 
 @background_process_param
@@ -523,8 +523,8 @@ def test_waitid_eintr() -> None:
     # despite the TYPE_CHECKING early return silencing warnings about signal.SIGALRM etc
     # this import is still checked on win32&darwin and raises [attr-defined].
     # Linux doesn't raise [attr-defined] though, so we need [unused-ignore]
-    from .._subprocess_platform.waitid import (
-        sync_wait_reapable,  # type: ignore[attr-defined, unused-ignore]
+    from .._subprocess_platform.waitid import (  # type: ignore[attr-defined, unused-ignore]
+        sync_wait_reapable,
     )
 
     got_alarm = False
