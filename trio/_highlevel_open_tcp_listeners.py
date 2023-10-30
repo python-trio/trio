@@ -3,13 +3,13 @@ from __future__ import annotations
 import errno
 import math
 import sys
-import warnings
 from collections.abc import Awaitable, Callable
 
 import trio
 from trio import TaskStatus
 
 from . import socket as tsocket
+from ._deprecate import warn_deprecated
 
 if sys.version_info < (3, 11):
     from exceptiongroup import ExceptionGroup
@@ -48,9 +48,11 @@ def _compute_backlog(backlog: int | None) -> int:
     # https://github.com/golang/go/issues/5030
     if backlog == math.inf:
         backlog = None
-        warnings.warn(
-            "Accepting infinity for backlog for compatibility, please use `None` instead.",
-            stacklevel=2,
+        warn_deprecated(
+            thing="math.inf as a backlog",
+            version="0.23.0",
+            instead="None",
+            issue=2842,
         )
     if not isinstance(backlog, int) and backlog is not None:
         raise TypeError(f"backlog must be an int or None, not {backlog!r}")
