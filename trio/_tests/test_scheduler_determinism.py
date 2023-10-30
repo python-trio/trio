@@ -1,11 +1,15 @@
+from __future__ import annotations
+
+from pytest import MonkeyPatch
+
 import trio
 
 
-async def scheduler_trace():
+async def scheduler_trace() -> tuple[tuple[str, int], ...]:
     """Returns a scheduler-dependent value we can use to check determinism."""
     trace = []
 
-    async def tracer(name):
+    async def tracer(name: str) -> None:
         for i in range(50):
             trace.append((name, i))
             await trio.sleep(0)
@@ -17,7 +21,7 @@ async def scheduler_trace():
     return tuple(trace)
 
 
-def test_the_trio_scheduler_is_not_deterministic():
+def test_the_trio_scheduler_is_not_deterministic() -> None:
     # At least, not yet.  See https://github.com/python-trio/trio/issues/32
     traces = []
     for _ in range(10):
@@ -25,7 +29,9 @@ def test_the_trio_scheduler_is_not_deterministic():
     assert len(set(traces)) == len(traces)
 
 
-def test_the_trio_scheduler_is_deterministic_if_seeded(monkeypatch):
+def test_the_trio_scheduler_is_deterministic_if_seeded(
+    monkeypatch: MonkeyPatch,
+) -> None:
     monkeypatch.setattr(trio._core._run, "_ALLOW_DETERMINISTIC_SCHEDULING", True)
     traces = []
     for _ in range(10):

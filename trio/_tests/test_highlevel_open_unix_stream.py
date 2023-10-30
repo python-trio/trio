@@ -1,21 +1,25 @@
 import os
 import socket
+import sys
 import tempfile
+from typing import TYPE_CHECKING
 
 import pytest
 
 from trio import Path, open_unix_socket
 from trio._highlevel_open_unix_stream import close_on_error
 
+assert not TYPE_CHECKING or sys.platform != "win32"
+
 if not hasattr(socket, "AF_UNIX"):
     pytestmark = pytest.mark.skip("Needs unix socket support")
 
 
-def test_close_on_error():
+def test_close_on_error() -> None:
     class CloseMe:
         closed = False
 
-        def close(self):
+        def close(self) -> None:
             self.closed = True
 
     with close_on_error(CloseMe()) as c:
@@ -29,12 +33,12 @@ def test_close_on_error():
 
 
 @pytest.mark.parametrize("filename", [4, 4.5])
-async def test_open_with_bad_filename_type(filename):
+async def test_open_with_bad_filename_type(filename: float) -> None:
     with pytest.raises(TypeError):
-        await open_unix_socket(filename)
+        await open_unix_socket(filename)  # type: ignore[arg-type]
 
 
-async def test_open_bad_socket():
+async def test_open_bad_socket() -> None:
     # mktemp is marked as insecure, but that's okay, we don't want the file to
     # exist
     name = tempfile.mktemp()
@@ -42,7 +46,7 @@ async def test_open_bad_socket():
         await open_unix_socket(name)
 
 
-async def test_open_unix_socket():
+async def test_open_unix_socket() -> None:
     for name_type in [Path, str]:
         name = tempfile.mktemp()
         serv_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
