@@ -115,8 +115,7 @@ def ssl_echo_serve_sync(
                     # other side has initiated a graceful shutdown; we try to
                     # respond in kind but it's legal for them to have already
                     # gone away.
-                    exceptions = (BrokenPipeError, ssl.SSLZeroReturnError)
-                    with suppress(*exceptions):
+                    with suppress(BrokenPipeError, ssl.SSLZeroReturnError):
                         wrapped.unwrap()
                     return
                 wrapped.sendall(data)
