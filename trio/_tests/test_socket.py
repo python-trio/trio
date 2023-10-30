@@ -39,7 +39,7 @@ else:
 
 
 class MonkeypatchedGAI:
-    def __init__(self, orig_getaddrinfo: Callable[..., GetAddrInfoResponse]):
+    def __init__(self, orig_getaddrinfo: Callable[..., GetAddrInfoResponse]) -> None:
         self._orig_getaddrinfo = orig_getaddrinfo
         self._responses: dict[tuple[Any, ...], GetAddrInfoResponse | str] = {}
         self.record: list[tuple[Any, ...]] = []

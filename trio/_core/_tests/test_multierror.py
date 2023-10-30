@@ -9,6 +9,8 @@ import sys
 import warnings
 from pathlib import Path
 from traceback import extract_tb, print_exception
+from types import TracebackType
+from typing import Callable, NoReturn
 
 import pytest
 
@@ -34,46 +36,47 @@ class NotHashableException(Exception):
         return self.code == other.code
 
 
-async def raise_nothashable(code):
+async def raise_nothashable(code: int) -> NoReturn:
     raise NotHashableException(code)
 
 
-def raiser1():
+def raiser1() -> NoReturn:
     raiser1_2()
 
 
-def raiser1_2():
+def raiser1_2() -> NoReturn:
     raiser1_3()
 
 
-def raiser1_3():
+def raiser1_3() -> NoReturn:
     raise ValueError("raiser1_string")
 
 
-def raiser2():
+def raiser2() -> NoReturn:
     raiser2_2()
 
 
-def raiser2_2():
+def raiser2_2() -> NoReturn:
     raise KeyError("raiser2_string")
 
 
-def raiser3():
+def raiser3() -> NoReturn:
     raise NameError
 
 
-def get_exc(raiser):
+def get_exc(raiser: Callable[[], NoReturn]) -> BaseException:
     try:
         raiser()
     except Exception as exc:
         return exc
+    raise AssertionError("raiser should always raise")  # pragma: no cover
 
 
-def get_tb(raiser):
+def get_tb(raiser: Callable[[], NoReturn]) -> TracebackType | None:
     return get_exc(raiser).__traceback__
 
 
-def test_concat_tb():
+def test_concat_tb() -> None:
     tb1 = get_tb(raiser1)
     tb2 = get_tb(raiser2)
 
@@ -98,7 +101,7 @@ def test_concat_tb():
     assert extract_tb(get_tb(raiser2)) == entries2
 
 
-def test_MultiError():
+def test_MultiError() -> None:
     exc1 = get_exc(raiser1)
     exc2 = get_exc(raiser2)
 
@@ -109,12 +112,12 @@ def test_MultiError():
     assert "ValueError" in repr(m)
 
     with pytest.raises(TypeError):
-        MultiError(object())
+        MultiError(object())  # type: ignore[arg-type]
     with pytest.raises(TypeError):
-        MultiError([KeyError(), ValueError])
+        MultiError([KeyError(), ValueError])  # type: ignore[list-item]
 
 
-def test_MultiErrorOfSingleMultiError():
+def test_MultiErrorOfSingleMultiError() -> None:
     # For MultiError([MultiError]), ensure there is no bad recursion by the
     # constructor where __init__ is called if __new__ returns a bare MultiError.
     exceptions = (KeyError(), ValueError())
@@ -124,7 +127,7 @@ def test_MultiErrorOfSingleMultiError():
     assert b.exceptions == exceptions
 
 
-async def test_MultiErrorNotHashable():
+async def test_MultiErrorNotHashable() -> None:
     exc1 = NotHashableException(42)
     exc2 = NotHashableException(4242)
     exc3 = ValueError()
@@ -137,10 +140,10 @@ async def test_MultiErrorNotHashable():
             nursery.start_soon(raise_nothashable, 4242)
 
 
-def test_MultiError_filter_NotHashable():
+def test_MultiError_filter_NotHashable() -> None:
     excs = MultiError([NotHashableException(42), ValueError()])
 
-    def handle_ValueError(exc):
+    def handle_ValueError(exc: BaseException) -> BaseException | None:
         if isinstance(exc, ValueError):
             return None
         else:
@@ -152,7 +155,7 @@ def test_MultiError_filter_NotHashable():
     assert isinstance(filtered_excs, NotHashableException)
 
 
-def make_tree():
+def make_tree() -> MultiError:
     # Returns an object like:
     #   MultiError([
     #     MultiError([
@@ -173,7 +176,9 @@ def make_tree():
         return MultiError([m12, exc3])
 
 
-def assert_tree_eq(m1, m2):
+def assert_tree_eq(
+    m1: BaseException | MultiError | None, m2: BaseException | MultiError | None
+) -> None:
     if m1 is None or m2 is None:
         assert m1 is m2
         return
@@ -182,13 +187,14 @@ def assert_tree_eq(m1, m2):
     assert_tree_eq(m1.__cause__, m2.__cause__)
     assert_tree_eq(m1.__context__, m2.__context__)
     if isinstance(m1, MultiError):
+        assert isinstance(m2, MultiError)
         assert len(m1.exceptions) == len(m2.exceptions)
         for e1, e2 in zip(m1.exceptions, m2.exceptions):
             assert_tree_eq(e1, e2)
 
 
-def test_MultiError_filter():
-    def null_handler(exc):
+def test_MultiError_filter() -> None:
+    def null_handler(exc: BaseException) -> BaseException:
         return exc
 
     m = make_tree()
@@ -208,7 +214,7 @@ def test_MultiError_filter():
             assert MultiError.filter(null_handler, m) is m
     assert_tree_eq(m, make_tree())
 
-    def simple_filter(exc):
+    def simple_filter(exc: BaseException) -> BaseException | None:
         if isinstance(exc, ValueError):
             return None
         if isinstance(exc, KeyError):
@@ -232,6 +238,7 @@ def test_MultiError_filter():
     # traceback on its parent MultiError
     orig = make_tree()
     # make sure we have the right path
+    assert isinstance(orig.exceptions[0], MultiError)
     assert isinstance(orig.exceptions[0].exceptions[1], KeyError)
     # get original traceback summary
     orig_extracted = (
@@ -240,7 +247,7 @@ def test_MultiError_filter():
         + extract_tb(orig.exceptions[0].exceptions[1].__traceback__)
     )
 
-    def p(exc):
+    def p(exc: BaseException) -> None:
         print_exception(type(exc), exc, exc.__traceback__)
 
     p(orig)
@@ -253,7 +260,7 @@ def test_MultiError_filter():
     assert orig_extracted == new_extracted
 
     # check preserving partial tree
-    def filter_NameError(exc):
+    def filter_NameError(exc: BaseException) -> BaseException | None:
         if isinstance(exc, NameError):
             return None
         return exc
@@ -265,17 +272,17 @@ def test_MultiError_filter():
     assert new_m is m.exceptions[0]
 
     # check fully handling everything
-    def filter_all(exc):
+    def filter_all(exc: BaseException) -> None:
         return None
 
     with pytest.warns(TrioDeprecationWarning):
         assert MultiError.filter(filter_all, make_tree()) is None
 
 
-def test_MultiError_catch():
+def test_MultiError_catch() -> None:
     # No exception to catch
 
-    def noop(_):
+    def noop(_: object) -> None:
         pass  # pragma: no cover
 
     with pytest.warns(TrioDeprecationWarning), MultiError.catch(noop):
@@ -362,16 +369,16 @@ def test_MultiError_catch():
 @pytest.mark.skipif(
     sys.implementation.name != "cpython", reason="Only makes sense with refcounting GC"
 )
-def test_MultiError_catch_doesnt_create_cyclic_garbage():
+def test_MultiError_catch_doesnt_create_cyclic_garbage() -> None:
     # https://github.com/python-trio/trio/pull/2063
     gc.collect()
     old_flags = gc.get_debug()
 
-    def make_multi():
+    def make_multi() -> NoReturn:
         # make_tree creates cycles itself, so a simple
         raise MultiError([get_exc(raiser1), get_exc(raiser2)])
 
-    def simple_filter(exc):
+    def simple_filter(exc: BaseException) -> Exception | RuntimeError:
         if isinstance(exc, ValueError):
             return Exception()
         if isinstance(exc, KeyError):
@@ -393,7 +400,7 @@ def test_MultiError_catch_doesnt_create_cyclic_garbage():
         gc.garbage.clear()
 
 
-def assert_match_in_seq(pattern_list, string):
+def assert_match_in_seq(pattern_list: list[str], string: str) -> None:
     offset = 0
     print("looking for pattern matches...")
     for pattern in pattern_list:
@@ -404,14 +411,14 @@ def assert_match_in_seq(pattern_list, string):
         offset = match.end()
 
 
-def test_assert_match_in_seq():
+def test_assert_match_in_seq() -> None:
     assert_match_in_seq(["a", "b"], "xx a xx b xx")
     assert_match_in_seq(["b", "a"], "xx b xx a xx")
     with pytest.raises(AssertionError):
         assert_match_in_seq(["a", "b"], "xx b xx a xx")
 
 
-def test_base_multierror():
+def test_base_multierror() -> None:
     """
     Test that MultiError() with at least one base exception will return a MultiError
     object.
@@ -421,7 +428,7 @@ def test_base_multierror():
     assert type(exc) is MultiError
 
 
-def test_non_base_multierror():
+def test_non_base_multierror() -> None:
     """
     Test that MultiError() without base exceptions will return a NonBaseMultiError
     object.
@@ -463,7 +470,7 @@ def run_script(name: str) -> subprocess.CompletedProcess[bytes]:
     not Path("/usr/lib/python3/dist-packages/apport_python_hook.py").exists(),
     reason="need Ubuntu with python3-apport installed",
 )
-def test_apport_excepthook_monkeypatch_interaction():
+def test_apport_excepthook_monkeypatch_interaction() -> None:
     completed = run_script("apport_excepthook.py")
     stdout = completed.stdout.decode("utf-8")
 
