@@ -145,6 +145,7 @@ async def test_generator_based_context_manager_throw() -> None:
             raise KeyError
 
 
+# the async_generator package isn't typed, hence all the type: ignores
 @pytest.mark.skipif(async_generator is None, reason="async_generator not installed")
 async def test_async_generator_agen_protection() -> None:
     @_core.enable_ki_protection

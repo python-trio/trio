@@ -2,6 +2,7 @@ from __future__ import annotations  # isort: split
 
 import __future__  # Regular import, not special!
 
+import enum
 import functools
 import importlib
 import inspect
@@ -445,8 +446,6 @@ def test_static_tool_sees_class_members(
             before = len(extra)
             extra = {e for e in extra if not e.endswith("AttrsAttributes__")}
             assert len(extra) == before - 1
-
-        import enum
 
         # mypy does not see these attributes in Enum subclasses
         if (

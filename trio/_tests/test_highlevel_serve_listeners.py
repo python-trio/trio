@@ -21,25 +21,26 @@ from trio.testing import (
 
 # types are somewhat tentative - I just bruteforced them until I got something that didn't
 # give errors
-TypeThing = StapledStream[MemorySendStream, MemoryReceiveStream]
+StapledMemoryStream = StapledStream[MemorySendStream, MemoryReceiveStream]
 
 
 @attr.s(hash=False, eq=False)
-class MemoryListener(trio.abc.Listener[TypeThing]):
+class MemoryListener(trio.abc.Listener[StapledMemoryStream]):
     closed: bool = attr.ib(default=False)
     accepted_streams: list[trio.abc.Stream] = attr.ib(factory=list)
     queued_streams: tuple[
-        MemorySendChannel[TypeThing], MemoryReceiveChannel[TypeThing]
-    ] = attr.ib(factory=(lambda: trio.open_memory_channel[TypeThing](1)))
+        MemorySendChannel[StapledMemoryStream],
+        MemoryReceiveChannel[StapledMemoryStream],
+    ] = attr.ib(factory=(lambda: trio.open_memory_channel[StapledMemoryStream](1)))
     accept_hook: Callable[[], Awaitable[object]] | None = attr.ib(default=None)
 
-    async def connect(self) -> StapledStream[MemorySendStream, MemoryReceiveStream]:
+    async def connect(self) -> StapledMemoryStream:
         assert not self.closed
         client, server = memory_stream_pair()
         await self.queued_streams[0].send(server)
         return client
 
-    async def accept(self) -> TypeThing:
+    async def accept(self) -> StapledMemoryStream:
         await trio.lowlevel.checkpoint()
         assert not self.closed
         if self.accept_hook is not None:
@@ -63,9 +64,7 @@ async def test_serve_listeners_basic() -> None:
         assert trio.current_effective_deadline() == float("-inf")
         record.append("closed")
 
-    async def handler(
-        stream: StapledStream[MemorySendStream, MemoryReceiveStream]
-    ) -> None:
+    async def handler(stream: StapledMemoryStream) -> None:
         await stream.send_all(b"123")
         assert await stream.receive_some(10) == b"456"
         stream.send_stream.close_hook = close_hook

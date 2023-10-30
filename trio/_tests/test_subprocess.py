@@ -514,12 +514,18 @@ def test_waitid_eintr() -> None:
     # ourselves) but the test works on all waitid platforms.
     from .._subprocess_platform import wait_child_exiting
 
-    if TYPE_CHECKING and sys.platform == "win32":
+    if TYPE_CHECKING and (sys.platform == "win32" or sys.platform == "darwin"):
         return
 
     if not wait_child_exiting.__module__.endswith("waitid"):
         pytest.skip("waitid only")
-    from .._subprocess_platform.waitid import sync_wait_reapable
+
+    # despite the TYPE_CHECKING early return silencing warnings about signal.SIGALRM etc
+    # this import is still checked on win32&darwin and raises [attr-defined].
+    # Linux doesn't raise [attr-defined] though, so we need [unused-ignore]
+    from .._subprocess_platform.waitid import (
+        sync_wait_reapable,  # type: ignore[attr-defined, unused-ignore]
+    )
 
     got_alarm = False
     sleeper = subprocess.Popen(["sleep", "3600"])

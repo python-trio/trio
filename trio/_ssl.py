@@ -345,7 +345,7 @@ class SSLStream(Stream, Generic[T_Stream]):
         transport_stream: T_Stream,
         ssl_context: _stdlib_ssl.SSLContext,
         *,
-        server_hostname: str | None = None,
+        server_hostname: str | bytes | None = None,
         server_side: bool = False,
         https_compatible: bool = False,
     ) -> None:

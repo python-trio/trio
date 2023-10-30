@@ -219,7 +219,10 @@ def test_instruments_monkeypatch() -> None:
 
         # Changing the set of hooks implemented by an instrument after
         # it's installed doesn't make them start being called right away
-        instrument.before_task_step = record.append  # type: ignore[assignment]
+        instrument.before_task_step = (  # type: ignore[method-assign]
+            record.append  # type: ignore[assignment] # append is pos-only
+        )
+
         await _core.checkpoint()
         await _core.checkpoint()
         assert len(record) == 0

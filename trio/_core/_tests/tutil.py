@@ -98,8 +98,10 @@ def restore_unraisablehook() -> Generator[None, None, None]:
         sys.unraisablehook = prev
 
 
-# template is like:
-#   [1, {2.1, 2.2}, 3] -> matches [1, 2.1, 2.2, 3] or [1, 2.2, 2.1, 3]
+# Used to check sequences that might have some elements out of order.
+# Example usage:
+# The sequences [1, 2.1, 2.2, 3] and [1, 2.2, 2.1, 3] are both
+# matched by the template [1, {2.1, 2.2}, 3]
 def check_sequence_matches(seq: Sequence[T], template: Iterable[T | set[T]]) -> None:
     i = 0
     for pattern in template:
