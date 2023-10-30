@@ -25,6 +25,7 @@ async def open_ssl_over_tcp_stream(
     https_compatible: bool = False,
     ssl_context: ssl.SSLContext | None = None,
     happy_eyeballs_delay: float | None = DEFAULT_DELAY,
+    local_address: str | None = None,
 ) -> trio.SSLStream:
     """Make a TLS-encrypted Connection to the given host and port over TCP.
 
@@ -53,7 +54,10 @@ async def open_ssl_over_tcp_stream(
 
     """
     tcp_stream = await trio.open_tcp_stream(
-        host, port, happy_eyeballs_delay=happy_eyeballs_delay
+        host,
+        port,
+        happy_eyeballs_delay=happy_eyeballs_delay,
+        local_address=local_address,
     )
     if ssl_context is None:
         ssl_context = ssl.create_default_context()
