@@ -22,9 +22,9 @@ async def coro2_async_gen(event: trio.Event) -> AsyncGenerator[None, None]:
     await trio.lowlevel.checkpoint()
     yield
     await coro1(event)
-    yield
-    await trio.lowlevel.checkpoint()
-    yield
+    yield  # pragma: no cover
+    await trio.lowlevel.checkpoint()  # pragma: no cover
+    yield  # pragma: no cover
 
 
 async def coro3_async_gen(event: trio.Event) -> None:
