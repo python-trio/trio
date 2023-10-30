@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import builtins
+import contextlib
 import errno
 import ipaddress
 import os
@@ -241,11 +242,9 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         )
 
     def _deliver_packet(self, packet: UDPPacket) -> None:
-        try:
+        # sending to a closed socket -- UDP packets get dropped
+        with contextlib.suppress(trio.BrokenResourceError):
             self._packet_sender.send_nowait(packet)
-        except trio.BrokenResourceError:
-            # sending to a closed socket -- UDP packets get dropped
-            pass
 
     ################################################################
     # Actual IO operation implementations
@@ -352,9 +351,8 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
 
     def getpeername(self):
         self._check_closed()
-        if self._binding is not None:
-            if self._binding.remote is not None:
-                return self._binding.remote.as_python_sockaddr()
+        if self._binding is not None and self._binding.remote is not None:
+            return self._binding.remote.as_python_sockaddr()
         _fake_err(errno.ENOTCONN)
 
     def getsockopt(self, level, item):
@@ -364,9 +362,11 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
     def setsockopt(self, level, item, value):
         self._check_closed()
 
-        if (level, item) == (trio.socket.IPPROTO_IPV6, trio.socket.IPV6_V6ONLY):
-            if not value:
-                raise NotImplementedError("FakeNet always has IPV6_V6ONLY=True")
+        if (level, item) == (
+            trio.socket.IPPROTO_IPV6,
+            trio.socket.IPV6_V6ONLY,
+        ) and not value:
+            raise NotImplementedError("FakeNet always has IPV6_V6ONLY=True")
 
         raise OSError(f"FakeNet doesn't implement setsockopt({level}, {item}, ...)")
 

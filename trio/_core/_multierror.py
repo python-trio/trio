@@ -328,7 +328,7 @@ class MultiError(_BaseExceptionGroup):
         return MultiErrorCatcher(handler)
 
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # noqa: SIM108
     _ExceptionGroup = ExceptionGroup[Exception]
 else:
     _ExceptionGroup = ExceptionGroup
@@ -432,12 +432,15 @@ else:
             # 'opname' that isn't __getattr__ or __getattribute__. So there's
             # no missing test we could add, and no value in coverage nagging
             # us about adding one.
-            if operation.opname in [
-                "__getattribute__",
-                "__getattr__",
-            ]:  # pragma: no cover
-                if operation.args[0] == "tb_next":
-                    return tb_next
+            if (
+                operation.opname
+                in {
+                    "__getattribute__",
+                    "__getattr__",
+                }
+                and operation.args[0] == "tb_next"
+            ):  # pragma: no cover
+                return tb_next
             return operation.delegate()  # Deligate is reverting to original behaviour
 
         return cast(

@@ -208,7 +208,7 @@ async def test_pipes(background_process):
             nursery.start_soon(check_output, proc.stderr, msg[::-1])
 
         assert not nursery.cancel_scope.cancelled_caught
-        assert 0 == await proc.wait()
+        assert await proc.wait() == 0
 
 
 @background_process_param
