@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 
 def _open_memory_channel(
-    max_buffer_size: int | float,
+    max_buffer_size: int | float,  # noqa: PYI041
 ) -> tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]:
     """Open a channel for passing objects between tasks within a process.
 
@@ -95,11 +95,11 @@ if TYPE_CHECKING:
     # Need to use Tuple instead of tuple due to CI check running on 3.8
     class open_memory_channel(Tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]):
         def __new__(  # type: ignore[misc]  # "must return a subtype"
-            cls, max_buffer_size: int | float
+            cls, max_buffer_size: int | float  # noqa: PYI041
         ) -> tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]:
             return _open_memory_channel(max_buffer_size)
 
-        def __init__(self, max_buffer_size: int | float):
+        def __init__(self, max_buffer_size: int | float):  # noqa: PYI041
             ...
 
 else:

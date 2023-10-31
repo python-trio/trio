@@ -15,7 +15,7 @@ from collections.abc import (
     Callable,
     Generator,
 )
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack, contextmanager, suppress
 from math import inf
 from typing import Any, NoReturn, TypeVar, cast
 
@@ -311,10 +311,8 @@ async def test_current_statistics(mock_clock: _core.MockClock) -> None:
 
     # A child that sticks around to make some interesting stats:
     async def child() -> None:
-        try:
+        with suppress(_core.Cancelled):
             await sleep_forever()
-        except _core.Cancelled:
-            pass
 
     stats = _core.current_statistics()
     print(stats)
@@ -1089,10 +1087,8 @@ async def test_exc_info_after_yield_error() -> None:
         try:
             raise KeyError
         except Exception:
-            try:
+            with suppress(Exception):
                 await sleep_forever()
-            except Exception:
-                pass
             raise
 
     with pytest.raises(KeyError):
@@ -1215,10 +1211,8 @@ def test_TrioToken_run_sync_soon_idempotent_requeue() -> None:
 
     def redo(token: _core.TrioToken) -> None:
         record.append(None)
-        try:
+        with suppress(_core.RunFinishedError):
             token.run_sync_soon(redo, token, idempotent=True)
-        except _core.RunFinishedError:
-            pass
 
     async def main() -> None:
         token = _core.current_trio_token()
@@ -1907,7 +1901,7 @@ async def test_nursery_stop_iteration() -> None:
 
 async def test_nursery_stop_async_iteration() -> None:
     class it:
-        def __init__(self, count: int):
+        def __init__(self, count: int) -> None:
             self.count = count
             self.val = 0
 
@@ -1920,7 +1914,7 @@ async def test_nursery_stop_async_iteration() -> None:
             return val
 
     class async_zip:
-        def __init__(self, *largs: it):
+        def __init__(self, *largs: it) -> None:
             self.nexts = [obj.__anext__ for obj in largs]
 
         async def _accumulate(

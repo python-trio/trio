@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import ssl
 from collections.abc import Awaitable, Callable
-from typing import NoReturn
+from typing import NoReturn, TypeVar
 
 import trio
 
 from ._highlevel_open_tcp_stream import DEFAULT_DELAY
+from ._highlevel_socket import SocketStream
+
+T = TypeVar("T")
 
 
 # It might have been nice to take a ssl_protocols= argument here to set up
@@ -25,7 +28,7 @@ async def open_ssl_over_tcp_stream(
     https_compatible: bool = False,
     ssl_context: ssl.SSLContext | None = None,
     happy_eyeballs_delay: float | None = DEFAULT_DELAY,
-) -> trio.SSLStream:
+) -> trio.SSLStream[SocketStream]:
     """Make a TLS-encrypted Connection to the given host and port over TCP.
 
     This is a convenience wrapper that calls :func:`open_tcp_stream` and
@@ -72,8 +75,8 @@ async def open_ssl_over_tcp_listeners(
     *,
     host: str | bytes | None = None,
     https_compatible: bool = False,
-    backlog: int | float | None = None,
-) -> list[trio.SSLListener]:
+    backlog: int | float | None = None,  # noqa: PYI041
+) -> list[trio.SSLListener[SocketStream]]:
     """Start listening for SSL/TLS-encrypted TCP connections to the given port.
 
     Args:
@@ -95,15 +98,17 @@ async def open_ssl_over_tcp_listeners(
 
 
 async def serve_ssl_over_tcp(
-    handler: Callable[[trio.SSLStream], Awaitable[object]],
+    handler: Callable[[trio.SSLStream[SocketStream]], Awaitable[object]],
     port: int,
     ssl_context: ssl.SSLContext,
     *,
     host: str | bytes | None = None,
     https_compatible: bool = False,
-    backlog: int | float | None = None,
+    backlog: int | float | None = None,  # noqa: PYI041
     handler_nursery: trio.Nursery | None = None,
-    task_status: trio.TaskStatus[list[trio.SSLListener]] = trio.TASK_STATUS_IGNORED,
+    task_status: trio.TaskStatus[
+        list[trio.SSLListener[SocketStream]]
+    ] = trio.TASK_STATUS_IGNORED,
 ) -> NoReturn:
     """Listen for incoming TCP connections, and for each one start a task
     running ``handler(stream)``.
