@@ -86,7 +86,7 @@ async def main(repl_locals):
 
 if __name__ == "__main__":
     with contextlib.suppress(ModuleNotFoundError):
-        import readline
+        pass
 
     repl_locals = {"trio": trio}
     for key in {

@@ -1,4 +1,4 @@
-Added the ``trio.__main__`` module. This module runs a modifed Python REPL that
+Added the ``trio.__main__`` module. This module runs a modified Python REPL that
 supports directly awaiting Trio-based awaitables. It can be invoked by running
 ``python -m trio`` at the command line.
 
