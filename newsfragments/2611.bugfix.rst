@@ -1,4 +1,5 @@
 When a starting function raises before calling :func:`trio.TaskStatus.started`,
 :func:`trio.Nursery.start` will no longer wrap the exception in an undocumented
-:exc:`ExceptionGroup`. Previously, an :exc:`ExceptionGroup` was added when using
-``trio.run(..., strict_exception_groups=True)``.
+:exc:`ExceptionGroup`. Previously, :func:`trio.Nursery.start` would incorrectly
+raise an :exc:`ExceptionGroup` containing it when using ``trio.run(...,
+strict_exception_groups=True)``.
