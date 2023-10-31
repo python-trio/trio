@@ -11,7 +11,7 @@
     "diagnostics": [],
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 627,
+      "withKnownType": 629,
       "withUnknownType": 0
     },
     "ignoreUnknownTypesFromImports": true,
@@ -47,7 +47,7 @@
     ],
     "otherSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 685,
+      "withKnownType": 699,
       "withUnknownType": 0
     },
     "packageName": "trio"

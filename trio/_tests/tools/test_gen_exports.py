@@ -1,5 +1,6 @@
 import ast
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -24,7 +25,7 @@ from trio._tools.gen_exports import (
 )
 
 SOURCE = '''from _run import _public
-from somewhere import Thing
+from collections import Counter
 
 class Test:
     @_public
@@ -34,7 +35,7 @@ class Test:
     @ignore_this
     @_public
     @another_decorator
-    async def public_async_func(self) -> Thing:
+    async def public_async_func(self) -> Counter:
         pass  # no doc string
 
     def not_public(self):
@@ -45,27 +46,27 @@ class Test:
 '''
 
 IMPORT_1 = """\
-from somewhere import Thing
+from collections import Counter
 """
 
 IMPORT_2 = """\
-from somewhere import Thing
+from collections import Counter
 import os
 """
 
 IMPORT_3 = """\
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from somewhere import Thing
+    from collections import Counter
 """
 
 
-def test_get_public_methods():
+def test_get_public_methods() -> None:
     methods = list(get_public_methods(ast.parse(SOURCE)))
     assert {m.name for m in methods} == {"public_func", "public_async_func"}
 
 
-def test_create_pass_through_args():
+def test_create_pass_through_args() -> None:
     testcases = [
         ("def f()", "()"),
         ("def f(one)", "(one)"),
@@ -90,8 +91,8 @@ skip_lints = pytest.mark.skipif(
 
 
 @skip_lints
-@pytest.mark.parametrize("imports", ["", IMPORT_1, IMPORT_2, IMPORT_3])
-def test_process(tmp_path, imports):
+@pytest.mark.parametrize("imports", [IMPORT_1, IMPORT_2, IMPORT_3])
+def test_process(tmp_path: Path, imports: str) -> None:
     try:
         import black  # noqa: F401
     # there's no dedicated CI run that has astor+isort, but lacks black.
@@ -123,7 +124,7 @@ def test_process(tmp_path, imports):
 
 
 @skip_lints
-def test_run_black(tmp_path) -> None:
+def test_run_black(tmp_path: Path) -> None:
     """Test that processing properly fails if black does."""
     try:
         import black  # noqa: F401
@@ -140,8 +141,8 @@ def test_run_black(tmp_path) -> None:
 
 
 @skip_lints
-def test_run_ruff(tmp_path) -> None:
-    """Test that processing properly fails if black does."""
+def test_run_ruff(tmp_path: Path) -> None:
+    """Test that processing properly fails if ruff does."""
     try:
         import ruff  # noqa: F401
     except ImportError as error:  # pragma: no cover
@@ -166,7 +167,7 @@ def test_run_ruff(tmp_path) -> None:
 
 
 @skip_lints
-def test_lint_failure(tmp_path) -> None:
+def test_lint_failure(tmp_path: Path) -> None:
     """Test that processing properly fails if black or ruff does."""
     try:
         import black  # noqa: F401

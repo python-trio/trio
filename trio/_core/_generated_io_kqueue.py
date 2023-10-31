@@ -28,7 +28,7 @@ def current_kqueue() -> select.kqueue:
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.current_kqueue()
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None
 
 
 def monitor_kevent(
@@ -42,7 +42,7 @@ def monitor_kevent(
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.monitor_kevent(ident, filter)
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None
 
 
 async def wait_kevent(
@@ -58,7 +58,7 @@ async def wait_kevent(
             ident, filter, abort_func
         )
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None
 
 
 async def wait_readable(fd: (int | _HasFileNo)) -> None:
@@ -87,7 +87,7 @@ async def wait_readable(fd: (int | _HasFileNo)) -> None:
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_readable(fd)
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None
 
 
 async def wait_writable(fd: (int | _HasFileNo)) -> None:
@@ -106,7 +106,7 @@ async def wait_writable(fd: (int | _HasFileNo)) -> None:
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_writable(fd)
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None
 
 
 def notify_closing(fd: (int | _HasFileNo)) -> None:
@@ -136,4 +136,4 @@ def notify_closing(fd: (int | _HasFileNo)) -> None:
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.notify_closing(fd)
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None

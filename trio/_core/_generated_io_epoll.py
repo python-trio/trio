@@ -42,7 +42,7 @@ async def wait_readable(fd: (int | _HasFileNo)) -> None:
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_readable(fd)
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None
 
 
 async def wait_writable(fd: (int | _HasFileNo)) -> None:
@@ -61,7 +61,7 @@ async def wait_writable(fd: (int | _HasFileNo)) -> None:
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_writable(fd)
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None
 
 
 def notify_closing(fd: (int | _HasFileNo)) -> None:
@@ -91,4 +91,4 @@ def notify_closing(fd: (int | _HasFileNo)) -> None:
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.notify_closing(fd)
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None

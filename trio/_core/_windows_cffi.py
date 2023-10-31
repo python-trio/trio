@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import enum
 import re
-from typing import TYPE_CHECKING, NewType, Protocol, cast
+from typing import TYPE_CHECKING, NewType, NoReturn, Protocol, cast
 
 if TYPE_CHECKING:
-    from typing_extensions import NoReturn, TypeAlias
+    from typing_extensions import TypeAlias
 
 import cffi
 

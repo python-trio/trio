@@ -45,7 +45,7 @@ async def wait_readable(sock: (_HasFileNo | int)) -> None:
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_readable(sock)
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None
 
 
 async def wait_writable(sock: (_HasFileNo | int)) -> None:
@@ -64,7 +64,7 @@ async def wait_writable(sock: (_HasFileNo | int)) -> None:
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_writable(sock)
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None
 
 
 def notify_closing(handle: (Handle | int | _HasFileNo)) -> None:
@@ -94,7 +94,7 @@ def notify_closing(handle: (Handle | int | _HasFileNo)) -> None:
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.notify_closing(handle)
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None
 
 
 def register_with_iocp(handle: (int | CData)) -> None:
@@ -107,7 +107,7 @@ def register_with_iocp(handle: (int | CData)) -> None:
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.register_with_iocp(handle)
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None
 
 
 async def wait_overlapped(
@@ -124,7 +124,7 @@ async def wait_overlapped(
             handle_, lpOverlapped
         )
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None
 
 
 async def write_overlapped(
@@ -141,7 +141,7 @@ async def write_overlapped(
             handle, data, file_offset
         )
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None
 
 
 async def readinto_overlapped(
@@ -158,7 +158,7 @@ async def readinto_overlapped(
             handle, buffer, file_offset
         )
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None
 
 
 def current_iocp() -> int:
@@ -171,7 +171,7 @@ def current_iocp() -> int:
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.current_iocp()
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None
 
 
 def monitor_completion_key() -> ContextManager[tuple[int, UnboundedQueue[object]]]:
@@ -184,4 +184,4 @@ def monitor_completion_key() -> ContextManager[tuple[int, UnboundedQueue[object]
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.monitor_completion_key()
     except AttributeError:
-        raise RuntimeError("must be called from async context")
+        raise RuntimeError("must be called from async context") from None

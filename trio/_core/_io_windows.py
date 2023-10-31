@@ -11,7 +11,6 @@ from typing import (
     Callable,
     Iterator,
     Literal,
-    Optional,
     TypeVar,
     cast,
 )
@@ -245,9 +244,9 @@ WRITABLE_FLAGS = (
 # operation and start a new one.
 @attr.s(slots=True, eq=False)
 class AFDWaiters:
-    read_task: Optional[_core.Task] = attr.ib(default=None)
-    write_task: Optional[_core.Task] = attr.ib(default=None)
-    current_op: Optional[AFDPollOp] = attr.ib(default=None)
+    read_task: _core.Task | None = attr.ib(default=None)
+    write_task: _core.Task | None = attr.ib(default=None)
+    current_op: AFDPollOp | None = attr.ib(default=None)
 
 
 # We also need to bundle up all the info for a single op into a standalone
@@ -368,7 +367,7 @@ def _get_base_socket(sock: _HasFileNo | int | Handle) -> Handle:
                     "https://github.com/python-trio/trio/issues/new, "
                     "and include the output of running: "
                     "netsh winsock show catalog"
-                )
+                ) from ex
             # Otherwise we've gotten at least one layer deeper, so
             # loop back around to keep digging.
             sock = next_sock
@@ -585,9 +584,9 @@ class WindowsIOManager:
                     pass
                 else:
                     exc = _core.TrioInternalError(
-                        "Failed to cancel overlapped I/O in {} and didn't "
+                        f"Failed to cancel overlapped I/O in {waiter.name} and didn't "
                         "receive the completion either. Did you forget to "
-                        "call register_with_iocp()?".format(waiter.name)
+                        "call register_with_iocp()?"
                     )
                     # Raising this out of handle_io ensures that
                     # the user will see our message even if some

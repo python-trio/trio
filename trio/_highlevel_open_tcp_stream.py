@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Generator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from socket import AddressFamily, SocketKind
 from typing import TYPE_CHECKING, Any
 
@@ -280,9 +280,7 @@ async def open_tcp_stream(
     # getaddrinfo should have raised OSError instead of returning an empty
     # list. But let's be paranoid and handle it anyway:
     if not targets:
-        msg = "no results found for hostname lookup: {}".format(
-            format_host_port(host, port)
-        )
+        msg = f"no results found for hostname lookup: {format_host_port(host, port)}"
         raise OSError(msg)
 
     reorder_for_rfc_6555_section_5_4(targets)
@@ -345,19 +343,17 @@ async def open_tcp_stream(
                 # bind() to only bind the IP, and not the port. That way,
                 # connect() is allowed to pick the the port, and it can do a
                 # better job of it because it knows the remote IP/port.
-                try:
+                with suppress(OSError, AttributeError):
                     sock.setsockopt(
                         trio.socket.IPPROTO_IP, trio.socket.IP_BIND_ADDRESS_NO_PORT, 1
                     )
-                except (OSError, AttributeError):
-                    pass
                 try:
                     await sock.bind((local_address, 0))
                 except OSError:
                     raise OSError(
                         f"local_address={local_address!r} is incompatible "
                         f"with remote address {sockaddr!r}"
-                    )
+                    ) from None
 
             await sock.connect(sockaddr)
 
@@ -402,9 +398,7 @@ async def open_tcp_stream(
         # nothing succeeded
         if winning_socket is None:
             assert len(oserrors) == len(targets)
-            msg = "all attempts to connect to {} failed".format(
-                format_host_port(host, port)
-            )
+            msg = f"all attempts to connect to {format_host_port(host, port)} failed"
             raise OSError(msg) from ExceptionGroup(msg, oserrors)
         else:
             stream = trio.SocketStream(winning_socket)

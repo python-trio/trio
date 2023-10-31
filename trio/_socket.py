@@ -465,7 +465,7 @@ async def _resolve_address_nocp(
             raise ValueError(
                 "address should be a (host, port, [flowinfo, [scopeid]]) tuple"
             )
-    elif family == getattr(_stdlib_socket, "AF_UNIX"):
+    elif hasattr(_stdlib_socket, "AF_UNIX") and family == _stdlib_socket.AF_UNIX:
         # unwrap path-likes
         assert isinstance(address, (str, bytes))
         return os.fspath(address)
@@ -695,7 +695,7 @@ class SocketType:
 
     @overload
     async def sendto(
-        self, __data: Buffer, __address: tuple[Any, ...] | str | Buffer
+        self, __data: Buffer, __address: tuple[object, ...] | str | Buffer
     ) -> int:
         ...
 
@@ -704,7 +704,7 @@ class SocketType:
         self,
         __data: Buffer,
         __flags: int,
-        __address: tuple[Any, ...] | str | Buffer,
+        __address: tuple[object, ...] | str | Buffer,
     ) -> int:
         ...
 
@@ -1168,13 +1168,13 @@ class _SocketType(SocketType):
 
     @overload
     async def sendto(
-        self, __data: Buffer, __address: tuple[Any, ...] | str | Buffer
+        self, __data: Buffer, __address: tuple[object, ...] | str | Buffer
     ) -> int:
         ...
 
     @overload
     async def sendto(
-        self, __data: Buffer, __flags: int, __address: tuple[Any, ...] | str | Buffer
+        self, __data: Buffer, __flags: int, __address: tuple[object, ...] | str | Buffer
     ) -> int:
         ...
 
@@ -1185,8 +1185,12 @@ class _SocketType(SocketType):
         # and kwargs are not accepted
         args_list = list(args)
         args_list[-1] = await self._resolve_address_nocp(args[-1], local=False)
+        # args_list is Any, which isn't the signature of sendto().
+        # We don't care about invalid types, sendto() will do the checking.
         return await self._nonblocking_helper(
-            _core.wait_writable, _stdlib_socket.socket.sendto, *args_list
+            _core.wait_writable,
+            _stdlib_socket.socket.sendto,  # type: ignore[arg-type]
+            *args_list,
         )
 
     ################################################################

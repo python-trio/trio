@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import sys
 import weakref
 from collections.abc import AsyncGenerator
@@ -17,10 +18,8 @@ def test_asyncgen_basics() -> None:
 
     async def example(cause: str) -> AsyncGenerator[int, None]:
         try:
-            try:
+            with contextlib.suppress(GeneratorExit):
                 yield 42
-            except GeneratorExit:
-                pass
             await _core.checkpoint()
         except _core.Cancelled:
             assert "exhausted" not in cause
@@ -44,14 +43,14 @@ def test_asyncgen_basics() -> None:
         with pytest.warns(
             ResourceWarning, match="Async generator.*collected before.*exhausted"
         ):
-            assert 42 == await example("abandoned").asend(None)
+            assert await example("abandoned").asend(None) == 42
             gc_collect_harder()
         await _core.wait_all_tasks_blocked()
         assert collected.pop() == "abandoned"
 
         aiter = example("exhausted 1")
         try:
-            assert 42 == await aiter.asend(None)
+            assert await aiter.asend(None) == 42
         finally:
             await aiter.aclose()
         assert collected.pop() == "exhausted 1"
@@ -67,7 +66,7 @@ def test_asyncgen_basics() -> None:
         aiter = example("exhausted 3")
         try:
             saved.append(aiter)
-            assert 42 == await aiter.asend(None)
+            assert await aiter.asend(None) == 42
         finally:
             await aiter.aclose()
         assert collected.pop() == "exhausted 3"
@@ -83,7 +82,7 @@ def test_asyncgen_basics() -> None:
             collected.append("outlived run")
         else:
             saved.append(example("outlived run"))
-            assert 42 == await saved[-1].asend(None)
+            assert await saved[-1].asend(None) == 42
             assert collected == []
 
     _core.run(async_main)
@@ -137,8 +136,8 @@ def test_firstiter_after_closing() -> None:
     async def async_main() -> None:
         aiter = funky_agen()
         saved.append(aiter)
-        assert 1 == await aiter.asend(None)
-        assert 2 == await aiter.asend(None)
+        assert await aiter.asend(None) == 1
+        assert await aiter.asend(None) == 2
 
     _core.run(async_main)
     assert record == ["cleanup 2", "cleanup 1"]
@@ -178,7 +177,7 @@ def test_interdependent_asyncgen_cleanup_order() -> None:
         for idx in range(100):
             ag_chain = agen(idx, ag_chain)
         saved.append(ag_chain)
-        assert 1 == await ag_chain.asend(None)
+        assert await ag_chain.asend(None) == 1
         assert record == []
 
     _core.run(async_main)
@@ -226,7 +225,7 @@ def test_last_minute_gc_edge_case() -> None:
     # (if the run_sync_soon task runs before init on one tick and after init
     # on the next tick); if we try enough times, we can make the chance of
     # failure as small as we want.
-    for attempt in range(50):
+    for _attempt in range(50):
         needs_retry = False
         del record[:]
         del saved[:]
@@ -240,7 +239,7 @@ def test_last_minute_gc_edge_case() -> None:
     else:  # pragma: no cover
         pytest.fail(
             "Didn't manage to hit the trailing_finalizer_asyncgens case "
-            f"despite trying {attempt} times"
+            f"despite trying {_attempt} times"
         )
 
 
@@ -320,7 +319,7 @@ def test_delegation_to_existing_hooks() -> None:
 
     async def async_main() -> None:
         await step_outside_async_context(example("theirs"))
-        assert 42 == await example("ours").asend(None)
+        assert await example("ours").asend(None) == 42
         gc_collect_harder()
         assert record == ["firstiter theirs", "finalizer theirs"]
         record[:] = []

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import errno
 from collections.abc import Generator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from typing import TYPE_CHECKING, overload
 
 import trio
@@ -81,25 +81,21 @@ class SocketStream(HalfCloseableStream):
         # Socket defaults:
 
         # Not supported on e.g. unix domain sockets
-        try:
+        with suppress(OSError):
             self.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, True)
-        except OSError:
-            pass
 
         if hasattr(tsocket, "TCP_NOTSENT_LOWAT"):
-            try:
-                # 16 KiB is pretty arbitrary and could probably do with some
-                # tuning. (Apple is also setting this by default in CFNetwork
-                # apparently -- I'm curious what value they're using, though I
-                # couldn't find it online trivially. CFNetwork-129.20 source
-                # has no mentions of TCP_NOTSENT_LOWAT. This presentation says
-                # "typically 8 kilobytes":
-                # http://devstreaming.apple.com/videos/wwdc/2015/719ui2k57m/719/719_your_app_and_next_generation_networks.pdf?dl=1
-                # ). The theory is that you want it to be bandwidth *
-                # rescheduling interval.
+            # 16 KiB is pretty arbitrary and could probably do with some
+            # tuning. (Apple is also setting this by default in CFNetwork
+            # apparently -- I'm curious what value they're using, though I
+            # couldn't find it online trivially. CFNetwork-129.20 source
+            # has no mentions of TCP_NOTSENT_LOWAT. This presentation says
+            # "typically 8 kilobytes":
+            # http://devstreaming.apple.com/videos/wwdc/2015/719ui2k57m/719/719_your_app_and_next_generation_networks.pdf?dl=1
+            # ). The theory is that you want it to be bandwidth *
+            # rescheduling interval.
+            with suppress(OSError):
                 self.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NOTSENT_LOWAT, 2**14)
-            except OSError:
-                pass
 
     async def send_all(self, data: bytes | bytearray | memoryview) -> None:
         if self.socket.did_shutdown_SHUT_WR:
@@ -349,10 +345,8 @@ _ignorable_accept_errno_names = [
 # Not all errnos are defined on all platforms
 _ignorable_accept_errnos: set[int] = set()
 for name in _ignorable_accept_errno_names:
-    try:
+    with suppress(AttributeError):
         _ignorable_accept_errnos.add(getattr(errno, name))
-    except AttributeError:
-        pass
 
 
 @final
@@ -411,7 +405,7 @@ class SocketListener(Listener[SocketStream]):
                 sock, _ = await self.socket.accept()
             except OSError as exc:
                 if exc.errno in _closed_stream_errnos:
-                    raise trio.ClosedResourceError
+                    raise trio.ClosedResourceError from None
                 if exc.errno not in _ignorable_accept_errnos:
                     raise
             else:
