@@ -2585,12 +2585,16 @@ def test_trio_run_strict_before_started(
         _core.run(start_raiser, strict_exception_groups=run_strict)
 
     if start_raiser_strict or (run_strict and start_raiser_strict is None):
+        # start_raiser's nursery was strict.
         assert isinstance(exc_info.value, BaseExceptionGroup)
         if start_raiser_strict:
+            # start_raiser didn't unknowingly inherit its nursery strictness
+            # from `run`---it explicitly chose for its nursery to be strict.
             assert exc_info.value.message == "start_raiser nursery custom message"
         assert len(exc_info.value.exceptions) == 1
         should_be_raiser_exc = exc_info.value.exceptions[0]
     else:
+        # start_raiser's nursery was not strict.
         should_be_raiser_exc = exc_info.value
     if isinstance(raiser_exc, ValueError):
         assert should_be_raiser_exc is raiser_exc
