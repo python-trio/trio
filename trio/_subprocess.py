@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import os
 import subprocess
 import sys
@@ -172,7 +173,8 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
             else:
                 # It worked! Wrap the raw fd up in a Python file object to
                 # make sure it'll get closed.
-                self._pidfd = open(fd)
+                # SIM115: open-file-with-context-handler
+                self._pidfd = open(fd)  # noqa: SIM115
 
         self.args: StrOrBytesPath | Sequence[StrOrBytesPath] = self._proc.args
         self.pid: int = self._proc.pid
@@ -259,12 +261,10 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         async with self._wait_lock:
             if self.poll() is None:
                 if self._pidfd is not None:
-                    try:
+                    with contextlib.suppress(
+                        ClosedResourceError
+                    ):  # something else (probably a call to poll) already closed the pidfd
                         await trio.lowlevel.wait_readable(self._pidfd.fileno())
-                    except ClosedResourceError:
-                        # something else (probably a call to poll) already closed the
-                        # pidfd
-                        pass
                 else:
                     await wait_child_exiting(self)
                 # We have to use .wait() here, not .poll(), because on macOS

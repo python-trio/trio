@@ -8,7 +8,7 @@ import socket as stdlib_socket
 import sys
 import warnings
 from contextlib import closing, contextmanager
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 import pytest
 
@@ -19,6 +19,8 @@ if TYPE_CHECKING:
     from collections.abc import Generator, Iterable, Sequence
 
 slow = pytest.mark.skipif(not RUN_SLOW, reason="use --run-slow to run slow tests")
+
+T = TypeVar("T")
 
 # PyPy 7.2 was released with a bug that just never called the async
 # generator 'firstiter' hook at all.  This impacts tests of end-of-run
@@ -98,11 +100,11 @@ def restore_unraisablehook() -> Generator[None, None, None]:
         sys.unraisablehook = prev
 
 
-# template is like:
-#   [1, {2.1, 2.2}, 3] -> matches [1, 2.1, 2.2, 3] or [1, 2.2, 2.1, 3]
-def check_sequence_matches(
-    seq: Sequence[object], template: Iterable[object | set[object]]
-) -> None:
+# Used to check sequences that might have some elements out of order.
+# Example usage:
+# The sequences [1, 2.1, 2.2, 3] and [1, 2.2, 2.1, 3] are both
+# matched by the template [1, {2.1, 2.2}, 3]
+def check_sequence_matches(seq: Sequence[T], template: Iterable[T | set[T]]) -> None:
     i = 0
     for pattern in template:
         if not isinstance(pattern, set):

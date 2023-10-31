@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import sys
-from contextlib import contextmanager
+from collections.abc import Generator
+from contextlib import contextmanager, suppress
+from socket import AddressFamily, SocketKind
 from typing import TYPE_CHECKING, Any
 
 import trio
@@ -345,12 +347,10 @@ async def open_tcp_stream(
                 # bind() to only bind the IP, and not the port. That way,
                 # connect() is allowed to pick the the port, and it can do a
                 # better job of it because it knows the remote IP/port.
-                try:
+                with suppress(OSError, AttributeError):
                     sock.setsockopt(
                         trio.socket.IPPROTO_IP, trio.socket.IP_BIND_ADDRESS_NO_PORT, 1
                     )
-                except (OSError, AttributeError):
-                    pass
                 try:
                     await sock.bind((local_address, 0))
                 except OSError:

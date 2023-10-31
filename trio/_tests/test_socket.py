@@ -40,7 +40,7 @@ else:
 
 
 class MonkeypatchedGAI:
-    def __init__(self, orig_getaddrinfo: Callable[..., GetAddrInfoResponse]):
+    def __init__(self, orig_getaddrinfo: Callable[..., GetAddrInfoResponse]) -> None:
         self._orig_getaddrinfo = orig_getaddrinfo
         self._responses: dict[tuple[Any, ...], GetAddrInfoResponse | str] = {}
         self.record: list[tuple[Any, ...]] = []
@@ -316,7 +316,7 @@ async def test_socket_v6() -> None:
         assert s.family == tsocket.AF_INET6
 
 
-@pytest.mark.skipif(not sys.platform == "linux", reason="linux only")
+@pytest.mark.skipif(sys.platform != "linux", reason="linux only")
 async def test_sniff_sockopts() -> None:
     from socket import AF_INET, AF_INET6, SOCK_DGRAM, SOCK_STREAM
 
@@ -948,11 +948,11 @@ async def test_idna(monkeygai: MonkeypatchedGAI) -> None:
     # We always call socket.getaddrinfo with bytes objects:
     monkeygai.set("bad", "xn--fa-hia.de", 80)
 
-    assert "ok ::1" == await tsocket.getaddrinfo("::1", 80)
-    assert "ok ::1" == await tsocket.getaddrinfo(b"::1", 80)
-    assert "ok faß.de" == await tsocket.getaddrinfo("faß.de", 80)
-    assert "ok faß.de" == await tsocket.getaddrinfo("xn--fa-hia.de", 80)
-    assert "ok faß.de" == await tsocket.getaddrinfo(b"xn--fa-hia.de", 80)
+    assert await tsocket.getaddrinfo("::1", 80) == "ok ::1"
+    assert await tsocket.getaddrinfo(b"::1", 80) == "ok ::1"
+    assert await tsocket.getaddrinfo("faß.de", 80) == "ok faß.de"
+    assert await tsocket.getaddrinfo("xn--fa-hia.de", 80) == "ok faß.de"
+    assert await tsocket.getaddrinfo(b"xn--fa-hia.de", 80) == "ok faß.de"
 
 
 async def test_getprotobyname() -> None:

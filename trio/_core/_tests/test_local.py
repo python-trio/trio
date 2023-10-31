@@ -1,16 +1,19 @@
 import pytest
 
+from trio import run
+from trio.lowlevel import RunVar, RunVarToken
+
 from ... import _core
 
 
 # scary runvar tests
-def test_runvar_smoketest():
-    t1 = _core.RunVar("test1")
-    t2 = _core.RunVar("test2", default="catfish")
+def test_runvar_smoketest() -> None:
+    t1 = RunVar[str]("test1")
+    t2 = RunVar[str]("test2", default="catfish")
 
     assert repr(t1) == "<RunVar name='test1'>"
 
-    async def first_check():
+    async def first_check() -> None:
         with pytest.raises(LookupError):
             t1.get()
 
@@ -23,28 +26,28 @@ def test_runvar_smoketest():
         assert t2.get() == "goldfish"
         assert t2.get(default="tuna") == "goldfish"
 
-    async def second_check():
+    async def second_check() -> None:
         with pytest.raises(LookupError):
             t1.get()
 
         assert t2.get() == "catfish"
 
-    _core.run(first_check)
-    _core.run(second_check)
+    run(first_check)
+    run(second_check)
 
 
-def test_runvar_resetting():
-    t1 = _core.RunVar("test1")
-    t2 = _core.RunVar("test2", default="dogfish")
-    t3 = _core.RunVar("test3")
+def test_runvar_resetting() -> None:
+    t1 = RunVar[str]("test1")
+    t2 = RunVar[str]("test2", default="dogfish")
+    t3 = RunVar[str]("test3")
 
-    async def reset_check():
+    async def reset_check() -> None:
         token = t1.set("moonfish")
         assert t1.get() == "moonfish"
         t1.reset(token)
 
         with pytest.raises(TypeError):
-            t1.reset(None)
+            t1.reset(None)  # type: ignore[arg-type]
 
         with pytest.raises(LookupError):
             t1.get()
@@ -63,18 +66,18 @@ def test_runvar_resetting():
         with pytest.raises(ValueError):
             t1.reset(token3)
 
-    _core.run(reset_check)
+    run(reset_check)
 
 
-def test_runvar_sync():
-    t1 = _core.RunVar("test1")
+def test_runvar_sync() -> None:
+    t1 = RunVar[str]("test1")
 
-    async def sync_check():
-        async def task1():
+    async def sync_check() -> None:
+        async def task1() -> None:
             t1.set("plaice")
             assert t1.get() == "plaice"
 
-        async def task2(tok):
+        async def task2(tok: str) -> None:
             t1.reset(token)
 
             with pytest.raises(LookupError):
@@ -94,11 +97,11 @@ def test_runvar_sync():
             await _core.wait_all_tasks_blocked()
             assert t1.get() == "haddock"
 
-    _core.run(sync_check)
+    run(sync_check)
 
 
-def test_accessing_runvar_outside_run_call_fails():
-    t1 = _core.RunVar("test1")
+def test_accessing_runvar_outside_run_call_fails() -> None:
+    t1 = RunVar[str]("test1")
 
     with pytest.raises(RuntimeError):
         t1.set("asdf")
@@ -106,10 +109,10 @@ def test_accessing_runvar_outside_run_call_fails():
     with pytest.raises(RuntimeError):
         t1.get()
 
-    async def get_token():
+    async def get_token() -> RunVarToken[str]:
         return t1.set("ok")
 
-    token = _core.run(get_token)
+    token = run(get_token)
 
     with pytest.raises(RuntimeError):
         t1.reset(token)

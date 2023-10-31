@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import errno
+import math
 import sys
 from math import inf
 from typing import TYPE_CHECKING
+from collections.abc import Awaitable, Callable
 
 import trio
 from trio import TaskStatus
 
 from . import socket as tsocket
+from ._deprecate import warn_deprecated
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -44,16 +47,20 @@ if sys.version_info < (3, 11):
 # so this is unnecessary -- we can just pass in "infinity" and get the maximum
 # that way. (Verified on Windows, Linux, macOS using
 # notes-to-self/measure-listen-backlog.py)
-def _compute_backlog(backlog: int | float | None) -> int:  # noqa: PYI041
+def _compute_backlog(backlog: int | None) -> int:
     # Many systems (Linux, BSDs, ...) store the backlog in a uint16 and are
     # missing overflow protection, so we apply our own overflow protection.
     # https://github.com/golang/go/issues/5030
-    if isinstance(backlog, float):
-        # TODO: Remove when removing infinity support
-        # https://github.com/python-trio/trio/pull/2724#discussion_r1278541729
-        if backlog != inf:
-            raise ValueError(f"Only accepts infinity, not {backlog!r}")
+    if backlog == math.inf:
         backlog = None
+        warn_deprecated(
+            thing="math.inf as a backlog",
+            version="0.23.0",
+            instead="None",
+            issue=2842,
+        )
+    if not isinstance(backlog, int) and backlog is not None:
+        raise TypeError(f"backlog must be an int or None, not {backlog!r}")
     if backlog is None:
         return 0xFFFF
     return min(backlog, 0xFFFF)
@@ -63,7 +70,7 @@ async def open_tcp_listeners(
     port: int,
     *,
     host: str | bytes | None = None,
-    backlog: int | float | None = None,  # noqa: PYI041
+    backlog: int | None = None,
 ) -> list[trio.SocketListener]:
     """Create :class:`SocketListener` objects to listen for TCP connections.
 
@@ -96,8 +103,8 @@ async def open_tcp_listeners(
           all interfaces, pass the family-specific wildcard address:
           ``"0.0.0.0"`` for IPv4-only and ``"::"`` for IPv6-only.
 
-      backlog (int, math.inf, or None): The listen backlog to use. If you leave this as
-          ``None`` or ``math.inf`` then Trio will pick a good default. (Currently: whatever
+      backlog (int or None): The listen backlog to use. If you leave this as
+          ``None`` then Trio will pick a good default. (Currently: whatever
           your system has configured as the maximum backlog.)
 
     Returns:
@@ -175,7 +182,7 @@ async def serve_tcp(
     port: int,
     *,
     host: str | bytes | None = None,
-    backlog: int | float | None = None,  # noqa: PYI041
+    backlog: int | None = None,
     handler_nursery: trio.Nursery | None = None,
     task_status: TaskStatus[list[trio.SocketListener]] = trio.TASK_STATUS_IGNORED,
 ) -> None:

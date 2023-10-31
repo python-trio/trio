@@ -54,14 +54,8 @@ def check_less_than(
     if (current > last) ^ invert:
         failed = True
         print("ERROR: ", end="")
-    if isinstance(current, float):
-        strcurrent = f"{current:.4}"
-    else:
-        strcurrent = str(current)
-    if isinstance(last, float):
-        strlast = f"{last:.4}"
-    else:
-        strlast = str(last)
+    strcurrent = f"{current:.4}" if isinstance(current, float) else str(current)
+    strlast = f"{last:.4}" if isinstance(last, float) else str(last)
     print(
         f"{key} has gone {'down' if current<last else 'up'} from {strlast} to {strcurrent}"
     )

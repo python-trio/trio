@@ -56,7 +56,7 @@ def is_function(node: ast.AST) -> TypeGuard[ast.FunctionDef | ast.AsyncFunctionD
     """Check if the AST node is either a function
     or an async function
     """
-    if isinstance(node, ast.FunctionDef) or isinstance(node, ast.AsyncFunctionDef):
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
         return True
     return False
 

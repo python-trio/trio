@@ -10,7 +10,15 @@ import sys
 import threading
 import warnings
 from collections import deque
-from contextlib import AbstractAsyncContextManager, contextmanager
+from collections.abc import (
+    Awaitable,
+    Callable,
+    Coroutine,
+    Generator,
+    Iterator,
+    Sequence,
+)
+from contextlib import AbstractAsyncContextManager, contextmanager, suppress
 from contextvars import copy_context
 from heapq import heapify, heappop, heappush
 from math import inf
@@ -789,7 +797,9 @@ class CancelScope:
         cancelled, then :attr:`cancelled_caught` is usually more
         appropriate.
         """
-        if self._cancel_status is not None or not self._has_been_entered:
+        if (  # noqa: SIM102  # collapsible-if but this way is nicer
+            self._cancel_status is not None or not self._has_been_entered
+        ):
             # Scope is active or not yet entered: make sure cancel_called
             # is true if the deadline has passed. This shouldn't
             # be able to actually change behavior, since we check for
@@ -1712,10 +1722,7 @@ class Runner:
         # Propagate contextvars
         ######
         if context is None:
-            if system_task:
-                context = self.system_context.copy()
-            else:
-                context = copy_context()
+            context = self.system_context.copy() if system_task else copy_context()
 
         ######
         # Call the function and get the coroutine object, while giving helpful
@@ -1945,10 +1952,8 @@ class Runner:
     # This gets called from signal context
     def deliver_ki(self) -> None:
         self.ki_pending = True
-        try:
+        with suppress(RunFinishedError):
             self.entry_queue.run_sync_soon(self._deliver_ki_cb)
-        except RunFinishedError:
-            pass
 
     def _deliver_ki_cb(self) -> None:
         if not self.ki_pending:

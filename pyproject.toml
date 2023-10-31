@@ -32,6 +32,7 @@ select = [
   "YTT",  # flake8-2020
   "ASYNC",  # flake8-async
   "PYI",  # flake8-pyi
+  "SIM",  # flake8-simplify
   "TCH",  # flake8-type-checking
 ]
 extend-ignore = [
@@ -39,6 +40,7 @@ extend-ignore = [
     'F405',  # undefined-local-with-import-star-usage
     'E402',  # module-import-not-at-top-of-file (usually OS-specific)
     'E501',  # line-too-long
+    'SIM117',  # multiple-with-statements (messes up lots of context-based stuff and looks bad)
 ]
 
 include = ["*.py", "*.pyi", "**/pyproject.toml"]
@@ -76,56 +78,13 @@ warn_return_any = true
 # Avoid subtle backsliding
 disallow_any_decorated = true
 disallow_any_generics = true
-disallow_any_unimported = false  # Enable once Outcome has stubs.
+disallow_any_unimported = true
 disallow_incomplete_defs = true
 disallow_subclassing_any = true
+disallow_untyped_calls = true
 disallow_untyped_decorators = true
 disallow_untyped_defs = true
-
-# Enable once other problems are dealt with
 check_untyped_defs = true
-disallow_untyped_calls = false
-
-# files not yet fully typed
-[[tool.mypy.overrides]]
-module = [
-# tests
-"trio/testing/_fake_net",
-"trio/_core/_tests/test_guest_mode",
-"trio/_core/_tests/test_instrumentation",
-"trio/_core/_tests/test_ki",
-"trio/_core/_tests/test_local",
-"trio/_core/_tests/test_mock_clock",
-"trio/_core/_tests/test_multierror",
-"trio/_core/_tests/test_multierror_scripts/ipython_custom_exc",
-"trio/_core/_tests/test_multierror_scripts/simple_excepthook",
-"trio/_core/_tests/test_parking_lot",
-"trio/_core/_tests/test_thread_cache",
-"trio/_core/_tests/test_unbounded_queue",
-"trio/_tests/test_exports",
-"trio/_tests/test_file_io",
-"trio/_tests/test_highlevel_generic",
-"trio/_tests/test_highlevel_open_unix_stream",
-"trio/_tests/test_highlevel_serve_listeners",
-"trio/_tests/test_highlevel_ssl_helpers",
-"trio/_tests/test_scheduler_determinism",
-"trio/_tests/test_ssl",
-"trio/_tests/test_subprocess",
-"trio/_tests/test_sync",
-"trio/_tests/test_testing",
-"trio/_tests/test_threads",
-"trio/_tests/test_timeouts",
-"trio/_tests/test_tracing",
-"trio/_tests/test_util",
-"trio/_tests/test_wait_for_object",
-"trio/_tests/tools/test_gen_exports",
-]
-check_untyped_defs = false
-disallow_any_decorated = false
-disallow_any_generics = false
-disallow_any_unimported = false
-disallow_incomplete_defs = false
-disallow_untyped_defs = false
 
 [tool.pytest.ini_options]
 addopts = ["--strict-markers", "--strict-config"]
