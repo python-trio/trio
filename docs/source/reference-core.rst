@@ -1836,7 +1836,7 @@ to spawn a child thread, and then use a :ref:`memory channel
 
 You can also use :func:`trio.from_thread.check_cancelled` to check for cancellation from
 a thread that was spawned by :func:`trio.to_thread.run_sync`. If the call to
-:func:`~trio.to_thread.run_sync` was cancelled (even if ``abandon_on_cancel=False``!), then
+:func:`~trio.to_thread.run_sync` was cancelled, then
 :func:`~trio.from_thread.check_cancelled` will raise :func:`trio.Cancelled`.
 It's like ``trio.from_thread.run(trio.sleep, 0)``, but much faster.
 

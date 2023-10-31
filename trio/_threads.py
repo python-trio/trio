@@ -6,9 +6,10 @@ import functools
 import inspect
 import queue as stdlib_queue
 import threading
+import warnings
 from collections.abc import Awaitable, Callable
 from itertools import count
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, overload
 
 import attr
 import outcome
@@ -171,13 +172,35 @@ class RunSync(Generic[RetT]):
         token.run_sync_soon(self.run_sync)
 
 
+@overload
+async def to_thread_run_sync(
+    sync_fn: Callable[..., RetT],
+    *args: object,
+    thread_name: str | None = None,
+    abandon_on_cancel: bool = False,
+    limiter: CapacityLimiter | None = None,
+) -> RetT:
+    ...
+
+
+@overload
+async def to_thread_run_sync(
+    sync_fn: Callable[..., RetT],
+    *args: object,
+    thread_name: str | None = None,
+    cancellable: bool = False,
+    limiter: CapacityLimiter | None = None,
+) -> RetT:
+    ...
+
+
 @enable_ki_protection  # Decorator used on function with Coroutine[Any, Any, RetT]
 async def to_thread_run_sync(  # type: ignore[misc]
     sync_fn: Callable[..., RetT],
     *args: object,
     thread_name: str | None = None,
     abandon_on_cancel: bool | None = None,
-    cancellable: bool = False,
+    cancellable: bool | None = None,
     limiter: CapacityLimiter | None = None,
 ) -> RetT:
     """Convert a blocking operation into an async operation using a thread.
@@ -201,8 +224,6 @@ async def to_thread_run_sync(  # type: ignore[misc]
           arguments, use :func:`functools.partial`.
       abandon_on_cancel (bool): Whether to abandon this thread upon
           cancellation of this operation. See discussion below.
-      cancellable (bool): *Deprecated* synonym for ``abandon_on_cancel``.
-          Providing a value to ``abandon_on_cancel`` overrides this argument.
       thread_name (str): Optional string to set the name of the thread.
           Will always set `threading.Thread.name`, but only set the os name
           if pthread.h is available (i.e. most POSIX installations).
@@ -266,9 +287,20 @@ async def to_thread_run_sync(  # type: ignore[misc]
 
     """
     await trio.lowlevel.checkpoint_if_cancelled()
-    if abandon_on_cancel is not None:
-        cancellable = abandon_on_cancel
-    abandon_on_cancel = bool(cancellable)  # raise early if cancellable.__bool__ raises
+    if cancellable is not None:
+        if abandon_on_cancel is not None:
+            raise ValueError(
+                "Cannot set `cancellable` and `abandon_on_cancel` simultaneously."
+            )
+        warnings.warn(
+            DeprecationWarning(
+                "`cancellable` keyword argument is deprecated, "
+                "use `abandon on cancel` instead."
+            )
+        )
+        abandon_on_cancel = cancellable
+    # raise early if abandon_on_cancel.__bool__ raises
+    abandon_on_cancel = bool(abandon_on_cancel)
     if limiter is None:
         limiter = current_default_thread_limiter()
 

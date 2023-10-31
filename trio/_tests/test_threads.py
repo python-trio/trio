@@ -1077,3 +1077,19 @@ async def test_reentry_doesnt_deadlock() -> None:
         async with _core.open_nursery() as nursery:
             for _ in range(4):
                 nursery.start_soon(child)
+
+
+async def test_cancellable_and_abandon_raises() -> None:
+    with pytest.raises(ValueError):
+        await to_thread_run_sync(bool, cancellable=True, abandon_on_cancel=False)
+
+    with pytest.raises(ValueError):
+        await to_thread_run_sync(bool, cancellable=True, abandon_on_cancel=True)
+
+
+async def test_cancellable_warns() -> None:
+    with pytest.warns(DeprecationWarning):
+        await to_thread_run_sync(bool, cancellable=False)
+
+    with pytest.warns(DeprecationWarning):
+        await to_thread_run_sync(bool, cancellable=True)

@@ -1,3 +1,0 @@
-To better reflect the underlying thread handling semantics,
-`trio.to_thread.run_sync` gained a new keyword argument ``abandon_on_cancel``
-that overrides the older (now deprecated) ``cancellable`` flag.
