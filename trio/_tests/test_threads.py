@@ -556,7 +556,7 @@ async def test_run_in_worker_thread_custom_limiter() -> None:
 
     # TODO: should CapacityLimiter have an abc or protocol so users can modify it?
     # because currently it's `final` so writing code like this is not allowed.
-    await to_thread_run_sync(lambda: None, limiter=CustomLimiter())  # type: ignore[arg-type]
+    await to_thread_run_sync(lambda: None, limiter=CustomLimiter())  # type: ignore[call-overload]
     assert record == ["acquire", "release"]
 
 
@@ -574,7 +574,7 @@ async def test_run_in_worker_thread_limiter_error() -> None:
     bs = BadCapacityLimiter()
 
     with pytest.raises(ValueError) as excinfo:
-        await to_thread_run_sync(lambda: None, limiter=bs)  # type: ignore[arg-type]
+        await to_thread_run_sync(lambda: None, limiter=bs)  # type: ignore[call-overload]
     assert excinfo.value.__context__ is None
     assert record == ["acquire", "release"]
     record = []
@@ -583,7 +583,7 @@ async def test_run_in_worker_thread_limiter_error() -> None:
     # chains with it
     d: dict[str, object] = {}
     with pytest.raises(ValueError) as excinfo:
-        await to_thread_run_sync(lambda: d["x"], limiter=bs)  # type: ignore[arg-type]
+        await to_thread_run_sync(lambda: d["x"], limiter=bs)  # type: ignore[call-overload]
     assert isinstance(excinfo.value.__context__, KeyError)
     assert record == ["acquire", "release"]
 
@@ -892,7 +892,7 @@ async def test_unsafe_abandon_on_cancel_kwarg() -> None:
             raise NotImplementedError
 
     with pytest.raises(NotImplementedError):
-        await to_thread_run_sync(int, abandon_on_cancel=BadBool())  # type: ignore[arg-type]
+        await to_thread_run_sync(int, abandon_on_cancel=BadBool())  # type: ignore[call-overload]
 
 
 async def test_from_thread_reuses_task() -> None:
@@ -1081,10 +1081,10 @@ async def test_reentry_doesnt_deadlock() -> None:
 
 async def test_cancellable_and_abandon_raises() -> None:
     with pytest.raises(ValueError):
-        await to_thread_run_sync(bool, cancellable=True, abandon_on_cancel=False)
+        await to_thread_run_sync(bool, cancellable=True, abandon_on_cancel=False)  # type: ignore[call-overload]
 
     with pytest.raises(ValueError):
-        await to_thread_run_sync(bool, cancellable=True, abandon_on_cancel=True)
+        await to_thread_run_sync(bool, cancellable=True, abandon_on_cancel=True)  # type: ignore[call-overload]
 
 
 async def test_cancellable_warns() -> None:

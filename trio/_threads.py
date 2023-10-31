@@ -6,7 +6,6 @@ import functools
 import inspect
 import queue as stdlib_queue
 import threading
-import warnings
 from collections.abc import Awaitable, Callable
 from itertools import count
 from typing import Generic, TypeVar, overload
@@ -16,7 +15,6 @@ import outcome
 from sniffio import current_async_library_cvar
 
 import trio
-from trio._core._traps import RaiseCancelT
 
 from ._core import (
     RunVar,
@@ -25,6 +23,8 @@ from ._core import (
     enable_ki_protection,
     start_thread_soon,
 )
+from ._core._traps import RaiseCancelT
+from ._deprecate import warn_deprecated
 from ._sync import CapacityLimiter
 from ._util import coroutine_or_error
 
@@ -172,8 +172,8 @@ class RunSync(Generic[RetT]):
         token.run_sync_soon(self.run_sync)
 
 
-@overload
-async def to_thread_run_sync(
+@overload  # Decorator used on function with Coroutine[Any, Any, RetT]
+async def to_thread_run_sync(  # type: ignore[misc]
     sync_fn: Callable[..., RetT],
     *args: object,
     thread_name: str | None = None,
@@ -183,8 +183,8 @@ async def to_thread_run_sync(
     ...
 
 
-@overload
-async def to_thread_run_sync(
+@overload  # Decorator used on function with Coroutine[Any, Any, RetT]
+async def to_thread_run_sync(  # type: ignore[misc]
     sync_fn: Callable[..., RetT],
     *args: object,
     thread_name: str | None = None,
