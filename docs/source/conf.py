@@ -71,6 +71,8 @@ autodoc_type_aliases = {
     # "types.FrameType" is more helpful than just "frame"
     "FrameType": "types.FrameType",
     "Context": "OpenSSL.SSL.Context",
+    # SSLListener.accept's return type is seen as trio._ssl.SSLStream
+    "SSLStream": "trio.SSLStream",
 }
 
 

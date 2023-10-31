@@ -1,29 +1,46 @@
+from __future__ import annotations
+
 import errno
 from functools import partial
+from typing import Awaitable, Callable, NoReturn
 
 import attr
 import pytest
 
 import trio
-from trio.testing import memory_stream_pair, wait_all_tasks_blocked
+from trio import Nursery, StapledStream, TaskStatus
+from trio._channel import MemoryReceiveChannel, MemorySendChannel
+from trio.abc import Stream
+from trio.testing import (
+    MemoryReceiveStream,
+    MemorySendStream,
+    MockClock,
+    memory_stream_pair,
+    wait_all_tasks_blocked,
+)
+
+# types are somewhat tentative - I just bruteforced them until I got something that didn't
+# give errors
+StapledMemoryStream = StapledStream[MemorySendStream, MemoryReceiveStream]
 
 
 @attr.s(hash=False, eq=False)
-class MemoryListener(trio.abc.Listener):
-    closed = attr.ib(default=False)
-    accepted_streams = attr.ib(factory=list)
-    queued_streams = attr.ib(
-        factory=(lambda: trio.open_memory_channel[trio.StapledStream](1))
-    )
-    accept_hook = attr.ib(default=None)
+class MemoryListener(trio.abc.Listener[StapledMemoryStream]):
+    closed: bool = attr.ib(default=False)
+    accepted_streams: list[trio.abc.Stream] = attr.ib(factory=list)
+    queued_streams: tuple[
+        MemorySendChannel[StapledMemoryStream],
+        MemoryReceiveChannel[StapledMemoryStream],
+    ] = attr.ib(factory=(lambda: trio.open_memory_channel[StapledMemoryStream](1)))
+    accept_hook: Callable[[], Awaitable[object]] | None = attr.ib(default=None)
 
-    async def connect(self):
+    async def connect(self) -> StapledMemoryStream:
         assert not self.closed
         client, server = memory_stream_pair()
         await self.queued_streams[0].send(server)
         return client
 
-    async def accept(self):
+    async def accept(self) -> StapledMemoryStream:
         await trio.lowlevel.checkpoint()
         assert not self.closed
         if self.accept_hook is not None:
@@ -32,33 +49,33 @@ class MemoryListener(trio.abc.Listener):
         self.accepted_streams.append(stream)
         return stream
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         self.closed = True
         await trio.lowlevel.checkpoint()
 
 
-async def test_serve_listeners_basic():
+async def test_serve_listeners_basic() -> None:
     listeners = [MemoryListener(), MemoryListener()]
 
     record = []
 
-    def close_hook():
+    def close_hook() -> None:
         # Make sure this is a forceful close
         assert trio.current_effective_deadline() == float("-inf")
         record.append("closed")
 
-    async def handler(stream):
+    async def handler(stream: StapledMemoryStream) -> None:
         await stream.send_all(b"123")
         assert await stream.receive_some(10) == b"456"
         stream.send_stream.close_hook = close_hook
         stream.receive_stream.close_hook = close_hook
 
-    async def client(listener):
+    async def client(listener: MemoryListener) -> None:
         s = await listener.connect()
         assert await s.receive_some(10) == b"123"
         await s.send_all(b"456")
 
-    async def do_tests(parent_nursery):
+    async def do_tests(parent_nursery: Nursery) -> None:
         async with trio.open_nursery() as nursery:
             for listener in listeners:
                 for _ in range(3):
@@ -72,7 +89,9 @@ async def test_serve_listeners_basic():
         parent_nursery.cancel_scope.cancel()
 
     async with trio.open_nursery() as nursery:
-        l2 = await nursery.start(trio.serve_listeners, handler, listeners)
+        l2: list[MemoryListener] = await nursery.start(
+            trio.serve_listeners, handler, listeners
+        )
         assert l2 == listeners
         # This is just split into another function because gh-136 isn't
         # implemented yet
@@ -82,24 +101,26 @@ async def test_serve_listeners_basic():
         assert listener.closed
 
 
-async def test_serve_listeners_accept_unrecognized_error():
+async def test_serve_listeners_accept_unrecognized_error() -> None:
     for error in [KeyError(), OSError(errno.ECONNABORTED, "ECONNABORTED")]:
         listener = MemoryListener()
 
-        async def raise_error():
+        async def raise_error() -> NoReturn:
             raise error  # noqa: B023  # Set from loop
 
         listener.accept_hook = raise_error
 
         with pytest.raises(type(error)) as excinfo:
-            await trio.serve_listeners(None, [listener])
+            await trio.serve_listeners(None, [listener])  # type: ignore[arg-type]
         assert excinfo.value is error
 
 
-async def test_serve_listeners_accept_capacity_error(autojump_clock, caplog):
+async def test_serve_listeners_accept_capacity_error(
+    autojump_clock: MockClock, caplog: pytest.LogCaptureFixture
+) -> None:
     listener = MemoryListener()
 
-    async def raise_EMFILE():
+    async def raise_EMFILE() -> NoReturn:
         raise OSError(errno.EMFILE, "out of file descriptors")
 
     listener.accept_hook = raise_EMFILE
@@ -107,24 +128,28 @@ async def test_serve_listeners_accept_capacity_error(autojump_clock, caplog):
     # It retries every 100 ms, so in 950 ms it will retry at 0, 100, ..., 900
     # = 10 times total
     with trio.move_on_after(0.950):
-        await trio.serve_listeners(None, [listener])
+        await trio.serve_listeners(None, [listener])  # type: ignore[arg-type]
 
     assert len(caplog.records) == 10
     for record in caplog.records:
         assert "retrying" in record.msg
+        assert record.exc_info is not None
+        assert isinstance(record.exc_info[1], OSError)
         assert record.exc_info[1].errno == errno.EMFILE
 
 
-async def test_serve_listeners_connection_nursery(autojump_clock):
+async def test_serve_listeners_connection_nursery(autojump_clock: MockClock) -> None:
     listener = MemoryListener()
 
-    async def handler(stream):
+    async def handler(stream: Stream) -> None:
         await trio.sleep(1)
 
     class Done(Exception):
         pass
 
-    async def connection_watcher(*, task_status=trio.TASK_STATUS_IGNORED):
+    async def connection_watcher(
+        *, task_status: TaskStatus[Nursery] = trio.TASK_STATUS_IGNORED
+    ) -> NoReturn:
         async with trio.open_nursery() as nursery:
             task_status.started(nursery)
             await wait_all_tasks_blocked()
@@ -133,7 +158,7 @@ async def test_serve_listeners_connection_nursery(autojump_clock):
 
     with pytest.raises(Done):
         async with trio.open_nursery() as nursery:
-            handler_nursery = await nursery.start(connection_watcher)
+            handler_nursery: trio.Nursery = await nursery.start(connection_watcher)
             await nursery.start(
                 partial(
                     trio.serve_listeners,

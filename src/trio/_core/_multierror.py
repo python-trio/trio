@@ -237,7 +237,7 @@ class MultiError(_BaseExceptionGroup):
             # In an earlier version of the code, we didn't define __init__ and
             # simply set the `exceptions` attribute directly on the new object.
             # However, linters expect attributes to be initialized in __init__.
-            from_class: type[Self] | type[NonBaseMultiError] = cls
+            from_class: type[Self | NonBaseMultiError] = cls
             if all(isinstance(exc, Exception) for exc in exceptions):
                 from_class = NonBaseMultiError
 
@@ -328,7 +328,7 @@ class MultiError(_BaseExceptionGroup):
         return MultiErrorCatcher(handler)
 
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # noqa: SIM108
     _ExceptionGroup = ExceptionGroup[Exception]
 else:
     _ExceptionGroup = ExceptionGroup
@@ -424,20 +424,22 @@ except ImportError:
 else:
     # http://doc.pypy.org/en/latest/objspace-proxies.html
     def copy_tb(base_tb: TracebackType, tb_next: TracebackType | None) -> TracebackType:
-        # Mypy refuses to believe that ProxyOperation can be imported properly
-        # TODO: will need no-any-unimported if/when that's toggled on
-        def controller(operation: tputil.ProxyOperation) -> Any | None:
+        # tputil.ProxyOperation is PyPy-only, but we run mypy on CPython
+        def controller(operation: tputil.ProxyOperation) -> Any | None:  # type: ignore[no-any-unimported]
             # Rationale for pragma: I looked fairly carefully and tried a few
             # things, and AFAICT it's not actually possible to get any
             # 'opname' that isn't __getattr__ or __getattribute__. So there's
             # no missing test we could add, and no value in coverage nagging
             # us about adding one.
-            if operation.opname in [
-                "__getattribute__",
-                "__getattr__",
-            ]:  # pragma: no cover
-                if operation.args[0] == "tb_next":
-                    return tb_next
+            if (
+                operation.opname
+                in {
+                    "__getattribute__",
+                    "__getattr__",
+                }
+                and operation.args[0] == "tb_next"
+            ):  # pragma: no cover
+                return tb_next
             return operation.delegate()  # Deligate is reverting to original behaviour
 
         return cast(
@@ -474,9 +476,9 @@ def concat_tb(
 # hook.
 #
 # More details: https://github.com/python-trio/trio/issues/1065
-if (
-    sys.version_info < (3, 11)
-    and getattr(sys.excepthook, "__name__", None) == "apport_excepthook"
+if sys.version_info < (3, 11) and getattr(sys.excepthook, "__name__", None) in (
+    "apport_excepthook",
+    "partial_apport_excepthook",
 ):
     from types import ModuleType
 

@@ -66,9 +66,7 @@ async def _serve_one_listener(
 # https://github.com/python/typing/issues/548
 
 
-# It does never return (since _serve_one_listener never completes), but type checkers can't
-# understand nurseries.
-async def serve_listeners(  # type: ignore[misc]
+async def serve_listeners(
     handler: Handler[StreamT],
     listeners: list[ListenerT],
     *,
@@ -143,3 +141,7 @@ async def serve_listeners(  # type: ignore[misc]
         # but we wait until the end to call started() just in case we get an
         # error or whatever.
         task_status.started(listeners)
+
+    raise AssertionError(
+        "_serve_one_listener should never complete"
+    )  # pragma: no cover

@@ -1,0 +1,1 @@
+Removed support for ``math.inf`` for the ``backlog`` argument in ``open_tcp_listeners``, making its docstring correct in the fact that only ``TypeError``s are raised if invalid arguments are passed.
