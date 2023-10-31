@@ -94,7 +94,7 @@ pyright==1.1.331
     # via -r test-requirements.in
 pytest==7.4.2
     # via -r test-requirements.in
-ruff==0.1.0
+ruff==0.1.3
     # via -r test-requirements.in
 sniffio==1.3.0
     # via -r test-requirements.in
