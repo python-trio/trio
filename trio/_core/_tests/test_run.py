@@ -8,13 +8,6 @@ import threading
 import time
 import types
 import weakref
-from collections.abc import (
-    AsyncGenerator,
-    AsyncIterator,
-    Awaitable,
-    Callable,
-    Generator,
-)
 from contextlib import ExitStack, contextmanager, suppress
 from math import inf
 from typing import TYPE_CHECKING, Any, NoReturn, TypeVar, cast

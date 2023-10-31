@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import random
-from collections.abc import Generator
 from contextlib import contextmanager, suppress
 from typing import TYPE_CHECKING, Awaitable, Callable, Generic, Tuple, TypeVar
 

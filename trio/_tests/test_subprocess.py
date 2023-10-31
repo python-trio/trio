@@ -9,7 +9,6 @@ from contextlib import asynccontextmanager
 from functools import partial
 from pathlib import Path as SyncPath
 from signal import Signals
-from types import FrameType
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -33,13 +32,16 @@ from .. import (
     sleep,
     sleep_forever,
 )
-from .._abc import Stream
 from .._core._tests.tutil import skip_if_fbsd_pipes_broken, slow
 from ..lowlevel import open_process
 from ..testing import MockClock, assert_no_checkpoints, wait_all_tasks_blocked
 
 if TYPE_CHECKING:
+    from types import FrameType
+
     from typing_extensions import TypeAlias
+
+    from .._abc import Stream
 
 if sys.platform == "win32":
     SignalType: TypeAlias = None

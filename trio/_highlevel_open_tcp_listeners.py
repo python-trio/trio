@@ -3,9 +3,7 @@ from __future__ import annotations
 import errno
 import math
 import sys
-from math import inf
 from typing import TYPE_CHECKING
-from collections.abc import Awaitable, Callable
 
 import trio
 from trio import TaskStatus

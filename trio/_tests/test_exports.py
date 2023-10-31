@@ -26,7 +26,7 @@ from .._core._tests.tutil import slow
 from .pytest_plugin import RUN_SLOW
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterable, Iterator
 
 mypy_cache_updated = False
 

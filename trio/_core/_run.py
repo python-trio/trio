@@ -10,14 +10,6 @@ import sys
 import threading
 import warnings
 from collections import deque
-from collections.abc import (
-    Awaitable,
-    Callable,
-    Coroutine,
-    Generator,
-    Iterator,
-    Sequence,
-)
 from contextlib import AbstractAsyncContextManager, contextmanager, suppress
 from contextvars import copy_context
 from heapq import heapify, heappop, heappush

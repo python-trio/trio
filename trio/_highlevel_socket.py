@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import errno
-from collections.abc import Generator
 from contextlib import contextmanager, suppress
 from typing import TYPE_CHECKING, overload
 

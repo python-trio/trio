@@ -13,8 +13,6 @@ from typing import TYPE_CHECKING, Any, AsyncIterator, Iterator, NoReturn
 import pytest
 
 from trio import StapledStream
-from trio._core import MockClock
-from trio._ssl import T_Stream
 from trio._tests.pytest_plugin import skip_if_optional_else_raise
 from trio.abc import ReceiveStream, SendStream
 from trio.testing import MemoryReceiveStream, MemorySendStream
@@ -30,7 +28,6 @@ import trio
 from .. import _core, socket as tsocket
 from .._abc import Stream
 from .._core import BrokenResourceError, ClosedResourceError
-from .._core._run import CancelScope
 from .._core._tests.tutil import slow
 from .._highlevel_generic import aclose_forcefully
 from .._highlevel_open_tcp_stream import open_tcp_stream
@@ -47,6 +44,11 @@ from ..testing import (
 
 if TYPE_CHECKING:
     from typing_extensions import TypeAlias
+
+    from trio._core import MockClock
+    from trio._ssl import T_Stream
+
+    from .._core._run import CancelScope
 
 # We have two different kinds of echo server fixtures we use for testing. The
 # first is a real server written using the stdlib ssl module and blocking
