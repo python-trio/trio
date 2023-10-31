@@ -1,6 +1,9 @@
 from setuptools import find_packages, setup
 
-exec(open("trio/_version.py", encoding="utf-8").read())
+__version__ = "0.0.0"  # Overwritten from _version.py below, needed for linter to identify that this variable is defined.
+
+with open("trio/_version.py", encoding="utf-8") as version_code:
+    exec(version_code.read())
 
 LONG_DESC = """\
 .. image:: https://raw.githubusercontent.com/python-trio/trio/9b0bec646a31e0d0f67b8b6ecc6939726faf3e17/logo/logo-with-background.svg
@@ -102,6 +105,7 @@ setup(
     keywords=["async", "io", "networking", "trio"],
     classifiers=[
         "Development Status :: 3 - Alpha",
+        "Framework :: Trio",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
         "License :: OSI Approved :: Apache Software License",
@@ -118,7 +122,7 @@ setup(
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Topic :: System :: Networking",
-        "Framework :: Trio",
+        "Typing :: Typed",
     ],
     project_urls={
         "Documentation": "https://trio.readthedocs.io/",

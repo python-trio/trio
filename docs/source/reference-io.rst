@@ -63,7 +63,7 @@ create complex transport configurations. Here's some examples:
 
 * The :mod:`trio.testing` module provides a set of :ref:`flexible
   in-memory stream object implementations <testing-streams>`, so if
-  you have a protocol implementation to test then you can can start
+  you have a protocol implementation to test then you can start
   two tasks, set up a virtual "socket" connecting them, and then do
   things like inject random-but-repeatable delays into the connection.
 
@@ -444,7 +444,7 @@ Socket objects
          has begun. If :meth:`connect` is cancelled, and is unable to
          abort the connection attempt, then it will:
 
-         1. forcibly close the socket to prevent accidental re-use
+         1. forcibly close the socket to prevent accidental reuse
          2. raise :exc:`~trio.Cancelled`.
 
          tl;dr: if :meth:`connect` is cancelled then the socket is
@@ -503,13 +503,6 @@ Socket objects
    * :meth:`~socket.socket.share`
    * :meth:`~socket.socket.set_inheritable`
    * :meth:`~socket.socket.get_inheritable`
-
-The internal SocketType
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-.. autoclass:: _SocketType
-..
-    TODO: adding `:members:` here gives error due to overload+_wraps on `sendto`
-    TODO: rewrite ... all of the above when fixing _SocketType vs SocketType
 
 
 .. currentmodule:: trio

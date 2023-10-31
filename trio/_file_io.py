@@ -195,8 +195,8 @@ if TYPE_CHECKING:
     class _CanTruncate(Protocol):
         def truncate(self, size: int | None = ..., /) -> int: ...
 
-    class _CanWrite(Protocol[AnyStr_contra]):
-        def write(self, data: AnyStr_contra, /) -> int: ...
+    class _CanWrite(Protocol[T_contra]):
+        def write(self, data: T_contra, /) -> int: ...
 
     class _CanWriteLines(Protocol[T_contra]):
         # The lines parameter varies for bytes/str, so use a typevar to make the async match.
@@ -334,7 +334,7 @@ class AsyncIOWrapper(AsyncResource, Generic[FileT_co]):
         async def seek(self: AsyncIOWrapper[_CanSeek], target: int, whence: int = 0, /) -> int: ...
         async def tell(self: AsyncIOWrapper[_CanTell]) -> int: ...
         async def truncate(self: AsyncIOWrapper[_CanTruncate], size: int | None = None, /) -> int: ...
-        async def write(self: AsyncIOWrapper[_CanWrite[AnyStr]], data: AnyStr, /) -> int: ...
+        async def write(self: AsyncIOWrapper[_CanWrite[T]], data: T, /) -> int: ...
         async def writelines(self: AsyncIOWrapper[_CanWriteLines[T]], lines: Iterable[T], /) -> None: ...
         async def readinto1(self: AsyncIOWrapper[_CanReadInto1], buffer: Buffer, /) -> int: ...
         async def peek(self: AsyncIOWrapper[_CanPeek[AnyStr]], size: int = 0, /) -> AnyStr: ...
@@ -430,7 +430,7 @@ async def open_file(
 
 
 @overload
-async def open_file(
+async def open_file(  # type: ignore[misc]  # Any usage matches builtins.open().
     file: _OpenFile,
     mode: str,
     buffering: int = -1,
@@ -501,8 +501,8 @@ def wrap_file(file: FileT) -> AsyncIOWrapper[FileT]:
 
     if not (has("close") and (has("read") or has("write"))):
         raise TypeError(
-            "{} does not implement required duck-file methods: "
-            "close and (read or write)".format(file)
+            f"{file} does not implement required duck-file methods: "
+            "close and (read or write)"
         )
 
     return AsyncIOWrapper(file)

@@ -1,40 +1,48 @@
+from __future__ import annotations
+
 import os
 import pathlib
+from collections.abc import Awaitable, Callable
+from typing import Any, Type, Union
 
 import pytest
 
 import trio
 from trio._file_io import AsyncIOWrapper
-from trio._path import AsyncAutoWrapperType as Type
+from trio._path import AsyncAutoWrapperType as WrapperType
 
 
 @pytest.fixture
-def path(tmpdir):
-    p = str(tmpdir.join("test"))
-    return trio.Path(p)
+def path(tmp_path: pathlib.Path) -> trio.Path:
+    return trio.Path(tmp_path / "test")
 
 
-def method_pair(path, method_name):
-    path = pathlib.Path(path)
+def method_pair(
+    path: str,
+    method_name: str,
+) -> tuple[Callable[[], object], Callable[[], Awaitable[object]]]:
+    sync_path = pathlib.Path(path)
     async_path = trio.Path(path)
-    return getattr(path, method_name), getattr(async_path, method_name)
+    return getattr(sync_path, method_name), getattr(async_path, method_name)
 
 
-async def test_open_is_async_context_manager(path):
+async def test_open_is_async_context_manager(path: trio.Path) -> None:
     async with await path.open("w") as f:
         assert isinstance(f, AsyncIOWrapper)
 
     assert f.closed
 
 
-async def test_magic():
+async def test_magic() -> None:
     path = trio.Path("test")
 
     assert str(path) == "test"
     assert bytes(path) == b"test"
 
 
-cls_pairs = [
+EitherPathType = Union[Type[trio.Path], Type[pathlib.Path]]
+PathOrStrType = Union[EitherPathType, Type[str]]
+cls_pairs: list[tuple[EitherPathType, EitherPathType]] = [
     (trio.Path, pathlib.Path),
     (pathlib.Path, trio.Path),
     (trio.Path, trio.Path),
@@ -42,10 +50,10 @@ cls_pairs = [
 
 
 @pytest.mark.parametrize("cls_a,cls_b", cls_pairs)
-async def test_cmp_magic(cls_a, cls_b):
+async def test_cmp_magic(cls_a: EitherPathType, cls_b: EitherPathType) -> None:
     a, b = cls_a(""), cls_b("")
     assert a == b
-    assert not a != b
+    assert not a != b  # noqa: SIM202  # negate-not-equal-op
 
     a, b = cls_a("a"), cls_b("b")
     assert a < b
@@ -60,7 +68,7 @@ async def test_cmp_magic(cls_a, cls_b):
 # upstream python3.8 bug: we should also test (pathlib.Path, trio.Path), but
 # __*div__ does not properly raise NotImplementedError like the other comparison
 # magic, so trio.Path's implementation does not get dispatched
-cls_pairs = [
+cls_pairs_str: list[tuple[PathOrStrType, PathOrStrType]] = [
     (trio.Path, pathlib.Path),
     (trio.Path, trio.Path),
     (trio.Path, str),
@@ -68,11 +76,12 @@ cls_pairs = [
 ]
 
 
-@pytest.mark.parametrize("cls_a,cls_b", cls_pairs)
-async def test_div_magic(cls_a, cls_b):
+@pytest.mark.parametrize("cls_a,cls_b", cls_pairs_str)
+async def test_div_magic(cls_a: PathOrStrType, cls_b: PathOrStrType) -> None:
     a, b = cls_a("a"), cls_b("b")
 
-    result = a / b
+    result = a / b  # type: ignore[operator]
+    # Type checkers think str / str could happen. Check each combo manually in type_tests/.
     assert isinstance(result, trio.Path)
     assert str(result) == os.path.join("a", "b")
 
@@ -81,29 +90,32 @@ async def test_div_magic(cls_a, cls_b):
     "cls_a,cls_b", [(trio.Path, pathlib.Path), (trio.Path, trio.Path)]
 )
 @pytest.mark.parametrize("path", ["foo", "foo/bar/baz", "./foo"])
-async def test_hash_magic(cls_a, cls_b, path):
+async def test_hash_magic(
+    cls_a: EitherPathType, cls_b: EitherPathType, path: str
+) -> None:
     a, b = cls_a(path), cls_b(path)
     assert hash(a) == hash(b)
 
 
-async def test_forwarded_properties(path):
+async def test_forwarded_properties(path: trio.Path) -> None:
     # use `name` as a representative of forwarded properties
 
     assert "name" in dir(path)
     assert path.name == "test"
 
 
-async def test_async_method_signature(path):
+async def test_async_method_signature(path: trio.Path) -> None:
     # use `resolve` as a representative of wrapped methods
 
     assert path.resolve.__name__ == "resolve"
     assert path.resolve.__qualname__ == "Path.resolve"
 
+    assert path.resolve.__doc__ is not None
     assert "pathlib.Path.resolve" in path.resolve.__doc__
 
 
 @pytest.mark.parametrize("method_name", ["is_dir", "is_file"])
-async def test_compare_async_stat_methods(method_name):
+async def test_compare_async_stat_methods(method_name: str) -> None:
     method, async_method = method_pair(".", method_name)
 
     result = method()
@@ -112,13 +124,13 @@ async def test_compare_async_stat_methods(method_name):
     assert result == async_result
 
 
-async def test_invalid_name_not_wrapped(path):
+async def test_invalid_name_not_wrapped(path: trio.Path) -> None:
     with pytest.raises(AttributeError):
-        getattr(path, "invalid_fake_attr")
+        getattr(path, "invalid_fake_attr")  # noqa: B009  # "get-attr-with-constant"
 
 
 @pytest.mark.parametrize("method_name", ["absolute", "resolve"])
-async def test_async_methods_rewrap(method_name):
+async def test_async_methods_rewrap(method_name: str) -> None:
     method, async_method = method_pair(".", method_name)
 
     result = method()
@@ -128,27 +140,27 @@ async def test_async_methods_rewrap(method_name):
     assert str(result) == str(async_result)
 
 
-async def test_forward_methods_rewrap(path, tmpdir):
+async def test_forward_methods_rewrap(path: trio.Path, tmp_path: pathlib.Path) -> None:
     with_name = path.with_name("foo")
     with_suffix = path.with_suffix(".py")
 
     assert isinstance(with_name, trio.Path)
-    assert with_name == tmpdir.join("foo")
+    assert with_name == tmp_path / "foo"
     assert isinstance(with_suffix, trio.Path)
-    assert with_suffix == tmpdir.join("test.py")
+    assert with_suffix == tmp_path / "test.py"
 
 
-async def test_forward_properties_rewrap(path):
+async def test_forward_properties_rewrap(path: trio.Path) -> None:
     assert isinstance(path.parent, trio.Path)
 
 
-async def test_forward_methods_without_rewrap(path, tmpdir):
+async def test_forward_methods_without_rewrap(path: trio.Path) -> None:
     path = await path.parent.resolve()
 
     assert path.as_uri().startswith("file:///")
 
 
-async def test_repr():
+async def test_repr() -> None:
     path = trio.Path(".")
 
     assert repr(path) == "trio.Path('.')"
@@ -159,35 +171,41 @@ class MockWrapped:
     _private = "private"
 
 
-class MockWrapper:
+class _MockWrapper:
     _forwards = MockWrapped
     _wraps = MockWrapped
 
 
-async def test_type_forwards_unsupported():
+MockWrapper: Any = _MockWrapper  # Disable type checking, it's a mock.
+
+
+async def test_type_forwards_unsupported() -> None:
     with pytest.raises(TypeError):
-        Type.generate_forwards(MockWrapper, {})
+        WrapperType.generate_forwards(MockWrapper, {})
 
 
-async def test_type_wraps_unsupported():
+async def test_type_wraps_unsupported() -> None:
     with pytest.raises(TypeError):
-        Type.generate_wraps(MockWrapper, {})
+        WrapperType.generate_wraps(MockWrapper, {})
 
 
-async def test_type_forwards_private():
-    Type.generate_forwards(MockWrapper, {"unsupported": None})
+async def test_type_forwards_private() -> None:
+    WrapperType.generate_forwards(MockWrapper, {"unsupported": None})
 
     assert not hasattr(MockWrapper, "_private")
 
 
-async def test_type_wraps_private():
-    Type.generate_wraps(MockWrapper, {"unsupported": None})
+async def test_type_wraps_private() -> None:
+    WrapperType.generate_wraps(MockWrapper, {"unsupported": None})
 
     assert not hasattr(MockWrapper, "_private")
 
 
 @pytest.mark.parametrize("meth", [trio.Path.__init__, trio.Path.joinpath])
-async def test_path_wraps_path(path, meth):
+async def test_path_wraps_path(
+    path: trio.Path,
+    meth: Callable[[trio.Path, trio.Path], object],
+) -> None:
     wrapped = await path.absolute()
     result = meth(path, wrapped)
     if result is None:
@@ -196,17 +214,17 @@ async def test_path_wraps_path(path, meth):
     assert wrapped == result
 
 
-async def test_path_nonpath():
+async def test_path_nonpath() -> None:
     with pytest.raises(TypeError):
-        trio.Path(1)
+        trio.Path(1)  # type: ignore
 
 
-async def test_open_file_can_open_path(path):
+async def test_open_file_can_open_path(path: trio.Path) -> None:
     async with await trio.open_file(path, "w") as f:
         assert f.name == os.fspath(path)
 
 
-async def test_globmethods(path):
+async def test_globmethods(path: trio.Path) -> None:
     # Populate a directory tree
     await path.mkdir()
     await (path / "foo").mkdir()
@@ -235,7 +253,7 @@ async def test_globmethods(path):
     assert entries == {"_bar.txt", "bar.txt"}
 
 
-async def test_iterdir(path):
+async def test_iterdir(path: trio.Path) -> None:
     # Populate a directory
     await path.mkdir()
     await (path / "foo").mkdir()
@@ -249,7 +267,7 @@ async def test_iterdir(path):
     assert entries == {"bar.txt", "foo"}
 
 
-async def test_classmethods():
+async def test_classmethods() -> None:
     assert isinstance(await trio.Path.home(), trio.Path)
 
     # pathlib.Path has only two classmethods

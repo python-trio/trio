@@ -1,19 +1,16 @@
 from __future__ import annotations
 
 import sys
-import warnings
 from collections.abc import Callable, Sequence
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, cast, overload
+from typing import TYPE_CHECKING, Any, ClassVar, cast, overload
 
 import attr
 
 from trio._deprecate import warn_deprecated
 
 if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup, ExceptionGroup, print_exception
-else:
-    from traceback import print_exception
+    from exceptiongroup import BaseExceptionGroup, ExceptionGroup
 
 if TYPE_CHECKING:
     from typing_extensions import Self
@@ -90,7 +87,9 @@ def _filter_impl(
             new_exceptions = []
             changed = False
             for child_exc in exc.exceptions:
-                new_child_exc = filter_tree(child_exc, preserved)
+                new_child_exc = filter_tree(  # noqa: F821  # Deleted in local scope below, causes ruff to think it's not defined (astral-sh/ruff#7733)
+                    child_exc, preserved
+                )
                 if new_child_exc is not child_exc:
                     changed = True
                 if new_child_exc is not None:
@@ -117,7 +116,9 @@ def _filter_impl(
         new_tb = concat_tb(tb, exc.__traceback__)
         if isinstance(exc, MultiError):
             for child_exc in exc.exceptions:
-                push_tb_down(new_tb, child_exc, preserved)
+                push_tb_down(  # noqa: F821  # Deleted in local scope below, causes ruff to think it's not defined (astral-sh/ruff#7733)
+                    new_tb, child_exc, preserved
+                )
             exc.__traceback__ = None
         else:
             exc.__traceback__ = new_tb
@@ -236,7 +237,7 @@ class MultiError(_BaseExceptionGroup):
             # In an earlier version of the code, we didn't define __init__ and
             # simply set the `exceptions` attribute directly on the new object.
             # However, linters expect attributes to be initialized in __init__.
-            from_class: type[Self] | type[NonBaseMultiError] = cls
+            from_class: type[Self | NonBaseMultiError] = cls
             if all(isinstance(exc, Exception) for exc in exceptions):
                 from_class = NonBaseMultiError
 
@@ -374,7 +375,7 @@ except ImportError:
     import _ctypes
 
     class CTraceback(ctypes.Structure):
-        _fields_ = [
+        _fields_: ClassVar = [
             ("PyObject_HEAD", ctypes.c_byte * object().__sizeof__()),
             ("tb_next", ctypes.c_void_p),
             ("tb_frame", ctypes.c_void_p),
@@ -423,20 +424,22 @@ except ImportError:
 else:
     # http://doc.pypy.org/en/latest/objspace-proxies.html
     def copy_tb(base_tb: TracebackType, tb_next: TracebackType | None) -> TracebackType:
-        # Mypy refuses to believe that ProxyOperation can be imported properly
-        # TODO: will need no-any-unimported if/when that's toggled on
-        def controller(operation: tputil.ProxyOperation) -> Any | None:
+        # tputil.ProxyOperation is PyPy-only, but we run mypy on CPython
+        def controller(operation: tputil.ProxyOperation) -> Any | None:  # type: ignore[no-any-unimported]
             # Rationale for pragma: I looked fairly carefully and tried a few
             # things, and AFAICT it's not actually possible to get any
             # 'opname' that isn't __getattr__ or __getattribute__. So there's
             # no missing test we could add, and no value in coverage nagging
             # us about adding one.
-            if operation.opname in [
-                "__getattribute__",
-                "__getattr__",
-            ]:  # pragma: no cover
-                if operation.args[0] == "tb_next":
-                    return tb_next
+            if (
+                operation.opname
+                in {
+                    "__getattribute__",
+                    "__getattr__",
+                }
+                and operation.args[0] == "tb_next"
+            ):  # pragma: no cover
+                return tb_next
             return operation.delegate()  # Deligate is reverting to original behaviour
 
         return cast(
@@ -461,37 +464,6 @@ def concat_tb(
     return current_head
 
 
-# Remove when IPython gains support for exception groups
-# (https://github.com/ipython/ipython/issues/13753)
-if "IPython" in sys.modules:
-    import IPython
-
-    ip = IPython.get_ipython()
-    if ip is not None:
-        if ip.custom_exceptions != ():
-            warnings.warn(
-                "IPython detected, but you already have a custom exception "
-                "handler installed. I'll skip installing Trio's custom "
-                "handler, but this means exception groups will not show full "
-                "tracebacks.",
-                category=RuntimeWarning,
-            )
-        else:
-
-            def trio_show_traceback(
-                self: IPython.core.interactiveshell.InteractiveShell,
-                etype: type[BaseException],
-                value: BaseException,
-                tb: TracebackType,
-                tb_offset: int | None = None,
-            ) -> None:
-                # XX it would be better to integrate with IPython's fancy
-                # exception formatting stuff (and not ignore tb_offset)
-                print_exception(value)
-
-            ip.set_custom_exc((BaseExceptionGroup,), trio_show_traceback)
-
-
 # Ubuntu's system Python has a sitecustomize.py file that import
 # apport_python_hook and replaces sys.excepthook.
 #
@@ -504,9 +476,9 @@ if "IPython" in sys.modules:
 # hook.
 #
 # More details: https://github.com/python-trio/trio/issues/1065
-if (
-    sys.version_info < (3, 11)
-    and getattr(sys.excepthook, "__name__", None) == "apport_excepthook"
+if sys.version_info < (3, 11) and getattr(sys.excepthook, "__name__", None) in (
+    "apport_excepthook",
+    "partial_apport_excepthook",
 ):
     from types import ModuleType
 

@@ -18,8 +18,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # pypy-3.10 is failing, see https://github.com/python-trio/trio/issues/2678
-        python: ['3.8', '3.9', '3.10', 'pypy-3.9-nightly'] #, 'pypy-3.10-nightly']
+        # pypy 3.9 and 3.10 are failing, see https://github.com/python-trio/trio/issues/2678 and https://github.com/python-trio/trio/issues/2776 respectively
+        python: ['3.8', '3.9', '3.10'] #, 'pypy-3.9-nightly', 'pypy-3.10-nightly']
         arch: ['x86', 'x64']
         lsp: ['']
         lsp_extract_file: ['']
@@ -96,11 +96,16 @@ jobs:
       matrix:
         python: ['pypy-3.9', 'pypy-3.10', '3.8', '3.9', '3.10', '3.11', '3.12-dev', 'pypy-3.9-nightly', 'pypy-3.10-nightly']
         check_formatting: ['0']
+        no_test_requirements: ['0']
         extra_name: ['']
         include:
           - python: '3.8'
             check_formatting: '1'
             extra_name: ', check formatting'
+          # separate test run that doesn't install test-requirements.txt
+          - python: '3.8'
+            no_test_requirements: '1'
+            extra_name: ', no test-requirements'
     continue-on-error: >-
       ${{
         (
@@ -129,6 +134,7 @@ jobs:
         run: ./ci.sh
         env:
           CHECK_FORMATTING: '${{ matrix.check_formatting }}'
+          NO_TEST_REQUIREMENTS: '${{ matrix.no_test_requirements }}'
       - if: always()
         uses: codecov/codecov-action@v3
         with:

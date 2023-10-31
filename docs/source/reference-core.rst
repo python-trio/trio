@@ -330,9 +330,9 @@ they might find it easier to work with absolute deadlines instead of
 relative timeouts. If they're the ones calling into the cancellation
 machinery, then they get to pick, and you don't have to worry about
 it. Second, and more importantly, this makes it easier for others to
-re-use your code. If you write a ``http_get`` function, and then I
-come along later and write a ``log_in_to_twitter`` function that needs
-to internally make several ``http_get`` calls, I don't want to have to
+reuse your code. If you write a ``http_get`` function, and then I come
+along later and write a ``log_in_to_twitter`` function that needs to
+internally make several ``http_get`` calls, I don't want to have to
 figure out how to configure the individual timeouts on each of those
 calls – and with Trio's timeout system, it's totally unnecessary.
 
@@ -1174,7 +1174,7 @@ the previous version, and then exits cleanly. The only change is the
 addition of ``async with`` blocks inside the producer and consumer:
 
 .. literalinclude:: reference-core/channels-shutdown.py
-   :emphasize-lines: 11,17
+   :emphasize-lines: 12,18
 
 The really important thing here is the producer's ``async with`` .
 When the producer exits, this closes the ``send_channel``, and that
@@ -1822,6 +1822,25 @@ to spawn a child thread, and then use a :ref:`memory channel
 <channels>` to send messages between the thread and a Trio task:
 
 .. literalinclude:: reference-core/from-thread-example.py
+
+.. note::
+
+   The ``from_thread.run*`` functions reuse the host task that called
+   :func:`trio.to_thread.run_sync` to run your provided function, as long as you're
+   using the default ``cancellable=False`` so Trio can be sure that the task will remain
+   around to perform the work. If you pass ``cancellable=True`` at the outset, or if
+   you provide a :class:`~trio.lowlevel.TrioToken` when calling back in to Trio, your
+   functions will be executed in a new system task. Therefore, the
+   :func:`~trio.lowlevel.current_task`, :func:`current_effective_deadline`, or other
+   task-tree specific values may differ depending on keyword argument values.
+
+You can also use :func:`trio.from_thread.check_cancelled` to check for cancellation from
+a thread that was spawned by :func:`trio.to_thread.run_sync`. If the call to
+:func:`~trio.to_thread.run_sync` was cancelled (even if ``cancellable=False``!), then
+:func:`~trio.from_thread.check_cancelled` will raise :func:`trio.Cancelled`.
+It's like ``trio.from_thread.run(trio.sleep, 0)``, but much faster.
+
+.. autofunction:: trio.from_thread.check_cancelled
 
 Threads and task-local storage
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

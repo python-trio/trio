@@ -10,7 +10,6 @@ from .._threads import to_thread_run_sync
 
 assert (sys.platform != "win32" and sys.platform != "darwin") or not TYPE_CHECKING
 
-
 try:
     from os import waitid
 
@@ -43,7 +42,7 @@ typedef struct siginfo_s {
 int waitid(int idtype, int id, siginfo_t* result, int options);
 """
     )
-    waitid_cffi = waitid_ffi.dlopen(None).waitid
+    waitid_cffi = waitid_ffi.dlopen(None).waitid  # type: ignore[attr-defined]
 
     def sync_wait_reapable(pid: int) -> None:
         P_PID = 1

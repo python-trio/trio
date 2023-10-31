@@ -1,16 +1,17 @@
 from __future__ import annotations
 
+import contextlib
 import operator as _operator
 import ssl as _stdlib_ssl
 from collections.abc import Awaitable, Callable
 from enum import Enum as _Enum
-from typing import Any, Final as TFinal, TypeVar
+from typing import Any, ClassVar, Final as TFinal, Generic, TypeVar
 
 import trio
 
 from . import _sync
 from ._highlevel_generic import aclose_forcefully
-from ._util import ConflictDetector, Final
+from ._util import ConflictDetector, final
 from .abc import Listener, Stream
 
 # General theory of operation:
@@ -239,8 +240,12 @@ class _Once:
 
 _State = _Enum("_State", ["OK", "BROKEN", "CLOSED"])
 
+# invariant
+T_Stream = TypeVar("T_Stream", bound=Stream)
 
-class SSLStream(Stream, metaclass=Final):
+
+@final
+class SSLStream(Stream, Generic[T_Stream]):
     r"""Encrypted communication using SSL/TLS.
 
     :class:`SSLStream` wraps an arbitrary :class:`~trio.abc.Stream`, and
@@ -338,14 +343,14 @@ class SSLStream(Stream, metaclass=Final):
     # SSLListener.__init__, and maybe the open_ssl_over_tcp_* helpers.
     def __init__(
         self,
-        transport_stream: Stream,
+        transport_stream: T_Stream,
         ssl_context: _stdlib_ssl.SSLContext,
         *,
         server_hostname: str | bytes | None = None,
         server_side: bool = False,
         https_compatible: bool = False,
     ) -> None:
-        self.transport_stream: Stream = transport_stream
+        self.transport_stream: T_Stream = transport_stream
         self._state = _State.OK
         self._https_compatible = https_compatible
         self._outgoing = _stdlib_ssl.MemoryBIO()
@@ -355,7 +360,7 @@ class SSLStream(Stream, metaclass=Final):
             self._incoming,
             self._outgoing,
             server_side=server_side,
-            server_hostname=server_hostname,  # type: ignore[arg-type]  # Typeshed bug, does accept bytes as well (typeshed#10590)
+            server_hostname=server_hostname,
         )
         # Tracks whether we've already done the initial handshake
         self._handshook = _Once(self._do_handshake)
@@ -377,7 +382,7 @@ class SSLStream(Stream, metaclass=Final):
 
         self._estimated_receive_size = STARTING_RECEIVE_SIZE
 
-    _forwarded = {
+    _forwarded: ClassVar = {
         "context",
         "server_side",
         "server_hostname",
@@ -394,7 +399,7 @@ class SSLStream(Stream, metaclass=Final):
         "version",
     }
 
-    _after_handshake = {
+    _after_handshake: ClassVar = {
         "session_reused",
         "getpeercert",
         "selected_npn_protocol",
@@ -432,7 +437,7 @@ class SSLStream(Stream, metaclass=Final):
         elif self._state is _State.CLOSED:
             raise trio.ClosedResourceError
         else:  # pragma: no cover
-            assert False
+            raise AssertionError()
 
     # This is probably the single trickiest function in Trio. It has lots of
     # comments, though, just make sure to think carefully if you ever have to
@@ -833,10 +838,8 @@ class SSLStream(Stream, metaclass=Final):
             # Also, if someone else is blocked in send/receive, then we aren't
             # going to be able to do a clean shutdown. If that happens, we'll
             # just do an unclean shutdown.
-            try:
+            with contextlib.suppress(trio.BrokenResourceError, trio.BusyResourceError):
                 await self._retry(self._ssl_object.unwrap, ignore_want_read=True)
-            except (trio.BrokenResourceError, trio.BusyResourceError):
-                pass
         except:
             # Failure! Kill the stream and move on.
             await aclose_forcefully(self.transport_stream)
@@ -888,7 +891,8 @@ class SSLStream(Stream, metaclass=Final):
                 await self.transport_stream.wait_send_all_might_not_block()
 
 
-class SSLListener(Listener[SSLStream], metaclass=Final):
+@final
+class SSLListener(Listener[SSLStream[T_Stream]]):
     """A :class:`~trio.abc.Listener` for SSL/TLS-encrypted servers.
 
     :class:`SSLListener` wraps around another Listener, and converts
@@ -912,7 +916,7 @@ class SSLListener(Listener[SSLStream], metaclass=Final):
 
     def __init__(
         self,
-        transport_listener: Listener[Stream],
+        transport_listener: Listener[T_Stream],
         ssl_context: _stdlib_ssl.SSLContext,
         *,
         https_compatible: bool = False,
@@ -921,7 +925,7 @@ class SSLListener(Listener[SSLStream], metaclass=Final):
         self._ssl_context = ssl_context
         self._https_compatible = https_compatible
 
-    async def accept(self) -> SSLStream:
+    async def accept(self) -> SSLStream[T_Stream]:
         """Accept the next connection and wrap it in an :class:`SSLStream`.
 
         See :meth:`trio.abc.Listener.accept` for details.

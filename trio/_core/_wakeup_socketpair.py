@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import signal
 import socket
 import warnings
@@ -25,17 +26,13 @@ class WakeupSocketpair:
         self.write_sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1)
         # On Windows this is a TCP socket so this might matter. On other
         # platforms this fails b/c AF_UNIX sockets aren't actually TCP.
-        try:
+        with contextlib.suppress(OSError):
             self.write_sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-        except OSError:
-            pass
         self.old_wakeup_fd: int | None = None
 
     def wakeup_thread_and_signal_safe(self) -> None:
-        try:
+        with contextlib.suppress(BlockingIOError):
             self.write_sock.send(b"\x00")
-        except BlockingIOError:
-            pass
 
     async def wait_woken(self) -> None:
         await _core.wait_readable(self.wakeup_sock)
@@ -63,7 +60,8 @@ class WakeupSocketpair:
                     "should set host_uses_signal_set_wakeup_fd=True. "
                     "Otherwise, file a bug on Trio and we'll help you figure "
                     "out what's going on."
-                )
+                ),
+                stacklevel=1,
             )
 
     def close(self) -> None:

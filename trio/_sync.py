@@ -9,7 +9,7 @@ import trio
 
 from . import _core
 from ._core import Abort, ParkingLot, RaiseCancelT, enable_ki_protection
-from ._util import Final
+from ._util import final
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -32,8 +32,9 @@ class EventStatistics:
     tasks_waiting: int = attr.ib()
 
 
+@final
 @attr.s(repr=False, eq=False, hash=False, slots=True)
-class Event(metaclass=Final):
+class Event:
     """A waitable boolean value useful for inter-task synchronization,
     inspired by :class:`threading.Event`.
 
@@ -158,7 +159,8 @@ class CapacityLimiterStatistics:
 # Can be a generic type with a default of Task if/when PEP 696 is released
 # and implemented in type checkers. Making it fully generic would currently
 # introduce a lot of unnecessary hassle.
-class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
+@final
+class CapacityLimiter(AsyncContextManagerMixin):
     """An object for controlling access to a resource with limited capacity.
 
     Sometimes you need to put a limit on how many tasks can do something at
@@ -213,7 +215,7 @@ class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
     """
 
     # total_tokens would ideally be int|Literal[math.inf] - but that's not valid typing
-    def __init__(self, total_tokens: int | float):
+    def __init__(self, total_tokens: int | float):  # noqa: PYI041
         self._lot = ParkingLot()
         self._borrowers: set[Task | object] = set()
         # Maps tasks attempting to acquire -> borrower, to handle on-behalf-of
@@ -243,7 +245,7 @@ class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
         return self._total_tokens
 
     @total_tokens.setter
-    def total_tokens(self, new_total_tokens: int | float) -> None:
+    def total_tokens(self, new_total_tokens: int | float) -> None:  # noqa: PYI041
         if not isinstance(new_total_tokens, int) and new_total_tokens != math.inf:
             raise TypeError("total_tokens must be an int or math.inf")
         if new_total_tokens < 1:
@@ -400,7 +402,8 @@ class CapacityLimiter(AsyncContextManagerMixin, metaclass=Final):
         )
 
 
-class Semaphore(AsyncContextManagerMixin, metaclass=Final):
+@final
+class Semaphore(AsyncContextManagerMixin):
     """A `semaphore <https://en.wikipedia.org/wiki/Semaphore_(programming)>`__.
 
     A semaphore holds an integer value, which can be incremented by
@@ -450,9 +453,7 @@ class Semaphore(AsyncContextManagerMixin, metaclass=Final):
             max_value_str = ""
         else:
             max_value_str = f", max_value={self._max_value}"
-        return "<trio.Semaphore({}{}) at {:#x}>".format(
-            self._value, max_value_str, id(self)
-        )
+        return f"<trio.Semaphore({self._value}{max_value_str}) at {id(self):#x}>"
 
     @property
     def value(self) -> int:
@@ -553,9 +554,7 @@ class _LockImpl(AsyncContextManagerMixin):
         else:
             s1 = "unlocked"
             s2 = ""
-        return "<{} {} object at {:#x}{}>".format(
-            s1, self.__class__.__name__, id(self), s2
-        )
+        return f"<{s1} {self.__class__.__name__} object at {id(self):#x}{s2}>"
 
     def locked(self) -> bool:
         """Check whether the lock is currently held.
@@ -631,7 +630,8 @@ class _LockImpl(AsyncContextManagerMixin):
         )
 
 
-class Lock(_LockImpl, metaclass=Final):
+@final
+class Lock(_LockImpl):
     """A classic `mutex
     <https://en.wikipedia.org/wiki/Lock_(computer_science)>`__.
 
@@ -645,7 +645,8 @@ class Lock(_LockImpl, metaclass=Final):
     """
 
 
-class StrictFIFOLock(_LockImpl, metaclass=Final):
+@final
+class StrictFIFOLock(_LockImpl):
     r"""A variant of :class:`Lock` where tasks are guaranteed to acquire the
     lock in strict first-come-first-served order.
 
@@ -724,7 +725,8 @@ class ConditionStatistics:
     lock_statistics: LockStatistics = attr.ib()
 
 
-class Condition(AsyncContextManagerMixin, metaclass=Final):
+@final
+class Condition(AsyncContextManagerMixin):
     """A classic `condition variable
     <https://en.wikipedia.org/wiki/Monitor_(synchronization)>`__, similar to
     :class:`threading.Condition`.
@@ -742,7 +744,7 @@ class Condition(AsyncContextManagerMixin, metaclass=Final):
     def __init__(self, lock: Lock | None = None):
         if lock is None:
             lock = Lock()
-        if not type(lock) is Lock:
+        if type(lock) is not Lock:
             raise TypeError("lock must be a trio.Lock")
         self._lock = lock
         self._lot = trio.lowlevel.ParkingLot()

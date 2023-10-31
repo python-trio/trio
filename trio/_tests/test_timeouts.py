@@ -1,4 +1,5 @@
 import time
+from typing import Awaitable, Callable, TypeVar
 
 import outcome
 import pytest
@@ -8,8 +9,10 @@ from .._core._tests.tutil import slow
 from .._timeouts import *
 from ..testing import assert_checkpoints
 
+T = TypeVar("T")
 
-async def check_takes_about(f, expected_dur):
+
+async def check_takes_about(f: Callable[[], Awaitable[T]], expected_dur: float) -> T:
     start = time.perf_counter()
     result = await outcome.acapture(f)
     dur = time.perf_counter() - start
@@ -34,6 +37,7 @@ async def check_takes_about(f, expected_dur):
     # value above is exactly 128 ULPs below 1.0, which would make sense if it
     # started as a 1 ULP error at a different dynamic range.)
     assert (1 - 1e-8) <= (dur / expected_dur) < 1.5
+
     return result.unwrap()
 
 
@@ -43,13 +47,13 @@ TARGET = 1.0
 
 
 @slow
-async def test_sleep():
-    async def sleep_1():
+async def test_sleep() -> None:
+    async def sleep_1() -> None:
         await sleep_until(_core.current_time() + TARGET)
 
     await check_takes_about(sleep_1, TARGET)
 
-    async def sleep_2():
+    async def sleep_2() -> None:
         await sleep(TARGET)
 
     await check_takes_about(sleep_2, TARGET)
@@ -63,8 +67,8 @@ async def test_sleep():
 
 
 @slow
-async def test_move_on_after():
-    async def sleep_3():
+async def test_move_on_after() -> None:
+    async def sleep_3() -> None:
         with move_on_after(TARGET):
             await sleep(100)
 
@@ -72,8 +76,8 @@ async def test_move_on_after():
 
 
 @slow
-async def test_fail():
-    async def sleep_4():
+async def test_fail() -> None:
+    async def sleep_4() -> None:
         with fail_at(_core.current_time() + TARGET):
             await sleep(100)
 
@@ -83,7 +87,7 @@ async def test_fail():
     with fail_at(_core.current_time() + 100):
         await sleep(0)
 
-    async def sleep_5():
+    async def sleep_5() -> None:
         with fail_after(TARGET):
             await sleep(100)
 
@@ -94,7 +98,7 @@ async def test_fail():
         await sleep(0)
 
 
-async def test_timeouts_raise_value_error():
+async def test_timeouts_raise_value_error() -> None:
     # deadlines are allowed to be negative, but not delays.
     # neither delays nor deadlines are allowed to be NaN
 

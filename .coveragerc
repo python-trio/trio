@@ -16,14 +16,16 @@ parallel=True
 
 [report]
 precision = 1
+skip_covered = True
 exclude_lines =
   pragma: no cover
   abc.abstractmethod
-  if TYPE_CHECKING:
+  if TYPE_CHECKING.*:
   if _t.TYPE_CHECKING:
   if t.TYPE_CHECKING:
   @overload
   class .*\bProtocol\b.*\):
+  raise NotImplementedError
 
 partial_branches =
   pragma: no branch
