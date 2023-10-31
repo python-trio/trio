@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import os
 import signal
 import subprocess
@@ -26,7 +27,7 @@ from ._sync import Lock
 from ._util import NoPublicConstructor, final
 
 if TYPE_CHECKING:
-    from typing_extensions import TypeAlias
+    from typing_extensions import Self, TypeAlias
 
 
 # Only subscriptable in 3.9+
@@ -171,7 +172,8 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
             else:
                 # It worked! Wrap the raw fd up in a Python file object to
                 # make sure it'll get closed.
-                self._pidfd = open(fd)
+                # SIM115: open-file-with-context-handler
+                self._pidfd = open(fd)  # noqa: SIM115
 
         self.args: StrOrBytesPath | Sequence[StrOrBytesPath] = self._proc.args
         self.pid: int = self._proc.pid
@@ -215,7 +217,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         issue=1104,
         instead="run_process or nursery.start(run_process, ...)",
     )
-    async def __aenter__(self) -> Process:
+    async def __aenter__(self) -> Self:
         return self
 
     @deprecated(
@@ -258,12 +260,10 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         async with self._wait_lock:
             if self.poll() is None:
                 if self._pidfd is not None:
-                    try:
+                    with contextlib.suppress(
+                        ClosedResourceError
+                    ):  # something else (probably a call to poll) already closed the pidfd
                         await trio.lowlevel.wait_readable(self._pidfd.fileno())
-                    except ClosedResourceError:
-                        # something else (probably a call to poll) already closed the
-                        # pidfd
-                        pass
                 else:
                     await wait_child_exiting(self)
                 # We have to use .wait() here, not .poll(), because on macOS
@@ -385,7 +385,7 @@ async def _open_process(
         if options.get(key):
             raise TypeError(
                 "trio.Process only supports communicating over "
-                "unbuffered byte streams; the '{}' option is not supported".format(key)
+                f"unbuffered byte streams; the '{key}' option is not supported"
             )
 
     if os.name == "posix":
@@ -452,7 +452,10 @@ async def _windows_deliver_cancel(p: Process) -> None:
     try:
         p.terminate()
     except OSError as exc:
-        warnings.warn(RuntimeWarning(f"TerminateProcess on {p!r} failed with: {exc!r}"))
+        warnings.warn(
+            RuntimeWarning(f"TerminateProcess on {p!r} failed with: {exc!r}"),
+            stacklevel=1,
+        )
 
 
 async def _posix_deliver_cancel(p: Process) -> None:
@@ -464,12 +467,14 @@ async def _posix_deliver_cancel(p: Process) -> None:
                 f"process {p!r} ignored SIGTERM for 5 seconds. "
                 "(Maybe you should pass a custom deliver_cancel?) "
                 "Trying SIGKILL."
-            )
+            ),
+            stacklevel=1,
         )
         p.kill()
     except OSError as exc:
         warnings.warn(
-            RuntimeWarning(f"tried to kill process {p!r}, but failed with: {exc!r}")
+            RuntimeWarning(f"tried to kill process {p!r}, but failed with: {exc!r}"),
+            stacklevel=1,
         )
 
 
@@ -798,7 +803,7 @@ if TYPE_CHECKING:
     if sys.platform == "win32":
 
         async def open_process(
-            command: Union[StrOrBytesPath, Sequence[StrOrBytesPath]],
+            command: StrOrBytesPath | Sequence[StrOrBytesPath],
             *,
             stdin: int | HasFileno | None = None,
             stdout: int | HasFileno | None = None,

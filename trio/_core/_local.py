@@ -17,7 +17,7 @@ class _NoValue:
 
 
 @final
-@attr.s(eq=False, hash=False, slots=False)
+@attr.s(eq=False, hash=False, slots=True)
 class RunVarToken(Generic[T], metaclass=NoPublicConstructor):
     _var: RunVar[T] = attr.ib()
     previous_value: T | type[_NoValue] = attr.ib(default=_NoValue)
@@ -97,7 +97,7 @@ class RunVar(Generic[T]):
             else:
                 _run.GLOBAL_RUN_CONTEXT.runner._locals[self] = previous
         except AttributeError:
-            raise RuntimeError("Cannot be used outside of a run context")
+            raise RuntimeError("Cannot be used outside of a run context") from None
 
         token.redeemed = True
 

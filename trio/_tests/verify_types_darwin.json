@@ -40,7 +40,7 @@
     ],
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
-      "withKnownType": 630,
+      "withKnownType": 632,
       "withUnknownType": 0
     },
     "ignoreUnknownTypesFromImports": true,

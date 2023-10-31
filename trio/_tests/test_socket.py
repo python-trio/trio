@@ -28,10 +28,10 @@ if TYPE_CHECKING:
         str,
         Union[Tuple[str, int], Tuple[str, int, int, int]],
     ]
-    getaddrinfoResponse: TypeAlias = List[GaiTuple]
+    GetAddrInfoResponse: TypeAlias = List[GaiTuple]
 else:
     GaiTuple: object
-    getaddrinfoResponse = object
+    GetAddrInfoResponse = object
 
 ################################################################
 # utils
@@ -39,9 +39,9 @@ else:
 
 
 class MonkeypatchedGAI:
-    def __init__(self, orig_getaddrinfo: Callable[..., getaddrinfoResponse]):
+    def __init__(self, orig_getaddrinfo: Callable[..., GetAddrInfoResponse]) -> None:
         self._orig_getaddrinfo = orig_getaddrinfo
-        self._responses: dict[tuple[Any, ...], getaddrinfoResponse | str] = {}
+        self._responses: dict[tuple[Any, ...], GetAddrInfoResponse | str] = {}
         self.record: list[tuple[Any, ...]] = []
 
     # get a normalized getaddrinfo argument tuple
@@ -54,11 +54,11 @@ class MonkeypatchedGAI:
         return frozenbound
 
     def set(
-        self, response: getaddrinfoResponse | str, *args: Any, **kwargs: Any
+        self, response: GetAddrInfoResponse | str, *args: Any, **kwargs: Any
     ) -> None:
         self._responses[self._frozenbind(*args, **kwargs)] = response
 
-    def getaddrinfo(self, *args: Any, **kwargs: Any) -> getaddrinfoResponse | str:
+    def getaddrinfo(self, *args: Any, **kwargs: Any) -> GetAddrInfoResponse | str:
         bound = self._frozenbind(*args, **kwargs)
         self.record.append(bound)
         if bound in self._responses:
@@ -119,7 +119,7 @@ def test_socket_has_some_reexports() -> None:
 
 
 async def test_getaddrinfo(monkeygai: MonkeypatchedGAI) -> None:
-    def check(got: getaddrinfoResponse, expected: getaddrinfoResponse) -> None:
+    def check(got: GetAddrInfoResponse, expected: GetAddrInfoResponse) -> None:
         # win32 returns 0 for the proto field
         # musl and glibc have inconsistent handling of the canonical name
         # field (https://github.com/python-trio/trio/issues/1499)
@@ -137,7 +137,7 @@ async def test_getaddrinfo(monkeygai: MonkeypatchedGAI) -> None:
             return (family, type, sockaddr)
 
         def filtered(
-            gai_list: getaddrinfoResponse,
+            gai_list: GetAddrInfoResponse,
         ) -> list[
             tuple[
                 AddressFamily,
@@ -315,7 +315,7 @@ async def test_socket_v6() -> None:
         assert s.family == tsocket.AF_INET6
 
 
-@pytest.mark.skipif(not sys.platform == "linux", reason="linux only")
+@pytest.mark.skipif(sys.platform != "linux", reason="linux only")
 async def test_sniff_sockopts() -> None:
     from socket import AF_INET, AF_INET6, SOCK_DGRAM, SOCK_STREAM
 
@@ -387,7 +387,7 @@ async def test_SocketType_basics() -> None:
 
     # our __getattr__ handles unknown names
     with pytest.raises(AttributeError):
-        sock.asdf  # type: ignore[attr-defined]
+        sock.asdf  # type: ignore[attr-defined]  # noqa: B018
 
     # type family proto
     stdlib_sock = stdlib_socket.socket()
@@ -586,7 +586,10 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
                 | tuple[str, str, int]
                 | tuple[str, str, int, int]
             ) -> Any:
-                return await sock._resolve_address_nocp(args, local=local)
+                return await sock._resolve_address_nocp(
+                    args,
+                    local=local,  # noqa: B023  # local is not bound in function definition
+                )
 
             assert_eq(await res((addrs.arbitrary, "http")), (addrs.arbitrary, 80))
             if v6:
@@ -691,7 +694,7 @@ async def test_SocketType_non_blocking_paths() -> None:
         # immediate success (also checks that the previous attempt didn't
         # actually read anything)
         with assert_checkpoints():
-            await ta.recv(10) == b"1"
+            assert await ta.recv(10) == b"1"
         # immediate failure
         with assert_checkpoints():
             with pytest.raises(TypeError):
@@ -944,11 +947,11 @@ async def test_idna(monkeygai: MonkeypatchedGAI) -> None:
     # We always call socket.getaddrinfo with bytes objects:
     monkeygai.set("bad", "xn--fa-hia.de", 80)
 
-    assert "ok ::1" == await tsocket.getaddrinfo("::1", 80)
-    assert "ok ::1" == await tsocket.getaddrinfo(b"::1", 80)
-    assert "ok faß.de" == await tsocket.getaddrinfo("faß.de", 80)
-    assert "ok faß.de" == await tsocket.getaddrinfo("xn--fa-hia.de", 80)
-    assert "ok faß.de" == await tsocket.getaddrinfo(b"xn--fa-hia.de", 80)
+    assert await tsocket.getaddrinfo("::1", 80) == "ok ::1"
+    assert await tsocket.getaddrinfo(b"::1", 80) == "ok ::1"
+    assert await tsocket.getaddrinfo("faß.de", 80) == "ok faß.de"
+    assert await tsocket.getaddrinfo("xn--fa-hia.de", 80) == "ok faß.de"
+    assert await tsocket.getaddrinfo(b"xn--fa-hia.de", 80) == "ok faß.de"
 
 
 async def test_getprotobyname() -> None:
@@ -1108,7 +1111,7 @@ async def test_interrupted_by_close() -> None:
 async def test_many_sockets() -> None:
     total = 5000  # Must be more than MAX_AFD_GROUP_SIZE
     sockets = []
-    for x in range(total // 2):
+    for _x in range(total // 2):
         try:
             a, b = stdlib_socket.socketpair()
         except OSError as e:  # pragma: no cover
@@ -1122,5 +1125,5 @@ async def test_many_sockets() -> None:
         nursery.cancel_scope.cancel()
     for sock in sockets:
         sock.close()
-    if x != total // 2 - 1:  # pragma: no cover
-        print(f"Unable to open more than {(x-1)*2} sockets.")
+    if _x != total // 2 - 1:  # pragma: no cover
+        print(f"Unable to open more than {(_x-1)*2} sockets.")

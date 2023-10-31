@@ -430,7 +430,7 @@ async def open_file(
 
 
 @overload
-async def open_file(
+async def open_file(  # type: ignore[misc]  # Any usage matches builtins.open().
     file: _OpenFile,
     mode: str,
     buffering: int = -1,
@@ -501,8 +501,8 @@ def wrap_file(file: FileT) -> AsyncIOWrapper[FileT]:
 
     if not (has("close") and (has("read") or has("write"))):
         raise TypeError(
-            "{} does not implement required duck-file methods: "
-            "close and (read or write)".format(file)
+            f"{file} does not implement required duck-file methods: "
+            "close and (read or write)"
         )
 
     return AsyncIOWrapper(file)

@@ -18,8 +18,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # pypy-3.10 is failing, see https://github.com/python-trio/trio/issues/2678
-        python: ['3.8', '3.9', '3.10', 'pypy-3.9-nightly'] #, 'pypy-3.10-nightly']
+        # pypy 3.9 and 3.10 are failing, see https://github.com/python-trio/trio/issues/2678 and https://github.com/python-trio/trio/issues/2776 respectively
+        python: ['3.8', '3.9', '3.10'] #, 'pypy-3.9-nightly', 'pypy-3.10-nightly']
         arch: ['x86', 'x64']
         lsp: ['']
         lsp_extract_file: ['']

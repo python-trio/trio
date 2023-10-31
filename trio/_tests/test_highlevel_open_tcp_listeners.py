@@ -3,7 +3,6 @@ from __future__ import annotations
 import errno
 import socket as stdlib_socket
 import sys
-from math import inf
 from socket import AddressFamily, SocketKind
 from typing import TYPE_CHECKING, Any, Sequence, overload
 
@@ -11,7 +10,13 @@ import attr
 import pytest
 
 import trio
-from trio import SocketListener, open_tcp_listeners, open_tcp_stream, serve_tcp
+from trio import (
+    SocketListener,
+    TrioDeprecationWarning,
+    open_tcp_listeners,
+    open_tcp_stream,
+    serve_tcp,
+)
 from trio.abc import HostnameResolver, SendStream, SocketFactory
 from trio.testing import open_stream_to_socket_listener
 
@@ -156,7 +161,7 @@ class FakeSocket(tsocket.SocketType):
     ) -> int | bytes:
         if (level, optname) == (tsocket.SOL_SOCKET, tsocket.SO_ACCEPTCONN):
             return True
-        assert False  # pragma: no cover
+        raise AssertionError()  # pragma: no cover
 
     @overload
     def setsockopt(self, /, level: int, optname: int, value: int | Buffer) -> None:
@@ -292,7 +297,7 @@ async def test_serve_tcp() -> None:
         listeners: list[SocketListener] = await nursery.start(serve_tcp, handler, 0)
         stream = await open_stream_to_socket_listener(listeners[0])
         async with stream:
-            await stream.receive_some(1) == b"x"
+            assert await stream.receive_some(1) == b"x"
             nursery.cancel_scope.cancel()
 
 
@@ -368,7 +373,6 @@ async def test_open_tcp_listeners_backlog() -> None:
     tsocket.set_custom_socket_factory(fsf)
     for given, expected in [
         (None, 0xFFFF),
-        (inf, 0xFFFF),
         (99999999, 0xFFFF),
         (10, 10),
         (1, 1),
@@ -380,11 +384,22 @@ async def test_open_tcp_listeners_backlog() -> None:
             assert listener.socket.backlog == expected  # type: ignore[attr-defined]
 
 
+async def test_open_tcp_listeners_backlog_inf_warning() -> None:
+    fsf = FakeSocketFactory(99)
+    tsocket.set_custom_socket_factory(fsf)
+    with pytest.warns(TrioDeprecationWarning):
+        listeners = await open_tcp_listeners(0, backlog=float("inf"))  # type: ignore[arg-type]
+    assert listeners
+    for listener in listeners:
+        # `backlog` only exists on FakeSocket
+        assert listener.socket.backlog == 0xFFFF  # type: ignore[attr-defined]
+
+
 async def test_open_tcp_listeners_backlog_float_error() -> None:
     fsf = FakeSocketFactory(99)
     tsocket.set_custom_socket_factory(fsf)
     for should_fail in (0.0, 2.18, 3.14, 9.75):
         with pytest.raises(
-            ValueError, match=f"Only accepts infinity, not {should_fail!r}"
+            TypeError, match=f"backlog must be an int or None, not {should_fail!r}"
         ):
-            await open_tcp_listeners(0, backlog=should_fail)
+            await open_tcp_listeners(0, backlog=should_fail)  # type: ignore[arg-type]
