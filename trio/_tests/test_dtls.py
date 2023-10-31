@@ -8,8 +8,15 @@ from typing import NoReturn
 
 import attr
 import pytest
-import trustme
-from OpenSSL import SSL
+
+from trio._tests.pytest_plugin import skip_if_optional_else_raise
+
+try:
+    import trustme
+    from OpenSSL import SSL
+except ImportError as error:
+    skip_if_optional_else_raise(error)
+
 
 import trio
 import trio.testing
@@ -35,10 +42,7 @@ parametrize_ipv6 = pytest.mark.parametrize(
 
 def endpoint(**kwargs: int | bool) -> DTLSEndpoint:
     ipv6 = kwargs.pop("ipv6", False)
-    if ipv6:
-        family = trio.socket.AF_INET6
-    else:
-        family = trio.socket.AF_INET
+    family = trio.socket.AF_INET6 if ipv6 else trio.socket.AF_INET
     sock = trio.socket.socket(type=trio.socket.SOCK_DGRAM, family=family)
     return DTLSEndpoint(sock, **kwargs)
 
@@ -48,10 +52,7 @@ async def dtls_echo_server(
     *, autocancel: bool = True, mtu: int | None = None, ipv6: bool = False
 ) -> AsyncGenerator[tuple[DTLSEndpoint, tuple[str, int]], None]:
     with endpoint(ipv6=ipv6) as server:
-        if ipv6:
-            localhost = "::1"
-        else:
-            localhost = "127.0.0.1"
+        localhost = "::1" if ipv6 else "127.0.0.1"
         await server.socket.bind((localhost, 0))
         async with trio.open_nursery() as nursery:
 
@@ -166,7 +167,7 @@ async def test_handshake_over_terrible_network(
                         break
 
             def route_packet_wrapper(packet: UDPPacket) -> None:
-                try:
+                try:  # noqa: SIM105  # suppressible-exception
                     nursery.start_soon(route_packet, packet)
                 except RuntimeError:  # pragma: no cover
                     # We're exiting the nursery, so any remaining packets can just get
@@ -684,10 +685,7 @@ async def test_handshake_handles_minimum_network_mtu(
     fn = FakeNet()
     fn.enable()
 
-    if ipv6:
-        mtu = 1280 - 48
-    else:
-        mtu = 576 - 28
+    mtu = 1280 - 48 if ipv6 else 576 - 28
 
     def route_packet(packet: UDPPacket) -> None:
         if len(packet.payload) > mtu:
@@ -862,7 +860,7 @@ async def test_association_replaced_before_handshake_starts() -> None:
 
     # This test shouldn't send any packets
     def route_packet(packet: UDPPacket) -> NoReturn:  # pragma: no cover
-        assert False
+        raise AssertionError()
 
     fn.route_packet = route_packet  # type: ignore[assignment]  # TODO add type annotations for FakeNet
 

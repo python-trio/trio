@@ -1,3 +1,6 @@
+import signal
+
+import gsm
 import trio
 
 
@@ -41,7 +44,7 @@ async def stream_handler(stream):
 # To trigger the shutdown:
 async def listen_for_shutdown_signals():
     with trio.open_signal_receiver(signal.SIGINT, signal.SIGTERM) as signal_aiter:
-        async for sig in signal_aiter:
+        async for _sig in signal_aiter:
             gsm.start_shutdown()
             break
         # TODO: it'd be nice to have some logic like "if we get another

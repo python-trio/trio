@@ -1,23 +1,31 @@
+from __future__ import annotations
+
 from functools import partial
+from socket import AddressFamily, SocketKind
+from ssl import SSLContext
+from typing import Any, NoReturn
 
 import attr
 import pytest
 
 import trio
 import trio.testing
+from trio.abc import Stream
 from trio.socket import AF_INET, IPPROTO_TCP, SOCK_STREAM
 
+from .._highlevel_socket import SocketListener
 from .._highlevel_ssl_helpers import (
     open_ssl_over_tcp_listeners,
     open_ssl_over_tcp_stream,
     serve_ssl_over_tcp,
 )
+from .._ssl import SSLListener
 
-# noqa is needed because flake8 doesn't understand how pytest fixtures work.
+# using noqa because linters don't understand how pytest fixtures work.
 from .test_ssl import SERVER_CTX, client_ctx  # noqa: F401
 
 
-async def echo_handler(stream):
+async def echo_handler(stream: Stream) -> None:
     async with stream:
         try:
             while True:
@@ -33,24 +41,53 @@ async def echo_handler(stream):
 # you ask for.
 @attr.s
 class FakeHostnameResolver(trio.abc.HostnameResolver):
-    sockaddr = attr.ib()
+    sockaddr: tuple[str, int] | tuple[str, int, int, int] = attr.ib()
 
-    async def getaddrinfo(self, *args):
+    async def getaddrinfo(
+        self,
+        host: bytes | str | None,
+        port: bytes | str | int | None,
+        family: int = 0,
+        type: int = 0,
+        proto: int = 0,
+        flags: int = 0,
+    ) -> list[
+        tuple[
+            AddressFamily,
+            SocketKind,
+            int,
+            str,
+            tuple[str, int] | tuple[str, int, int, int],
+        ]
+    ]:
         return [(AF_INET, SOCK_STREAM, IPPROTO_TCP, "", self.sockaddr)]
 
-    async def getnameinfo(self, *args):  # pragma: no cover
+    async def getnameinfo(self, *args: Any) -> NoReturn:  # pragma: no cover
         raise NotImplementedError
 
 
 # This uses serve_ssl_over_tcp, which uses open_ssl_over_tcp_listeners...
-# noqa is needed because flake8 doesn't understand how pytest fixtures work.
-async def test_open_ssl_over_tcp_stream_and_everything_else(client_ctx):  # noqa: F811
+# using noqa because linters don't understand how pytest fixtures work.
+async def test_open_ssl_over_tcp_stream_and_everything_else(
+    client_ctx: SSLContext,  # noqa: F811 # linters doesn't understand fixture
+) -> None:
     async with trio.open_nursery() as nursery:
-        (listener,) = await nursery.start(
-            partial(serve_ssl_over_tcp, echo_handler, 0, SERVER_CTX, host="127.0.0.1")
+        # TODO: this function wraps an SSLListener around a SocketListener, this is illegal
+        # according to current type hints, and probably for good reason. But there should
+        # maybe be a different wrapper class/function that could be used instead?
+        res: list[SSLListener[SocketListener]] = (  # type: ignore[type-var]
+            await nursery.start(
+                partial(
+                    serve_ssl_over_tcp, echo_handler, 0, SERVER_CTX, host="127.0.0.1"
+                )
+            )
         )
+        (listener,) = res
         async with listener:
-            sockaddr = listener.transport_listener.socket.getsockname()
+            # listener.transport_listener is of type Listener[Stream]
+            tp_listener: SocketListener = listener.transport_listener  # type: ignore[assignment]
+
+            sockaddr = tp_listener.socket.getsockname()
             hostname_resolver = FakeHostnameResolver(sockaddr)
             trio.socket.set_custom_hostname_resolver(hostname_resolver)
 
@@ -97,7 +134,7 @@ async def test_open_ssl_over_tcp_stream_and_everything_else(client_ctx):  # noqa
             nursery.cancel_scope.cancel()
 
 
-async def test_open_ssl_over_tcp_listeners():
+async def test_open_ssl_over_tcp_listeners() -> None:
     (listener,) = await open_ssl_over_tcp_listeners(0, SERVER_CTX, host="127.0.0.1")
     async with listener:
         assert isinstance(listener, trio.SSLListener)

@@ -3,19 +3,19 @@ from __future__ import annotations
 
 import errno
 from collections.abc import Generator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from typing import TYPE_CHECKING, overload
 
 import trio
 
 from . import socket as tsocket
-from ._util import ConflictDetector, Final
+from ._util import ConflictDetector, final
 from .abc import HalfCloseableStream, Listener
 
 if TYPE_CHECKING:
     from typing_extensions import Buffer
 
-    from ._socket import _SocketType as SocketType
+    from ._socket import SocketType
 
 # XX TODO: this number was picked arbitrarily. We should do experiments to
 # tune it. (Or make it dynamic -- one idea is to start small and increase it
@@ -42,7 +42,8 @@ def _translate_socket_errors_to_stream_errors() -> Generator[None, None, None]:
             raise trio.BrokenResourceError(f"socket connection broken: {exc}") from exc
 
 
-class SocketStream(HalfCloseableStream, metaclass=Final):
+@final
+class SocketStream(HalfCloseableStream):
     """An implementation of the :class:`trio.abc.HalfCloseableStream`
     interface based on a raw network socket.
 
@@ -80,25 +81,21 @@ class SocketStream(HalfCloseableStream, metaclass=Final):
         # Socket defaults:
 
         # Not supported on e.g. unix domain sockets
-        try:
+        with suppress(OSError):
             self.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, True)
-        except OSError:
-            pass
 
         if hasattr(tsocket, "TCP_NOTSENT_LOWAT"):
-            try:
-                # 16 KiB is pretty arbitrary and could probably do with some
-                # tuning. (Apple is also setting this by default in CFNetwork
-                # apparently -- I'm curious what value they're using, though I
-                # couldn't find it online trivially. CFNetwork-129.20 source
-                # has no mentions of TCP_NOTSENT_LOWAT. This presentation says
-                # "typically 8 kilobytes":
-                # http://devstreaming.apple.com/videos/wwdc/2015/719ui2k57m/719/719_your_app_and_next_generation_networks.pdf?dl=1
-                # ). The theory is that you want it to be bandwidth *
-                # rescheduling interval.
+            # 16 KiB is pretty arbitrary and could probably do with some
+            # tuning. (Apple is also setting this by default in CFNetwork
+            # apparently -- I'm curious what value they're using, though I
+            # couldn't find it online trivially. CFNetwork-129.20 source
+            # has no mentions of TCP_NOTSENT_LOWAT. This presentation says
+            # "typically 8 kilobytes":
+            # http://devstreaming.apple.com/videos/wwdc/2015/719ui2k57m/719/719_your_app_and_next_generation_networks.pdf?dl=1
+            # ). The theory is that you want it to be bandwidth *
+            # rescheduling interval.
+            with suppress(OSError):
                 self.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NOTSENT_LOWAT, 2**14)
-            except OSError:
-                pass
 
     async def send_all(self, data: bytes | bytearray | memoryview) -> None:
         if self.socket.did_shutdown_SHUT_WR:
@@ -348,13 +345,12 @@ _ignorable_accept_errno_names = [
 # Not all errnos are defined on all platforms
 _ignorable_accept_errnos: set[int] = set()
 for name in _ignorable_accept_errno_names:
-    try:
+    with suppress(AttributeError):
         _ignorable_accept_errnos.add(getattr(errno, name))
-    except AttributeError:
-        pass
 
 
-class SocketListener(Listener[SocketStream], metaclass=Final):
+@final
+class SocketListener(Listener[SocketStream]):
     """A :class:`~trio.abc.Listener` that uses a listening socket to accept
     incoming connections as :class:`SocketStream` objects.
 
@@ -409,7 +405,7 @@ class SocketListener(Listener[SocketStream], metaclass=Final):
                 sock, _ = await self.socket.accept()
             except OSError as exc:
                 if exc.errno in _closed_stream_errnos:
-                    raise trio.ClosedResourceError
+                    raise trio.ClosedResourceError from None
                 if exc.errno not in _ignorable_accept_errnos:
                     raise
             else:

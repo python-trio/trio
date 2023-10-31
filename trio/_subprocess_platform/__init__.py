@@ -72,10 +72,10 @@ try:
     if sys.platform == "win32":
         from .windows import wait_child_exiting  # noqa: F811
     elif sys.platform != "linux" and (TYPE_CHECKING or hasattr(_core, "wait_kevent")):
-        from .kqueue import wait_child_exiting  # noqa: F811
+        from .kqueue import wait_child_exiting
     else:
-        # noqa'd as it's an exported symbol
-        from .waitid import wait_child_exiting  # noqa: F811, F401
+        # as it's an exported symbol, noqa'd
+        from .waitid import wait_child_exiting  # noqa: F401
 except ImportError as ex:  # pragma: no cover
     _wait_child_exiting_error = ex
 
@@ -107,12 +107,12 @@ try:
 
         from .._windows_pipes import PipeReceiveStream, PipeSendStream
 
-        def create_pipe_to_child_stdin():  # noqa: F811
+        def create_pipe_to_child_stdin():
             # for stdin, we want the write end (our end) to use overlapped I/O
             rh, wh = windows_pipe(overlapped=(False, True))
             return PipeSendStream(wh), msvcrt.open_osfhandle(rh, os.O_RDONLY)
 
-        def create_pipe_from_child_output():  # noqa: F811
+        def create_pipe_from_child_output():
             # for stdout/err, it's the read end that's overlapped
             rh, wh = windows_pipe(overlapped=(True, False))
             return PipeReceiveStream(rh), msvcrt.open_osfhandle(wh, 0)

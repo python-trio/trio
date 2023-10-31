@@ -51,12 +51,10 @@ class Proxy3:
 
 def add_wrapper(cls, method):
     code = textwrap.dedent(
-        """
+        f"""
         def wrapper(self, *args, **kwargs):
-            return self._wrapped.{}(*args, **kwargs)
-    """.format(
-            method
-        )
+            return self._wrapped.{method}(*args, **kwargs)
+    """
     )
     ns = {}
     exec(code, ns)
@@ -106,7 +104,7 @@ class Proxy5:
 
 def add_wrapper(cls, attr):
     code = textwrap.dedent(
-        """
+        f"""
         def getter(self):
             return self._wrapped.{attr}
 
@@ -115,9 +113,7 @@ def add_wrapper(cls, attr):
 
         def deleter(self):
             del self._wrapped.{attr}
-    """.format(
-            attr=attr
-        )
+    """
     )
     ns = {}
     exec(code, ns)
@@ -156,24 +152,24 @@ def check(cls):
 for cls in classes:
     check(cls)
 
-f = open("/etc/passwd")
-objs = [c(f) for c in classes]
+with open("/etc/passwd") as f:
+    objs = [c(f) for c in classes]
 
-COUNT = 1000000
-try:
-    import __pypy__  # noqa: F401  # __pypy__ imported but unused
-except ImportError:
-    pass
-else:
-    COUNT *= 10
+    COUNT = 1000000
+    try:
+        import __pypy__  # noqa: F401  # __pypy__ imported but unused
+    except ImportError:
+        pass
+    else:
+        COUNT *= 10
 
-while True:
-    print("-------")
-    for obj in objs:
-        start = time.perf_counter()
-        for _ in range(COUNT):
-            obj.fileno()
-            # obj.fileno
-        end = time.perf_counter()
-        per_usec = COUNT / (end - start) / 1e6
-        print("{:7.2f} / us: {} ({})".format(per_usec, obj.strategy, obj.works_for))
+    while True:
+        print("-------")
+        for obj in objs:
+            start = time.perf_counter()
+            for _ in range(COUNT):
+                obj.fileno()
+                # obj.fileno
+            end = time.perf_counter()
+            per_usec = COUNT / (end - start) / 1e6
+            print(f"{per_usec:7.2f} / us: {obj.strategy} ({obj.works_for})")

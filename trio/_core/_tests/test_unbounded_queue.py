@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import itertools
 
 import pytest
@@ -10,8 +12,8 @@ pytestmark = pytest.mark.filterwarnings(
 )
 
 
-async def test_UnboundedQueue_basic():
-    q = _core.UnboundedQueue()
+async def test_UnboundedQueue_basic() -> None:
+    q: _core.UnboundedQueue[str | int | None] = _core.UnboundedQueue()
     q.put_nowait("hi")
     assert await q.get_batch() == ["hi"]
     with pytest.raises(_core.WouldBlock):
@@ -35,17 +37,17 @@ async def test_UnboundedQueue_basic():
     repr(q)
 
 
-async def test_UnboundedQueue_blocking():
+async def test_UnboundedQueue_blocking() -> None:
     record = []
-    q = _core.UnboundedQueue()
+    q = _core.UnboundedQueue[int]()
 
-    async def get_batch_consumer():
+    async def get_batch_consumer() -> None:
         while True:
             batch = await q.get_batch()
             assert batch
             record.append(batch)
 
-    async def aiter_consumer():
+    async def aiter_consumer() -> None:
         async for batch in q:
             assert batch
             record.append(batch)
@@ -67,8 +69,8 @@ async def test_UnboundedQueue_blocking():
             nursery.cancel_scope.cancel()
 
 
-async def test_UnboundedQueue_fairness():
-    q = _core.UnboundedQueue()
+async def test_UnboundedQueue_fairness() -> None:
+    q = _core.UnboundedQueue[int]()
 
     # If there's no-one else around, we can put stuff in and take it out
     # again, no problem
@@ -78,7 +80,7 @@ async def test_UnboundedQueue_fairness():
 
     result = None
 
-    async def get_batch(q):
+    async def get_batch(q: _core.UnboundedQueue[int]) -> None:
         nonlocal result
         result = await q.get_batch()
 
@@ -95,7 +97,7 @@ async def test_UnboundedQueue_fairness():
     # If two tasks are trying to read, they alternate
     record = []
 
-    async def reader(name):
+    async def reader(name: str) -> None:
         while True:
             record.append((name, await q.get_batch()))
 
@@ -114,8 +116,8 @@ async def test_UnboundedQueue_fairness():
     assert record == list(zip(itertools.cycle("ab"), [[i] for i in range(20)]))
 
 
-async def test_UnboundedQueue_trivial_yields():
-    q = _core.UnboundedQueue()
+async def test_UnboundedQueue_trivial_yields() -> None:
+    q = _core.UnboundedQueue[None]()
 
     q.put_nowait(None)
     with assert_checkpoints():
@@ -123,21 +125,21 @@ async def test_UnboundedQueue_trivial_yields():
 
     q.put_nowait(None)
     with assert_checkpoints():
-        async for _ in q:  # noqa # pragma: no branch
+        async for _ in q:  # pragma: no branch
             break
 
 
-async def test_UnboundedQueue_no_spurious_wakeups():
+async def test_UnboundedQueue_no_spurious_wakeups() -> None:
     # If we have two tasks waiting, and put two items into the queue... then
     # only one task wakes up
     record = []
 
-    async def getter(q, i):
+    async def getter(q: _core.UnboundedQueue[int], i: int) -> None:
         got = await q.get_batch()
         record.append((i, got))
 
     async with _core.open_nursery() as nursery:
-        q = _core.UnboundedQueue()
+        q = _core.UnboundedQueue[int]()
         nursery.start_soon(getter, q, 1)
         await wait_all_tasks_blocked()
         nursery.start_soon(getter, q, 2)

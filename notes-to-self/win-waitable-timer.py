@@ -24,14 +24,14 @@
 # make this fairly straightforward, but you obviously need to use a separate
 # time source
 
+import contextlib
 from datetime import datetime, timedelta, timezone
 
 import cffi
-
 import trio
 from trio._core._windows_cffi import ffi, kernel32, raise_winerror
 
-try:
+with contextlib.suppress(cffi.CDefError):
     ffi.cdef(
         """
 typedef struct _PROCESS_LEAP_SECOND_INFO {
@@ -51,8 +51,6 @@ typedef struct _SYSTEMTIME {
 } SYSTEMTIME, *PSYSTEMTIME, *LPSYSTEMTIME;
 """
     )
-except cffi.CDefError:
-    pass
 
 ffi.cdef(
     """

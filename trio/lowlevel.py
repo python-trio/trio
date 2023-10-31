@@ -15,6 +15,7 @@ from ._core import (
     RaiseCancelT as RaiseCancelT,
     RunStatistics as RunStatistics,
     RunVar as RunVar,
+    RunVarToken as RunVarToken,
     Task as Task,
     TrioToken as TrioToken,
     UnboundedQueue as UnboundedQueue,

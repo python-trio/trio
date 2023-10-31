@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import trio
 
 from ._abc import Stream
-from ._util import ConflictDetector, Final
+from ._util import ConflictDetector, final
 
 if TYPE_CHECKING:
     from typing import Final as FinalType
@@ -84,7 +84,8 @@ class _FdHolder:
             self._raw_close()
 
 
-class FdStream(Stream, metaclass=Final):
+@final
+class FdStream(Stream):
     """
     Represents a stream given the file descriptor to a pipe, TTY, etc.
 

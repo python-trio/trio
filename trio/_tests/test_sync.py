@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import weakref
+from typing import TYPE_CHECKING, Callable, Union
 
 import pytest
 
@@ -7,8 +10,11 @@ from .._sync import *
 from .._timeouts import sleep_forever
 from ..testing import assert_checkpoints, wait_all_tasks_blocked
 
+if TYPE_CHECKING:
+    from typing_extensions import TypeAlias
 
-async def test_Event():
+
+async def test_Event() -> None:
     e = Event()
     assert not e.is_set()
     assert e.statistics().tasks_waiting == 0
@@ -22,7 +28,7 @@ async def test_Event():
 
     record = []
 
-    async def child():
+    async def child() -> None:
         record.append("sleeping")
         await e.wait()
         record.append("woken")
@@ -38,7 +44,7 @@ async def test_Event():
         assert record == ["sleeping", "sleeping", "woken", "woken"]
 
 
-async def test_CapacityLimiter():
+async def test_CapacityLimiter() -> None:
     with pytest.raises(TypeError):
         CapacityLimiter(1.0)
     with pytest.raises(ValueError):
@@ -107,7 +113,7 @@ async def test_CapacityLimiter():
     c.release_on_behalf_of("value 1")
 
 
-async def test_CapacityLimiter_inf():
+async def test_CapacityLimiter_inf() -> None:
     from math import inf
 
     c = CapacityLimiter(inf)
@@ -123,7 +129,7 @@ async def test_CapacityLimiter_inf():
     assert c.available_tokens == inf
 
 
-async def test_CapacityLimiter_change_total_tokens():
+async def test_CapacityLimiter_change_total_tokens() -> None:
     c = CapacityLimiter(2)
 
     with pytest.raises(TypeError):
@@ -160,7 +166,7 @@ async def test_CapacityLimiter_change_total_tokens():
 
 
 # regression test for issue #548
-async def test_CapacityLimiter_memleak_548():
+async def test_CapacityLimiter_memleak_548() -> None:
     limiter = CapacityLimiter(total_tokens=1)
     await limiter.acquire()
 
@@ -174,9 +180,9 @@ async def test_CapacityLimiter_memleak_548():
     assert len(limiter._pending_borrowers) == 0
 
 
-async def test_Semaphore():
+async def test_Semaphore() -> None:
     with pytest.raises(TypeError):
-        Semaphore(1.0)
+        Semaphore(1.0)  # type: ignore[arg-type]
     with pytest.raises(ValueError):
         Semaphore(-1)
     s = Semaphore(1)
@@ -204,7 +210,7 @@ async def test_Semaphore():
 
     record = []
 
-    async def do_acquire(s):
+    async def do_acquire(s: Semaphore) -> None:
         record.append("started")
         await s.acquire()
         record.append("finished")
@@ -222,9 +228,9 @@ async def test_Semaphore():
     assert record == ["started", "finished"]
 
 
-async def test_Semaphore_bounded():
+async def test_Semaphore_bounded() -> None:
     with pytest.raises(TypeError):
-        Semaphore(1, max_value=1.0)
+        Semaphore(1, max_value=1.0)  # type: ignore[arg-type]
     with pytest.raises(ValueError):
         Semaphore(2, max_value=1)
     bs = Semaphore(1, max_value=1)
@@ -240,7 +246,9 @@ async def test_Semaphore_bounded():
 
 
 @pytest.mark.parametrize("lockcls", [Lock, StrictFIFOLock], ids=lambda fn: fn.__name__)
-async def test_Lock_and_StrictFIFOLock(lockcls):
+async def test_Lock_and_StrictFIFOLock(
+    lockcls: type[Lock | StrictFIFOLock],
+) -> None:
     l = lockcls()  # noqa
     assert not l.locked()
 
@@ -277,7 +285,7 @@ async def test_Lock_and_StrictFIFOLock(lockcls):
 
     holder_task = None
 
-    async def holder():
+    async def holder() -> None:
         nonlocal holder_task
         holder_task = _core.current_task()
         async with l:
@@ -315,11 +323,11 @@ async def test_Lock_and_StrictFIFOLock(lockcls):
     assert statistics.tasks_waiting == 0
 
 
-async def test_Condition():
+async def test_Condition() -> None:
     with pytest.raises(TypeError):
-        Condition(Semaphore(1))
+        Condition(Semaphore(1))  # type: ignore[arg-type]
     with pytest.raises(TypeError):
-        Condition(StrictFIFOLock)
+        Condition(StrictFIFOLock)  # type: ignore[arg-type]
     l = Lock()  # noqa
     c = Condition(l)
     assert not l.locked()
@@ -349,7 +357,7 @@ async def test_Condition():
 
     finished_waiters = set()
 
-    async def waiter(i):
+    async def waiter(i: int) -> None:
         async with c:
             await c.wait()
         finished_waiters.add(i)
@@ -407,56 +415,56 @@ from .._sync import AsyncContextManagerMixin
 
 
 class ChannelLock1(AsyncContextManagerMixin):
-    def __init__(self, capacity):
-        self.s, self.r = open_memory_channel(capacity)
+    def __init__(self, capacity: int) -> None:
+        self.s, self.r = open_memory_channel[None](capacity)
         for _ in range(capacity - 1):
             self.s.send_nowait(None)
 
-    def acquire_nowait(self):
+    def acquire_nowait(self) -> None:
         self.s.send_nowait(None)
 
-    async def acquire(self):
+    async def acquire(self) -> None:
         await self.s.send(None)
 
-    def release(self):
+    def release(self) -> None:
         self.r.receive_nowait()
 
 
 class ChannelLock2(AsyncContextManagerMixin):
-    def __init__(self):
-        self.s, self.r = open_memory_channel(10)
+    def __init__(self) -> None:
+        self.s, self.r = open_memory_channel[None](10)
         self.s.send_nowait(None)
 
-    def acquire_nowait(self):
+    def acquire_nowait(self) -> None:
         self.r.receive_nowait()
 
-    async def acquire(self):
+    async def acquire(self) -> None:
         await self.r.receive()
 
-    def release(self):
+    def release(self) -> None:
         self.s.send_nowait(None)
 
 
 class ChannelLock3(AsyncContextManagerMixin):
-    def __init__(self):
-        self.s, self.r = open_memory_channel(0)
+    def __init__(self) -> None:
+        self.s, self.r = open_memory_channel[None](0)
         # self.acquired is true when one task acquires the lock and
         # only becomes false when it's released and no tasks are
         # waiting to acquire.
         self.acquired = False
 
-    def acquire_nowait(self):
+    def acquire_nowait(self) -> None:
         assert not self.acquired
         self.acquired = True
 
-    async def acquire(self):
+    async def acquire(self) -> None:
         if self.acquired:
             await self.s.send(None)
         else:
             self.acquired = True
             await _core.checkpoint()
 
-    def release(self):
+    def release(self) -> None:
         try:
             self.r.receive_nowait()
         except _core.WouldBlock:
@@ -489,17 +497,28 @@ generic_lock_test = pytest.mark.parametrize(
     "lock_factory", lock_factories, ids=lock_factory_names
 )
 
+LockLike: TypeAlias = Union[
+    CapacityLimiter,
+    Semaphore,
+    Lock,
+    StrictFIFOLock,
+    ChannelLock1,
+    ChannelLock2,
+    ChannelLock3,
+]
+LockFactory: TypeAlias = Callable[[], LockLike]
+
 
 # Spawn a bunch of workers that take a lock and then yield; make sure that
 # only one worker is ever in the critical section at a time.
 @generic_lock_test
-async def test_generic_lock_exclusion(lock_factory):
+async def test_generic_lock_exclusion(lock_factory: LockFactory) -> None:
     LOOPS = 10
     WORKERS = 5
     in_critical_section = False
     acquires = 0
 
-    async def worker(lock_like):
+    async def worker(lock_like: LockLike) -> None:
         nonlocal in_critical_section, acquires
         for _ in range(LOOPS):
             async with lock_like:
@@ -522,12 +541,12 @@ async def test_generic_lock_exclusion(lock_factory):
 # Several workers queue on the same lock; make sure they each get it, in
 # order.
 @generic_lock_test
-async def test_generic_lock_fifo_fairness(lock_factory):
+async def test_generic_lock_fifo_fairness(lock_factory: LockFactory) -> None:
     initial_order = []
     record = []
     LOOPS = 5
 
-    async def loopy(name, lock_like):
+    async def loopy(name: str, lock_like: LockLike) -> None:
         # Record the order each task was initially scheduled in
         initial_order.append(name)
         for _ in range(LOOPS):
@@ -546,12 +565,14 @@ async def test_generic_lock_fifo_fairness(lock_factory):
 
 
 @generic_lock_test
-async def test_generic_lock_acquire_nowait_blocks_acquire(lock_factory):
+async def test_generic_lock_acquire_nowait_blocks_acquire(
+    lock_factory: LockFactory,
+) -> None:
     lock_like = lock_factory()
 
     record = []
 
-    async def lock_taker():
+    async def lock_taker() -> None:
         record.append("started")
         async with lock_like:
             pass

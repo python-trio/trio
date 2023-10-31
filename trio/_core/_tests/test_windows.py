@@ -15,7 +15,9 @@ on_windows = os.name == "nt"
 # Mark all the tests in this file as being windows-only
 pytestmark = pytest.mark.skipif(not on_windows, reason="windows only")
 
-assert sys.platform == "win32" or not TYPE_CHECKING  # Skip type checking on Windows
+assert (
+    sys.platform == "win32" or not TYPE_CHECKING
+)  # Skip type checking when not on Windows
 
 from ... import _core, sleep
 from ...testing import wait_all_tasks_blocked
@@ -25,6 +27,7 @@ if on_windows:
     from .._windows_cffi import (
         INVALID_HANDLE_VALUE,
         FileFlags,
+        Handle,
         ffi,
         kernel32,
         raise_winerror,
@@ -73,8 +76,10 @@ def test_winerror(monkeypatch: pytest.MonkeyPatch) -> None:
 # then we filter out the warning.
 @pytest.mark.filterwarnings("ignore:.*UnboundedQueue:trio.TrioDeprecationWarning")
 async def test_completion_key_listen() -> None:
+    from .. import _io_windows
+
     async def post(key: int) -> None:
-        iocp = ffi.cast("HANDLE", _core.current_iocp())
+        iocp = Handle(ffi.cast("HANDLE", _core.current_iocp()))
         for i in range(10):
             print("post", i)
             if i % 3 == 0:
@@ -90,6 +95,7 @@ async def test_completion_key_listen() -> None:
             async for batch in queue:  # pragma: no branch
                 print("got some", batch)
                 for info in batch:
+                    assert isinstance(info, _io_windows.CompletionKeyEventInfo)
                     assert info.lpOverlapped == 0
                     assert info.dwNumberOfBytesTransferred == i
                     i += 1
@@ -104,7 +110,9 @@ async def test_readinto_overlapped() -> None:
 
     with tempfile.TemporaryDirectory() as tdir:
         tfile = os.path.join(tdir, "numbers.txt")
-        with open(tfile, "wb") as fp:
+        with open(  # noqa: ASYNC101  # This is a test, synchronous is ok
+            tfile, "wb"
+        ) as fp:
             fp.write(data)
             fp.flush()
 
@@ -153,8 +161,8 @@ def pipe_with_overlapped_read() -> Generator[tuple[BufferedWriter, int], None, N
         write_fd = msvcrt.open_osfhandle(write_handle, 0)
         yield os.fdopen(write_fd, "wb", closefd=False), read_handle
     finally:
-        kernel32.CloseHandle(ffi.cast("HANDLE", read_handle))
-        kernel32.CloseHandle(ffi.cast("HANDLE", write_handle))
+        kernel32.CloseHandle(Handle(ffi.cast("HANDLE", read_handle)))
+        kernel32.CloseHandle(Handle(ffi.cast("HANDLE", write_handle)))
 
 
 @restore_unraisablehook()
@@ -210,7 +218,7 @@ async def test_too_late_to_cancel() -> None:
             # Note: not trio.sleep! We're making sure the OS level
             # ReadFile completes, before Trio has a chance to execute
             # another checkpoint and notice it completed.
-            time.sleep(1)
+            time.sleep(1)  # noqa: ASYNC101
             nursery.cancel_scope.cancel()
         assert target[:6] == b"test1\n"
 

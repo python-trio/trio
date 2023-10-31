@@ -1,4 +1,5 @@
 from __future__ import annotations  # isort: split
+
 import __future__  # Regular import, not special!
 
 import enum
@@ -8,15 +9,18 @@ import inspect
 import json
 import socket as stdlib_socket
 import sys
+import types
+from collections.abc import Iterator
 from pathlib import Path
 from types import ModuleType
-from typing import Protocol
+from typing import Iterable, Protocol
 
 import attrs
 import pytest
 
 import trio
 import trio.testing
+from trio._tests.pytest_plugin import skip_if_optional_else_raise
 
 from .. import _core, _util
 from .._core._tests.tutil import slow
@@ -31,9 +35,12 @@ except ImportError:  # pragma: no cover
     Protocol_ext = Protocol  # type: ignore[assignment]
 
 
-def _ensure_mypy_cache_updated():
+def _ensure_mypy_cache_updated() -> None:
     # This pollutes the `empty` dir. Should this be changed?
-    from mypy.api import run
+    try:
+        from mypy.api import run
+    except ImportError as error:
+        skip_if_optional_else_raise(error)
 
     global mypy_cache_updated
     if not mypy_cache_updated:
@@ -53,7 +60,7 @@ def _ensure_mypy_cache_updated():
         mypy_cache_updated = True
 
 
-def test_core_is_properly_reexported():
+def test_core_is_properly_reexported() -> None:
     # Each export from _core should be re-exported by exactly one of these
     # three modules:
     sources = [trio, trio.lowlevel, trio.testing]
@@ -70,10 +77,24 @@ def test_core_is_properly_reexported():
         assert found == 1
 
 
-def public_modules(module):
+def class_is_final(cls: type) -> bool:
+    """Check if a class cannot be subclassed."""
+    try:
+        # new_class() handles metaclasses properly, type(...) does not.
+        types.new_class("SubclassTester", (cls,))
+    except TypeError:
+        return True
+    else:
+        return False
+
+
+def iter_modules(
+    module: types.ModuleType,
+    only_public: bool,
+) -> Iterator[types.ModuleType]:
     yield module
     for name, class_ in module.__dict__.items():
-        if name.startswith("_"):  # pragma: no cover
+        if name.startswith("_") and only_public:
             continue
         if not isinstance(class_, ModuleType):
             continue
@@ -81,10 +102,11 @@ def public_modules(module):
             continue
         if class_ is module:  # pragma: no cover
             continue
-        yield from public_modules(class_)
+        yield from iter_modules(class_, only_public)
 
 
-PUBLIC_MODULES = list(public_modules(trio))
+PUBLIC_MODULES = list(iter_modules(trio, only_public=True))
+ALL_MODULES = list(iter_modules(trio, only_public=False))
 PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
 
 
@@ -105,10 +127,10 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
     # https://github.com/pypa/setuptools/issues/3274
     "ignore:module 'sre_constants' is deprecated:DeprecationWarning",
 )
-def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
+def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -> None:
     module = importlib.import_module(modname)
 
-    def no_underscores(symbols):
+    def no_underscores(symbols: Iterable[str]) -> set[str]:
         return {symbol for symbol in symbols if not symbol.startswith("_")}
 
     runtime_names = no_underscores(dir(module))
@@ -130,13 +152,20 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
             py_typed_path.write_text("")
 
     if tool == "pylint":
-        from pylint.lint import PyLinter
+        try:
+            from pylint.lint import PyLinter
+        except ImportError as error:
+            skip_if_optional_else_raise(error)
 
         linter = PyLinter()
+        assert module.__file__ is not None
         ast = linter.get_ast(module.__file__, modname)
-        static_names = no_underscores(ast)
+        static_names = no_underscores(ast)  # type: ignore[arg-type]
     elif tool == "jedi":
-        import jedi
+        try:
+            import jedi
+        except ImportError as error:
+            skip_if_optional_else_raise(error)
 
         # Simulate typing "import trio; trio.<TAB>"
         script = jedi.Script(f"import {modname}; {modname}.")
@@ -172,6 +201,10 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
     elif tool == "pyright_verifytypes":
         if not RUN_SLOW:  # pragma: no cover
             pytest.skip("use --run-slow to check against mypy")
+        try:
+            import pyright  # noqa: F401
+        except ImportError as error:
+            skip_if_optional_else_raise(error)
         import subprocess
 
         res = subprocess.run(
@@ -199,7 +232,7 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
             static_names.update(ignored_missing_names)
 
     else:  # pragma: no cover
-        assert False
+        raise AssertionError()
 
     # remove py.typed file
     if tool in ("mypy", "pyright_verifytypes") and not py_typed_exists:
@@ -225,7 +258,7 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
         print()
         for name in sorted(missing_names):
             print(f"    {name}")
-        assert False
+        raise AssertionError()
 
 
 # this could be sped up by only invoking mypy once per module, or even once for all
@@ -242,12 +275,12 @@ def test_static_tool_sees_all_symbols(tool, modname, tmpdir):
 @pytest.mark.parametrize("module_name", PUBLIC_MODULE_NAMES)
 @pytest.mark.parametrize("tool", ["jedi", "mypy"])
 def test_static_tool_sees_class_members(
-    tool: str, module_name: str, tmpdir: Path
+    tool: str, module_name: str, tmp_path: Path
 ) -> None:
     module = PUBLIC_MODULES[PUBLIC_MODULE_NAMES.index(module_name)]
 
     # ignore hidden, but not dunder, symbols
-    def no_hidden(symbols):
+    def no_hidden(symbols: Iterable[str]) -> set[str]:
         return {
             symbol
             for symbol in symbols
@@ -285,7 +318,7 @@ def test_static_tool_sees_class_members(
 
         # skip a bunch of file-system activity (probably can un-memoize?)
         @functools.lru_cache
-        def lookup_symbol(symbol):
+        def lookup_symbol(symbol: str) -> dict[str, str]:
             topname, *modname, name = symbol.split(".")
             version = next(cache.glob("3.*/"))
             mod_cache = version / topname
@@ -302,7 +335,7 @@ def test_static_tool_sees_class_members(
                     mod_cache = mod_cache / (modname[-1] + ".data.json")
 
             with mod_cache.open() as f:
-                return json.loads(f.read())["names"][name]
+                return json.loads(f.read())["names"][name]  # type: ignore[no-any-return]
 
     errors: dict[str, object] = {}
     for class_name, class_ in module.__dict__.items():
@@ -333,6 +366,10 @@ def test_static_tool_sees_class_members(
             "__setstate__",
             "__slots__",
             "__weakref__",
+            # ignore errors about dunders inherited from stdlib that tools might
+            # not see
+            "__copy__",
+            "__deepcopy__",
         }
 
         # pypy seems to have some additional dunders that differ
@@ -354,7 +391,10 @@ def test_static_tool_sees_class_members(
         )
 
         if tool == "jedi":
-            import jedi
+            try:
+                import jedi
+            except ImportError as error:
+                skip_if_optional_else_raise(error)
 
             script = jedi.Script(
                 f"from {module_name} import {class_name}; {class_name}."
@@ -379,7 +419,7 @@ def test_static_tool_sees_class_members(
             static_names -= ignore_names
 
         else:  # pragma: no cover
-            assert False, "unknown tool"
+            raise AssertionError("unknown tool")
 
         missing = runtime_names - static_names
         extra = static_names - runtime_names
@@ -406,6 +446,14 @@ def test_static_tool_sees_class_members(
             before = len(extra)
             extra = {e for e in extra if not e.endswith("AttrsAttributes__")}
             assert len(extra) == before - 1
+
+        # mypy does not see these attributes in Enum subclasses
+        if (
+            tool == "mypy"
+            and enum.Enum in class_.__mro__
+            and sys.version_info >= (3, 11)
+        ):
+            extra.difference_update({"__copy__", "__deepcopy__"})
 
         # TODO: this *should* be visible via `dir`!!
         if tool == "mypy" and class_ == trio.Nursery:
@@ -460,9 +508,25 @@ def test_static_tool_sees_class_members(
                 missing.remove("__aiter__")
                 missing.remove("__anext__")
 
-        # intentionally hidden behind type guard
+        # __getattr__ is intentionally hidden behind type guard. That hook then
+        # forwards property accesses to PurePath, meaning these names aren't directly on
+        # the class.
         if class_ == trio.Path:
             missing.remove("__getattr__")
+            before = len(extra)
+            extra -= {
+                "anchor",
+                "drive",
+                "name",
+                "parent",
+                "parents",
+                "parts",
+                "root",
+                "stem",
+                "suffix",
+                "suffixes",
+            }
+            assert len(extra) == before - 10
 
         if missing or extra:  # pragma: no cover
             errors[f"{module_name}.{class_name}"] = {
@@ -484,7 +548,21 @@ def test_static_tool_sees_class_members(
     assert not errors
 
 
+def test_nopublic_is_final() -> None:
+    """Check all NoPublicConstructor classes are also @final."""
+    assert class_is_final(_util.NoPublicConstructor)  # This is itself final.
+
+    for module in ALL_MODULES:
+        for _name, class_ in module.__dict__.items():
+            if isinstance(class_, _util.NoPublicConstructor):
+                assert class_is_final(class_)
+
+
 def test_classes_are_final() -> None:
+    # Sanity checks.
+    assert not class_is_final(object)
+    assert class_is_final(bool)
+
     for module in PUBLIC_MODULES:
         for name, class_ in module.__dict__.items():
             if not isinstance(class_, type):
@@ -508,15 +586,10 @@ def test_classes_are_final() -> None:
             # inspect.isabstract returns False for boring reasons.
             if class_ is trio.abc.Instrument or class_ is trio.socket.SocketType:
                 continue
-            # Enums have their own metaclass, so we can't use our metaclasses.
-            # And I don't think there's a lot of risk from people subclassing
-            # enums...
-            if issubclass(class_, enum.Enum):
-                continue
             # ... insert other special cases here ...
 
             # don't care about the *Statistics classes
             if name.endswith("Statistics"):
                 continue
 
-            assert isinstance(class_, _util.Final)
+            assert class_is_final(class_)

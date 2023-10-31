@@ -5,8 +5,12 @@ from collections.abc import Iterable
 from math import inf
 from operator import itemgetter
 from types import TracebackType
-from typing import Tuple  # only needed for typechecking on <3.9
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Generic,
+    TypeVar,
+    Tuple,  # only needed for typechecking on <3.9
+)
 
 import attr
 from outcome import Error, Value
@@ -15,7 +19,7 @@ import trio
 
 from ._abc import ReceiveChannel, ReceiveType, SendChannel, SendType
 from ._core import Abort, RaiseCancelT, Task, enable_ki_protection
-from ._util import NoPublicConstructor, generic_function
+from ._util import NoPublicConstructor, final, generic_function
 
 if TYPE_CHECKING:
     from typing_extensions import Self
@@ -25,7 +29,7 @@ T = TypeVar("T")
 
 
 def _open_memory_channel(
-    max_buffer_size: int | float,
+    max_buffer_size: int | float,  # noqa: PYI041
 ) -> MemoryChannelPair[T]:
     """Open a channel for passing objects between tasks within a process.
 
@@ -96,11 +100,11 @@ if TYPE_CHECKING:
     # Need to use Tuple instead of tuple due to CI check running on 3.8
     class open_memory_channel(MemoryChannelPair[T]):
         def __new__(  # type: ignore[misc]  # "must return a subtype"
-            cls, max_buffer_size: int | float
+            cls, max_buffer_size: int | float  # noqa: PYI041
         ) -> MemoryChannelPair[T]:
             return _open_memory_channel(max_buffer_size)
 
-        def __init__(self, max_buffer_size: int | float):
+        def __init__(self, max_buffer_size: int | float):  # noqa: PYI041
             ...
 
 else:
@@ -142,6 +146,7 @@ class MemoryChannelState(Generic[T]):
         )
 
 
+@final
 @attr.s(eq=False, repr=False)
 class MemorySendChannel(
     SendChannel[SendType],
@@ -159,9 +164,7 @@ class MemorySendChannel(
         self._state.open_send_channels += 1
 
     def __repr__(self) -> str:
-        return "<send channel at {:#x}, using buffer at {:#x}>".format(
-            id(self), id(self._state)
-        )
+        return f"<send channel at {id(self):#x}, using buffer at {id(self._state):#x}>"
 
     def statistics(self) -> MemoryChannelStats:
         # XX should we also report statistics specific to this object?
@@ -290,6 +293,7 @@ class MemorySendChannel(
         await trio.lowlevel.checkpoint()
 
 
+@final
 @attr.s(eq=False, repr=False)
 class MemoryReceiveChannel(
     ReceiveChannel[ReceiveType],

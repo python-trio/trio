@@ -79,7 +79,7 @@ from typing import TYPE_CHECKING
 import attr
 
 from .. import _core
-from .._util import Final
+from .._util import final
 
 if TYPE_CHECKING:
     from ._run import Task
@@ -89,7 +89,7 @@ if TYPE_CHECKING:
 class ParkingLotStatistics:
     """An object containing debugging information for a ParkingLot.
 
-    Currently the following fields are defined:
+    Currently, the following fields are defined:
 
     * ``tasks_waiting`` (int): The number of tasks blocked on this lot's
       :meth:`trio.lowlevel.ParkingLot.park` method.
@@ -99,8 +99,9 @@ class ParkingLotStatistics:
     tasks_waiting: int = attr.ib()
 
 
+@final
 @attr.s(eq=False, hash=False, slots=True)
-class ParkingLot(metaclass=Final):
+class ParkingLot:
     """A fair wait queue with cancellation and requeueing.
 
     This class encapsulates the tricky parts of implementing a wait
@@ -145,7 +146,7 @@ class ParkingLot(metaclass=Final):
 
         await _core.wait_task_rescheduled(abort_fn)
 
-    def _pop_several(self, count: int | float) -> Iterator[Task]:
+    def _pop_several(self, count: int | float) -> Iterator[Task]:  # noqa: PYI041
         if isinstance(count, float):
             if math.isinf(count):
                 count = len(self._parked)
@@ -158,7 +159,7 @@ class ParkingLot(metaclass=Final):
             yield task
 
     @_core.enable_ki_protection
-    def unpark(self, *, count: int | float = 1) -> list[Task]:
+    def unpark(self, *, count: int | float = 1) -> list[Task]:  # noqa: PYI041
         """Unpark one or more tasks.
 
         This wakes up ``count`` tasks that are blocked in :meth:`park`. If
@@ -179,7 +180,9 @@ class ParkingLot(metaclass=Final):
         return self.unpark(count=len(self))
 
     @_core.enable_ki_protection
-    def repark(self, new_lot: ParkingLot, *, count: int | float = 1) -> None:
+    def repark(
+        self, new_lot: ParkingLot, *, count: int | float = 1  # noqa: PYI041
+    ) -> None:
         """Move parked tasks from one :class:`ParkingLot` object to another.
 
         This dequeues ``count`` tasks from one lot, and requeues them on
