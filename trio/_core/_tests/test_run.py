@@ -15,7 +15,7 @@ from collections.abc import (
     Callable,
     Generator,
 )
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack, contextmanager, suppress
 from math import inf
 from typing import Any, NoReturn, TypeVar, cast
 
@@ -40,7 +40,7 @@ from .tutil import (
 )
 
 if sys.version_info < (3, 11):
-    from exceptiongroup import ExceptionGroup
+    from exceptiongroup import BaseExceptionGroup, ExceptionGroup
 
 
 T = TypeVar("T")
@@ -311,10 +311,8 @@ async def test_current_statistics(mock_clock: _core.MockClock) -> None:
 
     # A child that sticks around to make some interesting stats:
     async def child() -> None:
-        try:
+        with suppress(_core.Cancelled):
             await sleep_forever()
-        except _core.Cancelled:
-            pass
 
     stats = _core.current_statistics()
     print(stats)
@@ -1089,10 +1087,8 @@ async def test_exc_info_after_yield_error() -> None:
         try:
             raise KeyError
         except Exception:
-            try:
+            with suppress(Exception):
                 await sleep_forever()
-            except Exception:
-                pass
             raise
 
     with pytest.raises(KeyError):
@@ -1215,10 +1211,8 @@ def test_TrioToken_run_sync_soon_idempotent_requeue() -> None:
 
     def redo(token: _core.TrioToken) -> None:
         record.append(None)
-        try:
+        with suppress(_core.RunFinishedError):
             token.run_sync_soon(redo, token, idempotent=True)
-        except _core.RunFinishedError:
-            pass
 
     async def main() -> None:
         token = _core.current_trio_token()
@@ -1907,7 +1901,7 @@ async def test_nursery_stop_iteration() -> None:
 
 async def test_nursery_stop_async_iteration() -> None:
     class it:
-        def __init__(self, count: int):
+        def __init__(self, count: int) -> None:
             self.count = count
             self.val = 0
 
@@ -1920,7 +1914,7 @@ async def test_nursery_stop_async_iteration() -> None:
             return val
 
     class async_zip:
-        def __init__(self, *largs: it):
+        def __init__(self, *largs: it) -> None:
             self.nexts = [obj.__anext__ for obj in largs]
 
         async def _accumulate(
@@ -2538,3 +2532,62 @@ async def test_cancel_scope_no_cancellederror() -> None:
             raise ExceptionGroup("test", [RuntimeError(), RuntimeError()])
 
     assert not scope.cancelled_caught
+
+
+"""These tests are for fixing https://github.com/python-trio/trio/issues/2611
+where exceptions raised before `task_status.started()` got wrapped twice.
+"""
+
+
+async def raise_before(*, task_status: _core.TaskStatus[None]) -> None:
+    raise ValueError
+
+
+async def raise_after_started(*, task_status: _core.TaskStatus[None]) -> None:
+    task_status.started()
+    raise ValueError
+
+
+async def raise_custom_exception_group_before(
+    *, task_status: _core.TaskStatus[None]
+) -> None:
+    raise ExceptionGroup("my group", [ValueError()])
+
+
+def _check_exception(exc: pytest.ExceptionInfo[BaseException]) -> None:
+    assert isinstance(exc.value, BaseExceptionGroup)
+    assert len(exc.value.exceptions) == 1
+    assert isinstance(exc.value.exceptions[0], ValueError)
+
+
+async def _start_raiser(
+    raiser: Callable[[], Awaitable[None]], strict: bool | None = None
+) -> None:
+    async with _core.open_nursery(strict_exception_groups=strict) as nursery:
+        await nursery.start(raiser)
+
+
+@pytest.mark.parametrize("strict", [False, True])
+@pytest.mark.parametrize("raiser", [raise_before, raise_after_started])
+async def test_strict_before_started(
+    strict: bool, raiser: Callable[[], Awaitable[None]]
+) -> None:
+    with pytest.raises(BaseExceptionGroup if strict else ValueError) as exc:
+        await _start_raiser(raiser, strict)
+    if strict:
+        _check_exception(exc)
+
+
+# it was only when run from `trio.run` that the double wrapping happened
+@pytest.mark.parametrize("strict", [False, True])
+@pytest.mark.parametrize(
+    "raiser", [raise_before, raise_after_started, raise_custom_exception_group_before]
+)
+def test_trio_run_strict_before_started(
+    strict: bool, raiser: Callable[[], Awaitable[None]]
+) -> None:
+    expect_group = strict or raiser is raise_custom_exception_group_before
+    with pytest.raises(BaseExceptionGroup if expect_group else ValueError) as exc:
+        _core.run(_start_raiser, raiser, strict_exception_groups=strict)
+    if expect_group:
+        _check_exception(exc)

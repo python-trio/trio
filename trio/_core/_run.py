@@ -18,7 +18,7 @@ from collections.abc import (
     Iterator,
     Sequence,
 )
-from contextlib import AbstractAsyncContextManager, contextmanager
+from contextlib import AbstractAsyncContextManager, contextmanager, suppress
 from contextvars import copy_context
 from heapq import heapify, heappop, heappush
 from math import inf
@@ -72,7 +72,7 @@ if TYPE_CHECKING:
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: Final = 1000
 
 # Passed as a sentinel
-_NO_SEND: Final["Outcome[Any]"] = cast("Outcome[Any]", object())
+_NO_SEND: Final[Outcome[Any]] = cast("Outcome[Any]", object())
 
 FnT = TypeVar("FnT", bound="Callable[..., Any]")
 StatusT = TypeVar("StatusT")
@@ -537,8 +537,8 @@ class CancelScope:
     def _close(self, exc: BaseException | None) -> BaseException | None:
         if self._cancel_status is None:
             new_exc = RuntimeError(
-                "Cancel scope stack corrupted: attempted to exit {!r} "
-                "which had already been exited".format(self)
+                f"Cancel scope stack corrupted: attempted to exit {self!r} "
+                "which had already been exited"
             )
             new_exc.__context__ = exc
             return new_exc
@@ -559,10 +559,8 @@ class CancelScope:
                 # cancel scope it's trying to close. Raise an error
                 # without changing any state.
                 new_exc = RuntimeError(
-                    "Cancel scope stack corrupted: attempted to exit {!r} "
-                    "from unrelated {!r}\n{}".format(
-                        self, scope_task, MISNESTING_ADVICE
-                    )
+                    f"Cancel scope stack corrupted: attempted to exit {self!r} "
+                    f"from unrelated {scope_task!r}\n{MISNESTING_ADVICE}"
                 )
                 new_exc.__context__ = exc
                 return new_exc
@@ -792,7 +790,9 @@ class CancelScope:
         cancelled, then :attr:`cancelled_caught` is usually more
         appropriate.
         """
-        if self._cancel_status is not None or not self._has_been_entered:
+        if (  # noqa: SIM102  # collapsible-if but this way is nicer
+            self._cancel_status is not None or not self._has_been_entered
+        ):
             # Scope is active or not yet entered: make sure cancel_called
             # is true if the deadline has passed. This shouldn't
             # be able to actually change behavior, since we check for
@@ -1103,6 +1103,13 @@ class Nursery(metaclass=NoPublicConstructor):
 
         popped = self._parent_task._child_nurseries.pop()
         assert popped is self
+
+        # don't unnecessarily wrap an exceptiongroup in another exceptiongroup
+        # see https://github.com/python-trio/trio/issues/2611
+        if len(self._pending_excs) == 1 and isinstance(
+            self._pending_excs[0], BaseExceptionGroup
+        ):
+            return self._pending_excs[0]
         if self._pending_excs:
             try:
                 return MultiError(
@@ -1708,10 +1715,7 @@ class Runner:
         # Propagate contextvars
         ######
         if context is None:
-            if system_task:
-                context = self.system_context.copy()
-            else:
-                context = copy_context()
+            context = self.system_context.copy() if system_task else copy_context()
 
         ######
         # Call the function and get the coroutine object, while giving helpful
@@ -1773,9 +1777,7 @@ class Runner:
                 # traceback frame included
                 raise RuntimeError(
                     "Cancel scope stack corrupted: cancel scope surrounding "
-                    "{!r} was closed before the task exited\n{}".format(
-                        task, MISNESTING_ADVICE
-                    )
+                    f"{task!r} was closed before the task exited\n{MISNESTING_ADVICE}"
                 )
             except RuntimeError as new_exc:
                 if isinstance(outcome, Error):
@@ -1943,10 +1945,8 @@ class Runner:
     # This gets called from signal context
     def deliver_ki(self) -> None:
         self.ki_pending = True
-        try:
+        with suppress(RunFinishedError):
             self.entry_queue.run_sync_soon(self._deliver_ki_cb)
-        except RunFinishedError:
-            pass
 
     def _deliver_ki_cb(self) -> None:
         if not self.ki_pending:
@@ -2596,10 +2596,10 @@ def unrolled_run(
                         runner.task_exited(task, msg.final_outcome)
                     else:
                         exc = TypeError(
-                            "trio.run received unrecognized yield message {!r}. "
+                            f"trio.run received unrecognized yield message {msg!r}. "
                             "Are you trying to use a library written for some "
                             "other framework like asyncio? That won't work "
-                            "without some kind of compatibility shim.".format(msg)
+                            "without some kind of compatibility shim."
                         )
                         # The foreign library probably doesn't adhere to our
                         # protocol of unwrapping whatever outcome gets sent in.

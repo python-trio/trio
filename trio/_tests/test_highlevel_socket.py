@@ -211,7 +211,7 @@ async def test_SocketListener_socket_closed_underfoot() -> None:
 
 async def test_SocketListener_accept_errors() -> None:
     class FakeSocket(tsocket.SocketType):
-        def __init__(self, events: Sequence[SocketType | BaseException]):
+        def __init__(self, events: Sequence[SocketType | BaseException]) -> None:
             self._events = iter(events)
 
         type = tsocket.SOCK_STREAM
