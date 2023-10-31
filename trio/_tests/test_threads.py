@@ -29,6 +29,7 @@ from .. import (
     CancelScope,
     CapacityLimiter,
     Event,
+    TrioDeprecationWarning,
     _core,
     fail_after,
     move_on_after,
@@ -1088,8 +1089,8 @@ async def test_cancellable_and_abandon_raises() -> None:
 
 
 async def test_cancellable_warns() -> None:
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(TrioDeprecationWarning):
         await to_thread_run_sync(bool, cancellable=False)
 
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(TrioDeprecationWarning):
         await to_thread_run_sync(bool, cancellable=True)

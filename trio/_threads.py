@@ -292,11 +292,11 @@ async def to_thread_run_sync(  # type: ignore[misc]
             raise ValueError(
                 "Cannot set `cancellable` and `abandon_on_cancel` simultaneously."
             )
-        warnings.warn(
-            DeprecationWarning(
-                "`cancellable` keyword argument is deprecated, "
-                "use `abandon on cancel` instead."
-            )
+        warn_deprecated(
+            "`cancellable=` keyword argument",
+            "0.23.0",
+            issue=2841,
+            instead="`abandon_on_cancel=` keyword argument",
         )
         abandon_on_cancel = cancellable
     # raise early if abandon_on_cancel.__bool__ raises
