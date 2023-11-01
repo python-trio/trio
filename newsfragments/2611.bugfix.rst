@@ -1,1 +1,5 @@
-With ``strict_exception_groups=True``, when you ran a function in a nursery which raised an exception before calling ``task_status.started()``, it previously got wrapped twice over in ``ExceptionGroup`` in some cases. It no longer does that, and also won't wrap any ``ExceptionGroup`` raised by the function itself.
+When a starting function raises before calling :func:`trio.TaskStatus.started`,
+:func:`trio.Nursery.start` will no longer wrap the exception in an undocumented
+:exc:`ExceptionGroup`. Previously, :func:`trio.Nursery.start` would incorrectly
+raise an :exc:`ExceptionGroup` containing it when using ``trio.run(...,
+strict_exception_groups=True)``.
