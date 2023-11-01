@@ -464,9 +464,7 @@ def from_thread_run(
         Cancelled: If the original call to :func:`trio.to_thread.run_sync` is cancelled
             (if *trio_token* is None) or the call to :func:`trio.run` completes
             (if *trio_token* is not None) while ``afn(*args)`` is running,
-            then *afn* is likely to raise
-            completes while ``afn(*args)`` is running, then ``afn`` is likely to raise
-            :exc:`trio.Cancelled`.
+            then *afn* is likely to raise :exc:`trio.Cancelled`.
         RuntimeError: if you try calling this from inside the Trio thread,
             which would otherwise cause a deadlock, or if no ``trio_token`` was
             provided, and we can't infer one from context.
