@@ -53,12 +53,13 @@ def _wildcard_ip_for(family: int) -> IPAddress:
     raise NotImplementedError("Unhandled ip address family")  # pragma: no cover
 
 
-def _localhost_ip_for(family: int) -> IPAddress:
+# not used anywhere
+def _localhost_ip_for(family: int) -> IPAddress:  # pragma: no cover
     if family == trio.socket.AF_INET:
         return ipaddress.ip_address("127.0.0.1")
     elif family == trio.socket.AF_INET6:
         return ipaddress.ip_address("::1")
-    raise NotImplementedError("Unhandled ip address family")  # pragma: no cover
+    raise NotImplementedError("Unhandled ip address family")
 
 
 def _fake_err(code: int) -> NoReturn:
@@ -67,12 +68,12 @@ def _fake_err(code: int) -> NoReturn:
 
 def _scatter(data: bytes, buffers: Iterable[Buffer]) -> int:
     written = 0
-    for buf in buffers:
+    for buf in buffers:  # pragma: no branch
         next_piece = data[written : written + memoryview(buf).nbytes]
         with memoryview(buf) as mbuf:
             mbuf[: len(next_piece)] = next_piece
         written += len(next_piece)
-        if written == len(data):
+        if written == len(data):  # pragma: no branch
             break
     return written
 
@@ -114,7 +115,8 @@ class UDPPacket:
     destination: UDPEndpoint
     payload: bytes = attr.ib(repr=lambda p: p.hex())
 
-    def reply(self, payload: bytes) -> UDPPacket:
+    # not used/tested anywhere
+    def reply(self, payload: bytes) -> UDPPacket:  # pragma: no cover
         return UDPPacket(
             source=self.destination, destination=self.source, payload=payload
         )
@@ -161,8 +163,8 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
 class FakeNet:
     def __init__(self) -> None:
         # When we need to pick an arbitrary unique ip address/port, use these:
-        self._auto_ipv4_iter = ipaddress.IPv4Network("1.0.0.0/8").hosts()
-        self._auto_ipv4_iter = ipaddress.IPv6Network("1::/16").hosts()  # type: ignore[assignment]
+        self._auto_ipv4_iter = ipaddress.IPv4Network("1.0.0.0/8").hosts()  # untested
+        self._auto_ipv6_iter = ipaddress.IPv6Network("1::/16").hosts()  # untested
         self._auto_port_iter = iter(range(50000, 65535))
 
         self._bound: dict[UDPBinding, FakeSocket] = {}
@@ -200,9 +202,9 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
     ):
         self._fake_net = fake_net
 
-        if not family:
+        if not family:  # pragma: no cover
             family = trio.socket.AF_INET
-        if not type:
+        if not type:  # pragma: no cover
             type = trio.socket.SOCK_STREAM
 
         if family not in (trio.socket.AF_INET, trio.socket.AF_INET6):
@@ -240,7 +242,6 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
             _fake_err(errno.EBADF)
 
     def close(self) -> None:
-        # breakpoint()
         if self._closed:
             return
         self._closed = True
@@ -274,7 +275,9 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         if self._binding is not None:
             _fake_err(errno.EINVAL)
         await trio.lowlevel.checkpoint()
-        ip_str, port = await self._resolve_address_nocp(addr, local=True)
+        ip_str, port, *_ = await self._resolve_address_nocp(addr, local=True)
+        assert _ == [], "TODO: handle other values?"
+
         ip = ipaddress.ip_address(ip_str)
         assert _family_for(ip) == self.family
         # We convert binds to INET_ANY into binds to localhost
@@ -291,25 +294,14 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
     async def connect(self, peer: object) -> NoReturn:
         raise NotImplementedError("FakeNet does not (yet) support connected sockets")
 
-    async def sendmsg(self, *args: Any) -> int:
+    async def sendmsg(
+        self,
+        buffers: Iterable[Buffer],
+        ancdata: Iterable[tuple[int, int, Buffer]] = (),
+        flags: int = 0,
+        address: Any | None = None,
+    ) -> int:
         self._check_closed()
-        ancdata = []
-        flags = 0
-        address = None
-
-        # This does *not* match up with socket.socket.sendmsg (!!!)
-        # https://docs.python.org/3/library/socket.html#socket.socket.sendmsg
-        # they always have (buffers, ancdata, flags, address)
-        if len(args) == 1:
-            (buffers,) = args
-        elif len(args) == 2:
-            buffers, address = args
-        elif len(args) == 3:
-            buffers, flags, address = args
-        elif len(args) == 4:
-            buffers, ancdata, flags, address = args
-        else:
-            raise TypeError("wrong number of arguments")
 
         await trio.lowlevel.checkpoint()
 
@@ -351,6 +343,14 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
             raise NotImplementedError("FakeNet doesn't support ancillary data")
         if flags != 0:
             raise NotImplementedError("FakeNet doesn't support any recv flags")
+        if self._binding is None:
+            # I messed this up a few times when writing tests ... but it also never happens
+            # in any of the existing tests, so maybe it could be intentional...
+            raise NotImplementedError(
+                "The code will most likely hang if you try to receive on a fakesocket "
+                "without a binding. If that is not the case, or you explicitly want to "
+                "test that, remove this warning."
+            )
 
         self._check_closed()
 
@@ -385,7 +385,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
             assert hasattr(
                 self._binding, "remote"
             ), "This method seems to assume that self._binding has a remote UDPEndpoint"
-            if self._binding.remote is not None:
+            if self._binding.remote is not None:  # pragma: no cover
                 assert isinstance(
                     self._binding.remote, UDPEndpoint
                 ), "Self._binding.remote should be a UDPEndpoint"
@@ -450,7 +450,25 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
     async def send(self, data: Buffer, flags: int = 0) -> int:
         return await self.sendto(data, flags, None)
 
+    @overload
+    async def sendto(
+        self, __data: Buffer, __address: tuple[object, ...] | str | Buffer
+    ) -> int:
+        ...
+
+    @overload
+    async def sendto(
+        self,
+        __data: Buffer,
+        __flags: int,
+        __address: tuple[object, ...] | str | None | Buffer,
+    ) -> int:
+        ...
+
     async def sendto(self, *args: Any) -> int:
+        data: Buffer
+        flags: int
+        address: tuple[object, ...] | str | Buffer
         if len(args) == 2:
             data, address = args
             flags = 0
