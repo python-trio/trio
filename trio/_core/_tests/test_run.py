@@ -2534,60 +2534,73 @@ async def test_cancel_scope_no_cancellederror() -> None:
     assert not scope.cancelled_caught
 
 
-"""These tests are for fixing https://github.com/python-trio/trio/issues/2611
-where exceptions raised before `task_status.started()` got wrapped twice.
-"""
-
-
-async def raise_before(*, task_status: _core.TaskStatus[None]) -> None:
-    raise ValueError
-
-
-async def raise_after_started(*, task_status: _core.TaskStatus[None]) -> None:
-    task_status.started()
-    raise ValueError
-
-
-async def raise_custom_exception_group_before(
-    *, task_status: _core.TaskStatus[None]
-) -> None:
-    raise ExceptionGroup("my group", [ValueError()])
-
-
-def _check_exception(exc: pytest.ExceptionInfo[BaseException]) -> None:
-    assert isinstance(exc.value, BaseExceptionGroup)
-    assert len(exc.value.exceptions) == 1
-    assert isinstance(exc.value.exceptions[0], ValueError)
-
-
-async def _start_raiser(
-    raiser: Callable[[], Awaitable[None]], strict: bool | None = None
-) -> None:
-    async with _core.open_nursery(strict_exception_groups=strict) as nursery:
-        await nursery.start(raiser)
-
-
-@pytest.mark.parametrize("strict", [False, True])
-@pytest.mark.parametrize("raiser", [raise_before, raise_after_started])
-async def test_strict_before_started(
-    strict: bool, raiser: Callable[[], Awaitable[None]]
-) -> None:
-    with pytest.raises(BaseExceptionGroup if strict else ValueError) as exc:
-        await _start_raiser(raiser, strict)
-    if strict:
-        _check_exception(exc)
-
-
-# it was only when run from `trio.run` that the double wrapping happened
-@pytest.mark.parametrize("strict", [False, True])
-@pytest.mark.parametrize(
-    "raiser", [raise_before, raise_after_started, raise_custom_exception_group_before]
-)
+@pytest.mark.parametrize("run_strict", [False, True])
+@pytest.mark.parametrize("start_raiser_strict", [False, True, None])
+@pytest.mark.parametrize("raise_after_started", [False, True])
+@pytest.mark.parametrize("raise_custom_exc_grp", [False, True])
 def test_trio_run_strict_before_started(
-    strict: bool, raiser: Callable[[], Awaitable[None]]
+    run_strict: bool,
+    start_raiser_strict: bool | None,
+    raise_after_started: bool,
+    raise_custom_exc_grp: bool,
 ) -> None:
-    expect_group = strict or raiser is raise_custom_exception_group_before
-    with pytest.raises(BaseExceptionGroup if expect_group else ValueError) as exc:
-        _core.run(_start_raiser, raiser, strict_exception_groups=strict)
-    if expect_group:
-        _check_exception(exc)
+    """
+    Regression tests for #2611, where exceptions raised before
+    `TaskStatus.started()` caused `Nursery.start()` to wrap them in an
+    ExceptionGroup when using `run(..., strict_exception_groups=True)`.
+
+    Regression tests for #2844, where #2611 was initially fixed in a way that
+    had unintended side effects.
+    """
+
+    raiser_exc: ValueError | ExceptionGroup[ValueError]
+    if raise_custom_exc_grp:
+        raiser_exc = ExceptionGroup("my group", [ValueError()])
+    else:
+        raiser_exc = ValueError()
+
+    async def raiser(*, task_status: _core.TaskStatus[None]) -> None:
+        if raise_after_started:
+            task_status.started()
+        raise raiser_exc
+
+    async def start_raiser() -> None:
+        try:
+            async with _core.open_nursery(
+                strict_exception_groups=start_raiser_strict
+            ) as nursery:
+                await nursery.start(raiser)
+        except BaseExceptionGroup as exc_group:
+            if start_raiser_strict:
+                # Iff the code using the nursery *forced* it to be strict
+                # (overriding the runner setting) then it may replace the bland
+                # exception group raised by trio with a more specific one (subtype,
+                # different message, etc.).
+                raise BaseExceptionGroup(
+                    "start_raiser nursery custom message", exc_group.exceptions
+                ) from None
+            raise
+
+    with pytest.raises(BaseException) as exc_info:
+        _core.run(start_raiser, strict_exception_groups=run_strict)
+
+    if start_raiser_strict or (run_strict and start_raiser_strict is None):
+        # start_raiser's nursery was strict.
+        assert isinstance(exc_info.value, BaseExceptionGroup)
+        if start_raiser_strict:
+            # start_raiser didn't unknowingly inherit its nursery strictness
+            # from `run`---it explicitly chose for its nursery to be strict.
+            assert exc_info.value.message == "start_raiser nursery custom message"
+        assert len(exc_info.value.exceptions) == 1
+        should_be_raiser_exc = exc_info.value.exceptions[0]
+    else:
+        # start_raiser's nursery was not strict.
+        should_be_raiser_exc = exc_info.value
+    if isinstance(raiser_exc, ValueError):
+        assert should_be_raiser_exc is raiser_exc
+    else:
+        # Check attributes, not identity, because should_be_raiser_exc may be a
+        # copy of raiser_exc rather than raiser_exc by identity.
+        assert type(should_be_raiser_exc) == type(raiser_exc)
+        assert should_be_raiser_exc.message == raiser_exc.message
+        assert should_be_raiser_exc.exceptions == raiser_exc.exceptions
