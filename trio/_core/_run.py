@@ -1103,13 +1103,6 @@ class Nursery(metaclass=NoPublicConstructor):
 
         popped = self._parent_task._child_nurseries.pop()
         assert popped is self
-
-        # don't unnecessarily wrap an exceptiongroup in another exceptiongroup
-        # see https://github.com/python-trio/trio/issues/2611
-        if len(self._pending_excs) == 1 and isinstance(
-            self._pending_excs[0], BaseExceptionGroup
-        ):
-            return self._pending_excs[0]
         if self._pending_excs:
             try:
                 return MultiError(
@@ -1218,7 +1211,11 @@ class Nursery(metaclass=NoPublicConstructor):
             raise RuntimeError("Nursery is closed to new arrivals")
         try:
             self._pending_starts += 1
-            async with open_nursery() as old_nursery:
+            # `strict_exception_groups=False` prevents the implementation-detail
+            # nursery from inheriting `strict_exception_groups=True` from the
+            # `run` option, which would cause it to wrap a pre-started()
+            # exception in an extra ExceptionGroup. See #2611.
+            async with open_nursery(strict_exception_groups=False) as old_nursery:
                 task_status: _TaskStatus[StatusT] = _TaskStatus(old_nursery, self)
                 thunk = functools.partial(async_fn, task_status=task_status)
                 task = GLOBAL_RUN_CONTEXT.runner.spawn_impl(
