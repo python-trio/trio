@@ -29,6 +29,7 @@ from .. import (
     CancelScope,
     CapacityLimiter,
     Event,
+    TrioDeprecationWarning,
     _core,
     fail_after,
     move_on_after,
@@ -337,10 +338,10 @@ async def test_run_in_worker_thread_cancellation() -> None:
         q.get()
         register[0] = "finished"
 
-    async def child(q: stdlib_queue.Queue[None], cancellable: bool) -> None:
+    async def child(q: stdlib_queue.Queue[None], abandon_on_cancel: bool) -> None:
         record.append("start")
         try:
-            return await to_thread_run_sync(f, q, cancellable=cancellable)
+            return await to_thread_run_sync(f, q, abandon_on_cancel=abandon_on_cancel)
         finally:
             record.append("exit")
 
@@ -402,7 +403,7 @@ def test_run_in_worker_thread_abandoned(
 
     async def main() -> None:
         async def child() -> None:
-            await to_thread_run_sync(thread_fn, cancellable=True)
+            await to_thread_run_sync(thread_fn, abandon_on_cancel=True)
 
         async with _core.open_nursery() as nursery:
             nursery.start_soon(child)
@@ -491,7 +492,10 @@ async def test_run_in_worker_thread_limiter(
         async def run_thread(event: Event) -> None:
             with _core.CancelScope() as cancel_scope:
                 await to_thread_run_sync(
-                    thread_fn, cancel_scope, limiter=limiter_arg, cancellable=cancel
+                    thread_fn,
+                    cancel_scope,
+                    abandon_on_cancel=cancel,
+                    limiter=limiter_arg,
                 )
             print("run_thread finished, cancelled:", cancel_scope.cancelled_caught)
             event.set()
@@ -553,7 +557,7 @@ async def test_run_in_worker_thread_custom_limiter() -> None:
 
     # TODO: should CapacityLimiter have an abc or protocol so users can modify it?
     # because currently it's `final` so writing code like this is not allowed.
-    await to_thread_run_sync(lambda: None, limiter=CustomLimiter())  # type: ignore[arg-type]
+    await to_thread_run_sync(lambda: None, limiter=CustomLimiter())  # type: ignore[call-overload]
     assert record == ["acquire", "release"]
 
 
@@ -571,7 +575,7 @@ async def test_run_in_worker_thread_limiter_error() -> None:
     bs = BadCapacityLimiter()
 
     with pytest.raises(ValueError) as excinfo:
-        await to_thread_run_sync(lambda: None, limiter=bs)  # type: ignore[arg-type]
+        await to_thread_run_sync(lambda: None, limiter=bs)  # type: ignore[call-overload]
     assert excinfo.value.__context__ is None
     assert record == ["acquire", "release"]
     record = []
@@ -580,7 +584,7 @@ async def test_run_in_worker_thread_limiter_error() -> None:
     # chains with it
     d: dict[str, object] = {}
     with pytest.raises(ValueError) as excinfo:
-        await to_thread_run_sync(lambda: d["x"], limiter=bs)  # type: ignore[arg-type]
+        await to_thread_run_sync(lambda: d["x"], limiter=bs)  # type: ignore[call-overload]
     assert isinstance(excinfo.value.__context__, KeyError)
     assert record == ["acquire", "release"]
 
@@ -881,7 +885,7 @@ async def test_trio_token_weak_referenceable() -> None:
     assert token is weak_reference()
 
 
-async def test_unsafe_cancellable_kwarg() -> None:
+async def test_unsafe_abandon_on_cancel_kwarg() -> None:
     # This is a stand in for a numpy ndarray or other objects
     # that (maybe surprisingly) lack a notion of truthiness
     class BadBool:
@@ -889,7 +893,7 @@ async def test_unsafe_cancellable_kwarg() -> None:
             raise NotImplementedError
 
     with pytest.raises(NotImplementedError):
-        await to_thread_run_sync(int, cancellable=BadBool())  # type: ignore[arg-type]
+        await to_thread_run_sync(int, abandon_on_cancel=BadBool())  # type: ignore[call-overload]
 
 
 async def test_from_thread_reuses_task() -> None:
@@ -933,7 +937,7 @@ async def test_from_thread_host_cancelled() -> None:
     assert not queue.get_nowait()
 
     with _core.CancelScope() as cancel_scope:
-        await to_thread_run_sync(sync_check, cancellable=True)
+        await to_thread_run_sync(sync_check, abandon_on_cancel=True)
 
     assert cancel_scope.cancelled_caught
     assert not await to_thread_run_sync(partial(queue.get, timeout=1))
@@ -957,7 +961,7 @@ async def test_from_thread_host_cancelled() -> None:
     assert not queue.get_nowait()
 
     with _core.CancelScope() as cancel_scope:
-        await to_thread_run_sync(async_check, cancellable=True)
+        await to_thread_run_sync(async_check, abandon_on_cancel=True)
 
     assert cancel_scope.cancelled_caught
     assert not await to_thread_run_sync(partial(queue.get, timeout=1))
@@ -976,11 +980,11 @@ async def test_from_thread_host_cancelled() -> None:
 async def test_from_thread_check_cancelled() -> None:
     q: stdlib_queue.Queue[str] = stdlib_queue.Queue()
 
-    async def child(cancellable: bool, scope: CancelScope) -> None:
+    async def child(abandon_on_cancel: bool, scope: CancelScope) -> None:
         with scope:
             record.append("start")
             try:
-                return await to_thread_run_sync(f, cancellable=cancellable)
+                return await to_thread_run_sync(f, abandon_on_cancel=abandon_on_cancel)
             except _core.Cancelled:
                 record.append("cancel")
                 raise
@@ -1009,7 +1013,7 @@ async def test_from_thread_check_cancelled() -> None:
     # implicit assertion, Cancelled not raised via nursery
     assert record[1] == "exit"
 
-    # cancellable=False case: a cancel will pop out but be handled by
+    # abandon_on_cancel=False case: a cancel will pop out but be handled by
     # the appropriate cancel scope
     record = []
     ev = threading.Event()
@@ -1025,7 +1029,7 @@ async def test_from_thread_check_cancelled() -> None:
     assert "cancel" in record
     assert record[-1] == "exit"
 
-    # cancellable=True case: slightly different thread behavior needed
+    # abandon_on_cancel=True case: slightly different thread behavior needed
     # check thread is cancelled "soon" after abandonment
     def f() -> None:  # type: ignore[no-redef] # noqa: F811
         ev.wait()
@@ -1068,9 +1072,25 @@ async def test_reentry_doesnt_deadlock() -> None:
 
     async def child() -> None:
         while True:
-            await to_thread_run_sync(from_thread_run, sleep, 0, cancellable=False)
+            await to_thread_run_sync(from_thread_run, sleep, 0, abandon_on_cancel=False)
 
     with move_on_after(2):
         async with _core.open_nursery() as nursery:
             for _ in range(4):
                 nursery.start_soon(child)
+
+
+async def test_cancellable_and_abandon_raises() -> None:
+    with pytest.raises(ValueError):
+        await to_thread_run_sync(bool, cancellable=True, abandon_on_cancel=False)  # type: ignore[call-overload]
+
+    with pytest.raises(ValueError):
+        await to_thread_run_sync(bool, cancellable=True, abandon_on_cancel=True)  # type: ignore[call-overload]
+
+
+async def test_cancellable_warns() -> None:
+    with pytest.warns(TrioDeprecationWarning):
+        await to_thread_run_sync(bool, cancellable=False)
+
+    with pytest.warns(TrioDeprecationWarning):
+        await to_thread_run_sync(bool, cancellable=True)
