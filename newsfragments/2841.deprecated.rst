@@ -1,0 +1,8 @@
+To better reflect the underlying thread handling semantics,
+the keyword argument for `trio.to_thread.run_sync` that was
+previously called ``cancellable`` is now named ``abandon_on_cancel``.
+It still does the same thing -- allow the thread to be abandoned
+if the call to `trio.to_thread.run_sync` is cancelled -- but since we now
+have other ways to propagate a cancellation without abandoning
+the thread, "cancellable" has become somewhat of a misnomer.
+The old ``cancellable`` name is now deprecated.
