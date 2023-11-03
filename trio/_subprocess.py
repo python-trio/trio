@@ -53,10 +53,11 @@ else:
             # this workaround is needed on:
             #  - CPython <= 3.8
             #  - non-CPython (maybe?)
-            #  - Anaconda's interpreter (as it is built to assume an
-            #    older than current linux kernel)
+            #  - Anaconda's interpreter (as it is built to assume an older
+            #    than current linux kernel)
             #
-            # therefore, no assertation should be here.
+            # The last point implies that other custom builds might not work;
+            # therefore, no assertion should be here.
             import ctypes
 
             _cdll_for_pidfd_open = ctypes.CDLL(None, use_errno=True)
