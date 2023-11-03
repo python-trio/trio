@@ -51,8 +51,8 @@ else:
     except ImportError:
         if sys.platform == "linux":
             # this workaround is needed on:
-            #  - CPython <3.8
-            #  - non-CPython
+            #  - CPython <= 3.8
+            #  - non-CPython (maybe?)
             #  - Anaconda's interpreter (as it is built to assume an
             #    older than current linux kernel)
             #
