@@ -50,8 +50,13 @@ else:
         from os import pidfd_open
     except ImportError:
         if sys.platform == "linux":
-            # This workaround is only needed on 3.8 and pypy
-            assert sys.version_info < (3, 9) or sys.implementation.name != "cpython"
+            # this workaround is needed on:
+            #  - CPython <3.8
+            #  - non-CPython
+            #  - Anaconda's interpreter (as it is built to assume an
+            #    older than current linux kernel)
+            #
+            # therefore, no assertation should be here.
             import ctypes
 
             _cdll_for_pidfd_open = ctypes.CDLL(None, use_errno=True)
