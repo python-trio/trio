@@ -130,7 +130,8 @@ async def test_recv_methods() -> None:
     sys.platform == "win32", reason="functions not in socket on windows"
 )
 async def test_nonwindows_functionality() -> None:
-    if sys.platform != "win32":
+    # mypy doesn't support a good way of aborting typechecking on different platforms
+    if sys.platform != "win32":  # pragma: no branch
         fn()
         s1 = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
         s2 = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
@@ -184,7 +185,8 @@ async def test_nonwindows_functionality() -> None:
     sys.platform != "win32", reason="windows-specific fakesocket testing"
 )
 async def test_windows_functionality() -> None:
-    if sys.platform == "win32":
+    # mypy doesn't support a good way of aborting typechecking on different platforms
+    if sys.platform == "win32":  # pragma: no branch
         fn()
         s1 = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
         s2 = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
