@@ -126,13 +126,15 @@ async def test_recv_methods() -> None:
         await s2.sendto(b"mno", flags, s1.getsockname(), "extra arg")  # type: ignore[call-overload]
 
 
-@pytest.mark.skipif(sys.platform == "win32", "functions not in socket on windows")
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="functions not in socket on windows"
+)
 async def test_nonwindows_functionality() -> None:
     if sys.platform != "win32":
         fn()
         s1 = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
         s2 = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
-        await s1.bind(("127.0.0.1", 0))
+        await s2.bind(("127.0.0.1", 0))
 
         # sendmsg
         with pytest.raises(OSError, match=ENOTCONN_MSG) as exc:
@@ -140,6 +142,11 @@ async def test_nonwindows_functionality() -> None:
         assert exc.value.errno == errno.ENOTCONN
 
         assert await s1.sendmsg([b"jkl"], (), 0, s2.getsockname()) == 3
+        (data, ancdata, msg_flags, addr) = await s2.recvmsg(10)
+        assert data == b"jkl"
+        assert ancdata == []
+        assert msg_flags == 0
+        assert addr == s1.getsockname()
 
         # TODO: recvmsg
 
@@ -168,12 +175,14 @@ async def test_nonwindows_functionality() -> None:
         assert addr == s1.getsockname()
 
         with pytest.raises(
-            AttributeError, match="type object 'FakeSocket' has no attribute 'share'"
+            AttributeError, match="'FakeSocket' object has no attribute 'share'"
         ):
             await s1.share(0)  # type: ignore[attr-defined]
 
 
-@pytest.mark.skipif(sys.platform != "win32", "windows-specific fakesocket testing")
+@pytest.mark.skipif(
+    sys.platform != "win32", reason="windows-specific fakesocket testing"
+)
 async def test_windows_functionality() -> None:
     if sys.platform == "win32":
         fn()
@@ -181,16 +190,16 @@ async def test_windows_functionality() -> None:
         s2 = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
         await s1.bind(("127.0.0.1", 0))
         with pytest.raises(
-            AttributeError, match="type object 'FakeSocket' has no attribute 'sendmsg'"
+            AttributeError, match="'FakeSocket' object has no attribute 'sendmsg'"
         ):
             await s1.sendmsg([b"jkl"], (), 0, s2.getsockname())  # type: ignore[attr-defined]
         with pytest.raises(
-            AttributeError, match="type object 'FakeSocket' has no attribute 'recvmsg'"
+            AttributeError, match="'FakeSocket' object has no attribute 'recvmsg'"
         ):
             s2.recvmsg(0)  # type: ignore[attr-defined]
         with pytest.raises(
             AttributeError,
-            match="type object 'FakeSocket' has no attribute 'recvmsg_into'",
+            match="'FakeSocket' object has no attribute 'recvmsg_into'",
         ):
             s2.recvmsg_into([])  # type: ignore[attr-defined]
         with pytest.raises(NotImplementedError):
