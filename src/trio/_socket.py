@@ -240,7 +240,7 @@ async def getaddrinfo(
             type,
             proto,
             flags,
-            cancellable=True,
+            abandon_on_cancel=True,
         )
 
 
@@ -261,7 +261,7 @@ async def getnameinfo(
         return await hr.getnameinfo(sockaddr, flags)
     else:
         return await trio.to_thread.run_sync(
-            _stdlib_socket.getnameinfo, sockaddr, flags, cancellable=True
+            _stdlib_socket.getnameinfo, sockaddr, flags, abandon_on_cancel=True
         )
 
 
@@ -272,7 +272,7 @@ async def getprotobyname(name: str) -> int:
 
     """
     return await trio.to_thread.run_sync(
-        _stdlib_socket.getprotobyname, name, cancellable=True
+        _stdlib_socket.getprotobyname, name, abandon_on_cancel=True
     )
 
 

@@ -45,7 +45,7 @@ async def WaitForSingleObject(obj: int | CData) -> None:
             WaitForMultipleObjects_sync,
             handle,
             cancel_handle,
-            cancellable=True,
+            abandon_on_cancel=True,
             limiter=trio.CapacityLimiter(math.inf),
         )
     finally:
