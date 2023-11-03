@@ -106,8 +106,8 @@ async def test_recv_methods() -> None:
     assert nbytes == 3
     assert buf2 == b"jkl" + b"\x00" * 7
 
-    if sys.platform == "linux":
-        flags = socket.MSG_MORE
+    if sys.platform == "linux" and sys.implementation.name == "cpython":
+        flags: int = socket.MSG_MORE
     else:
         flags = 1
 
@@ -244,7 +244,7 @@ async def test_not_implemented_functions() -> None:
 async def test_getpeername() -> None:
     fn()
     s1 = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
-    with pytest.raises(OSError, match="Transport endpoint is not connected") as exc:
+    with pytest.raises(OSError, match=ENOTCONN_MSG) as exc:
         s1.getpeername()
     assert exc.value.errno == errno.ENOTCONN
 
