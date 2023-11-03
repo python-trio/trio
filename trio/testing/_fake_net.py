@@ -13,6 +13,8 @@ import contextlib
 import errno
 import ipaddress
 import os
+import socket
+import sys
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -294,7 +296,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
     async def connect(self, peer: object) -> NoReturn:
         raise NotImplementedError("FakeNet does not (yet) support connected sockets")
 
-    async def sendmsg(
+    async def _sendmsg(
         self,
         buffers: Iterable[Buffer],
         ancdata: Iterable[tuple[int, int, Buffer]] = (),
@@ -333,7 +335,12 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
 
         return len(payload)
 
-    async def recvmsg_into(
+    if sys.platform != "win32" or (
+        not TYPE_CHECKING and hasattr(socket.socket, "sendmsg")
+    ):
+        sendmsg = _sendmsg
+
+    async def _recvmsg_into(
         self,
         buffers: Iterable[Buffer],
         ancbufsize: int = 0,
@@ -363,6 +370,11 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         if written < len(packet.payload):
             msg_flags |= trio.socket.MSG_TRUNC
         return written, ancdata, msg_flags, address
+
+    if sys.platform != "win32" or (
+        not TYPE_CHECKING and hasattr(socket.socket, "sendmsg")
+    ):
+        recvmsg_into = _recvmsg_into
 
     ################################################################
     # Simple state query stuff
@@ -476,7 +488,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
             data, flags, address = args
         else:
             raise TypeError("wrong number of arguments")
-        return await self.sendmsg([data], [], flags, address)
+        return await self._sendmsg([data], [], flags, address)
 
     async def recv(self, bufsize: int, flags: int = 0) -> bytes:
         data, address = await self.recvfrom(bufsize, flags)
@@ -487,7 +499,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         return got_bytes
 
     async def recvfrom(self, bufsize: int, flags: int = 0) -> tuple[bytes, Any]:
-        data, ancdata, msg_flags, address = await self.recvmsg(bufsize, flags)
+        data, ancdata, msg_flags, address = await self._recvmsg(bufsize, flags)
         return data, address
 
     async def recvfrom_into(
@@ -495,19 +507,24 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
     ) -> tuple[int, Any]:
         if nbytes != 0 and nbytes != memoryview(buf).nbytes:
             raise NotImplementedError("partial recvfrom_into")
-        got_nbytes, ancdata, msg_flags, address = await self.recvmsg_into(
+        got_nbytes, ancdata, msg_flags, address = await self._recvmsg_into(
             [buf], 0, flags
         )
         return got_nbytes, address
 
-    async def recvmsg(
+    async def _recvmsg(
         self, bufsize: int, ancbufsize: int = 0, flags: int = 0
     ) -> tuple[bytes, list[tuple[int, int, bytes]], int, Any]:
         buf = bytearray(bufsize)
-        got_nbytes, ancdata, msg_flags, address = await self.recvmsg_into(
+        got_nbytes, ancdata, msg_flags, address = await self._recvmsg_into(
             [buf], ancbufsize, flags
         )
         return (bytes(buf[:got_nbytes]), ancdata, msg_flags, address)
+
+    if sys.platform != "win32" or (
+        not TYPE_CHECKING and hasattr(socket.socket, "sendmsg")
+    ):
+        recvmsg = _recvmsg
 
     def fileno(self) -> int:
         raise NotImplementedError("can't get fileno() for FakeNet sockets")
@@ -522,5 +539,9 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         if inheritable:
             raise NotImplementedError("FakeNet can't make inheritable sockets")
 
-    def share(self, process_id: int) -> bytes:
-        raise NotImplementedError("FakeNet can't share sockets")
+    if sys.platform == "win32" or (
+        not TYPE_CHECKING and hasattr(socket.socket, "share")
+    ):
+
+        def share(self, process_id: int) -> bytes:
+            raise NotImplementedError("FakeNet can't share sockets")

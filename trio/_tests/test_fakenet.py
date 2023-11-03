@@ -1,11 +1,20 @@
 import errno
 import re
 import socket
+import sys
 
 import pytest
 
 import trio
 from trio.testing._fake_net import FakeNet
+
+# ENOTCONN gives different messages on different platforms
+if sys.platform == "linux":
+    ENOTCONN_MSG = "Transport endpoint is not connected"
+elif sys.platform == "darwin":
+    ENOTCONN_MSG = "Socket is not connected"
+else:
+    ENOTCONN_MSG = "Unknown error"
 
 
 def fn() -> FakeNet:
@@ -97,52 +106,95 @@ async def test_recv_methods() -> None:
     assert nbytes == 3
     assert buf2 == b"jkl" + b"\x00" * 7
 
-    # recvmsg_into
-    assert await s1.sendto(b"xyzw", s2.getsockname()) == 4
-    buf1 = bytearray(2)
-    buf2 = bytearray(3)
-    ret = await s2.recvmsg_into([buf1, buf2])
-    (nbytes, ancdata, msg_flags, addr) = ret
-    assert nbytes == 4
-    assert buf1 == b"xy"
-    assert buf2 == b"zw" + b"\x00"
-    assert ancdata == []
-    assert msg_flags == 0
-    assert addr == s1.getsockname()
-
-    # recvmsg_into with MSG_TRUNC set
-    assert await s1.sendto(b"xyzwv", s2.getsockname()) == 5
-    buf1 = bytearray(2)
-    ret = await s2.recvmsg_into([buf1])
-    (nbytes, ancdata, msg_flags, addr) = ret
-    assert nbytes == 2
-    assert buf1 == b"xy"
-    assert ancdata == []
-    assert msg_flags == socket.MSG_TRUNC
-    assert addr == s1.getsockname()
+    if sys.platform == "linux":
+        flags = socket.MSG_MORE
+    else:
+        flags = 1
 
     # Send seems explicitly non-functional
-    with pytest.raises(OSError, match="Transport endpoint is not connected"):
+    with pytest.raises(OSError, match=ENOTCONN_MSG) as exc:
         await s2.send(b"mno")
+    assert exc.value.errno == errno.ENOTCONN
     with pytest.raises(NotImplementedError, match="FakeNet send flags must be 0, not"):
-        await s2.send(b"mno", socket.MSG_MORE)
+        await s2.send(b"mno", flags)
 
     # sendto errors
     # it's successfully used earlier
     with pytest.raises(NotImplementedError, match="FakeNet send flags must be 0, not"):
-        await s2.sendto(b"mno", socket.MSG_MORE, s1.getsockname())
+        await s2.sendto(b"mno", flags, s1.getsockname())
     with pytest.raises(TypeError, match="wrong number of arguments"):
-        await s2.sendto(b"mno", socket.MSG_MORE, s1.getsockname(), "extra arg")  # type: ignore[call-overload]
+        await s2.sendto(b"mno", flags, s1.getsockname(), "extra arg")  # type: ignore[call-overload]
 
-    # sendmsg
-    with pytest.raises(OSError, match="Transport endpoint is not connected"):
-        await s2.sendmsg([b"mno"])
 
-    assert await s1.sendmsg([b"jkl"], (), 0, s2.getsockname()) == 3
+@pytest.mark.skipif(sys.platform == "win32", "functions not in socket on windows")
+async def test_nonwindows_functionality() -> None:
+    if sys.platform != "win32":
+        fn()
+        s1 = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
+        s2 = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
+        await s1.bind(("127.0.0.1", 0))
 
-    assert await s1.sendmsg([b"jkl"], (), 0, s2.getsockname()) == 3
-    with pytest.raises(NotImplementedError, match="FakeNet send flags must be 0, not"):
-        await s2.sendmsg([b"mno"], (), socket.MSG_MORE, s1.getsockname())
+        # sendmsg
+        with pytest.raises(OSError, match=ENOTCONN_MSG) as exc:
+            await s2.sendmsg([b"mno"])
+        assert exc.value.errno == errno.ENOTCONN
+
+        assert await s1.sendmsg([b"jkl"], (), 0, s2.getsockname()) == 3
+
+        # TODO: recvmsg
+
+        # recvmsg_into
+        assert await s1.sendto(b"xyzw", s2.getsockname()) == 4
+        buf1 = bytearray(2)
+        buf2 = bytearray(3)
+        ret = await s2.recvmsg_into([buf1, buf2])
+        (nbytes, ancdata, msg_flags, addr) = ret
+        assert nbytes == 4
+        assert buf1 == b"xy"
+        assert buf2 == b"zw" + b"\x00"
+        assert ancdata == []
+        assert msg_flags == 0
+        assert addr == s1.getsockname()
+
+        # recvmsg_into with MSG_TRUNC set
+        assert await s1.sendto(b"xyzwv", s2.getsockname()) == 5
+        buf1 = bytearray(2)
+        ret = await s2.recvmsg_into([buf1])
+        (nbytes, ancdata, msg_flags, addr) = ret
+        assert nbytes == 2
+        assert buf1 == b"xy"
+        assert ancdata == []
+        assert msg_flags == socket.MSG_TRUNC
+        assert addr == s1.getsockname()
+
+        with pytest.raises(
+            AttributeError, match="type object 'FakeSocket' has no attribute 'share'"
+        ):
+            await s1.share(0)  # type: ignore[attr-defined]
+
+
+@pytest.mark.skipif(sys.platform != "win32", "windows-specific fakesocket testing")
+async def test_windows_functionality() -> None:
+    if sys.platform == "win32":
+        fn()
+        s1 = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
+        s2 = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
+        await s1.bind(("127.0.0.1", 0))
+        with pytest.raises(
+            AttributeError, match="type object 'FakeSocket' has no attribute 'sendmsg'"
+        ):
+            await s1.sendmsg([b"jkl"], (), 0, s2.getsockname())  # type: ignore[attr-defined]
+        with pytest.raises(
+            AttributeError, match="type object 'FakeSocket' has no attribute 'recvmsg'"
+        ):
+            s2.recvmsg(0)  # type: ignore[attr-defined]
+        with pytest.raises(
+            AttributeError,
+            match="type object 'FakeSocket' has no attribute 'recvmsg_into'",
+        ):
+            s2.recvmsg_into([])  # type: ignore[attr-defined]
+        with pytest.raises(NotImplementedError):
+            s1.share(0)
 
 
 async def test_basic_tcp() -> None:
