@@ -5,6 +5,15 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.23.1 (2023-11-04)
+------------------------
+
+Bugfixes
+~~~~~~~~
+
+- Don't crash on import in Anaconda interpreters. (`#2855 <https://github.com/python-trio/trio/issues/2855>`__)
+
+
 Trio 0.23.0 (2023-11-03)
 ------------------------
 
