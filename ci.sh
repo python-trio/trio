@@ -40,8 +40,8 @@ echo "::group::Install dependencies"
 python -m pip install -U pip build
 python -m pip --version
 
-python -m build --sdist
-python -m pip install dist/*.tar.gz
+python -m build
+python -m pip install dist/*.whl
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
     python -m pip install -r test-requirements.txt
