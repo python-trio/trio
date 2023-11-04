@@ -728,6 +728,8 @@ task and interact with it while it's running:
 
    .. automethod:: fileno
 
+.. autoclass:: trio._subprocess.StrOrBytesPath
+
 .. autoclass:: trio.Process()
 
    .. autoattribute:: returncode
