@@ -40,8 +40,8 @@ echo "::group::Install dependencies"
 python -m pip install -U pip setuptools wheel
 python -m pip --version
 
-python setup.py sdist --formats=zip
-python -m pip install dist/*.zip
+python -m build --sdist
+python -m pip install dist/*.tar.gz
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
     python -m pip install -r test-requirements.txt
