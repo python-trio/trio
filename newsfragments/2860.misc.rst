@@ -1,1 +1,1 @@
-Moved the metadata into ``PEP 621``-compliant ``pyproject.toml``.
+Moved the metadata into :pep:`PEP 621`-compliant :file:`pyproject.toml`.
