@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 
 # Sphinx cannot parse the stringified version
-if sys.version_info > (3, 9):
+if sys.version_info >= (3, 9):
     StrOrBytesPath: TypeAlias = Union[str, bytes, os.PathLike[str], os.PathLike[bytes]]
 else:
     StrOrBytesPath: TypeAlias = Union[
