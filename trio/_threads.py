@@ -22,7 +22,6 @@ from ._core import (
     enable_ki_protection,
     start_thread_soon,
 )
-from ._core._traps import RaiseCancelT
 from ._deprecate import warn_deprecated
 from ._sync import CapacityLimiter
 from ._util import coroutine_or_error
