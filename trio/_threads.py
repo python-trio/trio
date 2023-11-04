@@ -7,7 +7,7 @@ import inspect
 import queue as stdlib_queue
 import threading
 from itertools import count
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar, overload
 
 import attr
 import outcome
@@ -22,6 +22,8 @@ from ._core import (
     enable_ki_protection,
     start_thread_soon,
 )
+from ._core._traps import RaiseCancelT
+from ._deprecate import warn_deprecated
 from ._sync import CapacityLimiter
 from ._util import coroutine_or_error
 
@@ -174,12 +176,35 @@ class RunSync(Generic[RetT]):
         token.run_sync_soon(self.run_sync)
 
 
-@enable_ki_protection  # Decorator used on function with Coroutine[Any, Any, RetT]
+@overload  # Decorator used on function with Coroutine[Any, Any, RetT]
+async def to_thread_run_sync(  # type: ignore[misc]
+    sync_fn: Callable[..., RetT],
+    *args: object,
+    thread_name: str | None = None,
+    abandon_on_cancel: bool = False,
+    limiter: CapacityLimiter | None = None,
+) -> RetT:
+    ...
+
+
+@overload  # Decorator used on function with Coroutine[Any, Any, RetT]
 async def to_thread_run_sync(  # type: ignore[misc]
     sync_fn: Callable[..., RetT],
     *args: object,
     thread_name: str | None = None,
     cancellable: bool = False,
+    limiter: CapacityLimiter | None = None,
+) -> RetT:
+    ...
+
+
+@enable_ki_protection  # Decorator used on function with Coroutine[Any, Any, RetT]
+async def to_thread_run_sync(  # type: ignore[misc]
+    sync_fn: Callable[..., RetT],
+    *args: object,
+    thread_name: str | None = None,
+    abandon_on_cancel: bool | None = None,
+    cancellable: bool | None = None,
     limiter: CapacityLimiter | None = None,
 ) -> RetT:
     """Convert a blocking operation into an async operation using a thread.
@@ -201,8 +226,8 @@ async def to_thread_run_sync(  # type: ignore[misc]
       sync_fn: An arbitrary synchronous callable.
       *args: Positional arguments to pass to sync_fn. If you need keyword
           arguments, use :func:`functools.partial`.
-      cancellable (bool): Whether to allow cancellation of this operation. See
-          discussion below.
+      abandon_on_cancel (bool): Whether to abandon this thread upon
+          cancellation of this operation. See discussion below.
       thread_name (str): Optional string to set the name of the thread.
           Will always set `threading.Thread.name`, but only set the os name
           if pthread.h is available (i.e. most POSIX installations).
@@ -228,17 +253,17 @@ async def to_thread_run_sync(  # type: ignore[misc]
     starting the thread. But once the thread is running, there are two ways it
     can handle being cancelled:
 
-    * If ``cancellable=False``, the function ignores the cancellation and
+    * If ``abandon_on_cancel=False``, the function ignores the cancellation and
       keeps going, just like if we had called ``sync_fn`` synchronously. This
       is the default behavior.
 
-    * If ``cancellable=True``, then this function immediately raises
+    * If ``abandon_on_cancel=True``, then this function immediately raises
       `~trio.Cancelled`. In this case **the thread keeps running in
       background** – we just abandon it to do whatever it's going to do, and
       silently discard any return value or errors that it raises. Only use
       this if you know that the operation is safe and side-effect free. (For
       example: :func:`trio.socket.getaddrinfo` uses a thread with
-      ``cancellable=True``, because it doesn't really affect anything if a
+      ``abandon_on_cancel=True``, because it doesn't really affect anything if a
       stray hostname lookup keeps running in the background.)
 
       The ``limiter`` is only released after the thread has *actually*
@@ -266,7 +291,20 @@ async def to_thread_run_sync(  # type: ignore[misc]
 
     """
     await trio.lowlevel.checkpoint_if_cancelled()
-    abandon_on_cancel = bool(cancellable)  # raise early if cancellable.__bool__ raises
+    if cancellable is not None:
+        if abandon_on_cancel is not None:
+            raise ValueError(
+                "Cannot set `cancellable` and `abandon_on_cancel` simultaneously."
+            )
+        warn_deprecated(
+            "The `cancellable=` keyword argument to `trio.to_thread.run_sync`",
+            "0.23.0",
+            issue=2841,
+            instead="`abandon_on_cancel=`",
+        )
+        abandon_on_cancel = cancellable
+    # raise early if abandon_on_cancel.__bool__ raises
+    abandon_on_cancel = bool(abandon_on_cancel)
     if limiter is None:
         limiter = current_default_thread_limiter()
 
@@ -384,14 +422,14 @@ def from_thread_check_cancelled() -> None:
     """Raise `trio.Cancelled` if the associated Trio task entered a cancelled status.
 
      Only applicable to threads spawned by `trio.to_thread.run_sync`. Poll to allow
-     ``cancellable=False`` threads to raise :exc:`~trio.Cancelled` at a suitable
-     place, or to end abandoned ``cancellable=True`` threads sooner than they may
+     ``abandon_on_cancel=False`` threads to raise :exc:`~trio.Cancelled` at a suitable
+     place, or to end abandoned ``abandon_on_cancel=True`` threads sooner than they may
      otherwise.
 
     Raises:
         Cancelled: If the corresponding call to `trio.to_thread.run_sync` has had a
             delivery of cancellation attempted against it, regardless of the value of
-            ``cancellable`` supplied as an argument to it.
+            ``abandon_on_cancel`` supplied as an argument to it.
         RuntimeError: If this thread is not spawned from `trio.to_thread.run_sync`.
 
     .. note::
@@ -467,9 +505,7 @@ def from_thread_run(
         Cancelled: If the original call to :func:`trio.to_thread.run_sync` is cancelled
             (if *trio_token* is None) or the call to :func:`trio.run` completes
             (if *trio_token* is not None) while ``afn(*args)`` is running,
-            then *afn* is likely to raise
-            completes while ``afn(*args)`` is running, then ``afn`` is likely to raise
-            :exc:`trio.Cancelled`.
+            then *afn* is likely to raise :exc:`trio.Cancelled`.
         RuntimeError: if you try calling this from inside the Trio thread,
             which would otherwise cause a deadlock, or if no ``trio_token`` was
             provided, and we can't infer one from context.

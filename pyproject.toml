@@ -150,6 +150,11 @@ name = "Deprecations and removals"
 showcontent = true
 
 [[tool.towncrier.type]]
+directory = "removal"
+name = "Removals without deprecations"
+showcontent = true
+
+[[tool.towncrier.type]]
 directory = "misc"
 name = "Miscellaneous internal changes"
 showcontent = true
