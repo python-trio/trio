@@ -37,11 +37,11 @@ python -c "import sys, struct, ssl; print('python:', sys.version); print('versio
 echo "::endgroup::"
 
 echo "::group::Install dependencies"
-python -m pip install -U pip setuptools wheel
+python -m pip install -U pip build
 python -m pip --version
 
-python setup.py sdist --formats=zip
-python -m pip install dist/*.zip
+python -m build
+python -m pip install dist/*.whl
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
     python -m pip install -r test-requirements.txt
