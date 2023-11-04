@@ -56,6 +56,7 @@ if sys.version_info < (3, 11):
 
 if TYPE_CHECKING:
     import contextvars
+    import types
     from collections.abc import (
         Awaitable,
         Callable,
@@ -64,8 +65,11 @@ if TYPE_CHECKING:
         Iterator,
         Sequence,
     )
-    from types import FrameType, TracebackType
+    from types import TracebackType
 
+    # for some strange reason Sphinx works with outcome.Outcome, but not Outcome, in
+    # start_guest_run. Same with types.FrameType in iter_await_frames
+    import outcome
     from typing_extensions import Self
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: Final = 1000
@@ -1313,7 +1317,7 @@ class Task(metaclass=NoPublicConstructor):
         """
         return list(self._child_nurseries)
 
-    def iter_await_frames(self) -> Iterator[tuple[FrameType, int]]:
+    def iter_await_frames(self) -> Iterator[tuple[types.FrameType, int]]:
         """Iterates recursively over the coroutine-like objects this
         task is waiting on, yielding the frame and line number at each
         frame.
@@ -2256,7 +2260,7 @@ def start_guest_run(
     async_fn: Callable[..., Awaitable[RetT]],
     *args: object,
     run_sync_soon_threadsafe: Callable[[Callable[[], object]], object],
-    done_callback: Callable[[Outcome[RetT]], object],
+    done_callback: Callable[[outcome.Outcome[RetT]], object],
     run_sync_soon_not_threadsafe: Callable[[Callable[[], object]], object]
     | None = None,
     host_uses_signal_set_wakeup_fd: bool = False,

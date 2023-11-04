@@ -31,8 +31,13 @@ if TYPE_CHECKING:
     from typing_extensions import Self, TypeAlias
 
 
-# Only subscriptable in 3.9+
-StrOrBytesPath: TypeAlias = Union[str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"]
+# Sphinx cannot parse the stringified version
+if sys.version_info > (3, 9):
+    StrOrBytesPath: TypeAlias = str | bytes | os.PathLike[str] | os.PathLike[bytes]
+else:
+    StrOrBytesPath: TypeAlias = Union[
+        str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"
+    ]
 
 
 # Linux-specific, but has complex lifetime management stuff so we hard-code it
@@ -486,6 +491,7 @@ async def _posix_deliver_cancel(p: Process) -> None:
 
 
 # Use a private name, so we can declare platform-specific stubs below.
+# This is also the signature read by Sphinx
 async def _run_process(
     command: StrOrBytesPath | Sequence[StrOrBytesPath],
     *,

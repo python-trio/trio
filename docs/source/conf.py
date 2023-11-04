@@ -61,6 +61,8 @@ nitpick_ignore = [
     ("py:class", "socket.AddressFamily"),
     ("py:class", "socket.SocketKind"),
     ("py:class", "Buffer"),  # collections.abc.Buffer, in 3.12
+    # Utterly failing to get this reference to work
+    ("py:class", "StrOrBytesPath"),
 ]
 autodoc_inherit_docstrings = False
 default_role = "obj"
