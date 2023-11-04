@@ -28,15 +28,11 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Mapping, Sequence
     from io import TextIOWrapper
 
-    from _typeshed import (
-        StrOrBytesPath,
-    )
     from typing_extensions import Self, TypeAlias
-else:
-    # Only subscriptable in 3.9+
-    StrOrBytesPath: TypeAlias = Union[
-        str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"
-    ]
+
+
+# Only subscriptable in 3.9+
+StrOrBytesPath: TypeAlias = Union[str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"]
 
 
 # Linux-specific, but has complex lifetime management stuff so we hard-code it
