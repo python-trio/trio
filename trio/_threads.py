@@ -139,7 +139,7 @@ class RunSync(Generic[RetT]):
 
     @disable_ki_protection
     def unprotected_fn(self) -> RetT:
-        ret = self.fn(*self.args)
+        ret = self.context.run(self.fn, *self.args)
 
         if inspect.iscoroutine(ret):
             # Manually close coroutine to avoid RuntimeWarnings
@@ -152,9 +152,7 @@ class RunSync(Generic[RetT]):
         return ret
 
     def run_sync(self) -> None:
-        # Two paramspecs + overload is a bit too hard for mypy to handle. Tell it what to infer.
-        runner: Callable[[Callable[[], RetT]], RetT] = self.context.run
-        result = outcome.capture(runner, self.unprotected_fn)
+        result = outcome.capture(self.unprotected_fn)
         self.queue.put_nowait(result)
 
     def run_in_host_task(self, token: TrioToken) -> None:
