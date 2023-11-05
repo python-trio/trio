@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import contextlib
 import contextvars
-import functools
 import inspect
 import queue as stdlib_queue
 import threading
@@ -337,18 +336,12 @@ async def to_thread_run_sync(  # type: ignore[misc]
         thread_name = f"{getattr(sync_fn, '__name__', None)} from {trio.lowlevel.current_task().name}"
 
     def worker_fn() -> RetT:
-        # Trio doesn't use current_async_library_cvar, but if someone
-        # else set it, it would now shine through since
-        # snifio.thread_local isn't set in the new thread. Make sure
-        # the new thread sees that it's not running in async context.
-        current_async_library_cvar.set(None)
-
         PARENT_TASK_DATA.token = current_trio_token
         PARENT_TASK_DATA.abandon_on_cancel = abandon_on_cancel
         PARENT_TASK_DATA.cancel_register = cancel_register
         PARENT_TASK_DATA.task_register = task_register
         try:
-            ret = sync_fn(*args)
+            ret = context.run(sync_fn, *args)
 
             if inspect.iscoroutine(ret):
                 # Manually close coroutine to avoid RuntimeWarnings
@@ -366,8 +359,11 @@ async def to_thread_run_sync(  # type: ignore[misc]
             del PARENT_TASK_DATA.task_register
 
     context = contextvars.copy_context()
-    # Partial confuses type checkers, coerce to a callable.
-    contextvars_aware_worker_fn: Callable[[], RetT] = functools.partial(context.run, worker_fn)  # type: ignore[assignment]
+    # Trio doesn't use current_async_library_cvar, but if someone
+    # else set it, it would now shine through since
+    # sniffio.thread_local isn't set in the new thread. Make sure
+    # the new thread sees that it's not running in async context.
+    context.run(current_async_library_cvar.set, None)
 
     def deliver_worker_fn_result(result: outcome.Outcome[RetT]) -> None:
         # If the entire run finished, the task we're trying to contact is
@@ -378,9 +374,7 @@ async def to_thread_run_sync(  # type: ignore[misc]
 
     await limiter.acquire_on_behalf_of(placeholder)
     try:
-        start_thread_soon(
-            contextvars_aware_worker_fn, deliver_worker_fn_result, thread_name
-        )
+        start_thread_soon(worker_fn, deliver_worker_fn_result, thread_name)
     except:
         limiter.release_on_behalf_of(placeholder)
         raise
