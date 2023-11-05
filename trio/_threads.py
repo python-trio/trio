@@ -337,7 +337,7 @@ async def to_thread_run_sync(  # type: ignore[misc]
 
     def worker_fn() -> RetT:
         PARENT_TASK_DATA.token = current_trio_token
-        PARENT_TASK_DATA.abandon_on_cancel = abandon_on_cancel
+        PARENT_TASK_DATA.abandon_on_cancel = abandon_on_cancel  # type: ignore[assignment]
         PARENT_TASK_DATA.cancel_register = cancel_register
         PARENT_TASK_DATA.task_register = task_register
         try:
