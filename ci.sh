@@ -128,7 +128,7 @@ else
 
     echo "::endgroup::"
     echo "::group:: Run Tests"
-    if COVERAGE_PROCESS_START=$(pwd)/../.coveragerc coverage run --rcfile=../.coveragerc -m pytest -r a -p trio._tests.pytest_plugin --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --verbose --durations=10 $flags; then
+    if COVERAGE_PROCESS_START=$(pwd)/../pyproject.toml coverage run --rcfile=../pyproject.toml -m pytest -r a -p trio._tests.pytest_plugin --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --verbose --durations=10 $flags; then
         PASSED=true
     else
         PASSED=false
@@ -136,9 +136,9 @@ else
     echo "::endgroup::"
     echo "::group::Coverage"
 
-    coverage combine --rcfile ../.coveragerc
-    coverage report -m --rcfile ../.coveragerc
-    coverage xml --rcfile ../.coveragerc
+    coverage combine --rcfile ../pyproject.toml
+    coverage report -m --rcfile ../pyproject.toml
+    coverage xml --rcfile ../pyproject.toml
 
     # Remove the LSP again; again we want to do this ASAP to avoid
     # accidentally breaking other stuff.
