@@ -80,7 +80,7 @@ class ThreadPlaceholder:
 class Run(Generic[RetT]):
     afn: Callable[..., Awaitable[RetT]] = attr.ib()
     args: tuple[object, ...] = attr.ib()
-    context: contextvars.Context = attr.ib()
+    context: contextvars.Context = attr.ib(init=False, factory=contextvars.copy_context)
     queue: stdlib_queue.SimpleQueue[outcome.Outcome[RetT]] = attr.ib(
         init=False, factory=stdlib_queue.SimpleQueue
     )
@@ -133,7 +133,7 @@ class Run(Generic[RetT]):
 class RunSync(Generic[RetT]):
     fn: Callable[..., RetT] = attr.ib()
     args: tuple[object, ...] = attr.ib()
-    context: contextvars.Context = attr.ib()
+    context: contextvars.Context = attr.ib(init=False, factory=contextvars.copy_context)
     queue: stdlib_queue.SimpleQueue[outcome.Outcome[RetT]] = attr.ib(
         init=False, factory=stdlib_queue.SimpleQueue
     )
@@ -451,23 +451,21 @@ def from_thread_check_cancelled() -> None:
         raise_cancel()
 
 
-def _check_token(trio_token: TrioToken | None) -> TrioToken:
-    """Raise a RuntimeError if this function is called within a trio run.
+def _send_message_to_trio(
+    trio_token: TrioToken | None, message_to_trio: Run[RetT] | RunSync[RetT]
+) -> RetT:
+    """Shared logic of from_thread functions"""
+    token_provided = trio_token is not None
 
-    Avoids deadlock by making sure we're not called from inside a context
-    that we might be waiting for and blocking it.
-    """
-
-    if trio_token is not None and not isinstance(trio_token, TrioToken):
-        raise RuntimeError("Passed kwarg trio_token is not of type TrioToken")
-
-    if trio_token is None:
+    if not token_provided:
         try:
             trio_token = PARENT_TASK_DATA.token
         except AttributeError:
             raise RuntimeError(
                 "this thread wasn't created by Trio, pass kwarg trio_token=..."
             ) from None
+    elif not isinstance(trio_token, TrioToken):
+        raise RuntimeError("Passed kwarg trio_token is not of type TrioToken")
 
     # Avoid deadlock by making sure we're not called from Trio thread
     try:
@@ -477,7 +475,12 @@ def _check_token(trio_token: TrioToken | None) -> TrioToken:
     else:
         raise RuntimeError("this is a blocking function; call it from a thread")
 
-    return trio_token
+    if token_provided or PARENT_TASK_DATA.abandon_on_cancel:
+        message_to_trio.run_in_system_nursery(trio_token)
+    else:
+        message_to_trio.run_in_host_task(trio_token)
+
+    return message_to_trio.queue.get().unwrap()
 
 
 def from_thread_run(
@@ -520,17 +523,7 @@ def from_thread_run(
           maybe to avoid the cancellation context of a corresponding
           `trio.to_thread.run_sync` task.
     """
-    token_provided = trio_token is not None
-    trio_token = _check_token(trio_token)
-
-    message_to_trio = Run(afn, args, contextvars.copy_context())
-
-    if token_provided or PARENT_TASK_DATA.abandon_on_cancel:
-        message_to_trio.run_in_system_nursery(trio_token)
-    else:
-        message_to_trio.run_in_host_task(trio_token)
-
-    return message_to_trio.queue.get().unwrap()
+    return _send_message_to_trio(trio_token, Run(afn, args))
 
 
 def from_thread_run_sync(
@@ -568,14 +561,4 @@ def from_thread_run_sync(
           maybe to avoid the cancellation context of a corresponding
           `trio.to_thread.run_sync` task.
     """
-    token_provided = trio_token is not None
-    trio_token = _check_token(trio_token)
-
-    message_to_trio = RunSync(fn, args, contextvars.copy_context())
-
-    if token_provided or PARENT_TASK_DATA.abandon_on_cancel:
-        message_to_trio.run_in_system_nursery(trio_token)
-    else:
-        message_to_trio.run_in_host_task(trio_token)
-
-    return message_to_trio.queue.get().unwrap()
+    return _send_message_to_trio(trio_token, RunSync(fn, args))
