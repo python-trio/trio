@@ -370,9 +370,9 @@ async def to_thread_run_sync(  # type: ignore[misc]
     contextvars_aware_worker_fn: Callable[[], RetT] = functools.partial(context.run, worker_fn)  # type: ignore[assignment]
 
     def deliver_worker_fn_result(result: outcome.Outcome[RetT]) -> None:
-        # The entire run finished, so the task we're trying to contact is
+        # If the entire run finished, the task we're trying to contact is
         # certainly long gone -- it must have been cancelled and abandoned
-        # us.
+        # us. Just ignore the error in this case.
         with contextlib.suppress(trio.RunFinishedError):
             current_trio_token.run_sync_soon(report_back_in_trio_thread_fn, result)
 
