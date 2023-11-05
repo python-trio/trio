@@ -474,44 +474,6 @@ def test_static_tool_sees_class_members(
                 "send_all_hook",
                 "wait_send_all_might_not_block_hook",
             },
-            # We pull a bit of type shenanigins, so all these
-            # attributes exist in type checking, but we expose
-            # wrapped values in a custom __getattr__ at runtime if they exist
-            # in the wrapped synchronous file object.
-            trio.AsyncIOWrapper: {
-                "buffer",
-                "closed",
-                "closefd",
-                "encoding",
-                "errors",
-                "fileno",
-                "flush",
-                "getbuffer",
-                "getvalue",
-                "isatty",
-                "line_buffering",
-                "mode",
-                "name",
-                "newlines",
-                "peek",
-                "raw",
-                "read",
-                "read1",
-                "readable",
-                "readall",
-                "readinto",
-                "readinto1",
-                "readline",
-                "readlines",
-                "seek",
-                "seekable",
-                "tell",
-                "truncate",
-                "writable",
-                "write",
-                "writelines",
-                "__getattr__",
-            },
         }
         if tool == "mypy" and class_ in EXTRAS:
             before = len(extra)
