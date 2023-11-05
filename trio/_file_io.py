@@ -18,7 +18,7 @@ from typing import (
 
 import trio
 
-from ._util import async_wraps
+from ._util import async_wraps, final
 from .abc import AsyncResource
 
 if TYPE_CHECKING:
@@ -215,6 +215,7 @@ if TYPE_CHECKING:
 
 # FileT needs to be covariant for the protocol trick to work - the real IO types are effectively a
 # subtype of the protocols.
+@final
 class AsyncIOWrapper(AsyncResource, Generic[FileT_co]):
     """A generic :class:`~io.IOBase` wrapper that implements the :term:`asynchronous
     file object` interface. Wrapped methods that could block are executed in
