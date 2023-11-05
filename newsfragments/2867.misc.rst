@@ -1,1 +1,1 @@
-move .coveragerc into pyproject.toml
+Move .coveragerc into pyproject.toml
