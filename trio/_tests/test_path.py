@@ -53,7 +53,7 @@ cls_pairs: list[tuple[EitherPathType, EitherPathType]] = [
 async def test_cmp_magic(cls_a: EitherPathType, cls_b: EitherPathType) -> None:
     a, b = cls_a(""), cls_b("")
     assert a == b
-    assert not a != b
+    assert not a != b  # noqa: SIM202  # negate-not-equal-op
 
     a, b = cls_a("a"), cls_b("b")
     assert a < b
@@ -126,7 +126,7 @@ async def test_compare_async_stat_methods(method_name: str) -> None:
 
 async def test_invalid_name_not_wrapped(path: trio.Path) -> None:
     with pytest.raises(AttributeError):
-        getattr(path, "invalid_fake_attr")
+        getattr(path, "invalid_fake_attr")  # noqa: B009  # "get-attr-with-constant"
 
 
 @pytest.mark.parametrize("method_name", ["absolute", "resolve"])

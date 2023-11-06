@@ -215,7 +215,7 @@ class CapacityLimiter(AsyncContextManagerMixin):
     """
 
     # total_tokens would ideally be int|Literal[math.inf] - but that's not valid typing
-    def __init__(self, total_tokens: int | float):
+    def __init__(self, total_tokens: int | float):  # noqa: PYI041
         self._lot = ParkingLot()
         self._borrowers: set[Task | object] = set()
         # Maps tasks attempting to acquire -> borrower, to handle on-behalf-of
@@ -245,7 +245,7 @@ class CapacityLimiter(AsyncContextManagerMixin):
         return self._total_tokens
 
     @total_tokens.setter
-    def total_tokens(self, new_total_tokens: int | float) -> None:
+    def total_tokens(self, new_total_tokens: int | float) -> None:  # noqa: PYI041
         if not isinstance(new_total_tokens, int) and new_total_tokens != math.inf:
             raise TypeError("total_tokens must be an int or math.inf")
         if new_total_tokens < 1:
@@ -453,9 +453,7 @@ class Semaphore(AsyncContextManagerMixin):
             max_value_str = ""
         else:
             max_value_str = f", max_value={self._max_value}"
-        return "<trio.Semaphore({}{}) at {:#x}>".format(
-            self._value, max_value_str, id(self)
-        )
+        return f"<trio.Semaphore({self._value}{max_value_str}) at {id(self):#x}>"
 
     @property
     def value(self) -> int:
@@ -556,9 +554,7 @@ class _LockImpl(AsyncContextManagerMixin):
         else:
             s1 = "unlocked"
             s2 = ""
-        return "<{} {} object at {:#x}{}>".format(
-            s1, self.__class__.__name__, id(self), s2
-        )
+        return f"<{s1} {self.__class__.__name__} object at {id(self):#x}{s2}>"
 
     def locked(self) -> bool:
         """Check whether the lock is currently held.

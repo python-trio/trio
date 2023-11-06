@@ -33,6 +33,8 @@ globals().update(
 )
 
 # import the overwrites
+from contextlib import suppress as _suppress
+
 from ._socket import (
     SocketType as SocketType,
     from_stdlib_socket as from_stdlib_socket,
@@ -48,10 +50,8 @@ from ._socket import (
 
 # not always available so expose only if
 if sys.platform == "win32" or not _t.TYPE_CHECKING:
-    try:
+    with _suppress(ImportError):
         from ._socket import fromshare as fromshare
-    except ImportError:
-        pass
 
 # expose these functions to trio.socket
 from socket import (
@@ -69,21 +69,19 @@ from socket import (
 
 # not always available so expose only if
 if sys.platform != "win32" or not _t.TYPE_CHECKING:
-    try:
+    with _suppress(ImportError):
         from socket import (
             if_indextoname as if_indextoname,
             if_nameindex as if_nameindex,
             if_nametoindex as if_nametoindex,
             sethostname as sethostname,
         )
-    except ImportError:
-        pass
 
 if _t.TYPE_CHECKING:
     IP_BIND_ADDRESS_NO_PORT: int
 else:
     try:
-        IP_BIND_ADDRESS_NO_PORT
+        IP_BIND_ADDRESS_NO_PORT  # noqa: B018  # "useless expression"
     except NameError:
         if sys.platform == "linux":
             IP_BIND_ADDRESS_NO_PORT = 24

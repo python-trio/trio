@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import enum
 import errno
 import hmac
@@ -648,7 +649,7 @@ _T = TypeVar("_T")
 
 
 class _Queue(Generic[_T]):
-    def __init__(self, incoming_packets_buffer: int | float):
+    def __init__(self, incoming_packets_buffer: int | float):  # noqa: PYI041
         self.s, self.r = trio.open_memory_channel[_T](incoming_packets_buffer)
 
 
@@ -841,10 +842,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         # support and isn't useful anyway -- especially for DTLS where it's equivalent
         # to just performing a new handshake.
         ctx.set_options(
-            (
-                SSL.OP_NO_QUERY_MTU
-                | SSL.OP_NO_RENEGOTIATION  # type: ignore[attr-defined]
-            )
+            SSL.OP_NO_QUERY_MTU | SSL.OP_NO_RENEGOTIATION  # type: ignore[attr-defined]
         )
         self._ssl = SSL.Connection(ctx)
         self._handshake_mtu = 0
@@ -986,10 +984,8 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
             # If we're a client, we send the initial volley. If we're a server, then
             # the initial ClientHello has already been inserted into self._ssl's
             # read BIO. So either way, we start by generating a new volley.
-            try:
+            with contextlib.suppress(SSL.WantReadError):
                 self._ssl.do_handshake()
-            except SSL.WantReadError:
-                pass
             volley_messages = read_volley()
             # If we don't have messages to send in our initial volley, then something
             # has gone very wrong. (I'm not sure this can actually happen without an
@@ -1225,13 +1221,14 @@ class DTLSEndpoint:
         # Close the socket in Trio context (if our Trio context still exists), so that
         # the background task gets notified about the closure and can exit.
         if not self._closed:
-            try:
+            with contextlib.suppress(RuntimeError):
                 self._token.run_sync_soon(self.close)
-            except RuntimeError:
-                pass
             # Do this last, because it might raise an exception
             warnings.warn(
-                f"unclosed DTLS endpoint {self!r}", ResourceWarning, source=self
+                f"unclosed DTLS endpoint {self!r}",
+                ResourceWarning,
+                source=self,
+                stacklevel=1,
             )
 
     def close(self) -> None:
@@ -1305,7 +1302,10 @@ class DTLSEndpoint:
         try:
             self.socket.getsockname()
         except OSError:
-            raise RuntimeError("DTLS socket must be bound before it can serve")
+            # TODO: Write test that triggers this
+            raise RuntimeError(  # pragma: no cover
+                "DTLS socket must be bound before it can serve"
+            ) from None
         self._ensure_receive_loop()
         # We do cookie verification ourselves, so tell OpenSSL not to worry about it.
         # (See also _inject_client_hello_untrusted.)

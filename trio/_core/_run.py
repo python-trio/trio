@@ -18,7 +18,7 @@ from collections.abc import (
     Iterator,
     Sequence,
 )
-from contextlib import AbstractAsyncContextManager, contextmanager
+from contextlib import AbstractAsyncContextManager, contextmanager, suppress
 from contextvars import copy_context
 from heapq import heapify, heappop, heappush
 from math import inf
@@ -72,7 +72,7 @@ if TYPE_CHECKING:
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: Final = 1000
 
 # Passed as a sentinel
-_NO_SEND: Final["Outcome[Any]"] = cast("Outcome[Any]", object())
+_NO_SEND: Final[Outcome[Any]] = cast("Outcome[Any]", object())
 
 FnT = TypeVar("FnT", bound="Callable[..., Any]")
 StatusT = TypeVar("StatusT")
@@ -115,7 +115,7 @@ def _count_context_run_tb_frames() -> int:
 
     def function_with_unique_name_xyzzy() -> NoReturn:
         try:
-            1 / 0
+            1 / 0  # noqa: B018  # We need a ZeroDivisionError to fire
         except ZeroDivisionError:
             raise
         else:  # pragma: no cover
@@ -537,8 +537,8 @@ class CancelScope:
     def _close(self, exc: BaseException | None) -> BaseException | None:
         if self._cancel_status is None:
             new_exc = RuntimeError(
-                "Cancel scope stack corrupted: attempted to exit {!r} "
-                "which had already been exited".format(self)
+                f"Cancel scope stack corrupted: attempted to exit {self!r} "
+                "which had already been exited"
             )
             new_exc.__context__ = exc
             return new_exc
@@ -559,10 +559,8 @@ class CancelScope:
                 # cancel scope it's trying to close. Raise an error
                 # without changing any state.
                 new_exc = RuntimeError(
-                    "Cancel scope stack corrupted: attempted to exit {!r} "
-                    "from unrelated {!r}\n{}".format(
-                        self, scope_task, MISNESTING_ADVICE
-                    )
+                    f"Cancel scope stack corrupted: attempted to exit {self!r} "
+                    f"from unrelated {scope_task!r}\n{MISNESTING_ADVICE}"
                 )
                 new_exc.__context__ = exc
                 return new_exc
@@ -792,7 +790,9 @@ class CancelScope:
         cancelled, then :attr:`cancelled_caught` is usually more
         appropriate.
         """
-        if self._cancel_status is not None or not self._has_been_entered:
+        if (  # noqa: SIM102  # collapsible-if but this way is nicer
+            self._cancel_status is not None or not self._has_been_entered
+        ):
             # Scope is active or not yet entered: make sure cancel_called
             # is true if the deadline has passed. This shouldn't
             # be able to actually change behavior, since we check for
@@ -1080,21 +1080,24 @@ class Nursery(metaclass=NoPublicConstructor):
         self._check_nursery_closed()
 
         if not self._closed:
-            # If we get cancelled (or have an exception injected, like
-            # KeyboardInterrupt), then save that, but still wait until our
-            # children finish.
+            # If we have a KeyboardInterrupt injected, we want to save it in
+            # the nursery's final exceptions list. But if it's just a
+            # Cancelled, then we don't -- see gh-1457.
             def aborted(raise_cancel: _core.RaiseCancelT) -> Abort:
-                self._add_exc(capture(raise_cancel).error)
+                exn = capture(raise_cancel).error
+                if not isinstance(exn, Cancelled):
+                    self._add_exc(exn)
+                del exn  # prevent cyclic garbage creation
                 return Abort.FAILED
 
             self._parent_waiting_in_aexit = True
             await wait_task_rescheduled(aborted)
         else:
-            # Nothing to wait for, so just execute a checkpoint -- but we
-            # still need to mix any exception (e.g. from an external
-            # cancellation) in with the rest of our exceptions.
+            # Nothing to wait for, so execute a schedule point, but don't
+            # allow us to be cancelled, just like the other branch.  We
+            # still need to catch and store non-Cancelled exceptions.
             try:
-                await checkpoint()
+                await cancel_shielded_checkpoint()
             except BaseException as exc:
                 self._add_exc(exc)
 
@@ -1208,7 +1211,11 @@ class Nursery(metaclass=NoPublicConstructor):
             raise RuntimeError("Nursery is closed to new arrivals")
         try:
             self._pending_starts += 1
-            async with open_nursery() as old_nursery:
+            # `strict_exception_groups=False` prevents the implementation-detail
+            # nursery from inheriting `strict_exception_groups=True` from the
+            # `run` option, which would cause it to wrap a pre-started()
+            # exception in an extra ExceptionGroup. See #2611.
+            async with open_nursery(strict_exception_groups=False) as old_nursery:
                 task_status: _TaskStatus[StatusT] = _TaskStatus(old_nursery, self)
                 thunk = functools.partial(async_fn, task_status=task_status)
                 task = GLOBAL_RUN_CONTEXT.runner.spawn_impl(
@@ -1705,10 +1712,7 @@ class Runner:
         # Propagate contextvars
         ######
         if context is None:
-            if system_task:
-                context = self.system_context.copy()
-            else:
-                context = copy_context()
+            context = self.system_context.copy() if system_task else copy_context()
 
         ######
         # Call the function and get the coroutine object, while giving helpful
@@ -1770,9 +1774,7 @@ class Runner:
                 # traceback frame included
                 raise RuntimeError(
                     "Cancel scope stack corrupted: cancel scope surrounding "
-                    "{!r} was closed before the task exited\n{}".format(
-                        task, MISNESTING_ADVICE
-                    )
+                    f"{task!r} was closed before the task exited\n{MISNESTING_ADVICE}"
                 )
             except RuntimeError as new_exc:
                 if isinstance(outcome, Error):
@@ -1940,10 +1942,8 @@ class Runner:
     # This gets called from signal context
     def deliver_ki(self) -> None:
         self.ki_pending = True
-        try:
+        with suppress(RunFinishedError):
             self.entry_queue.run_sync_soon(self._deliver_ki_cb)
-        except RunFinishedError:
-            pass
 
     def _deliver_ki_cb(self) -> None:
         if not self.ki_pending:
@@ -2358,7 +2358,7 @@ def start_guest_run(
     next_send = cast(
         EventResult, None
     )  # First iteration must be `None`, every iteration after that is EventResult
-    for tick in range(5):  # expected need is 2 iterations + leave some wiggle room
+    for _tick in range(5):  # expected need is 2 iterations + leave some wiggle room
         if runner.system_nursery is not None:
             # We're initialized enough to switch to async guest ticks
             break
@@ -2367,7 +2367,7 @@ def start_guest_run(
         except StopIteration:  # pragma: no cover
             raise TrioInternalError(
                 "Guest runner exited before system nursery was initialized"
-            )
+            ) from None
         if timeout != 0:  # pragma: no cover
             guest_state.unrolled_run_gen.throw(
                 TrioInternalError(
@@ -2593,10 +2593,10 @@ def unrolled_run(
                         runner.task_exited(task, msg.final_outcome)
                     else:
                         exc = TypeError(
-                            "trio.run received unrecognized yield message {!r}. "
+                            f"trio.run received unrecognized yield message {msg!r}. "
                             "Are you trying to use a library written for some "
                             "other framework like asyncio? That won't work "
-                            "without some kind of compatibility shim.".format(msg)
+                            "without some kind of compatibility shim."
                         )
                         # The foreign library probably doesn't adhere to our
                         # protocol of unwrapping whatever outcome gets sent in.
@@ -2622,7 +2622,8 @@ def unrolled_run(
             RuntimeWarning(
                 "Trio guest run got abandoned without properly finishing... "
                 "weird stuff might happen"
-            )
+            ),
+            stacklevel=1,
         )
     except TrioInternalError:
         raise
@@ -2745,7 +2746,7 @@ async def checkpoint_if_cancelled() -> None:
         task is task._runner.main_task and task._runner.ki_pending
     ):
         await _core.checkpoint()
-        assert False  # pragma: no cover
+        raise AssertionError("this should never happen")  # pragma: no cover
     task._cancel_points += 1
 
 

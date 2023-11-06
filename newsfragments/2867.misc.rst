@@ -1,0 +1,1 @@
+Move .coveragerc into pyproject.toml
