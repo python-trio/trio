@@ -65,9 +65,6 @@ Changelog = "https://trio.readthedocs.io/en/latest/history.html"
 # doesn't look like a source file, so long as it appears in MANIFEST.in:
 include-package-data = true
 
-[tool.setuptools.packages]
-find = {namespaces = false}
-
 [tool.setuptools.dynamic]
 version = {attr = "trio._version.__version__"}
 
