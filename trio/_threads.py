@@ -297,7 +297,8 @@ async def to_thread_run_sync(  # type: ignore[misc]
         )
         abandon_on_cancel = cancellable
     # raise early if abandon_on_cancel.__bool__ raises
-    abandon_on_cancel = bool(abandon_on_cancel)
+    # and give a new name to ensure mypy knows it's never None
+    abandon_bool = bool(abandon_on_cancel)
     if limiter is None:
         limiter = current_default_thread_limiter()
 
@@ -335,7 +336,7 @@ async def to_thread_run_sync(  # type: ignore[misc]
 
     def worker_fn() -> RetT:
         PARENT_TASK_DATA.token = current_trio_token
-        PARENT_TASK_DATA.abandon_on_cancel = abandon_on_cancel  # type: ignore[assignment]
+        PARENT_TASK_DATA.abandon_on_cancel = abandon_bool
         PARENT_TASK_DATA.cancel_register = cancel_register
         PARENT_TASK_DATA.task_register = task_register
         try:
@@ -380,7 +381,7 @@ async def to_thread_run_sync(  # type: ignore[misc]
     def abort(raise_cancel: RaiseCancelT) -> trio.lowlevel.Abort:
         # fill so from_thread_check_cancelled can raise
         cancel_register[0] = raise_cancel
-        if abandon_on_cancel:
+        if abandon_bool:
             # empty so report_back_in_trio_thread_fn cannot reschedule
             task_register[0] = None
             return trio.lowlevel.Abort.SUCCEEDED
