@@ -84,7 +84,6 @@ force-exclude = '''
 ignore-words-list = 'astroid,crasher,asend'
 
 [tool.ruff]
-target-version = "py38"
 respect-gitignore = true
 fix = true
 
@@ -92,7 +91,7 @@ allowed-confusables = ["–"]
 
 # The directories to consider when resolving first vs. third-party imports.
 # Does not control what files to include/exclude!
-src = ["trio", "notes-to-self"]
+src = ["src/trio", "notes-to-self"]
 
 select = [
   "RUF",  # Ruff-specific rules
@@ -234,15 +233,15 @@ showcontent = true
 
 [tool.coverage.run]
 branch = true
-source = ["trio"]
+source = ["src/trio"]
 omit = [
     # These are run in subprocesses, but still don't work. We follow
     # coverage's documentation to no avail.
-    "*/trio/_core/_tests/test_multierror_scripts/*",
+    "*/src/trio/_core/_tests/test_multierror_scripts/*",
     # Omit the generated files in trio/_core starting with _generated_
-    "*/trio/_core/_generated_*",
+    "*/src/trio/_core/_generated_*",
     # Script used to check type completeness that isn't run in tests
-    "*/trio/_tests/check_type_completeness.py",
+    "*/src/trio/_tests/check_type_completeness.py",
 ]
 # The test suite spawns subprocesses to test some stuff, so make sure
 # this doesn't corrupt the coverage files
