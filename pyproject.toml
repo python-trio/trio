@@ -47,7 +47,7 @@ dependencies = [
     # cffi 1.14 fixes memory leak inside ffi.getwinerror()
     # cffi is required on Windows, except on PyPy where it is built-in
     "cffi>=1.14; os_name == 'nt' and implementation_name != 'pypy'",
-    "exceptiongroup >= 1.0.0rc9; python_version < '3.11'",
+    "exceptiongroup; python_version < '3.11'",
 ]
 dynamic = ["version"]
 
@@ -230,3 +230,42 @@ showcontent = true
 directory = "misc"
 name = "Miscellaneous internal changes"
 showcontent = true
+
+[tool.coverage.run]
+branch = true
+source = ["trio"]
+omit = [
+    # These are run in subprocesses, but still don't work. We follow
+    # coverage's documentation to no avail.
+    "*/trio/_core/_tests/test_multierror_scripts/*",
+    # Omit the generated files in trio/_core starting with _generated_
+    "*/trio/_core/_generated_*",
+    # Script used to check type completeness that isn't run in tests
+    "*/trio/_tests/check_type_completeness.py",
+]
+# The test suite spawns subprocesses to test some stuff, so make sure
+# this doesn't corrupt the coverage files
+parallel = true
+
+[tool.coverage.report]
+precision = 1
+skip_covered = true
+exclude_lines = [
+    "pragma: no cover",
+    "abc.abstractmethod",
+    "if TYPE_CHECKING.*:",
+    "if _t.TYPE_CHECKING:",
+    "if t.TYPE_CHECKING:",
+    "@overload",
+    'class .*\bProtocol\b.*\):',
+    "raise NotImplementedError",
+]
+partial_branches = [
+    "pragma: no branch",
+    "if not TYPE_CHECKING:",
+    "if not _t.TYPE_CHECKING:",
+    "if not t.TYPE_CHECKING:",
+    "if .* or not TYPE_CHECKING:",
+    "if .* or not _t.TYPE_CHECKING:",
+    "if .* or not t.TYPE_CHECKING:",
+]
