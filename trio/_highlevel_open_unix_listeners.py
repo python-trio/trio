@@ -153,7 +153,7 @@ class UnixSocketListener(Listener[SocketStream]):
             pass
         else:
             if not listening:
-                raise ValueError("SocketListener requires a listening socket")
+                raise ValueError("UnixSocketListener requires a listening socket")
 
         self.socket = socket
         self.path = path
@@ -193,12 +193,12 @@ class UnixSocketListener(Listener[SocketStream]):
                 with _lock(path):
                     os.rename(tmp_path, path)
                 return cls(sock, path, inode)
-            except:  # noqa: E722
+            except BaseException:
                 try:
                     os.unlink(tmp_path)
                 finally:
                     raise
-        except:  # noqa: E722
+        except BaseException:
             try:
                 sock.close()
             finally:

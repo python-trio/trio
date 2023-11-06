@@ -16,7 +16,8 @@ assert (  # Skip type checking when on Windows
 
 
 async def test_open_unix_listeners_basic() -> None:
-    listeners = await open_unix_listeners(0)
+    # Since we are on unix, we can use fun things like /tmp
+    listeners = await open_unix_listeners("/tmp/test_socket.sock", backlog=0)
     assert isinstance(listeners, list)
     for obj in listeners:
         assert isinstance(obj, SocketListener)
