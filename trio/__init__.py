@@ -72,6 +72,7 @@ from ._highlevel_serve_listeners import serve_listeners as serve_listeners
 from ._highlevel_socket import (
     SocketListener as SocketListener,
     SocketStream as SocketStream,
+    UnixSocketListener as UnixSocketListener,
 )
 from ._highlevel_ssl_helpers import (
     open_ssl_over_tcp_listeners as open_ssl_over_tcp_listeners,

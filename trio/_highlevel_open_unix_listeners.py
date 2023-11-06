@@ -212,8 +212,27 @@ class UnixSocketListener(Listener[SocketStream]):
         mode: int = 0o666,
         backlog: int | None = None,
     ) -> Self:
+        """Create new unix socket listener.
+
+        Args:
+          path (str, bytes): Path to folder where new socket file will be created.
+
+          mode (int): Unix octal file mode of new socket file.
+
+          backlog (int or None): The listen backlog to use. If you leave this as
+              ``None`` then Trio will pick a good default. (Currently: whatever
+              your system has configured as the maximum backlog.)
+
+        Returns:
+          :class:`UnixSocketListener`
+
+        Raises:
+          FileNotFoundError: if socket path doesn't exist
+          FileExistsError: if existing file is not a socket
+
+        """
         backlog = _compute_backlog(backlog)
-        return await cls._create(path, mode, backlog or 0xFFFF)
+        return await cls._create(path=path, mode=mode, backlog=backlog or 0xFFFF)
 
     def _close(self) -> None:
         try:
