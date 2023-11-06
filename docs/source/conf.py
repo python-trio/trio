@@ -61,8 +61,6 @@ nitpick_ignore = [
     ("py:class", "socket.AddressFamily"),
     ("py:class", "socket.SocketKind"),
     ("py:class", "Buffer"),  # collections.abc.Buffer, in 3.12
-    # Utterly failing to get this reference to work
-    ("py:class", "StrOrBytesPath"),
 ]
 autodoc_inherit_docstrings = False
 default_role = "obj"
@@ -78,7 +76,6 @@ autodoc_type_aliases = {
     "Context": "OpenSSL.SSL.Context",
     # SSLListener.accept's return type is seen as trio._ssl.SSLStream
     "SSLStream": "trio.SSLStream",
-    "StrOrBytesPath": "str | bytes | os.PathLike[str] | os.PathLike[bytes]",
 }
 
 
@@ -94,6 +91,8 @@ def autodoc_process_signature(
             # Strip the type from the union, make it look like = ...
             signature = signature.replace(" | type[trio._core._local._NoValue]", "")
             signature = signature.replace("<class 'trio._core._local._NoValue'>", "...")
+        # Don't specify PathLike[str] | PathLike[bytes], this is just for humans.
+        signature = signature.replace("StrOrBytesPath", "str | bytes | os.PathLike")
 
     return signature, return_annotation
 
