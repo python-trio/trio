@@ -16,7 +16,7 @@ from ._highlevel_socket import (
     _closed_stream_errnos,
     _ignorable_accept_errnos,
 )
-from ._util import Final
+from ._util import final
 from .abc import Listener
 
 if TYPE_CHECKING:
@@ -111,7 +111,8 @@ def _lock(
         os.unlink(name)
 
 
-class UnixSocketListener(Listener[SocketStream], metaclass=Final):
+@final
+class UnixSocketListener(Listener[SocketStream]):
     """A :class:`~trio.abc.Listener` that uses a listening socket to accept
     incoming connections as :class:`SocketStream` objects.
 
