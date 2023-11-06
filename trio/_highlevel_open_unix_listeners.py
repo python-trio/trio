@@ -6,7 +6,7 @@ import stat
 import time
 from collections.abc import Awaitable, Callable, Generator
 from contextlib import contextmanager
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NoReturn
 
 import trio
 import trio.socket as tsocket
@@ -247,7 +247,7 @@ class UnixSocketListener(Listener[SocketStream], metaclass=Final):
                 sock, _ = await self.socket.accept()
             except OSError as exc:
                 if exc.errno in _closed_stream_errnos:
-                    raise trio.ClosedResourceError
+                    raise trio.ClosedResourceError from None
                 if exc.errno not in _ignorable_accept_errnos:
                     raise
             else:
@@ -312,7 +312,7 @@ async def serve_unix(
     backlog: int | None = None,
     handler_nursery: trio.Nursery | None = None,
     task_status: trio.TaskStatus[list[UnixSocketListener]] = trio.TASK_STATUS_IGNORED,
-) -> None:
+) -> NoReturn:
     """Listen for incoming UNIX connections, and for each one start a task
     running ``handler(stream)``.
 
