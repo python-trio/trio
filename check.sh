@@ -23,10 +23,10 @@ echo "::endgroup::"
 # autoflake --recursive --in-place .
 # pyupgrade --py3-plus $(find . -name "*.py")
 echo "::group::Black"
-if ! black --check setup.py src/trio; then
+if ! black --check src/trio; then
     echo "* Black found issues" >> "$GITHUB_STEP_SUMMARY"
     EXIT_STATUS=1
-    black --diff setup.py src/trio
+    black --diff src/trio
     echo "::endgroup::"
     echo "::error:: Black found issues"
 else
@@ -118,8 +118,8 @@ Problems were found by static analysis (listed above).
 To fix formatting and see remaining errors, run
 
     pip install -r test-requirements.txt
-    black setup.py src/trio
-    isort setup.py src/trio
+    black src/trio
+    ruff check src/trio
     ./check.sh
 
 in your local checkout.
