@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from collections import OrderedDict, deque
+from collections.abc import Iterable
 from math import inf
+from operator import itemgetter
 from types import TracebackType
 from typing import (
     TYPE_CHECKING,
     Generic,
+    TypeVar,
     Tuple,  # only needed for typechecking on <3.9
 )
 
@@ -14,7 +17,7 @@ from outcome import Error, Value
 
 import trio
 
-from ._abc import ReceiveChannel, ReceiveType, SendChannel, SendType, T
+from ._abc import ReceiveChannel, ReceiveType, SendChannel, SendType
 from ._core import Abort, RaiseCancelT, Task, enable_ki_protection
 from ._util import NoPublicConstructor, final, generic_function
 
@@ -22,9 +25,12 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
 
+T = TypeVar("T")
+
+
 def _open_memory_channel(
     max_buffer_size: int | float,  # noqa: PYI041
-) -> tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]:
+) -> MemoryChannelPair[T]:
     """Open a channel for passing objects between tasks within a process.
 
     Memory channels are lightweight, cheap to allocate, and entirely
@@ -52,9 +58,8 @@ def _open_memory_channel(
         see :ref:`channel-buffering` for more details. If in doubt, use 0.
 
     Returns:
-      A pair ``(send_channel, receive_channel)``. If you have
-      trouble remembering which order these go in, remember: data
-      flows from left → right.
+      A named tuple ``(send_channel, receive_channel)``.  The tuple ordering is
+      intended to match the image of data flowing from left → right.
 
     In addition to the standard channel methods, all memory channel objects
     provide a ``statistics()`` method, which returns an object with the
@@ -81,7 +86,7 @@ def _open_memory_channel(
     if max_buffer_size < 0:
         raise ValueError("max_buffer_size must be >= 0")
     state: MemoryChannelState[T] = MemoryChannelState(max_buffer_size)
-    return (
+    return MemoryChannelPair(
         MemorySendChannel[T]._create(state),
         MemoryReceiveChannel[T]._create(state),
     )
@@ -91,12 +96,12 @@ def _open_memory_channel(
 # or there's a better way of achieving type-checking on a generic factory function,
 # it could replace the normal function header
 if TYPE_CHECKING:
-    # written as a class so you can say open_memory_channel[int](5)
+    # written as a class so that you can say open_memory_channel[int](5)
     # Need to use Tuple instead of tuple due to CI check running on 3.8
-    class open_memory_channel(Tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]):
+    class open_memory_channel(MemoryChannelPair[T]):
         def __new__(  # type: ignore[misc]  # "must return a subtype"
             cls, max_buffer_size: int | float  # noqa: PYI041
-        ) -> tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]:
+        ) -> MemoryChannelPair[T]:
             return _open_memory_channel(max_buffer_size)
 
         def __init__(self, max_buffer_size: int | float):  # noqa: PYI041
@@ -143,7 +148,11 @@ class MemoryChannelState(Generic[T]):
 
 @final
 @attr.s(eq=False, repr=False)
-class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
+class MemorySendChannel(
+    SendChannel[SendType],
+    Generic[SendType],
+    metaclass=NoPublicConstructor,
+):
     _state: MemoryChannelState[SendType] = attr.ib()
     _closed: bool = attr.ib(default=False)
     # This is just the tasks waiting on *this* object. As compared to
@@ -286,7 +295,11 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
 
 @final
 @attr.s(eq=False, repr=False)
-class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstructor):
+class MemoryReceiveChannel(
+    ReceiveChannel[ReceiveType],
+    Generic[ReceiveType],
+    metaclass=NoPublicConstructor,
+):
     _state: MemoryChannelState[ReceiveType] = attr.ib()
     _closed: bool = attr.ib(default=False)
     _tasks: set[trio._core._run.Task] = attr.ib(factory=set)
@@ -430,3 +443,81 @@ class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstr
     async def aclose(self) -> None:
         self.close()
         await trio.lowlevel.checkpoint()
+
+
+# We cannot use generic named tuples before Py 3.11, manually define it.
+class MemoryChannelPair(
+    Tuple[MemorySendChannel[T], MemoryReceiveChannel[T]],
+    Generic[T],
+):
+    """Named tuple of send/receive memory channels."""
+
+    __slots__ = ()
+    _fields = ("send_channel", "receive_channel")
+
+    if TYPE_CHECKING:
+
+        @property
+        def send_channel(self) -> MemorySendChannel[T]:
+            """Returns the sending channel half."""
+            return self[0]
+
+        @property
+        def receive_channel(self) -> MemoryReceiveChannel[T]:
+            """Returns the receiving channel half."""
+            return self[1]
+
+    else:  # More efficient
+        send_channel = property(itemgetter(0), doc="Returns the sending channel half.")
+        receive_channel = property(
+            itemgetter(1), doc="Returns the receiving channel half."
+        )
+
+    def __new__(
+        cls,
+        send_channel: MemorySendChannel[T],
+        receive_channel: MemoryReceiveChannel[T],
+    ) -> Self:
+        """Create new instance of MemoryChannelPair(send_channel, receive_channel)"""
+        return tuple.__new__(cls, (send_channel, receive_channel))  # type: ignore[type-var]
+
+    @classmethod
+    def _make(
+        cls,
+        iterable: Iterable[MemorySendChannel[T] | MemoryReceiveChannel[T]],
+    ) -> Self:
+        """Make a new MemoryChannelPair object from a sequence or iterable"""
+        send, rec = iterable
+        if isinstance(send, MemoryReceiveChannel) or isinstance(rec, MemorySendChannel):
+            raise TypeError("Channel order passed incorrectly.")
+        return tuple.__new__(cls, (send, rec))  # type: ignore[type-var]
+
+    def _replace(
+        self,
+        *,
+        send_channel: MemorySendChannel[T] | None = None,
+        receive_channel: MemoryReceiveChannel[T] | None = None,
+    ) -> MemoryChannelPair[T]:
+        """Return a new MemoryChannelPair object replacing specified fields with new values"""
+        if send_channel is None:
+            send_channel = self.send_channel
+        if receive_channel is None:
+            receive_channel = self.receive_channel
+        return tuple.__new__(
+            MemoryChannelPair,
+            (send_channel, receive_channel),
+        )  # type: ignore[type-var]
+
+    def __repr__(self) -> str:
+        """Return a nicely formatted representation string"""
+        return f"{self.__class__.__name__}(send_channel={self[0]!r}, receive_channel={self[1]!r})"
+
+    def _asdict(
+        self,
+    ) -> OrderedDict[str, MemorySendChannel[T] | MemoryReceiveChannel[T]]:
+        """Return a new OrderedDict which maps field names to their values."""
+        return OrderedDict(zip(self._fields, self))
+
+    def __getnewargs__(self) -> tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]:
+        """Return self as a plain tuple.  Used by copy and pickle."""
+        return (self[0], self[1])
