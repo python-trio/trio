@@ -1,0 +1,1 @@
+Make pyright recognize :func:`open_memory_channel` as generic.
