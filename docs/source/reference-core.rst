@@ -195,7 +195,8 @@ The vast majority of Trio's API is *not* thread safe: it can only be
 used from inside a call to :func:`trio.run`. This manual doesn't
 bother documenting this on individual calls; unless specifically noted
 otherwise, you should assume that it isn't safe to call any Trio
-functions from anywhere except the Trio thread. (But :ref:`see below
+functions from anywhere except the Trio thread (i.e. the OS thread
+which invoked :func:`trio.run`). (But :ref:`see below
 <threads>` if you really do need to work with threads.)
 
 
