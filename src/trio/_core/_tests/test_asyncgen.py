@@ -3,14 +3,16 @@ from __future__ import annotations
 import contextlib
 import sys
 import weakref
-from collections.abc import AsyncGenerator
 from math import inf
-from typing import NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 import pytest
 
 from ... import _core
 from .tutil import buggy_pypy_asyncgens, gc_collect_harder, restore_unraisablehook
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
 
 
 def test_asyncgen_basics() -> None:

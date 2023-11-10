@@ -9,8 +9,7 @@ import sys
 import warnings
 from pathlib import Path
 from traceback import extract_tb, print_exception
-from types import TracebackType
-from typing import Callable, NoReturn
+from typing import TYPE_CHECKING, Callable, NoReturn
 
 import pytest
 
@@ -18,6 +17,9 @@ from ... import TrioDeprecationWarning
 from ..._core import open_nursery
 from .._multierror import MultiError, NonBaseMultiError, concat_tb
 from .tutil import slow
+
+if TYPE_CHECKING:
+    from types import TracebackType
 
 if sys.version_info < (3, 11):
     from exceptiongroup import ExceptionGroup

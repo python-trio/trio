@@ -9,6 +9,7 @@ import time
 import weakref
 from functools import partial
 from typing import (
+    TYPE_CHECKING,
     AsyncGenerator,
     Awaitable,
     Callable,
@@ -22,7 +23,6 @@ from typing import (
 
 import pytest
 import sniffio
-from outcome import Outcome
 from pytest import MonkeyPatch
 
 from .. import (
@@ -45,8 +45,12 @@ from .._threads import (
     from_thread_run_sync,
     to_thread_run_sync,
 )
-from ..lowlevel import Task
 from ..testing import wait_all_tasks_blocked
+
+if TYPE_CHECKING:
+    from outcome import Outcome
+
+    from ..lowlevel import Task
 
 RecordType = List[Tuple[str, Union[threading.Thread, Type[BaseException]]]]
 T = TypeVar("T")

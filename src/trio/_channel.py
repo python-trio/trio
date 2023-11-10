@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections import OrderedDict, deque
 from math import inf
-from types import TracebackType
 from typing import (
     TYPE_CHECKING,
     Generic,
@@ -19,6 +18,8 @@ from ._core import Abort, RaiseCancelT, Task, enable_ki_protection
 from ._util import NoPublicConstructor, final, generic_function
 
 if TYPE_CHECKING:
+    from types import TracebackType
+
     from typing_extensions import Self
 
 
@@ -93,7 +94,7 @@ def _open_memory_channel(
 if TYPE_CHECKING:
     # written as a class so you can say open_memory_channel[int](5)
     # Need to use Tuple instead of tuple due to CI check running on 3.8
-    class open_memory_channel(Tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]):
+    class open_memory_channel(Tuple["MemorySendChannel[T]", "MemoryReceiveChannel[T]"]):
         def __new__(  # type: ignore[misc]  # "must return a subtype"
             cls, max_buffer_size: int | float  # noqa: PYI041
         ) -> tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]:

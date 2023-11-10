@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
 from functools import partial, wraps
 from typing import TYPE_CHECKING, TypeVar
 
@@ -8,6 +7,8 @@ from .. import _core
 from ..abc import Clock, Instrument
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
     from typing_extensions import ParamSpec
 
     ArgsT = ParamSpec("ArgsT")

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
-from pytest import MonkeyPatch
+from typing import TYPE_CHECKING
 
 import trio
+
+if TYPE_CHECKING:
+    from pytest import MonkeyPatch
 
 
 async def scheduler_trace() -> tuple[tuple[str, int], ...]:

@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-import builtins
 import contextlib
 import errno
 import ipaddress
@@ -29,6 +28,7 @@ import trio
 from trio._util import NoPublicConstructor, final
 
 if TYPE_CHECKING:
+    import builtins
     from socket import AddressFamily, SocketKind
     from types import TracebackType
 

@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import signal
 from collections import OrderedDict
-from collections.abc import AsyncIterator, Callable, Generator, Iterable
 from contextlib import contextmanager
-from types import FrameType
 from typing import TYPE_CHECKING
 
 import trio
@@ -12,6 +10,9 @@ import trio
 from ._util import ConflictDetector, is_main_thread, signal_raise
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Callable, Generator, Iterable
+    from types import FrameType
+
     from typing_extensions import Self
 
 # Discussion of signal handling strategies:

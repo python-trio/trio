@@ -24,6 +24,9 @@ sys.path.insert(0, os.path.abspath("."))
 # For trio itself
 sys.path.insert(0, os.path.abspath("../../src"))
 
+# Enable reloading with `typing.TYPE_CHECKING` being True
+os.environ["SPHINX_AUTODOC_RELOAD_MODULES"] = "1"
+
 # https://docs.readthedocs.io/en/stable/builds.html#build-environment
 if "READTHEDOCS" in os.environ:
     import glob
@@ -88,6 +91,8 @@ def autodoc_process_signature(
             # Strip the type from the union, make it look like = ...
             signature = signature.replace(" | type[trio._core._local._NoValue]", "")
             signature = signature.replace("<class 'trio._core._local._NoValue'>", "...")
+        # Don't specify PathLike[str] | PathLike[bytes], this is just for humans.
+        signature = signature.replace("StrOrBytesPath", "str | bytes | os.PathLike")
 
     return signature, return_annotation
 

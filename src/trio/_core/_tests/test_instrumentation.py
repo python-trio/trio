@@ -1,13 +1,15 @@
 from __future__ import annotations
 
-from typing import Container, Iterable, NoReturn
+from typing import TYPE_CHECKING, Container, Iterable, NoReturn
 
 import attr
 import pytest
 
 from ... import _abc, _core
-from ...lowlevel import Task
 from .tutil import check_sequence_matches
+
+if TYPE_CHECKING:
+    from ...lowlevel import Task
 
 
 @attr.s(eq=False, hash=False)

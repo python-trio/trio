@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import random
-from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from itertools import count
-from typing import NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 import attr
 import pytest
@@ -24,6 +23,9 @@ from trio import DTLSChannel, DTLSEndpoint
 from trio.testing._fake_net import FakeNet, UDPPacket
 
 from .._core._tests.tutil import binds_ipv6, gc_collect_harder, slow
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
 
 ca = trustme.CA()
 server_cert = ca.issue_cert("example.com")

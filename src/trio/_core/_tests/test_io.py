@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import random
 import socket as stdlib_socket
-from collections.abc import Generator
 from contextlib import suppress
 from typing import TYPE_CHECKING, Awaitable, Callable, Tuple, TypeVar
 
@@ -16,6 +15,8 @@ from ...testing import assert_checkpoints, wait_all_tasks_blocked
 # Cross-platform tests for IO handling
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
+
     from typing_extensions import ParamSpec
 
     ArgsT = ParamSpec("ArgsT")

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import errno
-from collections.abc import Generator
 from contextlib import contextmanager, suppress
 from typing import TYPE_CHECKING, overload
 
@@ -13,6 +12,8 @@ from ._util import ConflictDetector, final
 from .abc import HalfCloseableStream, Listener
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
+
     from typing_extensions import Buffer
 
     from ._socket import SocketType
