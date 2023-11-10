@@ -192,7 +192,8 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
         else:
             mod_cache = trio_cache / (modname + ".data.json")
 
-        assert mod_cache.exists() and mod_cache.is_file()
+        assert mod_cache.exists()
+        assert mod_cache.is_file()
         with mod_cache.open() as cache_file:
             cache_json = json.loads(cache_file.read())
             static_names = no_underscores(
@@ -314,7 +315,8 @@ def test_static_tool_sees_class_members(
         else:
             mod_cache = trio_cache / (modname + ".data.json")
 
-        assert mod_cache.exists() and mod_cache.is_file()
+        assert mod_cache.exists()
+        assert mod_cache.is_file()
         with mod_cache.open() as cache_file:
             cache_json = json.loads(cache_file.read())
 

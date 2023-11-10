@@ -464,7 +464,7 @@ async def test_SocketType_shutdown() -> None:
 
 
 @pytest.mark.parametrize(
-    "address, socket_type",
+    ("address", "socket_type"),
     [
         ("127.0.0.1", tsocket.AF_INET),
         pytest.param("::1", tsocket.AF_INET6, marks=binds_ipv6),
@@ -522,7 +522,7 @@ class Addresses:
 
 # Direct thorough tests of the implicit resolver helpers
 @pytest.mark.parametrize(
-    "socket_type, addrs",
+    ("socket_type", "addrs"),
     [
         (
             tsocket.AF_INET,

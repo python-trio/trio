@@ -666,7 +666,8 @@ async def test_unshield_while_cancel_propagating() -> None:
                 await _core.checkpoint()
             finally:
                 inner.shield = True
-    assert outer.cancelled_caught and not inner.cancelled_caught
+    assert outer.cancelled_caught
+    assert not inner.cancelled_caught
 
 
 async def test_cancel_unbound() -> None:
