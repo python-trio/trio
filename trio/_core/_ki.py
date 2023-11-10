@@ -3,8 +3,6 @@ from __future__ import annotations
 import inspect
 import signal
 import sys
-import types
-from collections.abc import Callable
 from functools import wraps
 from typing import TYPE_CHECKING, Final, Protocol, TypeVar
 
@@ -16,6 +14,9 @@ CallableT = TypeVar("CallableT", bound="Callable[..., object]")
 RetT = TypeVar("RetT")
 
 if TYPE_CHECKING:
+    import types
+    from collections.abc import Callable
+
     from typing_extensions import ParamSpec, TypeGuard
 
     ArgsT = ParamSpec("ArgsT")

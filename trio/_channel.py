@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections import OrderedDict, deque
 from math import inf
-from types import TracebackType
 from typing import (
     TYPE_CHECKING,
     Generic,
@@ -19,6 +18,8 @@ from ._core import Abort, RaiseCancelT, Task, enable_ki_protection
 from ._util import NoPublicConstructor, final, generic_function
 
 if TYPE_CHECKING:
+    from types import TracebackType
+
     from typing_extensions import Self
 
 

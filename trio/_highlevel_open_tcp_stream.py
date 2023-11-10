@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import sys
-from collections.abc import Generator
 from contextlib import contextmanager, suppress
-from socket import AddressFamily, SocketKind
 from typing import TYPE_CHECKING, Any
 
 import trio
 from trio._core._multierror import MultiError
 from trio.socket import SOCK_STREAM, SocketType, getaddrinfo, socket
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+    from socket import AddressFamily, SocketKind
 
 if sys.version_info < (3, 11):
     from exceptiongroup import ExceptionGroup

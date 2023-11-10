@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import os
 import pathlib
-from collections.abc import Awaitable, Callable
-from typing import Any, Type, Union
+from typing import TYPE_CHECKING, Any, Type, Union
 
 import pytest
 
 import trio
 from trio._file_io import AsyncIOWrapper
 from trio._path import AsyncAutoWrapperType as WrapperType
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 
 @pytest.fixture

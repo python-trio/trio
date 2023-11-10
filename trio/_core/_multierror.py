@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sys
-from collections.abc import Callable, Sequence
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, ClassVar, cast, overload
 
@@ -13,6 +12,8 @@ if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup, ExceptionGroup
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+
     from typing_extensions import Self
 ################################################################
 # MultiError

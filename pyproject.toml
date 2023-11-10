@@ -106,6 +106,7 @@ select = [
   "ASYNC",  # flake8-async
   "PYI",  # flake8-pyi
   "SIM",  # flake8-simplify
+  "TCH",  # flake8-type-checking
 ]
 extend-ignore = [
     'F403',  # undefined-local-with-import-star

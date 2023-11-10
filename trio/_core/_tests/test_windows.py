@@ -3,9 +3,7 @@ from __future__ import annotations
 import os
 import sys
 import tempfile
-from collections.abc import Generator
 from contextlib import contextmanager
-from io import BufferedWriter
 from typing import TYPE_CHECKING
 from unittest.mock import create_autospec
 
@@ -22,6 +20,10 @@ assert (
 from ... import _core, sleep
 from ...testing import wait_all_tasks_blocked
 from .tutil import gc_collect_harder, restore_unraisablehook, slow
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+    from io import BufferedWriter
 
 if on_windows:
     from .._windows_cffi import (

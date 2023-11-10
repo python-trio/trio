@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Optional, Tuple
 import trio
 
 from .. import _core, _subprocess
-from .._abc import ReceiveStream, SendStream
+from .._abc import ReceiveStream, SendStream  # noqa: TCH001
 
 _wait_child_exiting_error: Optional[ImportError] = None
 _create_child_pipe_error: Optional[ImportError] = None
@@ -82,7 +82,7 @@ except ImportError as ex:  # pragma: no cover
 try:
     if TYPE_CHECKING:
         # Not worth type checking these definitions
-        pass
+        pass  # noqa: TCH005
 
     elif os.name == "posix":
 

@@ -10,10 +10,9 @@ import json
 import socket as stdlib_socket
 import sys
 import types
-from collections.abc import Iterator
 from pathlib import Path
 from types import ModuleType
-from typing import Iterable, Protocol
+from typing import TYPE_CHECKING, Protocol
 
 import attrs
 import pytest
@@ -25,6 +24,9 @@ from trio._tests.pytest_plugin import skip_if_optional_else_raise
 from .. import _core, _util
 from .._core._tests.tutil import slow
 from .pytest_plugin import RUN_SLOW
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
 
 mypy_cache_updated = False
 

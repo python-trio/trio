@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     from types import TracebackType
 
     # See DTLSEndpoint.__init__ for why this is imported here
-    from OpenSSL import SSL
+    from OpenSSL import SSL  # noqa: TCH004
     from OpenSSL.SSL import Context
     from typing_extensions import Self, TypeAlias
 

@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import signal
-from types import FrameType
-from typing import NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 import pytest
 
@@ -11,6 +10,9 @@ import trio
 from .. import _core
 from .._signals import _signal_handler, get_pending_signal_count, open_signal_receiver
 from .._util import signal_raise
+
+if TYPE_CHECKING:
+    from types import FrameType
 
 
 async def test_open_signal_receiver() -> None:
