@@ -37,11 +37,11 @@ python -c "import sys, struct, ssl; print('python:', sys.version); print('versio
 echo "::endgroup::"
 
 echo "::group::Install dependencies"
-python -m pip install -U pip setuptools wheel
+python -m pip install -U pip build
 python -m pip --version
 
-python setup.py sdist --formats=zip
-python -m pip install dist/*.zip
+python -m build
+python -m pip install dist/*.whl
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
     python -m pip install -r test-requirements.txt
@@ -128,7 +128,7 @@ else
 
     echo "::endgroup::"
     echo "::group:: Run Tests"
-    if COVERAGE_PROCESS_START=$(pwd)/../.coveragerc coverage run --rcfile=../.coveragerc -m pytest -r a -p trio._tests.pytest_plugin --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --verbose --durations=10 $flags; then
+    if COVERAGE_PROCESS_START=$(pwd)/../pyproject.toml coverage run --rcfile=../pyproject.toml -m pytest -r a -p trio._tests.pytest_plugin --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --verbose --durations=10 $flags; then
         PASSED=true
     else
         PASSED=false
@@ -136,9 +136,9 @@ else
     echo "::endgroup::"
     echo "::group::Coverage"
 
-    coverage combine --rcfile ../.coveragerc
-    coverage report -m --rcfile ../.coveragerc
-    coverage xml --rcfile ../.coveragerc
+    coverage combine --rcfile ../pyproject.toml
+    coverage report -m --rcfile ../pyproject.toml
+    coverage xml --rcfile ../pyproject.toml
 
     # Remove the LSP again; again we want to do this ASAP to avoid
     # accidentally breaking other stuff.
