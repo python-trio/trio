@@ -3,13 +3,16 @@ from __future__ import annotations
 import errno
 import math
 import sys
-from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING
 
 import trio
 from trio import TaskStatus
 
 from . import socket as tsocket
 from ._deprecate import warn_deprecated
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 if sys.version_info < (3, 11):
     from exceptiongroup import ExceptionGroup

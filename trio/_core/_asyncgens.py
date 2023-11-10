@@ -4,7 +4,6 @@ import logging
 import sys
 import warnings
 import weakref
-from types import AsyncGeneratorType
 from typing import TYPE_CHECKING, NoReturn
 
 import attr
@@ -17,6 +16,7 @@ from . import _run
 ASYNCGEN_LOGGER = logging.getLogger("trio.async_generator_errors")
 
 if TYPE_CHECKING:
+    from types import AsyncGeneratorType
     from typing import Set
 
     _WEAK_ASYNC_GEN_SET = weakref.WeakSet[AsyncGeneratorType[object, NoReturn]]

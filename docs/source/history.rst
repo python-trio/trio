@@ -5,6 +5,86 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.23.1 (2023-11-04)
+------------------------
+
+Bugfixes
+~~~~~~~~
+
+- Don't crash on import in Anaconda interpreters. (`#2855 <https://github.com/python-trio/trio/issues/2855>`__)
+
+
+Trio 0.23.0 (2023-11-03)
+------------------------
+
+Headline features
+~~~~~~~~~~~~~~~~~
+
+- Add type hints. (`#543 <https://github.com/python-trio/trio/issues/543>`__)
+
+
+Features
+~~~~~~~~
+
+- When exiting a nursery block, the parent task always waits for child
+  tasks to exit. This wait cannot be cancelled. However, previously, if
+  you tried to cancel it, it *would* inject a `Cancelled` exception,
+  even though it wasn't cancelled. Most users probably never noticed
+  either way, but injecting a `Cancelled` here is not really useful, and
+  in some rare cases caused confusion or problems, so Trio no longer
+  does that. (`#1457 <https://github.com/python-trio/trio/issues/1457>`__)
+- If called from a thread spawned by `trio.to_thread.run_sync`, `trio.from_thread.run` and
+  `trio.from_thread.run_sync` now reuse the task and cancellation status of the host task;
+  this means that context variables and cancel scopes naturally propagate 'through'
+  threads spawned by Trio. You can also use `trio.from_thread.check_cancelled`
+  to efficiently check for cancellation without reentering the Trio thread. (`#2392 <https://github.com/python-trio/trio/issues/2392>`__)
+- :func:`trio.lowlevel.start_guest_run` now does a bit more setup of the guest run
+  before it returns to its caller, so that the caller can immediately make calls to
+  :func:`trio.current_time`, :func:`trio.lowlevel.spawn_system_task`,
+  :func:`trio.lowlevel.current_trio_token`, etc. (`#2696 <https://github.com/python-trio/trio/issues/2696>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- When a starting function raises before calling :func:`trio.TaskStatus.started`,
+  :func:`trio.Nursery.start` will no longer wrap the exception in an undocumented
+  :exc:`ExceptionGroup`. Previously, :func:`trio.Nursery.start` would incorrectly
+  raise an :exc:`ExceptionGroup` containing it when using ``trio.run(...,
+  strict_exception_groups=True)``. (`#2611 <https://github.com/python-trio/trio/issues/2611>`__)
+
+
+Deprecations and removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- To better reflect the underlying thread handling semantics,
+  the keyword argument for `trio.to_thread.run_sync` that was
+  previously called ``cancellable`` is now named ``abandon_on_cancel``.
+  It still does the same thing -- allow the thread to be abandoned
+  if the call to `trio.to_thread.run_sync` is cancelled -- but since we now
+  have other ways to propagate a cancellation without abandoning
+  the thread, "cancellable" has become somewhat of a misnomer.
+  The old ``cancellable`` name is now deprecated. (`#2841 <https://github.com/python-trio/trio/issues/2841>`__)
+- Deprecated support for ``math.inf`` for the ``backlog`` argument in ``open_tcp_listeners``, making its docstring correct in the fact that only ``TypeError`` is raised if invalid arguments are passed. (`#2842 <https://github.com/python-trio/trio/issues/2842>`__)
+
+
+Removals without deprecations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Drop support for Python3.7 and PyPy3.7/3.8. (`#2668 <https://github.com/python-trio/trio/issues/2668>`__)
+- Removed special ``MultiError`` traceback handling for IPython. As of `version 8.15 <https://ipython.readthedocs.io/en/stable/whatsnew/version8.html#ipython-8-15>`_ `ExceptionGroup` is handled natively. (`#2702 <https://github.com/python-trio/trio/issues/2702>`__)
+
+
+Miscellaneous internal changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Trio now indicates its presence to `sniffio` using the ``sniffio.thread_local``
+  interface that is preferred since sniffio v1.3.0. This should be less likely
+  than the previous approach to cause :func:`sniffio.current_async_library` to
+  return incorrect results due to unintended inheritance of contextvars. (`#2700 <https://github.com/python-trio/trio/issues/2700>`__)
+- On windows, if SIO_BASE_HANDLE failed and SIO_BSP_HANDLE_POLL didn't return a different socket, runtime error will now raise from the OSError that indicated the issue so that in the event it does happen it might help with debugging. (`#2807 <https://github.com/python-trio/trio/issues/2807>`__)
+
+
 Trio 0.22.2 (2023-07-13)
 ------------------------
 

@@ -29,7 +29,6 @@ from pytest import MonkeyPatch, WarningsRecorder
 
 import trio
 import trio.testing
-from trio._channel import MemorySendChannel
 from trio.abc import Instrument
 
 from ..._util import signal_raise
@@ -37,6 +36,8 @@ from .tutil import buggy_pypy_asyncgens, gc_collect_harder, restore_unraisableho
 
 if TYPE_CHECKING:
     from typing_extensions import TypeAlias
+
+    from trio._channel import MemorySendChannel
 
 T = TypeVar("T")
 InHost: TypeAlias = Callable[[object], None]

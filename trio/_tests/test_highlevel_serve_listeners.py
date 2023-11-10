@@ -2,15 +2,13 @@ from __future__ import annotations
 
 import errno
 from functools import partial
-from typing import Awaitable, Callable, NoReturn
+from typing import TYPE_CHECKING, Awaitable, Callable, NoReturn
 
 import attr
 import pytest
 
 import trio
 from trio import Nursery, StapledStream, TaskStatus
-from trio._channel import MemoryReceiveChannel, MemorySendChannel
-from trio.abc import Stream
 from trio.testing import (
     MemoryReceiveStream,
     MemorySendStream,
@@ -18,6 +16,10 @@ from trio.testing import (
     memory_stream_pair,
     wait_all_tasks_blocked,
 )
+
+if TYPE_CHECKING:
+    from trio._channel import MemoryReceiveChannel, MemorySendChannel
+    from trio.abc import Stream
 
 # types are somewhat tentative - I just bruteforced them until I got something that didn't
 # give errors
