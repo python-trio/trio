@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Protocol, TypeVar
+from typing import TYPE_CHECKING, Protocol, TypeVar
 
 import trio
 from trio.socket import SOCK_STREAM, socket
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 
 class Closable(Protocol):

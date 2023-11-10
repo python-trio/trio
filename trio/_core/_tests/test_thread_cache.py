@@ -4,15 +4,17 @@ import threading
 import time
 from contextlib import contextmanager
 from queue import Queue
-from typing import Iterator, NoReturn
+from typing import TYPE_CHECKING, Iterator, NoReturn
 
 import pytest
-from outcome import Outcome
 from pytest import MonkeyPatch
 
 from .. import _thread_cache
 from .._thread_cache import ThreadCache, start_thread_soon
 from .tutil import gc_collect_harder, slow
+
+if TYPE_CHECKING:
+    from outcome import Outcome
 
 
 def test_thread_cache_basics() -> None:

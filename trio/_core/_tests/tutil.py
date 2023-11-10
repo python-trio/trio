@@ -7,7 +7,6 @@ import os
 import socket as stdlib_socket
 import sys
 import warnings
-from collections.abc import Generator, Iterable, Sequence
 from contextlib import closing, contextmanager
 from typing import TYPE_CHECKING, TypeVar
 
@@ -15,6 +14,9 @@ import pytest
 
 # See trio/_tests/conftest.py for the other half of this
 from trio._tests.pytest_plugin import RUN_SLOW
+
+if TYPE_CHECKING:
+    from collections.abc import Generator, Iterable, Sequence
 
 slow = pytest.mark.skipif(not RUN_SLOW, reason="use --run-slow to run slow tests")
 

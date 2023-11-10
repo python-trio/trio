@@ -10,20 +10,11 @@ import sys
 import threading
 import warnings
 from collections import deque
-from collections.abc import (
-    Awaitable,
-    Callable,
-    Coroutine,
-    Generator,
-    Iterator,
-    Sequence,
-)
 from contextlib import AbstractAsyncContextManager, contextmanager, suppress
 from contextvars import copy_context
 from heapq import heapify, heappop, heappush
 from math import inf
 from time import perf_counter
-from types import TracebackType
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -62,11 +53,23 @@ from ._traps import (
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
 
-from types import FrameType
 
 if TYPE_CHECKING:
     import contextvars
+    import types
+    from collections.abc import (
+        Awaitable,
+        Callable,
+        Coroutine,
+        Generator,
+        Iterator,
+        Sequence,
+    )
+    from types import TracebackType
 
+    # for some strange reason Sphinx works with outcome.Outcome, but not Outcome, in
+    # start_guest_run. Same with types.FrameType in iter_await_frames
+    import outcome
     from typing_extensions import Self
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: Final = 1000
@@ -1103,13 +1106,6 @@ class Nursery(metaclass=NoPublicConstructor):
 
         popped = self._parent_task._child_nurseries.pop()
         assert popped is self
-
-        # don't unnecessarily wrap an exceptiongroup in another exceptiongroup
-        # see https://github.com/python-trio/trio/issues/2611
-        if len(self._pending_excs) == 1 and isinstance(
-            self._pending_excs[0], BaseExceptionGroup
-        ):
-            return self._pending_excs[0]
         if self._pending_excs:
             try:
                 return MultiError(
@@ -1218,7 +1214,11 @@ class Nursery(metaclass=NoPublicConstructor):
             raise RuntimeError("Nursery is closed to new arrivals")
         try:
             self._pending_starts += 1
-            async with open_nursery() as old_nursery:
+            # `strict_exception_groups=False` prevents the implementation-detail
+            # nursery from inheriting `strict_exception_groups=True` from the
+            # `run` option, which would cause it to wrap a pre-started()
+            # exception in an extra ExceptionGroup. See #2611.
+            async with open_nursery(strict_exception_groups=False) as old_nursery:
                 task_status: _TaskStatus[StatusT] = _TaskStatus(old_nursery, self)
                 thunk = functools.partial(async_fn, task_status=task_status)
                 task = GLOBAL_RUN_CONTEXT.runner.spawn_impl(
@@ -1317,7 +1317,7 @@ class Task(metaclass=NoPublicConstructor):
         """
         return list(self._child_nurseries)
 
-    def iter_await_frames(self) -> Iterator[tuple[FrameType, int]]:
+    def iter_await_frames(self) -> Iterator[tuple[types.FrameType, int]]:
         """Iterates recursively over the coroutine-like objects this
         task is waiting on, yielding the frame and line number at each
         frame.
@@ -2260,7 +2260,7 @@ def start_guest_run(
     async_fn: Callable[..., Awaitable[RetT]],
     *args: object,
     run_sync_soon_threadsafe: Callable[[Callable[[], object]], object],
-    done_callback: Callable[[Outcome[RetT]], object],
+    done_callback: Callable[[outcome.Outcome[RetT]], object],
     run_sync_soon_not_threadsafe: Callable[[Callable[[], object]], object]
     | None = None,
     host_uses_signal_set_wakeup_fd: bool = False,

@@ -119,12 +119,6 @@ from . import _deprecate as _deprecate
 _deprecate.enable_attribute_deprecations(__name__)
 
 __deprecated_attributes__: dict[str, _deprecate.DeprecatedAttribute] = {
-    "open_process": _deprecate.DeprecatedAttribute(
-        value=lowlevel.open_process,
-        version="0.20.0",
-        issue=1104,
-        instead="trio.lowlevel.open_process",
-    ),
     "MultiError": _deprecate.DeprecatedAttribute(
         value=_MultiError,
         version="0.22.0",

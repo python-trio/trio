@@ -73,7 +73,6 @@ from __future__ import annotations
 
 import math
 from collections import OrderedDict
-from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
 import attr
@@ -82,6 +81,8 @@ from .. import _core
 from .._util import final
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from ._run import Task
 
 

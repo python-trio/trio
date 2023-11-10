@@ -2,12 +2,10 @@ from __future__ import annotations
 
 # XX this should get broken up, like testing.py did
 import tempfile
+from typing import TYPE_CHECKING
 
 import pytest
 from pytest import WarningsRecorder
-
-from trio import Nursery
-from trio.abc import ReceiveStream, SendStream
 
 from .. import _core, sleep, socket as tsocket
 from .._core._tests.tutil import can_bind_ipv6
@@ -16,6 +14,10 @@ from .._highlevel_socket import SocketListener
 from ..testing import *
 from ..testing._check_streams import _assert_raises
 from ..testing._memory_streams import _UnboundedByteQueue
+
+if TYPE_CHECKING:
+    from trio import Nursery
+    from trio.abc import ReceiveStream, SendStream
 
 
 async def test_wait_all_tasks_blocked() -> None:

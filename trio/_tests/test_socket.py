@@ -14,12 +14,13 @@ import pytest
 
 from .. import _core, socket as tsocket
 from .._core._tests.tutil import binds_ipv6, creates_ipv6
-from .._highlevel_socket import SocketStream
 from .._socket import _NUMERIC_ONLY, SocketType, _SocketType, _try_sync
 from ..testing import assert_checkpoints, wait_all_tasks_blocked
 
 if TYPE_CHECKING:
     from typing_extensions import TypeAlias
+
+    from .._highlevel_socket import SocketStream
 
     GaiTuple: TypeAlias = Tuple[
         AddressFamily,

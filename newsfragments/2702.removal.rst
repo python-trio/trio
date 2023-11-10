@@ -1,1 +1,0 @@
-Removed special ``MultiError`` traceback handling for IPython. As of `version 8.15 <https://ipython.readthedocs.io/en/stable/whatsnew/version8.html#ipython-8-15>`_ `ExceptionGroup` is handled natively.

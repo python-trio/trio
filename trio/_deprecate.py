@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import sys
 import warnings
-from collections.abc import Callable
 from functools import wraps
 from types import ModuleType
 from typing import TYPE_CHECKING, ClassVar, TypeVar
@@ -10,6 +9,8 @@ from typing import TYPE_CHECKING, ClassVar, TypeVar
 import attr
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from typing_extensions import ParamSpec
 
     ArgsT = ParamSpec("ArgsT")
