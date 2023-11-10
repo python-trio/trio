@@ -225,7 +225,7 @@ showcontent = true
 
 [tool.coverage.run]
 branch = true
-source = ["src/trio"]
+source = ["src"]
 omit = [
     # These are run in subprocesses, but still don't work. We follow
     # coverage's documentation to no avail.
