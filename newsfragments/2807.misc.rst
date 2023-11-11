@@ -1,1 +1,0 @@
-On windows, if SIO_BASE_HANDLE failed and SIO_BSP_HANDLE_POLL didn't return a different socket, runtime error will now raise from the OSError that indicated the issue so that in the event it does happen it might help with debugging.

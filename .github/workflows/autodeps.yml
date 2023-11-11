@@ -34,7 +34,7 @@ jobs:
           # The new dependencies may contain a new black version.
           # Commit any changes immediately.
           python -m pip install -r test-requirements.txt
-          black setup.py trio
+          black trio
       - name: Commit changes and create automerge PR
         env:
           GH_TOKEN: ${{ github.token }}

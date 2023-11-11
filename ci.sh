@@ -38,11 +38,11 @@ python -c "import sys, struct, ssl; print('python:', sys.version); print('versio
 echo "::endgroup::"
 
 echo "::group::Install dependencies"
-python -m pip install -U pip setuptools wheel
+python -m pip install -U pip build
 python -m pip --version
 
-python setup.py sdist --formats=zip
-python -m pip install dist/*.zip
+python -m build
+python -m pip install dist/*.whl
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
     python -m pip install -r test-requirements.txt
@@ -96,7 +96,7 @@ else
         # when installing, and then running 'certmgr.msc' and exporting the
         # certificate. See:
         #    http://www.migee.com/2010/09/24/solution-for-unattendedsilent-installs-and-would-you-like-to-install-this-device-software/
-        certutil -addstore "TrustedPublisher" trio/_tests/astrill-codesigning-cert.cer
+        certutil -addstore "TrustedPublisher" src/trio/_tests/astrill-codesigning-cert.cer
         # Double-slashes are how you tell windows-bash that you want a single
         # slash, and don't treat this as a unix-style filename that needs to
         # be replaced by a windows-style filename.
@@ -128,11 +128,11 @@ else
     echo "import coverage; coverage.process_startup()" | tee -a "$INSTALLDIR/../sitecustomize.py"
 
     # set the location of .coveragerc for multi-process coverage to work
-    COVERAGE_PROCESS_START=$(pwd)/../.coveragerc
+    COVERAGE_PROCESS_START=$(pwd)/../pyproject.toml
 
     PYTEST_CMD="pytest -r a -p trio._tests.pytest_plugin --junitxml=../test-results.xml --run-slow --verbose --durations=10 $flags ${INSTALLDIR}"
 
-    RUN_TESTS="coverage run --rcfile=../.coveragerc -m $PYTEST_CMD"
+    RUN_TESTS="coverage run --rcfile=../pyproject.toml -m $PYTEST_CMD"
 
     # timeout can be changed with an environment variable, but if empty or unset
     # default to 9m to not hit 10m limit
@@ -162,9 +162,9 @@ else
     echo "::endgroup::"
     echo "::group::Coverage"
 
-    coverage combine --rcfile ../.coveragerc
-    coverage report -m --rcfile ../.coveragerc
-    coverage xml --rcfile ../.coveragerc
+    coverage combine --rcfile ../pyproject.toml
+    coverage report -m --rcfile ../pyproject.toml
+    coverage xml --rcfile ../pyproject.toml
 
     # Remove the LSP again; again we want to do this ASAP to avoid
     # accidentally breaking other stuff.
