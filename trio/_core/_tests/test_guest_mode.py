@@ -25,7 +25,6 @@ from typing import (
 
 import pytest
 from outcome import Outcome
-from pytest import MonkeyPatch, WarningsRecorder
 
 import trio
 import trio.testing
@@ -527,7 +526,7 @@ def test_guest_mode_on_asyncio() -> None:
 
 
 def test_guest_mode_internal_errors(
-    monkeypatch: MonkeyPatch, recwarn: WarningsRecorder
+    monkeypatch: pytest.MonkeyPatch, recwarn: pytest.WarningsRecorder
 ) -> None:
     with monkeypatch.context() as m:
 

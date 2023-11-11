@@ -13,7 +13,7 @@ from ..testing import assert_checkpoints, wait_all_tasks_blocked
 async def test_channel() -> None:
     with pytest.raises(TypeError):
         open_memory_channel(1.0)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="TODO: exception text"):
         open_memory_channel(-1)
 
     s, r = open_memory_channel[Union[int, str, None]](2)

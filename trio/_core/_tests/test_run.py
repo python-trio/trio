@@ -89,7 +89,7 @@ def test_initial_task_error() -> None:
     async def main(x: object) -> NoReturn:
         raise ValueError(x)
 
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(ValueError, match="TODO: replace with error") as excinfo:
         _core.run(main, 17)
     assert excinfo.value.args == (17,)
 
@@ -123,7 +123,7 @@ async def test_nursery_warn_use_async_with() -> None:
 async def test_nursery_main_block_error_basic() -> None:
     exc = ValueError("whoops")
 
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(ValueError, match="TODO: replace with error") as excinfo:
         async with _core.open_nursery():
             raise exc
     assert excinfo.value is exc
@@ -178,7 +178,7 @@ def test_task_crash_propagation() -> None:
             nursery.start_soon(looper)
             nursery.start_soon(crasher)
 
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(ValueError, match="TODO: replace with error") as excinfo:
         _core.run(main)
 
     assert looper_record == ["cancelled"]
@@ -226,7 +226,7 @@ async def test_child_crash_wakes_parent() -> None:
     async def crasher() -> NoReturn:
         raise ValueError
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="TODO: replace with error"):
         async with _core.open_nursery() as nursery:
             nursery.start_soon(crasher)
             await sleep_forever()
@@ -253,7 +253,7 @@ async def test_reschedule() -> None:
         t2 = _core.current_task()
         _core.reschedule(not_none(t1), outcome.Value(0))
         print("child2 sleep")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="TODO: replace with error"):
             await sleep_forever()
         print("child2 successful exit")
 
@@ -1024,7 +1024,7 @@ async def test_exc_info() -> None:
     seq = Sequencer()
 
     async def child1() -> None:
-        with pytest.raises(ValueError) as excinfo:
+        with pytest.raises(ValueError, match="TODO: replace with error") as excinfo:
             try:
                 async with seq(0):
                     pass  # we don't yield until seq(2) below
@@ -1115,7 +1115,7 @@ async def test_exception_chaining_after_yield_error() -> None:
         except Exception:
             await sleep_forever()
 
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(ValueError, match="TODO: replace with error") as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(child)
             await wait_all_tasks_blocked()
@@ -1239,7 +1239,7 @@ def test_TrioToken_run_sync_soon_after_main_crash() -> None:
         token.run_sync_soon(lambda: record.append("sync-cb"))
         raise ValueError
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="TODO: replace with error"):
         _core.run(main)
 
     assert record == ["sync-cb"]
@@ -2327,7 +2327,7 @@ async def test_simple_cancel_scope_usage_doesnt_create_cyclic_garbage() -> None:
         # (See https://github.com/python-trio/trio/pull/1864)
         await do_a_cancel()
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="TODO: replace with error"):
             async with _core.open_nursery() as nursery:
                 # cover NurseryManager.__aexit__
                 nursery.start_soon(crasher)
@@ -2351,7 +2351,9 @@ async def test_cancel_scope_exit_doesnt_create_cyclic_garbage() -> None:
 
     old_flags = gc.get_debug()
     try:
-        with pytest.raises(ValueError), _core.CancelScope() as outer:
+        with pytest.raises(
+            ValueError, match="TODO: replace with error"
+        ), _core.CancelScope() as outer:
             async with _core.open_nursery() as nursery:
                 gc.collect()
                 gc.set_debug(gc.DEBUG_SAVEALL)
@@ -2584,7 +2586,7 @@ def test_trio_run_strict_before_started(
                 ) from None
             raise
 
-    with pytest.raises(BaseException) as exc_info:
+    with pytest.raises(BaseException, match="TODO: replace with error") as exc_info:
         _core.run(start_raiser, strict_exception_groups=run_strict)
 
     if start_raiser_strict or (run_strict and start_raiser_strict is None):

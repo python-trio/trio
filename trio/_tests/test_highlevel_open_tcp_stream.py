@@ -48,7 +48,7 @@ def test_close_all() -> None:
     assert c.closed
 
     c = CloseMe()
-    with pytest.raises(OSError):
+    with pytest.raises(OSError, match="TODO: exception text"):
         with close_all() as to_close:
             to_close.add(CloseKiller())
             to_close.add(c)
@@ -122,7 +122,7 @@ async def test_open_tcp_stream_real_socket_smoketest() -> None:
 
 
 async def test_open_tcp_stream_input_validation() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="TODO: exception text"):
         await open_tcp_stream(None, 80)  # type: ignore[arg-type]
     with pytest.raises(TypeError):
         await open_tcp_stream("127.0.0.1", b"80")  # type: ignore[arg-type]
@@ -170,7 +170,7 @@ async def test_local_address_real() -> None:
 
         # Trying to connect to an ipv4 address with the ipv6 wildcard
         # local_address should fail
-        with pytest.raises(OSError):
+        with pytest.raises(OSError, match="TODO: exception text"):
             await open_tcp_stream(*listener.getsockname(), local_address="::")
 
         # But the ipv4 wildcard address should work

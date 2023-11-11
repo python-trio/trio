@@ -90,7 +90,7 @@ async def test_StapledStream_with_erroring_close() -> None:
 
     stapled = StapledStream(BrokenSendStream(), BrokenReceiveStream())
 
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(ValueError, match="TODO: exception text") as excinfo:
         await stapled.aclose()
     assert isinstance(excinfo.value.__context__, ValueError)
 

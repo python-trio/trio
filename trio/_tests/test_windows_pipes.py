@@ -45,9 +45,9 @@ async def test_pipe_error_on_close() -> None:
     assert kernel32.CloseHandle(_handle(r))
     assert kernel32.CloseHandle(_handle(w))
 
-    with pytest.raises(OSError):
+    with pytest.raises(OSError, match="TODO: replace with exception"):
         await send_stream.aclose()
-    with pytest.raises(OSError):
+    with pytest.raises(OSError, match="TODO: replace with exception"):
         await receive_stream.aclose()
 
 

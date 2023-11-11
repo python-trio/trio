@@ -338,15 +338,15 @@ async def test_run() -> None:
     # invalid combinations
     with pytest.raises(UnicodeError):
         await run_process(CAT, stdin="oh no, it's text")
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="TODO: exception text"):
         await run_process(CAT, stdin=subprocess.PIPE)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="TODO: exception text"):
         await run_process(CAT, stdout=subprocess.PIPE)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="TODO: exception text"):
         await run_process(CAT, stderr=subprocess.PIPE)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="TODO: exception text"):
         await run_process(CAT, capture_stdout=True, stdout=subprocess.DEVNULL)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="TODO: exception text"):
         await run_process(CAT, capture_stderr=True, stderr=None)
 
 

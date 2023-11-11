@@ -47,7 +47,7 @@ async def test_Event() -> None:
 async def test_CapacityLimiter() -> None:
     with pytest.raises(TypeError):
         CapacityLimiter(1.0)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="TODO: replace with exception"):
         CapacityLimiter(-1)
     c = CapacityLimiter(2)
     repr(c)  # smoke test
@@ -135,10 +135,10 @@ async def test_CapacityLimiter_change_total_tokens() -> None:
     with pytest.raises(TypeError):
         c.total_tokens = 1.0
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="TODO: replace with exception"):
         c.total_tokens = 0
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="TODO: replace with exception"):
         c.total_tokens = -10
 
     assert c.total_tokens == 2
@@ -183,7 +183,7 @@ async def test_CapacityLimiter_memleak_548() -> None:
 async def test_Semaphore() -> None:
     with pytest.raises(TypeError):
         Semaphore(1.0)  # type: ignore[arg-type]
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="TODO: replace with exception"):
         Semaphore(-1)
     s = Semaphore(1)
     repr(s)  # smoke test
@@ -231,12 +231,12 @@ async def test_Semaphore() -> None:
 async def test_Semaphore_bounded() -> None:
     with pytest.raises(TypeError):
         Semaphore(1, max_value=1.0)  # type: ignore[arg-type]
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="TODO: replace with exception"):
         Semaphore(2, max_value=1)
     bs = Semaphore(1, max_value=1)
     assert bs.max_value == 1
     repr(bs)  # smoke test
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="TODO: replace with exception"):
         bs.release()
     assert bs.value == 1
     bs.acquire_nowait()

@@ -20,14 +20,14 @@ def test_mock_clock() -> None:
     assert c.current_time() == 0
     c.jump(1.2)
     assert c.current_time() == 1.2
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="TODO: exception text"):
         c.jump(-1)
     assert c.current_time() == 1.2
     assert c.deadline_to_sleep_time(1.1) == 0
     assert c.deadline_to_sleep_time(1.2) == 0
     assert c.deadline_to_sleep_time(1.3) > 999999
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="TODO: exception text"):
         c.rate = -1
     assert c.rate == 0
 

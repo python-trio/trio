@@ -648,11 +648,11 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
                 )
                 netlink_sock.close()
 
-            with pytest.raises(ValueError):
+            with pytest.raises(ValueError, match="TODO: exception text"):
                 await res("1.2.3.4")  # type: ignore[arg-type]
-            with pytest.raises(ValueError):
+            with pytest.raises(ValueError, match="TODO: exception text"):
                 await res(("1.2.3.4",))  # type: ignore[arg-type]
-            with pytest.raises(ValueError):
+            with pytest.raises(ValueError, match="TODO: exception text"):
                 if v6:
                     await res(("1.2.3.4", 80, 0, 0, 0))  # type: ignore[arg-type]
                 else:
@@ -756,7 +756,7 @@ async def test_SocketType_non_blocking_paths() -> None:
 # This tests the complicated paths through connect
 async def test_SocketType_connect_paths() -> None:
     with tsocket.socket() as sock:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="TODO: exception text"):
             # Should be a tuple
             await sock.connect("localhost")
 
@@ -801,7 +801,7 @@ async def test_SocketType_connect_paths() -> None:
 
     # Failed connect (hopefully after raising BlockingIOError)
     with tsocket.socket() as sock:
-        with pytest.raises(OSError):
+        with pytest.raises(OSError, match="TODO: exception text"):
             # TCP port 2 is not assigned. Pretty sure nothing will be
             # listening there. (We used to bind a port and then *not* call
             # listen() to ensure nothing was listening there, but it turns

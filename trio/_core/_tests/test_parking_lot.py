@@ -78,7 +78,7 @@ async def test_parking_lot_basic() -> None:
         )
         lot.unpark_all()
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="TODO: exception text"):
         lot.unpark(count=1.5)
 
 

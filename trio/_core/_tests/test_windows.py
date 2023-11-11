@@ -53,7 +53,7 @@ def test_winerror(monkeypatch: pytest.MonkeyPatch) -> None:
     mock.reset_mock()
 
     mock.return_value = (12, "test error")
-    with pytest.raises(OSError) as exc:
+    with pytest.raises(OSError, match="TODO: exception text") as exc:
         raise_winerror(filename="file_1", filename2="file_2")
     mock.assert_called_once_with()
     mock.reset_mock()
@@ -63,7 +63,7 @@ def test_winerror(monkeypatch: pytest.MonkeyPatch) -> None:
     assert exc.value.filename2 == "file_2"
 
     # With an explicit number passed in, it overrides what getwinerror() returns.
-    with pytest.raises(OSError) as exc:
+    with pytest.raises(OSError, match="TODO: exception text") as exc:
         raise_winerror(18, filename="a/file", filename2="b/file")
     mock.assert_called_once_with(18)
     mock.reset_mock()

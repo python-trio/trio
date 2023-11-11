@@ -77,7 +77,7 @@ async def test_open_tcp_listeners_ipv6_v6only() -> None:
     async with ipv6_listener:
         _, port, *_ = ipv6_listener.socket.getsockname()
 
-        with pytest.raises(OSError):
+        with pytest.raises(OSError, match="TODO: exception text"):
             await open_tcp_stream("127.0.0.1", port)
 
 
@@ -89,7 +89,7 @@ async def test_open_tcp_listeners_rebind() -> None:
     # SO_REUSEADDR set
     with stdlib_socket.socket() as probe:
         probe.setsockopt(stdlib_socket.SOL_SOCKET, stdlib_socket.SO_REUSEADDR, 1)
-        with pytest.raises(OSError):
+        with pytest.raises(OSError, match="TODO: exception text"):
             probe.bind(sockaddr1)
 
     # Now use the first listener to set up some connections in various states,
@@ -323,7 +323,7 @@ async def test_open_tcp_listeners_some_address_families_unavailable(
     should_succeed = try_families - fail_families
 
     if not should_succeed:
-        with pytest.raises(OSError) as exc_info:
+        with pytest.raises(OSError, match="TODO: exception text") as exc_info:
             await open_tcp_listeners(80, host="example.org")
 
         assert "This system doesn't support" in str(exc_info.value)
@@ -353,7 +353,7 @@ async def test_open_tcp_listeners_socket_fails_not_afnosupport() -> None:
         FakeHostnameResolver([(tsocket.AF_INET, "foo"), (tsocket.AF_INET6, "bar")])
     )
 
-    with pytest.raises(OSError) as exc_info:
+    with pytest.raises(OSError, match="TODO: exception text") as exc_info:
         await open_tcp_listeners(80, host="example.org")
     assert exc_info.value.errno == errno.EINVAL
     assert exc_info.value.__cause__ is None

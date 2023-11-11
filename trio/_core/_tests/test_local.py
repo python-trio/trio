@@ -57,13 +57,13 @@ def test_runvar_resetting() -> None:
         t2.reset(token2)
         assert t2.get() == "dogfish"
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="TODO: exception text"):
             t2.reset(token2)
 
         token3 = t3.set("basculin")
         assert t3.get() == "basculin"
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="TODO: exception text"):
             t1.reset(token3)
 
     run(reset_check)

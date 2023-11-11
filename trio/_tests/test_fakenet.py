@@ -22,7 +22,7 @@ async def test_basic_udp() -> None:
     assert ip == "127.0.0.1"
     assert port != 0
 
-    with pytest.raises(OSError) as exc:  # Cannot rebind.
+    with pytest.raises(OSError, match="TODO: exception text") as exc:  # Cannot rebind.
         await s1.bind(("192.0.2.1", 0))
     assert exc.value.errno == errno.EINVAL
 

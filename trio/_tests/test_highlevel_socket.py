@@ -26,7 +26,7 @@ async def test_SocketStream_basics() -> None:
 
     # DGRAM socket bad
     with tsocket.socket(type=tsocket.SOCK_DGRAM) as sock:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="TODO: exception text"):
             # TODO: does not raise an error?
             SocketStream(sock)
 
@@ -152,7 +152,7 @@ async def test_SocketListener() -> None:
     # Not a SOCK_STREAM
     with tsocket.socket(type=tsocket.SOCK_DGRAM) as s:
         await s.bind(("127.0.0.1", 0))
-        with pytest.raises(ValueError) as excinfo:
+        with pytest.raises(ValueError, match="TODO: exception text") as excinfo:
             SocketListener(s)
         excinfo.match(r".*SOCK_STREAM")
 
@@ -161,7 +161,7 @@ async def test_SocketListener() -> None:
     if sys.platform != "darwin":
         with tsocket.socket() as s:
             await s.bind(("127.0.0.1", 0))
-            with pytest.raises(ValueError) as excinfo:
+            with pytest.raises(ValueError, match="TODO: exception text") as excinfo:
                 SocketListener(s)
             excinfo.match(r".*listen")
 
@@ -283,7 +283,7 @@ async def test_SocketListener_accept_errors() -> None:
 
     for code in [errno.EMFILE, errno.EFAULT, errno.ENOBUFS]:
         with assert_checkpoints():
-            with pytest.raises(OSError) as excinfo:
+            with pytest.raises(OSError, match="TODO: exception text") as excinfo:
                 await listener.accept()
             assert excinfo.value.errno == code
 
