@@ -86,7 +86,7 @@ async def main(repl_locals: dict[str, object]) -> None:
 
 def run(locals_: Mapping[str, object]) -> None:
     """Synchronous entry point to start interactive console"""
-    repl_locals = {"trio": trio}
+    repl_locals: dict[str, object] = {"trio": trio}
     for key in {
         "__name__",
         "__package__",
