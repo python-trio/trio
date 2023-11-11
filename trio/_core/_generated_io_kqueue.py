@@ -64,13 +64,13 @@ async def wait_kevent(
 async def wait_readable(fd: (int | _HasFileNo)) -> None:
     """Block until the kernel reports that the given object is readable.
 
-    On Unix systems, ``obj`` must either be an integer file descriptor,
+    On Unix systems, ``fd`` must either be an integer file descriptor,
     or else an object with a ``.fileno()`` method which returns an
     integer file descriptor. Any kind of file descriptor can be passed,
     though the exact semantics will depend on your kernel. For example,
     this probably won't do anything useful for on-disk files.
 
-    On Windows systems, ``obj`` must either be an integer ``SOCKET``
+    On Windows systems, ``fd`` must either be an integer ``SOCKET``
     handle, or else an object with a ``.fileno()`` method which returns
     an integer ``SOCKET`` handle. File descriptors aren't supported,
     and neither are handles that refer to anything besides a
@@ -93,7 +93,7 @@ async def wait_readable(fd: (int | _HasFileNo)) -> None:
 async def wait_writable(fd: (int | _HasFileNo)) -> None:
     """Block until the kernel reports that the given object is writable.
 
-    See `wait_readable` for the definition of ``obj``.
+    See `wait_readable` for the definition of ``fd``.
 
     :raises trio.BusyResourceError:
         if another task is already waiting for the given socket to
