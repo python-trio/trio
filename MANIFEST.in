@@ -3,7 +3,7 @@ include README.rst
 include LONG_DESCRIPTION.rst
 include CODE_OF_CONDUCT.md CONTRIBUTING.md
 include test-requirements.txt
-include trio/py.typed
-recursive-include trio/_tests/test_ssl_certs *.pem
+include src/trio/py.typed
+recursive-include src/trio/_tests/test_ssl_certs *.pem
 recursive-include docs *
 prune docs/build
