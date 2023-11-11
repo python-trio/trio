@@ -11,66 +11,66 @@ Modeled after the standard library's `asyncio.__main__`. See:
 
     https://github.com/python/cpython/blob/master/Lib/asyncio/__main__.py
 """
+from __future__ import annotations
 
 import ast
 import code
-import concurrent.futures
-import contextlib
 import inspect
 import sys
-import threading
 import types
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import trio
 
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Mapping
+
+T = TypeVar("T")
+
 
 class TrioInteractiveConsole(code.InteractiveConsole):
-    def __init__(self, locals, nursery):
-        super().__init__(locals)
+    """Interactive Console that will run toplevel awaits in a given nursery"""
+
+    __slots__ = ("nursery",)
+
+    def __init__(
+        self, locals_: Mapping[str, Any] | None, nursery: trio.Nursery
+    ) -> None:
+        super().__init__(locals_)
         self.compile.compiler.flags |= ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
         self.nursery = nursery
 
-    def runcode(self, code):
-        func = types.FunctionType(code, self.locals)
-        future = concurrent.futures.Future()
+    def runcode(self, code: types.CodeType) -> None:
+        """Run a code object, and if the return value is a coroutine, wait for it in a new thread in the background."""
+        func = types.FunctionType(code, dict(self.locals))
 
         try:
             result = func()
-        except SystemExit:
-            raise
-        except BaseException as exc:
-            future.set_exception(exc)
-        else:
-            if not inspect.iscoroutine(result):
-                future.set_result(result)
-            else:
-                await_in_bg = threading.Thread(
-                    target=trio.run, args=(_await, result, future), daemon=True
-                )
-                await_in_bg.start()
-
-        try:
-            return future.result()
         except SystemExit:
             raise
         except KeyboardInterrupt:
             self.write("\nKeyboardInterrupt\n")
         except BaseException:
             self.showtraceback()
+        else:
+            if inspect.iscoroutine(result):
+                self.nursery.start_soon(_await, result, self)
 
 
-async def _await(awaitable, future):
+async def _await(awaitable: Awaitable[T], console: TrioInteractiveConsole) -> None:
+    """Attempt to await an awaitable object and show errors in a given console if they happen."""
     try:
-        value = await awaitable
+        await awaitable
     except SystemExit:
         raise
-    except BaseException as exc:
-        future.set_exception(exc)
-    else:
-        future.set_result(value)
+    except KeyboardInterrupt:
+        console.write("\nKeyboardInterrupt\n")
+    except BaseException:
+        console.showtraceback()
 
 
-async def main(repl_locals):
+async def main(repl_locals: dict[str, object]) -> None:
+    """Start interactive console with toplevel await support."""
     async with trio.open_nursery() as nursery:
         console = TrioInteractiveConsole(repl_locals, nursery)
         banner = (
@@ -84,10 +84,8 @@ async def main(repl_locals):
         console.interact(banner=banner, exitmsg="exiting Trio REPL...")
 
 
-if __name__ == "__main__":
-    with contextlib.suppress(ModuleNotFoundError):
-        pass
-
+def run(locals_: Mapping[str, object]) -> None:
+    """Synchronous entry point to start interactive console"""
     repl_locals = {"trio": trio}
     for key in {
         "__name__",
@@ -97,6 +95,10 @@ if __name__ == "__main__":
         "__builtins__",
         "__file__",
     }:
-        repl_locals[key] = locals()[key]
+        repl_locals[key] = locals_[key]
 
     trio.run(main, repl_locals)
+
+
+if __name__ == "__main__":
+    run(locals())
