@@ -41,7 +41,7 @@ class TrioInteractiveConsole(code.InteractiveConsole):
         self.nursery = nursery
 
     def runcode(self, code: types.CodeType) -> None:
-        """Run a code object, and if the return value is a coroutine, wait for it in a new thread in the background."""
+        """Run a code object, and if the return value is a coroutine, wait for it the system nursery."""
         func = types.FunctionType(code, dict(self.locals))
 
         try:
