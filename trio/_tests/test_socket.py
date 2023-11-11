@@ -648,11 +648,17 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
                 )
                 netlink_sock.close()
 
-            with pytest.raises(ValueError, match="TODO: exception text"):
+            with pytest.raises(
+                ValueError, match="address should be a (host, port) tuple"
+            ):
                 await res("1.2.3.4")  # type: ignore[arg-type]
-            with pytest.raises(ValueError, match="TODO: exception text"):
+            with pytest.raises(
+                ValueError, match="address should be a (host, port) tuple"
+            ):
                 await res(("1.2.3.4",))  # type: ignore[arg-type]
-            with pytest.raises(ValueError, match="TODO: exception text"):
+            with pytest.raises(
+                ValueError, match="address should be a (host, port) tuple"
+            ):
                 if v6:
                     await res(("1.2.3.4", 80, 0, 0, 0))  # type: ignore[arg-type]
                 else:

@@ -81,12 +81,12 @@ async def test_StapledStream_with_erroring_close() -> None:
     class BrokenSendStream(RecordSendStream):
         async def aclose(self) -> NoReturn:
             await super().aclose()
-            raise ValueError
+            raise ValueError("send error")
 
     class BrokenReceiveStream(RecordReceiveStream):
         async def aclose(self) -> NoReturn:
             await super().aclose()
-            raise ValueError
+            raise ValueError("recv error")
 
     stapled = StapledStream(BrokenSendStream(), BrokenReceiveStream())
 

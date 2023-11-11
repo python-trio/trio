@@ -63,7 +63,7 @@ def test_runvar_resetting() -> None:
         token3 = t3.set("basculin")
         assert t3.get() == "basculin"
 
-        with pytest.raises(ValueError, match="TODO: exception text"):
+        with pytest.raises(ValueError, match="token is not for us"):
             t1.reset(token3)
 
     run(reset_check)

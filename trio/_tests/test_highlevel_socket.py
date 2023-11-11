@@ -152,7 +152,9 @@ async def test_SocketListener() -> None:
     # Not a SOCK_STREAM
     with tsocket.socket(type=tsocket.SOCK_DGRAM) as s:
         await s.bind(("127.0.0.1", 0))
-        with pytest.raises(ValueError, match="TODO: exception text") as excinfo:
+        with pytest.raises(
+            ValueError, match="SocketListener requires a SOCK_STREAM socket"
+        ) as excinfo:
             SocketListener(s)
         excinfo.match(r".*SOCK_STREAM")
 
@@ -161,7 +163,9 @@ async def test_SocketListener() -> None:
     if sys.platform != "darwin":
         with tsocket.socket() as s:
             await s.bind(("127.0.0.1", 0))
-            with pytest.raises(ValueError, match="TODO: exception text") as excinfo:
+            with pytest.raises(
+                ValueError, match="SocketListener requires a SOCK_STREAM socket"
+            ) as excinfo:
                 SocketListener(s)
             excinfo.match(r".*listen")
 
@@ -283,7 +287,7 @@ async def test_SocketListener_accept_errors() -> None:
 
     for code in [errno.EMFILE, errno.EFAULT, errno.ENOBUFS]:
         with assert_checkpoints():
-            with pytest.raises(OSError, match="TODO: exception text") as excinfo:
+            with pytest.raises(OSError) as excinfo:  # noqa: PT011  # missing `match`
                 await listener.accept()
             assert excinfo.value.errno == code
 

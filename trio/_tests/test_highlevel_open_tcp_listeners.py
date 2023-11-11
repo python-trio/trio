@@ -323,10 +323,9 @@ async def test_open_tcp_listeners_some_address_families_unavailable(
     should_succeed = try_families - fail_families
 
     if not should_succeed:
-        with pytest.raises(OSError, match="TODO: exception text") as exc_info:
+        with pytest.raises(OSError, match="This system doesn't support") as exc_info:
             await open_tcp_listeners(80, host="example.org")
 
-        assert "This system doesn't support" in str(exc_info.value)
         if isinstance(exc_info.value.__cause__, BaseExceptionGroup):
             for subexc in exc_info.value.__cause__.exceptions:
                 assert "nope" in str(subexc)
@@ -353,7 +352,7 @@ async def test_open_tcp_listeners_socket_fails_not_afnosupport() -> None:
         FakeHostnameResolver([(tsocket.AF_INET, "foo"), (tsocket.AF_INET6, "bar")])
     )
 
-    with pytest.raises(OSError, match="TODO: exception text") as exc_info:
+    with pytest.raises(OSError, match="nope") as exc_info:
         await open_tcp_listeners(80, host="example.org")
     assert exc_info.value.errno == errno.EINVAL
     assert exc_info.value.__cause__ is None
