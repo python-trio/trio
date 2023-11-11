@@ -78,7 +78,7 @@ async def test_parking_lot_basic() -> None:
         )
         lot.unpark_all()
 
-    with pytest.raises(ValueError, match="TODO: exception text"):
+    with pytest.raises(ValueError, match="Cannot pop a non-integer number of tasks."):
         lot.unpark(count=1.5)
 
 

@@ -89,7 +89,7 @@ def test_initial_task_error() -> None:
     async def main(x: object) -> NoReturn:
         raise ValueError(x)
 
-    with pytest.raises(ValueError, match="TODO: replace with error") as excinfo:
+    with pytest.raises(ValueError, match="17") as excinfo:
         _core.run(main, 17)
     assert excinfo.value.args == (17,)
 
@@ -123,7 +123,7 @@ async def test_nursery_warn_use_async_with() -> None:
 async def test_nursery_main_block_error_basic() -> None:
     exc = ValueError("whoops")
 
-    with pytest.raises(ValueError, match="TODO: replace with error") as excinfo:
+    with pytest.raises(ValueError, match="whoops") as excinfo:
         async with _core.open_nursery():
             raise exc
     assert excinfo.value is exc
@@ -178,7 +178,7 @@ def test_task_crash_propagation() -> None:
             nursery.start_soon(looper)
             nursery.start_soon(crasher)
 
-    with pytest.raises(ValueError, match="TODO: replace with error") as excinfo:
+    with pytest.raises(ValueError, match="argh") as excinfo:
         _core.run(main)
 
     assert looper_record == ["cancelled"]
@@ -224,9 +224,9 @@ def test_two_child_crashes() -> None:
 
 async def test_child_crash_wakes_parent() -> None:
     async def crasher() -> NoReturn:
-        raise ValueError
+        raise ValueError("this is a crash")
 
-    with pytest.raises(ValueError, match="TODO: replace with error"):
+    with pytest.raises(ValueError, match="this is a crash"):
         async with _core.open_nursery() as nursery:
             nursery.start_soon(crasher)
             await sleep_forever()
@@ -244,7 +244,7 @@ async def test_reschedule() -> None:
         print("child1 woke")
         assert x == 0
         print("child1 rescheduling t2")
-        _core.reschedule(not_none(t2), outcome.Error(ValueError()))
+        _core.reschedule(not_none(t2), outcome.Error(ValueError("error message")))
         print("child1 exit")
 
     async def child2() -> None:
@@ -253,7 +253,7 @@ async def test_reschedule() -> None:
         t2 = _core.current_task()
         _core.reschedule(not_none(t1), outcome.Value(0))
         print("child2 sleep")
-        with pytest.raises(ValueError, match="TODO: replace with error"):
+        with pytest.raises(ValueError, match="error message"):
             await sleep_forever()
         print("child2 successful exit")
 
@@ -1024,7 +1024,7 @@ async def test_exc_info() -> None:
     seq = Sequencer()
 
     async def child1() -> None:
-        with pytest.raises(ValueError, match="TODO: replace with error") as excinfo:
+        with pytest.raises(ValueError, match="child1") as excinfo:
             try:
                 async with seq(0):
                     pass  # we don't yield until seq(2) below
@@ -1115,11 +1115,13 @@ async def test_exception_chaining_after_yield_error() -> None:
         except Exception:
             await sleep_forever()
 
-    with pytest.raises(ValueError, match="TODO: replace with error") as excinfo:
+    with pytest.raises(ValueError, match="error text") as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(child)
             await wait_all_tasks_blocked()
-            _core.reschedule(not_none(child_task), outcome.Error(ValueError()))
+            _core.reschedule(
+                not_none(child_task), outcome.Error(ValueError("error text"))
+            )
 
     assert isinstance(excinfo.value.__context__, KeyError)
 
@@ -1237,9 +1239,9 @@ def test_TrioToken_run_sync_soon_after_main_crash() -> None:
         # After main exits but before finally cleaning up, callback processed
         # normally
         token.run_sync_soon(lambda: record.append("sync-cb"))
-        raise ValueError
+        raise ValueError("error text")
 
-    with pytest.raises(ValueError, match="TODO: replace with error"):
+    with pytest.raises(ValueError, match="error text"):
         _core.run(main)
 
     assert record == ["sync-cb"]
@@ -2313,7 +2315,7 @@ async def test_simple_cancel_scope_usage_doesnt_create_cyclic_garbage() -> None:
             await sleep_forever()
 
     async def crasher() -> NoReturn:
-        raise ValueError
+        raise ValueError("this is a crash")
 
     old_flags = gc.get_debug()
     try:
@@ -2327,7 +2329,7 @@ async def test_simple_cancel_scope_usage_doesnt_create_cyclic_garbage() -> None:
         # (See https://github.com/python-trio/trio/pull/1864)
         await do_a_cancel()
 
-        with pytest.raises(ValueError, match="TODO: replace with error"):
+        with pytest.raises(ValueError, match="this is a crash"):
             async with _core.open_nursery() as nursery:
                 # cover NurseryManager.__aexit__
                 nursery.start_soon(crasher)
@@ -2347,12 +2349,12 @@ async def test_cancel_scope_exit_doesnt_create_cyclic_garbage() -> None:
     gc.collect()
 
     async def crasher() -> NoReturn:
-        raise ValueError
+        raise ValueError("this is a crash")
 
     old_flags = gc.get_debug()
     try:
         with pytest.raises(
-            ValueError, match="TODO: replace with error"
+            ValueError, match="this is a crash"
         ), _core.CancelScope() as outer:
             async with _core.open_nursery() as nursery:
                 gc.collect()
@@ -2586,7 +2588,7 @@ def test_trio_run_strict_before_started(
                 ) from None
             raise
 
-    with pytest.raises(BaseException, match="TODO: replace with error") as exc_info:
+    with pytest.raises(BaseException) as exc_info:  # noqa: PT011  # no `match`
         _core.run(start_raiser, strict_exception_groups=run_strict)
 
     if start_raiser_strict or (run_strict and start_raiser_strict is None):

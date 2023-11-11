@@ -57,7 +57,7 @@ def test_runvar_resetting() -> None:
         t2.reset(token2)
         assert t2.get() == "dogfish"
 
-        with pytest.raises(ValueError, match="TODO: exception text"):
+        with pytest.raises(ValueError, match="token has already been used"):
             t2.reset(token2)
 
         token3 = t3.set("basculin")
