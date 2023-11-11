@@ -730,13 +730,13 @@ class WindowsIOManager:
     async def wait_readable(self, sock: _HasFileNo | int) -> None:
         """Block until the kernel reports that the given object is readable.
 
-        On Unix systems, ``obj`` must either be an integer file descriptor,
+        On Unix systems, ``sock`` must either be an integer file descriptor,
         or else an object with a ``.fileno()`` method which returns an
         integer file descriptor. Any kind of file descriptor can be passed,
         though the exact semantics will depend on your kernel. For example,
         this probably won't do anything useful for on-disk files.
 
-        On Windows systems, ``obj`` must either be an integer ``SOCKET``
+        On Windows systems, ``sock`` must either be an integer ``SOCKET``
         handle, or else an object with a ``.fileno()`` method which returns
         an integer ``SOCKET`` handle. File descriptors aren't supported,
         and neither are handles that refer to anything besides a
@@ -755,7 +755,7 @@ class WindowsIOManager:
     async def wait_writable(self, sock: _HasFileNo | int) -> None:
         """Block until the kernel reports that the given object is writable.
 
-        See `wait_readable` for the definition of ``obj``.
+        See `wait_readable` for the definition of ``sock``.
 
         :raises trio.BusyResourceError:
             if another task is already waiting for the given socket to
