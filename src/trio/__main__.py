@@ -38,7 +38,7 @@ class TrioInteractiveConsole(code.InteractiveConsole):
     ) -> None:
         super().__init__(locals_)
         self.compile.compiler.flags |= ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
-        self.nursery = nursery
+        self.nursery: trio.Nursery = nursery
 
     def runcode(self, code: types.CodeType) -> None:
         """Run a code object, and if the return value is a coroutine, wait for it the system nursery."""
