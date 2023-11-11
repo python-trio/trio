@@ -768,7 +768,9 @@ class WindowsIOManager:
 
     @_public
     def notify_closing(self, handle: Handle | int | _HasFileNo) -> None:
-        """Call this before closing a file descriptor (on Unix) or socket (on
+        """Notify waiters of the given object that it will be closed.
+
+        Call this before closing a file descriptor (on Unix) or socket (on
         Windows). This will cause any `wait_readable` or `wait_writable`
         calls on the given object to immediately wake up and raise
         `~trio.ClosedResourceError`.
