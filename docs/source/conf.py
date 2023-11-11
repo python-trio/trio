@@ -22,7 +22,7 @@ import sys
 # For our local_customization module
 sys.path.insert(0, os.path.abspath("."))
 # For trio itself
-sys.path.insert(0, os.path.abspath("../.."))
+sys.path.insert(0, os.path.abspath("../../src"))
 
 # Enable reloading with `typing.TYPE_CHECKING` being True
 os.environ["SPHINX_AUTODOC_RELOAD_MODULES"] = "1"
