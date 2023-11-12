@@ -8,45 +8,16 @@
   },
   "typeCompleteness": {
     "completenessScore": 1,
-    "diagnostics": [
-      {
-        "message": "No docstring found for function \"trio.lowlevel.current_kqueue\"",
-        "name": "trio.lowlevel.current_kqueue"
-      },
-      {
-        "message": "No docstring found for function \"trio.lowlevel.monitor_kevent\"",
-        "name": "trio.lowlevel.monitor_kevent"
-      },
-      {
-        "message": "No docstring found for function \"trio.lowlevel.notify_closing\"",
-        "name": "trio.lowlevel.notify_closing"
-      },
-      {
-        "message": "No docstring found for function \"trio.lowlevel.wait_kevent\"",
-        "name": "trio.lowlevel.wait_kevent"
-      },
-      {
-        "message": "No docstring found for function \"trio.lowlevel.wait_readable\"",
-        "name": "trio.lowlevel.wait_readable"
-      },
-      {
-        "message": "No docstring found for function \"trio.lowlevel.wait_writable\"",
-        "name": "trio.lowlevel.wait_writable"
-      },
-      {
-        "message": "No docstring found for class \"trio.tests.TestsDeprecationWrapper\"",
-        "name": "trio.tests.TestsDeprecationWrapper"
-      }
-    ],
+    "diagnostics": [],
     "exportedSymbolCounts": {
       "withAmbiguousType": 0,
       "withKnownType": 632,
       "withUnknownType": 0
     },
     "ignoreUnknownTypesFromImports": true,
-    "missingClassDocStringCount": 1,
+    "missingClassDocStringCount": 0,
     "missingDefaultParamCount": 0,
-    "missingFunctionDocStringCount": 6,
+    "missingFunctionDocStringCount": 0,
     "moduleName": "trio",
     "modules": [
       {
