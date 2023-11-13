@@ -1,3 +1,73 @@
+[build-system]
+requires = ["setuptools >= 64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trio"
+description = "A friendly Python library for async concurrency and I/O"
+authors = [{name = "Nathaniel J. Smith", email = "njs@pobox.com"}]
+license = {text = "MIT OR Apache-2.0"}
+keywords = [
+    "async",
+    "io",
+    "networking",
+    "trio",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Trio",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: POSIX :: BSD",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Networking",
+    "Typing :: Typed",
+]
+requires-python = ">=3.8"
+dependencies = [
+    # attrs 19.2.0 adds `eq` option to decorators
+    # attrs 20.1.0 adds @frozen
+    "attrs >= 20.1.0",
+    "sortedcontainers",
+    "idna",
+    "outcome",
+    "sniffio >= 1.3.0",
+    # cffi 1.12 adds from_buffer(require_writable=True) and ffi.release()
+    # cffi 1.14 fixes memory leak inside ffi.getwinerror()
+    # cffi is required on Windows, except on PyPy where it is built-in
+    "cffi>=1.14; os_name == 'nt' and implementation_name != 'pypy'",
+    "exceptiongroup; python_version < '3.11'",
+]
+dynamic = ["version"]
+
+[project.readme]
+file = "LONG_DESCRIPTION.rst"
+content-type = "text/x-rst"
+
+[project.urls]
+Homepage = "https://github.com/python-trio/trio"
+Documentation = "https://trio.readthedocs.io/"
+Changelog = "https://trio.readthedocs.io/en/latest/history.html"
+
+[tool.setuptools]
+# This means, just install *everything* you see under trio/, even if it
+# doesn't look like a source file, so long as it appears in MANIFEST.in:
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = {attr = "trio._version.__version__"}
+
 [tool.black]
 target-version = ['py38']
 force-exclude = '''
@@ -11,7 +81,6 @@ force-exclude = '''
 ignore-words-list = 'astroid,crasher,asend'
 
 [tool.ruff]
-target-version = "py38"
 respect-gitignore = true
 fix = true
 
@@ -19,7 +88,7 @@ allowed-confusables = ["–"]
 
 # The directories to consider when resolving first vs. third-party imports.
 # Does not control what files to include/exclude!
-src = ["trio", "notes-to-self"]
+src = ["src/trio", "notes-to-self"]
 
 select = [
   "RUF",  # Ruff-specific rules
@@ -33,6 +102,7 @@ select = [
   "ASYNC",  # flake8-async
   "PYI",  # flake8-pyi
   "SIM",  # flake8-simplify
+  "TCH",  # flake8-type-checking
 ]
 extend-ignore = [
     'F403',  # undefined-local-with-import-star
@@ -50,13 +120,13 @@ extend-exclude = [
 ]
 
 [tool.ruff.per-file-ignores]
-'trio/__init__.py' = ['F401']
-'trio/_core/__init__.py' = ['F401']
-'trio/_core/_tests/test_multierror_scripts/*' = ['F401']
-'trio/abc.py' = ['F401']
-'trio/lowlevel.py' = ['F401']
-'trio/socket.py' = ['F401']
-'trio/testing/__init__.py' = ['F401']
+'src/trio/__init__.py' = ['F401']
+'src/trio/_core/__init__.py' = ['F401']
+'src/trio/_core/_tests/test_multierror_scripts/*' = ['F401']
+'src/trio/abc.py' = ['F401']
+'src/trio/lowlevel.py' = ['F401']
+'src/trio/socket.py' = ['F401']
+'src/trio/testing/__init__.py' = ['F401']
 
 [tool.ruff.isort]
 combine-as-imports = true
@@ -92,14 +162,8 @@ filterwarnings = [
   "error",
   # https://gitter.im/python-trio/general?at=63bb8d0740557a3d5c688d67
   'ignore:You are using cryptography on a 32-bit Python on a 64-bit Windows Operating System. Cryptography will be significantly faster if you switch to using a 64-bit Python.:UserWarning',
-  # this should remain until https://github.com/pytest-dev/pytest/pull/10894 is merged
-  'ignore:ast.Str is deprecated:DeprecationWarning',
-  'ignore:Attribute s is deprecated and will be removed:DeprecationWarning',
-  'ignore:ast.NameConstant is deprecated:DeprecationWarning',
-  'ignore:ast.Num is deprecated:DeprecationWarning',
-  # https://github.com/python/mypy/issues/15330
-  'ignore:ast.Ellipsis is deprecated:DeprecationWarning',
-  'ignore:ast.Bytes is deprecated:DeprecationWarning'
+  # https://github.com/berkerpeksag/astor/issues/217
+  'ignore:ast.Num is deprecated:DeprecationWarning:astor',
 ]
 junit_family = "xunit2"
 markers = ["redistributors_should_skip: tests that should be skipped by downstream redistributors"]
@@ -116,6 +180,7 @@ issue_format = "`#{issue} <https://github.com/python-trio/trio/issues/{issue}>`_
 # - At release time after bumping version number, run: towncrier
 # (or towncrier --draft)
 package = "trio"
+package_dir = "src"
 underlines = ["-", "~", "^"]
 
 [[tool.towncrier.type]]
@@ -149,6 +214,50 @@ name = "Deprecations and removals"
 showcontent = true
 
 [[tool.towncrier.type]]
+directory = "removal"
+name = "Removals without deprecations"
+showcontent = true
+
+[[tool.towncrier.type]]
 directory = "misc"
 name = "Miscellaneous internal changes"
 showcontent = true
+
+[tool.coverage.run]
+branch = true
+source_pkgs = ["trio"]
+omit = [
+    # These are run in subprocesses, but still don't work. We follow
+    # coverage's documentation to no avail.
+    "*/trio/_core/_tests/test_multierror_scripts/*",
+    # Omit the generated files in trio/_core starting with _generated_
+    "*/trio/_core/_generated_*",
+    # Script used to check type completeness that isn't run in tests
+    "*/trio/_tests/check_type_completeness.py",
+]
+# The test suite spawns subprocesses to test some stuff, so make sure
+# this doesn't corrupt the coverage files
+parallel = true
+
+[tool.coverage.report]
+precision = 1
+skip_covered = true
+exclude_lines = [
+    "pragma: no cover",
+    "abc.abstractmethod",
+    "if TYPE_CHECKING.*:",
+    "if _t.TYPE_CHECKING:",
+    "if t.TYPE_CHECKING:",
+    "@overload",
+    'class .*\bProtocol\b.*\):',
+    "raise NotImplementedError",
+]
+partial_branches = [
+    "pragma: no branch",
+    "if not TYPE_CHECKING:",
+    "if not _t.TYPE_CHECKING:",
+    "if not t.TYPE_CHECKING:",
+    "if .* or not TYPE_CHECKING:",
+    "if .* or not _t.TYPE_CHECKING:",
+    "if .* or not t.TYPE_CHECKING:",
+]
