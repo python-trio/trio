@@ -257,6 +257,12 @@ anything real. See `#26
 .. function:: wait_overlapped(handle, lpOverlapped)
    :async:
 
+.. function:: write_overlapped(handle, data)
+   :async:
+
+.. function:: readinto_overlapped(handle, data)
+   :async:
+
 .. function:: current_iocp()
 
 .. function:: monitor_completion_key()
