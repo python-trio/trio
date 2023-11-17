@@ -159,6 +159,9 @@ disallow_untyped_decorators = true
 disallow_untyped_defs = true
 check_untyped_defs = true
 
+[tool.pyright]
+pythonVersion = "3.8"
+
 [tool.pytest.ini_options]
 addopts = ["--strict-markers", "--strict-config"]
 faulthandler_timeout = 60
@@ -236,8 +239,6 @@ omit = [
     "*/trio/_core/_tests/test_multierror_scripts/*",
     # Omit the generated files in trio/_core starting with _generated_
     "*/trio/_core/_generated_*",
-    # Script used to check type completeness that isn't run in tests
-    "*/trio/_tests/check_type_completeness.py",
 ]
 # The test suite spawns subprocesses to test some stuff, so make sure
 # this doesn't corrupt the coverage files

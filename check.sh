@@ -96,16 +96,20 @@ fi
 
 codespell || EXIT_STATUS=$?
 
+PYRIGHT=0
 echo "::group::Pyright interface tests"
-python src/trio/_tests/check_type_completeness.py --overwrite-file || EXIT_STATUS=$?
-if git status --porcelain src/trio/_tests/verify_types*.json | grep -q "M"; then
-    echo "* Type completeness changed, please update!" >> "$GITHUB_STEP_SUMMARY"
-    echo "::error::Type completeness changed, please update!"
-    git --no-pager diff --color src/trio/_tests/verify_types*.json
+pyright --verifytypes --ignoreexternal --pythonplatform=Linux --verifytypes=trio \
+    || { echo "* Pyright --verifytypes (Linux) found errors." >> "$GITHUB_STEP_SUMMARY"; PYRIGHT=1; }
+pyright --verifytypes --ignoreexternal --pythonplatform=Darwin --verifytypes=trio \
+    || { echo "* Pyright --verifytypes (Mac) found errors." >> "$GITHUB_STEP_SUMMARY"; PYRIGHT=1; }
+pyright --verifytypes --ignoreexternal --pythonplatform=Windows --verifytypes=trio \
+    || { echo "* Pyright --verifytypes (Windows) found errors." >> "$GITHUB_STEP_SUMMARY"; PYRIGHT=1; }
+if [ $PYRIGHT -ne 0 ]; then
+    echo "::error:: Pyright --verifytypes returned errors."
     EXIT_STATUS=1
 fi
 
-pyright trio/_tests/type_tests || EXIT_STATUS=$?
+pyright src/trio/_tests/type_tests || EXIT_STATUS=$?
 echo "::endgroup::"
 
 # Finally, leave a really clear warning of any issues and exit
