@@ -165,6 +165,38 @@ async def test_CapacityLimiter_change_total_tokens() -> None:
         assert c.statistics().tasks_waiting == 0
 
 
+async def test_CapacityLimiter_wait_no_borrowers() -> None:
+    c = CapacityLimiter(3)
+    no_borrowers_left = False
+    e1 = Event()
+    e2 = Event()
+
+    async def wait_event(e: Event) -> None:
+        async with c:
+            await e.wait()
+
+    async def wait_capacity_limiter_no_borrowers() -> None:
+        nonlocal no_borrowers_left
+        await c.wait_no_borrowers()
+        no_borrowers_left = True
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(wait_event, e1)
+        nursery.start_soon(wait_event, e2)
+        await wait_all_tasks_blocked()
+        nursery.start_soon(wait_capacity_limiter_no_borrowers)
+        await wait_all_tasks_blocked()
+        assert not no_borrowers_left
+
+        e1.set()
+        await wait_all_tasks_blocked()
+        assert not no_borrowers_left
+
+        e2.set()
+        await wait_all_tasks_blocked()
+        assert no_borrowers_left
+
+
 # regression test for issue #548
 async def test_CapacityLimiter_memleak_548() -> None:
     limiter = CapacityLimiter(total_tokens=1)

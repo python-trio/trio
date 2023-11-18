@@ -220,6 +220,7 @@ class CapacityLimiter(AsyncContextManagerMixin):
         self._borrowers: set[Task | object] = set()
         # Maps tasks attempting to acquire -> borrower, to handle on-behalf-of
         self._pending_borrowers: dict[Task, Task | object] = {}
+        self._event_no_borrowers: Event = Event()
         # invoke the property setter for validation
         self.total_tokens: int | float = total_tokens
         assert self._total_tokens == total_tokens
@@ -257,6 +258,10 @@ class CapacityLimiter(AsyncContextManagerMixin):
         available = self._total_tokens - len(self._borrowers)
         for woken in self._lot.unpark(count=available):
             self._borrowers.add(self._pending_borrowers.pop(woken))
+
+        if len(self._borrowers) == 0:
+            self._event_no_borrowers.set()
+            self._event_no_borrowers = Event()
 
     @property
     def borrowed_tokens(self) -> int:
@@ -400,6 +405,24 @@ class CapacityLimiter(AsyncContextManagerMixin):
             borrowers=list(self._borrowers),
             tasks_waiting=len(self._lot),
         )
+
+    async def wait_no_borrowers(self) -> None:
+        """Wait until all tokens are free.
+
+        This could be useful when testing code with trio.to_thread to make
+        sure no tasks are still making progress in a thread. The following
+        code shows how this could be used::
+
+            async def wait_all_settled():
+                capacity_limiter = trio.to_thread.current_default_thread_limiter()
+                while True:
+                    await capacity_limiter.wait_no_borrowers()
+                    await trio.testing.wait_all_tasks_blocked()
+                    if capacity_limiter.borrowed_tokens == 0:
+                        break
+        """
+        while self._borrowers:
+            await self._event_no_borrowers.wait()
 
 
 @final

@@ -1,0 +1,1 @@
+Add `trio.CapacityLimiter.wait_no_borrowers`, which blocks until no tasks are in the capacity limiter. This is intended to be used in the same way as `trio.testing.wait_all_tasks_blocked`.
