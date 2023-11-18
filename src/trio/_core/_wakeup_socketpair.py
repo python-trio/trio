@@ -11,6 +11,10 @@ from .._util import is_main_thread
 
 class WakeupSocketpair:
     def __init__(self) -> None:
+        # explicitly typed to please `pyright --verifytypes` without `--ignoreexternal`
+        self.wakeup_sock: socket.socket
+        self.write_sock: socket.socket
+
         self.wakeup_sock, self.write_sock = socket.socketpair()
         self.wakeup_sock.setblocking(False)
         self.write_sock.setblocking(False)
