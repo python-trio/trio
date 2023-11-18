@@ -159,7 +159,7 @@ check_untyped_defs = true
 pythonVersion = "3.8"
 
 [tool.pytest.ini_options]
-addopts = ["--strict-markers", "--strict-config"]
+addopts = ["--strict-markers", "--strict-config", "-p trio._tests.pytest_plugin"]
 faulthandler_timeout = 60
 filterwarnings = [
   "error",
