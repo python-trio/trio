@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 
     from typing_extensions import TypeAlias
 
-    from .._abc import Stream
+    from .._abc import ReceiveStream
 
 if sys.platform == "win32":
     SignalType: TypeAlias = None
@@ -219,7 +219,7 @@ async def test_pipes(background_process: BackgroundProcessType) -> None:
             await proc.stdin.send_all(msg)
             await proc.stdin.aclose()
 
-        async def check_output(stream: Stream, expected: bytes) -> None:
+        async def check_output(stream: ReceiveStream, expected: bytes) -> None:
             seen = bytearray()
             async for chunk in stream:
                 seen += chunk
@@ -272,7 +272,9 @@ async def test_interactive(background_process: BackgroundProcessType) -> None:
         async def expect(idx: int, request: int) -> None:
             async with _core.open_nursery() as nursery:
 
-                async def drain_one(stream: Stream, count: int, digit: int) -> None:
+                async def drain_one(
+                    stream: ReceiveStream, count: int, digit: int
+                ) -> None:
                     while count > 0:
                         result = await stream.receive_some(count)
                         assert result == (f"{digit}".encode() * len(result))
@@ -614,9 +616,7 @@ async def test_warn_on_cancel_SIGKILL_escalation(
 async def test_run_process_background_fail() -> None:
     with pytest.raises(subprocess.CalledProcessError):
         async with _core.open_nursery() as nursery:
-            proc: subprocess.CompletedProcess[bytes] = await nursery.start(
-                run_process, EXIT_FALSE
-            )
+            proc: Process = await nursery.start(run_process, EXIT_FALSE)
     assert proc.returncode == 1
 
 
