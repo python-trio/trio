@@ -2421,8 +2421,8 @@ _MAX_TIMEOUT: Final = 24 * 60 * 60
 # straight through.
 def unrolled_run(
     runner: Runner,
-    async_fn: Callable[..., object],
-    args: tuple[object, ...],
+    async_fn: Callable[[Unpack[PosArgT]], object],
+    args: tuple[Unpack[PosArgT]],
     host_uses_signal_set_wakeup_fd: bool = False,
 ) -> Generator[float, EventResult, None]:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
