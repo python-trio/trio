@@ -41,7 +41,6 @@ if TYPE_CHECKING:
 
     # See DTLSEndpoint.__init__ for why this is imported here
     from OpenSSL import SSL  # noqa: TCH004
-    from OpenSSL.SSL import Context
     from typing_extensions import Self, TypeAlias, TypeVarTuple, Unpack
 
     from trio.socket import SocketType
@@ -832,7 +831,12 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
 
     """
 
-    def __init__(self, endpoint: DTLSEndpoint, peer_address: Any, ctx: Context):
+    def __init__(
+        self,
+        endpoint: DTLSEndpoint,
+        peer_address: Any,
+        ctx: SSL.Context,
+    ) -> None:
         self.endpoint = endpoint
         self.peer_address = peer_address
         self._packets_dropped_in_trio = 0
@@ -1178,7 +1182,12 @@ class DTLSEndpoint:
 
     """
 
-    def __init__(self, socket: SocketType, *, incoming_packets_buffer: int = 10):
+    def __init__(
+        self,
+        socket: SocketType,
+        *,
+        incoming_packets_buffer: int = 10,
+    ) -> None:
         # We do this lazily on first construction, so only people who actually use DTLS
         # have to install PyOpenSSL.
         global SSL
@@ -1199,7 +1208,7 @@ class DTLSEndpoint:
         # old connection.
         # {remote address: DTLSChannel}
         self._streams: WeakValueDictionary[Any, DTLSChannel] = WeakValueDictionary()
-        self._listening_context: Context | None = None
+        self._listening_context: SSL.Context | None = None
         self._listening_key: bytes | None = None
         self._incoming_connections_q = _Queue[DTLSChannel](float("inf"))
         self._send_lock = trio.Lock()
@@ -1262,7 +1271,7 @@ class DTLSEndpoint:
 
     async def serve(
         self,
-        ssl_context: Context,
+        ssl_context: SSL.Context,
         async_fn: Callable[[DTLSChannel, Unpack[PosArgsT]], Awaitable[object]],
         *args: Unpack[PosArgsT],
         task_status: trio.TaskStatus[None] = trio.TASK_STATUS_IGNORED,
@@ -1324,7 +1333,11 @@ class DTLSEndpoint:
         finally:
             self._listening_context = None
 
-    def connect(self, address: tuple[str, int], ssl_context: Context) -> DTLSChannel:
+    def connect(
+        self,
+        address: tuple[str, int],
+        ssl_context: SSL.Context,
+    ) -> DTLSChannel:
         """Initiate an outgoing DTLS connection.
 
         Notice that this is a synchronous method. That's because it doesn't actually
