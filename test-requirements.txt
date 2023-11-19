@@ -54,7 +54,7 @@ jedi==0.19.1
     # via -r test-requirements.in
 mccabe==0.7.0
     # via pylint
-mypy==1.6.1 ; implementation_name == "cpython"
+mypy==1.7.0 ; implementation_name == "cpython"
     # via -r test-requirements.in
 mypy-extensions==1.0.0 ; implementation_name == "cpython"
     # via

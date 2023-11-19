@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import threading
 from collections import deque
-from typing import TYPE_CHECKING, Callable, Iterable, NoReturn, Tuple
+from typing import TYPE_CHECKING, Callable, NoReturn, Tuple
 
 import attr
 
