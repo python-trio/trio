@@ -162,8 +162,8 @@ def test_coroutine_or_error() -> None:
 
 
 def test_generic_function() -> None:
-    @generic_function
-    def test_func(arg: T) -> T:
+    @generic_function  # Decorated function contains "Any".
+    def test_func(arg: T) -> T:  # type: ignore[misc]
         """Look, a docstring!"""
         return arg
 
