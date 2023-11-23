@@ -1731,7 +1731,8 @@ class Runner:
         # Call the function and get the coroutine object, while giving helpful
         # errors for common mistakes.
         ######
-        coro = context.run(coroutine_or_error, async_fn, *args)
+        # TypeVarTuple passed into ParamSpec function confuses Mypy.
+        coro = context.run(coroutine_or_error, async_fn, *args)  # type: ignore[arg-type]
 
         if name is None:
             name = async_fn
