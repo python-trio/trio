@@ -346,7 +346,7 @@ def main() -> None:  # pragma: no cover
 
 IMPORTS_RUN = """\
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from outcome import Outcome
 import contextvars
@@ -354,6 +354,10 @@ import contextvars
 from ._run import _NO_SEND, RunStatistics, Task
 from ._entry_queue import TrioToken
 from .._abc import Clock
+
+if TYPE_CHECKING:
+    from typing_extensions import Unpack
+    from ._run import PosArgT
 """
 IMPORTS_INSTRUMENT = """\
 from ._instrumentation import Instrument
