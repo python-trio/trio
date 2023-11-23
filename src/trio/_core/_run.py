@@ -1178,8 +1178,8 @@ class Nursery(metaclass=NoPublicConstructor):
 
     async def start(
         self,
-        async_fn: _NurseryStartFunc[Unpack[PosArgT], StatusT],
-        *args: Unpack[PosArgT],
+        async_fn: Callable[..., Awaitable[object]],
+        *args: object,
         name: object = None,
     ) -> StatusT:
         r"""Creates and initializes a child task.
@@ -1231,13 +1231,7 @@ class Nursery(metaclass=NoPublicConstructor):
             # exception in an extra ExceptionGroup. See #2611.
             async with open_nursery(strict_exception_groups=False) as old_nursery:
                 task_status: _TaskStatus[StatusT] = _TaskStatus(old_nursery, self)
-                # Without the task_status keyword argument, this is just a positional-only function.
-                thunk: Callable[
-                    [Unpack[PosArgT]], Awaitable[object]
-                ] = functools.partial(  # type: ignore[assignment]
-                    async_fn,
-                    task_status=task_status,
-                )
+                thunk = functools.partial(async_fn, task_status=task_status)
                 task = GLOBAL_RUN_CONTEXT.runner.spawn_impl(
                     thunk, args, old_nursery, name
                 )

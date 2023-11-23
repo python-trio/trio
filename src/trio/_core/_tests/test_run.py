@@ -1675,7 +1675,7 @@ async def test_nursery_start(autojump_clock: _core.MockClock) -> None:
     # Errors in calling convention get raised immediately from start
     async with _core.open_nursery() as nursery:
         with pytest.raises(TypeError):
-            await nursery.start(no_args)  # type: ignore[arg-type]
+            await nursery.start(no_args)
 
     async def sleep_then_start(
         seconds: int, *, task_status: _core.TaskStatus[int] = _core.TASK_STATUS_IGNORED

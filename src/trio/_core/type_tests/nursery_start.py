@@ -1,6 +1,5 @@
 """Test variadic generic typing for Nursery.start[_soon]()."""
 from trio import TASK_STATUS_IGNORED, Nursery, TaskStatus
-from typing_extensions import assert_type
 
 
 async def task_0() -> None:
@@ -77,23 +76,3 @@ def check_start_soon(nursery: Nursery) -> None:
     nursery.start_soon(task_requires_kw, 12, True)  # type: ignore
     # Tasks following the start() API can be made to work.
     nursery.start_soon(task_startable_1, "cdf")
-
-
-async def check_start(nursery: Nursery) -> None:
-    """start() functionality."""
-    # Works with and without an explicit return type hint.
-    res_annotated: bool = await nursery.start(task_startable_1, "hello")
-    assert_type(res_annotated, bool)
-
-    res_unann = await nursery.start(task_startable_1, "hello")
-    assert_type(res_unann, bool)
-
-    # Check discarding the return value works.
-    await nursery.start(task_startable_2, "abc", 3.14)
-
-    # Doesn't match the return type.
-    res_wrong_type: str = await nursery.start(task_startable_1, "hello")  # type: ignore
-
-    # Check variations on the function definition.
-    res_str: str = await nursery.start(task_requires_start)
-    res_int: int = await nursery.start(task_pos_or_kw, "abc")
