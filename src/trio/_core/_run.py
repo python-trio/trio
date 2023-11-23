@@ -1181,7 +1181,7 @@ class Nursery(metaclass=NoPublicConstructor):
         async_fn: Callable[..., Awaitable[object]],
         *args: object,
         name: object = None,
-    ) -> StatusT:
+    ) -> Any:
         r"""Creates and initializes a child task.
 
         Like :meth:`start_soon`, but blocks until the new task has
@@ -1230,7 +1230,7 @@ class Nursery(metaclass=NoPublicConstructor):
             # `run` option, which would cause it to wrap a pre-started()
             # exception in an extra ExceptionGroup. See #2611.
             async with open_nursery(strict_exception_groups=False) as old_nursery:
-                task_status: _TaskStatus[StatusT] = _TaskStatus(old_nursery, self)
+                task_status: _TaskStatus[Any] = _TaskStatus(old_nursery, self)
                 thunk = functools.partial(async_fn, task_status=task_status)
                 task = GLOBAL_RUN_CONTEXT.runner.spawn_impl(
                     thunk, args, old_nursery, name
@@ -1243,7 +1243,7 @@ class Nursery(metaclass=NoPublicConstructor):
             # (Any exceptions propagate directly out of the above.)
             if task_status._value is _NoStatus:
                 raise RuntimeError("child exited without calling task_status.started()")
-            return task_status._value  # type: ignore[return-value]  # Mypy doesn't narrow yet.
+            return task_status._value
         finally:
             self._pending_starts -= 1
             self._check_nursery_closed()
