@@ -136,7 +136,7 @@ async def test_MultiErrorNotHashable() -> None:
     assert exc1 != exc2
     assert exc1 != exc3
 
-    with pytest.raises(MultiError):
+    with pytest.raises(ExceptionGroup):
         async with open_nursery() as nursery:
             nursery.start_soon(raise_nothashable, 42)
             nursery.start_soon(raise_nothashable, 4242)

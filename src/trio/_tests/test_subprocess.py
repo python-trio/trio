@@ -21,6 +21,8 @@ from typing import (
 import pytest
 from pytest import MonkeyPatch, WarningsRecorder
 
+from trio.testing import ExpectedExceptionGroup
+
 from .. import (
     ClosedResourceError,
     Event,
@@ -607,7 +609,7 @@ async def test_warn_on_cancel_SIGKILL_escalation(
 # the background_process_param exercises a lot of run_process cases, but it uses
 # check=False, so lets have a test that uses check=True as well
 async def test_run_process_background_fail() -> None:
-    with pytest.raises(subprocess.CalledProcessError):
+    with pytest.raises(ExpectedExceptionGroup(subprocess.CalledProcessError)):
         async with _core.open_nursery() as nursery:
             proc: subprocess.CompletedProcess[bytes] = await nursery.start(
                 run_process, EXIT_FALSE
@@ -624,11 +626,12 @@ async def test_for_leaking_fds() -> None:
     await run_process(EXIT_TRUE)
     assert set(SyncPath("/dev/fd").iterdir()) == starting_fds
 
+    # TODO: one of these raises an exceptiongroup, one doesn't. That's bad
     with pytest.raises(subprocess.CalledProcessError):
         await run_process(EXIT_FALSE)
     assert set(SyncPath("/dev/fd").iterdir()) == starting_fds
 
-    with pytest.raises(PermissionError):
+    with pytest.raises(ExpectedExceptionGroup(PermissionError)):
         await run_process(["/dev/fd/0"])
     assert set(SyncPath("/dev/fd").iterdir()) == starting_fds
 

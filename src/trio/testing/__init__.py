@@ -1,5 +1,7 @@
 # Uses `from x import y as y` for compatibility with `pyright --verifytypes` (#2625)
 
+import pytest
+
 from .._core import (
     MockClock as MockClock,
     wait_all_tasks_blocked as wait_all_tasks_blocked,
@@ -14,6 +16,7 @@ from ._checkpoints import (
     assert_checkpoints as assert_checkpoints,
     assert_no_checkpoints as assert_no_checkpoints,
 )
+from ._exceptiongroup_util import ExpectedExceptionGroup, raises
 from ._memory_streams import (
     MemoryReceiveStream as MemoryReceiveStream,
     MemorySendStream as MemorySendStream,
@@ -29,6 +32,8 @@ from ._trio_test import trio_test as trio_test
 
 ################################################################
 
+# Highly illegally override `raises` for ours that has ExpectedExceptionGroup support
+pytest.raises = raises  # type: ignore
 
 fixup_module_metadata(__name__, globals())
 del fixup_module_metadata

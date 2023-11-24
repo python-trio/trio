@@ -917,7 +917,7 @@ class NurseryManager:
 
     """
 
-    strict_exception_groups: bool = attr.ib(default=False)
+    strict_exception_groups: bool = attr.ib(default=True)
 
     @enable_ki_protection
     async def __aenter__(self) -> Nursery:
@@ -985,8 +985,8 @@ def open_nursery(
 
     Args:
       strict_exception_groups (bool): If true, even a single raised exception will be
-          wrapped in an exception group. This will eventually become the default
-          behavior. If not specified, uses the value passed to :func:`run`.
+          wrapped in an exception group. If not specified, uses the value passed to
+          :func:`run`, which defaults to true.
 
     """
     if strict_exception_groups is None:
@@ -2150,7 +2150,7 @@ def run(
     clock: Clock | None = None,
     instruments: Sequence[Instrument] = (),
     restrict_keyboard_interrupt_to_checkpoints: bool = False,
-    strict_exception_groups: bool = False,
+    strict_exception_groups: bool = True,
 ) -> RetT:
     """Run a Trio-flavored async function, and return the result.
 
@@ -2207,9 +2207,9 @@ def run(
           main thread (this is a Python limitation), or if you use
           :func:`open_signal_receiver` to catch SIGINT.
 
-      strict_exception_groups (bool): If true, nurseries will always wrap even a single
-          raised exception in an exception group. This can be overridden on the level of
-          individual nurseries. This will eventually become the default behavior.
+      strict_exception_groups (bool): Unless set to false, nurseries will always wrap
+          even a single raised exception in an exception group. This can be overridden
+          on the level of individual nurseries.
 
     Returns:
       Whatever ``async_fn`` returns.
@@ -2267,7 +2267,7 @@ def start_guest_run(
     clock: Clock | None = None,
     instruments: Sequence[Instrument] = (),
     restrict_keyboard_interrupt_to_checkpoints: bool = False,
-    strict_exception_groups: bool = False,
+    strict_exception_groups: bool = True,
 ) -> None:
     """Start a "guest" run of Trio on top of some other "host" event loop.
 
