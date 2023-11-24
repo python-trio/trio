@@ -67,13 +67,19 @@ from socket import (
     ntohs as ntohs,
 )
 
+# TODO: is it possible to remove this `_suppress`
+with _suppress(ImportError):
+    from socket import (
+        if_indextoname as if_indextoname,
+        if_nameindex as if_nameindex,
+        if_nametoindex as if_nametoindex,
+    )
+
+
 # not always available so expose only if
 if sys.platform != "win32" or not _t.TYPE_CHECKING:
     with _suppress(ImportError):
         from socket import (
-            if_indextoname as if_indextoname,
-            if_nameindex as if_nameindex,
-            if_nametoindex as if_nametoindex,
             sethostname as sethostname,
         )
 
