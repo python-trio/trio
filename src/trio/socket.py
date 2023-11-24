@@ -60,15 +60,21 @@ from socket import (
     herror as herror,
     htonl as htonl,
     htons as htons,
-    if_indextoname as if_indextoname,
-    if_nameindex as if_nameindex,
-    if_nametoindex as if_nametoindex,
     inet_aton as inet_aton,
     inet_ntoa as inet_ntoa,
     inet_ntop as inet_ntop,
     inet_pton as inet_pton,
     ntohs as ntohs,
 )
+
+# TODO: update python docs to reflect this
+if sys.implementation.name == "cpython":
+    from socket import (
+        if_indextoname as if_indextoname,
+        if_nameindex as if_nameindex,
+        if_nametoindex as if_nametoindex,
+    )
+
 
 # not always available so expose only if
 if sys.platform != "win32" or not _t.TYPE_CHECKING:
