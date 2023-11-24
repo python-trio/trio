@@ -198,7 +198,8 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
             )
     elif tool == "pyright_verifytypes":
         if not RUN_SLOW:  # pragma: no cover
-            pytest.skip("use --run-slow to check against mypy")
+            pytest.skip("use --run-slow to check against pyright")
+
         try:
             import pyright  # noqa: F401
         except ImportError as error:
@@ -216,10 +217,6 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
             for x in current_result["typeCompleteness"]["symbols"]
             if x["name"].startswith(modname)
         }
-
-        # pyright ignores the symbol defined behind `if False`
-        if modname == "trio":
-            static_names.add("testing")
 
         # these are hidden behind `if sys.platform != "win32" or not TYPE_CHECKING`
         # so presumably pyright is parsing that if statement, in which case we don't
