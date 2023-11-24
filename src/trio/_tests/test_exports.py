@@ -217,15 +217,6 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
             for x in current_result["typeCompleteness"]["symbols"]
             if x["name"].startswith(modname)
         }
-
-        # these are hidden behind `if sys.platform != "win32" or not TYPE_CHECKING`
-        # so presumably pyright is parsing that if statement, in which case we don't
-        # care about them being missing.
-        if modname == "trio.socket" and sys.platform == "win32":
-            ignored_missing_names = {"if_indextoname", "if_nameindex", "if_nametoindex"}
-            assert static_names.isdisjoint(ignored_missing_names)
-            static_names.update(ignored_missing_names)
-
     else:  # pragma: no cover
         raise AssertionError()
 
