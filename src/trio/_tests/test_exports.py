@@ -229,10 +229,6 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
     else:  # pragma: no cover
         raise AssertionError()
 
-    # mypy handles errors with an `assert` in its branch
-    if tool == "mypy":
-        return
-
     # It's expected that the static set will contain more names than the
     # runtime set:
     # - static tools are sometimes sloppy and include deleted names
