@@ -157,6 +157,9 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
         ast = linter.get_ast(module.__file__, modname)
         static_names = no_underscores(ast)  # type: ignore[arg-type]
     elif tool == "jedi":
+        if sys.implementation.name != "cpython":
+            pytest.skip("jedi does not support pypy")
+
         try:
             import jedi
         except ImportError as error:
