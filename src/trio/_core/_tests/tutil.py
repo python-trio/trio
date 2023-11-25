@@ -58,17 +58,12 @@ binds_ipv6 = pytest.mark.skipif(not can_bind_ipv6, reason="need IPv6")
 
 
 def gc_collect_harder() -> None:
-    # In the test suite we sometimes want to call gc.collect() to make sure
-    # that any objects with noisy __del__ methods (e.g. unawaited coroutines)
-    # get collected before we continue, so their noise doesn't leak into
-    # unrelated tests.
-    #
-    # On PyPy, coroutine objects (for example) can survive at least 1 round of
-    # garbage collection, because executing their __del__ method to print the
-    # warning can cause them to be resurrected. So we call collect a few times
-    # to make sure.
-    for _ in range(5):
+    if sys.implementation.name == "cpython":
         gc.collect()
+    elif sys.implementation.name == "pypy":
+        gc.collect_all_finalizers()
+    else:
+        raise AssertionError("not sure how to conclusively GC")
 
 
 # Some of our tests need to leak coroutines, and thus trigger the
