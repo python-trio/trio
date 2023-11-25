@@ -62,7 +62,7 @@ def gc_collect_harder() -> None:
         gc.collect()
     elif sys.implementation.name == "pypy":
         gc.collect_all_finalizers()
-    else:
+    else:  # pragma: no cover
         raise AssertionError("not sure how to conclusively GC")
 
 
