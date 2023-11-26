@@ -77,7 +77,10 @@ async def test_open_tcp_listeners_ipv6_v6only() -> None:
     async with ipv6_listener:
         _, port, *_ = ipv6_listener.socket.getsockname()
 
-        with pytest.raises(OSError, match="TODO: exception text"):
+        with pytest.raises(
+            OSError,
+            match=r"(Error|all attempts to) connect(ing)* to (\(')*127\.0\.0\.1(', |:)\d+(\): Connection refused| failed)$",
+        ):
             await open_tcp_stream("127.0.0.1", port)
 
 
@@ -89,7 +92,7 @@ async def test_open_tcp_listeners_rebind() -> None:
     # SO_REUSEADDR set
     with stdlib_socket.socket() as probe:
         probe.setsockopt(stdlib_socket.SOL_SOCKET, stdlib_socket.SO_REUSEADDR, 1)
-        with pytest.raises(OSError, match="TODO: exception text"):
+        with pytest.raises(OSError, match="Address already in use$"):
             probe.bind(sockaddr1)
 
     # Now use the first listener to set up some connections in various states,

@@ -171,7 +171,7 @@ async def test_local_address_real() -> None:
         # Trying to connect to an ipv4 address with the ipv6 wildcard
         # local_address should fail
         with pytest.raises(
-            OSError, match="all attempts to connect to 127.0.0.1:35781 failed"
+            OSError, match=r"^all attempts to connect* to *127\.0\.0\.\d:\d+ failed$"
         ):
             await open_tcp_stream(*listener.getsockname(), local_address="::")
 

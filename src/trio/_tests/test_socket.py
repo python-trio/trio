@@ -649,15 +649,18 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
                 netlink_sock.close()
 
             with pytest.raises(
-                ValueError, match="address should be a (host, port) tuple"
+                ValueError,
+                match=r"^address should be a \(host, port(, \[flowinfo, \[scopeid\]\])*\) tuple$",
             ):
                 await res("1.2.3.4")  # type: ignore[arg-type]
             with pytest.raises(
-                ValueError, match="address should be a (host, port) tuple"
+                ValueError,
+                match=r"^address should be a \(host, port(, \[flowinfo, \[scopeid\]\])*\) tuple$",
             ):
                 await res(("1.2.3.4",))  # type: ignore[arg-type]
             with pytest.raises(
-                ValueError, match="address should be a (host, port) tuple"
+                ValueError,
+                match=r"^address should be a \(host, port(, \[flowinfo, \[scopeid\]\])*\) tuple$",
             ):
                 if v6:
                     await res(("1.2.3.4", 80, 0, 0, 0))  # type: ignore[arg-type]
@@ -762,7 +765,10 @@ async def test_SocketType_non_blocking_paths() -> None:
 # This tests the complicated paths through connect
 async def test_SocketType_connect_paths() -> None:
     with tsocket.socket() as sock:
-        with pytest.raises(ValueError, match="TODO: exception text"):
+        with pytest.raises(
+            ValueError,
+            match=r"^address should be a \(host, port(, \[flowinfo, \[scopeid\]\])*\) tuple$",
+        ):
             # Should be a tuple
             await sock.connect("localhost")
 

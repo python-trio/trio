@@ -108,7 +108,7 @@ async def test_pipe_errors() -> None:
     r, w = os.pipe()
     os.close(w)
     async with FdStream(r) as s:
-        with pytest.raises(ValueError, match="TODO: replace with exception"):
+        with pytest.raises(ValueError, match="^max_bytes must be integer >= 1$"):
             await s.receive_some(0)
 
 
@@ -118,11 +118,11 @@ async def test_del() -> None:
     del w, r
     gc_collect_harder()
 
-    with pytest.raises(OSError, match="TODO: replace with exception") as excinfo:
+    with pytest.raises(OSError, match="Bad file descriptor$") as excinfo:
         os.close(f1)
     assert excinfo.value.errno == errno.EBADF
 
-    with pytest.raises(OSError, match="TODO: replace with exception") as excinfo:
+    with pytest.raises(OSError, match="Bad file descriptor$") as excinfo:
         os.close(f2)
     assert excinfo.value.errno == errno.EBADF
 
@@ -135,11 +135,11 @@ async def test_async_with() -> None:
     assert w.fileno() == -1
     assert r.fileno() == -1
 
-    with pytest.raises(OSError, match="TODO: replace with exception") as excinfo:
+    with pytest.raises(OSError, match="Bad file descriptor$") as excinfo:
         os.close(w.fileno())
     assert excinfo.value.errno == errno.EBADF
 
-    with pytest.raises(OSError, match="TODO: replace with exception") as excinfo:
+    with pytest.raises(OSError, match="Bad file descriptor$") as excinfo:
         os.close(r.fileno())
     assert excinfo.value.errno == errno.EBADF
 

@@ -327,7 +327,9 @@ async def test_run_in_worker_thread() -> None:
     def g() -> NoReturn:
         raise ValueError(threading.current_thread())
 
-    with pytest.raises(ValueError, match="TODO: replace with exception") as excinfo:
+    with pytest.raises(
+        ValueError, match=r"^<Thread\(Trio thread \d+, started daemon \d+\)>$"
+    ) as excinfo:
         await to_thread_run_sync(g)
     print(excinfo.value.args)
     assert excinfo.value.args[0] != trio_thread
@@ -574,11 +576,11 @@ async def test_run_in_worker_thread_limiter_error() -> None:
 
         def release_on_behalf_of(self, borrower: Task) -> NoReturn:
             record.append("release")
-            raise ValueError
+            raise ValueError("release on behalf")
 
     bs = BadCapacityLimiter()
 
-    with pytest.raises(ValueError, match="TODO: replace with exception") as excinfo:
+    with pytest.raises(ValueError, match="^release on behalf$") as excinfo:
         await to_thread_run_sync(lambda: None, limiter=bs)  # type: ignore[call-overload]
     assert excinfo.value.__context__ is None
     assert record == ["acquire", "release"]
@@ -587,7 +589,7 @@ async def test_run_in_worker_thread_limiter_error() -> None:
     # If the original function raised an error, then the semaphore error
     # chains with it
     d: dict[str, object] = {}
-    with pytest.raises(ValueError, match="TODO: replace with exception") as excinfo:
+    with pytest.raises(ValueError, match="^release on behalf$") as excinfo:
         await to_thread_run_sync(lambda: d["x"], limiter=bs)  # type: ignore[call-overload]
     assert isinstance(excinfo.value.__context__, KeyError)
     assert record == ["acquire", "release"]
@@ -1085,10 +1087,16 @@ async def test_reentry_doesnt_deadlock() -> None:
 
 
 async def test_cancellable_and_abandon_raises() -> None:
-    with pytest.raises(ValueError, match="TODO: replace with exception"):
+    with pytest.raises(
+        ValueError,
+        match=r"^Cannot set `cancellable` and `abandon_on_cancel` simultaneously\.$",
+    ):
         await to_thread_run_sync(bool, cancellable=True, abandon_on_cancel=False)  # type: ignore[call-overload]
 
-    with pytest.raises(ValueError, match="TODO: replace with exception"):
+    with pytest.raises(
+        ValueError,
+        match=r"^Cannot set `cancellable` and `abandon_on_cancel` simultaneously\.$",
+    ):
         await to_thread_run_sync(bool, cancellable=True, abandon_on_cancel=True)  # type: ignore[call-overload]
 
 
