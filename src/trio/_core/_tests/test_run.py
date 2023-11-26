@@ -1123,9 +1123,6 @@ async def test_exception_chaining_after_yield_error() -> None:
     assert isinstance(excinfo.value.__context__, KeyError)
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 6, 2), reason="https://bugs.python.org/issue29600"
-)
 async def test_nursery_exception_chaining_doesnt_make_context_loops() -> None:
     async def crasher() -> NoReturn:
         raise KeyError

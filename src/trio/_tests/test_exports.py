@@ -146,13 +146,6 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
         if getattr(module, name, None) is getattr(__future__, name):
             runtime_names.remove(name)
 
-    if tool in ("mypy", "pyright_verifytypes"):
-        # create py.typed file
-        py_typed_path = Path(trio.__file__).parent / "py.typed"
-        py_typed_exists = py_typed_path.exists()
-        if not py_typed_exists:  # pragma: no branch
-            py_typed_path.write_text("")
-
     if tool == "pylint":
         try:
             from pylint.lint import PyLinter
@@ -236,10 +229,6 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
     else:  # pragma: no cover
         raise AssertionError()
 
-    # remove py.typed file
-    if tool in ("mypy", "pyright_verifytypes") and not py_typed_exists:
-        py_typed_path.unlink()
-
     # mypy handles errors with an `assert` in its branch
     if tool == "mypy":
         return
@@ -289,16 +278,9 @@ def test_static_tool_sees_class_members(
             if (not symbol.startswith("_")) or symbol.startswith("__")
         }
 
-    py_typed_path = Path(trio.__file__).parent / "py.typed"
-    py_typed_exists = py_typed_path.exists()
-
     if tool == "mypy":
         if sys.implementation.name != "cpython":
             pytest.skip("mypy not installed in tests on pypy")
-        # create py.typed file
-        # remove this logic when trio is marked with py.typed proper
-        if not py_typed_exists:  # pragma: no branch
-            py_typed_path.write_text("")
 
         cache = Path.cwd() / ".mypy_cache"
 
@@ -535,10 +517,6 @@ def test_static_tool_sees_class_members(
                 "missing": missing,
                 "extra": extra,
             }
-
-    # clean up created py.typed file
-    if tool == "mypy" and not py_typed_exists:
-        py_typed_path.unlink()
 
     # `assert not errors` will not print the full content of errors, even with
     # `--verbose`, so we manually print it

@@ -109,6 +109,10 @@ class KqueueIOManager:
 
     @_public
     def current_kqueue(self) -> select.kqueue:
+        """TODO: these are implemented, but are currently more of a sketch than
+        anything real. See `#26
+        <https://github.com/python-trio/trio/issues/26>`__.
+        """
         return self._kqueue
 
     @contextmanager
@@ -116,6 +120,10 @@ class KqueueIOManager:
     def monitor_kevent(
         self, ident: int, filter: int
     ) -> Iterator[_core.UnboundedQueue[select.kevent]]:
+        """TODO: these are implemented, but are currently more of a sketch than
+        anything real. See `#26
+        <https://github.com/python-trio/trio/issues/26>`__.
+        """
         key = (ident, filter)
         if key in self._registered:
             raise _core.BusyResourceError(
@@ -132,6 +140,10 @@ class KqueueIOManager:
     async def wait_kevent(
         self, ident: int, filter: int, abort_func: Callable[[RaiseCancelT], Abort]
     ) -> Abort:
+        """TODO: these are implemented, but are currently more of a sketch than
+        anything real. See `#26
+        <https://github.com/python-trio/trio/issues/26>`__.
+        """
         key = (ident, filter)
         if key in self._registered:
             raise _core.BusyResourceError(
@@ -181,14 +193,70 @@ class KqueueIOManager:
 
     @_public
     async def wait_readable(self, fd: int | _HasFileNo) -> None:
+        """Block until the kernel reports that the given object is readable.
+
+        On Unix systems, ``fd`` must either be an integer file descriptor,
+        or else an object with a ``.fileno()`` method which returns an
+        integer file descriptor. Any kind of file descriptor can be passed,
+        though the exact semantics will depend on your kernel. For example,
+        this probably won't do anything useful for on-disk files.
+
+        On Windows systems, ``fd`` must either be an integer ``SOCKET``
+        handle, or else an object with a ``.fileno()`` method which returns
+        an integer ``SOCKET`` handle. File descriptors aren't supported,
+        and neither are handles that refer to anything besides a
+        ``SOCKET``.
+
+        :raises trio.BusyResourceError:
+            if another task is already waiting for the given socket to
+            become readable.
+        :raises trio.ClosedResourceError:
+            if another task calls :func:`notify_closing` while this
+            function is still working.
+        """
         await self._wait_common(fd, select.KQ_FILTER_READ)
 
     @_public
     async def wait_writable(self, fd: int | _HasFileNo) -> None:
+        """Block until the kernel reports that the given object is writable.
+
+        See `wait_readable` for the definition of ``fd``.
+
+        :raises trio.BusyResourceError:
+            if another task is already waiting for the given socket to
+            become writable.
+        :raises trio.ClosedResourceError:
+            if another task calls :func:`notify_closing` while this
+            function is still working.
+        """
         await self._wait_common(fd, select.KQ_FILTER_WRITE)
 
     @_public
     def notify_closing(self, fd: int | _HasFileNo) -> None:
+        """Notify waiters of the given object that it will be closed.
+
+        Call this before closing a file descriptor (on Unix) or socket (on
+        Windows). This will cause any `wait_readable` or `wait_writable`
+        calls on the given object to immediately wake up and raise
+        `~trio.ClosedResourceError`.
+
+        This doesn't actually close the object – you still have to do that
+        yourself afterwards. Also, you want to be careful to make sure no
+        new tasks start waiting on the object in between when you call this
+        and when it's actually closed. So to close something properly, you
+        usually want to do these steps in order:
+
+        1. Explicitly mark the object as closed, so that any new attempts
+           to use it will abort before they start.
+        2. Call `notify_closing` to wake up any already-existing users.
+        3. Actually close the object.
+
+        It's also possible to do them in a different order if that's more
+        convenient, *but only if* you make sure not to have any checkpoints in
+        between the steps. This way they all happen in a single atomic
+        step, so other tasks won't be able to tell what order they happened
+        in anyway.
+        """
         if not isinstance(fd, int):
             fd = fd.fileno()
 

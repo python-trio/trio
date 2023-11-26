@@ -42,7 +42,7 @@ class AsyncGenerators:
     # init task starting end-of-run asyncgen finalization.
     trailing_needs_finalize: _ASYNC_GEN_SET = attr.ib(factory=_ASYNC_GEN_SET)
 
-    prev_hooks = attr.ib(init=False)
+    prev_hooks: sys._asyncgen_hooks = attr.ib(init=False)
 
     def install_hooks(self, runner: _run.Runner) -> None:
         def firstiter(agen: AsyncGeneratorType[object, NoReturn]) -> None:
