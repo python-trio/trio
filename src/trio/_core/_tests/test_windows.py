@@ -42,18 +42,20 @@ def test_winerror(monkeypatch: pytest.MonkeyPatch) -> None:
 
     # Returning none = no error, should not happen.
     mock.return_value = None
-    with pytest.raises(RuntimeError, match="No error set"):
+    with pytest.raises(RuntimeError, match="^No error set$"):
         raise_winerror()
     mock.assert_called_once_with()
     mock.reset_mock()
 
-    with pytest.raises(RuntimeError, match="No error set"):
+    with pytest.raises(RuntimeError, match="^No error set$"):
         raise_winerror(38)
     mock.assert_called_once_with(38)
     mock.reset_mock()
 
     mock.return_value = (12, "test error")
-    with pytest.raises(OSError, match="TODO: exception text") as exc:
+    with pytest.raises(
+        OSError, match=r"^\[WinError 12\] test error: 'file_1' -> 'file_2'$"
+    ) as exc:
         raise_winerror(filename="file_1", filename2="file_2")
     mock.assert_called_once_with()
     mock.reset_mock()
@@ -63,7 +65,9 @@ def test_winerror(monkeypatch: pytest.MonkeyPatch) -> None:
     assert exc.value.filename2 == "file_2"
 
     # With an explicit number passed in, it overrides what getwinerror() returns.
-    with pytest.raises(OSError, match="TODO: exception text") as exc:
+    with pytest.raises(
+        OSError, match=r"^\[WinError 18\] test error: 'a/file' -> 'b/file'$"
+    ) as exc:
         raise_winerror(18, filename="a/file", filename2="b/file")
     mock.assert_called_once_with(18)
     mock.reset_mock()

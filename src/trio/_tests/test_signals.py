@@ -41,7 +41,9 @@ async def test_open_signal_receiver() -> None:
 
 async def test_open_signal_receiver_restore_handler_after_one_bad_signal() -> None:
     orig = signal.getsignal(signal.SIGILL)
-    with pytest.raises(ValueError, match="signal number out of range"):
+    with pytest.raises(
+        ValueError, match="(signal number out of range|invalid signal value)$"
+    ):
         with open_signal_receiver(signal.SIGILL, 1234567):
             pass  # pragma: no cover
     # Still restored even if we errored out

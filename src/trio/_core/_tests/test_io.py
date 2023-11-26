@@ -319,7 +319,10 @@ async def test_wait_on_invalid_object() -> None:
             fileno = s.fileno()
         # We just closed the socket and don't do anything else in between, so
         # we can be confident that the fileno hasn't be reassigned.
-        with pytest.raises(OSError, match="Bad file descriptor$"):
+        with pytest.raises(
+            OSError,
+            match="(Bad file descriptor|An operation was attempted on something that is not a socket)$",
+        ):
             await wait(fileno)
 
 

@@ -815,7 +815,7 @@ async def test_SocketType_connect_paths() -> None:
     with tsocket.socket() as sock:
         with pytest.raises(
             OSError,
-            match=r"^Error connecting to \('127\.0\.0\.\d', \d+\): Connection refused$",
+            match=r"^.*Error connecting to \('127\.0\.0\.\d', \d+\): (Connection refused|Unknown error)$",
         ):
             # TCP port 2 is not assigned. Pretty sure nothing will be
             # listening there. (We used to bind a port and then *not* call

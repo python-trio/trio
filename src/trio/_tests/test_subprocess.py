@@ -350,17 +350,17 @@ async def test_run() -> None:
         await run_process(CAT, stdout=subprocess.PIPE)
     with pytest.raises(
         ValueError,
-        match=r"^stdout=subprocess\.PIPE is only valid with nursery\.start, since that's the only way to access the pipe(; use nursery\.start or pass the data you want to write directly)*$",
+        match=r"^stderr=subprocess\.PIPE is only valid with nursery\.start, since that's the only way to access the pipe(; use nursery\.start or pass the data you want to write directly)*$",
     ):
         await run_process(CAT, stderr=subprocess.PIPE)
     with pytest.raises(
         ValueError,
-        match=r"^stdout=subprocess\.PIPE is only valid with nursery\.start, since that's the only way to access the pipe(; use nursery\.start or pass the data you want to write directly)*$",
+        match=r"^stdout=subprocess\.DEVNULL is only valid with nursery\.start, since that's the only way to access the pipe(; use nursery\.start or pass the data you want to write directly)*$",
     ):
         await run_process(CAT, capture_stdout=True, stdout=subprocess.DEVNULL)
     with pytest.raises(
         ValueError,
-        match=r"^stdout=subprocess\.PIPE is only valid with nursery\.start, since that's the only way to access the pipe(; use nursery\.start or pass the data you want to write directly)*$",
+        match=r"^stderr=subprocess\.PIPE is only valid with nursery\.start, since that's the only way to access the pipe(; use nursery\.start or pass the data you want to write directly)*$",
     ):
         await run_process(CAT, capture_stderr=True, stderr=None)
 
