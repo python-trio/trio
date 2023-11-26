@@ -73,7 +73,7 @@ CAT = python("sys.stdout.buffer.write(sys.stdin.buffer.read())")
 if posix:
 
     def SLEEP(seconds: int) -> list[str]:
-        return ["/bin/sleep", str(seconds)]
+        return ["sleep", str(seconds)]
 
 else:
 
