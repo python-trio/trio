@@ -67,7 +67,6 @@ from socket import (
     ntohs as ntohs,
 )
 
-# TODO: update python docs to reflect this
 if sys.implementation.name == "cpython":
     from socket import (
         if_indextoname as if_indextoname,
