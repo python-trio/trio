@@ -2,20 +2,17 @@ from __future__ import annotations
 
 import gc
 import os
-import pickle
 import re
 import subprocess
 import sys
-import warnings
 from pathlib import Path
-from traceback import extract_tb, print_exception
-from typing import TYPE_CHECKING, Callable, NoReturn
+from traceback import extract_tb
+from typing import TYPE_CHECKING, Any, Callable, NoReturn, TypeVar
 
 import pytest
 
-from ... import TrioDeprecationWarning
 from ..._core import open_nursery
-from .._multierror import MultiError, NonBaseMultiError, concat_tb
+from .._multierror import concat_tb
 from .tutil import slow
 
 if TYPE_CHECKING:
@@ -23,6 +20,8 @@ if TYPE_CHECKING:
 
 if sys.version_info < (3, 11):
     from exceptiongroup import ExceptionGroup
+
+E = TypeVar("E", bound=BaseException)
 
 
 class NotHashableException(Exception):
@@ -62,11 +61,7 @@ def raiser2_2() -> NoReturn:
     raise KeyError("raiser2_string")
 
 
-def raiser3() -> NoReturn:
-    raise NameError
-
-
-def get_exc(raiser: Callable[[], NoReturn]) -> BaseException:
+def get_exc(raiser: Callable[[], NoReturn]) -> Exception:
     try:
         raiser()
     except Exception as exc:
@@ -103,83 +98,22 @@ def test_concat_tb() -> None:
     assert extract_tb(get_tb(raiser2)) == entries2
 
 
-def test_MultiError() -> None:
-    exc1 = get_exc(raiser1)
-    exc2 = get_exc(raiser2)
-
-    assert MultiError([exc1]) is exc1
-    m = MultiError([exc1, exc2])
-    assert m.exceptions == (exc1, exc2)
-    assert "ValueError" in str(m)
-    assert "ValueError" in repr(m)
-
-    with pytest.raises(TypeError):
-        MultiError(object())  # type: ignore[arg-type]
-    with pytest.raises(TypeError):
-        MultiError([KeyError(), ValueError])  # type: ignore[list-item]
-
-
-def test_MultiErrorOfSingleMultiError() -> None:
-    # For MultiError([MultiError]), ensure there is no bad recursion by the
-    # constructor where __init__ is called if __new__ returns a bare MultiError.
-    exceptions = (KeyError(), ValueError())
-    a = MultiError(exceptions)
-    b = MultiError([a])
-    assert b == a
-    assert b.exceptions == exceptions
-
-
-async def test_MultiErrorNotHashable() -> None:
+async def test_ExceptionGroupNotHashable() -> None:
     exc1 = NotHashableException(42)
     exc2 = NotHashableException(4242)
     exc3 = ValueError()
     assert exc1 != exc2
     assert exc1 != exc3
 
-    with pytest.raises(MultiError):
+    with pytest.raises(ExceptionGroup):
         async with open_nursery() as nursery:
             nursery.start_soon(raise_nothashable, 42)
             nursery.start_soon(raise_nothashable, 4242)
 
 
-def test_MultiError_filter_NotHashable() -> None:
-    excs = MultiError([NotHashableException(42), ValueError()])
-
-    def handle_ValueError(exc: BaseException) -> BaseException | None:
-        if isinstance(exc, ValueError):
-            return None
-        else:
-            return exc
-
-    with pytest.warns(TrioDeprecationWarning):
-        filtered_excs = MultiError.filter(handle_ValueError, excs)
-
-    assert isinstance(filtered_excs, NotHashableException)
-
-
-def make_tree() -> MultiError:
-    # Returns an object like:
-    #   MultiError([
-    #     MultiError([
-    #       ValueError,
-    #       KeyError,
-    #     ]),
-    #     NameError,
-    #   ])
-    # where all exceptions except the root have a non-trivial traceback.
-    exc1 = get_exc(raiser1)
-    exc2 = get_exc(raiser2)
-    exc3 = get_exc(raiser3)
-
-    # Give m12 a non-trivial traceback
-    try:
-        raise MultiError([exc1, exc2])
-    except BaseException as m12:
-        return MultiError([m12, exc3])
-
-
 def assert_tree_eq(
-    m1: BaseException | MultiError | None, m2: BaseException | MultiError | None
+    m1: BaseException | ExceptionGroup[Any] | None,
+    m2: BaseException | ExceptionGroup[Any] | None,
 ) -> None:
     if m1 is None or m2 is None:
         assert m1 is m2
@@ -188,197 +122,24 @@ def assert_tree_eq(
     assert extract_tb(m1.__traceback__) == extract_tb(m2.__traceback__)
     assert_tree_eq(m1.__cause__, m2.__cause__)
     assert_tree_eq(m1.__context__, m2.__context__)
-    if isinstance(m1, MultiError):
-        assert isinstance(m2, MultiError)
+    if isinstance(m1, ExceptionGroup):
+        assert isinstance(m2, ExceptionGroup)
         assert len(m1.exceptions) == len(m2.exceptions)
         for e1, e2 in zip(m1.exceptions, m2.exceptions):
             assert_tree_eq(e1, e2)
 
 
-def test_MultiError_filter() -> None:
-    def null_handler(exc: BaseException) -> BaseException:
-        return exc
-
-    m = make_tree()
-    assert_tree_eq(m, m)
-    with pytest.warns(TrioDeprecationWarning):
-        assert MultiError.filter(null_handler, m) is m
-
-    assert_tree_eq(m, make_tree())
-
-    # Make sure we don't pick up any detritus if run in a context where
-    # implicit exception chaining would like to kick in
-    m = make_tree()
-    try:
-        raise ValueError
-    except ValueError:
-        with pytest.warns(TrioDeprecationWarning):
-            assert MultiError.filter(null_handler, m) is m
-    assert_tree_eq(m, make_tree())
-
-    def simple_filter(exc: BaseException) -> BaseException | None:
-        if isinstance(exc, ValueError):
-            return None
-        if isinstance(exc, KeyError):
-            return RuntimeError()
-        return exc
-
-    with pytest.warns(TrioDeprecationWarning):
-        new_m = MultiError.filter(simple_filter, make_tree())
-
-    assert isinstance(new_m, MultiError)
-    assert len(new_m.exceptions) == 2
-    # was: [[ValueError, KeyError], NameError]
-    # ValueError disappeared & KeyError became RuntimeError, so now:
-    assert isinstance(new_m.exceptions[0], RuntimeError)
-    assert isinstance(new_m.exceptions[1], NameError)
-
-    # implicit chaining:
-    assert isinstance(new_m.exceptions[0].__context__, KeyError)
-
-    # also, the traceback on the KeyError incorporates what used to be the
-    # traceback on its parent MultiError
-    orig = make_tree()
-    # make sure we have the right path
-    assert isinstance(orig.exceptions[0], MultiError)
-    assert isinstance(orig.exceptions[0].exceptions[1], KeyError)
-    # get original traceback summary
-    orig_extracted = (
-        extract_tb(orig.__traceback__)
-        + extract_tb(orig.exceptions[0].__traceback__)
-        + extract_tb(orig.exceptions[0].exceptions[1].__traceback__)
-    )
-
-    def p(exc: BaseException) -> None:
-        print_exception(type(exc), exc, exc.__traceback__)
-
-    p(orig)
-    p(orig.exceptions[0])
-    p(orig.exceptions[0].exceptions[1])
-    p(new_m.exceptions[0].__context__)
-    # compare to the new path
-    assert new_m.__traceback__ is None
-    new_extracted = extract_tb(new_m.exceptions[0].__context__.__traceback__)
-    assert orig_extracted == new_extracted
-
-    # check preserving partial tree
-    def filter_NameError(exc: BaseException) -> BaseException | None:
-        if isinstance(exc, NameError):
-            return None
-        return exc
-
-    m = make_tree()
-    with pytest.warns(TrioDeprecationWarning):
-        new_m = MultiError.filter(filter_NameError, m)
-    # with the NameError gone, the other branch gets promoted
-    assert new_m is m.exceptions[0]
-
-    # check fully handling everything
-    def filter_all(exc: BaseException) -> None:
-        return None
-
-    with pytest.warns(TrioDeprecationWarning):
-        assert MultiError.filter(filter_all, make_tree()) is None
-
-
-def test_MultiError_catch() -> None:
-    # No exception to catch
-
-    def noop(_: object) -> None:
-        pass  # pragma: no cover
-
-    with pytest.warns(TrioDeprecationWarning), MultiError.catch(noop):
-        pass
-
-    # Simple pass-through of all exceptions
-    m = make_tree()
-    with pytest.raises(MultiError) as excinfo:
-        with pytest.warns(TrioDeprecationWarning), MultiError.catch(lambda exc: exc):
-            raise m
-    assert excinfo.value is m
-    # Should be unchanged, except that we added a traceback frame by raising
-    # it here
-    assert m.__traceback__ is not None
-    assert m.__traceback__.tb_frame.f_code.co_name == "test_MultiError_catch"
-    assert m.__traceback__.tb_next is None
-    m.__traceback__ = None
-    assert_tree_eq(m, make_tree())
-
-    # Swallows everything
-    with pytest.warns(TrioDeprecationWarning), MultiError.catch(lambda _: None):
-        raise make_tree()
-
-    def simple_filter(exc):
-        if isinstance(exc, ValueError):
-            return None
-        if isinstance(exc, KeyError):
-            return RuntimeError()
-        return exc
-
-    with pytest.raises(MultiError) as excinfo:
-        with pytest.warns(TrioDeprecationWarning), MultiError.catch(simple_filter):
-            raise make_tree()
-    new_m = excinfo.value
-    assert isinstance(new_m, MultiError)
-    assert len(new_m.exceptions) == 2
-    # was: [[ValueError, KeyError], NameError]
-    # ValueError disappeared & KeyError became RuntimeError, so now:
-    assert isinstance(new_m.exceptions[0], RuntimeError)
-    assert isinstance(new_m.exceptions[1], NameError)
-    # Make sure that Python did not successfully attach the old MultiError to
-    # our new MultiError's __context__
-    assert not new_m.__suppress_context__
-    assert new_m.__context__ is None
-
-    # check preservation of __cause__ and __context__
-    v = ValueError()
-    v.__cause__ = KeyError()
-    with pytest.raises(ValueError) as excinfo:
-        with pytest.warns(TrioDeprecationWarning), MultiError.catch(lambda exc: exc):
-            raise v
-    assert isinstance(excinfo.value.__cause__, KeyError)
-
-    v = ValueError()
-    context = KeyError()
-    v.__context__ = context
-    with pytest.raises(ValueError) as excinfo:
-        with pytest.warns(TrioDeprecationWarning), MultiError.catch(lambda exc: exc):
-            raise v
-    assert excinfo.value.__context__ is context
-    assert not excinfo.value.__suppress_context__
-
-    for suppress_context in [True, False]:
-        v = ValueError()
-        context = KeyError()
-        v.__context__ = context
-        v.__suppress_context__ = suppress_context
-        distractor = RuntimeError()
-        with pytest.raises(ValueError) as excinfo:
-
-            def catch_RuntimeError(exc):
-                if isinstance(exc, RuntimeError):
-                    return None
-                else:
-                    return exc
-
-            with pytest.warns(TrioDeprecationWarning):
-                with MultiError.catch(catch_RuntimeError):
-                    raise MultiError([v, distractor])
-        assert excinfo.value.__context__ is context
-        assert excinfo.value.__suppress_context__ == suppress_context
-
-
 @pytest.mark.skipif(
     sys.implementation.name != "cpython", reason="Only makes sense with refcounting GC"
 )
-def test_MultiError_catch_doesnt_create_cyclic_garbage() -> None:
+def test_ExceptionGroup_catch_doesnt_create_cyclic_garbage() -> None:
     # https://github.com/python-trio/trio/pull/2063
     gc.collect()
     old_flags = gc.get_debug()
 
     def make_multi() -> NoReturn:
         # make_tree creates cycles itself, so a simple
-        raise MultiError([get_exc(raiser1), get_exc(raiser2)])
+        raise ExceptionGroup("", [get_exc(raiser1), get_exc(raiser2)])
 
     def simple_filter(exc: BaseException) -> Exception | RuntimeError:
         if isinstance(exc, ValueError):
@@ -391,10 +152,9 @@ def test_MultiError_catch_doesnt_create_cyclic_garbage() -> None:
 
     try:
         gc.set_debug(gc.DEBUG_SAVEALL)
-        with pytest.raises(MultiError):
-            # covers MultiErrorCatcher.__exit__ and _multierror.copy_tb
-            with pytest.warns(TrioDeprecationWarning), MultiError.catch(simple_filter):
-                raise make_multi()
+        with pytest.raises(ExceptionGroup):
+            # covers ExceptionGroupCatcher.__exit__ and _multierror.copy_tb
+            raise make_multi()
         gc.collect()
         assert not gc.garbage
     finally:
@@ -418,27 +178,6 @@ def test_assert_match_in_seq() -> None:
     assert_match_in_seq(["b", "a"], "xx b xx a xx")
     with pytest.raises(AssertionError):
         assert_match_in_seq(["a", "b"], "xx b xx a xx")
-
-
-def test_base_multierror() -> None:
-    """
-    Test that MultiError() with at least one base exception will return a MultiError
-    object.
-    """
-
-    exc = MultiError([ZeroDivisionError(), KeyboardInterrupt()])
-    assert type(exc) is MultiError
-
-
-def test_non_base_multierror() -> None:
-    """
-    Test that MultiError() without base exceptions will return a NonBaseMultiError
-    object.
-    """
-
-    exc = MultiError([ZeroDivisionError(), ValueError()])
-    assert type(exc) is NonBaseMultiError
-    assert isinstance(exc, ExceptionGroup)
 
 
 def run_script(name: str) -> subprocess.CompletedProcess[bytes]:
@@ -484,36 +223,3 @@ def test_apport_excepthook_monkeypatch_interaction() -> None:
         ["--- 1 ---", "KeyError", "--- 2 ---", "ValueError"],
         stdout,
     )
-
-
-@pytest.mark.parametrize("protocol", range(0, pickle.HIGHEST_PROTOCOL + 1))
-def test_pickle_multierror(protocol: int) -> None:
-    # use trio.MultiError to make sure that pickle works through the deprecation layer
-    import trio
-
-    my_except = ZeroDivisionError()
-
-    try:
-        1 / 0  # noqa: B018  # "useless statement"
-    except ZeroDivisionError as exc:
-        my_except = exc
-
-    # MultiError will collapse into different classes depending on the errors
-    for cls, errors in (
-        (ZeroDivisionError, [my_except]),
-        (NonBaseMultiError, [my_except, ValueError()]),
-        (MultiError, [BaseException(), my_except]),
-    ):
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", TrioDeprecationWarning)
-            me = trio.MultiError(errors)  # type: ignore[attr-defined]
-            dump = pickle.dumps(me, protocol=protocol)
-            load = pickle.loads(dump)
-        assert repr(me) == repr(load)
-        assert me.__class__ == load.__class__ == cls
-
-        assert me.__dict__.keys() == load.__dict__.keys()
-        for me_val, load_val in zip(me.__dict__.values(), load.__dict__.values()):
-            # tracebacks etc are not preserved through pickling for the default
-            # exceptions, so we only check that the repr stays the same
-            assert repr(me_val) == repr(load_val)

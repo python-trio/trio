@@ -39,7 +39,7 @@ from ._entry_queue import EntryQueue, TrioToken
 from ._exceptions import Cancelled, RunFinishedError, TrioInternalError
 from ._instrumentation import Instruments
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED, KIManager, enable_ki_protection
-from ._multierror import MultiError, concat_tb
+from ._multierror import concat_tb
 from ._thread_cache import start_thread_soon
 from ._traps import (
     Abort,
@@ -194,7 +194,11 @@ def collapse_exception_group(
                 modified = True
                 exceptions[i] = new_exc
 
-    if len(exceptions) == 1 and isinstance(excgroup, MultiError) and excgroup.collapse:
+    if (
+        len(exceptions) == 1
+        and isinstance(excgroup, BaseExceptionGroup)
+        and "collapsible" in str(excgroup)
+    ):
         exceptions[0].__traceback__ = concat_tb(
             excgroup.__traceback__, exceptions[0].__traceback__
         )
@@ -1108,9 +1112,16 @@ class Nursery(metaclass=NoPublicConstructor):
         assert popped is self
         if self._pending_excs:
             try:
-                return MultiError(
-                    self._pending_excs, _collapse=not self._strict_exception_groups
+                return BaseExceptionGroup(
+                    "collapsible" if not self._strict_exception_groups else "TODO",
+                    self._pending_excs,
                 )
+                # if self._strict_exception_groups or len(self._pending_excs) > 1:
+                #    return BaseExceptionGroup("TODO",
+                #        self._pending_excs
+                #    )
+                # else:
+                #    return self._pending_excs[0]
             finally:
                 # avoid a garbage cycle
                 # (see test_nursery_cancel_doesnt_create_cyclic_garbage)

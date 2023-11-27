@@ -327,10 +327,6 @@ def test_static_tool_sees_class_members(
             continue
         if module_name == "trio.socket" and class_name in dir(stdlib_socket):
             continue
-        # Deprecated classes are exported with a leading underscore
-        # We don't care about errors in _MultiError as that's on its way out anyway
-        if class_name.startswith("_"):  # pragma: no cover
-            continue
 
         # dir() and inspect.getmembers doesn't display properties from the metaclass
         # also ignore some dunder methods that tend to differ but are of no consequence

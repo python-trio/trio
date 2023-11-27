@@ -1,6 +1,9 @@
 import _common  # isort: split
 
-from trio._core._multierror import MultiError  # Bypass deprecation warnings
+import sys
+
+if sys.version_info < (3, 11):
+    from exceptiongroup import ExceptionGroup
 
 
 def exc1_fn() -> Exception:
@@ -18,4 +21,4 @@ def exc2_fn() -> Exception:
 
 
 # This should be printed nicely, because Trio overrode sys.excepthook
-raise MultiError([exc1_fn(), exc2_fn()])
+raise ExceptionGroup("", [exc1_fn(), exc2_fn()])

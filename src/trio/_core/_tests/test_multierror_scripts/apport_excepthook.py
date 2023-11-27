@@ -10,6 +10,7 @@ import apport_python_hook
 
 apport_python_hook.install()
 
-from trio._core._multierror import MultiError  # Bypass deprecation warnings
+if sys.version_info < (3, 11):
+    from exceptiongroup import ExceptionGroup
 
-raise MultiError([KeyError("key_error"), ValueError("value_error")])
+raise ExceptionGroup("", [KeyError("key_error"), ValueError("value_error")])

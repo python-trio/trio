@@ -2,32 +2,29 @@ from __future__ import annotations
 
 import sys
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, ClassVar, cast, overload
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 import attr
-
-from trio._deprecate import warn_deprecated
 
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup, ExceptionGroup
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable
 
-    from typing_extensions import Self
 ################################################################
-# MultiError
+# ExceptionGroup
 ################################################################
 
 
 def _filter_impl(
     handler: Callable[[BaseException], BaseException | None], root_exc: BaseException
 ) -> BaseException | None:
-    # We have a tree of MultiError's, like:
+    # We have a tree of ExceptionGroup's, like:
     #
-    #  MultiError([
+    #  ExceptionGroup([
     #      ValueError,
-    #      MultiError([
+    #      ExceptionGroup([
     #          KeyError,
     #          ValueError,
     #      ]),
@@ -41,13 +38,13 @@ def _filter_impl(
     #    potentially sticking around as __context__ or __cause__), or
     #    disappear altogether.
     # 2) simplify the resulting tree -- remove empty nodes, and replace
-    #    singleton MultiError's with their contents, e.g.:
-    #        MultiError([KeyError]) -> KeyError
+    #    singleton ExceptionGroup's with their contents, e.g.:
+    #        ExceptionGroup([KeyError]) -> KeyError
     #    (This can happen recursively, e.g. if the two ValueErrors above
     #    get caught then we'll just be left with a bare KeyError.)
     # 3) preserve sensible tracebacks
     #
-    # It's the tracebacks that are most confusing. As a MultiError
+    # It's the tracebacks that are most confusing. As a ExceptionGroup
     # propagates through the stack, it accumulates traceback frames, but
     # the exceptions inside it don't. Semantically, the traceback for a
     # leaf exception is the concatenation the tracebacks of all the
@@ -57,7 +54,7 @@ def _filter_impl(
     #
     # The easy way to do that would be to, at the beginning of this
     # function, "push" all tracebacks down to the leafs, so all the
-    # MultiErrors have __traceback__=None, and all the leafs have complete
+    # ExceptionGroups have __traceback__=None, and all the leafs have complete
     # tracebacks. But whenever possible, we'd actually prefer to keep
     # tracebacks as high up in the tree as possible, because this lets us
     # keep only a single copy of the common parts of these exception's
@@ -80,11 +77,11 @@ def _filter_impl(
     # which is difficult to fix on our end.
 
     # Filters a subtree, ignoring tracebacks, while keeping a record of
-    # which MultiErrors were preserved unchanged
+    # which ExceptionGroups were preserved unchanged
     def filter_tree(
-        exc: MultiError | BaseException, preserved: set[int]
-    ) -> MultiError | BaseException | None:
-        if isinstance(exc, MultiError):
+        exc: BaseExceptionGroup[BaseException] | BaseException, preserved: set[int]
+    ) -> BaseExceptionGroup[BaseException] | BaseException | None:
+        if isinstance(exc, BaseExceptionGroup):
             new_exceptions = []
             changed = False
             for child_exc in exc.exceptions:
@@ -98,7 +95,7 @@ def _filter_impl(
             if not new_exceptions:
                 return None
             elif changed:
-                return MultiError(new_exceptions)
+                return BaseExceptionGroup(new_exceptions)
             else:
                 preserved.add(id(exc))
                 return exc
@@ -115,7 +112,7 @@ def _filter_impl(
         if id(exc) in preserved:
             return
         new_tb = concat_tb(tb, exc.__traceback__)
-        if isinstance(exc, MultiError):
+        if isinstance(exc, BaseExceptionGroup):
             for child_exc in exc.exceptions:
                 push_tb_down(  # noqa: F821  # Deleted in local scope below, causes ruff to think it's not defined (astral-sh/ruff#7733)
                     new_tb, child_exc, preserved
@@ -183,165 +180,10 @@ else:
     _BaseExceptionGroup = BaseExceptionGroup
 
 
-class MultiError(_BaseExceptionGroup):
-    """An exception that contains other exceptions; also known as an
-    "inception".
-
-    It's main use is to represent the situation when multiple child tasks all
-    raise errors "in parallel".
-
-    Args:
-      exceptions (list): The exceptions
-
-    Returns:
-      If ``len(exceptions) == 1``, returns that exception. This means that a
-      call to ``MultiError(...)`` is not guaranteed to return a
-      :exc:`MultiError` object!
-
-      Otherwise, returns a new :exc:`MultiError` object.
-
-    Raises:
-      TypeError: if any of the passed in objects are not instances of
-          :exc:`BaseException`.
-
-    """
-
-    def __init__(
-        self, exceptions: Sequence[BaseException], *, _collapse: bool = True
-    ) -> None:
-        self.collapse = _collapse
-
-        # Avoid double initialization when _collapse is True and exceptions[0] returned
-        # by __new__() happens to be a MultiError and subsequently __init__() is called.
-        if _collapse and getattr(self, "exceptions", None) is not None:
-            # This exception was already initialized.
-            return
-
-        super().__init__("multiple tasks failed", exceptions)
-
-    def __new__(  # type: ignore[misc]  # mypy says __new__ must return a class instance
-        cls, exceptions: Sequence[BaseException], *, _collapse: bool = True
-    ) -> NonBaseMultiError | Self | BaseException:
-        exceptions = list(exceptions)
-        for exc in exceptions:
-            if not isinstance(exc, BaseException):
-                raise TypeError(f"Expected an exception object, not {exc!r}")
-        if _collapse and len(exceptions) == 1:
-            # If this lone object happens to itself be a MultiError, then
-            # Python will implicitly call our __init__ on it again.  See
-            # special handling in __init__.
-            return exceptions[0]
-        else:
-            # The base class __new__() implicitly invokes our __init__, which
-            # is what we want.
-            #
-            # In an earlier version of the code, we didn't define __init__ and
-            # simply set the `exceptions` attribute directly on the new object.
-            # However, linters expect attributes to be initialized in __init__.
-            from_class: type[Self | NonBaseMultiError] = cls
-            if all(isinstance(exc, Exception) for exc in exceptions):
-                from_class = NonBaseMultiError
-
-            # Ignoring arg-type: 'Argument 3 to "__new__" of "BaseExceptionGroup" has incompatible type "list[BaseException]"; expected "Sequence[_BaseExceptionT_co]"'
-            # We have checked that exceptions is indeed a list of BaseException objects, this is fine.
-            new_obj = super().__new__(from_class, "multiple tasks failed", exceptions)  # type: ignore[arg-type]
-            assert isinstance(new_obj, (cls, NonBaseMultiError))
-            return new_obj
-
-    def __reduce__(
-        self,
-    ) -> tuple[object, tuple[type[Self], list[BaseException]], dict[str, bool]]:
-        return (
-            self.__new__,
-            (self.__class__, list(self.exceptions)),
-            {"collapse": self.collapse},
-        )
-
-    def __str__(self) -> str:
-        return ", ".join(repr(exc) for exc in self.exceptions)
-
-    def __repr__(self) -> str:
-        return f"<MultiError: {self}>"
-
-    @overload  # type: ignore[override]  # 'Exception' != '_ExceptionT'
-    def derive(self, excs: Sequence[Exception], /) -> NonBaseMultiError:
-        ...
-
-    @overload
-    def derive(self, excs: Sequence[BaseException], /) -> MultiError:
-        ...
-
-    def derive(
-        self, excs: Sequence[Exception | BaseException], /
-    ) -> NonBaseMultiError | MultiError:
-        # We use _collapse=False here to get ExceptionGroup semantics, since derive()
-        # is part of the PEP 654 API
-        exc = MultiError(excs, _collapse=False)
-        exc.collapse = self.collapse
-        return exc
-
-    @classmethod
-    def filter(
-        cls,
-        handler: Callable[[BaseException], BaseException | None],
-        root_exc: BaseException,
-    ) -> BaseException | None:
-        """Apply the given ``handler`` to all the exceptions in ``root_exc``.
-
-        Args:
-          handler: A callable that takes an atomic (non-MultiError) exception
-              as input, and returns either a new exception object or None.
-          root_exc: An exception, often (though not necessarily) a
-              :exc:`MultiError`.
-
-        Returns:
-          A new exception object in which each component exception ``exc`` has
-          been replaced by the result of running ``handler(exc)`` – or, if
-          ``handler`` returned None for all the inputs, returns None.
-
-        """
-        warn_deprecated(
-            "MultiError.filter()",
-            "0.22.0",
-            instead="BaseExceptionGroup.split()",
-            issue=2211,
-        )
-        return _filter_impl(handler, root_exc)
-
-    @classmethod
-    def catch(
-        cls, handler: Callable[[BaseException], BaseException | None]
-    ) -> MultiErrorCatcher:
-        """Return a context manager that catches and re-throws exceptions
-        after running :meth:`filter` on them.
-
-        Args:
-          handler: as for :meth:`filter`
-
-        """
-        warn_deprecated(
-            "MultiError.catch",
-            "0.22.0",
-            instead="except* or exceptiongroup.catch()",
-            issue=2211,
-        )
-
-        return MultiErrorCatcher(handler)
-
-
 if TYPE_CHECKING:
     _ExceptionGroup = ExceptionGroup[Exception]
 else:
     _ExceptionGroup = ExceptionGroup
-
-
-class NonBaseMultiError(MultiError, _ExceptionGroup):
-    __slots__ = ()
-
-
-# Clean up exception printing:
-MultiError.__module__ = "trio"
-NonBaseMultiError.__module__ = "trio"
 
 ################################################################
 # concat_tb
