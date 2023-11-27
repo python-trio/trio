@@ -12,7 +12,6 @@ from .._core._tests.tutil import can_bind_ipv6
 from .._highlevel_generic import StapledStream, aclose_forcefully
 from .._highlevel_socket import SocketListener
 from ..testing import *
-from ..testing._check_streams import _assert_raises
 from ..testing._memory_streams import _UnboundedByteQueue
 
 if TYPE_CHECKING:
@@ -235,19 +234,6 @@ async def test_Sequencer_cancel() -> None:
 
 
 ################################################################
-
-
-async def test__assert_raises() -> None:
-    with pytest.raises(AssertionError):
-        with _assert_raises(RuntimeError):
-            1 + 1  # noqa: B018  # "useless expression"
-
-    with pytest.raises(TypeError):
-        with _assert_raises(RuntimeError):
-            "foo" + 1  # type: ignore[operator] # noqa: B018  # "useless expression"
-
-    with _assert_raises(RuntimeError):
-        raise RuntimeError
 
 
 # This is a private implementation detail, but it's complex enough to be worth
