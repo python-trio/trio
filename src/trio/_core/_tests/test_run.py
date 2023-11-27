@@ -432,6 +432,10 @@ async def test_cancel_scope_multierror_filtering() -> None:
     async def crasher() -> NoReturn:
         raise KeyError
 
+    # check that the inner except is properly executed.
+    # alternative would be to have a `except BaseException` and an `else`
+    exception_group_caught_inner = False
+
     try:
         with _core.CancelScope() as outer:
             try:
@@ -448,7 +452,8 @@ async def test_cancel_scope_multierror_filtering() -> None:
                     # And one that raises a different error
                     nursery.start_soon(crasher)  # t4
                 # and then our __aexit__ also receives an outer Cancelled
-            except ExceptionGroup as multi_exc:
+            except BaseExceptionGroup as multi_exc:
+                exception_group_caught_inner = True
                 # Since the outer scope became cancelled before the
                 # nursery block exited, all cancellations inside the
                 # nursery block continue propagating to reach the
@@ -469,6 +474,7 @@ async def test_cancel_scope_multierror_filtering() -> None:
         assert type(exc) is KeyError
     else:  # pragma: no cover
         raise AssertionError()
+    assert exception_group_caught_inner
 
 
 async def test_precancelled_task() -> None:

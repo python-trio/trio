@@ -7,7 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 from traceback import extract_tb
-from typing import TYPE_CHECKING, Any, Callable, NoReturn, TypeVar
+from typing import TYPE_CHECKING, Callable, NoReturn, TypeVar
 
 import pytest
 
@@ -111,24 +111,6 @@ async def test_ExceptionGroupNotHashable() -> None:
             nursery.start_soon(raise_nothashable, 4242)
 
 
-def assert_tree_eq(
-    m1: BaseException | ExceptionGroup[Any] | None,
-    m2: BaseException | ExceptionGroup[Any] | None,
-) -> None:
-    if m1 is None or m2 is None:
-        assert m1 is m2
-        return
-    assert type(m1) is type(m2)
-    assert extract_tb(m1.__traceback__) == extract_tb(m2.__traceback__)
-    assert_tree_eq(m1.__cause__, m2.__cause__)
-    assert_tree_eq(m1.__context__, m2.__context__)
-    if isinstance(m1, ExceptionGroup):
-        assert isinstance(m2, ExceptionGroup)
-        assert len(m1.exceptions) == len(m2.exceptions)
-        for e1, e2 in zip(m1.exceptions, m2.exceptions):
-            assert_tree_eq(e1, e2)
-
-
 @pytest.mark.skipif(
     sys.implementation.name != "cpython", reason="Only makes sense with refcounting GC"
 )
@@ -141,20 +123,13 @@ def test_ExceptionGroup_catch_doesnt_create_cyclic_garbage() -> None:
         # make_tree creates cycles itself, so a simple
         raise ExceptionGroup("", [get_exc(raiser1), get_exc(raiser2)])
 
-    def simple_filter(exc: BaseException) -> Exception | RuntimeError:
-        if isinstance(exc, ValueError):
-            return Exception()
-        if isinstance(exc, KeyError):
-            return RuntimeError()
-        raise AssertionError(
-            "only ValueError and KeyError should exist"
-        )  # pragma: no cover
-
     try:
         gc.set_debug(gc.DEBUG_SAVEALL)
-        with pytest.raises(ExceptionGroup):
+        with pytest.raises(ExceptionGroup) as excinfo:
             # covers ExceptionGroupCatcher.__exit__ and _multierror.copy_tb
             raise make_multi()
+        for exc in excinfo.value.exceptions:
+            assert isinstance(exc, (ValueError, KeyError))
         gc.collect()
         assert not gc.garbage
     finally:
