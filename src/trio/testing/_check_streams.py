@@ -2,12 +2,17 @@
 from __future__ import annotations
 
 import random
-from contextlib import suppress
-from typing import TYPE_CHECKING, Awaitable, Callable, Generic, Tuple, TypeVar
-
-import pytest
-
-from trio.testing._exceptiongroup_util import ExpectedExceptionGroup
+import sys
+from contextlib import contextmanager, suppress
+from typing import (
+    TYPE_CHECKING,
+    Awaitable,
+    Callable,
+    Generator,
+    Generic,
+    Tuple,
+    TypeVar,
+)
 
 from .. import CancelScope, _core
 from .._abc import AsyncResource, HalfCloseableStream, ReceiveStream, SendStream, Stream
@@ -20,6 +25,9 @@ if TYPE_CHECKING:
     from typing_extensions import ParamSpec, TypeAlias
 
     ArgsT = ParamSpec("ArgsT")
+
+if sys.version_info < (3, 11):
+    from exceptiongroup import BaseExceptionGroup
 
 Res1 = TypeVar("Res1", bound=AsyncResource)
 Res2 = TypeVar("Res2", bound=AsyncResource)
@@ -43,6 +51,25 @@ class _ForceCloseBoth(Generic[Res1, Res2]):
             await aclose_forcefully(self._first)
         finally:
             await aclose_forcefully(self._second)
+
+
+# This is used in this file instead of pytest.raises in order to avoid a dependency
+# on pytest, as the check_* functions are publicly exported.
+@contextmanager
+def _assert_raises(
+    exc: type[BaseException], wrapped: bool = False
+) -> Generator[None, None, None]:
+    __tracebackhide__ = True
+    try:
+        yield
+    except BaseExceptionGroup as e:
+        assert wrapped, "caught exceptiongroup, but expected an unwrapped exception"
+        assert len(e.exceptions) == 1
+        assert isinstance(e.exceptions[0], exc)
+    except exc:
+        assert not wrapped, "caught exception, but expected an exceptiongroup"
+    else:
+        raise AssertionError(f"expected exception: {exc}")
 
 
 async def check_one_way_stream(
@@ -113,11 +140,11 @@ async def check_one_way_stream(
             nursery.start_soon(checked_receive_1, b"2")
 
         # max_bytes must be a positive integer
-        with pytest.raises(ValueError):
+        with _assert_raises(ValueError):
             await r.receive_some(-1)
-        with pytest.raises(ValueError):
+        with _assert_raises(ValueError):
             await r.receive_some(0)
-        with pytest.raises(TypeError):
+        with _assert_raises(TypeError):
             await r.receive_some(1.5)  # type: ignore[arg-type]
         # it can also be missing or None
         async with _core.open_nursery() as nursery:
@@ -127,7 +154,7 @@ async def check_one_way_stream(
             nursery.start_soon(do_send_all, b"x")
             assert await do_receive_some(None) == b"x"
 
-        with pytest.raises(ExpectedExceptionGroup(_core.BusyResourceError)):
+        with _assert_raises(_core.BusyResourceError, wrapped=True):
             async with _core.open_nursery() as nursery:
                 nursery.start_soon(do_receive_some, 1)
                 nursery.start_soon(do_receive_some, 1)
@@ -153,7 +180,7 @@ async def check_one_way_stream(
         # closing the r side leads to BrokenResourceError on the s side
         # (eventually)
         async def expect_broken_stream_on_send() -> None:
-            with pytest.raises(_core.BrokenResourceError):
+            with _assert_raises(_core.BrokenResourceError):
                 while True:
                     await do_send_all(b"x" * 100)
 
@@ -162,11 +189,11 @@ async def check_one_way_stream(
             nursery.start_soon(do_aclose, r)
 
         # once detected, the stream stays broken
-        with pytest.raises(_core.BrokenResourceError):
+        with _assert_raises(_core.BrokenResourceError):
             await do_send_all(b"x" * 100)
 
         # r closed -> ClosedResourceError on the receive side
-        with pytest.raises(_core.ClosedResourceError):
+        with _assert_raises(_core.ClosedResourceError):
             await do_receive_some(4096)
 
         # we can close the same stream repeatedly, it's fine
@@ -177,15 +204,15 @@ async def check_one_way_stream(
         await do_aclose(s)
 
         # now trying to send raises ClosedResourceError
-        with pytest.raises(_core.ClosedResourceError):
+        with _assert_raises(_core.ClosedResourceError):
             await do_send_all(b"x" * 100)
 
         # even if it's an empty send
-        with pytest.raises(_core.ClosedResourceError):
+        with _assert_raises(_core.ClosedResourceError):
             await do_send_all(b"")
 
         # ditto for wait_send_all_might_not_block
-        with pytest.raises(_core.ClosedResourceError):
+        with _assert_raises(_core.ClosedResourceError):
             with assert_checkpoints():
                 await s.wait_send_all_might_not_block()
 
@@ -216,17 +243,17 @@ async def check_one_way_stream(
     async with _ForceCloseBoth(await stream_maker()) as (s, r):
         await aclose_forcefully(r)
 
-        with pytest.raises(_core.BrokenResourceError):
+        with _assert_raises(_core.BrokenResourceError):
             while True:
                 await do_send_all(b"x" * 100)
 
-        with pytest.raises(_core.ClosedResourceError):
+        with _assert_raises(_core.ClosedResourceError):
             await do_receive_some(4096)
 
     async with _ForceCloseBoth(await stream_maker()) as (s, r):
         await aclose_forcefully(s)
 
-        with pytest.raises(_core.ClosedResourceError):
+        with _assert_raises(_core.ClosedResourceError):
             await do_send_all(b"123")
 
         # after the sender does a forceful close, the receiver might either
@@ -245,10 +272,10 @@ async def check_one_way_stream(
             scope.cancel()
             await s.aclose()
 
-        with pytest.raises(_core.ClosedResourceError):
+        with _assert_raises(_core.ClosedResourceError):
             await do_send_all(b"123")
 
-        with pytest.raises(_core.ClosedResourceError):
+        with _assert_raises(_core.ClosedResourceError):
             await do_receive_some(4096)
 
     # Check that we can still gracefully close a stream after an operation has
@@ -267,7 +294,7 @@ async def check_one_way_stream(
             *args: ArgsT.args,
             **kwargs: ArgsT.kwargs,
         ) -> None:
-            with pytest.raises(_core.Cancelled):
+            with _assert_raises(_core.Cancelled):
                 await afn(*args, **kwargs)
 
         with _core.CancelScope() as scope:
@@ -285,7 +312,7 @@ async def check_one_way_stream(
     async with _ForceCloseBoth(await stream_maker()) as (s, r):
 
         async def receive_expecting_closed():
-            with pytest.raises(_core.ClosedResourceError):
+            with _assert_raises(_core.ClosedResourceError):
                 await r.receive_some(10)
 
         async with _core.open_nursery() as nursery:
@@ -325,7 +352,7 @@ async def check_one_way_stream(
 
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
             # simultaneous wait_send_all_might_not_block fails
-            with pytest.raises(ExpectedExceptionGroup(_core.BusyResourceError)):
+            with _assert_raises(_core.BusyResourceError, wrapped=True):
                 async with _core.open_nursery() as nursery:
                     nursery.start_soon(s.wait_send_all_might_not_block)
                     nursery.start_soon(s.wait_send_all_might_not_block)
@@ -334,7 +361,7 @@ async def check_one_way_stream(
             # this test might destroy the stream b/c we end up cancelling
             # send_all and e.g. SSLStream can't handle that, so we have to
             # recreate afterwards)
-            with pytest.raises(ExpectedExceptionGroup(_core.BusyResourceError)):
+            with _assert_raises(_core.BusyResourceError, wrapped=True):
                 async with _core.open_nursery() as nursery:
                     nursery.start_soon(s.wait_send_all_might_not_block)
                     nursery.start_soon(s.send_all, b"123")
@@ -342,7 +369,7 @@ async def check_one_way_stream(
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
             # send_all and send_all blocked simultaneously should also raise
             # (but again this might destroy the stream)
-            with pytest.raises(ExpectedExceptionGroup(_core.BusyResourceError)):
+            with _assert_raises(_core.BusyResourceError, wrapped=True):
                 async with _core.open_nursery() as nursery:
                     nursery.start_soon(s.send_all, b"123")
                     nursery.start_soon(s.send_all, b"123")
@@ -384,13 +411,13 @@ async def check_one_way_stream(
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
             async with _core.open_nursery() as nursery:
                 nursery.start_soon(close_soon, s)
-                with pytest.raises(_core.ClosedResourceError):
+                with _assert_raises(_core.ClosedResourceError):
                     await s.send_all(b"xyzzy")
 
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
             async with _core.open_nursery() as nursery:
                 nursery.start_soon(close_soon, s)
-                with pytest.raises(_core.ClosedResourceError):
+                with _assert_raises(_core.ClosedResourceError):
                     await s.wait_send_all_might_not_block()
 
 
@@ -509,7 +536,7 @@ async def check_half_closeable_stream(
             nursery.start_soon(expect_x_then_eof, s2)
 
         # now sending is disallowed
-        with pytest.raises(_core.ClosedResourceError):
+        with _assert_raises(_core.ClosedResourceError):
             await s1.send_all(b"y")
 
         # but we can do send_eof again
@@ -524,7 +551,7 @@ async def check_half_closeable_stream(
     if clogged_stream_maker is not None:
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s1, s2):
             # send_all and send_eof simultaneously is not ok
-            with pytest.raises(ExpectedExceptionGroup(_core.BusyResourceError)):
+            with _assert_raises(_core.BusyResourceError, wrapped=True):
                 async with _core.open_nursery() as nursery:
                     nursery.start_soon(s1.send_all, b"x")
                     await _core.wait_all_tasks_blocked()
@@ -533,7 +560,7 @@ async def check_half_closeable_stream(
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s1, s2):
             # wait_send_all_might_not_block and send_eof simultaneously is not
             # ok either
-            with pytest.raises(ExpectedExceptionGroup(_core.BusyResourceError)):
+            with _assert_raises(_core.BusyResourceError, wrapped=True):
                 async with _core.open_nursery() as nursery:
                     nursery.start_soon(s1.wait_send_all_might_not_block)
                     await _core.wait_all_tasks_blocked()

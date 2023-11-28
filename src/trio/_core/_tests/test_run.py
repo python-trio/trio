@@ -428,7 +428,7 @@ async def test_cancel_scope_multierror_filtering() -> None:
 
     # This is outside the outer scope, so all the Cancelled
     # exceptions should have been absorbed, leaving just a regular
-    # KeyError from crasher()
+    # KeyError from crasher(), wrapped in an ExceptionGroup
     with pytest.raises(ExpectedExceptionGroup(KeyError)):
         with _core.CancelScope() as outer:
             try:
@@ -457,8 +457,8 @@ async def test_cancel_scope_multierror_filtering() -> None:
                     summary[type(exc)] += 1
                 assert summary == {_core.Cancelled: 3, KeyError: 1}
                 raise
-            else:  # pragma: no cover
-                raise AssertionError("no ExceptionGroup raised")
+            else:
+                raise AssertionError("No ExceptionGroup")
 
 
 async def test_precancelled_task() -> None:
@@ -1616,10 +1616,9 @@ def test_calling_asyncio_function_gives_nice_error() -> None:
     async def misguided() -> None:
         await child_xyzzy()
 
-    with pytest.raises(TypeError) as excinfo:
+    with pytest.raises(TypeError, match="asyncio") as excinfo:
         _core.run(misguided)
 
-    assert "asyncio" in str(excinfo.value)
     # The traceback should point to the location of the foreign await
     assert any(  # pragma: no branch
         entry.name == "child_xyzzy" for entry in excinfo.traceback
@@ -1960,7 +1959,7 @@ async def test_traceback_frame_removal() -> None:
     async def my_child_task() -> NoReturn:
         raise KeyError()
 
-    with pytest.raises(ExceptionGroup) as exc:
+    with pytest.raises(ExceptionGroup) as excinfo:
         # Trick: For now cancel/nursery scopes still leave a bunch of tb gunk
         # behind. But if there's a MultiError, they leave it on the MultiError,
         # which lets us get a clean look at the KeyError itself. Someday I
@@ -1969,7 +1968,7 @@ async def test_traceback_frame_removal() -> None:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(my_child_task)
             nursery.start_soon(my_child_task)
-    first_exc = exc.value.exceptions[0]
+    first_exc = excinfo.value.exceptions[0]
     assert isinstance(first_exc, KeyError)
     # The top frame in the exception traceback should be inside the child
     # task, not trio/contextvars internals. And there's only one frame
