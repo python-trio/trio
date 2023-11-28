@@ -1112,16 +1112,12 @@ class Nursery(metaclass=NoPublicConstructor):
         assert popped is self
         if self._pending_excs:
             try:
+                if not self._strict_exception_groups and len(self._pending_excs) == 1:
+                    return self._pending_excs[0]
                 return BaseExceptionGroup(
                     "collapsible" if not self._strict_exception_groups else "TODO",
                     self._pending_excs,
                 )
-                # if self._strict_exception_groups or len(self._pending_excs) > 1:
-                #    return BaseExceptionGroup("TODO",
-                #        self._pending_excs
-                #    )
-                # else:
-                #    return self._pending_excs[0]
             finally:
                 # avoid a garbage cycle
                 # (see test_nursery_cancel_doesnt_create_cyclic_garbage)
