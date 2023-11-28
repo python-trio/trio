@@ -49,21 +49,19 @@ async def test_ConflictDetector() -> None:
         with ul2:
             print("ok")
 
-    with pytest.raises(_core.BusyResourceError) as excinfo:
+    with pytest.raises(_core.BusyResourceError, match="ul1"):
         with ul1:
             with ul1:
                 pass  # pragma: no cover
-    assert "ul1" in str(excinfo.value)
 
     async def wait_with_ul1() -> None:
         with ul1:
             await wait_all_tasks_blocked()
 
-    with pytest.raises(_core.BusyResourceError) as excinfo:
+    with pytest.raises(_core.BusyResourceError, match="ul1"):
         async with _core.open_nursery() as nursery:
             nursery.start_soon(wait_with_ul1)
             nursery.start_soon(wait_with_ul1)
-    assert "ul1" in str(excinfo.value)
 
 
 def test_module_metadata_is_fixed_up() -> None:
