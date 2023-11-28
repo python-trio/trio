@@ -157,6 +157,9 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
         ast = linter.get_ast(module.__file__, modname)
         static_names = no_underscores(ast)  # type: ignore[arg-type]
     elif tool == "jedi":
+        if sys.implementation.name != "cpython":
+            pytest.skip("jedi does not support pypy")
+
         try:
             import jedi
         except ImportError as error:
@@ -195,7 +198,8 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
             )
     elif tool == "pyright_verifytypes":
         if not RUN_SLOW:  # pragma: no cover
-            pytest.skip("use --run-slow to check against mypy")
+            pytest.skip("use --run-slow to check against pyright")
+
         try:
             import pyright  # noqa: F401
         except ImportError as error:
@@ -213,25 +217,8 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
             for x in current_result["typeCompleteness"]["symbols"]
             if x["name"].startswith(modname)
         }
-
-        # pyright ignores the symbol defined behind `if False`
-        if modname == "trio":
-            static_names.add("testing")
-
-        # these are hidden behind `if sys.platform != "win32" or not TYPE_CHECKING`
-        # so presumably pyright is parsing that if statement, in which case we don't
-        # care about them being missing.
-        if modname == "trio.socket" and sys.platform == "win32":
-            ignored_missing_names = {"if_indextoname", "if_nameindex", "if_nametoindex"}
-            assert static_names.isdisjoint(ignored_missing_names)
-            static_names.update(ignored_missing_names)
-
     else:  # pragma: no cover
         raise AssertionError()
-
-    # mypy handles errors with an `assert` in its branch
-    if tool == "mypy":
-        return
 
     # It's expected that the static set will contain more names than the
     # runtime set:
