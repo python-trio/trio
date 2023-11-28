@@ -15,12 +15,13 @@ from typing import (
     TypeVar,
     Union,
     cast,
-    final,
     overload,
 )
 
 import _pytest
 import _pytest._code
+
+from trio._util import final
 
 if TYPE_CHECKING:
     from typing_extensions import TypeAlias
