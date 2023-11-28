@@ -1,19 +1,14 @@
 from __future__ import annotations
 
 import gc
-import os
-import re
-import subprocess
 import sys
-from pathlib import Path
 from traceback import extract_tb
 from typing import TYPE_CHECKING, Callable, NoReturn, TypeVar
 
 import pytest
 
 from ..._core import open_nursery
-from .._multierror import concat_tb
-from .tutil import slow
+from .._concat_tb import concat_tb
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -135,66 +130,3 @@ def test_ExceptionGroup_catch_doesnt_create_cyclic_garbage() -> None:
     finally:
         gc.set_debug(old_flags)
         gc.garbage.clear()
-
-
-def assert_match_in_seq(pattern_list: list[str], string: str) -> None:
-    offset = 0
-    print("looking for pattern matches...")
-    for pattern in pattern_list:
-        print("checking pattern:", pattern)
-        reobj = re.compile(pattern)
-        match = reobj.search(string, offset)
-        assert match is not None
-        offset = match.end()
-
-
-def test_assert_match_in_seq() -> None:
-    assert_match_in_seq(["a", "b"], "xx a xx b xx")
-    assert_match_in_seq(["b", "a"], "xx b xx a xx")
-    with pytest.raises(AssertionError):
-        assert_match_in_seq(["a", "b"], "xx b xx a xx")
-
-
-def run_script(name: str) -> subprocess.CompletedProcess[bytes]:
-    import trio
-
-    trio_path = Path(trio.__file__).parent.parent
-    script_path = Path(__file__).parent / "test_multierror_scripts" / name
-
-    env = dict(os.environ)
-    print("parent PYTHONPATH:", env.get("PYTHONPATH"))
-    pp = []
-    if "PYTHONPATH" in env:  # pragma: no cover
-        pp = env["PYTHONPATH"].split(os.pathsep)
-    pp.insert(0, str(trio_path))
-    pp.insert(0, str(script_path.parent))
-    env["PYTHONPATH"] = os.pathsep.join(pp)
-    print("subprocess PYTHONPATH:", env.get("PYTHONPATH"))
-
-    cmd = [sys.executable, "-u", str(script_path)]
-    print("running:", cmd)
-    completed = subprocess.run(
-        cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
-    )
-    print("process output:")
-    print(completed.stdout.decode("utf-8"))
-    return completed
-
-
-@slow
-@pytest.mark.skipif(
-    not Path("/usr/lib/python3/dist-packages/apport_python_hook.py").exists(),
-    reason="need Ubuntu with python3-apport installed",
-)
-def test_apport_excepthook_monkeypatch_interaction() -> None:
-    completed = run_script("apport_excepthook.py")
-    stdout = completed.stdout.decode("utf-8")
-
-    # No warning
-    assert "custom sys.excepthook" not in stdout
-
-    # Proper traceback
-    assert_match_in_seq(
-        ["--- 1 ---", "KeyError", "--- 2 ---", "ValueError"],
-        stdout,
-    )

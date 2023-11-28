@@ -108,6 +108,9 @@ else:
         )  # Returns proxy to traceback
 
 
+# this is used for collapsing single-exception multierrors when using
+# `strict_exception_groups=False`. Once that is retired this function and its helper can
+# be removed as well.
 def concat_tb(
     head: TracebackType | None, tail: TracebackType | None
 ) -> TracebackType | None:

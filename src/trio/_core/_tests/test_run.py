@@ -428,7 +428,7 @@ async def test_cancel_edge_cases() -> None:
             await sleep_forever()
 
 
-async def test_cancel_scope_multierror_filtering() -> None:
+async def test_cancel_scope_exceptiongroup_filtering() -> None:
     async def crasher() -> NoReturn:
         raise KeyError
 

@@ -35,11 +35,11 @@ from .. import _core
 from .._abc import Clock, Instrument
 from .._util import NoPublicConstructor, coroutine_or_error, final
 from ._asyncgens import AsyncGenerators
+from ._concat_tb import concat_tb
 from ._entry_queue import EntryQueue, TrioToken
 from ._exceptions import Cancelled, RunFinishedError, TrioInternalError
 from ._instrumentation import Instruments
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED, KIManager, enable_ki_protection
-from ._multierror import concat_tb
 from ._thread_cache import start_thread_soon
 from ._traps import (
     Abort,
