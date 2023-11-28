@@ -79,7 +79,7 @@ except ImportError:
             return new_tb
         finally:
             # delete references from locals to avoid creating cycles
-            # see test_MultiError_catch_doesnt_create_cyclic_garbage
+            # see test_ExceptionGroup_catch_doesnt_create_cyclic_garbage
             del new_tb, old_tb_frame
 
 else:
@@ -108,7 +108,7 @@ else:
         )  # Returns proxy to traceback
 
 
-# this is used for collapsing single-exception multierrors when using
+# this is used for collapsing single-exception ExceptionGroups when using
 # `strict_exception_groups=False`. Once that is retired this function and its helper can
 # be removed as well.
 def concat_tb(

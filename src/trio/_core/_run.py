@@ -634,7 +634,7 @@ class CancelScope:
         elif remaining_error_after_cancel_scope is exc:
             return False
         else:
-            # Copied verbatim from MultiErrorCatcher.  Python doesn't
+            # Copied verbatim from the old MultiErrorCatcher.  Python doesn't
             # allow us to encapsulate this __context__ fixup.
             old_context = remaining_error_after_cancel_scope.__context__
             try:
@@ -948,7 +948,7 @@ class NurseryManager:
         elif combined_error_from_nursery is exc:
             return False
         else:
-            # Copied verbatim from MultiErrorCatcher.  Python doesn't
+            # Copied verbatim from the old MultiErrorCatcher.  Python doesn't
             # allow us to encapsulate this __context__ fixup.
             old_context = combined_error_from_nursery.__context__
             try:
@@ -1079,7 +1079,7 @@ class Nursery(metaclass=NoPublicConstructor):
     async def _nested_child_finished(
         self, nested_child_exc: BaseException | None
     ) -> BaseException | None:
-        # Returns MultiError instance (or any exception if the nursery is in loose mode
+        # Returns ExceptionGroup instance (or any exception if the nursery is in loose mode
         # and there is just one contained exception) if there are pending exceptions
         if nested_child_exc is not None:
             self._add_exc(nested_child_exc)

@@ -3,11 +3,10 @@ from __future__ import annotations
 import gc
 import sys
 from traceback import extract_tb
-from typing import TYPE_CHECKING, Callable, NoReturn, TypeVar
+from typing import TYPE_CHECKING, Callable, NoReturn
 
 import pytest
 
-from ..._core import open_nursery
 from .._concat_tb import concat_tb
 
 if TYPE_CHECKING:
@@ -15,25 +14,6 @@ if TYPE_CHECKING:
 
 if sys.version_info < (3, 11):
     from exceptiongroup import ExceptionGroup
-
-E = TypeVar("E", bound=BaseException)
-
-
-class NotHashableException(Exception):
-    code: int | None = None
-
-    def __init__(self, code: int) -> None:
-        super().__init__()
-        self.code = code
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, NotHashableException):
-            return False
-        return self.code == other.code
-
-
-async def raise_nothashable(code: int) -> NoReturn:
-    raise NotHashableException(code)
 
 
 def raiser1() -> NoReturn:
@@ -93,19 +73,7 @@ def test_concat_tb() -> None:
     assert extract_tb(get_tb(raiser2)) == entries2
 
 
-async def test_ExceptionGroupNotHashable() -> None:
-    exc1 = NotHashableException(42)
-    exc2 = NotHashableException(4242)
-    exc3 = ValueError()
-    assert exc1 != exc2
-    assert exc1 != exc3
-
-    with pytest.raises(ExceptionGroup):
-        async with open_nursery() as nursery:
-            nursery.start_soon(raise_nothashable, 42)
-            nursery.start_soon(raise_nothashable, 4242)
-
-
+# I'm not sure this one can fail anymore?
 @pytest.mark.skipif(
     sys.implementation.name != "cpython", reason="Only makes sense with refcounting GC"
 )
@@ -121,7 +89,7 @@ def test_ExceptionGroup_catch_doesnt_create_cyclic_garbage() -> None:
     try:
         gc.set_debug(gc.DEBUG_SAVEALL)
         with pytest.raises(ExceptionGroup) as excinfo:
-            # covers ExceptionGroupCatcher.__exit__ and _multierror.copy_tb
+            # covers ~~MultiErrorCatcher.__exit__ and~~ _concat_tb.copy_tb
             raise make_multi()
         for exc in excinfo.value.exceptions:
             assert isinstance(exc, (ValueError, KeyError))
