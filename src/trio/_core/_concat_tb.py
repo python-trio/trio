@@ -79,7 +79,7 @@ except ImportError:
             return new_tb
         finally:
             # delete references from locals to avoid creating cycles
-            # see test_ExceptionGroup_catch_doesnt_create_cyclic_garbage
+            # see test_cancel_scope_exit_doesnt_create_cyclic_garbage
             del new_tb, old_tb_frame
 
 else:

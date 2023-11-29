@@ -645,6 +645,7 @@ class CancelScope:
                 value.__context__ = old_context
                 # delete references from locals to avoid creating cycles
                 # see test_cancel_scope_exit_doesnt_create_cyclic_garbage
+                # Note: still relevant
                 del remaining_error_after_cancel_scope, value, _, exc
                 # deep magic to remove refs via f_locals
                 locals()
@@ -958,7 +959,7 @@ class NurseryManager:
                 assert value is combined_error_from_nursery
                 value.__context__ = old_context
                 # delete references from locals to avoid creating cycles
-                # see test_simple_cancel_scope_usage_doesnt_create_cyclic_garbage
+                # see test_cancel_scope_exit_doesnt_create_cyclic_garbage
                 del _, combined_error_from_nursery, value, new_exc
 
     # make sure these raise errors in static analysis if called
@@ -1094,6 +1095,7 @@ class Nursery(metaclass=NoPublicConstructor):
                 exn = capture(raise_cancel).error
                 if not isinstance(exn, Cancelled):
                     self._add_exc(exn)
+                # see test_cancel_scope_exit_doesnt_create_cyclic_garbage
                 del exn  # prevent cyclic garbage creation
                 return Abort.FAILED
 
@@ -1120,7 +1122,7 @@ class Nursery(metaclass=NoPublicConstructor):
                 )
             finally:
                 # avoid a garbage cycle
-                # (see test_nursery_cancel_doesnt_create_cyclic_garbage)
+                # (see test_locals_destroyed_promptly_on_cancel)
                 del self._pending_excs
         return None
 
