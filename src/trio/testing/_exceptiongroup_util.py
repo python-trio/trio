@@ -24,7 +24,7 @@ import _pytest._code
 from trio._util import final
 
 if TYPE_CHECKING:
-    from typing_extensions import TypeAlias
+    from typing_extensions import TypeAlias, TypeGuard
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
 
@@ -72,11 +72,14 @@ class ExpectedExceptionGroup(Generic[E]):
                 "All arguments must be exception instances, types, or ExpectedExceptionGroup."
             )
 
-    # TODO: TypeGuard
     def matches(
         self,
-        exc_val: Optional[BaseException],
-    ) -> bool:
+        # I'm not entirely sure this is correct / necessary to spell out fully.
+        # TODO: add proper type tests
+        exc_val: Optional[
+            Union[BaseException, ExpectedExceptionGroup[E], BaseExceptionGroup[E]]
+        ],
+    ) -> TypeGuard[BaseExceptionGroup[E]]:
         if exc_val is None:
             return False
         if not isinstance(exc_val, BaseExceptionGroup):
@@ -101,7 +104,9 @@ class ExpectedExceptionGroup(Generic[E]):
                         and re.search(str(rem_e), str(e))
                     )
                 ):
-                    remaining_exceptions.remove(rem_e)  # type: ignore # ??
+                    # `isinstance(rem_e, BaseException)` doesn't get matched to E
+                    # by mypy
+                    remaining_exceptions.remove(rem_e)  # type: ignore[arg-type]
                     break
             else:
                 return False
@@ -295,7 +300,7 @@ def raises(
         if (
             not isinstance(exc, type) or not issubclass(exc, BaseException)
         ) and not isinstance(exc, ExpectedExceptionGroup):
-            msg = "expected exception must be a BaseException type or ExpectedExceptionGroup instance, not {}"  # type: ignore[unreachable]
+            msg = "expected exception must be a BaseException type or ExpectedExceptionGroup instance, not {}"
             not_a = exc.__name__ if isinstance(exc, type) else type(exc).__name__
             raise TypeError(msg.format(not_a))
 

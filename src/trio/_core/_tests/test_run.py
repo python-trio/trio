@@ -781,8 +781,6 @@ async def test_cancel_scope_misnesting() -> None:
         assert ExpectedExceptionGroup(
             (RuntimeError("closed before the task exited"),) * 3
         ).matches(exc_info.value.__context__)
-        # TODO: TypeGuard
-        assert isinstance(exc_info.value.__context__, BaseExceptionGroup)
         assert any(
             isinstance(exc.__context__, _core.Cancelled)
             for exc in exc_info.value.__context__.exceptions
