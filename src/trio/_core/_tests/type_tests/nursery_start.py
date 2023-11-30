@@ -1,4 +1,6 @@
 """Test variadic generic typing for Nursery.start[_soon]()."""
+from typing import Awaitable, Callable
+
 from trio import TASK_STATUS_IGNORED, Nursery, TaskStatus
 
 
@@ -70,8 +72,17 @@ def check_start_soon(nursery: Nursery) -> None:
 
     nursery.start_soon(task_2b, "abc")  # type: ignore
     nursery.start_soon(task_2a, 38, "46")
-    nursery.start_soon(task_2c, "abc", 12)
     nursery.start_soon(task_2c, "abc", 12, True)
+
+    # Calling a 3-arg positional func, but using the default.
+    # Pyright intentionally ignores the default arg status here when converting
+    # callable -> typevartuple, but Mypy supports this.
+    # https://github.com/microsoft/pyright/issues/3775
+    nursery.start_soon(task_2c, "abc", 12)  # pyright: ignore
+    task_2c_cast: Callable[
+        [str, int], Awaitable[object]
+    ] = task_2c  # The assignment makes it work.
+    nursery.start_soon(task_2c_cast, "abc", 12)
 
     nursery.start_soon(task_requires_kw, 12, True)  # type: ignore
     # Tasks following the start() API can be made to work.
