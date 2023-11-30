@@ -220,10 +220,12 @@ def gen_public_wrappers_source(file: File) -> str:
     generated = ["".join(header)]
 
     source = astor.code_to_ast.parse_file(file.path)
+    method_names = []
     for method in get_public_methods(source):
         # Remove self from arguments
         assert method.args.args[0].arg == "self"
         del method.args.args[0]
+        method_names.append(method.name)
 
         for dec in method.decorator_list:  # pragma: no cover
             if isinstance(dec, ast.Name) and dec.id == "contextmanager":
@@ -263,6 +265,10 @@ def gen_public_wrappers_source(file: File) -> str:
 
         # Append the snippet to the corresponding module
         generated.append(snippet)
+
+    method_names.sort()
+    # Insert after the header, before function definitions
+    generated.insert(1, f"__all__ = {method_names!r}")
     return "\n\n".join(generated)
 
 
