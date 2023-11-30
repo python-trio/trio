@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gc
 import os
 import random
 import signal
@@ -73,7 +74,7 @@ CAT = python("sys.stdout.buffer.write(sys.stdin.buffer.read())")
 if posix:
 
     def SLEEP(seconds: int) -> list[str]:
-        return ["/bin/sleep", str(seconds)]
+        return ["sleep", str(seconds)]
 
 else:
 
@@ -620,6 +621,8 @@ async def test_run_process_background_fail() -> None:
     reason="requires a way to iterate through open files",
 )
 async def test_for_leaking_fds() -> None:
+    gc.collect()  # address possible flakiness on PyPy
+
     starting_fds = set(SyncPath("/dev/fd").iterdir())
     await run_process(EXIT_TRUE)
     assert set(SyncPath("/dev/fd").iterdir()) == starting_fds

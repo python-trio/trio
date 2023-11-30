@@ -8,7 +8,15 @@ import threading
 from contextlib import asynccontextmanager, contextmanager, suppress
 from functools import partial
 from ssl import SSLContext
-from typing import TYPE_CHECKING, Any, AsyncIterator, Iterator, NoReturn
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Iterator,
+    NoReturn,
+)
 
 import pytest
 
@@ -344,33 +352,21 @@ async def test_PyOpenSSLEchoStream_gives_resource_busy_errors() -> None:
     # PyOpenSSLEchoStream, so this makes sure that if we do have a bug then
     # PyOpenSSLEchoStream will notice and complain.
 
-    s = PyOpenSSLEchoStream()
-    with pytest.raises(_core.BusyResourceError) as excinfo:
-        async with _core.open_nursery() as nursery:
-            nursery.start_soon(s.send_all, b"x")
-            nursery.start_soon(s.send_all, b"x")
-    assert "simultaneous" in str(excinfo.value)
+    async def do_test(
+        func1: str, args1: tuple[object, ...], func2: str, args2: tuple[object, ...]
+    ) -> None:
+        s = PyOpenSSLEchoStream()
+        with pytest.raises(_core.BusyResourceError, match="simultaneous"):
+            async with _core.open_nursery() as nursery:
+                nursery.start_soon(getattr(s, func1), *args1)
+                nursery.start_soon(getattr(s, func2), *args2)
 
-    s = PyOpenSSLEchoStream()
-    with pytest.raises(_core.BusyResourceError) as excinfo:
-        async with _core.open_nursery() as nursery:
-            nursery.start_soon(s.send_all, b"x")
-            nursery.start_soon(s.wait_send_all_might_not_block)
-    assert "simultaneous" in str(excinfo.value)
-
-    s = PyOpenSSLEchoStream()
-    with pytest.raises(_core.BusyResourceError) as excinfo:
-        async with _core.open_nursery() as nursery:
-            nursery.start_soon(s.wait_send_all_might_not_block)
-            nursery.start_soon(s.wait_send_all_might_not_block)
-    assert "simultaneous" in str(excinfo.value)
-
-    s = PyOpenSSLEchoStream()
-    with pytest.raises(_core.BusyResourceError) as excinfo:
-        async with _core.open_nursery() as nursery:
-            nursery.start_soon(s.receive_some, 1)
-            nursery.start_soon(s.receive_some, 1)
-    assert "simultaneous" in str(excinfo.value)
+    await do_test("send_all", (b"x",), "send_all", (b"x",))
+    await do_test("send_all", (b"x",), "wait_send_all_might_not_block", ())
+    await do_test(
+        "wait_send_all_might_not_block", (), "wait_send_all_might_not_block", ()
+    )
+    await do_test("receive_some", (1,), "receive_some", (1,))
 
 
 @contextmanager  # type: ignore[misc]  # decorated contains Any
@@ -727,45 +723,35 @@ async def test_renegotiation_randomized(
 
 
 async def test_resource_busy_errors(client_ctx: SSLContext) -> None:
-    async def do_send_all() -> None:
+    S: TypeAlias = trio.SSLStream[
+        trio.StapledStream[trio.abc.SendStream, trio.abc.ReceiveStream]
+    ]
+
+    async def do_send_all(s: S) -> None:
         with assert_checkpoints():
             await s.send_all(b"x")
 
-    async def do_receive_some() -> None:
+    async def do_receive_some(s: S) -> None:
         with assert_checkpoints():
             await s.receive_some(1)
 
-    async def do_wait_send_all_might_not_block() -> None:
+    async def do_wait_send_all_might_not_block(s: S) -> None:
         with assert_checkpoints():
             await s.wait_send_all_might_not_block()
 
-    s, _ = ssl_lockstep_stream_pair(client_ctx)
-    with pytest.raises(_core.BusyResourceError) as excinfo:
-        async with _core.open_nursery() as nursery:
-            nursery.start_soon(do_send_all)
-            nursery.start_soon(do_send_all)
-    assert "another task" in str(excinfo.value)
+    async def do_test(
+        func1: Callable[[S], Awaitable[None]], func2: Callable[[S], Awaitable[None]]
+    ) -> None:
+        s, _ = ssl_lockstep_stream_pair(client_ctx)
+        with pytest.raises(_core.BusyResourceError, match="another task"):
+            async with _core.open_nursery() as nursery:
+                nursery.start_soon(func1, s)
+                nursery.start_soon(func2, s)
 
-    s, _ = ssl_lockstep_stream_pair(client_ctx)
-    with pytest.raises(_core.BusyResourceError) as excinfo:
-        async with _core.open_nursery() as nursery:
-            nursery.start_soon(do_receive_some)
-            nursery.start_soon(do_receive_some)
-    assert "another task" in str(excinfo.value)
-
-    s, _ = ssl_lockstep_stream_pair(client_ctx)
-    with pytest.raises(_core.BusyResourceError) as excinfo:
-        async with _core.open_nursery() as nursery:
-            nursery.start_soon(do_send_all)
-            nursery.start_soon(do_wait_send_all_might_not_block)
-    assert "another task" in str(excinfo.value)
-
-    s, _ = ssl_lockstep_stream_pair(client_ctx)
-    with pytest.raises(_core.BusyResourceError) as excinfo:
-        async with _core.open_nursery() as nursery:
-            nursery.start_soon(do_wait_send_all_might_not_block)
-            nursery.start_soon(do_wait_send_all_might_not_block)
-    assert "another task" in str(excinfo.value)
+    await do_test(do_send_all, do_send_all)
+    await do_test(do_receive_some, do_receive_some)
+    await do_test(do_send_all, do_wait_send_all_might_not_block)
+    await do_test(do_wait_send_all_might_not_block, do_wait_send_all_might_not_block)
 
 
 async def test_wait_writable_calls_underlying_wait_writable() -> None:
