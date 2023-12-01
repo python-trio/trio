@@ -89,7 +89,7 @@ def test_initial_task_error() -> None:
     async def main(x: object) -> NoReturn:
         raise ValueError(x)
 
-    with pytest.raises(ValueError, match="17") as excinfo:
+    with pytest.raises(ValueError, match="^17$") as excinfo:
         _core.run(main, 17)
     assert excinfo.value.args == (17,)
 
@@ -123,7 +123,7 @@ async def test_nursery_warn_use_async_with() -> None:
 async def test_nursery_main_block_error_basic() -> None:
     exc = ValueError("whoops")
 
-    with pytest.raises(ValueError, match="whoops") as excinfo:
+    with pytest.raises(ValueError, match="^whoops$") as excinfo:
         async with _core.open_nursery():
             raise exc
     assert excinfo.value is exc
@@ -179,7 +179,7 @@ def test_task_crash_propagation() -> None:
             nursery.start_soon(looper)
             nursery.start_soon(crasher)
 
-    with pytest.raises(ValueError, match="argh"):
+    with pytest.raises(ValueError, match="^argh$"):
         _core.run(main)
 
     assert looper_record == ["cancelled"]
@@ -226,7 +226,7 @@ async def test_child_crash_wakes_parent() -> None:
     async def crasher() -> NoReturn:
         raise ValueError("this is a crash")
 
-    with pytest.raises(ValueError, match="this is a crash"):  # noqa: PT012
+    with pytest.raises(ValueError, match="^this is a crash$"):  # noqa: PT012
         async with _core.open_nursery() as nursery:
             nursery.start_soon(crasher)
             await sleep_forever()
@@ -253,7 +253,7 @@ async def test_reschedule() -> None:
         t2 = _core.current_task()
         _core.reschedule(not_none(t1), outcome.Value(0))
         print("child2 sleep")
-        with pytest.raises(ValueError, match="error message"):
+        with pytest.raises(ValueError, match="^error message$"):
             await sleep_forever()
         print("child2 successful exit")
 
@@ -1025,7 +1025,7 @@ async def test_exc_info() -> None:
         async with seq(0):
             pass  # we don't yield until seq(2) below
         record.append("child1 raise")
-        with pytest.raises(ValueError, match="child1") as excinfo:  # noqa: PT012
+        with pytest.raises(ValueError, match="^child1$") as excinfo:  # noqa: PT012
             try:
                 raise ValueError("child1")
             except ValueError:
@@ -1113,7 +1113,7 @@ async def test_exception_chaining_after_yield_error() -> None:
         except Exception:
             await sleep_forever()
 
-    with pytest.raises(ValueError, match="error text") as excinfo:  # noqa: PT012
+    with pytest.raises(ValueError, match="^error text$") as excinfo:  # noqa: PT012
         async with _core.open_nursery() as nursery:
             nursery.start_soon(child)
             await wait_all_tasks_blocked()
@@ -1236,7 +1236,7 @@ def test_TrioToken_run_sync_soon_after_main_crash() -> None:
         token.run_sync_soon(lambda: record.append("sync-cb"))
         raise ValueError("error text")
 
-    with pytest.raises(ValueError, match="error text"):
+    with pytest.raises(ValueError, match="^error text$"):
         _core.run(main)
 
     assert record == ["sync-cb"]
@@ -1589,14 +1589,14 @@ def test_nice_error_on_bad_calls_to_run_or_spawn() -> None:
         async def f() -> None:  # pragma: no cover
             pass
 
-        with pytest.raises(TypeError, match="expecting an async function"):
+        with pytest.raises(TypeError, match="^expecting an async function$"):
             bad_call(f())  # type: ignore[arg-type]
 
         async def async_gen(arg: T) -> AsyncGenerator[T, None]:  # pragma: no cover
             yield arg
 
         with pytest.raises(
-            TypeError, match="expected an async function but got an async generator"
+            TypeError, match="^expected an async function but got an async generator$"
         ):
             bad_call(async_gen, 0)  # type: ignore
 
@@ -1608,7 +1608,7 @@ def test_calling_asyncio_function_gives_nice_error() -> None:
     async def misguided() -> None:
         await child_xyzzy()
 
-    with pytest.raises(TypeError, match="asyncio") as excinfo:
+    with pytest.raises(TypeError, match="^asyncio$") as excinfo:
         _core.run(misguided)
 
     # The traceback should point to the location of the foreign await
@@ -1619,7 +1619,7 @@ def test_calling_asyncio_function_gives_nice_error() -> None:
 
 async def test_asyncio_function_inside_nursery_does_not_explode() -> None:
     # Regression test for https://github.com/python-trio/trio/issues/552
-    with pytest.raises(TypeError, match="asyncio"):  # noqa: PT012
+    with pytest.raises(TypeError, match="^asyncio$"):  # noqa: PT012
         async with _core.open_nursery() as nursery:
             nursery.start_soon(sleep_forever)
             await create_asyncio_future_in_new_loop()
@@ -2321,7 +2321,7 @@ async def test_simple_cancel_scope_usage_doesnt_create_cyclic_garbage() -> None:
         # (See https://github.com/python-trio/trio/pull/1864)
         await do_a_cancel()
 
-        with pytest.raises(ValueError, match="this is a crash"):
+        with pytest.raises(ValueError, match="^this is a crash$"):
             async with _core.open_nursery() as nursery:
                 # cover NurseryManager.__aexit__
                 nursery.start_soon(crasher)
@@ -2346,7 +2346,7 @@ async def test_cancel_scope_exit_doesnt_create_cyclic_garbage() -> None:
     old_flags = gc.get_debug()
     try:
         with pytest.raises(  # noqa: PT012
-            ValueError, match="this is a crash"
+            ValueError, match="^this is a crash$"
         ), _core.CancelScope() as outer:
             async with _core.open_nursery() as nursery:
                 gc.collect()
@@ -2454,7 +2454,7 @@ def test_run_strict_exception_groups_nursery_override() -> None:
         async with _core.open_nursery(strict_exception_groups=False):
             raise Exception("foo")
 
-    with pytest.raises(Exception, match="foo"):
+    with pytest.raises(Exception, match="^foo$"):
         _core.run(main, strict_exception_groups=True)
 
 

@@ -10,11 +10,11 @@ from trio.testing._fake_net import FakeNet
 
 # ENOTCONN gives different messages on different platforms
 if sys.platform == "linux":
-    ENOTCONN_MSG = "Transport endpoint is not connected"
+    ENOTCONN_MSG = "^Transport endpoint is not connected$"
 elif sys.platform == "darwin":
-    ENOTCONN_MSG = "Socket is not connected"
+    ENOTCONN_MSG = "^Socket is not connected$"
 else:
-    ENOTCONN_MSG = "Unknown error"
+    ENOTCONN_MSG = "^Unknown error$"
 
 
 def fn() -> FakeNet:
@@ -33,7 +33,7 @@ async def test_basic_udp() -> None:
     assert ip == "127.0.0.1"
     assert port != 0
 
-    with pytest.raises(OSError, match="Invalid argument") as exc:  # Cannot rebind.
+    with pytest.raises(OSError, match="^Invalid argument$") as exc:  # Cannot rebind.
         await s1.bind(("192.0.2.1", 0))
     assert exc.value.errno == errno.EINVAL
 
@@ -70,7 +70,7 @@ async def test_recv_methods() -> None:
     s2 = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
 
     # receiving on an unbound socket is a bad idea (I think?)
-    with pytest.raises(NotImplementedError, match="code will most likely hang"):
+    with pytest.raises(NotImplementedError, match="^code will most likely hang$"):
         await s2.recv(10)
 
     await s1.bind(("127.0.0.1", 0))
@@ -93,7 +93,7 @@ async def test_recv_methods() -> None:
     assert await s1.sendto(b"ghi", s2.getsockname()) == 3
     buf = bytearray(10)
 
-    with pytest.raises(NotImplementedError, match="partial recvfrom_into"):
+    with pytest.raises(NotImplementedError, match="^partial recvfrom_into$"):
         (nbytes, addr) = await s2.recvfrom_into(buf, nbytes=2)
 
     (nbytes, addr) = await s2.recvfrom_into(buf)
@@ -117,14 +117,14 @@ async def test_recv_methods() -> None:
     with pytest.raises(OSError, match=ENOTCONN_MSG) as exc:
         await s2.send(b"mno")
     assert exc.value.errno == errno.ENOTCONN
-    with pytest.raises(NotImplementedError, match="FakeNet send flags must be 0, not"):
+    with pytest.raises(NotImplementedError, match="^FakeNet send flags must be 0, not"):
         await s2.send(b"mno", flags)
 
     # sendto errors
     # it's successfully used earlier
-    with pytest.raises(NotImplementedError, match="FakeNet send flags must be 0, not"):
+    with pytest.raises(NotImplementedError, match="^FakeNet send flags must be 0, not"):
         await s2.sendto(b"mno", flags, s1.getsockname())
-    with pytest.raises(TypeError, match="wrong number of arguments"):
+    with pytest.raises(TypeError, match="wrong number of arguments$"):
         await s2.sendto(b"mno", flags, s1.getsockname(), "extra arg")  # type: ignore[call-overload]
 
 
@@ -178,7 +178,7 @@ async def test_nonwindows_functionality() -> None:
         assert addr == s1.getsockname()
 
         with pytest.raises(
-            AttributeError, match="'FakeSocket' object has no attribute 'share'"
+            AttributeError, match="^'FakeSocket' object has no attribute 'share'$"
         ):
             await s1.share(0)  # type: ignore[attr-defined]
 
@@ -194,16 +194,16 @@ async def test_windows_functionality() -> None:
         s2 = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
         await s1.bind(("127.0.0.1", 0))
         with pytest.raises(
-            AttributeError, match="'FakeSocket' object has no attribute 'sendmsg'"
+            AttributeError, match="^'FakeSocket' object has no attribute 'sendmsg'$"
         ):
             await s1.sendmsg([b"jkl"], (), 0, s2.getsockname())  # type: ignore[attr-defined]
         with pytest.raises(
-            AttributeError, match="'FakeSocket' object has no attribute 'recvmsg'"
+            AttributeError, match="^'FakeSocket' object has no attribute 'recvmsg'$"
         ):
             s2.recvmsg(0)  # type: ignore[attr-defined]
         with pytest.raises(
             AttributeError,
-            match="'FakeSocket' object has no attribute 'recvmsg_into'",
+            match="^'FakeSocket' object has no attribute 'recvmsg_into'$",
         ):
             s2.recvmsg_into([])  # type: ignore[attr-defined]
         with pytest.raises(NotImplementedError):
@@ -221,23 +221,23 @@ async def test_not_implemented_functions() -> None:
     s1 = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
 
     # getsockopt
-    with pytest.raises(OSError, match="FakeNet doesn't implement getsockopt"):
+    with pytest.raises(OSError, match="^FakeNet doesn't implement getsockopt$"):
         s1.getsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY)
 
     # setsockopt
     with pytest.raises(
-        NotImplementedError, match="FakeNet always has IPV6_V6ONLY=True"
+        NotImplementedError, match="^FakeNet always has IPV6_V6ONLY=True$"
     ):
         s1.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
-    with pytest.raises(OSError, match="FakeNet doesn't implement setsockopt"):
+    with pytest.raises(OSError, match="^FakeNet doesn't implement setsockopt$"):
         s1.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, True)
-    with pytest.raises(OSError, match="FakeNet doesn't implement setsockopt"):
+    with pytest.raises(OSError, match="^FakeNet doesn't implement setsockopt$"):
         s1.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
     # set_inheritable
     s1.set_inheritable(False)
     with pytest.raises(
-        NotImplementedError, match="FakeNet can't make inheritable sockets"
+        NotImplementedError, match="^FakeNet can't make inheritable sockets$"
     ):
         s1.set_inheritable(True)
 
@@ -256,7 +256,7 @@ async def test_getpeername() -> None:
 
     with pytest.raises(
         AssertionError,
-        match="This method seems to assume that self._binding has a remote UDPEndpoint",
+        match="^This method seems to assume that self._binding has a remote UDPEndpoint$",
     ):
         s1.getpeername()
 
