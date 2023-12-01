@@ -139,7 +139,7 @@ async def test_child_crash_basic() -> None:
         # nursery.__aexit__ propagates exception from child back to parent
         async with _core.open_nursery() as nursery:
             nursery.start_soon(erroring)
-    assert excinfo is exc
+    assert excinfo.value is exc
 
 
 async def test_basic_interleave() -> None:
