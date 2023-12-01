@@ -338,19 +338,14 @@ async def test_run() -> None:
     # invalid combinations
     with pytest.raises(UnicodeError):
         await run_process(CAT, stdin="oh no, it's text")
-    with pytest.raises(
-        ValueError,
-        match=r"^stdout=subprocess\.PIPE is only valid with nursery\.start, since that's the only way to access the pipe(; use nursery\.start or pass the data you want to write directly)*$",
-    ):
+
+    pipe_stdout_error = r"^stdout=subprocess\.PIPE is only valid with nursery\.start, since that's the only way to access the pipe(; use nursery\.start or pass the data you want to write directly)*$"
+    with pytest.raises(ValueError, match=pipe_stdout_error):
         await run_process(CAT, stdin=subprocess.PIPE)
-    with pytest.raises(
-        ValueError,
-        match=r"^stdout=subprocess\.PIPE is only valid with nursery\.start, since that's the only way to access the pipe(; use nursery\.start or pass the data you want to write directly)*$",
-    ):
+    with pytest.raises(ValueError, match=pipe_stdout_error):
         await run_process(CAT, stdout=subprocess.PIPE)
     with pytest.raises(
-        ValueError,
-        match=r"^stderr=subprocess\.PIPE is only valid with nursery\.start, since that's the only way to access the pipe(; use nursery\.start or pass the data you want to write directly)*$",
+        ValueError, match=pipe_stdout_error.replace("stdout", "stderr", 1)
     ):
         await run_process(CAT, stderr=subprocess.PIPE)
     with pytest.raises(

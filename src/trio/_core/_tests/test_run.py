@@ -135,13 +135,11 @@ async def test_child_crash_basic() -> None:
     async def erroring() -> NoReturn:
         raise exc
 
-    try:
+    with pytest.raises(ValueError, match="^uh oh$") as excinfo:
         # nursery.__aexit__ propagates exception from child back to parent
         async with _core.open_nursery() as nursery:
             nursery.start_soon(erroring)
-    except ValueError as e:
-        # the noqa is for "Found assertion on exception `multi_exc` in `except` block"
-        assert e is exc  # noqa: PT017
+    assert excinfo is exc
 
 
 async def test_basic_interleave() -> None:

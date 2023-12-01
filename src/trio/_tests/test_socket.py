@@ -648,19 +648,14 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
                 )
                 netlink_sock.close()
 
-            with pytest.raises(
-                ValueError,
-                match=r"^address should be a \(host, port(, \[flowinfo, \[scopeid\]\])*\) tuple$",
-            ):
+            address = r"^address should be a \(host, port(, \[flowinfo, \[scopeid\]\])*\) tuple$"
+            with pytest.raises(ValueError, match=address):
                 await res("1.2.3.4")  # type: ignore[arg-type]
-            with pytest.raises(
-                ValueError,
-                match=r"^address should be a \(host, port(, \[flowinfo, \[scopeid\]\])*\) tuple$",
-            ):
+            with pytest.raises(ValueError, match=address):
                 await res(("1.2.3.4",))  # type: ignore[arg-type]
             with pytest.raises(  # noqa: PT012
                 ValueError,
-                match=r"^address should be a \(host, port(, \[flowinfo, \[scopeid\]\])*\) tuple$",
+                match=address,
             ):
                 if v6:
                     await res(("1.2.3.4", 80, 0, 0, 0))  # type: ignore[arg-type]
@@ -815,7 +810,7 @@ async def test_SocketType_connect_paths() -> None:
     with tsocket.socket() as sock:
         with pytest.raises(
             OSError,
-            match=r"^.*Error connecting to \('127\.0\.0\.\d', \d+\): (Connection refused|Unknown error)$",
+            match=r"^\[\w+ \d+\] Error connecting to \('127\.0\.0\.\d', \d+\): (Connection refused|Unknown error)$",
         ):
             # TCP port 2 is not assigned. Pretty sure nothing will be
             # listening there. (We used to bind a port and then *not* call
@@ -831,11 +826,12 @@ async def test_SocketType_connect_paths() -> None:
 async def test_address_in_socket_error() -> None:
     address = "127.0.0.1"
     with tsocket.socket() as sock:
-        try:
+        with pytest.raises(
+            OSError,
+            match=r"^\[\w+ \d+\] Error connecting to \('127\.0\.0\.1', 2\): (Connection refused|Unknown error)$",
+        ) as excinfo:
             await sock.connect((address, 2))
-        except OSError as e:
-            # the noqa is "Found assertion on exception `e` in `except` block"
-            assert any(address in str(arg) for arg in e.args)  # noqa: PT017
+    assert any(address in str(arg) for arg in excinfo.value.args)
 
 
 async def test_resolve_address_exception_in_connect_closes_socket() -> None:

@@ -287,9 +287,13 @@ async def test_SocketListener_accept_errors() -> None:
         stream = await listener.accept()
         assert stream.socket is fake_server_sock
 
-    for code in [errno.EMFILE, errno.EFAULT, errno.ENOBUFS]:
+    for code, match in {
+        errno.EMFILE: r"\[\w+ \d+\] Out of file descriptors$",
+        errno.EFAULT: r"\[\w+ \d+\] attempt to write to read-only memory$",
+        errno.ENOBUFS: r"\[\w+ \d+\] out of buffers$",
+    }.items():
         with assert_checkpoints():
-            with pytest.raises(OSError) as excinfo:  # noqa: PT011  # missing `match`
+            with pytest.raises(OSError, match=match) as excinfo:
                 await listener.accept()
             assert excinfo.value.errno == code
 
