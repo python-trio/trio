@@ -424,7 +424,11 @@ def test_static_tool_sees_class_members(
             and enum.Enum in class_.__mro__
             and sys.version_info >= (3, 11)
         ):
-            extra.difference_update({"__copy__", "__deepcopy__"})
+            extra.remove("__copy__")
+            extra.remove("__deepcopy__")
+            if sys.version_info >= (3, 12):
+                # Another attribute, in 3.12+ only.
+                extra.remove("__signature__")
 
         # TODO: this *should* be visible via `dir`!!
         if tool == "mypy" and class_ == trio.Nursery:
