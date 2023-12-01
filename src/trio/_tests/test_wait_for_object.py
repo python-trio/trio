@@ -63,7 +63,7 @@ async def test_WaitForMultipleObjects_sync() -> None:
     handle1 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     handle2 = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     kernel32.CloseHandle(handle2)
-    with pytest.raises(OSError, match="TODO: replace with exception"):
+    with pytest.raises(OSError, match=r"^\[WinError 6\] The handle is invalid$"):
         WaitForMultipleObjects_sync(handle1, handle2)
     kernel32.CloseHandle(handle1)
     print("test_WaitForMultipleObjects_sync close second OK")
