@@ -1591,7 +1591,7 @@ def test_nice_error_on_bad_calls_to_run_or_spawn() -> None:
 
         with pytest.raises(
             TypeError,
-            match="^Trio was expecting an async function, but instead it got a coroutine object <.*>$",
+            match="^Trio was expecting an async function, but instead it got a coroutine object <.*>",
         ):
             bad_call(f())  # type: ignore[arg-type]
 

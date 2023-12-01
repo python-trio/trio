@@ -34,7 +34,7 @@ async def test_basic_udp() -> None:
     assert port != 0
 
     with pytest.raises(
-        OSError, match=r"^[\w+ \d+] Invalid argument$"
+        OSError, match=r"^\[\w+ \d+\] Invalid argument$"
     ) as exc:  # Cannot rebind.
         await s1.bind(("192.0.2.1", 0))
     assert exc.value.errno == errno.EINVAL
@@ -233,9 +233,13 @@ async def test_not_implemented_functions() -> None:
         NotImplementedError, match="^FakeNet always has IPV6_V6ONLY=True$"
     ):
         s1.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
-    with pytest.raises(OSError, match="^FakeNet doesn't implement setsockopt$"):
+    with pytest.raises(
+        OSError, match=r"^FakeNet doesn't implement setsockopt\(\d+, \d+, ...)$"
+    ):
         s1.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, True)
-    with pytest.raises(OSError, match="^FakeNet doesn't implement setsockopt$"):
+    with pytest.raises(
+        OSError, match=r"^FakeNet doesn't implement setsockopt\(\d+, \d+, ...)$"
+    ):
         s1.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
     # set_inheritable
