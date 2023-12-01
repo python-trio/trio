@@ -42,12 +42,12 @@ def test_winerror(monkeypatch: pytest.MonkeyPatch) -> None:
 
     # Returning none = no error, should not happen.
     mock.return_value = None
-    with pytest.raises(RuntimeError, match="^No error set$"):
+    with pytest.raises(RuntimeError, match=r"^No error set\?$"):
         raise_winerror()
     mock.assert_called_once_with()
     mock.reset_mock()
 
-    with pytest.raises(RuntimeError, match="^No error set$"):
+    with pytest.raises(RuntimeError, match=r"^No error set\?$"):
         raise_winerror(38)
     mock.assert_called_once_with(38)
     mock.reset_mock()
