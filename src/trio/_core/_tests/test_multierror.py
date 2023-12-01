@@ -136,7 +136,7 @@ async def test_MultiErrorNotHashable() -> None:
     assert exc1 != exc2
     assert exc1 != exc3
 
-    with pytest.raises(MultiError):
+    with pytest.raises(MultiError):  # noqa: PT012
         async with open_nursery() as nursery:
             nursery.start_soon(raise_nothashable, 42)
             nursery.start_soon(raise_nothashable, 4242)
@@ -353,14 +353,13 @@ def test_MultiError_catch() -> None:
         v.__context__ = context
         v.__suppress_context__ = suppress_context
         distractor = RuntimeError()
-        with pytest.raises(ValueError, match="^unique text$") as excinfo:
 
-            def catch_RuntimeError(exc):
-                if isinstance(exc, RuntimeError):
-                    return None
-                else:
-                    return exc
+        def catch_RuntimeError(exc: Exception) -> Exception | None:
+            if isinstance(exc, RuntimeError):
+                return None
+            return exc
 
+        with pytest.raises(ValueError, match="^unique text$") as excinfo:  # noqa: PT012
             with pytest.warns(TrioDeprecationWarning):
                 with MultiError.catch(catch_RuntimeError):
                     raise MultiError([v, distractor])

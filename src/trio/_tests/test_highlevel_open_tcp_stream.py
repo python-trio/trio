@@ -41,14 +41,14 @@ def test_close_all() -> None:
     assert c.closed
 
     c = CloseMe()
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError):  # noqa: PT012
         with close_all() as to_close:
             to_close.add(c)
             raise RuntimeError
     assert c.closed
 
     c = CloseMe()
-    with pytest.raises(OSError, match="os error text"):
+    with pytest.raises(OSError, match="os error text"):  # noqa: PT012
         with close_all() as to_close:
             to_close.add(CloseKiller())
             to_close.add(c)

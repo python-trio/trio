@@ -280,12 +280,11 @@ async def test_client_multiplex() -> None:
             with pytest.raises(trio.ClosedResourceError):
                 client_endpoint.connect(address1, client_ctx)
 
+            async def null_handler(_: object) -> None:  # pragma: no cover
+                pass
+
             async with trio.open_nursery() as nursery:
                 with pytest.raises(trio.ClosedResourceError):
-
-                    async def null_handler(_: object) -> None:  # pragma: no cover
-                        pass
-
                     await nursery.start(client_endpoint.serve, server_ctx, null_handler)
 
 

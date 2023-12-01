@@ -170,17 +170,16 @@ def test_guest_is_initialized_when_start_returns() -> None:
     assert res == "ok"
     assert set(record) == {"system task ran", "main task ran", "run_sync_soon cb ran"}
 
+    class BadClock:
+        def start_clock(self) -> NoReturn:
+            raise ValueError("whoops")
+
+    def after_start_never_runs() -> None:  # pragma: no cover
+        pytest.fail("shouldn't get here")
+
     # Errors during initialization (which can only be TrioInternalErrors)
     # are raised out of start_guest_run, not out of the done_callback
     with pytest.raises(trio.TrioInternalError):
-
-        class BadClock:
-            def start_clock(self) -> NoReturn:
-                raise ValueError("whoops")
-
-        def after_start_never_runs() -> None:  # pragma: no cover
-            pytest.fail("shouldn't get here")
-
         trivial_guest_run(
             trio_main, clock=BadClock(), in_host_after_start=after_start_never_runs
         )

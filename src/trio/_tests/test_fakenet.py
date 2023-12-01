@@ -38,7 +38,7 @@ async def test_basic_udp() -> None:
     assert exc.value.errno == errno.EINVAL
 
     # Cannot bind multiple sockets to the same address
-    with pytest.raises(OSError) as exc:
+    with pytest.raises(OSError, match=r"^\[\w+ \d+\] Address already in use$") as exc:
         await s2.bind(("127.0.0.1", port))
     assert exc.value.errno == errno.EADDRINUSE
 

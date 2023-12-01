@@ -23,7 +23,6 @@ from typing import (
 
 import pytest
 import sniffio
-from pytest import MonkeyPatch
 
 from .. import (
     CancelScope,
@@ -396,7 +395,7 @@ async def test_run_in_worker_thread_cancellation() -> None:
 # handled gracefully. (Requires that the thread result machinery be prepared
 # for call_soon to raise RunFinishedError.)
 def test_run_in_worker_thread_abandoned(
-    capfd: pytest.CaptureFixture[str], monkeypatch: MonkeyPatch
+    capfd: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(_core._thread_cache, "IDLE_TIMEOUT", 0.01)
 
@@ -595,7 +594,9 @@ async def test_run_in_worker_thread_limiter_error() -> None:
     assert record == ["acquire", "release"]
 
 
-async def test_run_in_worker_thread_fail_to_spawn(monkeypatch: MonkeyPatch) -> None:
+async def test_run_in_worker_thread_fail_to_spawn(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # Test the unlikely but possible case where trying to spawn a thread fails
     def bad_start(self: object, *args: object) -> NoReturn:
         raise RuntimeError("the engines canna take it captain")

@@ -658,7 +658,7 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
                 match=r"^address should be a \(host, port(, \[flowinfo, \[scopeid\]\])*\) tuple$",
             ):
                 await res(("1.2.3.4",))  # type: ignore[arg-type]
-            with pytest.raises(
+            with pytest.raises(  # noqa: PT012
                 ValueError,
                 match=r"^address should be a \(host, port(, \[flowinfo, \[scopeid\]\])*\) tuple$",
             ):
@@ -834,7 +834,8 @@ async def test_address_in_socket_error() -> None:
         try:
             await sock.connect((address, 2))
         except OSError as e:
-            assert any(address in str(arg) for arg in e.args)
+            # the noqa is "Found assertion on exception `e` in `except` block"
+            assert any(address in str(arg) for arg in e.args)  # noqa: PT017
 
 
 async def test_resolve_address_exception_in_connect_closes_socket() -> None:
@@ -1131,7 +1132,8 @@ async def test_many_sockets() -> None:
         try:
             a, b = stdlib_socket.socketpair()
         except OSError as e:  # pragma: no cover
-            assert e.errno in (errno.EMFILE, errno.ENFILE)
+            # the noqa is "Found assertion on exception `e` in `except` block"
+            assert e.errno in (errno.EMFILE, errno.ENFILE)  # noqa: PT017
             break
         sockets += [a, b]
     async with _core.open_nursery() as nursery:
