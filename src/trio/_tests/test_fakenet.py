@@ -10,11 +10,11 @@ from trio.testing._fake_net import FakeNet
 
 # ENOTCONN gives different messages on different platforms
 if sys.platform == "linux":
-    ENOTCONN_MSG = "^Transport endpoint is not connected$"
+    ENOTCONN_MSG = r"^\[Errno 107\] Transport endpoint is not connected$"
 elif sys.platform == "darwin":
-    ENOTCONN_MSG = "^Socket is not connected$"
+    ENOTCONN_MSG = r"^\[Errno 57\] Socket is not connected$"
 else:
-    ENOTCONN_MSG = "^Unknown error$"
+    ENOTCONN_MSG = r"^\[Errno 10057\] Unknown error$"
 
 
 def fn() -> FakeNet:
@@ -33,7 +33,9 @@ async def test_basic_udp() -> None:
     assert ip == "127.0.0.1"
     assert port != 0
 
-    with pytest.raises(OSError, match="^Invalid argument$") as exc:  # Cannot rebind.
+    with pytest.raises(
+        OSError, match=r"^[\w+ \d+] Invalid argument$"
+    ) as exc:  # Cannot rebind.
         await s1.bind(("192.0.2.1", 0))
     assert exc.value.errno == errno.EINVAL
 
@@ -70,7 +72,7 @@ async def test_recv_methods() -> None:
     s2 = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
 
     # receiving on an unbound socket is a bad idea (I think?)
-    with pytest.raises(NotImplementedError, match="^code will most likely hang$"):
+    with pytest.raises(NotImplementedError, match="code will most likely hang"):
         await s2.recv(10)
 
     await s1.bind(("127.0.0.1", 0))
@@ -221,7 +223,9 @@ async def test_not_implemented_functions() -> None:
     s1 = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
 
     # getsockopt
-    with pytest.raises(OSError, match="^FakeNet doesn't implement getsockopt$"):
+    with pytest.raises(
+        OSError, match=r"^FakeNet doesn't implement getsockopt\(\d, \d\)$"
+    ):
         s1.getsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY)
 
     # setsockopt

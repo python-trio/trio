@@ -1589,14 +1589,17 @@ def test_nice_error_on_bad_calls_to_run_or_spawn() -> None:
         async def f() -> None:  # pragma: no cover
             pass
 
-        with pytest.raises(TypeError, match="^expecting an async function$"):
+        with pytest.raises(
+            TypeError,
+            match="^Trio was expecting an async function, but instead it got a coroutine object <.*>$",
+        ):
             bad_call(f())  # type: ignore[arg-type]
 
         async def async_gen(arg: T) -> AsyncGenerator[T, None]:  # pragma: no cover
             yield arg
 
         with pytest.raises(
-            TypeError, match="^expected an async function but got an async generator$"
+            TypeError, match="expected an async function but got an async generator"
         ):
             bad_call(async_gen, 0)  # type: ignore
 
@@ -1608,7 +1611,7 @@ def test_calling_asyncio_function_gives_nice_error() -> None:
     async def misguided() -> None:
         await child_xyzzy()
 
-    with pytest.raises(TypeError, match="^asyncio$") as excinfo:
+    with pytest.raises(TypeError, match="asyncio") as excinfo:
         _core.run(misguided)
 
     # The traceback should point to the location of the foreign await
@@ -1619,7 +1622,7 @@ def test_calling_asyncio_function_gives_nice_error() -> None:
 
 async def test_asyncio_function_inside_nursery_does_not_explode() -> None:
     # Regression test for https://github.com/python-trio/trio/issues/552
-    with pytest.raises(TypeError, match="^asyncio$"):  # noqa: PT012
+    with pytest.raises(TypeError, match="asyncio"):  # noqa: PT012
         async with _core.open_nursery() as nursery:
             nursery.start_soon(sleep_forever)
             await create_asyncio_future_in_new_loop()
