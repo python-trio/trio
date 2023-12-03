@@ -1071,12 +1071,19 @@ async def test_exc_info() -> None:
     ]
 
 
-# Before CPython 3.9, using .throw() to raise an exception inside a
-# coroutine/generator causes the original exc_info state to be lost, so things
-# like re-raising and exception chaining are broken.
+# On all CPython versions (at time of writing), using .throw() to raise an
+# exception inside a coroutine/generator can cause the original `exc_info` state
+# to be lost, so things like re-raising and exception chaining are broken unless
+# Trio implements its workaround. At time of writing, CPython main (3.13-dev)
+# and every CPython release (excluding releases for old Python versions not
+# supported by Trio) is affected (albeit in differing ways).
 #
-# https://bugs.python.org/issue29587
-async def test_exc_info_after_yield_error() -> None:
+# If the `ValueError()` gets sent in via `throw` and is suppressed, then CPython
+# loses track of the original `exc_info`:
+#   https://bugs.python.org/issue25612 (Example 1)
+#   https://bugs.python.org/issue29587 (Example 2)
+# This is fixed in CPython >= 3.7.
+async def test_exc_info_after_throw_suppressed() -> None:
     child_task: _core.Task | None = None
 
     async def child() -> None:
@@ -1085,21 +1092,28 @@ async def test_exc_info_after_yield_error() -> None:
 
         try:
             raise KeyError
-        except Exception:
-            with suppress(Exception):
+        except KeyError:
+            with suppress(ValueError):
                 await sleep_forever()
             raise
 
-    with pytest.raises(KeyError):  # noqa: PT012
+    with pytest.raises(KeyError) as excinfo:  # noqa: PT012
         async with _core.open_nursery() as nursery:
             nursery.start_soon(child)
             await wait_all_tasks_blocked()
             _core.reschedule(not_none(child_task), outcome.Error(ValueError()))
 
+    assert excinfo.value.__context__ is None
 
-# Similar to previous test -- if the ValueError() gets sent in via 'throw',
-# then Python's normal implicit chaining stuff is broken.
-async def test_exception_chaining_after_yield_error() -> None:
+
+# Similar to previous test -- if the `ValueError()` gets sent in via 'throw' and
+# propagates out, then CPython doesn't set its `__context__` so normal implicit
+# exception chaining is broken:
+#   https://bugs.python.org/issue25612 (Example 2)
+#   https://bugs.python.org/issue25683
+#   https://bugs.python.org/issue29587 (Example 1)
+# This is fixed in CPython >= 3.9.
+async def test_exception_chaining_after_throw() -> None:
     child_task: _core.Task | None = None
 
     async def child() -> None:
@@ -1108,7 +1122,7 @@ async def test_exception_chaining_after_yield_error() -> None:
 
         try:
             raise KeyError
-        except Exception:
+        except KeyError:
             await sleep_forever()
 
     with pytest.raises(ValueError, match="^error text$") as excinfo:  # noqa: PT012
@@ -1120,6 +1134,71 @@ async def test_exception_chaining_after_yield_error() -> None:
             )
 
     assert isinstance(excinfo.value.__context__, KeyError)
+
+
+# Similar to previous tests -- if the `ValueError()` gets sent into an inner
+# `await` via 'throw' and is suppressed there, then CPython loses track of
+# `exc_info` in the inner coroutine:
+#   https://github.com/python/cpython/issues/108668
+# This is unfixed in CPython at time of writing.
+async def test_exc_info_after_throw_to_inner_suppressed() -> None:
+    child_task: _core.Task | None = None
+
+    async def child() -> None:
+        nonlocal child_task
+        child_task = _core.current_task()
+
+        try:
+            raise KeyError
+        except KeyError as exc:
+            await inner(exc)
+            raise
+
+    async def inner(exc: BaseException) -> None:
+        with suppress(ValueError):
+            await sleep_forever()
+        assert not_none(sys.exc_info()[1]) is exc
+
+    with pytest.raises(KeyError) as excinfo:
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(child)
+            await wait_all_tasks_blocked()
+            _core.reschedule(not_none(child_task), outcome.Error(ValueError()))
+
+    assert excinfo.value.__context__ is None
+
+
+# Similar to previous tests -- if the `ValueError()` gets sent into an inner
+# `await` via `throw` and propagates out, then CPython incorrectly sets its
+# `__context__` so normal implicit exception chaining is broken:
+#   https://bugs.python.org/issue40694
+# This is unfixed in CPython at time of writing.
+async def test_exception_chaining_after_throw_to_inner() -> None:
+    child_task: _core.Task | None = None
+
+    async def child() -> None:
+        nonlocal child_task
+        child_task = _core.current_task()
+
+        try:
+            raise KeyError
+        except KeyError:
+            await inner()
+
+    async def inner() -> None:
+        try:
+            raise IndexError
+        except IndexError:
+            await sleep_forever()
+
+    with pytest.raises(ValueError) as excinfo:
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(child)
+            await wait_all_tasks_blocked()
+            _core.reschedule(not_none(child_task), outcome.Error(ValueError()))
+
+    assert isinstance(excinfo.value.__context__, IndexError)
+    assert isinstance(excinfo.value.__context__.__context__, KeyError)
 
 
 async def test_nursery_exception_chaining_doesnt_make_context_loops() -> None:

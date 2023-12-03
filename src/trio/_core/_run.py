@@ -2546,9 +2546,11 @@ def unrolled_run(
                 try:
                     # We used to unwrap the Outcome object here and send/throw
                     # its contents in directly, but it turns out that .throw()
-                    # is buggy, at least before CPython 3.9:
+                    # is buggy on CPython (all versions at time of writing):
                     #   https://bugs.python.org/issue29587
                     #   https://bugs.python.org/issue29590
+                    #   https://bugs.python.org/issue40694
+                    #   https://github.com/python/cpython/issues/108668
                     # So now we send in the Outcome object and unwrap it on the
                     # other side.
                     msg = task.context.run(next_send_fn, next_send)
