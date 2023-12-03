@@ -1159,7 +1159,7 @@ async def test_exc_info_after_throw_to_inner_suppressed() -> None:
             await sleep_forever()
         assert not_none(sys.exc_info()[1]) is exc
 
-    with pytest.raises(KeyError) as excinfo:
+    with pytest.raises(KeyError) as excinfo:  # noqa: PT012
         async with _core.open_nursery() as nursery:
             nursery.start_soon(child)
             await wait_all_tasks_blocked()
@@ -1191,11 +1191,13 @@ async def test_exception_chaining_after_throw_to_inner() -> None:
         except IndexError:
             await sleep_forever()
 
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(ValueError, match="^Unique Text$") as excinfo:  # noqa: PT012
         async with _core.open_nursery() as nursery:
             nursery.start_soon(child)
             await wait_all_tasks_blocked()
-            _core.reschedule(not_none(child_task), outcome.Error(ValueError()))
+            _core.reschedule(
+                not_none(child_task), outcome.Error(ValueError("Unique Text"))
+            )
 
     assert isinstance(excinfo.value.__context__, IndexError)
     assert isinstance(excinfo.value.__context__.__context__, KeyError)
