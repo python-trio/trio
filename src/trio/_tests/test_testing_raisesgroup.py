@@ -121,10 +121,10 @@ class TestRaisesGroup:
                 raise ExceptionGroup("", (ValueError(),))
 
     def test_RaisesGroup_matches(self) -> None:
-        eeg = RaisesGroup(ValueError)
-        assert not eeg.matches(None)
-        assert not eeg.matches(ValueError())
-        assert eeg.matches(ExceptionGroup("", (ValueError(),)))
+        rg = RaisesGroup(ValueError)
+        assert not rg.matches(None)
+        assert not rg.matches(ValueError())
+        assert rg.matches(ExceptionGroup("", (ValueError(),)))
 
     def test_message(self) -> None:
         with pytest.raises(
