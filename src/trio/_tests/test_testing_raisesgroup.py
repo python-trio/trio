@@ -81,12 +81,15 @@ class TestRaisesGroup:
             raise ExceptionGroup("", (ExceptionGroup("", (ValueError(),)),))
 
         # mixed loose is possible if you want it to be at least N deep
-        with RaisesGroup(RaisesGroup(ValueError, strict=True)):
+        with RaisesGroup(RaisesGroup(ValueError, strict=False)):
             raise ExceptionGroup("", (ExceptionGroup("", (ValueError(),)),))
         with RaisesGroup(RaisesGroup(ValueError, strict=False)):
             raise ExceptionGroup(
                 "", (ExceptionGroup("", (ExceptionGroup("", (ValueError(),)),)),)
             )
+        with pytest.raises(ExceptionGroup):
+            with RaisesGroup(RaisesGroup(ValueError, strict=False)):
+                raise ExceptionGroup("", (ValueError(),))
 
         # but not the other way around
         with pytest.raises(
