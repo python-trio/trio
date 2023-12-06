@@ -127,7 +127,6 @@ extend-exclude = [
 'src/trio/lowlevel.py' = ['F401']
 'src/trio/socket.py' = ['F401']
 'src/trio/testing/__init__.py' = ['F401']
-'**/type_tests/*' = ['F841']  # Annotated local vars are used to specify return values.
 
 [tool.ruff.isort]
 combine-as-imports = true
