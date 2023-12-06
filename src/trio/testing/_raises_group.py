@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 import sys
-from types import TracebackType
 from typing import (
     TYPE_CHECKING,
     Callable,
@@ -17,6 +16,8 @@ from typing import (
 from trio._util import final
 
 if TYPE_CHECKING:
+    from types import TracebackType
+
     from typing_extensions import TypeGuard
 
 if sys.version_info < (3, 11):
@@ -220,7 +221,7 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
 
         # Cast to narrow the exception type now that it's verified.
         exc_info = cast(
-            tuple[type[BaseExceptionGroup[E]], BaseExceptionGroup[E], TracebackType],
+            "tuple[type[BaseExceptionGroup[E]], BaseExceptionGroup[E], TracebackType]",
             (exc_type, exc_val, exc_tb),
         )
         self.excinfo.fill_unfilled(exc_info)
