@@ -1721,8 +1721,7 @@ class Runner:
         # Call the function and get the coroutine object, while giving helpful
         # errors for common mistakes.
         ######
-        # TODO: resolve the type: ignore when implementing TypeVarTuple
-        coro = context.run(coroutine_or_error, async_fn, *args)  # type: ignore[arg-type]
+        coro = context.run(coroutine_or_error, async_fn, *args)
 
         if name is None:
             name = async_fn
