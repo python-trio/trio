@@ -648,7 +648,8 @@ async def test_open_stream_to_socket_listener() -> None:
     sock.listen(10)
     await check(SocketListener(sock))
 
-    if can_bind_ipv6:
+    # true on all CI systems
+    if can_bind_ipv6:  # pragma: no branch
         # Listener bound to IPv6 wildcard (needs special handling)
         sock = tsocket.socket(family=tsocket.AF_INET6)
         await sock.bind(("::", 0))
