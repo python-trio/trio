@@ -319,6 +319,10 @@ def test_static_tool_sees_class_members(
         if class_name.startswith("_"):  # pragma: no cover
             continue
 
+        # ignore class that does dirty tricks
+        if class_ is trio.testing.RaisesGroup:
+            continue
+
         # dir() and inspect.getmembers doesn't display properties from the metaclass
         # also ignore some dunder methods that tend to differ but are of no consequence
         ignore_names = set(dir(type(class_))) | {
