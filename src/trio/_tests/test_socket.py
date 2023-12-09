@@ -828,10 +828,9 @@ async def test_address_in_socket_error() -> None:
     with tsocket.socket() as sock:
         with pytest.raises(
             OSError,
-            match=r"^\[\w+ \d+\] Error connecting to \('127\.0\.0\.1', 2\): (Connection refused|Unknown error)$",
-        ) as excinfo:
+            match=rf"^\[\w+ \d+\] Error connecting to \({address!r}, 2\): (Connection refused|Unknown error)$",
+        ):
             await sock.connect((address, 2))
-    assert any(address in str(arg) for arg in excinfo.value.args)
 
 
 async def test_resolve_address_exception_in_connect_closes_socket() -> None:
