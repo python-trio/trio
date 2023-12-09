@@ -435,7 +435,9 @@ def test_static_tool_sees_class_members(
         if tool == "mypy" and class_ == trio.Nursery:
             extra.remove("cancel_scope")
 
-        # TODO: I'm not so sure about these, but should still be looked at.
+        # These are (mostly? solely?) *runtime* attributes, often set in
+        # __init__, which doesn't show up with dir() or inspect.getmembers,
+        # but we get them in the way we query mypy & jedi
         EXTRAS = {
             trio.DTLSChannel: {"peer_address", "endpoint"},
             trio.DTLSEndpoint: {"socket", "incoming_packets_buffer"},
@@ -449,6 +451,11 @@ def test_static_tool_sees_class_members(
                 "close_hook",
                 "send_all_hook",
                 "wait_send_all_might_not_block_hook",
+            },
+            trio.testing.Matcher: {
+                "exception_type",
+                "match",
+                "check",
             },
         }
         if tool == "mypy" and class_ in EXTRAS:
