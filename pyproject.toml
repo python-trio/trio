@@ -239,9 +239,9 @@ omit = [
 # The test suite spawns subprocesses to test some stuff, so make sure
 # this doesn't corrupt the coverage files
 parallel = true
-fail_under = 100
 
 [tool.coverage.report]
+fail_under = 100
 precision = 1
 skip_covered = true
 exclude_lines = [
