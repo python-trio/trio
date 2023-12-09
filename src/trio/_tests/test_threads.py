@@ -37,7 +37,7 @@ from .. import (
     sleep_forever,
 )
 from .._core._tests.test_ki import ki_self
-from .._core._tests.tutil import buggy_pypy_asyncgens, slow
+from .._core._tests.tutil import slow
 from .._threads import (
     current_default_thread_limiter,
     from_thread_check_cancelled,
@@ -854,7 +854,6 @@ async def test_from_thread_inside_trio_thread() -> None:
         from_thread_run_sync(not_called, trio_token=trio_token)
 
 
-@pytest.mark.skipif(buggy_pypy_asyncgens, reason="pypy 7.2.0 is buggy")
 def test_from_thread_run_during_shutdown() -> None:
     save = []
     record = []
