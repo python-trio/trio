@@ -300,7 +300,7 @@ def test_static_tool_sees_class_members(
                 for piece in modname[:-1]:
                     mod_cache /= piece
                 next_cache = mod_cache / modname[-1]
-                if next_cache.is_dir():
+                if next_cache.is_dir():  # pragma: no coverage
                     mod_cache = next_cache / "__init__.data.json"
                 else:
                     mod_cache = mod_cache / (modname[-1] + ".data.json")
