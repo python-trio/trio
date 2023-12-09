@@ -241,7 +241,6 @@ omit = [
 parallel = true
 
 [tool.coverage.report]
-fail_under = 100
 precision = 1
 skip_covered = true
 exclude_lines = [

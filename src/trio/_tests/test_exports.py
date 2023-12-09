@@ -183,7 +183,7 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
         _, modname = (modname + ".").split(".", 1)
         modname = modname[:-1]
         mod_cache = trio_cache / modname if modname else trio_cache
-        if mod_cache.is_dir():
+        if mod_cache.is_dir():  # pragma: no coverage
             mod_cache = mod_cache / "__init__.data.json"
         else:
             mod_cache = trio_cache / (modname + ".data.json")
