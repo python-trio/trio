@@ -774,14 +774,21 @@ async def test_cancel_scope_misnesting() -> None:
         ) as exc_info:
             await nursery_mgr.__aexit__(*sys.exc_info())
 
-        subexceptions = (
-            Matcher(RuntimeError, match="closed before the task exited"),
-        ) * 3
-        assert RaisesGroup(*subexceptions).matches(exc_info.value.__context__)
-        assert any(
-            isinstance(exc.__context__, _core.Cancelled)
-            for exc in exc_info.value.__context__.exceptions
-        )  # for the sleep_forever
+    def no_context(exc: RuntimeError) -> bool:
+        return exc.__context__ is None
+
+    msg = "closed before the task exited"
+    subexceptions = (
+        Matcher(RuntimeError, match=msg, check=no_context),
+        Matcher(RuntimeError, match=msg, check=no_context),
+        # sleep_forever
+        Matcher(
+            RuntimeError,
+            match=msg,
+            check=lambda x: isinstance(x.__context__, _core.Cancelled),
+        ),
+    )
+    assert RaisesGroup(*subexceptions).matches(exc_info.value.__context__)
 
     # Trying to exit a cancel scope from an unrelated task raises an error
     # without affecting any state
