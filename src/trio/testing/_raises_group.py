@@ -32,7 +32,7 @@ class _ExceptionInfo(Generic[E]):
     _excinfo: tuple[type[E], E, TracebackType] | None
 
     def __init__(self, excinfo: tuple[type[E], E, TracebackType] | None):
-        self._exc_info = excinfo
+        self._excinfo = excinfo
 
     def fill_unfilled(self, exc_info: tuple[type[E], E, TracebackType]) -> None:
         """Fill an unfilled ExceptionInfo created with ``for_later()``."""
@@ -44,6 +44,30 @@ class _ExceptionInfo(Generic[E]):
         """Return an unfilled ExceptionInfo."""
         return cls(None)
 
+    @property
+    def type(self) -> type[E]:
+        """The exception class."""
+        assert (
+            self._excinfo is not None
+        ), ".type can only be used after the context manager exits"
+        return self._excinfo[0]
+
+    @property
+    def value(self) -> E:
+        """The exception value."""
+        assert (
+            self._excinfo is not None
+        ), ".value can only be used after the context manager exits"
+        return self._excinfo[1]
+
+    @property
+    def tb(self) -> TracebackType:
+        """The exception raw traceback."""
+        assert (
+            self._excinfo is not None
+        ), ".tb can only be used after the context manager exits"
+        return self._excinfo[2]
+
 
 # this may bite users with type checkers not using pytest, but that should
 # be rare and give quite obvious errors in tests trying to do so.
@@ -53,7 +77,7 @@ if TYPE_CHECKING:
 else:
     try:
         from pytest import ExceptionInfo
-    except ImportError:
+    except ImportError:  # pragma: no cover
         ExceptionInfo = _ExceptionInfo
 
 

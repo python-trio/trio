@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import re
 import sys
+from types import TracebackType
 from typing import TYPE_CHECKING
 
 import pytest
 
+import trio
 from trio.testing import Matcher, RaisesGroup
 
 # TODO: make a public export
@@ -193,6 +195,19 @@ def test_Matcher_check() -> None:
     with pytest.raises(ExceptionGroup):
         with RaisesGroup(Matcher(OSError, check=check_errno_is_5)):
             raise ExceptionGroup("", (OSError(6, ""),))
+
+
+def test__ExceptionInfo(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        trio.testing._raises_group,
+        "ExceptionInfo",
+        trio.testing._raises_group._ExceptionInfo,
+    )
+    with trio.testing.RaisesGroup(ValueError) as excinfo:
+        raise ExceptionGroup("", (ValueError("hello"),))
+    assert excinfo.type is ExceptionGroup
+    assert excinfo.value.exceptions[0].args == ("hello",)
+    assert isinstance(excinfo.tb, TracebackType)
 
 
 if TYPE_CHECKING:
