@@ -175,7 +175,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         if can_try_pidfd_open:
             try:
                 fd: int = pidfd_open(self._proc.pid, 0)
-            except OSError:
+            except OSError:  # pragma: no cover
                 # Well, we tried, but it didn't work (probably because we're
                 # running on an older kernel, or in an older sandbox, that
                 # hasn't been updated to support pidfd_open). We'll fall back

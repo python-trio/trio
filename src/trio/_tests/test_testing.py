@@ -666,3 +666,13 @@ async def test_open_stream_to_socket_listener() -> None:
             await sock.bind(path)
             sock.listen(10)
             await check(SocketListener(sock))
+
+
+def test_trio_test() -> None:
+    async def busy_kitchen(*, mock_clock: object, autojump_clock: object) -> None:
+        ...
+
+    with pytest.raises(ValueError, match="^too many clocks spoil the broth!$"):
+        trio_test(busy_kitchen)(
+            mock_clock=MockClock(), autojump_clock=MockClock(autojump_threshold=0)
+        )
