@@ -45,10 +45,16 @@ class _ExceptionInfo(Generic[E]):
         return cls(None)
 
 
-try:
+# this may bite users with type checkers not using pytest, but that should
+# be rare and give quite obvious errors in tests trying to do so.
+if TYPE_CHECKING:
     from pytest import ExceptionInfo
-except ImportError:
-    ExceptionInfo = _ExceptionInfo  # type: ignore[misc, assignment]
+
+else:
+    try:
+        from pytest import ExceptionInfo
+    except ImportError:
+        ExceptionInfo = _ExceptionInfo
 
 
 # copied from pytest.ExceptionInfo
@@ -117,7 +123,10 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
         match: str | Pattern[str] | None = None,
         check: Callable[[BaseExceptionGroup[E]], bool] | None = None,
     ):
-        self.expected_exceptions = (exceptions, *args)
+        self.expected_exceptions: tuple[type[E] | Matcher[E] | E, ...] = (
+            exceptions,
+            *args,
+        )
         self.strict = strict
         self.match_expr = match
         # message is read-only in BaseExceptionGroup, which we lie to mypy we inherit from
