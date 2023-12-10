@@ -11,11 +11,12 @@ from trio._highlevel_open_unix_stream import close_on_error
 
 assert not TYPE_CHECKING or sys.platform != "win32"
 
-has_unix = hasattr(socket, "AF_UNIX")
-reason_unix = "Needs unix socket support"
+skip_if_not_unix = pytest.mark.skipif(
+    not hasattr(socket, "AF_UNIX"), reason="Needs unix socket support"
+)
 
 
-@pytest.mark.skipif(not has_unix, reason=reason_unix)
+@skip_if_not_unix
 def test_close_on_error() -> None:
     class CloseMe:
         closed = False
@@ -33,14 +34,14 @@ def test_close_on_error() -> None:
     assert c.closed
 
 
-@pytest.mark.skipif(not has_unix, reason=reason_unix)
+@skip_if_not_unix
 @pytest.mark.parametrize("filename", [4, 4.5])
 async def test_open_with_bad_filename_type(filename: float) -> None:
     with pytest.raises(TypeError):
         await open_unix_socket(filename)  # type: ignore[arg-type]
 
 
-@pytest.mark.skipif(not has_unix, reason=reason_unix)
+@skip_if_not_unix
 async def test_open_bad_socket() -> None:
     # mktemp is marked as insecure, but that's okay, we don't want the file to
     # exist
@@ -49,7 +50,7 @@ async def test_open_bad_socket() -> None:
         await open_unix_socket(name)
 
 
-@pytest.mark.skipif(not has_unix, reason=reason_unix)
+@skip_if_not_unix
 async def test_open_unix_socket() -> None:
     for name_type in [Path, str]:
         name = tempfile.mktemp()
@@ -75,7 +76,7 @@ async def test_open_unix_socket() -> None:
                 os.unlink(name)
 
 
-@pytest.mark.skipif(has_unix, reason="Test for non-unix platforms")
+@pytest.mark.skipif(hasattr(socket, "AF_UNIX"), reason="Test for non-unix platforms")
 async def test_error_on_no_unix() -> None:
     with pytest.raises(
         RuntimeError, match="^Unix sockets are not supported on this platform$"
