@@ -778,7 +778,7 @@ async def test_cancel_scope_misnesting() -> None:
         return exc.__context__ is None
 
     msg = "closed before the task exited"
-    subexceptions = (
+    group = RaisesGroup(
         Matcher(RuntimeError, match=msg, check=no_context),
         Matcher(RuntimeError, match=msg, check=no_context),
         # sleep_forever
@@ -788,7 +788,7 @@ async def test_cancel_scope_misnesting() -> None:
             check=lambda x: isinstance(x.__context__, _core.Cancelled),
         ),
     )
-    assert RaisesGroup(*subexceptions).matches(exc_info.value.__context__)
+    assert group.matches(exc_info.value.__context__)
 
     # Trying to exit a cancel scope from an unrelated task raises an error
     # without affecting any state
