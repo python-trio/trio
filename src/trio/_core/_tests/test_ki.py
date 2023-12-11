@@ -296,6 +296,7 @@ def test_ki_protection_works() -> None:
             nursery.start_soon(sleeper, "s2", record_set)
             nursery.start_soon(raiser, "r1", record_set)
 
+    # raises inside a nursery, so the KeyboardInterrupt is wrapped in an ExceptionGroup
     with testing.raises(ExpectedExceptionGroup(KeyboardInterrupt)):
         _core.run(check_unprotected_kill)
     assert record_set == {"s1 ok", "s2 ok", "r1 raise ok"}
@@ -312,6 +313,7 @@ def test_ki_protection_works() -> None:
             nursery.start_soon(_core.enable_ki_protection(raiser), "r1", record_set)
             # __aexit__ blocks, and then receives the KI
 
+    # raises inside a nursery, so the KeyboardInterrupt is wrapped in an ExceptionGroup
     with testing.raises(ExpectedExceptionGroup(KeyboardInterrupt)):
         _core.run(check_protected_kill)
     assert record_set == {"s1 ok", "s2 ok", "r1 cancel ok"}
@@ -334,7 +336,7 @@ def test_ki_protection_works() -> None:
 
         token.run_sync_soon(kill_during_shutdown)
 
-    # Does not wrap in an ExceptionGroup(!!)
+    # no nurseries involved, so the KeyboardInterrupt isn't wrapped
     with testing.raises(KeyboardInterrupt):
         _core.run(check_kill_during_shutdown)
 
@@ -348,7 +350,7 @@ def test_ki_protection_works() -> None:
     async def main_1() -> None:
         await _core.checkpoint()
 
-    # Does not wrap in an ExceptionGroup(!!)
+    # no nurseries involved, so the KeyboardInterrupt isn't wrapped
     with pytest.raises(KeyboardInterrupt):
         _core.run(main_1, instruments=[InstrumentOfDeath()])
 

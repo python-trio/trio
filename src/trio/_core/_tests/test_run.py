@@ -137,6 +137,7 @@ async def test_child_crash_basic() -> None:
     async def erroring() -> NoReturn:
         raise exc
 
+    # TODO: with RaisesGroup, rewrite to use a Matcher to check the identity
     try:
         # nursery.__aexit__ propagates exception from child back to parent
         async with _core.open_nursery() as nursery:
@@ -1576,35 +1577,35 @@ def test_nice_error_on_bad_calls_to_run_or_spawn() -> None:
 
         _core.run(main)
 
-    for bad_call in bad_call_run, bad_call_spawn:
+    async def f() -> None:  # pragma: no cover
+        pass
 
-        async def f() -> None:  # pragma: no cover
-            pass
+    async def async_gen(arg: T) -> AsyncGenerator[T, None]:  # pragma: no cover
+        yield arg
 
-        async def async_gen(arg: T) -> AsyncGenerator[T, None]:  # pragma: no cover
-            yield arg
+    # If/when RaisesGroup/Matcher is added to pytest in some form this test can be
+    # rewritten to use a loop again, and avoid specifying the exceptions twice in
+    # different ways
+    with pytest.raises(TypeError, match="expecting an async function"):
+        bad_call_run(f())  # type: ignore[arg-type]
+    with pytest.raises(
+        TypeError, match="expected an async function but got an async generator"
+    ):
+        bad_call_run(async_gen, 0)  # type: ignore
 
-        # this is obviously horribly ugly code
-        # but one raising an exceptiongroup and one not doing so is probably bad
-        if bad_call is bad_call_run:
-            with pytest.raises(TypeError, match="expecting an async function"):
-                bad_call(f())  # type: ignore[arg-type]
-            with pytest.raises(
-                TypeError, match="expected an async function but got an async generator"
-            ):
-                bad_call(async_gen, 0)  # type: ignore
-        else:
-            with pytest.raises(
-                ExpectedExceptionGroup(TypeError("expecting an async function"))
-            ):
-                bad_call(f())  # type: ignore[arg-type]
+    # bad_call_spawn calls the function inside a nursery, so the exception will be
+    # wrapped in an exceptiongroup
+    with pytest.raises(
+        ExpectedExceptionGroup(TypeError("expecting an async function"))
+    ):
+        bad_call_spawn(f())  # type: ignore[arg-type]
 
-            with pytest.raises(
-                ExpectedExceptionGroup(
-                    TypeError("expected an async function but got an async generator")
-                )
-            ):
-                bad_call(async_gen, 0)  # type: ignore
+    with pytest.raises(
+        ExpectedExceptionGroup(
+            TypeError("expected an async function but got an async generator")
+        )
+    ):
+        bad_call_spawn(async_gen, 0)  # type: ignore
 
 
 def test_calling_asyncio_function_gives_nice_error() -> None:
