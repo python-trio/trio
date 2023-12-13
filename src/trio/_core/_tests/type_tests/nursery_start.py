@@ -74,11 +74,7 @@ def check_start_soon(nursery: Nursery) -> None:
     nursery.start_soon(task_2a, 38, "46")
     nursery.start_soon(task_2c, "abc", 12, True)
 
-    # Calling a 3-arg positional func, but using the default.
-    # Pyright intentionally ignores the default arg status here when converting
-    # callable -> typevartuple, but Mypy supports this.
-    # https://github.com/microsoft/pyright/issues/3775
-    nursery.start_soon(task_2c, "abc", 12)  # pyright: ignore
+    nursery.start_soon(task_2c, "abc", 12)
     task_2c_cast: Callable[
         [str, int], Awaitable[object]
     ] = task_2c  # The assignment makes it work.
