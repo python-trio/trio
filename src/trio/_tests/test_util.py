@@ -59,7 +59,9 @@ async def test_ConflictDetector() -> None:
         with ul1:
             await wait_all_tasks_blocked()
 
-    with pytest.raises(ExpectedExceptionGroup(_core.BusyResourceError("ul1"))):
+    with pytest.raises(  # noqa: PT012
+        ExpectedExceptionGroup(_core.BusyResourceError("ul1"))
+    ):
         async with _core.open_nursery() as nursery:
             nursery.start_soon(wait_with_ul1)
             nursery.start_soon(wait_with_ul1)

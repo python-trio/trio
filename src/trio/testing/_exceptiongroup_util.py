@@ -328,11 +328,12 @@ def raises(
             raise TypeError(f"{func!r} object (type: {type(func)}) must be callable")
         try:
             func(*args[1:], **kwargs)
-        except expected_exception as e:  # type: ignore[misc]  # TypeError raised for any ExpectedExceptionGroup
+        except expected_exception as exc:  # type: ignore[misc]  # TypeError raised for any ExpectedExceptionGroup
             # We just caught the exception - there is a traceback.
-            assert e.__traceback__ is not None
+            # Ignore using assert in except block below
+            assert exc.__traceback__ is not None  # noqa: PT017
             return _pytest._code.ExceptionInfo.from_exc_info(
-                (type(e), e, e.__traceback__)
+                (type(exc), exc, exc.__traceback__)
             )
     raise AssertionError(message)
 

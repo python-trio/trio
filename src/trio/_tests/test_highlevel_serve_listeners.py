@@ -161,7 +161,7 @@ async def test_serve_listeners_connection_nursery(autojump_clock: MockClock) -> 
             raise Done
 
     # the exception is wrapped twice because we open two nested nurseries
-    with pytest.raises(
+    with pytest.raises(  # noqa: PT012
         ExpectedExceptionGroup(ExpectedExceptionGroup(Done))
     ):
         async with trio.open_nursery() as nursery:

@@ -62,10 +62,11 @@ def _assert_raises(
     __tracebackhide__ = True
     try:
         yield
-    except BaseExceptionGroup as e:
+    except BaseExceptionGroup as exc:
         assert wrapped, "caught exceptiongroup, but expected an unwrapped exception"
-        assert len(e.exceptions) == 1
-        assert isinstance(e.exceptions[0], exc)
+        # assert in except block ignored below
+        assert len(exc.exceptions) == 1  # noqa: PT017
+        assert isinstance(exc.exceptions[0], exc)  # noqa: PT017
     except exc:
         assert not wrapped, "caught exception, but expected an exceptiongroup"
     else:

@@ -142,9 +142,9 @@ async def test_child_crash_basic() -> None:
         # nursery.__aexit__ propagates exception from child back to parent
         async with _core.open_nursery() as nursery:
             nursery.start_soon(erroring)
-    except ExceptionGroup as e:
-        assert len(e.exceptions) == 1
-        assert e.exceptions[0] is exc
+    except ExceptionGroup as exc:
+        assert len(exc.exceptions) == 1  # noqa: PT017
+        assert exc.exceptions[0] is exc  # noqa: PT017
 
 
 async def test_basic_interleave() -> None:
@@ -220,7 +220,7 @@ async def test_child_crash_wakes_parent() -> None:
     async def crasher() -> NoReturn:
         raise ValueError("this is a crash")
 
-    with pytest.raises(
+    with pytest.raises(  # noqa: PT012
         ExpectedExceptionGroup(ValueError("this is a crash"))
     ):
         async with _core.open_nursery() as nursery:
@@ -1099,7 +1099,7 @@ async def test_exc_info_after_throw_suppressed() -> None:
                 await sleep_forever()
             raise
 
-    with pytest.raises(ExpectedExceptionGroup(KeyError)):  # noqa: PT012
+    with pytest.raises(ExpectedExceptionGroup(KeyError)) as excinfo:  # noqa: PT012
         async with _core.open_nursery() as nursery:
             nursery.start_soon(child)
             await wait_all_tasks_blocked()
@@ -1127,7 +1127,7 @@ async def test_exception_chaining_after_throw() -> None:
         except KeyError:
             await sleep_forever()
 
-    with pytest.raises(
+    with pytest.raises(  # noqa: PT012
         ExpectedExceptionGroup(ValueError("error text"))
     ) as excinfo:
         async with _core.open_nursery() as nursery:
@@ -1210,7 +1210,7 @@ async def test_nursery_exception_chaining_doesnt_make_context_loops() -> None:
     async def crasher() -> NoReturn:
         raise KeyError
 
-    with pytest.raises(
+    with pytest.raises(  # noqa: PT012
         ExpectedExceptionGroup(KeyError, ValueError)
     ) as excinfo:
         async with _core.open_nursery() as nursery:
@@ -1997,7 +1997,7 @@ async def test_nursery_stop_iteration() -> None:
     async def fail() -> NoReturn:
         raise ValueError
 
-    with pytest.raises(
+    with pytest.raises(  # noqa: PT012
         ExpectedExceptionGroup(StopIteration, ValueError)
     ):
         async with _core.open_nursery() as nursery:
@@ -2610,7 +2610,7 @@ async def test_nursery_collapse_loose() -> None:
     async def raise_error() -> NoReturn:
         raise RuntimeError("test error")
 
-    with pytest.raises(
+    with pytest.raises(  # noqa: PT012
         ExpectedExceptionGroup(RuntimeError, RuntimeError)
     ):
         async with _core.open_nursery(strict_exception_groups=False) as nursery:
