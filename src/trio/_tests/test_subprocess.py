@@ -20,7 +20,6 @@ from typing import (
 )
 
 import pytest
-from pytest import MonkeyPatch, WarningsRecorder
 
 from .. import (
     ClosedResourceError,
@@ -170,7 +169,7 @@ async def test_multi_wait(background_process: BackgroundProcessType) -> None:
 
 
 # Test for deprecated 'async with process:' semantics
-async def test_async_with_basics_deprecated(recwarn: WarningsRecorder) -> None:
+async def test_async_with_basics_deprecated(recwarn: pytest.WarningsRecorder) -> None:
     async with await open_process(
         CAT, stdin=subprocess.PIPE, stdout=subprocess.PIPE
     ) as proc:
@@ -185,7 +184,7 @@ async def test_async_with_basics_deprecated(recwarn: WarningsRecorder) -> None:
 
 
 # Test for deprecated 'async with process:' semantics
-async def test_kill_when_context_cancelled(recwarn: WarningsRecorder) -> None:
+async def test_kill_when_context_cancelled(recwarn: pytest.WarningsRecorder) -> None:
     with move_on_after(100) as scope:
         async with await open_process(SLEEP(10)) as proc:
             assert proc.poll() is None
@@ -346,15 +345,25 @@ async def test_run() -> None:
     # invalid combinations
     with pytest.raises(UnicodeError):
         await run_process(CAT, stdin="oh no, it's text")
-    with pytest.raises(ValueError):
+
+    pipe_stdout_error = r"^stdout=subprocess\.PIPE is only valid with nursery\.start, since that's the only way to access the pipe(; use nursery\.start or pass the data you want to write directly)*$"
+    with pytest.raises(ValueError, match=pipe_stdout_error):
         await run_process(CAT, stdin=subprocess.PIPE)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=pipe_stdout_error):
         await run_process(CAT, stdout=subprocess.PIPE)
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError, match=pipe_stdout_error.replace("stdout", "stderr", 1)
+    ):
         await run_process(CAT, stderr=subprocess.PIPE)
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError,
+        match="^can't specify both stdout and capture_stdout$",
+    ):
         await run_process(CAT, capture_stdout=True, stdout=subprocess.DEVNULL)
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError,
+        match="^can't specify both stderr and capture_stderr$",
+    ):
         await run_process(CAT, capture_stderr=True, stderr=None)
 
 
@@ -583,7 +592,7 @@ async def test_custom_deliver_cancel() -> None:
     assert custom_deliver_cancel_called
 
 
-async def test_warn_on_failed_cancel_terminate(monkeypatch: MonkeyPatch) -> None:
+async def test_warn_on_failed_cancel_terminate(monkeypatch: pytest.MonkeyPatch) -> None:
     original_terminate = Process.terminate
 
     def broken_terminate(self: Process) -> NoReturn:
@@ -601,7 +610,7 @@ async def test_warn_on_failed_cancel_terminate(monkeypatch: MonkeyPatch) -> None
 
 @pytest.mark.skipif(not posix, reason="posix only")
 async def test_warn_on_cancel_SIGKILL_escalation(
-    autojump_clock: MockClock, monkeypatch: MonkeyPatch
+    autojump_clock: MockClock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(Process, "terminate", lambda *args: None)
 

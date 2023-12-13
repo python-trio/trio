@@ -103,6 +103,7 @@ select = [
   "PYI",  # flake8-pyi
   "SIM",  # flake8-simplify
   "TCH",  # flake8-type-checking
+  "PT",  # flake8-pytest-style
 ]
 extend-ignore = [
     'F403',  # undefined-local-with-import-star
@@ -130,6 +131,9 @@ extend-exclude = [
 
 [tool.ruff.isort]
 combine-as-imports = true
+
+[tool.ruff.flake8-pytest-style]
+fixture-parentheses = false
 
 [tool.mypy]
 python_version = "3.8"
