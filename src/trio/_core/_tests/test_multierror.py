@@ -136,7 +136,7 @@ async def test_MultiErrorNotHashable() -> None:
     assert exc1 != exc2
     assert exc1 != exc3
 
-    with pytest.raises(ExceptionGroup):
+    with pytest.raises(ExceptionGroup):  # noqa: PT012
         async with open_nursery() as nursery:
             nursery.start_soon(raise_nothashable, 42)
             nursery.start_soon(raise_nothashable, 4242)
@@ -331,36 +331,35 @@ def test_MultiError_catch() -> None:
     assert new_m.__context__ is None
 
     # check preservation of __cause__ and __context__
-    v = ValueError()
+    v = ValueError("waffles are great")
     v.__cause__ = KeyError()
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(ValueError, match="^waffles are great$") as excinfo:
         with pytest.warns(TrioDeprecationWarning), MultiError.catch(lambda exc: exc):
             raise v
     assert isinstance(excinfo.value.__cause__, KeyError)
 
-    v = ValueError()
+    v = ValueError("mushroom soup")
     context = KeyError()
     v.__context__ = context
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(ValueError, match="^mushroom soup$") as excinfo:
         with pytest.warns(TrioDeprecationWarning), MultiError.catch(lambda exc: exc):
             raise v
     assert excinfo.value.__context__ is context
     assert not excinfo.value.__suppress_context__
 
     for suppress_context in [True, False]:
-        v = ValueError()
+        v = ValueError("unique text")
         context = KeyError()
         v.__context__ = context
         v.__suppress_context__ = suppress_context
         distractor = RuntimeError()
-        with pytest.raises(ValueError) as excinfo:
 
-            def catch_RuntimeError(exc):
-                if isinstance(exc, RuntimeError):
-                    return None
-                else:
-                    return exc
+        def catch_RuntimeError(exc: Exception) -> Exception | None:
+            if isinstance(exc, RuntimeError):
+                return None
+            return exc
 
+        with pytest.raises(ValueError, match="^unique text$") as excinfo:  # noqa: PT012
             with pytest.warns(TrioDeprecationWarning):
                 with MultiError.catch(catch_RuntimeError):
                     raise MultiError([v, distractor])

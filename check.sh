@@ -110,6 +110,7 @@ if [ $PYRIGHT -ne 0 ]; then
 fi
 
 pyright src/trio/_tests/type_tests || EXIT_STATUS=$?
+pyright src/trio/_core/_tests/type_tests || EXIT_STATUS=$?
 echo "::endgroup::"
 
 # Finally, leave a really clear warning of any issues and exit

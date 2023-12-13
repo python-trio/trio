@@ -5,7 +5,6 @@ import tempfile
 from typing import TYPE_CHECKING
 
 import pytest
-from pytest import WarningsRecorder
 
 from trio.testing import ExpectedExceptionGroup
 
@@ -112,7 +111,7 @@ async def test_wait_all_tasks_blocked_with_cushion() -> None:
 ################################################################
 
 
-async def test_assert_checkpoints(recwarn: WarningsRecorder) -> None:
+async def test_assert_checkpoints(recwarn: pytest.WarningsRecorder) -> None:
     with assert_checkpoints():
         await _core.checkpoint()
 
@@ -138,7 +137,7 @@ async def test_assert_checkpoints(recwarn: WarningsRecorder) -> None:
         await _core.cancel_shielded_checkpoint()
 
 
-async def test_assert_no_checkpoints(recwarn: WarningsRecorder) -> None:
+async def test_assert_no_checkpoints(recwarn: pytest.WarningsRecorder) -> None:
     with assert_no_checkpoints():
         1 + 1  # noqa: B018  # "useless expression"
 
@@ -159,7 +158,7 @@ async def test_assert_no_checkpoints(recwarn: WarningsRecorder) -> None:
                 await partial_yield()
 
     # And both together also count as a checkpoint
-    with pytest.raises(AssertionError):
+    with pytest.raises(AssertionError):  # noqa: PT012
         with assert_no_checkpoints():
             await _core.checkpoint_if_cancelled()
             await _core.cancel_shielded_checkpoint()
@@ -281,7 +280,7 @@ async def test__UnboundeByteQueue() -> None:
         nursery.start_soon(putter, b"xyz")
 
     # Two gets at the same time -> BusyResourceError
-    with pytest.raises(ExpectedExceptionGroup(_core.BusyResourceError)):
+    with pytest.raises(ExpectedExceptionGroup(_core.BusyResourceError)):  # noqa: PT012
         async with _core.open_nursery() as nursery:
             nursery.start_soon(getter, b"asdf")
             nursery.start_soon(getter, b"asdf")
@@ -415,7 +414,7 @@ async def test_MemoryReceiveStream() -> None:
     mrs.put_data(b"abc")
     assert await do_receive_some(None) == b"abc"
 
-    with pytest.raises(ExpectedExceptionGroup(_core.BusyResourceError)):
+    with pytest.raises(ExpectedExceptionGroup(_core.BusyResourceError)):  # noqa: PT012
         async with _core.open_nursery() as nursery:
             nursery.start_soon(do_receive_some, 10)
             nursery.start_soon(do_receive_some, 10)
@@ -637,7 +636,8 @@ async def test_open_stream_to_socket_listener() -> None:
     sock.listen(10)
     await check(SocketListener(sock))
 
-    if can_bind_ipv6:
+    # true on all CI systems
+    if can_bind_ipv6:  # pragma: no branch
         # Listener bound to IPv6 wildcard (needs special handling)
         sock = tsocket.socket(family=tsocket.AF_INET6)
         await sock.bind(("::", 0))

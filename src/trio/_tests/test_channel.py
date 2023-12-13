@@ -13,7 +13,7 @@ from ..testing import assert_checkpoints, wait_all_tasks_blocked
 async def test_channel() -> None:
     with pytest.raises(TypeError):
         open_memory_channel(1.0)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="^max_buffer_size must be >= 0$"):
         open_memory_channel(-1)
 
     s, r = open_memory_channel[Union[int, str, None]](2)
@@ -151,17 +151,17 @@ async def test_close_basics() -> None:
         with pytest.raises(trio.ClosedResourceError):
             await r.receive()
 
-    s, r = open_memory_channel[None](0)
+    s2, r2 = open_memory_channel[int](0)
     async with trio.open_nursery() as nursery:
-        nursery.start_soon(receive_block, r)
+        nursery.start_soon(receive_block, r2)
         await wait_all_tasks_blocked()
-        await r.aclose()
+        await r2.aclose()
 
     # and it's persistent
     with pytest.raises(trio.ClosedResourceError):
-        r.receive_nowait()
+        r2.receive_nowait()
     with pytest.raises(trio.ClosedResourceError):
-        await r.receive()
+        await r2.receive()
 
 
 async def test_close_sync() -> None:
@@ -204,7 +204,7 @@ async def test_close_sync() -> None:
         await s.send(None)
 
     # closing receive -> other receive gets ClosedResourceError
-    async def receive_block(r: trio.MemoryReceiveChannel[int]) -> None:
+    async def receive_block(r: trio.MemoryReceiveChannel[None]) -> None:
         with pytest.raises(trio.ClosedResourceError):
             await r.receive()
 
@@ -366,9 +366,9 @@ async def test_channel_fairness() -> None:
     # But if someone else is waiting to receive, then they "own" the item we
     # send, so we can't receive it (even though we run first):
 
-    result = None
+    result: int | None = None
 
-    async def do_receive(r: trio.MemoryReceiveChannel[int]) -> None:
+    async def do_receive(r: trio.MemoryReceiveChannel[int | None]) -> None:
         nonlocal result
         result = await r.receive()
 

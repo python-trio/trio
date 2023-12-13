@@ -42,7 +42,9 @@ async def test_open_signal_receiver() -> None:
 
 async def test_open_signal_receiver_restore_handler_after_one_bad_signal() -> None:
     orig = signal.getsignal(signal.SIGILL)
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError, match="(signal number out of range|invalid signal value)$"
+    ):
         with open_signal_receiver(signal.SIGILL, 1234567):
             pass  # pragma: no cover
     # Still restored even if we errored out
@@ -73,7 +75,7 @@ async def test_catch_signals_wrong_thread() -> None:
 
 
 async def test_open_signal_receiver_conflict() -> None:
-    with pytest.raises(ExpectedExceptionGroup(trio.BusyResourceError)):
+    with pytest.raises(ExpectedExceptionGroup(trio.BusyResourceError)):  # noqa: PT012
         with open_signal_receiver(signal.SIGILL) as receiver:
             async with trio.open_nursery() as nursery:
                 nursery.start_soon(receiver.__anext__)
@@ -172,7 +174,7 @@ async def test_catch_signals_race_condition_on_exit() -> None:
         raise RuntimeError(signum)
 
     with _signal_handler({signal.SIGILL, signal.SIGFPE}, raise_handler):
-        with pytest.raises(RuntimeError) as excinfo:
+        with pytest.raises(RuntimeError) as excinfo:  # noqa: PT012
             with open_signal_receiver(signal.SIGILL, signal.SIGFPE) as receiver:
                 signal_raise(signal.SIGILL)
                 signal_raise(signal.SIGFPE)
