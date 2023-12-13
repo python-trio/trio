@@ -23,7 +23,6 @@ from typing import (
 
 import pytest
 import sniffio
-from pytest import MonkeyPatch
 
 from .. import (
     CancelScope,
@@ -327,7 +326,9 @@ async def test_run_in_worker_thread() -> None:
     def g() -> NoReturn:
         raise ValueError(threading.current_thread())
 
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(
+        ValueError, match=r"^<Thread\(Trio thread \d+, started daemon \d+\)>$"
+    ) as excinfo:
         await to_thread_run_sync(g)
     print(excinfo.value.args)
     assert excinfo.value.args[0] != trio_thread
@@ -394,7 +395,7 @@ async def test_run_in_worker_thread_cancellation() -> None:
 # handled gracefully. (Requires that the thread result machinery be prepared
 # for call_soon to raise RunFinishedError.)
 def test_run_in_worker_thread_abandoned(
-    capfd: pytest.CaptureFixture[str], monkeypatch: MonkeyPatch
+    capfd: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(_core._thread_cache, "IDLE_TIMEOUT", 0.01)
 
@@ -574,11 +575,11 @@ async def test_run_in_worker_thread_limiter_error() -> None:
 
         def release_on_behalf_of(self, borrower: Task) -> NoReturn:
             record.append("release")
-            raise ValueError
+            raise ValueError("release on behalf")
 
     bs = BadCapacityLimiter()
 
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(ValueError, match="^release on behalf$") as excinfo:
         await to_thread_run_sync(lambda: None, limiter=bs)  # type: ignore[call-overload]
     assert excinfo.value.__context__ is None
     assert record == ["acquire", "release"]
@@ -587,13 +588,15 @@ async def test_run_in_worker_thread_limiter_error() -> None:
     # If the original function raised an error, then the semaphore error
     # chains with it
     d: dict[str, object] = {}
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(ValueError, match="^release on behalf$") as excinfo:
         await to_thread_run_sync(lambda: d["x"], limiter=bs)  # type: ignore[call-overload]
     assert isinstance(excinfo.value.__context__, KeyError)
     assert record == ["acquire", "release"]
 
 
-async def test_run_in_worker_thread_fail_to_spawn(monkeypatch: MonkeyPatch) -> None:
+async def test_run_in_worker_thread_fail_to_spawn(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # Test the unlikely but possible case where trying to spawn a thread fails
     def bad_start(self: object, *args: object) -> NoReturn:
         raise RuntimeError("the engines canna take it captain")
@@ -1085,10 +1088,16 @@ async def test_reentry_doesnt_deadlock() -> None:
 
 
 async def test_cancellable_and_abandon_raises() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError,
+        match=r"^Cannot set `cancellable` and `abandon_on_cancel` simultaneously\.$",
+    ):
         await to_thread_run_sync(bool, cancellable=True, abandon_on_cancel=False)  # type: ignore[call-overload]
 
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError,
+        match=r"^Cannot set `cancellable` and `abandon_on_cancel` simultaneously\.$",
+    ):
         await to_thread_run_sync(bool, cancellable=True, abandon_on_cancel=True)  # type: ignore[call-overload]
 
 

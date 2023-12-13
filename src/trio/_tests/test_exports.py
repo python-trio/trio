@@ -116,7 +116,7 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
 # they might be using a newer version of Python with additional symbols which
 # won't be reflected in trio.socket, and this shouldn't cause downstream test
 # runs to start failing.
-@pytest.mark.redistributors_should_skip
+@pytest.mark.redistributors_should_skip()
 # Static analysis tools often have trouble with alpha releases, where Python's
 # internals are in flux, grammar may not have settled down, etc.
 @pytest.mark.skipif(
@@ -188,7 +188,8 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
         else:
             mod_cache = trio_cache / (modname + ".data.json")
 
-        assert mod_cache.exists() and mod_cache.is_file()
+        assert mod_cache.exists()
+        assert mod_cache.is_file()
         with mod_cache.open() as cache_file:
             cache_json = json.loads(cache_file.read())
             static_names = no_underscores(
@@ -243,7 +244,7 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
 # modules, instead of once per class.
 @slow
 # see comment on test_static_tool_sees_all_symbols
-@pytest.mark.redistributors_should_skip
+@pytest.mark.redistributors_should_skip()
 # Static analysis tools often have trouble with alpha releases, where Python's
 # internals are in flux, grammar may not have settled down, etc.
 @pytest.mark.skipif(
@@ -283,7 +284,8 @@ def test_static_tool_sees_class_members(
         else:
             mod_cache = trio_cache / (modname + ".data.json")
 
-        assert mod_cache.exists() and mod_cache.is_file()
+        assert mod_cache.exists()
+        assert mod_cache.is_file()
         with mod_cache.open() as cache_file:
             cache_json = json.loads(cache_file.read())
 
