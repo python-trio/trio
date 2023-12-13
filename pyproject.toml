@@ -157,6 +157,8 @@ check_untyped_defs = true
 
 [tool.pyright]
 pythonVersion = "3.8"
+reportUnnecessaryTypeIgnoreComment = true
+typeCheckingMode = "strict"
 
 [tool.pytest.ini_options]
 addopts = ["--strict-markers", "--strict-config", "-p trio._tests.pytest_plugin"]
@@ -235,6 +237,8 @@ omit = [
     "*/trio/_core/_tests/test_multierror_scripts/*",
     # Omit the generated files in trio/_core starting with _generated_
     "*/trio/_core/_generated_*",
+    # Type tests aren't intended to be run, just passed to type checkers.
+    "*/type_tests/*",
 ]
 # The test suite spawns subprocesses to test some stuff, so make sure
 # this doesn't corrupt the coverage files

@@ -1554,6 +1554,7 @@ async def test_task_tree_introspection() -> None:
         assert tasks["child2"].child_nurseries == []
 
     async def child1(
+        *,
         task_status: _core.TaskStatus[None] = _core.TASK_STATUS_IGNORED,
     ) -> None:
         me = tasks["child1"] = _core.current_task()
@@ -1774,6 +1775,7 @@ async def test_nursery_start(autojump_clock: _core.MockClock) -> None:
 
     # calling started twice
     async def double_started(
+        *,
         task_status: _core.TaskStatus[None] = _core.TASK_STATUS_IGNORED,
     ) -> None:
         task_status.started()
@@ -1785,6 +1787,7 @@ async def test_nursery_start(autojump_clock: _core.MockClock) -> None:
 
     # child crashes before calling started -> error comes out of .start()
     async def raise_keyerror(
+        *,
         task_status: _core.TaskStatus[None] = _core.TASK_STATUS_IGNORED,
     ) -> None:
         raise KeyError("oops")
@@ -1795,6 +1798,7 @@ async def test_nursery_start(autojump_clock: _core.MockClock) -> None:
 
     # child exiting cleanly before calling started -> triggers a RuntimeError
     async def nothing(
+        *,
         task_status: _core.TaskStatus[None] = _core.TASK_STATUS_IGNORED,
     ) -> None:
         return
@@ -1808,6 +1812,7 @@ async def test_nursery_start(autojump_clock: _core.MockClock) -> None:
     # nothing -- the child keeps executing under start(). The value it passed
     # is ignored; start() raises Cancelled.
     async def just_started(
+        *,
         task_status: _core.TaskStatus[str] = _core.TASK_STATUS_IGNORED,
     ) -> None:
         task_status.started("hi")
@@ -1989,7 +1994,7 @@ async def test_nursery_stop_async_iteration() -> None:
             self.nexts = [obj.__anext__ for obj in largs]
 
         async def _accumulate(
-            self, f: Callable[[], Awaitable[int]], items: list[int | None], i: int
+            self, f: Callable[[], Awaitable[int]], items: list[int], i: int
         ) -> None:
             items[i] = await f()
 

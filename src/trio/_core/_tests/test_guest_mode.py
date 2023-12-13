@@ -658,8 +658,6 @@ def test_guest_mode_asyncgens() -> None:
     # Ensure we don't pollute the thread-level context if run under
     # an asyncio without contextvars support (3.6)
     context = contextvars.copy_context()
-    if TYPE_CHECKING:
-        aiotrio_run(trio_main, host_uses_signal_set_wakeup_fd=True)
     context.run(aiotrio_run, trio_main, host_uses_signal_set_wakeup_fd=True)
 
     assert record == {("asyncio", "asyncio"), ("trio", "trio")}
