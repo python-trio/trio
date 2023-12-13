@@ -2,6 +2,8 @@
 """
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 # General layout:
 #
 # trio/_core/... is the self-contained core library. It does various
@@ -111,7 +113,7 @@ from ._version import __version__
 
 # Not imported by default, but mentioned here so static analysis tools like
 # pylint will know that it exists.
-if False:
+if TYPE_CHECKING:
     from . import testing
 
 from . import _deprecate as _deprecate
@@ -154,3 +156,4 @@ fixup_module_metadata(abc.__name__, abc.__dict__)
 fixup_module_metadata(from_thread.__name__, from_thread.__dict__)
 fixup_module_metadata(to_thread.__name__, to_thread.__dict__)
 del fixup_module_metadata
+del TYPE_CHECKING

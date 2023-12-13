@@ -116,7 +116,7 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
 # they might be using a newer version of Python with additional symbols which
 # won't be reflected in trio.socket, and this shouldn't cause downstream test
 # runs to start failing.
-@pytest.mark.redistributors_should_skip
+@pytest.mark.redistributors_should_skip()
 # Static analysis tools often have trouble with alpha releases, where Python's
 # internals are in flux, grammar may not have settled down, etc.
 @pytest.mark.skipif(
@@ -157,6 +157,9 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
         ast = linter.get_ast(module.__file__, modname)
         static_names = no_underscores(ast)  # type: ignore[arg-type]
     elif tool == "jedi":
+        if sys.implementation.name != "cpython":
+            pytest.skip("jedi does not support pypy")
+
         try:
             import jedi
         except ImportError as error:
@@ -185,7 +188,8 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
         else:
             mod_cache = trio_cache / (modname + ".data.json")
 
-        assert mod_cache.exists() and mod_cache.is_file()
+        assert mod_cache.exists()
+        assert mod_cache.is_file()
         with mod_cache.open() as cache_file:
             cache_json = json.loads(cache_file.read())
             static_names = no_underscores(
@@ -195,7 +199,8 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
             )
     elif tool == "pyright_verifytypes":
         if not RUN_SLOW:  # pragma: no cover
-            pytest.skip("use --run-slow to check against mypy")
+            pytest.skip("use --run-slow to check against pyright")
+
         try:
             import pyright  # noqa: F401
         except ImportError as error:
@@ -213,25 +218,8 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
             for x in current_result["typeCompleteness"]["symbols"]
             if x["name"].startswith(modname)
         }
-
-        # pyright ignores the symbol defined behind `if False`
-        if modname == "trio":
-            static_names.add("testing")
-
-        # these are hidden behind `if sys.platform != "win32" or not TYPE_CHECKING`
-        # so presumably pyright is parsing that if statement, in which case we don't
-        # care about them being missing.
-        if modname == "trio.socket" and sys.platform == "win32":
-            ignored_missing_names = {"if_indextoname", "if_nameindex", "if_nametoindex"}
-            assert static_names.isdisjoint(ignored_missing_names)
-            static_names.update(ignored_missing_names)
-
     else:  # pragma: no cover
         raise AssertionError()
-
-    # mypy handles errors with an `assert` in its branch
-    if tool == "mypy":
-        return
 
     # It's expected that the static set will contain more names than the
     # runtime set:
@@ -256,7 +244,7 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
 # modules, instead of once per class.
 @slow
 # see comment on test_static_tool_sees_all_symbols
-@pytest.mark.redistributors_should_skip
+@pytest.mark.redistributors_should_skip()
 # Static analysis tools often have trouble with alpha releases, where Python's
 # internals are in flux, grammar may not have settled down, etc.
 @pytest.mark.skipif(
@@ -296,7 +284,8 @@ def test_static_tool_sees_class_members(
         else:
             mod_cache = trio_cache / (modname + ".data.json")
 
-        assert mod_cache.exists() and mod_cache.is_file()
+        assert mod_cache.exists()
+        assert mod_cache.is_file()
         with mod_cache.open() as cache_file:
             cache_json = json.loads(cache_file.read())
 
@@ -435,9 +424,10 @@ def test_static_tool_sees_class_members(
         if (
             tool == "mypy"
             and enum.Enum in class_.__mro__
-            and sys.version_info >= (3, 11)
+            and sys.version_info >= (3, 12)
         ):
-            extra.difference_update({"__copy__", "__deepcopy__"})
+            # Another attribute, in 3.12+ only.
+            extra.remove("__signature__")
 
         # TODO: this *should* be visible via `dir`!!
         if tool == "mypy" and class_ == trio.Nursery:

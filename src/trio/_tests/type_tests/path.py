@@ -6,7 +6,7 @@ import sys
 from typing import IO, Any, BinaryIO, List, Tuple
 
 import trio
-from trio._path import _AsyncIOWrapper
+from trio._path import _AsyncIOWrapper  # pyright: ignore[reportPrivateUsage]
 from typing_extensions import assert_type
 
 

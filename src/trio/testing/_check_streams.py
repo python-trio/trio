@@ -42,6 +42,8 @@ class _ForceCloseBoth(Generic[Res1, Res2]):
             await aclose_forcefully(self._second)
 
 
+# This is used in this file instead of pytest.raises in order to avoid a dependency
+# on pytest, as the check_* functions are publicly exported.
 @contextmanager
 def _assert_raises(exc: type[BaseException]) -> Generator[None, None, None]:
     __tracebackhide__ = True
