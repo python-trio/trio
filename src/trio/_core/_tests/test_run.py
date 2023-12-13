@@ -1850,7 +1850,7 @@ async def test_nursery_start(autojump_clock: _core.MockClock) -> None:
         await _core.checkpoint()
         raise KeyError(f"I should come out of {eventual_parent_nursery!r}")
 
-    with pytest.raises(KeyError):
+    with pytest.raises(KeyError):  # noqa: PT012
         async with _core.open_nursery() as nursery:
             with _core.CancelScope() as cs:
                 cs.cancel()
