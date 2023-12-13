@@ -73,7 +73,6 @@ autodoc_type_aliases = {
     # aliasing doesn't actually fix the warning for types.FrameType, but displaying
     # "types.FrameType" is more helpful than just "frame"
     "FrameType": "types.FrameType",
-    "Context": "OpenSSL.SSL.Context",
     # SSLListener.accept's return type is seen as trio._ssl.SSLStream
     "SSLStream": "trio.SSLStream",
 }
@@ -91,6 +90,8 @@ def autodoc_process_signature(
             # Strip the type from the union, make it look like = ...
             signature = signature.replace(" | type[trio._core._local._NoValue]", "")
             signature = signature.replace("<class 'trio._core._local._NoValue'>", "...")
+        if "DTLS" in name:
+            signature = signature.replace("SSL.Context", "OpenSSL.SSL.Context")
         # Don't specify PathLike[str] | PathLike[bytes], this is just for humans.
         signature = signature.replace("StrOrBytesPath", "str | bytes | os.PathLike")
 

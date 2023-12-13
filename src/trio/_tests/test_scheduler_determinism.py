@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import trio
 
 if TYPE_CHECKING:
-    from pytest import MonkeyPatch
+    import pytest
 
 
 async def scheduler_trace() -> tuple[tuple[str, int], ...]:
@@ -19,7 +19,7 @@ async def scheduler_trace() -> tuple[tuple[str, int], ...]:
 
     async with trio.open_nursery() as nursery:
         for i in range(5):
-            nursery.start_soon(tracer, i)
+            nursery.start_soon(tracer, str(i))
 
     return tuple(trace)
 
@@ -33,7 +33,7 @@ def test_the_trio_scheduler_is_not_deterministic() -> None:
 
 
 def test_the_trio_scheduler_is_deterministic_if_seeded(
-    monkeypatch: MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(trio._core._run, "_ALLOW_DETERMINISTIC_SCHEDULING", True)
     traces = []
