@@ -53,6 +53,12 @@ from ._traps import (
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
 
+FnT = TypeVar("FnT", bound="Callable[..., Any]")
+StatusT = TypeVar("StatusT")
+StatusT_co = TypeVar("StatusT_co", covariant=True)
+StatusT_contra = TypeVar("StatusT_contra", contravariant=True)
+RetT = TypeVar("RetT")
+
 
 if TYPE_CHECKING:
     import contextvars
@@ -70,18 +76,24 @@ if TYPE_CHECKING:
     # for some strange reason Sphinx works with outcome.Outcome, but not Outcome, in
     # start_guest_run. Same with types.FrameType in iter_await_frames
     import outcome
-    from typing_extensions import Self
+    from typing_extensions import Self, TypeVarTuple, Unpack
+
+    PosArgT = TypeVarTuple("PosArgT")
+
+    # Needs to be guarded, since Unpack[] would be evaluated at runtime.
+    class _NurseryStartFunc(Protocol[Unpack[PosArgT], StatusT_co]):
+        """Type of functions passed to `nursery.start() <trio.Nursery.start>`."""
+
+        def __call__(
+            self, *args: Unpack[PosArgT], task_status: TaskStatus[StatusT_co]
+        ) -> Awaitable[object]:
+            ...
+
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: Final = 1000
 
 # Passed as a sentinel
 _NO_SEND: Final[Outcome[Any]] = cast("Outcome[Any]", object())
-
-FnT = TypeVar("FnT", bound="Callable[..., Any]")
-StatusT = TypeVar("StatusT")
-StatusT_co = TypeVar("StatusT_co", covariant=True)
-StatusT_contra = TypeVar("StatusT_contra", contravariant=True)
-RetT = TypeVar("RetT")
 
 
 @final
@@ -1134,9 +1146,8 @@ class Nursery(metaclass=NoPublicConstructor):
 
     def start_soon(
         self,
-        # TODO: TypeVarTuple
-        async_fn: Callable[..., Awaitable[object]],
-        *args: object,
+        async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
+        *args: Unpack[PosArgT],
         name: object = None,
     ) -> None:
         """Creates a child task, scheduling ``await async_fn(*args)``.
@@ -1185,7 +1196,7 @@ class Nursery(metaclass=NoPublicConstructor):
         async_fn: Callable[..., Awaitable[object]],
         *args: object,
         name: object = None,
-    ) -> StatusT:
+    ) -> Any:
         r"""Creates and initializes a child task.
 
         Like :meth:`start_soon`, but blocks until the new task has
@@ -1240,7 +1251,7 @@ class Nursery(metaclass=NoPublicConstructor):
             # `run` option, which would cause it to wrap a pre-started()
             # exception in an extra ExceptionGroup. See #2611.
             async with open_nursery(strict_exception_groups=False) as old_nursery:
-                task_status: _TaskStatus[StatusT] = _TaskStatus(old_nursery, self)
+                task_status: _TaskStatus[Any] = _TaskStatus(old_nursery, self)
                 thunk = functools.partial(async_fn, task_status=task_status)
                 task = GLOBAL_RUN_CONTEXT.runner.spawn_impl(
                     thunk, args, old_nursery, name
@@ -1253,7 +1264,7 @@ class Nursery(metaclass=NoPublicConstructor):
             # (Any exceptions propagate directly out of the above.)
             if task_status._value is _NoStatus:
                 raise RuntimeError("child exited without calling task_status.started()")
-            return task_status._value  # type: ignore[return-value]  # Mypy doesn't narrow yet.
+            return task_status._value
         finally:
             self._pending_starts -= 1
             self._check_nursery_closed()
@@ -1711,9 +1722,8 @@ class Runner:
 
     def spawn_impl(
         self,
-        # TODO: TypeVarTuple
-        async_fn: Callable[..., Awaitable[object]],
-        args: tuple[object, ...],
+        async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
+        args: tuple[Unpack[PosArgT]],
         nursery: Nursery | None,
         name: object,
         *,
@@ -1742,7 +1752,7 @@ class Runner:
         # Call the function and get the coroutine object, while giving helpful
         # errors for common mistakes.
         ######
-        # TODO: resolve the type: ignore when implementing TypeVarTuple
+        # TypeVarTuple passed into ParamSpec function confuses Mypy.
         coro = context.run(coroutine_or_error, async_fn, *args)  # type: ignore[arg-type]
 
         if name is None:
@@ -1830,12 +1840,11 @@ class Runner:
     # System tasks and init
     ################
 
-    @_public  # Type-ignore due to use of Any here.
-    def spawn_system_task(  # type: ignore[misc]
+    @_public
+    def spawn_system_task(
         self,
-        # TODO: TypeVarTuple
-        async_fn: Callable[..., Awaitable[object]],
-        *args: object,
+        async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
+        *args: Unpack[PosArgT],
         name: object = None,
         context: contextvars.Context | None = None,
     ) -> Task:
@@ -1900,10 +1909,9 @@ class Runner:
         )
 
     async def init(
-        # TODO: TypeVarTuple
         self,
-        async_fn: Callable[..., Awaitable[object]],
-        args: tuple[object, ...],
+        async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
+        args: tuple[Unpack[PosArgT]],
     ) -> None:
         # run_sync_soon task runs here:
         async with open_nursery() as run_sync_soon_nursery:
@@ -2429,8 +2437,8 @@ _MAX_TIMEOUT: Final = 24 * 60 * 60
 # straight through.
 def unrolled_run(
     runner: Runner,
-    async_fn: Callable[..., object],
-    args: tuple[object, ...],
+    async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
+    args: tuple[Unpack[PosArgT]],
     host_uses_signal_set_wakeup_fd: bool = False,
 ) -> Generator[float, EventResult, None]:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True

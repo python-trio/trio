@@ -45,9 +45,9 @@ async def test_pipe_error_on_close() -> None:
     assert kernel32.CloseHandle(_handle(r))
     assert kernel32.CloseHandle(_handle(w))
 
-    with pytest.raises(OSError):
+    with pytest.raises(OSError, match=r"^\[WinError 6\] The handle is invalid$"):
         await send_stream.aclose()
-    with pytest.raises(OSError):
+    with pytest.raises(OSError, match=r"^\[WinError 6\] The handle is invalid$"):
         await receive_stream.aclose()
 
 
@@ -96,7 +96,7 @@ async def test_close_during_write() -> None:
     async with _core.open_nursery() as nursery:
 
         async def write_forever() -> None:
-            with pytest.raises(_core.ClosedResourceError) as excinfo:
+            with pytest.raises(_core.ClosedResourceError) as excinfo:  # noqa: PT012
                 while True:
                     await w.send_all(b"x" * 4096)
             assert "another task" in str(excinfo.value)
