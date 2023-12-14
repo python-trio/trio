@@ -5,6 +5,29 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.23.2 (2023-12-14)
+------------------------
+
+Features
+~~~~~~~~
+
+- `TypeVarTuple <https://docs.python.org/3.12/library/typing.html#typing.TypeVarTuple>`_ is now used to fully type :meth:`nursery.start_soon() <trio.Nursery.start_soon>`, :func:`trio.run()`, :func:`trio.to_thread.run_sync()`, and other similar functions accepting ``(func, *args)``. This means type checkers will be able to verify types are used correctly. :meth:`nursery.start() <trio.Nursery.start>` is not fully typed yet however. (`#2881 <https://github.com/python-trio/trio/issues/2881>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Make pyright recognize :func:`open_memory_channel` as generic. (`#2873 <https://github.com/python-trio/trio/issues/2873>`__)
+
+
+Miscellaneous internal changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Moved the metadata into :pep:`621`-compliant :file:`pyproject.toml`. (`#2860 <https://github.com/python-trio/trio/issues/2860>`__)
+- do not depend on exceptiongroup pre-release (`#2861 <https://github.com/python-trio/trio/issues/2861>`__)
+- Move .coveragerc into pyproject.toml (`#2867 <https://github.com/python-trio/trio/issues/2867>`__)
+
+
 Trio 0.23.1 (2023-11-04)
 ------------------------
 
