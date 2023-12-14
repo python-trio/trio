@@ -23,7 +23,6 @@ from ..._timeouts import fail_after, sleep
 from ...testing import Sequencer, assert_checkpoints, wait_all_tasks_blocked
 from .._run import DEADLINE_HEAP_MIN_PRUNE_THRESHOLD
 from .tutil import (
-    buggy_pypy_asyncgens,
     check_sequence_matches,
     create_asyncio_future_in_new_loop,
     gc_collect_harder,
@@ -1430,7 +1429,6 @@ async def test_TrioToken_run_sync_soon_massive_queue() -> None:
     assert counter[0] == COUNT
 
 
-@pytest.mark.skipif(buggy_pypy_asyncgens, reason="PyPy 7.2 is buggy")
 def test_TrioToken_run_sync_soon_late_crash() -> None:
     # Crash after system nursery is closed -- easiest way to do that is
     # from an async generator finalizer.

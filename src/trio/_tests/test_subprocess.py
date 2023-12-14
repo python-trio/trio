@@ -171,16 +171,19 @@ async def test_multi_wait(background_process: BackgroundProcessType) -> None:
 # Test for deprecated 'async with process:' semantics
 async def test_async_with_basics_deprecated(recwarn: pytest.WarningsRecorder) -> None:
     async with await open_process(
-        CAT, stdin=subprocess.PIPE, stdout=subprocess.PIPE
+        CAT, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     ) as proc:
         pass
     assert proc.returncode is not None
     assert proc.stdin is not None
     assert proc.stdout is not None
+    assert proc.stderr is not None
     with pytest.raises(ClosedResourceError):
         await proc.stdin.send_all(b"x")
     with pytest.raises(ClosedResourceError):
         await proc.stdout.receive_some()
+    with pytest.raises(ClosedResourceError):
+        await proc.stderr.receive_some()
 
 
 # Test for deprecated 'async with process:' semantics
