@@ -2561,6 +2561,24 @@ async def test_nursery_strict_exception_groups() -> None:
     assert exc.value.exceptions[0].args == ("foo",)
 
 
+async def test_nursery_loose_exception_groups() -> None:
+    """Test that loose exception groups can be enabled on a per-nursery basis."""
+
+    async def raise_error() -> NoReturn:
+        raise RuntimeError("test error")
+
+    with pytest.raises(ExceptionGroup) as exc:  # noqa: PT012
+        async with _core.open_nursery(strict_exception_groups=False) as nursery:
+            nursery.start_soon(raise_error)
+            nursery.start_soon(raise_error)
+
+    assert exc.value.__notes__ == ["collapsible"]
+    assert len(exc.value.exceptions) == 2
+    for subexc in exc.value.exceptions:
+        assert type(subexc) is RuntimeError
+        assert subexc.args == ("test error",)
+
+
 async def test_nursery_collapse_strict() -> None:
     """
     Test that a single exception from a nested nursery with strict semantics doesn't get

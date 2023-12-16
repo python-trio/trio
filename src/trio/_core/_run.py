@@ -209,7 +209,7 @@ def collapse_exception_group(
     if (
         len(exceptions) == 1
         and isinstance(excgroup, BaseExceptionGroup)
-        and "collapsible" in str(excgroup)
+        and "collapsible" in getattr(excgroup, "__notes__", ())
     ):
         exceptions[0].__traceback__ = concat_tb(
             excgroup.__traceback__, exceptions[0].__traceback__
@@ -1128,10 +1128,12 @@ class Nursery(metaclass=NoPublicConstructor):
             try:
                 if not self._strict_exception_groups and len(self._pending_excs) == 1:
                     return self._pending_excs[0]
-                return BaseExceptionGroup(
-                    "collapsible" if not self._strict_exception_groups else "TODO",
-                    self._pending_excs,
+                exc = BaseExceptionGroup(
+                    "ExceptionGroup from trio nursery", self._pending_excs
                 )
+                if not self._strict_exception_groups:
+                    exc.add_note("collapsible")
+                return exc
             finally:
                 # avoid a garbage cycle
                 # (see test_locals_destroyed_promptly_on_cancel)
@@ -1777,8 +1779,7 @@ class Runner:
             self.instruments.call("task_spawned", task)
         # Special case: normally next_send should be an Outcome, but for the
         # very first send we have to send a literal unboxed None.
-        # TODO: remove [unused-ignore] when Outcome is typed
-        self.reschedule(task, None)  # type: ignore[arg-type, unused-ignore]
+        self.reschedule(task, None)  # type: ignore[arg-type]
         return task
 
     def task_exited(self, task: Task, outcome: Outcome[Any]) -> None:
@@ -2624,18 +2625,17 @@ def unrolled_run(
                         # protocol of unwrapping whatever outcome gets sent in.
                         # Instead, we'll arrange to throw `exc` in directly,
                         # which works for at least asyncio and curio.
-                        # TODO: remove [unused-ignore] when Outcome is typed
-                        runner.reschedule(task, exc)  # type: ignore[arg-type, unused-ignore]
+                        runner.reschedule(task, exc)  # type: ignore[arg-type]
                         task._next_send_fn = task.coro.throw
                     # prevent long-lived reference
-                    # TODO: develop test for this deletion
+                    # There's no regression test checking the necessity of this
                     del msg
 
                 if "after_task_step" in runner.instruments:
                     runner.instruments.call("after_task_step", task)
                 del GLOBAL_RUN_CONTEXT.task
                 # prevent long-lived references
-                # TODO: develop test for these deletions
+                # There's no regression test checking the necessity of this
                 del task, next_send, next_send_fn
 
     except GeneratorExit:

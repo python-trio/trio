@@ -73,8 +73,8 @@ def test_concat_tb() -> None:
     assert extract_tb(get_tb(raiser2)) == entries2
 
 
-# I haven't managed to get this one to fail, despite removing the `del` from
-# _concat_tb.copy_tb (on a platform where the statement is executed)
+# Unclear if this can still fail, removing the `del` from _concat_tb.copy_tb does not seem
+# to trigger it (on a platform where the `del` is executed)
 @pytest.mark.skipif(
     sys.implementation.name != "cpython", reason="Only makes sense with refcounting GC"
 )
