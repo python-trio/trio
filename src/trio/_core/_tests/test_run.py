@@ -2019,7 +2019,18 @@ async def test_traceback_frame_removal() -> None:
     async def my_child_task() -> NoReturn:
         raise KeyError()
 
-    with pytest.raises(ExceptionGroup) as excinfo:  # noqa: PT012
+    def check_traceback(exc: KeyError) -> bool:
+        # The top frame in the exception traceback should be inside the child
+        # task, not trio/contextvars internals. And there's only one frame
+        # inside the child task, so this will also detect if our frame-removal
+        # is too eager.
+        tb = exc.__traceback__
+        assert tb is not None
+        return tb.tb_frame.f_code is my_child_task.__code__
+
+    expected_exception = Matcher(KeyError, check=check_traceback)
+
+    with RaisesGroup(expected_exception, expected_exception):
         # Trick: For now cancel/nursery scopes still leave a bunch of tb gunk
         # behind. But if there's a MultiError, they leave it on the MultiError,
         # which lets us get a clean look at the KeyError itself. Someday I
@@ -2028,15 +2039,6 @@ async def test_traceback_frame_removal() -> None:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(my_child_task)
             nursery.start_soon(my_child_task)
-    first_exc = excinfo.value.exceptions[0]
-    assert isinstance(first_exc, KeyError)
-    # The top frame in the exception traceback should be inside the child
-    # task, not trio/contextvars internals. And there's only one frame
-    # inside the child task, so this will also detect if our frame-removal
-    # is too eager.
-    tb = first_exc.__traceback__
-    assert tb is not None
-    assert tb.tb_frame.f_code is my_child_task.__code__
 
 
 def test_contextvar_support() -> None:
