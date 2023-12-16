@@ -1128,12 +1128,12 @@ class Nursery(metaclass=NoPublicConstructor):
             try:
                 if not self._strict_exception_groups and len(self._pending_excs) == 1:
                     return self._pending_excs[0]
-                exc = BaseExceptionGroup(
+                exception = BaseExceptionGroup(
                     "Exceptions from Trio nursery", self._pending_excs
                 )
                 if not self._strict_exception_groups:
-                    exc.add_note("collapsible")
-                return exc
+                    exception.add_note("collapsible")
+                return exception
             finally:
                 # avoid a garbage cycle
                 # (see test_locals_destroyed_promptly_on_cancel)
