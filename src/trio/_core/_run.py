@@ -1129,7 +1129,7 @@ class Nursery(metaclass=NoPublicConstructor):
                 if not self._strict_exception_groups and len(self._pending_excs) == 1:
                     return self._pending_excs[0]
                 exc = BaseExceptionGroup(
-                    "ExceptionGroup from trio nursery", self._pending_excs
+                    "Exceptions from Trio nursery", self._pending_excs
                 )
                 if not self._strict_exception_groups:
                     exc.add_note("collapsible")
