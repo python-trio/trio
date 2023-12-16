@@ -917,7 +917,7 @@ async def test_recursive_to_thread() -> None:
         nonlocal tid
         tid = threading.get_ident()
         # The nesting of wrapper functions loses the return value of threading.get_ident
-        return from_thread_run(to_thread_run_sync, threading.get_ident)  # type: ignore[return-value]
+        return from_thread_run(to_thread_run_sync, threading.get_ident)  # type: ignore[no-any-return]
 
     assert tid != await to_thread_run_sync(get_tid_then_reenter)
 
