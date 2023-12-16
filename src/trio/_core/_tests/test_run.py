@@ -2528,7 +2528,9 @@ def test_run_strict_exception_groups() -> None:
         async with _core.open_nursery():
             raise Exception("foo")
 
-    with pytest.raises(ExceptionGroup, match="^Exceptions from Trio nursery$") as exc:
+    with pytest.raises(
+        ExceptionGroup, match="^Exceptions from Trio nursery \\(1 sub-exception\\)$"
+    ) as exc:
         _core.run(main, strict_exception_groups=True)
 
     assert len(exc.value.exceptions) == 1
@@ -2568,7 +2570,7 @@ async def test_nursery_loose_exception_groups() -> None:
         raise RuntimeError("test error")
 
     with pytest.raises(  # noqa: PT012  # multiple statements
-        ExceptionGroup, match="^Exceptions from Trio nursery$"
+        ExceptionGroup, match="^Exceptions from Trio nursery \\(2 sub-exceptions\\)$"
     ) as exc:
         async with _core.open_nursery(strict_exception_groups=False) as nursery:
             nursery.start_soon(raise_error)
