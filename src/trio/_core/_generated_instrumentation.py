@@ -11,6 +11,8 @@ from ._run import GLOBAL_RUN_CONTEXT
 if TYPE_CHECKING:
     from ._instrumentation import Instrument
 
+__all__ = ["add_instrument", "remove_instrument"]
+
 
 def add_instrument(instrument: Instrument) -> None:
     """Start instrumenting the current run loop with the given instrument.

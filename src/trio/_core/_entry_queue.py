@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import threading
 from collections import deque
-from typing import Callable, Iterable, NoReturn, Tuple
+from typing import TYPE_CHECKING, Callable, NoReturn, Tuple
 
 import attr
 
@@ -10,10 +10,13 @@ from .. import _core
 from .._util import NoPublicConstructor, final
 from ._wakeup_socketpair import WakeupSocketpair
 
-# TODO: Type with TypeVarTuple, at least to an extent where it makes
-# the public interface safe.
+if TYPE_CHECKING:
+    from typing_extensions import TypeVarTuple, Unpack
+
+    PosArgsT = TypeVarTuple("PosArgsT")
+
 Function = Callable[..., object]
-Job = Tuple[Function, Iterable[object]]
+Job = Tuple[Function, Tuple[object, ...]]
 
 
 @attr.s(slots=True)
@@ -122,7 +125,10 @@ class EntryQueue:
         return len(self.queue) + len(self.idempotent_queue)
 
     def run_sync_soon(
-        self, sync_fn: Function, *args: object, idempotent: bool = False
+        self,
+        sync_fn: Callable[[Unpack[PosArgsT]], object],
+        *args: Unpack[PosArgsT],
+        idempotent: bool = False,
     ) -> None:
         with self.lock:
             if self.done:
@@ -163,7 +169,10 @@ class TrioToken(metaclass=NoPublicConstructor):
     _reentry_queue: EntryQueue = attr.ib()
 
     def run_sync_soon(
-        self, sync_fn: Function, *args: object, idempotent: bool = False
+        self,
+        sync_fn: Callable[[Unpack[PosArgsT]], object],
+        *args: Unpack[PosArgsT],
+        idempotent: bool = False,
     ) -> None:
         """Schedule a call to ``sync_fn(*args)`` to occur in the context of a
         Trio task.

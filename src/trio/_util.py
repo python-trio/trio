@@ -21,9 +21,10 @@ RetT = t.TypeVar("RetT")
 if t.TYPE_CHECKING:
     from types import AsyncGeneratorType, TracebackType
 
-    from typing_extensions import ParamSpec, Self
+    from typing_extensions import ParamSpec, Self, TypeVarTuple, Unpack
 
     ArgsT = ParamSpec("ArgsT")
+    PosArgsT = TypeVarTuple("PosArgsT")
 
 
 if t.TYPE_CHECKING:
@@ -102,9 +103,9 @@ def is_main_thread() -> bool:
 # Call the function and get the coroutine object, while giving helpful
 # errors for common mistakes. Returns coroutine object.
 ######
-# TODO: Use TypeVarTuple here.
 def coroutine_or_error(
-    async_fn: t.Callable[..., t.Awaitable[RetT]], *args: t.Any
+    async_fn: t.Callable[[Unpack[PosArgsT]], t.Awaitable[RetT]],
+    *args: Unpack[PosArgsT],
 ) -> collections.abc.Coroutine[object, t.NoReturn, RetT]:
     def _return_value_looks_like_wrong_library(value: object) -> bool:
         # Returned by legacy @asyncio.coroutine functions, which includes

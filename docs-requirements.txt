@@ -10,7 +10,7 @@ attrs==23.1.0
     # via
     #   -r docs-requirements.in
     #   outcome
-babel==2.13.1
+babel==2.14.0
     # via sphinx
 certifi==2023.11.17
     # via requests
