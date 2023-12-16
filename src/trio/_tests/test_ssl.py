@@ -356,7 +356,9 @@ async def test_PyOpenSSLEchoStream_gives_resource_busy_errors() -> None:
         func1: str, args1: tuple[object, ...], func2: str, args2: tuple[object, ...]
     ) -> None:
         s = PyOpenSSLEchoStream()
-        with pytest.raises(_core.BusyResourceError, match="simultaneous"):
+        with pytest.raises(  # noqa: PT012
+            _core.BusyResourceError, match="simultaneous"
+        ):
             async with _core.open_nursery() as nursery:
                 nursery.start_soon(getattr(s, func1), *args1)
                 nursery.start_soon(getattr(s, func2), *args2)
@@ -743,7 +745,9 @@ async def test_resource_busy_errors(client_ctx: SSLContext) -> None:
         func1: Callable[[S], Awaitable[None]], func2: Callable[[S], Awaitable[None]]
     ) -> None:
         s, _ = ssl_lockstep_stream_pair(client_ctx)
-        with pytest.raises(_core.BusyResourceError, match="another task"):
+        with pytest.raises(  # noqa: PT012
+            _core.BusyResourceError, match="another task"
+        ):
             async with _core.open_nursery() as nursery:
                 nursery.start_soon(func1, s)
                 nursery.start_soon(func2, s)

@@ -103,6 +103,7 @@ select = [
   "PYI",  # flake8-pyi
   "SIM",  # flake8-simplify
   "TCH",  # flake8-type-checking
+  "PT",  # flake8-pytest-style
 ]
 extend-ignore = [
     'F403',  # undefined-local-with-import-star
@@ -130,6 +131,9 @@ extend-exclude = [
 [tool.ruff.isort]
 combine-as-imports = true
 
+[tool.ruff.flake8-pytest-style]
+fixture-parentheses = false
+
 [tool.mypy]
 python_version = "3.8"
 
@@ -156,6 +160,8 @@ check_untyped_defs = true
 
 [tool.pyright]
 pythonVersion = "3.8"
+reportUnnecessaryTypeIgnoreComment = true
+typeCheckingMode = "strict"
 
 [tool.pytest.ini_options]
 addopts = ["--strict-markers", "--strict-config", "-p trio._tests.pytest_plugin"]
@@ -231,6 +237,8 @@ source_pkgs = ["trio"]
 omit = [
     # Omit the generated files in trio/_core starting with _generated_
     "*/trio/_core/_generated_*",
+    # Type tests aren't intended to be run, just passed to type checkers.
+    "*/type_tests/*",
 ]
 # The test suite spawns subprocesses to test some stuff, so make sure
 # this doesn't corrupt the coverage files

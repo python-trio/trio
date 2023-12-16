@@ -7,7 +7,6 @@ from queue import Queue
 from typing import TYPE_CHECKING, Iterator, NoReturn
 
 import pytest
-from pytest import MonkeyPatch
 
 from .. import _thread_cache
 from .._thread_cache import ThreadCache, start_thread_soon
@@ -92,7 +91,7 @@ def test_spawning_new_thread_from_deliver_reuses_starting_thread() -> None:
 
 
 @slow
-def test_idle_threads_exit(monkeypatch: MonkeyPatch) -> None:
+def test_idle_threads_exit(monkeypatch: pytest.MonkeyPatch) -> None:
     # Temporarily set the idle timeout to something tiny, to speed up the
     # test. (But non-zero, so that the worker loop will at least yield the
     # CPU.)
@@ -119,7 +118,9 @@ def _join_started_threads() -> Iterator[None]:
                 assert not thread.is_alive()
 
 
-def test_race_between_idle_exit_and_job_assignment(monkeypatch: MonkeyPatch) -> None:
+def test_race_between_idle_exit_and_job_assignment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # This is a lock where the first few times you try to acquire it with a
     # timeout, it waits until the lock is available and then pretends to time
     # out. Using this in our thread cache implementation causes the following

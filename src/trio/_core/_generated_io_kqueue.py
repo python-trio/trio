@@ -19,6 +19,16 @@ import sys
 assert not TYPE_CHECKING or sys.platform == "darwin"
 
 
+__all__ = [
+    "current_kqueue",
+    "monitor_kevent",
+    "notify_closing",
+    "wait_kevent",
+    "wait_readable",
+    "wait_writable",
+]
+
+
 def current_kqueue() -> select.kqueue:
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26

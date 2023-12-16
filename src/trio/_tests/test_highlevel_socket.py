@@ -26,7 +26,9 @@ async def test_SocketStream_basics() -> None:
 
     # DGRAM socket bad
     with tsocket.socket(type=tsocket.SOCK_DGRAM) as sock:
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError, match="^SocketStream requires a SOCK_STREAM socket$"
+        ):
             # TODO: does not raise an error?
             SocketStream(sock)
 
@@ -152,7 +154,9 @@ async def test_SocketListener() -> None:
     # Not a SOCK_STREAM
     with tsocket.socket(type=tsocket.SOCK_DGRAM) as s:
         await s.bind(("127.0.0.1", 0))
-        with pytest.raises(ValueError) as excinfo:
+        with pytest.raises(
+            ValueError, match="^SocketListener requires a SOCK_STREAM socket$"
+        ) as excinfo:
             SocketListener(s)
         excinfo.match(r".*SOCK_STREAM")
 
@@ -161,7 +165,9 @@ async def test_SocketListener() -> None:
     if sys.platform != "darwin":
         with tsocket.socket() as s:
             await s.bind(("127.0.0.1", 0))
-            with pytest.raises(ValueError) as excinfo:
+            with pytest.raises(
+                ValueError, match="^SocketListener requires a listening socket$"
+            ) as excinfo:
                 SocketListener(s)
             excinfo.match(r".*listen")
 
@@ -281,9 +287,13 @@ async def test_SocketListener_accept_errors() -> None:
         stream = await listener.accept()
         assert stream.socket is fake_server_sock
 
-    for code in [errno.EMFILE, errno.EFAULT, errno.ENOBUFS]:
+    for code, match in {
+        errno.EMFILE: r"\[\w+ \d+\] Out of file descriptors$",
+        errno.EFAULT: r"\[\w+ \d+\] attempt to write to read-only memory$",
+        errno.ENOBUFS: r"\[\w+ \d+\] out of buffers$",
+    }.items():
         with assert_checkpoints():
-            with pytest.raises(OSError) as excinfo:
+            with pytest.raises(OSError, match=match) as excinfo:
                 await listener.accept()
             assert excinfo.value.errno == code
 

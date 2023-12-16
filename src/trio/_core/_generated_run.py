@@ -13,9 +13,23 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
     from outcome import Outcome
+    from typing_extensions import Unpack
 
     from .._abc import Clock
     from ._entry_queue import TrioToken
+    from ._run import PosArgT
+
+
+__all__ = [
+    "current_clock",
+    "current_root_task",
+    "current_statistics",
+    "current_time",
+    "current_trio_token",
+    "reschedule",
+    "spawn_system_task",
+    "wait_all_tasks_blocked",
+]
 
 
 def current_statistics() -> RunStatistics:
@@ -113,8 +127,8 @@ def reschedule(task: Task, next_send: Outcome[Any] = _NO_SEND) -> None:
 
 
 def spawn_system_task(
-    async_fn: Callable[..., Awaitable[object]],
-    *args: object,
+    async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
+    *args: Unpack[PosArgT],
     name: object = None,
     context: (contextvars.Context | None) = None,
 ) -> Task:
