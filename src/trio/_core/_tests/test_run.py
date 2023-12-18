@@ -2569,7 +2569,7 @@ async def test_nursery_loose_exception_groups() -> None:
     async def raise_error() -> NoReturn:
         raise RuntimeError("test error")
 
-    with pytest.raises(ValueError, match="^test error$"):
+    with pytest.raises(RuntimeError, match="^test error$"):
         async with _core.open_nursery(strict_exception_groups=False) as nursery:
             nursery.start_soon(raise_error)
 
