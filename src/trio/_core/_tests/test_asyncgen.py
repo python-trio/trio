@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, NoReturn
 import pytest
 
 from ... import _core
-from .tutil import buggy_pypy_asyncgens, gc_collect_harder, restore_unraisablehook
+from .tutil import gc_collect_harder, restore_unraisablehook
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -80,12 +80,9 @@ def test_asyncgen_basics() -> None:
         assert collected.pop() == "exhausted 4"
 
         # Leave one referenced-but-unexhausted and make sure it gets cleaned up
-        if buggy_pypy_asyncgens:
-            collected.append("outlived run")
-        else:
-            saved.append(example("outlived run"))
-            assert await saved[-1].asend(None) == 42
-            assert collected == []
+        saved.append(example("outlived run"))
+        assert await saved[-1].asend(None) == 42
+        assert collected == []
 
     _core.run(async_main)
     assert collected.pop() == "outlived run"
@@ -118,7 +115,6 @@ async def test_asyncgen_throws_during_finalization(
     assert "during finalization of async generator" in caplog.records[0].message
 
 
-@pytest.mark.skipif(buggy_pypy_asyncgens, reason="pypy 7.2.0 is buggy")
 def test_firstiter_after_closing() -> None:
     saved = []
     record = []
@@ -145,7 +141,6 @@ def test_firstiter_after_closing() -> None:
     assert record == ["cleanup 2", "cleanup 1"]
 
 
-@pytest.mark.skipif(buggy_pypy_asyncgens, reason="pypy 7.2.0 is buggy")
 def test_interdependent_asyncgen_cleanup_order() -> None:
     saved: list[AsyncGenerator[int, None]] = []
     record: list[int | str] = []
@@ -233,8 +228,7 @@ def test_last_minute_gc_edge_case() -> None:
         del saved[:]
         _core.run(async_main)
         if needs_retry:  # pragma: no cover
-            if not buggy_pypy_asyncgens:
-                assert record == ["cleaned up"]
+            assert record == ["cleaned up"]
         else:
             assert record == ["final collection", "done", "cleaned up"]
             break
@@ -270,7 +264,6 @@ async def step_outside_async_context(aiter: AsyncGenerator[int, None]) -> None:
         nursery.cancel_scope.deadline = _core.current_time()
 
 
-@pytest.mark.skipif(buggy_pypy_asyncgens, reason="pypy 7.2.0 is buggy")
 async def test_fallback_when_no_hook_claims_it(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -301,7 +294,6 @@ async def test_fallback_when_no_hook_claims_it(
         assert "awaited something during finalization" in capsys.readouterr().err
 
 
-@pytest.mark.skipif(buggy_pypy_asyncgens, reason="pypy 7.2.0 is buggy")
 def test_delegation_to_existing_hooks() -> None:
     record = []
 

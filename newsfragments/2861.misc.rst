@@ -1,1 +1,0 @@
-do not depend on exceptiongroup pre-release
