@@ -2569,6 +2569,10 @@ async def test_nursery_loose_exception_groups() -> None:
     async def raise_error() -> NoReturn:
         raise RuntimeError("test error")
 
+    with pytest.raises(ValueError, match="^test error$"):
+        async with _core.open_nursery(strict_exception_groups=False) as nursery:
+            nursery.start_soon(raise_error)
+
     with pytest.raises(  # noqa: PT012  # multiple statements
         ExceptionGroup, match="^Exceptions from Trio nursery \\(2 sub-exceptions\\)$"
     ) as exc:
