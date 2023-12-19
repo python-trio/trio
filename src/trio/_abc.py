@@ -4,12 +4,12 @@ import socket
 from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING, Generic, Protocol, TypeVar
 
-from typing_extensions import TypeVarTuple
+if TYPE_CHECKING:
+    from typing_extensions import TypeVarTuple
+
+    PosArgT = TypeVarTuple("PosArgT")
 
 import trio
-
-PosArgT = TypeVarTuple("PosArgT")
-
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
