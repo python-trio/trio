@@ -20,7 +20,7 @@ from typing import Any, ClassVar, cast
 # On CPython, we use ctypes. On PyPy, we use "transparent proxies".
 #
 # Jinja2 is a useful source of inspiration:
-#   https://github.com/pallets/jinja/blob/master/jinja2/debug.py
+#   https://github.com/pallets/jinja/blob/main/src/jinja2/debug.py
 
 try:
     import tputil
@@ -53,7 +53,7 @@ except ImportError:
             assert new_tb is not None
         c_new_tb = CTraceback.from_address(id(new_tb))
 
-        # At the C level, tb_next either pointer to the next traceback or is
+        # At the C level, tb_next either points to the next traceback or is
         # NULL. c_void_p and the .tb_next accessor both convert NULL to None,
         # but we shouldn't DECREF None just because we assigned to a NULL
         # pointer! Here we know that our new traceback has only 1 frame in it,
@@ -101,7 +101,7 @@ else:
                 and operation.args[0] == "tb_next"
             ):  # pragma: no cover
                 return tb_next
-            return operation.delegate()  # Deligate is reverting to original behaviour
+            return operation.delegate()  # Delegate is reverting to original behaviour
 
         return cast(
             TracebackType, tputil.make_proxy(controller, type(base_tb), base_tb)
