@@ -85,7 +85,8 @@ except ImportError:
 else:
     # http://doc.pypy.org/en/latest/objspace-proxies.html
     def copy_tb(base_tb: TracebackType, tb_next: TracebackType | None) -> TracebackType:
-        # tputil.ProxyOperation is PyPy-only, but we run mypy on CPython
+        # tputil.ProxyOperation is PyPy-only, and there's no way to specify
+        # cpython/pypy in current type checkers.
         def controller(operation: tputil.ProxyOperation) -> Any | None:  # type: ignore[no-any-unimported]
             # Rationale for pragma: I looked fairly carefully and tried a few
             # things, and AFAICT it's not actually possible to get any

@@ -2628,14 +2628,14 @@ def unrolled_run(
                         runner.reschedule(task, exc)  # type: ignore[arg-type]
                         task._next_send_fn = task.coro.throw
                     # prevent long-lived reference
-                    # There's no regression test checking the necessity of this
+                    # TODO: develop test for this deletion
                     del msg
 
                 if "after_task_step" in runner.instruments:
                     runner.instruments.call("after_task_step", task)
                 del GLOBAL_RUN_CONTEXT.task
                 # prevent long-lived references
-                # There's no regression test checking the necessity of this
+                # TODO: develop test for this deletion
                 del task, next_send, next_send_fn
 
     except GeneratorExit:
