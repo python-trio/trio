@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
     from ._highlevel_socket import SocketStream
+    from .abc import TaskSpawner
 
 
 # It might have been nice to take a ssl_protocols= argument here to set up
@@ -108,7 +109,7 @@ async def serve_ssl_over_tcp(
     host: str | bytes | None = None,
     https_compatible: bool = False,
     backlog: int | None = None,
-    handler_nursery: trio.Nursery | None = None,
+    handler_nursery: TaskSpawner | None = None,
     task_status: trio.TaskStatus[
         list[trio.SSLListener[SocketStream]]
     ] = trio.TASK_STATUS_IGNORED,

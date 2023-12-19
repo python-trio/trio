@@ -14,6 +14,8 @@ from ._deprecate import warn_deprecated
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
+    from .abc import TaskSpawner
+
 if sys.version_info < (3, 11):
     from exceptiongroup import ExceptionGroup
 
@@ -181,7 +183,7 @@ async def serve_tcp(
     *,
     host: str | bytes | None = None,
     backlog: int | None = None,
-    handler_nursery: trio.Nursery | None = None,
+    handler_nursery: TaskSpawner | None = None,
     task_status: TaskStatus[list[trio.SocketListener]] = trio.TASK_STATUS_IGNORED,
 ) -> None:
     """Listen for incoming TCP connections, and for each one start a task

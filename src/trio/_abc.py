@@ -2,14 +2,20 @@ from __future__ import annotations
 
 import socket
 from abc import ABCMeta, abstractmethod
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, Protocol, TypeVar
+
+from typing_extensions import TypeVarTuple
 
 import trio
 
+PosArgT = TypeVarTuple("PosArgT")
+
+
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
     from types import TracebackType
 
-    from typing_extensions import Self
+    from typing_extensions import Self, Unpack
 
     # both of these introduce circular imports if outside a TYPE_CHECKING guard
     from ._socket import SocketType
@@ -698,3 +704,53 @@ class Channel(SendChannel[T], ReceiveChannel[T]):
     `ReceiveChannel` interfaces, so you can both send and receive objects.
 
     """
+
+
+class TaskSpawner(Protocol):
+    """Any object that can spawn background tasks."""
+
+    def start_soon(
+        self,
+        async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
+        *args: Unpack[PosArgT],
+        name: object = None,
+    ) -> None:
+        """Creates a child task, scheduling ``await async_fn(*args)``.
+
+        If you want to run a function and immediately wait for its result,
+        then you don't need a task spawner; just use ``await async_fn(*args)``.
+        If you want to wait for the task to initialize itself before
+        continuing, see :meth:`start`, the other fundamental method for
+        creating concurrent tasks in Trio.
+
+        Note that this is *not* an async function and you don't use await
+        when calling it. It sets up the new task, but then returns
+        immediately, *before* the new task has a chance to do anything.
+        New tasks may start running in any order, and at any checkpoint the
+        scheduler chooses - at latest when the nursery is waiting to exit.
+
+        It's possible to pass a task spawner object into another task, which
+        allows that task to start new child tasks in the first task's
+        task spawner.
+
+        The child task inherits its parent task spawner's cancel scopes.
+
+        Args:
+            async_fn: An async callable.
+            args: Positional arguments for ``async_fn``. If you want
+                  to pass keyword arguments, use
+                  :func:`functools.partial`.
+            name: The name for this task. Only used for
+                  debugging/introspection
+                  (e.g. ``repr(task_obj)``). If this isn't a string,
+                  :meth:`start_soon` will try to make it one. A
+                  common use case is if you're wrapping a function
+                  before spawning a new task, you might pass the
+                  original function as the ``name=`` to make
+                  debugging easier.
+
+        Raises:
+            RuntimeError: If this task spawner is no longer open
+                          (i.e. its ``async with`` block has
+                          exited).
+        """

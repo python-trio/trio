@@ -32,7 +32,7 @@ from sniffio import thread_local as sniffio_library
 from sortedcontainers import SortedDict
 
 from .. import _core
-from .._abc import Clock, Instrument
+from .._abc import Clock, Instrument, PosArgT
 from .._util import NoPublicConstructor, coroutine_or_error, final
 from ._asyncgens import AsyncGenerators
 from ._entry_queue import EntryQueue, TrioToken
@@ -76,9 +76,7 @@ if TYPE_CHECKING:
     # for some strange reason Sphinx works with outcome.Outcome, but not Outcome, in
     # start_guest_run. Same with types.FrameType in iter_await_frames
     import outcome
-    from typing_extensions import Self, TypeVarTuple, Unpack
-
-    PosArgT = TypeVarTuple("PosArgT")
+    from typing_extensions import Self, Unpack
 
     # Needs to be guarded, since Unpack[] would be evaluated at runtime.
     class _NurseryStartFunc(Protocol[Unpack[PosArgT], StatusT_co]):
