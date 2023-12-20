@@ -2580,7 +2580,7 @@ async def test_nursery_loose_exception_groups() -> None:
             nursery.start_soon(raise_error)
             nursery.start_soon(raise_error)
 
-    assert exc.value.__notes__ == ["collapsible"]
+    assert exc.value.__notes__ == [_core._run.NONSTRICT_EXCEPTIONGROUP_NOTE]
     assert len(exc.value.exceptions) == 2
     for subexc in exc.value.exceptions:
         assert type(subexc) is RuntimeError
