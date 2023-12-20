@@ -95,6 +95,9 @@ DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: Final = 1000
 # Passed as a sentinel
 _NO_SEND: Final[Outcome[Any]] = cast("Outcome[Any]", object())
 
+# Used to track if an exceptiongroup can be collapsed
+NONSTRICT_EXCEPTIONGROUP_NOTE = 'This is a "loose" ExceptionGroup, and may be collapsed by Trio if it only contains one exception - typically after `Cancelled` has been stripped from it. Note this has consequences for exception handling, and strict_exception_groups=True is recommended.'
+
 
 @final
 class _NoStatus(metaclass=NoPublicConstructor):
@@ -209,7 +212,7 @@ def collapse_exception_group(
     if (
         len(exceptions) == 1
         and isinstance(excgroup, BaseExceptionGroup)
-        and "collapsible" in getattr(excgroup, "__notes__", ())
+        and NONSTRICT_EXCEPTIONGROUP_NOTE in getattr(excgroup, "__notes__", ())
     ):
         exceptions[0].__traceback__ = concat_tb(
             excgroup.__traceback__, exceptions[0].__traceback__
@@ -1132,7 +1135,7 @@ class Nursery(metaclass=NoPublicConstructor):
                     "Exceptions from Trio nursery", self._pending_excs
                 )
                 if not self._strict_exception_groups:
-                    exception.add_note("collapsible")
+                    exception.add_note(NONSTRICT_EXCEPTIONGROUP_NOTE)
                 return exception
             finally:
                 # avoid a garbage cycle
