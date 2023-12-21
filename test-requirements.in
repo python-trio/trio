@@ -22,6 +22,9 @@ codespell
 mypy-extensions; implementation_name == "cpython"
 typing-extensions
 types-cffi; implementation_name == "cpython"
+# annotations in doc files
+types-docutils
+sphinx
 
 # Trio's own dependencies
 cffi; os_name == "nt"

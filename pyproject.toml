@@ -137,6 +137,7 @@ fixture-parentheses = false
 
 [tool.mypy]
 python_version = "3.8"
+files = ["src/trio/", "docs/source/*.py"]
 
 # Be flexible about dependencies that don't have stubs yet (like pytest)
 ignore_missing_imports = true
