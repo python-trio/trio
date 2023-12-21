@@ -60,6 +60,7 @@ if "READTHEDOCS" in os.environ:
 # 4. add_intersphinx manually modifies the intersphinx mappings after
 #    objects.inv has been parsed, to resolve bugs and version differences
 #    that causes some objects to be looked up incorrectly.
+# 5. docs/source/typevars.py handles redirecting `typing_extensions` objects to `typing`, and linking `TypeVar`s to `typing.TypeVar` instead of sphinx wanting to link them to their individual definitions.
 # It's possible there's better methods for resolving some of the above
 # problems, but this works for now:tm:
 
@@ -77,7 +78,7 @@ nitpick_ignore = [
     ("py:class", "async function"),
     ("py:class", "sync function"),
     # these do not have documentation on python.org
-    # nor has documantion on python.org
+    # nor entries in objects.inv
     ("py:class", "socket.AddressFamily"),
     ("py:class", "socket.SocketKind"),
 ]
