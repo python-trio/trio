@@ -1758,7 +1758,7 @@ class Runner:
             except AttributeError:
                 name = repr(name)
 
-        if not hasattr(coro, "cr_frame"):
+        if getattr(coro, "cr_frame", None) is None:
             # This async function is implemented in C or Cython
             async def python_wrapper(orig_coro: Awaitable[RetT]) -> RetT:
                 return await orig_coro
