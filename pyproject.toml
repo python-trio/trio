@@ -123,7 +123,6 @@ extend-exclude = [
 [tool.ruff.per-file-ignores]
 'src/trio/__init__.py' = ['F401']
 'src/trio/_core/__init__.py' = ['F401']
-'src/trio/_core/_tests/test_multierror_scripts/*' = ['F401']
 'src/trio/abc.py' = ['F401']
 'src/trio/lowlevel.py' = ['F401']
 'src/trio/socket.py' = ['F401']
@@ -237,9 +236,6 @@ showcontent = true
 branch = true
 source_pkgs = ["trio"]
 omit = [
-    # These are run in subprocesses, but still don't work. We follow
-    # coverage's documentation to no avail.
-    "*/trio/_core/_tests/test_multierror_scripts/*",
     # Omit the generated files in trio/_core starting with _generated_
     "*/trio/_core/_generated_*",
     # Type tests aren't intended to be run, just passed to type checkers.
