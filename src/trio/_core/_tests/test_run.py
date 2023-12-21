@@ -2386,6 +2386,7 @@ async def test_cancel_scope_deadline_duplicates() -> None:
 
 # I don't know if this one can fail anymore, the `del` next to the comment that used to
 # refer to this only seems to break test_cancel_scope_exit_doesnt_create_cyclic_garbage
+# We're keeping it for now to cover Outcome and potential future refactoring
 @pytest.mark.skipif(
     sys.implementation.name != "cpython", reason="Only makes sense with refcounting GC"
 )
