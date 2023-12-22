@@ -201,9 +201,6 @@ def add_intersphinx(app: Sphinx) -> None:
     # builtins.FrameType.
     # See https://github.com/sphinx-doc/sphinx/issues/11802
     add_mapping("class", "types", "FrameType")
-    # this *should* work, since sphinx explicitly added a workaround for it
-    # See https://github.com/sphinx-doc/sphinx/pull/9015
-    add_mapping("class", "types", "TracebackType")
     # new in py3.12, and need target because sphinx is unable to look up
     # the module of the object if compiling on <3.12
     if not hasattr(collections.abc, "Buffer"):

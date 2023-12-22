@@ -16,7 +16,9 @@ from typing import (
 from trio._util import final
 
 if TYPE_CHECKING:
-    from types import TracebackType
+    # sphinx will *only* work if we use types.TracebackType, and import
+    # *inside* TYPE_CHECKING. No other combination works.....
+    import types
 
     from typing_extensions import TypeGuard
 
@@ -29,12 +31,12 @@ E = TypeVar("E", bound=BaseException)
 # minimal version of pytest.ExceptionInfo in case it is not available
 @final
 class _ExceptionInfo(Generic[E]):
-    _excinfo: tuple[type[E], E, TracebackType] | None
+    _excinfo: tuple[type[E], E, types.TracebackType] | None
 
-    def __init__(self, excinfo: tuple[type[E], E, TracebackType] | None):
+    def __init__(self, excinfo: tuple[type[E], E, types.TracebackType] | None):
         self._excinfo = excinfo
 
-    def fill_unfilled(self, exc_info: tuple[type[E], E, TracebackType]) -> None:
+    def fill_unfilled(self, exc_info: tuple[type[E], E, types.TracebackType]) -> None:
         """Fill an unfilled ExceptionInfo created with ``for_later()``."""
         assert self._excinfo is None, "ExceptionInfo was already filled"
         self._excinfo = exc_info
@@ -61,7 +63,7 @@ class _ExceptionInfo(Generic[E]):
         return self._excinfo[1]
 
     @property
-    def tb(self) -> TracebackType:
+    def tb(self) -> types.TracebackType:
         """The exception raw traceback."""
         assert (
             self._excinfo is not None
@@ -267,7 +269,7 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
         self,
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
+        exc_tb: types.TracebackType | None,
     ) -> bool:
         __tracebackhide__ = True
         assert (
@@ -282,7 +284,7 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
 
         # Cast to narrow the exception type now that it's verified.
         exc_info = cast(
-            "tuple[type[BaseExceptionGroup[E]], BaseExceptionGroup[E], TracebackType]",
+            "tuple[type[BaseExceptionGroup[E]], BaseExceptionGroup[E], types.TracebackType]",
             (exc_type, exc_val, exc_tb),
         )
         self.excinfo.fill_unfilled(exc_info)
