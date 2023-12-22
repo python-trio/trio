@@ -32,8 +32,5 @@ from ._trio_test import trio_test as trio_test
 
 ################################################################
 
-# Highly illegally override `raises` for ours that has ExpectedExceptionGroup support
-pytest.raises = raises  # type: ignore
-
 fixup_module_metadata(__name__, globals())
 del fixup_module_metadata

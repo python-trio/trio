@@ -331,9 +331,9 @@ def raises(
         except expected_exception as exc:  # type: ignore[misc]  # TypeError raised for any ExpectedExceptionGroup
             # We just caught the exception - there is a traceback.
             # Ignore using assert in except block below
-            assert exc.__traceback__ is not None  # noqa: PT017
+            assert exc.__traceback__ is not None  # type: ignore[union-attr]  # noqa: PT017
             return _pytest._code.ExceptionInfo.from_exc_info(
-                (type(exc), exc, exc.__traceback__)
+                (type(exc), exc, exc.__traceback__)  # type: ignore[union-attr, arg-type]
             )
     raise AssertionError(message)
 

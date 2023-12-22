@@ -21,7 +21,7 @@ from typing import (
 
 import pytest
 
-from trio.testing import ExpectedExceptionGroup
+from trio.testing import ExpectedExceptionGroup, raises
 
 from .. import (
     ClosedResourceError,
@@ -173,16 +173,19 @@ async def test_multi_wait(background_process: BackgroundProcessType) -> None:
 # Test for deprecated 'async with process:' semantics
 async def test_async_with_basics_deprecated(recwarn: pytest.WarningsRecorder) -> None:
     async with await open_process(
-        CAT, stdin=subprocess.PIPE, stdout=subprocess.PIPE
+        CAT, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     ) as proc:
         pass
     assert proc.returncode is not None
     assert proc.stdin is not None
     assert proc.stdout is not None
+    assert proc.stderr is not None
     with pytest.raises(ClosedResourceError):
         await proc.stdin.send_all(b"x")
     with pytest.raises(ClosedResourceError):
         await proc.stdout.receive_some()
+    with pytest.raises(ClosedResourceError):
+        await proc.stderr.receive_some()
 
 
 # Test for deprecated 'async with process:' semantics
@@ -626,7 +629,7 @@ async def test_warn_on_cancel_SIGKILL_escalation(
 # the background_process_param exercises a lot of run_process cases, but it uses
 # check=False, so lets have a test that uses check=True as well
 async def test_run_process_background_fail() -> None:
-    with pytest.raises(ExpectedExceptionGroup(subprocess.CalledProcessError)):
+    with raises(ExpectedExceptionGroup(subprocess.CalledProcessError)):
         async with _core.open_nursery() as nursery:
             proc: Process = await nursery.start(run_process, EXIT_FALSE)
     assert proc.returncode == 1
@@ -648,7 +651,7 @@ async def test_for_leaking_fds() -> None:
         await run_process(EXIT_FALSE)
     assert set(SyncPath("/dev/fd").iterdir()) == starting_fds
 
-    with pytest.raises(ExpectedExceptionGroup(PermissionError)):
+    with raises(ExpectedExceptionGroup(PermissionError)):
         await run_process(["/dev/fd/0"])
     assert set(SyncPath("/dev/fd").iterdir()) == starting_fds
 

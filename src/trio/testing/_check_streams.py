@@ -57,7 +57,7 @@ class _ForceCloseBoth(Generic[Res1, Res2]):
 # on pytest, as the check_* functions are publicly exported.
 @contextmanager
 def _assert_raises(
-    exc: type[BaseException], wrapped: bool = False
+    expected_exc: type[BaseException], wrapped: bool = False
 ) -> Generator[None, None, None]:
     __tracebackhide__ = True
     try:
@@ -66,11 +66,11 @@ def _assert_raises(
         assert wrapped, "caught exceptiongroup, but expected an unwrapped exception"
         # assert in except block ignored below
         assert len(exc.exceptions) == 1  # noqa: PT017
-        assert isinstance(exc.exceptions[0], exc)  # noqa: PT017
-    except exc:
+        assert isinstance(exc.exceptions[0], expected_exc)  # noqa: PT017
+    except expected_exc:
         assert not wrapped, "caught exception, but expected an exceptiongroup"
     else:
-        raise AssertionError(f"expected exception: {exc}")
+        raise AssertionError(f"expected exception: {expected_exc}")
 
 
 async def check_one_way_stream(

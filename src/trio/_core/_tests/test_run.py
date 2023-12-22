@@ -16,7 +16,7 @@ import outcome
 import pytest
 import sniffio
 
-from trio.testing import ExpectedExceptionGroup
+from trio.testing import ExpectedExceptionGroup, raises
 
 from ... import _core
 from ..._threads import to_thread_run_sync
@@ -24,7 +24,6 @@ from ..._timeouts import fail_after, sleep
 from ...testing import Sequencer, assert_checkpoints, wait_all_tasks_blocked
 from .._run import DEADLINE_HEAP_MIN_PRUNE_THRESHOLD
 from .tutil import (
-    buggy_pypy_asyncgens,
     check_sequence_matches,
     create_asyncio_future_in_new_loop,
     gc_collect_harder,
@@ -124,7 +123,7 @@ async def test_nursery_warn_use_async_with() -> None:
 async def test_nursery_main_block_error_basic() -> None:
     exc = ValueError("whoops")
 
-    with pytest.raises(ExpectedExceptionGroup(ValueError("whoops"))) as excinfo:
+    with raises(ExpectedExceptionGroup(ValueError("whoops"))) as excinfo:
         async with _core.open_nursery():
             raise exc
     assert len(excinfo.value.exceptions) == 1
@@ -132,10 +131,10 @@ async def test_nursery_main_block_error_basic() -> None:
 
 
 async def test_child_crash_basic() -> None:
-    exc = ValueError("uh oh")
+    my_exc = ValueError("uh oh")
 
     async def erroring() -> NoReturn:
-        raise exc
+        raise my_exc
 
     # TODO: with RaisesGroup, rewrite to use a Matcher to check the identity
     try:
@@ -144,7 +143,7 @@ async def test_child_crash_basic() -> None:
             nursery.start_soon(erroring)
     except ExceptionGroup as exc:
         assert len(exc.exceptions) == 1  # noqa: PT017
-        assert exc.exceptions[0] is exc  # noqa: PT017
+        assert exc.exceptions[0] is my_exc  # noqa: PT017
 
 
 async def test_basic_interleave() -> None:
@@ -182,7 +181,7 @@ def test_task_crash_propagation() -> None:
             nursery.start_soon(looper)
             nursery.start_soon(crasher)
 
-    with pytest.raises(ExpectedExceptionGroup(ValueError("argh"))):
+    with raises(ExpectedExceptionGroup(ValueError("argh"))):
         _core.run(main)
 
     assert looper_record == ["cancelled"]
@@ -199,7 +198,7 @@ def test_main_and_task_both_crash() -> None:
             nursery.start_soon(crasher)
             raise KeyError
 
-    with pytest.raises(ExpectedExceptionGroup((ValueError, KeyError))):
+    with raises(ExpectedExceptionGroup((ValueError, KeyError))):
         _core.run(main)
 
 
@@ -212,7 +211,7 @@ def test_two_child_crashes() -> None:
             nursery.start_soon(crasher, KeyError)
             nursery.start_soon(crasher, ValueError)
 
-    with pytest.raises(ExpectedExceptionGroup((ValueError, KeyError))):
+    with raises(ExpectedExceptionGroup((ValueError, KeyError))):
         _core.run(main)
 
 
@@ -220,9 +219,7 @@ async def test_child_crash_wakes_parent() -> None:
     async def crasher() -> NoReturn:
         raise ValueError("this is a crash")
 
-    with pytest.raises(  # noqa: PT012
-        ExpectedExceptionGroup(ValueError("this is a crash"))
-    ):
+    with raises(ExpectedExceptionGroup(ValueError("this is a crash"))):
         async with _core.open_nursery() as nursery:
             nursery.start_soon(crasher)
             await sleep_forever()
@@ -425,14 +422,18 @@ async def test_cancel_edge_cases() -> None:
             await sleep_forever()
 
 
-async def test_cancel_scope_multierror_filtering() -> None:
+async def test_cancel_scope_exceptiongroup_filtering() -> None:
     async def crasher() -> NoReturn:
         raise KeyError
+
+    # check that the inner except is properly executed.
+    # alternative would be to have a `except BaseException` and an `else`
+    exception_group_caught_inner = False
 
     # This is outside the outer scope, so all the Cancelled
     # exceptions should have been absorbed, leaving just a regular
     # KeyError from crasher(), wrapped in an ExceptionGroup
-    with pytest.raises(ExpectedExceptionGroup(KeyError)):  # noqa: PT012
+    with raises(ExpectedExceptionGroup(KeyError)):
         with _core.CancelScope() as outer:
             try:
                 async with _core.open_nursery() as nursery:
@@ -448,7 +449,8 @@ async def test_cancel_scope_multierror_filtering() -> None:
                     # And one that raises a different error
                     nursery.start_soon(crasher)  # t4
                 # and then our __aexit__ also receives an outer Cancelled
-            except ExceptionGroup as multi_exc:
+            except BaseExceptionGroup as multi_exc:
+                exception_group_caught_inner = True
                 # Since the outer scope became cancelled before the
                 # nursery block exited, all cancellations inside the
                 # nursery block continue propagating to reach the
@@ -461,8 +463,8 @@ async def test_cancel_scope_multierror_filtering() -> None:
                     summary[type(exc)] += 1
                 assert summary == {_core.Cancelled: 3, KeyError: 1}
                 raise
-            else:
-                raise AssertionError("No ExceptionGroup")
+
+    assert exception_group_caught_inner
 
 
 async def test_precancelled_task() -> None:
@@ -924,7 +926,7 @@ def test_system_task_crash() -> None:
         _core.run(main)
 
 
-def test_system_task_crash_MultiError() -> None:
+def test_system_task_crash_ExceptionGroup() -> None:
     async def crasher1() -> NoReturn:
         raise KeyError
 
@@ -952,7 +954,7 @@ def test_system_task_crash_MultiError() -> None:
 
 def test_system_task_crash_plus_Cancelled() -> None:
     # Set up a situation where a system task crashes with a
-    # MultiError([Cancelled, ValueError])
+    # ExceptionGroup([Cancelled, ValueError])
     async def crasher() -> None:
         try:
             await sleep_forever()
@@ -1025,7 +1027,7 @@ async def test_exc_info() -> None:
         async with seq(0):
             pass  # we don't yield until seq(2) below
         record.append("child1 raise")
-        with pytest.raises(ValueError, match="^child1$") as excinfo:  # noqa: PT012
+        with pytest.raises(ValueError, match="^child1$") as excinfo:
             try:
                 raise ValueError("child1")
             except ValueError:
@@ -1044,7 +1046,7 @@ async def test_exc_info() -> None:
         assert "child1 sleep" in record
         record.append("child2 wake")
         assert sys.exc_info() == (None, None, None)
-        with pytest.raises(KeyError) as excinfo:  # noqa: PT012
+        with pytest.raises(KeyError) as excinfo:
             try:
                 raise KeyError("child2")
             except KeyError:
@@ -1099,7 +1101,7 @@ async def test_exc_info_after_throw_suppressed() -> None:
                 await sleep_forever()
             raise
 
-    with pytest.raises(ExpectedExceptionGroup(KeyError)) as excinfo:  # noqa: PT012
+    with raises(ExpectedExceptionGroup(KeyError)) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(child)
             await wait_all_tasks_blocked()
@@ -1127,9 +1129,7 @@ async def test_exception_chaining_after_throw() -> None:
         except KeyError:
             await sleep_forever()
 
-    with pytest.raises(  # noqa: PT012
-        ExpectedExceptionGroup(ValueError("error text"))
-    ) as excinfo:
+    with raises(ExpectedExceptionGroup(ValueError("error text"))) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(child)
             await wait_all_tasks_blocked()
@@ -1162,7 +1162,7 @@ async def test_exc_info_after_throw_to_inner_suppressed() -> None:
             await sleep_forever()
         assert not_none(sys.exc_info()[1]) is exc
 
-    with pytest.raises(KeyError) as excinfo:  # noqa: PT012
+    with raises(ExpectedExceptionGroup(KeyError)) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(child)
             await wait_all_tasks_blocked()
@@ -1194,7 +1194,7 @@ async def test_exception_chaining_after_throw_to_inner() -> None:
         except IndexError:
             await sleep_forever()
 
-    with pytest.raises(ValueError, match="^Unique Text$") as excinfo:  # noqa: PT012
+    with raises(ExpectedExceptionGroup(ValueError("^Unique Text$"))) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(child)
             await wait_all_tasks_blocked()
@@ -1202,21 +1202,20 @@ async def test_exception_chaining_after_throw_to_inner() -> None:
                 not_none(child_task), outcome.Error(ValueError("Unique Text"))
             )
 
-    assert isinstance(excinfo.value.__context__, IndexError)
-    assert isinstance(excinfo.value.__context__.__context__, KeyError)
+    subexc = excinfo.value.exceptions[0]
+    assert isinstance(subexc.__context__, IndexError)
+    assert isinstance(subexc.__context__.__context__, KeyError)
 
 
 async def test_nursery_exception_chaining_doesnt_make_context_loops() -> None:
     async def crasher() -> NoReturn:
         raise KeyError
 
-    with pytest.raises(  # noqa: PT012
-        ExpectedExceptionGroup(KeyError, ValueError)
-    ) as excinfo:
+    with raises(ExpectedExceptionGroup(KeyError, ValueError)) as excinfo:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(crasher)
             raise ValueError
-    # the MultiError should not have the KeyError or ValueError as context
+    # the ExceptionGroup should not have the KeyError or ValueError as context
     assert excinfo.value.__context__ is None
 
 
@@ -1436,7 +1435,6 @@ async def test_TrioToken_run_sync_soon_massive_queue() -> None:
     assert counter[0] == COUNT
 
 
-@pytest.mark.skipif(buggy_pypy_asyncgens, reason="PyPy 7.2 is buggy")
 def test_TrioToken_run_sync_soon_late_crash() -> None:
     # Crash after system nursery is closed -- easiest way to do that is
     # from an async generator finalizer.
@@ -1691,12 +1689,10 @@ def test_nice_error_on_bad_calls_to_run_or_spawn() -> None:
 
     # bad_call_spawn calls the function inside a nursery, so the exception will be
     # wrapped in an exceptiongroup
-    with pytest.raises(
-        ExpectedExceptionGroup(TypeError("expecting an async function"))
-    ):
+    with raises(ExpectedExceptionGroup(TypeError("expecting an async function"))):
         bad_call_spawn(f())  # type: ignore[arg-type]
 
-    with pytest.raises(
+    with raises(
         ExpectedExceptionGroup(
             TypeError("expected an async function but got an async generator")
         )
@@ -1722,7 +1718,7 @@ def test_calling_asyncio_function_gives_nice_error() -> None:
 
 async def test_asyncio_function_inside_nursery_does_not_explode() -> None:
     # Regression test for https://github.com/python-trio/trio/issues/552
-    with pytest.raises(ExpectedExceptionGroup(TypeError("asyncio"))):  # noqa: PT012
+    with raises(ExpectedExceptionGroup(TypeError("asyncio"))):
         async with _core.open_nursery() as nursery:
             nursery.start_soon(sleep_forever)
             await create_asyncio_future_in_new_loop()
@@ -1762,7 +1758,7 @@ async def test_trivial_yields() -> None:
 
     with _core.CancelScope() as cancel_scope:
         cancel_scope.cancel()
-        with pytest.raises(ExpectedExceptionGroup(KeyError)):
+        with raises(ExpectedExceptionGroup(KeyError)):
             async with _core.open_nursery():
                 raise KeyError
 
@@ -1887,7 +1883,8 @@ async def test_nursery_start(autojump_clock: _core.MockClock) -> None:
     t0 = _core.current_time()
     with pytest.raises(RuntimeError):
         await closed_nursery.start(sleep_then_start, 7)
-    assert _core.current_time() == t0
+    # sub-second delays can be caused by unrelated multitasking by an OS
+    assert int(_core.current_time()) == int(t0)
 
 
 async def test_task_nursery_stack() -> None:
@@ -1895,7 +1892,7 @@ async def test_task_nursery_stack() -> None:
     assert task._child_nurseries == []
     async with _core.open_nursery() as nursery1:
         assert task._child_nurseries == [nursery1]
-        with pytest.raises(ExpectedExceptionGroup(KeyError)):  # noqa: PT012
+        with raises(ExpectedExceptionGroup(KeyError)):
             async with _core.open_nursery() as nursery2:
                 assert task._child_nurseries == [nursery1, nursery2]
                 raise KeyError
@@ -1988,7 +1985,7 @@ async def test_nursery_start_keeps_nursery_open(
 
 
 async def test_nursery_explicit_exception() -> None:
-    with pytest.raises(ExpectedExceptionGroup(KeyError)):
+    with raises(ExpectedExceptionGroup(KeyError)):
         async with _core.open_nursery():
             raise KeyError()
 
@@ -1997,9 +1994,7 @@ async def test_nursery_stop_iteration() -> None:
     async def fail() -> NoReturn:
         raise ValueError
 
-    with pytest.raises(  # noqa: PT012
-        ExpectedExceptionGroup(StopIteration, ValueError)
-    ):
+    with raises(ExpectedExceptionGroup(StopIteration, ValueError)):
         async with _core.open_nursery() as nursery:
             nursery.start_soon(fail)
             raise StopIteration
@@ -2060,11 +2055,11 @@ async def test_traceback_frame_removal() -> None:
     async def my_child_task() -> NoReturn:
         raise KeyError()
 
-    with pytest.raises(ExceptionGroup) as excinfo:  # noqa: PT012
+    with pytest.raises(ExceptionGroup) as excinfo:
         # Trick: For now cancel/nursery scopes still leave a bunch of tb gunk
-        # behind. But if there's a MultiError, they leave it on the MultiError,
+        # behind. But if there's an ExceptionGroup, they leave it on the group,
         # which lets us get a clean look at the KeyError itself. Someday I
-        # guess this will always be a MultiError (#611), but for now we can
+        # guess this will always be an ExceptionGroup (#611), but for now we can
         # force it by raising two exceptions.
         async with _core.open_nursery() as nursery:
             nursery.start_soon(my_child_task)
@@ -2269,7 +2264,7 @@ async def test_permanently_detach_coroutine_object() -> None:
     # Check the exception paths too
     task = None
     pdco_outcome = None
-    with pytest.raises(ExpectedExceptionGroup(KeyError)):
+    with raises(ExpectedExceptionGroup(KeyError)):
         async with _core.open_nursery() as nursery:
             nursery.start_soon(detachable_coroutine, outcome.Error(KeyError()), "uh oh")
     throw_in = ValueError()
@@ -2411,6 +2406,9 @@ async def test_cancel_scope_deadline_duplicates() -> None:
         await sleep(0.01)
 
 
+# I don't know if this one can fail anymore, the `del` next to the comment that used to
+# refer to this only seems to break test_cancel_scope_exit_doesnt_create_cyclic_garbage
+# We're keeping it for now to cover Outcome and potential future refactoring
 @pytest.mark.skipif(
     sys.implementation.name != "cpython", reason="Only makes sense with refcounting GC"
 )
@@ -2438,7 +2436,7 @@ async def test_simple_cancel_scope_usage_doesnt_create_cyclic_garbage() -> None:
         # (See https://github.com/python-trio/trio/pull/1864)
         await do_a_cancel()
 
-        with pytest.raises(ExpectedExceptionGroup(ValueError("this is a crash"))):
+        with raises(ExpectedExceptionGroup(ValueError("this is a crash"))):
             async with _core.open_nursery() as nursery:
                 # cover NurseryManager.__aexit__
                 nursery.start_soon(crasher)
@@ -2462,7 +2460,7 @@ async def test_cancel_scope_exit_doesnt_create_cyclic_garbage() -> None:
 
     old_flags = gc.get_debug()
     try:
-        with pytest.raises(  # noqa: PT012
+        with raises(
             ExpectedExceptionGroup(ValueError("this is a crash"))
         ), _core.CancelScope() as outer:
             async with _core.open_nursery() as nursery:
@@ -2473,7 +2471,7 @@ async def test_cancel_scope_exit_doesnt_create_cyclic_garbage() -> None:
                 outer.cancel()
                 # And one that raises a different error
                 nursery.start_soon(crasher)
-                # so that outer filters a Cancelled from the MultiError and
+                # so that outer filters a Cancelled from the ExceptionGroup and
                 # covers CancelScope.__exit__ (and NurseryManager.__aexit__)
                 # (See https://github.com/python-trio/trio/pull/2063)
 
@@ -2553,7 +2551,10 @@ def test_run_strict_exception_groups() -> None:
         async with _core.open_nursery():
             raise Exception("foo")
 
-    with pytest.raises(ExpectedExceptionGroup(Exception("foo"))) as exc:
+    with raises(
+        ExpectedExceptionGroup(Exception("foo")),
+        match="^Exceptions from Trio nursery \\(1 sub-exception\\)$",
+    ) as exc:
         _core.run(main, strict_exception_groups=True)
 
     assert type(exc.value.exceptions[0]) is Exception
@@ -2575,9 +2576,33 @@ def test_run_strict_exception_groups_nursery_override() -> None:
 
 async def test_nursery_strict_exception_groups() -> None:
     """Test that strict exception groups can be enabled on a per-nursery basis."""
-    with pytest.raises(ExpectedExceptionGroup(Exception("foo"))):
+    with raises(ExpectedExceptionGroup(Exception("foo"))):
         async with _core.open_nursery(strict_exception_groups=True):
             raise Exception("foo")
+
+
+async def test_nursery_loose_exception_groups() -> None:
+    """Test that loose exception groups can be enabled on a per-nursery basis."""
+
+    async def raise_error() -> NoReturn:
+        raise RuntimeError("test error")
+
+    with pytest.raises(RuntimeError, match="^test error$"):
+        async with _core.open_nursery(strict_exception_groups=False) as nursery:
+            nursery.start_soon(raise_error)
+
+    with pytest.raises(
+        ExceptionGroup, match="^Exceptions from Trio nursery \\(2 sub-exceptions\\)$"
+    ) as exc:
+        async with _core.open_nursery(strict_exception_groups=False) as nursery:
+            nursery.start_soon(raise_error)
+            nursery.start_soon(raise_error)
+
+    assert exc.value.__notes__ == [_core._run.NONSTRICT_EXCEPTIONGROUP_NOTE]
+    assert len(exc.value.exceptions) == 2
+    for subexc in exc.value.exceptions:
+        assert type(subexc) is RuntimeError
+        assert subexc.args == ("test error",)
 
 
 async def test_nursery_collapse_strict() -> None:
@@ -2589,7 +2614,7 @@ async def test_nursery_collapse_strict() -> None:
     async def raise_error() -> NoReturn:
         raise RuntimeError("test error")
 
-    with pytest.raises(  # noqa: PT012
+    with raises(
         ExpectedExceptionGroup((RuntimeError, ExpectedExceptionGroup(RuntimeError)))
     ):
         async with _core.open_nursery() as nursery:
@@ -2610,9 +2635,7 @@ async def test_nursery_collapse_loose() -> None:
     async def raise_error() -> NoReturn:
         raise RuntimeError("test error")
 
-    with pytest.raises(  # noqa: PT012
-        ExpectedExceptionGroup(RuntimeError, RuntimeError)
-    ):
+    with raises(ExpectedExceptionGroup(RuntimeError, RuntimeError)):
         async with _core.open_nursery(strict_exception_groups=False) as nursery:
             nursery.start_soon(sleep_forever)
             nursery.start_soon(raise_error)
@@ -2628,7 +2651,7 @@ async def test_cancel_scope_no_cancellederror() -> None:
     a Cancelled exception, it will NOT set the ``cancelled_caught`` flag.
     """
 
-    with pytest.raises(ExceptionGroup):  # noqa: PT012
+    with pytest.raises(ExceptionGroup):
         with _core.CancelScope() as scope:
             scope.cancel()
             raise ExceptionGroup("test", [RuntimeError(), RuntimeError()])

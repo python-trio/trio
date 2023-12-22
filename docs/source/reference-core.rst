@@ -768,12 +768,6 @@ inside the handler function(s) with the ``nonlocal`` keyword::
         async with trio.open_nursery() as nursery:
             nursery.start_soon(broken1)
 
-For reasons of backwards compatibility, nurseries raise ``trio.MultiError`` and
-``trio.NonBaseMultiError`` which inherit from :exc:`BaseExceptionGroup` and
-:exc:`ExceptionGroup`, respectively. Users should refrain from attempting to raise or
-catch the Trio specific exceptions themselves, and treat them as if they were standard
-:exc:`BaseExceptionGroup` or :exc:`ExceptionGroup` instances instead.
-
 "Strict" versus "loose" ExceptionGroup semantics
 ++++++++++++++++++++++++++++++++++++++++++++++++
 

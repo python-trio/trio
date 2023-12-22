@@ -41,14 +41,14 @@ def test_close_all() -> None:
     assert c.closed
 
     c = CloseMe()
-    with pytest.raises(RuntimeError):  # noqa: PT012
+    with pytest.raises(RuntimeError):
         with close_all() as to_close:
             to_close.add(c)
             raise RuntimeError
     assert c.closed
 
     c = CloseMe()
-    with pytest.raises(OSError, match="os error text"):  # noqa: PT012
+    with pytest.raises(OSError, match="os error text"):
         with close_all() as to_close:
             to_close.add(CloseKiller())
             to_close.add(c)
@@ -471,6 +471,28 @@ async def test_custom_delay(autojump_clock: MockClock) -> None:
         "1.1.1.1": 0,
         "2.2.2.2": 0.450,
         "3.3.3.3": 0.900,
+    }
+
+
+async def test_none_default(autojump_clock: MockClock) -> None:
+    """Copy of test_basic_fallthrough, but specifying the delay =None"""
+    sock, scenario = await run_scenario(
+        80,
+        [
+            ("1.1.1.1", 1, "success"),
+            ("2.2.2.2", 1, "success"),
+            ("3.3.3.3", 0.2, "success"),
+        ],
+        happy_eyeballs_delay=None,
+    )
+    assert isinstance(sock, FakeSocket)
+    assert sock.ip == "3.3.3.3"
+    # current time is default time + default time + connection time
+    assert trio.current_time() == (0.250 + 0.250 + 0.2)
+    assert scenario.connect_times == {
+        "1.1.1.1": 0,
+        "2.2.2.2": 0.250,
+        "3.3.3.3": 0.500,
     }
 
 
