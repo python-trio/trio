@@ -1,0 +1,1 @@
+New helper classes: :class:`~.testing.RaisesGroup` and :class:`~.testing.Matcher`. In preparation for changing the default of ``strict_exception_groups`` to `True`, we're introducing a set of helper classes that can be used in place of `pytest.raises <https://docs.pytest.org/en/stable/reference/reference.html#pytest.raises>` in tests, to check for an expected `ExceptionGroup`.
