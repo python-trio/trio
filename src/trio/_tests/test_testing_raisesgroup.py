@@ -95,9 +95,9 @@ def test_raises_group() -> None:
         RaisesGroup(RaisesGroup(ValueError), strict=False)
 
     # currently not fully identical in behaviour to expect*, which would also catch an unwrapped exception
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="^value error text$"):
         with RaisesGroup(ValueError, strict=False):
-            raise ValueError
+            raise ValueError("value error text")
 
 
 def test_match() -> None:

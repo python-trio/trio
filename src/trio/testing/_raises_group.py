@@ -71,12 +71,13 @@ class _ExceptionInfo(Generic[E]):
 
 # this may bite users with type checkers not using pytest, but that should
 # be rare and give quite obvious errors in tests trying to do so.
+# Ignoring "incorrect import of pytest", it makes sense in this situation.
 if TYPE_CHECKING:
-    from pytest import ExceptionInfo
+    from pytest import ExceptionInfo  # noqa: PT013
 
 else:
     try:
-        from pytest import ExceptionInfo
+        from pytest import ExceptionInfo  # noqa: PT013
     except ImportError:  # pragma: no cover
         ExceptionInfo = _ExceptionInfo
 
