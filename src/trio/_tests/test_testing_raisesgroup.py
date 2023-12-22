@@ -152,6 +152,10 @@ def test_message() -> None:
         "ExceptionGroup(Matcher(ValueError, match='my_str'))",
         RaisesGroup(Matcher(ValueError, "my_str")),
     )
+    check_message(
+        "ExceptionGroup(Matcher(match='my_str'))",
+        RaisesGroup(Matcher(match="my_str")),
+    )
 
     # BaseExceptionGroup
     check_message(
