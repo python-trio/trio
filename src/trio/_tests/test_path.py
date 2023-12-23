@@ -51,7 +51,7 @@ cls_pairs: list[tuple[EitherPathType, EitherPathType]] = [
 ]
 
 
-@pytest.mark.parametrize("cls_a,cls_b", cls_pairs)
+@pytest.mark.parametrize(("cls_a", "cls_b"), cls_pairs)
 async def test_cmp_magic(cls_a: EitherPathType, cls_b: EitherPathType) -> None:
     a, b = cls_a(""), cls_b("")
     assert a == b
@@ -78,7 +78,7 @@ cls_pairs_str: list[tuple[PathOrStrType, PathOrStrType]] = [
 ]
 
 
-@pytest.mark.parametrize("cls_a,cls_b", cls_pairs_str)
+@pytest.mark.parametrize(("cls_a", "cls_b"), cls_pairs_str)
 async def test_div_magic(cls_a: PathOrStrType, cls_b: PathOrStrType) -> None:
     a, b = cls_a("a"), cls_b("b")
 
@@ -89,7 +89,7 @@ async def test_div_magic(cls_a: PathOrStrType, cls_b: PathOrStrType) -> None:
 
 
 @pytest.mark.parametrize(
-    "cls_a,cls_b", [(trio.Path, pathlib.Path), (trio.Path, trio.Path)]
+    ("cls_a", "cls_b"), [(trio.Path, pathlib.Path), (trio.Path, trio.Path)]
 )
 @pytest.mark.parametrize("path", ["foo", "foo/bar/baz", "./foo"])
 async def test_hash_magic(

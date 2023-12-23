@@ -35,11 +35,11 @@ from .. import _core
 from .._abc import Clock, Instrument
 from .._util import NoPublicConstructor, coroutine_or_error, final
 from ._asyncgens import AsyncGenerators
+from ._concat_tb import concat_tb
 from ._entry_queue import EntryQueue, TrioToken
 from ._exceptions import Cancelled, RunFinishedError, TrioInternalError
 from ._instrumentation import Instruments
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED, KIManager, enable_ki_protection
-from ._multierror import MultiError, concat_tb
 from ._thread_cache import start_thread_soon
 from ._traps import (
     Abort,
@@ -52,6 +52,12 @@ from ._traps import (
 
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
+
+FnT = TypeVar("FnT", bound="Callable[..., Any]")
+StatusT = TypeVar("StatusT")
+StatusT_co = TypeVar("StatusT_co", covariant=True)
+StatusT_contra = TypeVar("StatusT_contra", contravariant=True)
+RetT = TypeVar("RetT")
 
 
 if TYPE_CHECKING:
@@ -70,18 +76,27 @@ if TYPE_CHECKING:
     # for some strange reason Sphinx works with outcome.Outcome, but not Outcome, in
     # start_guest_run. Same with types.FrameType in iter_await_frames
     import outcome
-    from typing_extensions import Self
+    from typing_extensions import Self, TypeVarTuple, Unpack
+
+    PosArgT = TypeVarTuple("PosArgT")
+
+    # Needs to be guarded, since Unpack[] would be evaluated at runtime.
+    class _NurseryStartFunc(Protocol[Unpack[PosArgT], StatusT_co]):
+        """Type of functions passed to `nursery.start() <trio.Nursery.start>`."""
+
+        def __call__(
+            self, *args: Unpack[PosArgT], task_status: TaskStatus[StatusT_co]
+        ) -> Awaitable[object]:
+            ...
+
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: Final = 1000
 
 # Passed as a sentinel
 _NO_SEND: Final[Outcome[Any]] = cast("Outcome[Any]", object())
 
-FnT = TypeVar("FnT", bound="Callable[..., Any]")
-StatusT = TypeVar("StatusT")
-StatusT_co = TypeVar("StatusT_co", covariant=True)
-StatusT_contra = TypeVar("StatusT_contra", contravariant=True)
-RetT = TypeVar("RetT")
+# Used to track if an exceptiongroup can be collapsed
+NONSTRICT_EXCEPTIONGROUP_NOTE = 'This is a "loose" ExceptionGroup, and may be collapsed by Trio if it only contains one exception - typically after `Cancelled` has been stripped from it. Note this has consequences for exception handling, and strict_exception_groups=True is recommended.'
 
 
 @final
@@ -194,7 +209,11 @@ def collapse_exception_group(
                 modified = True
                 exceptions[i] = new_exc
 
-    if len(exceptions) == 1 and isinstance(excgroup, MultiError) and excgroup.collapse:
+    if (
+        len(exceptions) == 1
+        and isinstance(excgroup, BaseExceptionGroup)
+        and NONSTRICT_EXCEPTIONGROUP_NOTE in getattr(excgroup, "__notes__", ())
+    ):
         exceptions[0].__traceback__ = concat_tb(
             excgroup.__traceback__, exceptions[0].__traceback__
         )
@@ -630,7 +649,7 @@ class CancelScope:
         elif remaining_error_after_cancel_scope is exc:
             return False
         else:
-            # Copied verbatim from MultiErrorCatcher.  Python doesn't
+            # Copied verbatim from the old MultiErrorCatcher.  Python doesn't
             # allow us to encapsulate this __context__ fixup.
             old_context = remaining_error_after_cancel_scope.__context__
             try:
@@ -641,6 +660,7 @@ class CancelScope:
                 value.__context__ = old_context
                 # delete references from locals to avoid creating cycles
                 # see test_cancel_scope_exit_doesnt_create_cyclic_garbage
+                # Note: still relevant
                 del remaining_error_after_cancel_scope, value, _, exc
                 # deep magic to remove refs via f_locals
                 locals()
@@ -944,7 +964,7 @@ class NurseryManager:
         elif combined_error_from_nursery is exc:
             return False
         else:
-            # Copied verbatim from MultiErrorCatcher.  Python doesn't
+            # Copied verbatim from the old MultiErrorCatcher.  Python doesn't
             # allow us to encapsulate this __context__ fixup.
             old_context = combined_error_from_nursery.__context__
             try:
@@ -954,7 +974,7 @@ class NurseryManager:
                 assert value is combined_error_from_nursery
                 value.__context__ = old_context
                 # delete references from locals to avoid creating cycles
-                # see test_simple_cancel_scope_usage_doesnt_create_cyclic_garbage
+                # see test_cancel_scope_exit_doesnt_create_cyclic_garbage
                 del _, combined_error_from_nursery, value, new_exc
 
     # make sure these raise errors in static analysis if called
@@ -1075,7 +1095,7 @@ class Nursery(metaclass=NoPublicConstructor):
     async def _nested_child_finished(
         self, nested_child_exc: BaseException | None
     ) -> BaseException | None:
-        # Returns MultiError instance (or any exception if the nursery is in loose mode
+        # Returns ExceptionGroup instance (or any exception if the nursery is in loose mode
         # and there is just one contained exception) if there are pending exceptions
         if nested_child_exc is not None:
             self._add_exc(nested_child_exc)
@@ -1090,6 +1110,7 @@ class Nursery(metaclass=NoPublicConstructor):
                 exn = capture(raise_cancel).error
                 if not isinstance(exn, Cancelled):
                     self._add_exc(exn)
+                # see test_cancel_scope_exit_doesnt_create_cyclic_garbage
                 del exn  # prevent cyclic garbage creation
                 return Abort.FAILED
 
@@ -1108,20 +1129,24 @@ class Nursery(metaclass=NoPublicConstructor):
         assert popped is self
         if self._pending_excs:
             try:
-                return MultiError(
-                    self._pending_excs, _collapse=not self._strict_exception_groups
+                if not self._strict_exception_groups and len(self._pending_excs) == 1:
+                    return self._pending_excs[0]
+                exception = BaseExceptionGroup(
+                    "Exceptions from Trio nursery", self._pending_excs
                 )
+                if not self._strict_exception_groups:
+                    exception.add_note(NONSTRICT_EXCEPTIONGROUP_NOTE)
+                return exception
             finally:
                 # avoid a garbage cycle
-                # (see test_nursery_cancel_doesnt_create_cyclic_garbage)
+                # (see test_locals_destroyed_promptly_on_cancel)
                 del self._pending_excs
         return None
 
     def start_soon(
         self,
-        # TODO: TypeVarTuple
-        async_fn: Callable[..., Awaitable[object]],
-        *args: object,
+        async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
+        *args: Unpack[PosArgT],
         name: object = None,
     ) -> None:
         """Creates a child task, scheduling ``await async_fn(*args)``.
@@ -1170,7 +1195,7 @@ class Nursery(metaclass=NoPublicConstructor):
         async_fn: Callable[..., Awaitable[object]],
         *args: object,
         name: object = None,
-    ) -> StatusT:
+    ) -> Any:
         r"""Creates and initializes a child task.
 
         Like :meth:`start_soon`, but blocks until the new task has
@@ -1219,7 +1244,7 @@ class Nursery(metaclass=NoPublicConstructor):
             # `run` option, which would cause it to wrap a pre-started()
             # exception in an extra ExceptionGroup. See #2611.
             async with open_nursery(strict_exception_groups=False) as old_nursery:
-                task_status: _TaskStatus[StatusT] = _TaskStatus(old_nursery, self)
+                task_status: _TaskStatus[Any] = _TaskStatus(old_nursery, self)
                 thunk = functools.partial(async_fn, task_status=task_status)
                 task = GLOBAL_RUN_CONTEXT.runner.spawn_impl(
                     thunk, args, old_nursery, name
@@ -1232,7 +1257,7 @@ class Nursery(metaclass=NoPublicConstructor):
             # (Any exceptions propagate directly out of the above.)
             if task_status._value is _NoStatus:
                 raise RuntimeError("child exited without calling task_status.started()")
-            return task_status._value  # type: ignore[return-value]  # Mypy doesn't narrow yet.
+            return task_status._value
         finally:
             self._pending_starts -= 1
             self._check_nursery_closed()
@@ -1690,9 +1715,8 @@ class Runner:
 
     def spawn_impl(
         self,
-        # TODO: TypeVarTuple
-        async_fn: Callable[..., Awaitable[object]],
-        args: tuple[object, ...],
+        async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
+        args: tuple[Unpack[PosArgT]],
         nursery: Nursery | None,
         name: object,
         *,
@@ -1721,7 +1745,8 @@ class Runner:
         # Call the function and get the coroutine object, while giving helpful
         # errors for common mistakes.
         ######
-        coro = context.run(coroutine_or_error, async_fn, *args)
+        # TypeVarTuple passed into ParamSpec function confuses Mypy.
+        coro = context.run(coroutine_or_error, async_fn, *args)  # type: ignore[arg-type]
 
         if name is None:
             name = async_fn
@@ -1757,8 +1782,7 @@ class Runner:
             self.instruments.call("task_spawned", task)
         # Special case: normally next_send should be an Outcome, but for the
         # very first send we have to send a literal unboxed None.
-        # TODO: remove [unused-ignore] when Outcome is typed
-        self.reschedule(task, None)  # type: ignore[arg-type, unused-ignore]
+        self.reschedule(task, None)  # type: ignore[arg-type]
         return task
 
     def task_exited(self, task: Task, outcome: Outcome[Any]) -> None:
@@ -1808,12 +1832,11 @@ class Runner:
     # System tasks and init
     ################
 
-    @_public  # Type-ignore due to use of Any here.
-    def spawn_system_task(  # type: ignore[misc]
+    @_public
+    def spawn_system_task(
         self,
-        # TODO: TypeVarTuple
-        async_fn: Callable[..., Awaitable[object]],
-        *args: object,
+        async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
+        *args: Unpack[PosArgT],
         name: object = None,
         context: contextvars.Context | None = None,
     ) -> Task:
@@ -1878,10 +1901,9 @@ class Runner:
         )
 
     async def init(
-        # TODO: TypeVarTuple
         self,
-        async_fn: Callable[..., Awaitable[object]],
-        args: tuple[object, ...],
+        async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
+        args: tuple[Unpack[PosArgT]],
     ) -> None:
         # run_sync_soon task runs here:
         async with open_nursery() as run_sync_soon_nursery:
@@ -2407,8 +2429,8 @@ _MAX_TIMEOUT: Final = 24 * 60 * 60
 # straight through.
 def unrolled_run(
     runner: Runner,
-    async_fn: Callable[..., object],
-    args: tuple[object, ...],
+    async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
+    args: tuple[Unpack[PosArgT]],
     host_uses_signal_set_wakeup_fd: bool = False,
 ) -> Generator[float, EventResult, None]:
     locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
@@ -2606,8 +2628,7 @@ def unrolled_run(
                         # protocol of unwrapping whatever outcome gets sent in.
                         # Instead, we'll arrange to throw `exc` in directly,
                         # which works for at least asyncio and curio.
-                        # TODO: remove [unused-ignore] when Outcome is typed
-                        runner.reschedule(task, exc)  # type: ignore[arg-type, unused-ignore]
+                        runner.reschedule(task, exc)  # type: ignore[arg-type]
                         task._next_send_fn = task.coro.throw
                     # prevent long-lived reference
                     # TODO: develop test for this deletion
@@ -2617,7 +2638,7 @@ def unrolled_run(
                     runner.instruments.call("after_task_step", task)
                 del GLOBAL_RUN_CONTEXT.task
                 # prevent long-lived references
-                # TODO: develop test for these deletions
+                # TODO: develop test for this deletion
                 del task, next_send, next_send_fn
 
     except GeneratorExit:

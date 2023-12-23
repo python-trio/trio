@@ -98,7 +98,9 @@ async def test_smoke(ipv6: bool) -> None:
             await client_channel.send(b"goodbye")
             assert await client_channel.receive() == b"goodbye"
 
-            with pytest.raises(ValueError):
+            with pytest.raises(
+                ValueError, match="^openssl doesn't support sending empty DTLS packets$"
+            ):
                 await client_channel.send(b"")
 
             client_channel.set_ciphertext_mtu(1234)
@@ -278,18 +280,17 @@ async def test_client_multiplex() -> None:
             with pytest.raises(trio.ClosedResourceError):
                 client_endpoint.connect(address1, client_ctx)
 
+            async def null_handler(_: object) -> None:  # pragma: no cover
+                pass
+
             async with trio.open_nursery() as nursery:
                 with pytest.raises(trio.ClosedResourceError):
-
-                    async def null_handler(_: object) -> None:  # pragma: no cover
-                        pass
-
                     await nursery.start(client_endpoint.serve, server_ctx, null_handler)
 
 
 async def test_dtls_over_dgram_only() -> None:
     with trio.socket.socket() as s:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="^DTLS requires a SOCK_DGRAM socket$"):
             DTLSEndpoint(s)
 
 
