@@ -1168,7 +1168,7 @@ TODO: maybe a brief discussion of :exc:`KeyboardInterrupt` handling?
    you can stick anything inside a timeout block, even child tasks
 
      [show something like the first example but with a timeout – they
-     both get cancelled, the cancelleds get packed into a multierror, and
+     both get cancelled, the cancelleds get packed into an ExceptionGroup, and
      then the timeout block catches the cancelled]
 
    brief discussion of KI?
