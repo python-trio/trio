@@ -11,6 +11,7 @@ from typing import (
     Pattern,
     TypeVar,
     cast,
+    overload,
 )
 
 from trio._util import final
@@ -96,6 +97,30 @@ def _stringify_exception(exc: BaseException) -> str:
 
 @final
 class Matcher(Generic[E]):
+    # At least one of the three parameters must be passed.
+    @overload
+    def __init__(
+        self: Matcher[E],
+        exception_type: type[E],
+        match: str | Pattern[str] = ...,
+        check: Callable[[E], bool] = ...,
+    ):
+        ...
+
+    @overload
+    def __init__(
+        self: Matcher[BaseException],  # Give E a value.
+        *,
+        match: str | Pattern[str],
+        # If exception_type is not provided, check() must do any typechecks itself.
+        check: Callable[[BaseException], bool] = ...,
+    ):
+        ...
+
+    @overload
+    def __init__(self, *, check: Callable[[BaseException], bool]):
+        ...
+
     def __init__(
         self,
         exception_type: type[E] | None = None,
@@ -112,7 +137,7 @@ class Matcher(Generic[E]):
         self.match = match
         self.check = check
 
-    def matches(self, exception: E) -> TypeGuard[E]:
+    def matches(self, exception: BaseException) -> TypeGuard[E]:
         if self.exception_type is not None and not isinstance(
             exception, self.exception_type
         ):
@@ -121,7 +146,9 @@ class Matcher(Generic[E]):
             self.match, _stringify_exception(exception)
         ):
             return False
-        if self.check is not None and not self.check(exception):
+        # If exception_type is None check() accepts BaseException.
+        # If non-none, we have done an isinstance check above.
+        if self.check is not None and not self.check(cast(E, exception)):
             return False
         return True
 
@@ -254,10 +281,7 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
                         and isinstance(rem_e, RaisesGroup)
                         and rem_e.matches(e)
                     )
-                    or (
-                        isinstance(rem_e, Matcher)
-                        and rem_e.matches(e)  # type: ignore[arg-type]
-                    )
+                    or (isinstance(rem_e, Matcher) and rem_e.matches(e))
                 ):
                     remaining_exceptions.remove(rem_e)  # type: ignore[arg-type]
                     break

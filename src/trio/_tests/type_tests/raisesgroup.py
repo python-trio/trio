@@ -61,6 +61,30 @@ def check_matches_with_different_exception_type() -> None:
         assert_type(e, BaseExceptionGroup[ValueError])
 
 
+def check_matcher_init() -> None:
+    def check_exc(exc: BaseException) -> bool:
+        return isinstance(exc, ValueError)
+
+    def check_filenotfound(exc: FileNotFoundError) -> bool:
+        return not exc.filename.endswith(".tmp")
+
+    # Check various combinations of constructor signatures.
+    # At least 1 arg must be provided. If exception_type is provided, that narrows
+    # check's argument.
+    Matcher()  # type: ignore
+    Matcher(ValueError)
+    Matcher(ValueError, "regex")
+    Matcher(ValueError, "regex", check_exc)
+    Matcher(exception_type=ValueError)
+    Matcher(match="regex")
+    Matcher(check=check_exc)
+    Matcher(check=check_filenotfound)  # type: ignore
+    Matcher(ValueError, match="regex")
+    Matcher(FileNotFoundError, check=check_filenotfound)
+    Matcher(match="regex", check=check_exc)
+    Matcher(FileNotFoundError, match="regex", check=check_filenotfound)
+
+
 def check_matcher_transparent() -> None:
     with RaisesGroup(Matcher(ValueError)) as e:
         ...

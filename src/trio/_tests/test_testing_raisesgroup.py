@@ -182,7 +182,7 @@ def test_matcher() -> None:
     with pytest.raises(
         ValueError, match="^You must specify at least one parameter to match on.$"
     ):
-        Matcher()
+        Matcher()  # type: ignore[call-overload]
     with pytest.raises(
         ValueError,
         match=f"^exception_type {re.escape(repr(object))} must be a subclass of BaseException$",
