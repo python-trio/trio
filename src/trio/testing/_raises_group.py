@@ -95,6 +95,10 @@ def _stringify_exception(exc: BaseException) -> str:
     )
 
 
+# String patterns default to including the unicode flag.
+_regex_no_flags = re.compile("").flags
+
+
 @final
 class Matcher(Generic[E]):
     # At least one of the three parameters must be passed.
@@ -134,7 +138,11 @@ class Matcher(Generic[E]):
                 f"exception_type {exception_type} must be a subclass of BaseException"
             )
         self.exception_type = exception_type
-        self.match = match
+        self.match: Pattern[str] | None
+        if isinstance(match, str):
+            self.match = re.compile(match)
+        else:
+            self.match = match
         self.check = check
 
     def matches(self, exception: BaseException) -> TypeGuard[E]:
@@ -156,9 +164,13 @@ class Matcher(Generic[E]):
         reqs = []
         if self.exception_type is not None:
             reqs.append(self.exception_type.__name__)
-        for req, attr in (("match", self.match), ("check", self.check)):
-            if attr is not None:
-                reqs.append(f"{req}={attr!r}")
+        if (match := self.match) is not None:
+            # If no flags were specified, discard the redundant re.compile() here.
+            reqs.append(
+                f"match={match.pattern if match.flags == _regex_no_flags else match!r}"
+            )
+        if self.check is not None:
+            reqs.append(f"check={self.check!r}")
         return f'Matcher({", ".join(reqs)})'
 
 
