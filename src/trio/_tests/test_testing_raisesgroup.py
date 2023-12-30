@@ -230,6 +230,19 @@ def test_Matcher_check() -> None:
             raise ExceptionGroup("", (OSError(6, ""),))
 
 
+def test_matcher_tostring() -> None:
+    assert str(Matcher(ValueError)) == "Matcher(ValueError)"
+    assert str(Matcher(match="[a-z]")) == "Matcher(match='[a-z]')"
+    pattern_no_flags = re.compile("noflag", 0)
+    assert str(Matcher(match=pattern_no_flags)) == "Matcher(match='noflag')"
+    pattern_flags = re.compile("noflag", re.IGNORECASE)
+    assert str(Matcher(match=pattern_flags)) == f"Matcher(match={pattern_flags!r})"
+    assert (
+        str(Matcher(ValueError, match="re", check=bool))
+        == f"Matcher(ValueError, match='re', check={bool!r})"
+    )
+
+
 def test__ExceptionInfo(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         trio.testing._raises_group,

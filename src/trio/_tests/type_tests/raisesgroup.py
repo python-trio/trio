@@ -13,7 +13,6 @@ that most static type checking for end users should be mostly correct.
 """
 from __future__ import annotations
 
-import re
 import sys
 from typing import Union
 
@@ -36,7 +35,9 @@ def check_inheritance_and_assignments() -> None:
     # pyright-ignore due to bug in exceptiongroup
     # https://github.com/agronholm/exceptiongroup/pull/101
     # once fixed we'll get errors for unnecessary-pyright-ignore and can clean up
-    a = BaseExceptionGroup("", (BaseExceptionGroup("", (ValueError(),)),))  # pyright: ignore
+    a = BaseExceptionGroup(
+        "", (BaseExceptionGroup("", (ValueError(),)),)  # pyright: ignore
+    )
     assert a
 
 
@@ -96,19 +97,6 @@ def check_matcher_transparent() -> None:
     assert_type(e.value, BaseExceptionGroup[ValueError])
 
 
-def check_matcher_tostring() -> None:
-    assert str(Matcher(ValueError)) == "Matcher(ValueError)"
-    assert str(Matcher(match="[a-z]")) == "Matcher(match='[a-z]')"
-    pattern_no_flags = re.compile("noflag", 0)
-    assert str(Matcher(match=pattern_no_flags)) == "Matcher(match='noflag')"
-    pattern_flags = re.compile("noflag", re.IGNORECASE)
-    assert str(Matcher(match=pattern_flags)) == f"Matcher(match={pattern_flags!r})"
-    assert (
-        str(Matcher(ValueError, match="re", check=bool))
-        == f"Matcher(ValueError, match='re', check={bool!r})"
-    )
-
-
 def check_nested_raisesgroups_contextmanager() -> None:
     with RaisesGroup(RaisesGroup(ValueError)) as excinfo:
         raise ExceptionGroup("foo", (ValueError(),))
@@ -140,7 +128,7 @@ def check_nested_raisesgroups_matches() -> None:
     # https://github.com/agronholm/exceptiongroup/pull/101
     # once fixed we'll get errors for unnecessary-pyright-ignore and can clean up
     exc: ExceptionGroup[ExceptionGroup[ValueError]] = ExceptionGroup(
-            "", (ExceptionGroup("", (ValueError(),)),)  # pyright: ignore
+        "", (ExceptionGroup("", (ValueError(),)),)  # pyright: ignore
     )
     # has the same problems as check_nested_raisesgroups_contextmanager
     if RaisesGroup(RaisesGroup(ValueError)).matches(exc):
