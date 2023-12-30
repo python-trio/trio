@@ -72,9 +72,9 @@ class _ExceptionInfo(Generic[E]):
         return self._excinfo[2]
 
 
-# this may bite users with type checkers not using pytest, but that should
-# be rare and give quite obvious errors in tests trying to do so.
-# Ignoring "incorrect import of pytest", it makes sense in this situation.
+# This may bite users with type checkers not using pytest, but that should
+# be rare and give quite obvious errors at runtime.
+# PT013: "incorrect import of pytest".
 if TYPE_CHECKING:
     from pytest import ExceptionInfo  # noqa: PT013
 
