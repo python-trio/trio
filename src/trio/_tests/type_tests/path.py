@@ -140,4 +140,6 @@ async def open_results(path: trio.Path, some_int: int, some_str: str) -> None:
     assert_type(await file_text.write("test"), int)
     # TODO: this is a mypy bug: report https://github.com/microsoft/pyright/issues/6833
     #       for mypy then make `_CanReadLines` use a positional-only `hint` parameter
-    assert_type(await file_text.readlines(), List[str])  # pyright: ignore[reportGeneralTypeIssues,reportUnknownMemberType]
+    assert_type(
+        await file_text.readlines(), List[str]
+    )  # pyright: ignore[reportGeneralTypeIssues,reportUnknownMemberType]
