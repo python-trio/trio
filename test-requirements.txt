@@ -12,7 +12,7 @@ astroid==3.0.2
     # via pylint
 async-generator==1.10
     # via -r test-requirements.in
-attrs==23.1.0
+attrs==23.2.0
     # via
     #   -r test-requirements.in
     #   outcome
@@ -34,7 +34,7 @@ click==8.1.7
     #   pip-tools
 codespell==2.2.6
     # via -r test-requirements.in
-coverage==7.3.4
+coverage==7.4.0
     # via -r test-requirements.in
 cryptography==41.0.7
     # via
@@ -112,9 +112,9 @@ pyopenssl==23.3.0
     # via -r test-requirements.in
 pyproject-hooks==1.0.0
     # via build
-pyright==1.1.342
+pyright==1.1.344
     # via -r test-requirements.in
-pytest==7.4.3
+pytest==7.4.4
     # via -r test-requirements.in
 pytz==2023.3.post1
     # via babel
