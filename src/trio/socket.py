@@ -68,11 +68,14 @@ from socket import (
 )
 
 if sys.implementation.name == "cpython":
-    from socket import (
-        if_indextoname as if_indextoname,
-        if_nameindex as if_nameindex,
-        if_nametoindex as if_nametoindex,
-    )
+    # Apparently, these functions aren't available on Android with
+    # API < 24 (and possibly other platforms)
+    with _suppress(ImportError):
+        from socket import (
+            if_indextoname as if_indextoname,
+            if_nameindex as if_nameindex,
+            if_nametoindex as if_nametoindex,
+        )
 
 
 # not always available so expose only if
