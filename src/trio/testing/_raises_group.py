@@ -32,6 +32,8 @@ E = TypeVar("E", bound=BaseException)
 # minimal version of pytest.ExceptionInfo in case it is not available
 @final
 class _ExceptionInfo(Generic[E]):
+    """Minimal re-implementation of pytest.ExceptionInfo, only used if pytest is not available. Supports a subset of its features necessary for functionality of :class:`trio.testing.RaisesGroup` and :class:`trio.testing.Matcher`."""
+
     _excinfo: tuple[type[E], E, types.TracebackType] | None
 
     def __init__(self, excinfo: tuple[type[E], E, types.TracebackType] | None):
@@ -101,6 +103,21 @@ _regex_no_flags = re.compile("").flags
 
 @final
 class Matcher(Generic[E]):
+    """Helper class to be used together with RaisesGroups when you want to specify requirements on sub-exceptions. Only specifying the type is redundant, and it's also unnecessary when the type is a nested `RaisesGroup` since it supports the same arguments.
+    The type is checked with `isinstance`, and does not need to be an exact match. If that is wanted you can use the ``check`` parameter.
+    :meth:`trio.testing.Matcher.matches` can also be used standalone to check individual exceptions.
+
+    Examples::
+
+        with RaisesGroups(Matcher(ValueError, match="string"))
+            ...
+        with RaisesGroups(Matcher(check=lambda x: x.args == (3, "hello"))):
+            ...
+        with RaisesGroups(Matcher(check=lambda x: type(x) is ValueError)):
+            ...
+
+    """
+
     # At least one of the three parameters must be passed.
     @overload
     def __init__(
@@ -146,6 +163,23 @@ class Matcher(Generic[E]):
         self.check = check
 
     def matches(self, exception: BaseException) -> TypeGuard[E]:
+        """Check if an exception matches the requirements of this Matcher.
+
+        Examples::
+
+            assert Matcher(ValueError).matches(my_exception):
+            # is equivalent to
+            assert isinstance(my_exception, ValueError)
+
+            # this can be useful when checking e.g. the ``__cause__`` of an exception.
+            with pytest.raises(ValueError) as excinfo:
+                ...
+            assert Matcher(SyntaxError, match="foo").matches(excinfo.value.__cause__)
+            # above line is equivalent to
+            assert isinstance(excinfo.value.__cause__, SyntaxError)
+            assert re.search("foo", str(excinfo.value.__cause__)
+
+        """
         if self.exception_type is not None and not isinstance(
             exception, self.exception_type
         ):
@@ -194,6 +228,45 @@ else:
 
 @final
 class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperClass[E]):
+    """Contextmanager for checking for an expected `ExceptionGroup`.
+    This works similar to ``pytest.raises``, and a version of it will hopefully be added upstream, after which this can be deprecated and removed. See https://github.com/pytest-dev/pytest/issues/11538
+
+
+    This differs from :ref:`except* <except_star>` in that all specified exceptions must be present, *and no others*. It will similarly not catch exceptions *not* wrapped in an exceptiongroup.
+    If you don't care for the nesting level of the exceptions you can pass ``strict=False``.
+    It currently does not care about the order of the exceptions, so ``RaisesGroups(ValueError, TypeError)`` is equivalent to ``RaisesGroups(TypeError, ValueError)``.
+
+    This class is not as polished as ``pytest.raises``, and is currently not as helpful in e.g. printing diffs when strings don't match, suggesting you use ``re.escape``, etc.
+
+    Examples::
+
+        with RaisesGroups(ValueError):
+            raise ExceptionGroup("", (ValueError(),))
+        with RaisesGroups(ValueError, ValueError, Matcher(TypeError, match="expected int")):
+            ...
+        with RaisesGroups(KeyboardInterrupt, match="hello", check=lambda x: type(x) is BaseExceptionGroup):
+            ...
+        with RaisesGroups(RaisesGroups(ValueError)):
+            raise ExceptionGroup("", (ExceptionGroup("", (ValueError(),)),))
+
+        with RaisesGroups(ValueError, strict=False):
+            raise ExceptionGroup("", (ExceptionGroup("", (ValueError(),)),))
+
+
+    `RaisesGroup.matches` can also be used directly to check a standalone exception group.
+
+
+    This class is also not perfectly smart, e.g. this will likely fail currently::
+
+        with RaisesGroups(ValueError, Matcher(ValueError, match="hello")):
+            raise ExceptionGroup("", (ValueError("hello"), ValueError("goodbye")))
+
+    even though it generally does not care about the order of the exceptions in the group.
+    To avoid the above you should specify the first ValueError with a Matcher as well.
+
+    It is also not typechecked perfectly, and that's likely not possible with the current approach. Most common usage should work without issue though.
+    """
+
     # needed for pyright, since BaseExceptionGroup.__new__ takes two arguments
     if TYPE_CHECKING:
 
@@ -261,6 +334,19 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
         self,
         exc_val: BaseException | None,
     ) -> TypeGuard[BaseExceptionGroup[E]]:
+        """Check if an exception matches the requirements of this RaisesGroup.
+
+        Example::
+
+            with pytest.raises(TypeError) as excinfo:
+                ...
+            assert RaisesGroups(ValueError).matches(excinfo.value.__cause__)
+            # the above line is equivalent to
+            myexc = excinfo.value.__cause
+            assert isinstance(myexc, BaseExceptionGroup)
+            assert len(myexc.exceptions) == 1
+            assert isinstance(myexc.exceptions[0], ValueError)
+        """
         if exc_val is None:
             return False
         # TODO: print/raise why a match fails, in a way that works properly in nested cases
