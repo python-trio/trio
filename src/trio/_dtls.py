@@ -668,7 +668,12 @@ def _read_loop(read_fn: Callable[[int], bytes]) -> bytes:
 async def handle_client_hello_untrusted(
     endpoint: DTLSEndpoint, address: Any, packet: bytes
 ) -> None:
-    if endpoint._listening_context is None:
+    # it's trivial to write a simple function that directly calls this to
+    # get code coverage, but it should maybe:
+    # 1. be removed
+    # 2. be asserted
+    # 3. Write a complicated test case where this happens "organically"
+    if endpoint._listening_context is None:  # pragma: no cover
         return
 
     try:
@@ -704,7 +709,7 @@ async def handle_client_hello_untrusted(
         try:
             stream._ssl.bio_write(packet)
             stream._ssl.DTLSv1_listen()
-        except SSL.Error:
+        except SSL.Error:  # pragma: no cover
             # ...OpenSSL didn't like it, so I guess we didn't have a valid ClientHello
             # after all.
             return

@@ -37,6 +37,7 @@ async def trio_main():
         from_trio.put_nowait(n + 1)
         if n >= 10:
             return
+    del _task_ref
 
 
 async def aio_pingpong(from_trio, to_trio):

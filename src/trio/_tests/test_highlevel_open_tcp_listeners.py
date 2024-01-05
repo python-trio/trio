@@ -332,12 +332,12 @@ async def test_open_tcp_listeners_some_address_families_unavailable(
         with pytest.raises(OSError, match="This system doesn't support") as exc_info:
             await open_tcp_listeners(80, host="example.org")
 
-        if isinstance(exc_info.value.__cause__, BaseExceptionGroup):
-            for subexc in exc_info.value.__cause__.exceptions:
-                assert "nope" in str(subexc)
-        else:
-            assert isinstance(exc_info.value.__cause__, OSError)
-            assert "nope" in str(exc_info.value.__cause__)
+        # open_listeners always creates an exceptiongroup with the
+        # unsupported address families, regardless of the value of
+        # strict_exception_groups or number of unsupported families.
+        assert isinstance(exc_info.value.__cause__, BaseExceptionGroup)
+        for subexc in exc_info.value.__cause__.exceptions:
+            assert "nope" in str(subexc)
     else:
         listeners = await open_tcp_listeners(80)
         for listener in listeners:
