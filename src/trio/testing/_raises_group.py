@@ -275,8 +275,8 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
 
     def __init__(
         self,
-        exceptions: type[E] | Matcher[E] | E,
-        *args: type[E] | Matcher[E] | E,
+        exception: type[E] | Matcher[E] | E,
+        *other_exceptions: type[E] | Matcher[E] | E,
         strict: bool = True,
         match: str | Pattern[str] | None = None,
         check: Callable[[BaseExceptionGroup[E]], bool] | None = None,
@@ -309,7 +309,7 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
                 self.is_baseexceptiongroup |= not issubclass(exc, Exception)
             else:
                 raise ValueError(
-                    "Invalid argument {exc} must be exception type, Matcher, or"
+                    f"Invalid argument {exc!r} must be exception type, Matcher, or"
                     " RaisesGroup."
                 )
 
