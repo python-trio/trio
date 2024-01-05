@@ -343,7 +343,7 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
                 self.is_baseexceptiongroup |= not issubclass(exc, Exception)
             else:
                 raise ValueError(
-                    f"Invalid argument {exc!r} must be exception type, Matcher, or"
+                    f'Invalid argument "{exc!r}" must be exception type, Matcher, or'
                     " RaisesGroup."
                 )
 

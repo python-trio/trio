@@ -14,12 +14,18 @@ if sys.version_info < (3, 11):
     from exceptiongroup import ExceptionGroup
 
 
+def wrap_escape(s: str) -> str:
+    return "^" + re.escape(s) + "$"
+
+
 def test_raises_group() -> None:
     with pytest.raises(
         ValueError,
-        match="^Invalid argument {exc} must be exception type, Matcher, or RaisesGroup.$",
+        match=wrap_escape(
+            f'Invalid argument "{TypeError()!r}" must be exception type, Matcher, or RaisesGroup.'
+        ),
     ):
-        RaisesGroup(ValueError())
+        RaisesGroup(TypeError())
 
     with RaisesGroup(ValueError):
         raise ExceptionGroup("foo", (ValueError(),))
