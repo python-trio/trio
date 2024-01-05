@@ -220,8 +220,11 @@ class Matcher(Generic[E]):
 
 # Current solution settles on the above giving BaseExceptionGroup[RaisesGroup[ValueError]], and it not
 # being a type error to do `with RaisesGroup(ValueError()): ...` - but that will error on runtime.
+
+# We lie to type checkers that we inherit, so excinfo.value and sub-exceptiongroups can be treated as ExceptionGroups
 if TYPE_CHECKING:
     SuperClass = BaseExceptionGroup
+# Inheriting at runtime leads to a series of TypeErrors, so we do not want to do that.
 else:
     SuperClass = Generic
 
@@ -282,8 +285,8 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
         check: Callable[[BaseExceptionGroup[E]], bool] | None = None,
     ):
         self.expected_exceptions: tuple[type[E] | Matcher[E] | E, ...] = (
-            exceptions,
-            *args,
+            exception,
+            *other_exceptions,
         )
         self.strict = strict
         self.match_expr = match
