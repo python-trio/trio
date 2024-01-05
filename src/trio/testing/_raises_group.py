@@ -17,10 +17,13 @@ from typing import (
 from trio._util import final
 
 if TYPE_CHECKING:
+    import builtins
+
     # sphinx will *only* work if we use types.TracebackType, and import
     # *inside* TYPE_CHECKING. No other combination works.....
     import types
 
+    from _pytest._code.code import ExceptionChainRepr, ReprExceptionInfo, Traceback
     from typing_extensions import TypeGuard
 
 if sys.version_info < (3, 11):
@@ -29,7 +32,6 @@ if sys.version_info < (3, 11):
 E = TypeVar("E", bound=BaseException)
 
 
-# minimal version of pytest.ExceptionInfo in case it is not available
 @final
 class _ExceptionInfo(Generic[E]):
     """Minimal re-implementation of pytest.ExceptionInfo, only used if pytest is not available. Supports a subset of its features necessary for functionality of :class:`trio.testing.RaisesGroup` and :class:`trio.testing.Matcher`."""
@@ -73,12 +75,41 @@ class _ExceptionInfo(Generic[E]):
         ), ".tb can only be used after the context manager exits"
         return self._excinfo[2]
 
+    def exconly(self, tryshort: bool = False) -> str:
+        raise NotImplementedError(
+            "This is a helper method only available if you use RaisesGroup with the pytest package installed"
+        )
 
-# This may bite users with type checkers not using pytest, but that should
-# be rare and give quite obvious errors at runtime.
-# PT013: "incorrect import of pytest".
+    def errisinstance(
+        self,
+        exc: builtins.type[BaseException] | tuple[builtins.type[BaseException], ...],
+    ) -> bool:
+        raise NotImplementedError(
+            "This is a helper method only available if you use RaisesGroup with the pytest package installed"
+        )
+
+    def getrepr(
+        self,
+        showlocals: bool = False,
+        style: str = "long",
+        abspath: bool = False,
+        tbfilter: bool | Callable[[_ExceptionInfo[BaseException]], Traceback] = True,
+        funcargs: bool = False,
+        truncate_locals: bool = True,
+        chain: bool = True,
+    ) -> ReprExceptionInfo | ExceptionChainRepr:
+        raise NotImplementedError(
+            "This is a helper method only available if you use RaisesGroup with the pytest package installed"
+        )
+
+
+# Type checkers are not able to do conditional types depending on installed packages, so
+# we've added signatures for all helpers to _ExceptionInfo, and then always use that.
+# If this ends up leading to problems, we can resort to always using _ExceptionInfo and
+# users that want to use getrepr/errisinstance/exconly can write helpers on their own, or
+# we reimplement them ourselves...or get this merged in upstream pytest.
 if TYPE_CHECKING:
-    from pytest import ExceptionInfo  # noqa: PT013
+    ExceptionInfo = _ExceptionInfo
 
 else:
     try:
