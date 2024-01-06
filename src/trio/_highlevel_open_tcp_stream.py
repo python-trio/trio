@@ -5,7 +5,6 @@ from contextlib import contextmanager, suppress
 from typing import TYPE_CHECKING, Any
 
 import trio
-from trio._core._multierror import MultiError
 from trio.socket import SOCK_STREAM, SocketType, getaddrinfo, socket
 
 if TYPE_CHECKING:
@@ -13,7 +12,7 @@ if TYPE_CHECKING:
     from socket import AddressFamily, SocketKind
 
 if sys.version_info < (3, 11):
-    from exceptiongroup import ExceptionGroup
+    from exceptiongroup import BaseExceptionGroup, ExceptionGroup
 
 
 # Implementation of RFC 6555 "Happy eyeballs"
@@ -130,7 +129,7 @@ def close_all() -> Generator[set[SocketType], None, None]:
         if len(errs) == 1:
             raise errs[0]
         elif errs:
-            raise MultiError(errs)
+            raise BaseExceptionGroup("", errs)
 
 
 def reorder_for_rfc_6555_section_5_4(

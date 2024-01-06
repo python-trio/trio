@@ -41,10 +41,11 @@ if TYPE_CHECKING:
 
     # See DTLSEndpoint.__init__ for why this is imported here
     from OpenSSL import SSL  # noqa: TCH004
-    from OpenSSL.SSL import Context
-    from typing_extensions import Self, TypeAlias
+    from typing_extensions import Self, TypeAlias, TypeVarTuple, Unpack
 
     from trio.socket import SocketType
+
+    PosArgsT = TypeVarTuple("PosArgsT")
 
 MAX_UDP_PACKET_SIZE = 65527
 
@@ -667,7 +668,12 @@ def _read_loop(read_fn: Callable[[int], bytes]) -> bytes:
 async def handle_client_hello_untrusted(
     endpoint: DTLSEndpoint, address: Any, packet: bytes
 ) -> None:
-    if endpoint._listening_context is None:
+    # it's trivial to write a simple function that directly calls this to
+    # get code coverage, but it should maybe:
+    # 1. be removed
+    # 2. be asserted
+    # 3. Write a complicated test case where this happens "organically"
+    if endpoint._listening_context is None:  # pragma: no cover
         return
 
     try:
@@ -703,7 +709,7 @@ async def handle_client_hello_untrusted(
         try:
             stream._ssl.bio_write(packet)
             stream._ssl.DTLSv1_listen()
-        except SSL.Error:
+        except SSL.Error:  # pragma: no cover
             # ...OpenSSL didn't like it, so I guess we didn't have a valid ClientHello
             # after all.
             return
@@ -830,7 +836,12 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
 
     """
 
-    def __init__(self, endpoint: DTLSEndpoint, peer_address: Any, ctx: Context):
+    def __init__(
+        self,
+        endpoint: DTLSEndpoint,
+        peer_address: Any,
+        ctx: SSL.Context,
+    ) -> None:
         self.endpoint = endpoint
         self.peer_address = peer_address
         self._packets_dropped_in_trio = 0
@@ -1176,7 +1187,12 @@ class DTLSEndpoint:
 
     """
 
-    def __init__(self, socket: SocketType, *, incoming_packets_buffer: int = 10):
+    def __init__(
+        self,
+        socket: SocketType,
+        *,
+        incoming_packets_buffer: int = 10,
+    ) -> None:
         # We do this lazily on first construction, so only people who actually use DTLS
         # have to install PyOpenSSL.
         global SSL
@@ -1197,7 +1213,7 @@ class DTLSEndpoint:
         # old connection.
         # {remote address: DTLSChannel}
         self._streams: WeakValueDictionary[Any, DTLSChannel] = WeakValueDictionary()
-        self._listening_context: Context | None = None
+        self._listening_context: SSL.Context | None = None
         self._listening_key: bytes | None = None
         self._incoming_connections_q = _Queue[DTLSChannel](float("inf"))
         self._send_lock = trio.Lock()
@@ -1258,14 +1274,11 @@ class DTLSEndpoint:
         if self._closed:
             raise trio.ClosedResourceError
 
-    # async_fn cannot be typed with ParamSpec, since we don't accept
-    # kwargs. Can be typed with TypeVarTuple once it's fully supported
-    # in mypy.
     async def serve(
         self,
-        ssl_context: Context,
-        async_fn: Callable[..., Awaitable[object]],
-        *args: Any,
+        ssl_context: SSL.Context,
+        async_fn: Callable[[DTLSChannel, Unpack[PosArgsT]], Awaitable[object]],
+        *args: Unpack[PosArgsT],
         task_status: trio.TaskStatus[None] = trio.TASK_STATUS_IGNORED,
     ) -> None:
         """Listen for incoming connections, and spawn a handler for each using an
@@ -1294,6 +1307,7 @@ class DTLSEndpoint:
             incoming connections.
           async_fn: The handler function that will be invoked for each incoming
             connection.
+          *args: Additional arguments to pass to the handler function.
 
         """
         self._check_closed()
@@ -1324,7 +1338,11 @@ class DTLSEndpoint:
         finally:
             self._listening_context = None
 
-    def connect(self, address: tuple[str, int], ssl_context: Context) -> DTLSChannel:
+    def connect(
+        self,
+        address: tuple[str, int],
+        ssl_context: SSL.Context,
+    ) -> DTLSChannel:
         """Initiate an outgoing DTLS connection.
 
         Notice that this is a synchronous method. That's because it doesn't actually

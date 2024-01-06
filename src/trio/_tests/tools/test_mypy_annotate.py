@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 @pytest.mark.parametrize(
-    "src, expected",
+    ("src", "expected"),
     [
         ("", None),
         ("a regular line\n", None),
