@@ -646,14 +646,23 @@ async def test_for_leaking_fds() -> None:
     await run_process(EXIT_TRUE)
     assert set(SyncPath("/dev/fd").iterdir()) == starting_fds
 
-    # TODO: one of these raises an exceptiongroup, one doesn't. That's bad (?)
+    # _run_process directly raises CalledProcessError with failing exit code
     with pytest.raises(subprocess.CalledProcessError):
         await run_process(EXIT_FALSE)
     assert set(SyncPath("/dev/fd").iterdir()) == starting_fds
 
+    # _run_process calls read_output, which opens a nursery, which wraps the PermissionError
     with RaisesGroup(PermissionError):
         await run_process(["/dev/fd/0"])
     assert set(SyncPath("/dev/fd").iterdir()) == starting_fds
+
+    # TODO: should `run_process` always, never, or sometimes raise exceptiongroups?
+    # With `strict_exception_groups=false` `read_output` could currently return an
+    # exceptiongroup, though it's not trivial to write a test case that would trigger it.
+
+    # Easiest way I see to is to monkeypatch `open_process` to return a faulty `trio.Process`
+    # when `run_process` calls it, that will raise errors when its stdin/stdout/stderr are
+    # accessed if we've specified capture_[stdin/stdout/stderr]=True.
 
 
 # regression test for #2209

@@ -138,14 +138,10 @@ async def test_child_crash_basic() -> None:
     async def erroring() -> NoReturn:
         raise my_exc
 
-    # TODO: with RaisesGroup, rewrite to use a Matcher to check the identity
-    try:
+    with RaisesGroup(Matcher(check=lambda e: e is my_exc)):
         # nursery.__aexit__ propagates exception from child back to parent
         async with _core.open_nursery() as nursery:
             nursery.start_soon(erroring)
-    except ExceptionGroup as exc:
-        assert len(exc.exceptions) == 1  # noqa: PT017
-        assert exc.exceptions[0] is my_exc  # noqa: PT017
 
 
 async def test_basic_interleave() -> None:
@@ -183,7 +179,7 @@ def test_task_crash_propagation() -> None:
             nursery.start_soon(looper)
             nursery.start_soon(crasher)
 
-    with RaisesGroup(Matcher(ValueError, "argh")):
+    with RaisesGroup(Matcher(ValueError, "^argh$")):
         _core.run(main)
 
     assert looper_record == ["cancelled"]
@@ -221,7 +217,7 @@ async def test_child_crash_wakes_parent() -> None:
     async def crasher() -> NoReturn:
         raise ValueError("this is a crash")
 
-    with RaisesGroup(Matcher(ValueError, "this is a crash")):
+    with RaisesGroup(Matcher(ValueError, "^this is a crash$")):
         async with _core.open_nursery() as nursery:
             nursery.start_soon(crasher)
             await sleep_forever()
@@ -942,11 +938,13 @@ def test_system_task_crash_ExceptionGroup() -> None:
         _core.spawn_system_task(system_task)
         await sleep_forever()
 
-    # not wrapped in ExceptionGroup
+    # TrioInternalError is not wrapped
     with pytest.raises(_core.TrioInternalError) as excinfo:
         _core.run(main)
 
-    # TODO: triple-wrapped exceptions ?!?!
+    # the first exceptiongroup is from the first nursery opened in Runner.init()
+    # the second exceptiongroup is from the second nursery opened in Runner.init()
+    # the third exceptongroup is from the nursery defined in `system_task` above
     assert RaisesGroup(RaisesGroup(RaisesGroup(KeyError, ValueError))).matches(
         excinfo.value.__cause__
     )
@@ -975,7 +973,8 @@ def test_system_task_crash_plus_Cancelled() -> None:
 
     with pytest.raises(_core.TrioInternalError) as excinfo:
         _core.run(main)
-    # triple-wrap
+
+    # See explanation for triple-wrap in test_system_task_crash_ExceptionGroup
     assert RaisesGroup(RaisesGroup(RaisesGroup(ValueError))).matches(
         excinfo.value.__cause__
     )
@@ -991,6 +990,7 @@ def test_system_task_crash_KeyboardInterrupt() -> None:
 
     with pytest.raises(_core.TrioInternalError) as excinfo:
         _core.run(main)
+    # "Only" double-wrapped since ki() doesn't create an exceptiongroup
     assert RaisesGroup(RaisesGroup(KeyboardInterrupt)).matches(excinfo.value.__cause__)
 
 
@@ -1338,6 +1338,8 @@ def test_TrioToken_run_sync_soon_crashes() -> None:
 
     with pytest.raises(_core.TrioInternalError) as excinfo:
         _core.run(main)
+    # the first exceptiongroup is from the first nursery opened in Runner.init()
+    # the second exceptiongroup is from the second nursery opened in Runner.init()
     assert RaisesGroup(RaisesGroup(KeyError)).matches(excinfo.value.__cause__)
     assert record == {"2nd run_sync_soon ran", "cancelled!"}
 
@@ -2028,11 +2030,15 @@ async def test_nursery_stop_async_iteration() -> None:
                     for i, f in enumerate(nexts):
                         nursery.start_soon(self._accumulate, f, items, i)
             except ExceptionGroup as e:
-                # I think requiring this is acceptable?
+                # With strict_exception_groups enabled, users now need to unwrap
+                # StopAsyncIteration and re-raise it.
+                # This would be relatively clean on python3.11+ with except*.
+                # We could also use RaisesGroup, but that's primarily meant as
+                # test infra, not as a runtime tool.
                 if len(e.exceptions) == 1 and isinstance(
                     e.exceptions[0], StopAsyncIteration
                 ):
-                    raise StopAsyncIteration from None
+                    raise e.exceptions[0] from None
                 else:
                     raise
 
@@ -2431,7 +2437,7 @@ async def test_simple_cancel_scope_usage_doesnt_create_cyclic_garbage() -> None:
         # (See https://github.com/python-trio/trio/pull/1864)
         await do_a_cancel()
 
-        with RaisesGroup(Matcher(ValueError, "this is a crash")):
+        with RaisesGroup(Matcher(ValueError, "^this is a crash$")):
             async with _core.open_nursery() as nursery:
                 # cover NurseryManager.__aexit__
                 nursery.start_soon(crasher)
@@ -2456,7 +2462,7 @@ async def test_cancel_scope_exit_doesnt_create_cyclic_garbage() -> None:
     old_flags = gc.get_debug()
     try:
         with RaisesGroup(
-            Matcher(ValueError, "this is a crash")
+            Matcher(ValueError, "^this is a crash$")
         ), _core.CancelScope() as outer:
             async with _core.open_nursery() as nursery:
                 gc.collect()

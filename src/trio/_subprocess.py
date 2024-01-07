@@ -760,6 +760,9 @@ async def _run_process(
             async for chunk in stream:
                 chunks.append(chunk)
 
+    # TODO: if this nursery raises an exceptiongroup, manually raise a CalledProcessError,
+    # or maybe a InternalTrioError, with the exceptiongroup as a cause, so run_process
+    # never raises an exceptiongroup. (?)
     async with trio.open_nursery() as nursery:
         # options needs a complex TypedDict. The overload error only occurs on Unix.
         proc = await open_process(command, **options)  # type: ignore[arg-type, call-overload, unused-ignore]
