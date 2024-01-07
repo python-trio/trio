@@ -1,7 +1,5 @@
 # Uses `from x import y as y` for compatibility with `pyright --verifytypes` (#2625)
 
-import pytest
-
 from .._core import (
     MockClock as MockClock,
     wait_all_tasks_blocked as wait_all_tasks_blocked,
