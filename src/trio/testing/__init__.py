@@ -16,7 +16,6 @@ from ._checkpoints import (
     assert_checkpoints as assert_checkpoints,
     assert_no_checkpoints as assert_no_checkpoints,
 )
-from ._exceptiongroup_util import ExpectedExceptionGroup, raises
 from ._memory_streams import (
     MemoryReceiveStream as MemoryReceiveStream,
     MemorySendStream as MemorySendStream,

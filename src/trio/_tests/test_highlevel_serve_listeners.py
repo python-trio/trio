@@ -9,12 +9,12 @@ import attr
 import trio
 from trio import Nursery, StapledStream, TaskStatus
 from trio.testing import (
-    ExpectedExceptionGroup,
+    Matcher,
     MemoryReceiveStream,
     MemorySendStream,
     MockClock,
+    RaisesGroup,
     memory_stream_pair,
-    raises,
     wait_all_tasks_blocked,
 )
 
@@ -113,12 +113,13 @@ async def test_serve_listeners_accept_unrecognized_error() -> None:
         async def raise_error() -> NoReturn:
             raise error  # noqa: B023  # Set from loop
 
+        def check_error(e: BaseException) -> bool:
+            return e is error  # noqa: B023
+
         listener.accept_hook = raise_error
 
-        with raises(ExpectedExceptionGroup(type(error))) as excinfo:
+        with RaisesGroup(Matcher(check=check_error)):
             await trio.serve_listeners(None, [listener])  # type: ignore[arg-type]
-
-        assert excinfo.value.exceptions[0] is error
 
 
 async def test_serve_listeners_accept_capacity_error(
@@ -163,7 +164,7 @@ async def test_serve_listeners_connection_nursery(autojump_clock: MockClock) -> 
             raise Done
 
     # the exception is wrapped twice because we open two nested nurseries
-    with raises(ExpectedExceptionGroup(ExpectedExceptionGroup(Done))):
+    with RaisesGroup(RaisesGroup(Done)):
         async with trio.open_nursery() as nursery:
             handler_nursery: trio.Nursery = await nursery.start(connection_watcher)
             await nursery.start(

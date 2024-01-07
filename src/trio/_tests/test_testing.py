@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from trio.testing import ExpectedExceptionGroup, raises
+from trio.testing import RaisesGroup
 
 from .. import _core, sleep, socket as tsocket
 from .._core._tests.tutil import can_bind_ipv6
@@ -280,7 +280,7 @@ async def test__UnboundeByteQueue() -> None:
         nursery.start_soon(putter, b"xyz")
 
     # Two gets at the same time -> BusyResourceError
-    with raises(ExpectedExceptionGroup(_core.BusyResourceError)):
+    with RaisesGroup(_core.BusyResourceError):
         async with _core.open_nursery() as nursery:
             nursery.start_soon(getter, b"asdf")
             nursery.start_soon(getter, b"asdf")
@@ -414,7 +414,7 @@ async def test_MemoryReceiveStream() -> None:
     mrs.put_data(b"abc")
     assert await do_receive_some(None) == b"abc"
 
-    with raises(ExpectedExceptionGroup(_core.BusyResourceError)):
+    with RaisesGroup(_core.BusyResourceError):
         async with _core.open_nursery() as nursery:
             nursery.start_soon(do_receive_some, 10)
             nursery.start_soon(do_receive_some, 10)
