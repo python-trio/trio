@@ -1,2 +1,2 @@
-``strict_exception_groups`` now defaults to True in ``trio.run`` and ``trio.start_guest_run``, as well as ``trio.open_nursery`` as a result of that.
-This is unfortunately very tricky to change with a deprecation period, as raising a ``DeprecationWarning`` whenever ``strict_exception_groups`` is not specified would raise a lot of unnecessary warnings.
+The :ref:`strict_exception_groups <strict_exception_groups>` parameter now defaults to `True` in `trio.run` and `trio.lowlevel.start_guest_run`. `trio.open_nursery` still defaults to the same value as was specified in `trio.run`/`trio.lowlevel.start_guest_run`, but if you didn't specify it there then all subsequent calls to `trio.open_nursery` will change.
+This is unfortunately very tricky to change with a deprecation period, as raising a `DeprecationWarning` whenever :ref:`strict_exception_groups <strict_exception_groups>` is not specified would raise a lot of unnecessary warnings.

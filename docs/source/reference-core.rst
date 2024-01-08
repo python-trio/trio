@@ -768,6 +768,8 @@ inside the handler function(s) with the ``nonlocal`` keyword::
         async with trio.open_nursery() as nursery:
             nursery.start_soon(broken1)
 
+.. _strict_exception_groups:
+
 "Strict" versus "loose" ExceptionGroup semantics
 ++++++++++++++++++++++++++++++++++++++++++++++++
 
