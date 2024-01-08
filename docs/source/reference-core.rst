@@ -796,9 +796,10 @@ to set the default behavior for any nursery in your program that doesn't overrid
   wrapping, so you'll get maximum compatibility with code that was written to
   support older versions of Trio.
 
-The default is set to ``strict_exception_groups=True`` in line with the default behaviour
-of ``TaskGroup`` in asyncio and anyio. This is also to avoid any bugs caused by only
-catching one type of exceptions/exceptiongroups.
+The default is set to ``strict_exception_groups=True``, in line with the default behaviour
+of ``TaskGroup`` in asyncio and anyio.  We've also found that non-strict mode makes it 
+too easy to neglect the possibility of several exceptions being raised concurrently,
+causing nasty latent bugs when errors occur under load.
 
 .. _exceptiongroup: https://pypi.org/project/exceptiongroup/
 
