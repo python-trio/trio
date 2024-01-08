@@ -21,6 +21,7 @@ from typing import (
 
 import pytest
 
+import trio
 from trio.testing import RaisesGroup
 
 from .. import (
@@ -654,10 +655,17 @@ async def test_for_leaking_fds() -> None:
         await run_process(["/dev/fd/0"])
     assert set(SyncPath("/dev/fd").iterdir()) == starting_fds
 
-    # TODO: Coverage test that raises TrioInternalError
-    # Easiest way I see to is to monkeypatch `open_process` to return a faulty `trio.Process`
-    # when `run_process` calls it, that will raise errors when its stdin/stdout/stderr are
-    # accessed if we've specified capture_[stdin/stdout/stderr]=True.
+
+async def test_run_process_internal_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    # There's probably less extreme ways of triggering errors inside the nursery
+    # in run_process.
+    async def very_broken_open(*args: object, **kwargs: object) -> str:
+        return "oops"
+
+    monkeypatch.setattr(trio._subprocess, "open_process", very_broken_open)
+    with pytest.raises(trio.TrioInternalError) as excinfo:
+        await run_process(EXIT_TRUE, capture_stdout=True)
+    assert RaisesGroup(AttributeError, AttributeError).matches(excinfo.value.__cause__)
 
 
 # regression test for #2209
