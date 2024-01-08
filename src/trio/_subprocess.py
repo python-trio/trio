@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Final, Literal, Protocol, Union, overload
 import trio
 
 from ._abc import AsyncResource, ReceiveStream, SendStream
-from ._core import ClosedResourceError, TaskStatus
+from ._core import Cancelled, ClosedResourceError, TaskStatus, TrioInternalError
 from ._deprecate import deprecated
 from ._highlevel_generic import StapledStream
 from ._subprocess_platform import (
@@ -29,6 +29,9 @@ if TYPE_CHECKING:
     from io import TextIOWrapper
 
     from typing_extensions import Self, TypeAlias
+
+if sys.version_info < (3, 11):
+    from exceptiongroup import BaseExceptionGroup
 
 
 # Sphinx cannot parse the stringified version
@@ -760,41 +763,45 @@ async def _run_process(
             async for chunk in stream:
                 chunks.append(chunk)
 
-    # TODO: if this nursery raises an exceptiongroup, manually raise a CalledProcessError,
-    # or maybe a InternalTrioError, with the exceptiongroup as a cause, so run_process
-    # never raises an exceptiongroup. (?)
-    async with trio.open_nursery() as nursery:
-        # options needs a complex TypedDict. The overload error only occurs on Unix.
-        proc = await open_process(command, **options)  # type: ignore[arg-type, call-overload, unused-ignore]
-        try:
-            if input is not None:
-                assert proc.stdin is not None
-                nursery.start_soon(feed_input, proc.stdin)
-                proc.stdin = None
-                proc.stdio = None
-            if capture_stdout:
-                assert proc.stdout is not None
-                nursery.start_soon(read_output, proc.stdout, stdout_chunks)
-                proc.stdout = None
-                proc.stdio = None
-            if capture_stderr:
-                assert proc.stderr is not None
-                nursery.start_soon(read_output, proc.stderr, stderr_chunks)
-                proc.stderr = None
-            task_status.started(proc)
-            await proc.wait()
-        except BaseException:
-            with trio.CancelScope(shield=True):
-                killer_cscope = trio.CancelScope(shield=True)
-
-                async def killer() -> None:
-                    with killer_cscope:
-                        await deliver_cancel(proc)
-
-                nursery.start_soon(killer)
+    # Opening the process does not need to be inside the nursery, so we put it outside
+    # so any exceptions get directly seen by users.
+    # options needs a complex TypedDict. The overload error only occurs on Unix.
+    proc = await open_process(command, **options)  # type: ignore[arg-type, call-overload, unused-ignore]
+    try:
+        async with trio.open_nursery() as nursery:
+            try:
+                if input is not None:
+                    assert proc.stdin is not None
+                    nursery.start_soon(feed_input, proc.stdin)
+                    proc.stdin = None
+                    proc.stdio = None
+                if capture_stdout:
+                    assert proc.stdout is not None
+                    nursery.start_soon(read_output, proc.stdout, stdout_chunks)
+                    proc.stdout = None
+                    proc.stdio = None
+                if capture_stderr:
+                    assert proc.stderr is not None
+                    nursery.start_soon(read_output, proc.stderr, stderr_chunks)
+                    proc.stderr = None
+                task_status.started(proc)
                 await proc.wait()
-                killer_cscope.cancel()
-                raise
+            except BaseException:
+                with trio.CancelScope(shield=True):
+                    killer_cscope = trio.CancelScope(shield=True)
+
+                    async def killer() -> None:
+                        with killer_cscope:
+                            await deliver_cancel(proc)
+
+                    nursery.start_soon(killer)
+                    await proc.wait()
+                    killer_cscope.cancel()
+                    raise
+    except BaseExceptionGroup as exc:
+        if all(isinstance(e, Cancelled) for e in exc.exceptions):
+            raise exc
+        raise TrioInternalError("Error interacting with opened process") from exc
 
     stdout = b"".join(stdout_chunks) if capture_stdout else None
     stderr = b"".join(stderr_chunks) if capture_stderr else None
