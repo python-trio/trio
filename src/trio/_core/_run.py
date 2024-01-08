@@ -1004,9 +1004,10 @@ def open_nursery(
     have exited.
 
     Args:
-      strict_exception_groups (bool): If true, even a single raised exception will be
-          wrapped in an exception group. If not specified, uses the value passed to
-          :func:`run`, which defaults to true.
+      strict_exception_groups (bool): Unless set to False, even a single raised exception
+          will be wrapped in an exception group. If not specified, uses the value passed
+          to :func:`run`, which defaults to true. Setting it to False will be deprecated
+          and ultimately removed in a future version of Trio.
 
     """
     if strict_exception_groups is None:
@@ -2228,9 +2229,10 @@ def run(
           main thread (this is a Python limitation), or if you use
           :func:`open_signal_receiver` to catch SIGINT.
 
-      strict_exception_groups (bool): Unless set to false, nurseries will always wrap
+      strict_exception_groups (bool): Unless set to False, nurseries will always wrap
           even a single raised exception in an exception group. This can be overridden
-          on the level of individual nurseries.
+          on the level of individual nurseries. Setting it to False will be deprecated
+          and ultimately removed in a future version of Trio.
 
     Returns:
       Whatever ``async_fn`` returns.
