@@ -773,6 +773,9 @@ inside the handler function(s) with the ``nonlocal`` keyword::
 "Strict" versus "loose" ExceptionGroup semantics
 ++++++++++++++++++++++++++++++++++++++++++++++++
 
+..
+    TODO: rewrite this (and possible other) sections from the new strict-by-default perspective, under the heading "Deprecated: non-strict ExceptionGroups" - to explain that it only exists for backwards-compatibility, will be removed in future, and that we recommend against it for all new code.
+
 Ideally, in some abstract sense we'd want everything that *can* raise an
 `ExceptionGroup` to *always* raise an `ExceptionGroup` (rather than, say, a single
 `ValueError`). Otherwise, it would be easy to accidentally write something like ``except
@@ -799,7 +802,7 @@ to set the default behavior for any nursery in your program that doesn't overrid
   support older versions of Trio.
 
 The default is set to ``strict_exception_groups=True``, in line with the default behaviour
-of ``TaskGroup`` in asyncio and anyio.  We've also found that non-strict mode makes it 
+of ``TaskGroup`` in asyncio and anyio.  We've also found that non-strict mode makes it
 too easy to neglect the possibility of several exceptions being raised concurrently,
 causing nasty latent bugs when errors occur under load.
 
