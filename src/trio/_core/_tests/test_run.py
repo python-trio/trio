@@ -2543,98 +2543,74 @@ async def test_locals_destroyed_promptly_on_cancel() -> None:
     assert destroyed
 
 
-def test_run_strict_exception_groups() -> None:
+def _create_kwargs(strictness: bool | None) -> dict[str, bool]:
+    """Turn a bool|None into a kwarg dict that can be passed to `run` or `open_nursery`"""
+
+    if strictness is None:
+        return {}
+    return {"strict_exception_groups": strictness}
+
+
+@pytest.mark.parametrize("run_strict", [True, False, None])
+@pytest.mark.parametrize("open_nursery_strict", [True, False, None])
+@pytest.mark.parametrize("multiple_exceptions", [True, False])
+def test_setting_strict_exception_groups(
+    run_strict: bool | None, open_nursery_strict: bool | None, multiple_exceptions: bool
+) -> None:
     """
-    Test that nurseries respect the global context setting of strict_exception_groups.
-    """
-
-    async def main() -> NoReturn:
-        async with _core.open_nursery():
-            raise Exception("foo")
-
-    with RaisesGroup(
-        Matcher(match="^foo$", check=lambda e: type(e) is Exception),
-        match="^Exceptions from Trio nursery \\(1 sub-exception\\)$",
-    ):
-        _core.run(main, strict_exception_groups=True)
-
-
-def test_run_strict_exception_groups_nursery_override() -> None:
-    """
-    Test that a nursery can override the global context setting of
-    strict_exception_groups.
-    """
-
-    async def main() -> NoReturn:
-        async with _core.open_nursery(strict_exception_groups=False):
-            raise Exception("foo")
-
-    with pytest.raises(Exception, match="^foo$"):
-        _core.run(main, strict_exception_groups=True)
-
-
-async def test_nursery_strict_exception_groups() -> None:
-    """Test that strict exception groups can be enabled on a per-nursery basis."""
-    with RaisesGroup(Matcher(match="^foo$", check=lambda e: type(e) is Exception)):
-        async with _core.open_nursery(strict_exception_groups=True):
-            raise Exception("foo")
-
-
-async def test_nursery_loose_exception_groups() -> None:
-    """Test that loose exception groups can be enabled on a per-nursery basis."""
-
-    async def raise_error() -> NoReturn:
-        raise RuntimeError("test error")
-
-    with pytest.raises(RuntimeError, match="^test error$"):
-        async with _core.open_nursery(strict_exception_groups=False) as nursery:
-            nursery.start_soon(raise_error)
-    m = Matcher(RuntimeError, match="^test error$")
-
-    with RaisesGroup(
-        m,
-        m,
-        match="Exceptions from Trio nursery \\(2 sub-exceptions\\)",
-        check=lambda x: x.__notes__ == [_core._run.NONSTRICT_EXCEPTIONGROUP_NOTE],
-    ):
-        async with _core.open_nursery(strict_exception_groups=False) as nursery:
-            nursery.start_soon(raise_error)
-            nursery.start_soon(raise_error)
-
-
-async def test_nursery_collapse_strict() -> None:
-    """
-    Test that a single exception from a nested nursery with strict semantics doesn't get
-    collapsed when CancelledErrors are stripped from it.
+    Test default values and that nurseries can both inherit and override the global context
+    setting of strict_exception_groups.
     """
 
     async def raise_error() -> NoReturn:
         raise RuntimeError("test error")
 
-    with RaisesGroup(RuntimeError, RaisesGroup(RuntimeError)):
+    async def main() -> None:
+        """Open a nursery, and raise one or two errors inside"""
+        async with _core.open_nursery(**_create_kwargs(open_nursery_strict)) as nursery:
+            nursery.start_soon(raise_error)
+            if multiple_exceptions:
+                nursery.start_soon(raise_error)
+
+    def run_main() -> None:
+        # mypy doesn't like kwarg magic
+        _core.run(main, **_create_kwargs(run_strict))  # type: ignore[arg-type]
+
+    matcher = Matcher(RuntimeError, "^test error$")
+
+    if multiple_exceptions:
+        with RaisesGroup(matcher, matcher):
+            run_main()
+    elif open_nursery_strict or (
+        open_nursery_strict is None and run_strict is not False
+    ):
+        with RaisesGroup(matcher):
+            run_main()
+    else:
+        with pytest.raises(RuntimeError, match="^test error$"):
+            run_main()
+
+
+@pytest.mark.parametrize("strict", [True, False, None])
+async def test_nursery_collapse(strict: bool | None) -> None:
+    """
+    Test that a single exception from a nested nursery gets collapsed correctly
+    depending on strict_exception_groups value when CancelledErrors are stripped from it.
+    """
+
+    async def raise_error() -> NoReturn:
+        raise RuntimeError("test error")
+
+    # mypy requires explicit type for conditional expression
+    maybe_wrapped_runtime_error: type[RuntimeError] | RaisesGroup[RuntimeError] = (
+        RuntimeError if strict is False else RaisesGroup(RuntimeError)
+    )
+
+    with RaisesGroup(RuntimeError, maybe_wrapped_runtime_error):
         async with _core.open_nursery() as nursery:
             nursery.start_soon(sleep_forever)
             nursery.start_soon(raise_error)
-            async with _core.open_nursery(strict_exception_groups=True) as nursery2:
-                nursery2.start_soon(sleep_forever)
-                nursery2.start_soon(raise_error)
-                nursery.cancel_scope.cancel()
-
-
-async def test_nursery_collapse_loose() -> None:
-    """
-    Test that a single exception from a nested nursery with loose semantics gets
-    collapsed when CancelledErrors are stripped from it.
-    """
-
-    async def raise_error() -> NoReturn:
-        raise RuntimeError("test error")
-
-    with RaisesGroup(RuntimeError, RuntimeError):
-        async with _core.open_nursery() as nursery:
-            nursery.start_soon(sleep_forever)
-            nursery.start_soon(raise_error)
-            async with _core.open_nursery(strict_exception_groups=False) as nursery2:
+            async with _core.open_nursery(**_create_kwargs(strict)) as nursery2:
                 nursery2.start_soon(sleep_forever)
                 nursery2.start_soon(raise_error)
                 nursery.cancel_scope.cancel()
