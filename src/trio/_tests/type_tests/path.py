@@ -138,4 +138,5 @@ async def open_results(path: trio.Path, some_int: int, some_str: str) -> None:
     file_text = await path.open("r+t")
     assert_type(await file_text.read(), str)
     assert_type(await file_text.write("test"), int)
+    # TODO: report mypy bug: equiv to https://github.com/microsoft/pyright/issues/6833
     assert_type(await file_text.readlines(), List[str])

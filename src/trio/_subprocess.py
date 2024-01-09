@@ -232,10 +232,11 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
     async def __aenter__(self) -> Self:
         return self
 
+    # Type ignore is for `Type of decorated function contains type "Any" ("Callable[[Process], Coroutine[Any, Any, None]]")`
     @deprecated(
         "0.20.0", issue=1104, instead="run_process or nursery.start(run_process, ...)"
     )
-    async def aclose(self) -> None:
+    async def aclose(self) -> None:  # type: ignore[misc]
         """Close any pipes we have to the process (both input and output)
         and wait for it to exit.
 

@@ -10,7 +10,7 @@ from trio.testing._fake_net import FakeNet
 
 # ENOTCONN gives different messages on different platforms
 if sys.platform == "linux":
-    ENOTCONN_MSG = r"^\[Errno 107\] Transport endpoint is not connected$"
+    ENOTCONN_MSG = r"^\[Errno 107\] (Transport endpoint is|Socket) not connected$"
 elif sys.platform == "darwin":
     ENOTCONN_MSG = r"^\[Errno 57\] Socket is not connected$"
 else:
@@ -41,7 +41,7 @@ async def test_basic_udp() -> None:
 
     # Cannot bind multiple sockets to the same address
     with pytest.raises(
-        OSError, match=r"^\[\w+ \d+\] (Address already in use|Unknown error)$"
+        OSError, match=r"^\[\w+ \d+\] (Address (already )?in use|Unknown error)$"
     ) as exc:
         await s2.bind(("127.0.0.1", port))
     assert exc.value.errno == errno.EADDRINUSE
