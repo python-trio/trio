@@ -24,6 +24,7 @@ from ._memory_streams import (
     memory_stream_pump as memory_stream_pump,
 )
 from ._network import open_stream_to_socket_listener as open_stream_to_socket_listener
+from ._raises_group import Matcher as Matcher, RaisesGroup as RaisesGroup
 from ._sequencer import Sequencer as Sequencer
 from ._trio_test import trio_test as trio_test
 

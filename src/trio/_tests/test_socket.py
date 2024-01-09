@@ -464,7 +464,7 @@ async def test_SocketType_shutdown() -> None:
 
 
 @pytest.mark.parametrize(
-    "address, socket_type",
+    ("address", "socket_type"),
     [
         ("127.0.0.1", tsocket.AF_INET),
         pytest.param("::1", tsocket.AF_INET6, marks=binds_ipv6),
@@ -522,7 +522,7 @@ class Addresses:
 
 # Direct thorough tests of the implicit resolver helpers
 @pytest.mark.parametrize(
-    "socket_type, addrs",
+    ("socket_type", "addrs"),
     [
         (
             tsocket.AF_INET,
@@ -648,11 +648,15 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
                 )
                 netlink_sock.close()
 
-            with pytest.raises(ValueError):
+            address = r"^address should be a \(host, port(, \[flowinfo, \[scopeid\]\])*\) tuple$"
+            with pytest.raises(ValueError, match=address):
                 await res("1.2.3.4")  # type: ignore[arg-type]
-            with pytest.raises(ValueError):
+            with pytest.raises(ValueError, match=address):
                 await res(("1.2.3.4",))  # type: ignore[arg-type]
-            with pytest.raises(ValueError):
+            with pytest.raises(  # noqa: PT012
+                ValueError,
+                match=address,
+            ):
                 if v6:
                     await res(("1.2.3.4", 80, 0, 0, 0))  # type: ignore[arg-type]
                 else:
@@ -756,7 +760,10 @@ async def test_SocketType_non_blocking_paths() -> None:
 # This tests the complicated paths through connect
 async def test_SocketType_connect_paths() -> None:
     with tsocket.socket() as sock:
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError,
+            match=r"^address should be a \(host, port(, \[flowinfo, \[scopeid\]\])*\) tuple$",
+        ):
             # Should be a tuple
             await sock.connect("localhost")
 
@@ -801,7 +808,10 @@ async def test_SocketType_connect_paths() -> None:
 
     # Failed connect (hopefully after raising BlockingIOError)
     with tsocket.socket() as sock:
-        with pytest.raises(OSError):
+        with pytest.raises(
+            OSError,
+            match=r"^\[\w+ \d+\] Error connecting to \('127\.0\.0\.\d', \d+\): (Connection refused|Unknown error)$",
+        ):
             # TCP port 2 is not assigned. Pretty sure nothing will be
             # listening there. (We used to bind a port and then *not* call
             # listen() to ensure nothing was listening there, but it turns
@@ -816,10 +826,11 @@ async def test_SocketType_connect_paths() -> None:
 async def test_address_in_socket_error() -> None:
     address = "127.0.0.1"
     with tsocket.socket() as sock:
-        try:
+        with pytest.raises(
+            OSError,
+            match=rf"^\[\w+ \d+\] Error connecting to \({address!r}, 2\): (Connection refused|Unknown error)$",
+        ):
             await sock.connect((address, 2))
-        except OSError as e:
-            assert any(address in str(arg) for arg in e.args)
 
 
 async def test_resolve_address_exception_in_connect_closes_socket() -> None:
@@ -1112,19 +1123,23 @@ async def test_interrupted_by_close() -> None:
 async def test_many_sockets() -> None:
     total = 5000  # Must be more than MAX_AFD_GROUP_SIZE
     sockets = []
-    for _x in range(total // 2):
+    # Open at most <total> socket pairs
+    for opened in range(0, total, 2):
         try:
             a, b = stdlib_socket.socketpair()
-        except OSError as e:  # pragma: no cover
-            assert e.errno in (errno.EMFILE, errno.ENFILE)
+        except OSError as exc:  # pragma: no cover
+            # Semi-expecting following errors (sockets are files):
+            # EMFILE: "Too many open files" (reached kernel cap)
+            # ENFILE: "File table overflow" (beyond kernel cap)
+            assert exc.errno in (errno.EMFILE, errno.ENFILE)  # noqa: PT017
+            print(f"Unable to open more than {opened} sockets.")
+            # Stop opening any more sockets if too many are open
             break
         sockets += [a, b]
     async with _core.open_nursery() as nursery:
-        for s in sockets:
-            nursery.start_soon(_core.wait_readable, s)
+        for socket in sockets:
+            nursery.start_soon(_core.wait_readable, socket)
         await _core.wait_all_tasks_blocked()
         nursery.cancel_scope.cancel()
-    for sock in sockets:
-        sock.close()
-    if _x != total // 2 - 1:  # pragma: no cover
-        print(f"Unable to open more than {(_x-1)*2} sockets.")
+    for socket in sockets:
+        socket.close()

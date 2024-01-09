@@ -175,7 +175,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         if can_try_pidfd_open:
             try:
                 fd: int = pidfd_open(self._proc.pid, 0)
-            except OSError:
+            except OSError:  # pragma: no cover
                 # Well, we tried, but it didn't work (probably because we're
                 # running on an older kernel, or in an older sandbox, that
                 # hasn't been updated to support pidfd_open). We'll fall back
@@ -232,10 +232,11 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
     async def __aenter__(self) -> Self:
         return self
 
+    # Type ignore is for `Type of decorated function contains type "Any" ("Callable[[Process], Coroutine[Any, Any, None]]")`
     @deprecated(
         "0.20.0", issue=1104, instead="run_process or nursery.start(run_process, ...)"
     )
-    async def aclose(self) -> None:
+    async def aclose(self) -> None:  # type: ignore[misc]
         """Close any pipes we have to the process (both input and output)
         and wait for it to exit.
 
@@ -764,14 +765,17 @@ async def _run_process(
         proc = await open_process(command, **options)  # type: ignore[arg-type, call-overload, unused-ignore]
         try:
             if input is not None:
+                assert proc.stdin is not None
                 nursery.start_soon(feed_input, proc.stdin)
                 proc.stdin = None
                 proc.stdio = None
             if capture_stdout:
+                assert proc.stdout is not None
                 nursery.start_soon(read_output, proc.stdout, stdout_chunks)
                 proc.stdout = None
                 proc.stdio = None
             if capture_stderr:
+                assert proc.stderr is not None
                 nursery.start_soon(read_output, proc.stderr, stderr_chunks)
                 proc.stderr = None
             task_status.started(proc)

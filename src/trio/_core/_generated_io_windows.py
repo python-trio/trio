@@ -19,6 +19,19 @@ import sys
 assert not TYPE_CHECKING or sys.platform == "win32"
 
 
+__all__ = [
+    "current_iocp",
+    "monitor_completion_key",
+    "notify_closing",
+    "readinto_overlapped",
+    "register_with_iocp",
+    "wait_overlapped",
+    "wait_readable",
+    "wait_writable",
+    "write_overlapped",
+]
+
+
 async def wait_readable(sock: (_HasFileNo | int)) -> None:
     """Block until the kernel reports that the given object is readable.
 
