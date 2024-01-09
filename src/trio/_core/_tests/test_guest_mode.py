@@ -31,7 +31,7 @@ import trio.testing
 from trio.abc import Instrument
 
 from ..._util import signal_raise
-from .tutil import buggy_pypy_asyncgens, gc_collect_harder, restore_unraisablehook
+from .tutil import gc_collect_harder, restore_unraisablehook
 
 if TYPE_CHECKING:
     from typing_extensions import TypeAlias
@@ -622,7 +622,6 @@ def test_guest_mode_autojump_clock_threshold_changing() -> None:
     assert end - start < DURATION / 2
 
 
-@pytest.mark.skipif(buggy_pypy_asyncgens, reason="PyPy 7.2 is buggy")
 @restore_unraisablehook()
 def test_guest_mode_asyncgens() -> None:
     import sniffio

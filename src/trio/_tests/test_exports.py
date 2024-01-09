@@ -183,7 +183,7 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
         _, modname = (modname + ".").split(".", 1)
         modname = modname[:-1]
         mod_cache = trio_cache / modname if modname else trio_cache
-        if mod_cache.is_dir():
+        if mod_cache.is_dir():  # pragma: no coverage
             mod_cache = mod_cache / "__init__.data.json"
         else:
             mod_cache = trio_cache / (modname + ".data.json")
@@ -302,7 +302,7 @@ def test_static_tool_sees_class_members(
                 for piece in modname[:-1]:
                     mod_cache /= piece
                 next_cache = mod_cache / modname[-1]
-                if next_cache.is_dir():
+                if next_cache.is_dir():  # pragma: no coverage
                     mod_cache = next_cache / "__init__.data.json"
                 else:
                     mod_cache = mod_cache / (modname[-1] + ".data.json")
@@ -316,9 +316,9 @@ def test_static_tool_sees_class_members(
             continue
         if module_name == "trio.socket" and class_name in dir(stdlib_socket):
             continue
-        # Deprecated classes are exported with a leading underscore
-        # We don't care about errors in _MultiError as that's on its way out anyway
-        if class_name.startswith("_"):  # pragma: no cover
+
+        # ignore class that does dirty tricks
+        if class_ is trio.testing.RaisesGroup:
             continue
 
         # dir() and inspect.getmembers doesn't display properties from the metaclass
@@ -433,7 +433,9 @@ def test_static_tool_sees_class_members(
         if tool == "mypy" and class_ == trio.Nursery:
             extra.remove("cancel_scope")
 
-        # TODO: I'm not so sure about these, but should still be looked at.
+        # These are (mostly? solely?) *runtime* attributes, often set in
+        # __init__, which doesn't show up with dir() or inspect.getmembers,
+        # but we get them in the way we query mypy & jedi
         EXTRAS = {
             trio.DTLSChannel: {"peer_address", "endpoint"},
             trio.DTLSEndpoint: {"socket", "incoming_packets_buffer"},
@@ -447,6 +449,11 @@ def test_static_tool_sees_class_members(
                 "close_hook",
                 "send_all_hook",
                 "wait_send_all_might_not_block_hook",
+            },
+            trio.testing.Matcher: {
+                "exception_type",
+                "match",
+                "check",
             },
         }
         if tool == "mypy" and class_ in EXTRAS:

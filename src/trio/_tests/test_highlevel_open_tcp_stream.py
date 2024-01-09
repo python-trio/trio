@@ -16,6 +16,7 @@ from trio._highlevel_open_tcp_stream import (
     reorder_for_rfc_6555_section_5_4,
 )
 from trio.socket import AF_INET, AF_INET6, IPPROTO_TCP, SOCK_STREAM, SocketType
+from trio.testing import Matcher, RaisesGroup
 
 if TYPE_CHECKING:
     from trio.testing import MockClock
@@ -474,6 +475,28 @@ async def test_custom_delay(autojump_clock: MockClock) -> None:
     }
 
 
+async def test_none_default(autojump_clock: MockClock) -> None:
+    """Copy of test_basic_fallthrough, but specifying the delay =None"""
+    sock, scenario = await run_scenario(
+        80,
+        [
+            ("1.1.1.1", 1, "success"),
+            ("2.2.2.2", 1, "success"),
+            ("3.3.3.3", 0.2, "success"),
+        ],
+        happy_eyeballs_delay=None,
+    )
+    assert isinstance(sock, FakeSocket)
+    assert sock.ip == "3.3.3.3"
+    # current time is default time + default time + connection time
+    assert trio.current_time() == (0.250 + 0.250 + 0.2)
+    assert scenario.connect_times == {
+        "1.1.1.1": 0,
+        "2.2.2.2": 0.250,
+        "3.3.3.3": 0.500,
+    }
+
+
 async def test_custom_errors_expedite(autojump_clock: MockClock) -> None:
     sock, scenario = await run_scenario(
         80,
@@ -508,8 +531,12 @@ async def test_all_fail(autojump_clock: MockClock) -> None:
         expect_error=OSError,
     )
     assert isinstance(exc, OSError)
-    assert isinstance(exc.__cause__, BaseExceptionGroup)
-    assert len(exc.__cause__.exceptions) == 4
+
+    subexceptions = (Matcher(OSError, match="^sorry$"),) * 4
+    assert RaisesGroup(
+        *subexceptions, match="all attempts to connect to test.example.com:80 failed"
+    ).matches(exc.__cause__)
+
     assert trio.current_time() == (0.1 + 0.2 + 10)
     assert scenario.connect_times == {
         "1.1.1.1": 0,

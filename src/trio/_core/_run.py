@@ -35,11 +35,11 @@ from .. import _core
 from .._abc import Clock, Instrument
 from .._util import NoPublicConstructor, coroutine_or_error, final
 from ._asyncgens import AsyncGenerators
+from ._concat_tb import concat_tb
 from ._entry_queue import EntryQueue, TrioToken
 from ._exceptions import Cancelled, RunFinishedError, TrioInternalError
 from ._instrumentation import Instruments
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED, KIManager, enable_ki_protection
-from ._multierror import MultiError, concat_tb
 from ._thread_cache import start_thread_soon
 from ._traps import (
     Abort,
@@ -94,6 +94,9 @@ DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: Final = 1000
 
 # Passed as a sentinel
 _NO_SEND: Final[Outcome[Any]] = cast("Outcome[Any]", object())
+
+# Used to track if an exceptiongroup can be collapsed
+NONSTRICT_EXCEPTIONGROUP_NOTE = 'This is a "loose" ExceptionGroup, and may be collapsed by Trio if it only contains one exception - typically after `Cancelled` has been stripped from it. Note this has consequences for exception handling, and strict_exception_groups=True is recommended.'
 
 
 @final
@@ -206,7 +209,11 @@ def collapse_exception_group(
                 modified = True
                 exceptions[i] = new_exc
 
-    if len(exceptions) == 1 and isinstance(excgroup, MultiError) and excgroup.collapse:
+    if (
+        len(exceptions) == 1
+        and isinstance(excgroup, BaseExceptionGroup)
+        and NONSTRICT_EXCEPTIONGROUP_NOTE in getattr(excgroup, "__notes__", ())
+    ):
         exceptions[0].__traceback__ = concat_tb(
             excgroup.__traceback__, exceptions[0].__traceback__
         )
@@ -642,7 +649,7 @@ class CancelScope:
         elif remaining_error_after_cancel_scope is exc:
             return False
         else:
-            # Copied verbatim from MultiErrorCatcher.  Python doesn't
+            # Copied verbatim from the old MultiErrorCatcher.  Python doesn't
             # allow us to encapsulate this __context__ fixup.
             old_context = remaining_error_after_cancel_scope.__context__
             try:
@@ -653,6 +660,7 @@ class CancelScope:
                 value.__context__ = old_context
                 # delete references from locals to avoid creating cycles
                 # see test_cancel_scope_exit_doesnt_create_cyclic_garbage
+                # Note: still relevant
                 del remaining_error_after_cancel_scope, value, _, exc
                 # deep magic to remove refs via f_locals
                 locals()
@@ -971,7 +979,7 @@ class NurseryManager:
         elif combined_error_from_nursery is exc:
             return False
         else:
-            # Copied verbatim from MultiErrorCatcher.  Python doesn't
+            # Copied verbatim from the old MultiErrorCatcher.  Python doesn't
             # allow us to encapsulate this __context__ fixup.
             old_context = combined_error_from_nursery.__context__
             try:
@@ -981,7 +989,7 @@ class NurseryManager:
                 assert value is combined_error_from_nursery
                 value.__context__ = old_context
                 # delete references from locals to avoid creating cycles
-                # see test_simple_cancel_scope_usage_doesnt_create_cyclic_garbage
+                # see test_cancel_scope_exit_doesnt_create_cyclic_garbage
                 del _, combined_error_from_nursery, value, new_exc
 
     # make sure these raise errors in static analysis if called
@@ -1102,7 +1110,7 @@ class Nursery(metaclass=NoPublicConstructor):
     async def _nested_child_finished(
         self, nested_child_exc: BaseException | None
     ) -> BaseException | None:
-        # Returns MultiError instance (or any exception if the nursery is in loose mode
+        # Returns ExceptionGroup instance (or any exception if the nursery is in loose mode
         # and there is just one contained exception) if there are pending exceptions
         if nested_child_exc is not None:
             self._add_exc(nested_child_exc)
@@ -1117,6 +1125,7 @@ class Nursery(metaclass=NoPublicConstructor):
                 exn = capture(raise_cancel).error
                 if not isinstance(exn, Cancelled):
                     self._add_exc(exn)
+                # see test_cancel_scope_exit_doesnt_create_cyclic_garbage
                 del exn  # prevent cyclic garbage creation
                 return Abort.FAILED
 
@@ -1135,12 +1144,17 @@ class Nursery(metaclass=NoPublicConstructor):
         assert popped is self
         if self._pending_excs:
             try:
-                return MultiError(
-                    self._pending_excs, _collapse=not self._strict_exception_groups
+                if not self._strict_exception_groups and len(self._pending_excs) == 1:
+                    return self._pending_excs[0]
+                exception = BaseExceptionGroup(
+                    "Exceptions from Trio nursery", self._pending_excs
                 )
+                if not self._strict_exception_groups:
+                    exception.add_note(NONSTRICT_EXCEPTIONGROUP_NOTE)
+                return exception
             finally:
                 # avoid a garbage cycle
-                # (see test_nursery_cancel_doesnt_create_cyclic_garbage)
+                # (see test_locals_destroyed_promptly_on_cancel)
                 del self._pending_excs
         return None
 
@@ -1765,7 +1779,7 @@ class Runner:
             except AttributeError:
                 name = repr(name)
 
-        if not hasattr(coro, "cr_frame"):
+        if getattr(coro, "cr_frame", None) is None:
             # This async function is implemented in C or Cython
             async def python_wrapper(orig_coro: Awaitable[RetT]) -> RetT:
                 return await orig_coro
@@ -1789,8 +1803,7 @@ class Runner:
             self.instruments.call("task_spawned", task)
         # Special case: normally next_send should be an Outcome, but for the
         # very first send we have to send a literal unboxed None.
-        # TODO: remove [unused-ignore] when Outcome is typed
-        self.reschedule(task, None)  # type: ignore[arg-type, unused-ignore]
+        self.reschedule(task, None)  # type: ignore[arg-type]
         return task
 
     def task_exited(self, task: Task, outcome: Outcome[Any]) -> None:
@@ -2636,8 +2649,7 @@ def unrolled_run(
                         # protocol of unwrapping whatever outcome gets sent in.
                         # Instead, we'll arrange to throw `exc` in directly,
                         # which works for at least asyncio and curio.
-                        # TODO: remove [unused-ignore] when Outcome is typed
-                        runner.reschedule(task, exc)  # type: ignore[arg-type, unused-ignore]
+                        runner.reschedule(task, exc)  # type: ignore[arg-type]
                         task._next_send_fn = task.coro.throw
                     # prevent long-lived reference
                     # TODO: develop test for this deletion
@@ -2647,7 +2659,7 @@ def unrolled_run(
                     runner.instruments.call("after_task_step", task)
                 del GLOBAL_RUN_CONTEXT.task
                 # prevent long-lived references
-                # TODO: develop test for these deletions
+                # TODO: develop test for this deletion
                 del task, next_send, next_send_fn
 
     except GeneratorExit:

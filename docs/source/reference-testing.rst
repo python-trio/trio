@@ -219,3 +219,16 @@ Testing checkpoints
 
 .. autofunction:: assert_no_checkpoints
    :with:
+
+
+ExceptionGroup helpers
+----------------------
+
+.. autoclass:: RaisesGroup
+   :members:
+
+.. autoclass:: Matcher
+   :members:
+
+.. autoclass:: trio.testing._raises_group._ExceptionInfo
+   :members:
