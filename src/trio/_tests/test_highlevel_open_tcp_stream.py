@@ -16,6 +16,7 @@ from trio._highlevel_open_tcp_stream import (
     reorder_for_rfc_6555_section_5_4,
 )
 from trio.socket import AF_INET, AF_INET6, IPPROTO_TCP, SOCK_STREAM, SocketType
+from trio.testing import Matcher, RaisesGroup
 
 if TYPE_CHECKING:
     from trio.testing import MockClock
@@ -530,8 +531,12 @@ async def test_all_fail(autojump_clock: MockClock) -> None:
         expect_error=OSError,
     )
     assert isinstance(exc, OSError)
-    assert isinstance(exc.__cause__, BaseExceptionGroup)
-    assert len(exc.__cause__.exceptions) == 4
+
+    subexceptions = (Matcher(OSError, match="^sorry$"),) * 4
+    assert RaisesGroup(
+        *subexceptions, match="all attempts to connect to test.example.com:80 failed"
+    ).matches(exc.__cause__)
+
     assert trio.current_time() == (0.1 + 0.2 + 10)
     assert scenario.connect_times == {
         "1.1.1.1": 0,
