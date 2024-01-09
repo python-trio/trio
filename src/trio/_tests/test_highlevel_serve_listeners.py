@@ -158,7 +158,7 @@ async def test_serve_listeners_connection_nursery(autojump_clock: MockClock) -> 
             assert len(nursery.child_tasks) == 10
             raise Done
 
-    with pytest.raises(Done):
+    with pytest.raises(Done):  # noqa: PT012
         async with trio.open_nursery() as nursery:
             handler_nursery: trio.Nursery = await nursery.start(connection_watcher)
             await nursery.start(

@@ -2,6 +2,8 @@
 """
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 # General layout:
 #
 # trio/_core/... is the self-contained core library. It does various
@@ -42,10 +44,6 @@ from ._core import (
     current_time as current_time,
     open_nursery as open_nursery,
     run as run,
-)
-from ._core._multierror import (
-    MultiError as _MultiError,
-    NonBaseMultiError as _NonBaseMultiError,
 )
 from ._deprecate import TrioDeprecationWarning as TrioDeprecationWarning
 from ._dtls import (
@@ -111,33 +109,14 @@ from ._version import __version__
 
 # Not imported by default, but mentioned here so static analysis tools like
 # pylint will know that it exists.
-if False:
+if TYPE_CHECKING:
     from . import testing
 
 from . import _deprecate as _deprecate
 
 _deprecate.enable_attribute_deprecations(__name__)
 
-__deprecated_attributes__: dict[str, _deprecate.DeprecatedAttribute] = {
-    "MultiError": _deprecate.DeprecatedAttribute(
-        value=_MultiError,
-        version="0.22.0",
-        issue=2211,
-        instead=(
-            "BaseExceptionGroup (on Python 3.11 and later) or "
-            "exceptiongroup.BaseExceptionGroup (earlier versions)"
-        ),
-    ),
-    "NonBaseMultiError": _deprecate.DeprecatedAttribute(
-        value=_NonBaseMultiError,
-        version="0.22.0",
-        issue=2211,
-        instead=(
-            "ExceptionGroup (on Python 3.11 and later) or "
-            "exceptiongroup.ExceptionGroup (earlier versions)"
-        ),
-    ),
-}
+__deprecated_attributes__: dict[str, _deprecate.DeprecatedAttribute] = {}
 
 # Having the public path in .__module__ attributes is important for:
 # - exception names in printed tracebacks
@@ -154,3 +133,4 @@ fixup_module_metadata(abc.__name__, abc.__dict__)
 fixup_module_metadata(from_thread.__name__, from_thread.__dict__)
 fixup_module_metadata(to_thread.__name__, to_thread.__dict__)
 del fixup_module_metadata
+del TYPE_CHECKING
