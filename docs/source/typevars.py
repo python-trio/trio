@@ -6,13 +6,15 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-
-from sphinx.addnodes import Element, pending_xref
-from sphinx.application import Sphinx
-from sphinx.environment import BuildEnvironment
-from sphinx.errors import NoUri
+from typing import TYPE_CHECKING
 
 import trio
+from sphinx.errors import NoUri
+
+if TYPE_CHECKING:
+    from sphinx.addnodes import Element, pending_xref
+    from sphinx.application import Sphinx
+    from sphinx.environment import BuildEnvironment
 
 
 def identify_typevars(trio_folder: Path) -> None:
@@ -58,7 +60,7 @@ def lookup_reference(
         new_node["reftarget"] = f"typing.{target[18:]}"
         # This fires off this same event, with our new modified node in order to fetch the right
         # URL to use.
-        return app.emit_firstresult(
+        return app.emit_firstresult(  # type: ignore[no-any-return]
             "missing-reference",
             env,
             new_node,
