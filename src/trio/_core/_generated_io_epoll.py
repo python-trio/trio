@@ -15,6 +15,9 @@ import sys
 assert not TYPE_CHECKING or sys.platform == "linux"
 
 
+__all__ = ["notify_closing", "wait_readable", "wait_writable"]
+
+
 async def wait_readable(fd: (int | _HasFileNo)) -> None:
     """Block until the kernel reports that the given object is readable.
 

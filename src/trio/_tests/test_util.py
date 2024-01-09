@@ -49,7 +49,7 @@ async def test_ConflictDetector() -> None:
         with ul2:
             print("ok")
 
-    with pytest.raises(_core.BusyResourceError, match="ul1"):
+    with pytest.raises(_core.BusyResourceError, match="ul1"):  # noqa: PT012
         with ul1:
             with ul1:
                 pass  # pragma: no cover
@@ -58,7 +58,7 @@ async def test_ConflictDetector() -> None:
         with ul1:
             await wait_all_tasks_blocked()
 
-    with pytest.raises(_core.BusyResourceError, match="ul1"):
+    with pytest.raises(_core.BusyResourceError, match="ul1"):  # noqa: PT012
         async with _core.open_nursery() as nursery:
             nursery.start_soon(wait_with_ul1)
             nursery.start_soon(wait_with_ul1)
@@ -160,8 +160,8 @@ def test_coroutine_or_error() -> None:
 
 
 def test_generic_function() -> None:
-    @generic_function
-    def test_func(arg: T) -> T:
+    @generic_function  # Decorated function contains "Any".
+    def test_func(arg: T) -> T:  # type: ignore[misc]
         """Look, a docstring!"""
         return arg
 

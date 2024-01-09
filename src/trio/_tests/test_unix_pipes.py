@@ -7,7 +7,6 @@ import sys
 from typing import TYPE_CHECKING
 
 import pytest
-from pytest import MonkeyPatch
 
 from .. import _core
 from .._core._tests.tutil import gc_collect_harder, skip_if_fbsd_pipes_broken
@@ -108,7 +107,7 @@ async def test_pipe_errors() -> None:
     r, w = os.pipe()
     os.close(w)
     async with FdStream(r) as s:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="^max_bytes must be integer >= 1$"):
             await s.receive_some(0)
 
 
@@ -118,11 +117,11 @@ async def test_del() -> None:
     del w, r
     gc_collect_harder()
 
-    with pytest.raises(OSError) as excinfo:
+    with pytest.raises(OSError, match="Bad file descriptor$") as excinfo:
         os.close(f1)
     assert excinfo.value.errno == errno.EBADF
 
-    with pytest.raises(OSError) as excinfo:
+    with pytest.raises(OSError, match="Bad file descriptor$") as excinfo:
         os.close(f2)
     assert excinfo.value.errno == errno.EBADF
 
@@ -135,11 +134,11 @@ async def test_async_with() -> None:
     assert w.fileno() == -1
     assert r.fileno() == -1
 
-    with pytest.raises(OSError) as excinfo:
+    with pytest.raises(OSError, match="Bad file descriptor$") as excinfo:
         os.close(w.fileno())
     assert excinfo.value.errno == errno.EBADF
 
-    with pytest.raises(OSError) as excinfo:
+    with pytest.raises(OSError, match="Bad file descriptor$") as excinfo:
         os.close(r.fileno())
     assert excinfo.value.errno == errno.EBADF
 
@@ -182,7 +181,9 @@ async def test_misdirected_aclose_regression() -> None:
             os.close(w2_fd)
 
 
-async def test_close_at_bad_time_for_receive_some(monkeypatch: MonkeyPatch) -> None:
+async def test_close_at_bad_time_for_receive_some(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # We used to have race conditions where if one task was using the pipe,
     # and another closed it at *just* the wrong moment, it would give an
     # unexpected error instead of ClosedResourceError:
@@ -210,7 +211,7 @@ async def test_close_at_bad_time_for_receive_some(monkeypatch: MonkeyPatch) -> N
             await s.send_all(b"x")
 
 
-async def test_close_at_bad_time_for_send_all(monkeypatch: MonkeyPatch) -> None:
+async def test_close_at_bad_time_for_send_all(monkeypatch: pytest.MonkeyPatch) -> None:
     # We used to have race conditions where if one task was using the pipe,
     # and another closed it at *just* the wrong moment, it would give an
     # unexpected error instead of ClosedResourceError:

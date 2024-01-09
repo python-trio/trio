@@ -25,14 +25,13 @@ from typing import (
 
 import pytest
 from outcome import Outcome
-from pytest import MonkeyPatch, WarningsRecorder
 
 import trio
 import trio.testing
 from trio.abc import Instrument
 
 from ..._util import signal_raise
-from .tutil import buggy_pypy_asyncgens, gc_collect_harder, restore_unraisablehook
+from .tutil import gc_collect_harder, restore_unraisablehook
 
 if TYPE_CHECKING:
     from typing_extensions import TypeAlias
@@ -171,17 +170,16 @@ def test_guest_is_initialized_when_start_returns() -> None:
     assert res == "ok"
     assert set(record) == {"system task ran", "main task ran", "run_sync_soon cb ran"}
 
+    class BadClock:
+        def start_clock(self) -> NoReturn:
+            raise ValueError("whoops")
+
+    def after_start_never_runs() -> None:  # pragma: no cover
+        pytest.fail("shouldn't get here")
+
     # Errors during initialization (which can only be TrioInternalErrors)
     # are raised out of start_guest_run, not out of the done_callback
     with pytest.raises(trio.TrioInternalError):
-
-        class BadClock:
-            def start_clock(self) -> NoReturn:
-                raise ValueError("whoops")
-
-        def after_start_never_runs() -> None:  # pragma: no cover
-            pytest.fail("shouldn't get here")
-
         trivial_guest_run(
             trio_main, clock=BadClock(), in_host_after_start=after_start_never_runs
         )
@@ -527,7 +525,7 @@ def test_guest_mode_on_asyncio() -> None:
 
 
 def test_guest_mode_internal_errors(
-    monkeypatch: MonkeyPatch, recwarn: WarningsRecorder
+    monkeypatch: pytest.MonkeyPatch, recwarn: pytest.WarningsRecorder
 ) -> None:
     with monkeypatch.context() as m:
 
@@ -624,7 +622,6 @@ def test_guest_mode_autojump_clock_threshold_changing() -> None:
     assert end - start < DURATION / 2
 
 
-@pytest.mark.skipif(buggy_pypy_asyncgens, reason="PyPy 7.2 is buggy")
 @restore_unraisablehook()
 def test_guest_mode_asyncgens() -> None:
     import sniffio
@@ -658,9 +655,6 @@ def test_guest_mode_asyncgens() -> None:
     # Ensure we don't pollute the thread-level context if run under
     # an asyncio without contextvars support (3.6)
     context = contextvars.copy_context()
-    if TYPE_CHECKING:
-        aiotrio_run(trio_main, host_uses_signal_set_wakeup_fd=True)
-    # this type error is a bug in typeshed or mypy, as it's equivalent to the above line
-    context.run(aiotrio_run, trio_main, host_uses_signal_set_wakeup_fd=True)  # type: ignore[arg-type]
+    context.run(aiotrio_run, trio_main, host_uses_signal_set_wakeup_fd=True)
 
     assert record == {("asyncio", "asyncio"), ("trio", "trio")}

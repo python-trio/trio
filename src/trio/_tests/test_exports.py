@@ -116,7 +116,7 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
 # they might be using a newer version of Python with additional symbols which
 # won't be reflected in trio.socket, and this shouldn't cause downstream test
 # runs to start failing.
-@pytest.mark.redistributors_should_skip
+@pytest.mark.redistributors_should_skip()
 # Static analysis tools often have trouble with alpha releases, where Python's
 # internals are in flux, grammar may not have settled down, etc.
 @pytest.mark.skipif(
@@ -183,12 +183,13 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
         _, modname = (modname + ".").split(".", 1)
         modname = modname[:-1]
         mod_cache = trio_cache / modname if modname else trio_cache
-        if mod_cache.is_dir():
+        if mod_cache.is_dir():  # pragma: no coverage
             mod_cache = mod_cache / "__init__.data.json"
         else:
             mod_cache = trio_cache / (modname + ".data.json")
 
-        assert mod_cache.exists() and mod_cache.is_file()
+        assert mod_cache.exists()
+        assert mod_cache.is_file()
         with mod_cache.open() as cache_file:
             cache_json = json.loads(cache_file.read())
             static_names = no_underscores(
@@ -243,7 +244,7 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
 # modules, instead of once per class.
 @slow
 # see comment on test_static_tool_sees_all_symbols
-@pytest.mark.redistributors_should_skip
+@pytest.mark.redistributors_should_skip()
 # Static analysis tools often have trouble with alpha releases, where Python's
 # internals are in flux, grammar may not have settled down, etc.
 @pytest.mark.skipif(
@@ -283,7 +284,8 @@ def test_static_tool_sees_class_members(
         else:
             mod_cache = trio_cache / (modname + ".data.json")
 
-        assert mod_cache.exists() and mod_cache.is_file()
+        assert mod_cache.exists()
+        assert mod_cache.is_file()
         with mod_cache.open() as cache_file:
             cache_json = json.loads(cache_file.read())
 
@@ -300,7 +302,7 @@ def test_static_tool_sees_class_members(
                 for piece in modname[:-1]:
                     mod_cache /= piece
                 next_cache = mod_cache / modname[-1]
-                if next_cache.is_dir():
+                if next_cache.is_dir():  # pragma: no coverage
                     mod_cache = next_cache / "__init__.data.json"
                 else:
                     mod_cache = mod_cache / (modname[-1] + ".data.json")
@@ -314,9 +316,9 @@ def test_static_tool_sees_class_members(
             continue
         if module_name == "trio.socket" and class_name in dir(stdlib_socket):
             continue
-        # Deprecated classes are exported with a leading underscore
-        # We don't care about errors in _MultiError as that's on its way out anyway
-        if class_name.startswith("_"):  # pragma: no cover
+
+        # ignore class that does dirty tricks
+        if class_ is trio.testing.RaisesGroup:
             continue
 
         # dir() and inspect.getmembers doesn't display properties from the metaclass
@@ -422,15 +424,18 @@ def test_static_tool_sees_class_members(
         if (
             tool == "mypy"
             and enum.Enum in class_.__mro__
-            and sys.version_info >= (3, 11)
+            and sys.version_info >= (3, 12)
         ):
-            extra.difference_update({"__copy__", "__deepcopy__"})
+            # Another attribute, in 3.12+ only.
+            extra.remove("__signature__")
 
         # TODO: this *should* be visible via `dir`!!
         if tool == "mypy" and class_ == trio.Nursery:
             extra.remove("cancel_scope")
 
-        # TODO: I'm not so sure about these, but should still be looked at.
+        # These are (mostly? solely?) *runtime* attributes, often set in
+        # __init__, which doesn't show up with dir() or inspect.getmembers,
+        # but we get them in the way we query mypy & jedi
         EXTRAS = {
             trio.DTLSChannel: {"peer_address", "endpoint"},
             trio.DTLSEndpoint: {"socket", "incoming_packets_buffer"},
@@ -444,6 +449,11 @@ def test_static_tool_sees_class_members(
                 "close_hook",
                 "send_all_hook",
                 "wait_send_all_might_not_block_hook",
+            },
+            trio.testing.Matcher: {
+                "exception_type",
+                "match",
+                "check",
             },
         }
         if tool == "mypy" and class_ in EXTRAS:
