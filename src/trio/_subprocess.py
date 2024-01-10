@@ -11,9 +11,7 @@ from typing import TYPE_CHECKING, Final, Literal, Protocol, Union, overload
 
 import trio
 
-from ._abc import AsyncResource, ReceiveStream, SendStream
 from ._core import ClosedResourceError, TaskStatus
-from ._deprecate import deprecated
 from ._highlevel_generic import StapledStream
 from ._subprocess_platform import (
     create_pipe_from_child_output,
@@ -28,7 +26,9 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Mapping, Sequence
     from io import TextIOWrapper
 
-    from typing_extensions import Self, TypeAlias
+    from typing_extensions import TypeAlias
+
+    from ._abc import ReceiveStream, SendStream
 
 
 # Sphinx cannot parse the stringified version
@@ -101,7 +101,7 @@ class HasFileno(Protocol):
 
 
 @final
-class Process(AsyncResource, metaclass=NoPublicConstructor):
+class Process(metaclass=NoPublicConstructor):
     r"""A child process. Like :class:`subprocess.Popen`, but async.
 
     This class has no public constructor. The most common way to get a
@@ -222,41 +222,6 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         if result is not None:
             self._close_pidfd()
         return result
-
-    @deprecated(
-        "0.20.0",
-        thing="using trio.Process as an async context manager",
-        issue=1104,
-        instead="run_process or nursery.start(run_process, ...)",
-    )
-    async def __aenter__(self) -> Self:
-        return self
-
-    # Type ignore is for `Type of decorated function contains type "Any" ("Callable[[Process], Coroutine[Any, Any, None]]")`
-    @deprecated(
-        "0.20.0", issue=1104, instead="run_process or nursery.start(run_process, ...)"
-    )
-    async def aclose(self) -> None:  # type: ignore[misc]
-        """Close any pipes we have to the process (both input and output)
-        and wait for it to exit.
-
-        If cancelled, kills the process and waits for it to finish
-        exiting before propagating the cancellation.
-        """
-        with trio.CancelScope(shield=True):
-            if self.stdin is not None:
-                await self.stdin.aclose()
-            if self.stdout is not None:
-                await self.stdout.aclose()
-            if self.stderr is not None:
-                await self.stderr.aclose()
-        try:
-            await self.wait()
-        finally:
-            if self._proc.returncode is None:
-                self.kill()
-                with trio.CancelScope(shield=True):
-                    await self.wait()
 
     def _close_pidfd(self) -> None:
         if self._pidfd is not None:
