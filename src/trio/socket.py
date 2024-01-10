@@ -68,13 +68,17 @@ from socket import (
 )
 
 if sys.implementation.name == "cpython":
-    # Apparently, these functions aren't available on Android with
-    # API < 24 (and possibly other platforms)
+    from socket import (
+        if_indextoname as if_indextoname,
+        if_nametoindex as if_nametoindex,
+    )
+
+    # In https://github.com/kivy/python-for-android, if_nameindex
+    # was introduced in API 24, so it doesn't exist for any version
+    # prior.
     with _suppress(ImportError):
         from socket import (
-            if_indextoname as if_indextoname,
             if_nameindex as if_nameindex,
-            if_nametoindex as if_nametoindex,
         )
 
 
