@@ -73,9 +73,8 @@ if sys.implementation.name == "cpython":
         if_nametoindex as if_nametoindex,
     )
 
-    # In https://github.com/kivy/python-for-android, if_nameindex
-    # was introduced in API 24, so it doesn't exist for any version
-    # prior.
+    # For android devices, if_nameindex support was introduced in API 24,
+    # so it doesn't exist for any version prior.
     with _suppress(ImportError):
         from socket import (
             if_nameindex as if_nameindex,
