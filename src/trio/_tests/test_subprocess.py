@@ -25,7 +25,6 @@ import trio
 from trio.testing import RaisesGroup
 
 from .. import (
-    ClosedResourceError,
     Event,
     Process,
     _core,
@@ -169,38 +168,6 @@ async def test_multi_wait(background_process: BackgroundProcessType) -> None:
             nursery.start_soon(proc.wait)
             await wait_all_tasks_blocked()
             proc.kill()
-
-
-# Test for deprecated 'async with process:' semantics
-async def test_async_with_basics_deprecated(recwarn: pytest.WarningsRecorder) -> None:
-    async with await open_process(
-        CAT, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    ) as proc:
-        pass
-    assert proc.returncode is not None
-    assert proc.stdin is not None
-    assert proc.stdout is not None
-    assert proc.stderr is not None
-    with pytest.raises(ClosedResourceError):
-        await proc.stdin.send_all(b"x")
-    with pytest.raises(ClosedResourceError):
-        await proc.stdout.receive_some()
-    with pytest.raises(ClosedResourceError):
-        await proc.stderr.receive_some()
-
-
-# Test for deprecated 'async with process:' semantics
-async def test_kill_when_context_cancelled(recwarn: pytest.WarningsRecorder) -> None:
-    with move_on_after(100) as scope:
-        async with await open_process(SLEEP(10)) as proc:
-            assert proc.poll() is None
-            scope.cancel()
-            await sleep_forever()
-    assert scope.cancelled_caught
-    assert got_signal(proc, SIGKILL)
-    assert repr(proc) == "<trio.Process {!r}: {}>".format(
-        SLEEP(10), "exited with signal 9" if posix else "exited with status 1"
-    )
 
 
 COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR = python(
