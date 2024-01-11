@@ -652,7 +652,7 @@ async def _run_process(
           and the process exits with a nonzero exit status
       OSError: if an error is encountered starting or communicating with
           the process
-      ExceptionGroup: if exceptions occur in `deliver_cancel`, or when exceptions occur when communicating with the subprocess. If strict_exception_groups is set to false in the global context, then single exceptions will be collapsed.
+      ExceptionGroup: if exceptions occur in ``deliver_cancel``, or when exceptions occur when communicating with the subprocess. If strict_exception_groups is set to false in the global context, then single exceptions will be collapsed.
 
     .. note:: The child process runs in the same process group as the parent
        Trio process, so a Ctrl+C will be delivered simultaneously to both
