@@ -22,7 +22,7 @@ from typing import (
 import pytest
 
 import trio
-from trio.testing import RaisesGroup
+from trio.testing import Matcher, RaisesGroup
 
 from .. import (
     Event,
@@ -565,6 +565,27 @@ async def test_custom_deliver_cancel() -> None:
     assert custom_deliver_cancel_called
 
 
+def test_bad_deliver_cancel() -> None:
+    async def custom_deliver_cancel(proc: Process) -> None:
+        proc.terminate()
+        raise ValueError("foo")
+
+    async def do_stuff() -> None:
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(
+                partial(run_process, SLEEP(9999), deliver_cancel=custom_deliver_cancel)
+            )
+            await wait_all_tasks_blocked()
+            nursery.cancel_scope.cancel()
+
+    # double wrap from our nursery + the internal nursery
+    with RaisesGroup(RaisesGroup(Matcher(ValueError, "^foo$"))):
+        _core.run(do_stuff, strict_exception_groups=True)
+
+    with pytest.raises(ValueError, match="^foo$"):
+        _core.run(do_stuff, strict_exception_groups=False)
+
+
 async def test_warn_on_failed_cancel_terminate(monkeypatch: pytest.MonkeyPatch) -> None:
     original_terminate = Process.terminate
 
@@ -630,9 +651,8 @@ async def test_run_process_internal_error(monkeypatch: pytest.MonkeyPatch) -> No
         return "oops"
 
     monkeypatch.setattr(trio._subprocess, "open_process", very_broken_open)
-    with pytest.raises(trio.TrioInternalError) as excinfo:
+    with RaisesGroup(AttributeError, AttributeError):
         await run_process(EXIT_TRUE, capture_stdout=True)
-    assert RaisesGroup(AttributeError, AttributeError).matches(excinfo.value.__cause__)
 
 
 # regression test for #2209
