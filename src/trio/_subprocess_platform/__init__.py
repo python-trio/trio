@@ -70,7 +70,7 @@ def create_pipe_from_child_output() -> Tuple["ClosableReceiveStream", int]:
 
 try:
     if sys.platform == "win32":
-        from .windows import wait_child_exiting  # noqa: F811
+        from .windows import wait_child_exiting
     elif sys.platform != "linux" and (TYPE_CHECKING or hasattr(_core, "wait_kevent")):
         from .kqueue import wait_child_exiting
     else:
@@ -86,11 +86,11 @@ try:
 
     elif os.name == "posix":
 
-        def create_pipe_to_child_stdin():  # noqa: F811
+        def create_pipe_to_child_stdin():
             rfd, wfd = os.pipe()
             return trio.lowlevel.FdStream(wfd), rfd
 
-        def create_pipe_from_child_output():  # noqa: F811
+        def create_pipe_from_child_output():
             rfd, wfd = os.pipe()
             return trio.lowlevel.FdStream(rfd), wfd
 
