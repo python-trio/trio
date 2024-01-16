@@ -11,7 +11,7 @@ from ._run import GLOBAL_RUN_CONTEXT
 if TYPE_CHECKING:
     import select
 
-    from .. import _core
+    from .. import _channel
     from .._file_io import _HasFileNo
     from ._traps import Abort, RaiseCancelT
 import sys
@@ -43,7 +43,7 @@ def current_kqueue() -> select.kqueue:
 
 def monitor_kevent(
     ident: int, filter: int
-) -> ContextManager[_core.UnboundedQueue[select.kevent]]:
+) -> ContextManager[_channel.MemoryRecvChannel[select.kevent]]:
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26
     <https://github.com/python-trio/trio/issues/26>`__.

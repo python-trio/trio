@@ -382,7 +382,7 @@ from typing import Callable, ContextManager, TYPE_CHECKING
 if TYPE_CHECKING:
     import select
 
-    from .. import _core
+    from .. import _core, _channel
     from ._traps import Abort, RaiseCancelT
     from .._file_io import _HasFileNo
 """
@@ -395,7 +395,7 @@ if TYPE_CHECKING:
     from ._windows_cffi import Handle, CData
     from typing_extensions import Buffer
 
-    from ._unbounded_queue import UnboundedQueue
+    from .._channel import MemoryReceiveChannel
 """
 
 
