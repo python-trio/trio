@@ -382,9 +382,9 @@ from typing import Callable, ContextManager, TYPE_CHECKING
 if TYPE_CHECKING:
     import select
 
-    from .. import _core, _channel
-    from ._traps import Abort, RaiseCancelT
+    from .._channel import MemoryReceiveChannel
     from .._file_io import _HasFileNo
+    from ._traps import Abort, RaiseCancelT
 """
 
 IMPORTS_WINDOWS = """\

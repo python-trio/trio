@@ -10,13 +10,14 @@ from typing import TYPE_CHECKING, Callable, Iterator, Literal
 import attr
 import outcome
 
-from .. import _channel, _core
+from .. import _core
 from ._run import _public
 from ._wakeup_socketpair import WakeupSocketpair
 
 if TYPE_CHECKING:
     from typing_extensions import TypeAlias
 
+    from .._channel import MemoryReceiveChannel, MemorySendChannel
     from .._core import Abort, RaiseCancelT, Task
     from .._file_io import _HasFileNo
 
@@ -36,7 +37,7 @@ class _KqueueStatistics:
 class KqueueIOManager:
     _kqueue: select.kqueue = attr.ib(factory=select.kqueue)
     _registered: dict[
-        tuple[int, int], Task | _channel.MemorySendChannel[select.kevent]
+        tuple[int, int], Task | MemorySendChannel[select.kevent]
     ] = attr.ib(factory=dict)
     _force_wakeup: WakeupSocketpair = attr.ib(factory=WakeupSocketpair)
     _force_wakeup_fd: int | None = attr.ib(default=None)
@@ -119,17 +120,19 @@ class KqueueIOManager:
     @_public
     def monitor_kevent(
         self, ident: int, filter: int
-    ) -> Iterator[_channel.MemoryReceiveChannel[select.kevent]]:
+    ) -> Iterator[MemoryReceiveChannel[select.kevent]]:
         """TODO: these are implemented, but are currently more of a sketch than
         anything real. See `#26
         <https://github.com/python-trio/trio/issues/26>`__.
         """
+        from .._channel import open_memory_channel
+
         key = (ident, filter)
         if key in self._registered:
             raise _core.BusyResourceError(
                 "attempt to register multiple listeners for same ident/filter pair"
             )
-        send, recv = _channel.open_memory_channel[select.kevent](math.inf)
+        send, recv = open_memory_channel[select.kevent](math.inf)
         self._registered[key] = send
         try:
             yield recv
