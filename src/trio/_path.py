@@ -199,7 +199,6 @@ class AsyncAutoWrapperType(type):
                 setattr(cls, attr_name, wrapper)
 
 
-# TODO: `pathmod` points to `os.path`... is that what we want?
 @final
 class Path(metaclass=AsyncAutoWrapperType):
     """A :class:`pathlib.Path` wrapper that executes blocking methods in
