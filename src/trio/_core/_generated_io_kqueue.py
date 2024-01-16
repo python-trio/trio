@@ -43,7 +43,7 @@ def current_kqueue() -> select.kqueue:
 
 def monitor_kevent(
     ident: int, filter: int
-) -> ContextManager[_channel.MemoryRecvChannel[select.kevent]]:
+) -> ContextManager[_channel.MemoryReceiveChannel[select.kevent]]:
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26
     <https://github.com/python-trio/trio/issues/26>`__.
