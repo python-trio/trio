@@ -1,1 +1,0 @@
-``MultiError`` has been fully removed, and all relevant trio functions now raise ExceptionGroups instead. This should not affect end users that have transitioned to using ``except*`` or catching ExceptionGroup/BaseExceptionGroup.

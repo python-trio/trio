@@ -5,6 +5,24 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.24.0 (2024-01-10)
+------------------------
+
+Features
+~~~~~~~~
+
+- New helper classes: :class:`~.testing.RaisesGroup` and :class:`~.testing.Matcher`.
+
+  In preparation for changing the default of ``strict_exception_groups`` to `True`, we're introducing a set of helper classes that can be used in place of `pytest.raises <https://docs.pytest.org/en/stable/reference/reference.html#pytest.raises>`_ in tests, to check for an expected `ExceptionGroup`.
+  These are provisional, and only planned to be supplied until there's a good solution in ``pytest``. See https://github.com/pytest-dev/pytest/issues/11538 (`#2785 <https://github.com/python-trio/trio/issues/2785>`__)
+
+
+Deprecations and removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- ``MultiError`` has been fully removed, and all relevant trio functions now raise ExceptionGroups instead. This should not affect end users that have transitioned to using ``except*`` or catching ExceptionGroup/BaseExceptionGroup. (`#2891 <https://github.com/python-trio/trio/issues/2891>`__)
+
+
 Trio 0.23.2 (2023-12-14)
 ------------------------
 
