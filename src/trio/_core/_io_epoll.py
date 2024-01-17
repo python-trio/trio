@@ -200,7 +200,7 @@ class _EpollStatistics:
 
 @attr.s(slots=True, eq=False, hash=False)
 class EpollIOManager:
-    _epoll: select.epoll = attr.ib(factory=select.epoll)
+    _epoll: select.epoll = attr.ib(factory=lambda: select.epoll)
     # {fd: EpollWaiters}
     _registered: defaultdict[int, EpollWaiters] = attr.ib(
         factory=lambda: defaultdict(EpollWaiters)
