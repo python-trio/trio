@@ -80,15 +80,6 @@ if TYPE_CHECKING:
 
     PosArgT = TypeVarTuple("PosArgT")
 
-    # Needs to be guarded, since Unpack[] would be evaluated at runtime.
-    class _NurseryStartFunc(Protocol[Unpack[PosArgT], StatusT_co]):
-        """Type of functions passed to `nursery.start() <trio.Nursery.start>`."""
-
-        def __call__(
-            self, *args: Unpack[PosArgT], task_status: TaskStatus[StatusT_co]
-        ) -> Awaitable[object]:
-            ...
-
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: Final = 1000
 
