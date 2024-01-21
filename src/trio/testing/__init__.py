@@ -30,5 +30,6 @@ from ._trio_test import trio_test as trio_test
 
 ################################################################
 
+
 fixup_module_metadata(__name__, globals())
 del fixup_module_metadata
