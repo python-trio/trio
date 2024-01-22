@@ -120,7 +120,7 @@ class KqueueIOManager:
     def monitor_kevent(
         self,
         ident: int,
-        filter: int,  # noqa: A002  # Name shadows builtin
+        filter: int,  # Name shadows builtin
     ) -> Iterator[_core.UnboundedQueue[select.kevent]]:
         """TODO: these are implemented, but are currently more of a sketch than
         anything real. See `#26
@@ -142,7 +142,7 @@ class KqueueIOManager:
     async def wait_kevent(
         self,
         ident: int,
-        filter: int,  # noqa: A002  # Name shadows builtin
+        filter: int,  # Name shadows builtin
         abort_func: Callable[[RaiseCancelT], Abort],
     ) -> Abort:
         """TODO: these are implemented, but are currently more of a sketch than
@@ -168,7 +168,7 @@ class KqueueIOManager:
     async def _wait_common(
         self,
         fd: int | _HasFileNo,
-        filter: int,  # noqa: A002  # Name shadows builtin
+        filter: int,  # Name shadows builtin
     ) -> None:
         if not isinstance(fd, int):
             fd = fd.fileno()
