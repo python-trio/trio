@@ -189,8 +189,10 @@ jobs:
         uses: actions/checkout@v3
       - name: Install necessary packages
         run: apk update && apk add python3-dev bash nodejs musl-dev
+      - name: Enter virtual environment
+        run: python -m venv .venv
       - name: Run tests
-        run: ./ci.sh
+        run: source .venv/bin/activate && ./ci.sh
       - if: always()
         uses: codecov/codecov-action@v3
         with:
