@@ -130,6 +130,7 @@ extend-exclude = [
 'src/trio/socket.py' = ['F401']
 'src/trio/testing/__init__.py' = ['F401']
 'src/trio/_core/_generated_io_kqueue.py' = ['A002']
+'src/trio/_core/_io_kqueue.py' = ['A002']
 
 [tool.ruff.isort]
 combine-as-imports = true
