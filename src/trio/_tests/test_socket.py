@@ -653,7 +653,7 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
                 await res("1.2.3.4")  # type: ignore[arg-type]
             with pytest.raises(ValueError, match=address):
                 await res(("1.2.3.4",))  # type: ignore[arg-type]
-            with pytest.raises(  # noqa: PT012
+            with pytest.raises(
                 ValueError,
                 match=address,
             ):

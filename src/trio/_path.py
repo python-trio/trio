@@ -155,7 +155,7 @@ class AsyncAutoWrapperType(type):
             if attr_name.startswith("_") or attr_name in attrs:
                 continue
 
-            if isinstance(attr, property):
+            if isinstance(attr, (property, types.ModuleType)):
                 cls._forward.append(attr_name)
             elif isinstance(attr, types.FunctionType):
                 wrapper = _forward_factory(cls, attr_name, attr)

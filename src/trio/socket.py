@@ -70,9 +70,15 @@ from socket import (
 if sys.implementation.name == "cpython":
     from socket import (
         if_indextoname as if_indextoname,
-        if_nameindex as if_nameindex,
         if_nametoindex as if_nametoindex,
     )
+
+    # For android devices, if_nameindex support was introduced in API 24,
+    # so it doesn't exist for any version prior.
+    with _suppress(ImportError):
+        from socket import (
+            if_nameindex as if_nameindex,
+        )
 
 
 # not always available so expose only if

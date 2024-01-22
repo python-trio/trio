@@ -111,6 +111,7 @@ extend-ignore = [
     'E402',  # module-import-not-at-top-of-file (usually OS-specific)
     'E501',  # line-too-long
     'SIM117',  # multiple-with-statements (messes up lots of context-based stuff and looks bad)
+    'PT012', # multiple statements in pytest.raises block
 ]
 
 include = ["*.py", "*.pyi", "**/pyproject.toml"]
