@@ -237,7 +237,7 @@ def _get_thread_name(ident: int | None = None) -> str | None:
 
     libpthread_path = ctypes.util.find_library("pthread")
     if not libpthread_path:
-        print(f"no pthread on {sys.platform})")
+        print(f"no pthread on {sys.platform}")
         return None
     libpthread = ctypes.CDLL(libpthread_path)
 
