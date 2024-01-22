@@ -8,6 +8,7 @@ from __future__ import annotations
 # here.
 # We still have some underscore names though but only a few.
 # Uses `from x import y as y` for compatibility with `pyright --verifytypes` (#2625)
+#
 # Dynamically re-export whatever constants this particular Python happens to
 # have:
 import socket as _stdlib_socket
