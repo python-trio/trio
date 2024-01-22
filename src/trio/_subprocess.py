@@ -682,13 +682,13 @@ async def _run_process(
                 "since that's the only way to access the pipe"
             )
     if isinstance(stdin, (bytes, bytearray, memoryview)):
-        input = stdin
+        input_ = stdin
         options["stdin"] = subprocess.PIPE
     else:
         # stdin should be something acceptable to Process
         # (None, DEVNULL, a file descriptor, etc) and Process
         # will raise if it's not
-        input = None
+        input_ = None
         options["stdin"] = stdin
 
     if capture_stdout:
@@ -713,8 +713,8 @@ async def _run_process(
     async def feed_input(stream: SendStream) -> None:
         async with stream:
             try:
-                assert input is not None
-                await stream.send_all(input)
+                assert input_ is not None
+                await stream.send_all(input_)
             except trio.BrokenResourceError:
                 pass
 
@@ -732,7 +732,7 @@ async def _run_process(
     proc = await open_process(command, **options)  # type: ignore[arg-type, call-overload, unused-ignore]
     async with trio.open_nursery() as nursery:
         try:
-            if input is not None:
+            if input_ is not None:
                 assert proc.stdin is not None
                 nursery.start_soon(feed_input, proc.stdin)
                 proc.stdin = None

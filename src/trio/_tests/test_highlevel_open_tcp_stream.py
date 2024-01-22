@@ -265,16 +265,16 @@ class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
     def socket(
         self,
         family: AddressFamily | int | None = None,
-        type: SocketKind | int | None = None,
+        type_: SocketKind | int | None = None,
         proto: int | None = None,
     ) -> SocketType:
         assert isinstance(family, AddressFamily)
-        assert isinstance(type, SocketKind)
+        assert isinstance(type_, SocketKind)
         assert proto is not None
         if family not in self.supported_families:
             raise OSError("pretending not to support this family")
         self.socket_count += 1
-        return FakeSocket(self, family, type, proto)
+        return FakeSocket(self, family, type_, proto)
 
     def _ip_to_gai_entry(
         self, ip: str
@@ -299,7 +299,7 @@ class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
         host: str | bytes | None,
         port: bytes | str | int | None,
         family: int = -1,
-        type: int = -1,
+        type: int = -1,  # noqa: A002  # name shadowing builtin
         proto: int = -1,
         flags: int = -1,
     ) -> list[

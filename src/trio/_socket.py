@@ -174,7 +174,7 @@ async def getaddrinfo(
     host: bytes | str | None,
     port: bytes | str | int | None,
     family: int = 0,
-    type: int = 0,
+    type: int = 0,  # noqa: A002  # name shadowing builtin
     proto: int = 0,
     flags: int = 0,
 ) -> list[
@@ -296,12 +296,12 @@ def from_stdlib_socket(sock: _stdlib_socket.socket) -> SocketType:
 def fromfd(
     fd: SupportsIndex,
     family: AddressFamily | int = _stdlib_socket.AF_INET,
-    type: SocketKind | int = _stdlib_socket.SOCK_STREAM,
+    type: SocketKind | int = _stdlib_socket.SOCK_STREAM,  # noqa: A002
     proto: int = 0,
 ) -> SocketType:
     """Like :func:`socket.fromfd`, but returns a Trio socket object."""
-    family, type, proto = _sniff_sockopts_for_fileno(family, type, proto, index(fd))
-    return from_stdlib_socket(_stdlib_socket.fromfd(fd, family, type, proto))
+    family, type_, proto = _sniff_sockopts_for_fileno(family, type, proto, index(fd))
+    return from_stdlib_socket(_stdlib_socket.fromfd(fd, family, type_, proto))
 
 
 if sys.platform == "win32" or (
@@ -327,7 +327,7 @@ else:
 @_wraps(_stdlib_socket.socketpair, assigned=(), updated=())
 def socketpair(
     family: FamilyT = FamilyDefault,
-    type: TypeT = SocketKind.SOCK_STREAM,
+    type: TypeT = SocketKind.SOCK_STREAM,  # noqa: A002
     proto: int = 0,
 ) -> tuple[SocketType, SocketType]:
     """Like :func:`socket.socketpair`, but returns a pair of Trio socket
@@ -341,7 +341,7 @@ def socketpair(
 @_wraps(_stdlib_socket.socket, assigned=(), updated=())
 def socket(
     family: AddressFamily | int = _stdlib_socket.AF_INET,
-    type: SocketKind | int = _stdlib_socket.SOCK_STREAM,
+    type: SocketKind | int = _stdlib_socket.SOCK_STREAM,  # noqa: A002
     proto: int = 0,
     fileno: int | None = None,
 ) -> SocketType:
@@ -356,14 +356,16 @@ def socket(
         if sf is not None:
             return sf.socket(family, type, proto)
     else:
-        family, type, proto = _sniff_sockopts_for_fileno(family, type, proto, fileno)
+        family, type, proto = _sniff_sockopts_for_fileno(  # noqa: A001
+            family, type, proto, fileno
+        )
     stdlib_socket = _stdlib_socket.socket(family, type, proto, fileno)
     return from_stdlib_socket(stdlib_socket)
 
 
 def _sniff_sockopts_for_fileno(
     family: AddressFamily | int,
-    type: SocketKind | int,
+    type_: SocketKind | int,  # name shadowing builtin
     proto: int,
     fileno: int | None,
 ) -> tuple[AddressFamily | int, SocketKind | int, int]:
@@ -372,7 +374,7 @@ def _sniff_sockopts_for_fileno(
     # This object might have the wrong metadata, but it lets us easily call getsockopt
     # and then we'll throw it away and construct a new one with the correct metadata.
     if sys.platform != "linux":
-        return family, type, proto
+        return family, type_, proto
     from socket import (  # type: ignore[attr-defined]
         SO_DOMAIN,
         SO_PROTOCOL,
@@ -380,15 +382,15 @@ def _sniff_sockopts_for_fileno(
         SOL_SOCKET,
     )
 
-    sockobj = _stdlib_socket.socket(family, type, proto, fileno=fileno)
+    sockobj = _stdlib_socket.socket(family, type_, proto, fileno=fileno)
     try:
         family = sockobj.getsockopt(SOL_SOCKET, SO_DOMAIN)
         proto = sockobj.getsockopt(SOL_SOCKET, SO_PROTOCOL)
-        type = sockobj.getsockopt(SOL_SOCKET, SO_TYPE)
+        type_ = sockobj.getsockopt(SOL_SOCKET, SO_TYPE)
     finally:
         # Unwrap it again, so that sockobj.__del__ doesn't try to close our socket
         sockobj.detach()
-    return family, type, proto
+    return family, type_, proto
 
 
 ################################################################
@@ -448,7 +450,7 @@ def _make_simple_sock_method_wrapper(
 # @overload likely works, but is extremely verbose.
 # NOTE: this function does not always checkpoint
 async def _resolve_address_nocp(
-    type: int,
+    type_: int,
     family: AddressFamily,
     proto: int,
     *,
@@ -502,7 +504,7 @@ async def _resolve_address_nocp(
     # flags |= AI_ADDRCONFIG
     if family == _stdlib_socket.AF_INET6 and not ipv6_v6only:
         flags |= _stdlib_socket.AI_V4MAPPED
-    gai_res = await getaddrinfo(host, port, family, type, proto, flags)
+    gai_res = await getaddrinfo(host, port, family, type_, proto, flags)
     # AFAICT from the spec it's not possible for getaddrinfo to return an
     # empty list.
     assert len(gai_res) >= 1

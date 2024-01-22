@@ -128,8 +128,8 @@ class UDPPacket:
 class FakeSocketFactory(trio.abc.SocketFactory):
     fake_net: FakeNet
 
-    def socket(self, family: int, type: int, proto: int) -> FakeSocket:  # type: ignore[override]
-        return FakeSocket._create(self.fake_net, family, type, proto)
+    def socket(self, family: int, type_: int, proto: int) -> FakeSocket:  # type: ignore[override]
+        return FakeSocket._create(self.fake_net, family, type_, proto)
 
 
 @attr.frozen
@@ -141,7 +141,7 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
         host: bytes | str | None,
         port: bytes | str | int | None,
         family: int = 0,
-        type: int = 0,
+        type: int = 0,  # noqa: A002  # name shadowing builtin
         proto: int = 0,
         flags: int = 0,
     ) -> list[
@@ -200,14 +200,18 @@ class FakeNet:
 @final
 class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
     def __init__(
-        self, fake_net: FakeNet, family: AddressFamily, type: SocketKind, proto: int
+        self,
+        fake_net: FakeNet,
+        family: AddressFamily,
+        type: SocketKind,  # noqa: A002  # name shadowing builtin
+        proto: int,
     ):
         self._fake_net = fake_net
 
         if not family:  # pragma: no cover
             family = trio.socket.AF_INET
         if not type:  # pragma: no cover
-            type = trio.socket.SOCK_STREAM
+            type = trio.socket.SOCK_STREAM  # noqa: A001  # name shadowing builtin
 
         if family not in (trio.socket.AF_INET, trio.socket.AF_INET6):
             raise NotImplementedError(f"FakeNet doesn't (yet) support family={family}")
