@@ -91,6 +91,7 @@ allowed-confusables = ["–"]
 src = ["src/trio", "notes-to-self"]
 
 select = [
+    "A",     # flake8-builtins
     "ASYNC", # flake8-async
     "B",     # flake8-bugbear
     "E",     # Error
