@@ -188,7 +188,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Install necessary packages
-        run: apk update && apk add bash
+        run: apk update && apk add bash nodejs
+      - run: pip install pyright && pyright --version
       - name: Run tests
         run: ./ci.sh
       - if: always()
