@@ -42,8 +42,7 @@ def current_kqueue() -> select.kqueue:
 
 
 def monitor_kevent(
-    ident: int,
-    filter: int,  # noqa: A002  # Name shadows builtin
+    ident: int, filter: int
 ) -> ContextManager[_core.UnboundedQueue[select.kevent]]:
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26
@@ -57,9 +56,7 @@ def monitor_kevent(
 
 
 async def wait_kevent(
-    ident: int,
-    filter: int,  # noqa: A002  # Name shadows builtin
-    abort_func: Callable[[RaiseCancelT], Abort],
+    ident: int, filter: int, abort_func: Callable[[RaiseCancelT], Abort]
 ) -> Abort:
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26
