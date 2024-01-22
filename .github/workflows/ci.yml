@@ -179,6 +179,26 @@ jobs:
           name: macOS (${{ matrix.python }})
           flags: macOS,${{ matrix.python }}
 
+  # run CI on a musl linux
+  Alpine:
+    name: "Alpine"
+    runs-on: ubuntu-latest
+    container: python:alpine
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Install necessary packages
+        run: apk update && apk add bash
+      - name: Run tests
+        run: ./ci.sh
+      - if: always()
+        uses: codecov/codecov-action@v3
+        with:
+          directory: empty
+          token: 87cefb17-c44b-4f2f-8b30-1fff5769ce46
+          name: Alpine
+          flags: Alpine,3.12
+
   # https://github.com/marketplace/actions/alls-green#why
   check:  # This job does nothing and is only used for the branch protection
 
@@ -188,6 +208,7 @@ jobs:
       - Windows
       - Ubuntu
       - macOS
+      - Alpine
 
     runs-on: ubuntu-latest
 
