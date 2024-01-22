@@ -95,6 +95,7 @@ select = [
     "B",     # flake8-bugbear
     "E",     # Error
     "F",     # pyflakes
+    "FA",    # flake8-future-annotations
     "I",     # isort
     "PT",    # flake8-pytest-style
     "PYI",   # flake8-pyi
