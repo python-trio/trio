@@ -3,9 +3,13 @@ This namespace represents low-level functionality not intended for daily use,
 but useful for extending Trio's functionality.
 """
 
+# imports are renamed with leading underscores to indicate they are not part of the public API
+
 import select as _select
+
+# static checkers don't understand if importing this as _sys, so it's deleted later
 import sys
-from typing import TYPE_CHECKING
+import typing as _t
 
 # Generally available symbols
 from ._core import (
@@ -69,7 +73,7 @@ else:
     from ._unix_pipes import FdStream as FdStream
 
     # Kqueue-specific symbols
-    if sys.platform != "linux" and (TYPE_CHECKING or not hasattr(_select, "epoll")):
+    if sys.platform != "linux" and (_t.TYPE_CHECKING or not hasattr(_select, "epoll")):
         from ._core import (
             current_kqueue as current_kqueue,
             monitor_kevent as monitor_kevent,

@@ -7,13 +7,11 @@ from __future__ import annotations
 # implementation in an underscored module, and then re-export the public parts
 # here.
 # We still have some underscore names though but only a few.
-# Uses `from x import y as y` for compatibility with `pyright --verifytypes` (#2625)
-#
-# Dynamically re-export whatever constants this particular Python happens to
-# have:
 import socket as _stdlib_socket
+
+# static checkers don't understand if importing this as _sys, so it's deleted later
 import sys
-from typing import TYPE_CHECKING
+import typing as _t
 
 from . import _socket
 
@@ -24,6 +22,8 @@ if sys.platform == "win32":
     # (you can still get it from stdlib socket, of course, if you want it)
     _bad_symbols.add("SO_REUSEADDR")
 
+# Dynamically re-export whatever constants this particular Python happens to
+# have:
 globals().update(
     {
         _name: getattr(_stdlib_socket, _name)
@@ -35,6 +35,7 @@ globals().update(
 # import the overwrites
 from contextlib import suppress as _suppress
 
+# Uses `from x import y as y` for compatibility with `pyright --verifytypes` (#2625)
 from ._socket import (
     SocketType as SocketType,
     from_stdlib_socket as from_stdlib_socket,
@@ -49,7 +50,7 @@ from ._socket import (
 )
 
 # not always available so expose only if
-if sys.platform == "win32" or not TYPE_CHECKING:
+if sys.platform == "win32" or not _t.TYPE_CHECKING:
     with _suppress(ImportError):
         from ._socket import fromshare as fromshare
 
@@ -80,15 +81,14 @@ if sys.implementation.name == "cpython":
             if_nameindex as if_nameindex,
         )
 
-
 # not always available so expose only if
-if sys.platform != "win32" or not TYPE_CHECKING:
+if sys.platform != "win32" or not _t.TYPE_CHECKING:
     with _suppress(ImportError):
         from socket import (
             sethostname as sethostname,
         )
 
-if TYPE_CHECKING:
+if _t.TYPE_CHECKING:
     IP_BIND_ADDRESS_NO_PORT: int
 else:
     try:
@@ -104,11 +104,11 @@ del sys
 # re-export them. Since the exact set of constants varies depending on Python
 # version, platform, the libc installed on the system where Python was built,
 # etc., we figure out which constants to re-export dynamically at runtime (see
-# below). But that confuses static analysis tools like jedi and mypy. So this
+# above). But that confuses static analysis tools like jedi and mypy. So this
 # import statement statically lists every constant that *could* be
 # exported. There's a test in test_exports.py to make sure that the list is
 # kept up to date.
-if TYPE_CHECKING:
+if _t.TYPE_CHECKING:
     from socket import (  # type: ignore[attr-defined]
         AF_ALG as AF_ALG,
         AF_APPLETALK as AF_APPLETALK,
