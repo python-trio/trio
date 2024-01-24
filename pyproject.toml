@@ -91,27 +91,28 @@ allowed-confusables = ["–"]
 src = ["src/trio", "notes-to-self"]
 
 select = [
-  "RUF",  # Ruff-specific rules
-  "F",  # pyflakes
-  "E",  # Error
-  "W",  # Warning
-  "I",  # isort
-  "UP",  # pyupgrade
-  "B",  # flake8-bugbear
-  "YTT",  # flake8-2020
-  "ASYNC",  # flake8-async
-  "PYI",  # flake8-pyi
-  "SIM",  # flake8-simplify
-  "TCH",  # flake8-type-checking
-  "PT",  # flake8-pytest-style
+    "ASYNC", # flake8-async
+    "B",     # flake8-bugbear
+    "C4",    # flake8-comprehensions
+    "E",     # Error
+    "F",     # pyflakes
+    "I",     # isort
+    "PT",    # flake8-pytest-style
+    "PYI",   # flake8-pyi
+    "RUF",   # Ruff-specific rules
+    "SIM",   # flake8-simplify
+    "TCH",   # flake8-type-checking
+    "UP",    # pyupgrade
+    "W",     # Warning
+    "YTT",   # flake8-2020
 ]
 extend-ignore = [
-    'F403',  # undefined-local-with-import-star
-    'F405',  # undefined-local-with-import-star-usage
-    'E402',  # module-import-not-at-top-of-file (usually OS-specific)
-    'E501',  # line-too-long
-    'SIM117',  # multiple-with-statements (messes up lots of context-based stuff and looks bad)
-    'PT012', # multiple statements in pytest.raises block
+    'E402',   # module-import-not-at-top-of-file (usually OS-specific)
+    'E501',   # line-too-long
+    'F403',   # undefined-local-with-import-star
+    'F405',   # undefined-local-with-import-star-usage
+    'PT012',  # multiple statements in pytest.raises block
+    'SIM117', # multiple-with-statements (messes up lots of context-based stuff and looks bad)
 ]
 
 include = ["*.py", "*.pyi", "**/pyproject.toml"]
