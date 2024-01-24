@@ -80,15 +80,6 @@ if TYPE_CHECKING:
 
     PosArgT = TypeVarTuple("PosArgT")
 
-    # Needs to be guarded, since Unpack[] would be evaluated at runtime.
-    class _NurseryStartFunc(Protocol[Unpack[PosArgT], StatusT_co]):
-        """Type of functions passed to `nursery.start() <trio.Nursery.start>`."""
-
-        def __call__(
-            self, *args: Unpack[PosArgT], task_status: TaskStatus[StatusT_co]
-        ) -> Awaitable[object]:
-            ...
-
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: Final = 1000
 
@@ -937,7 +928,7 @@ class NurseryManager:
 
     """
 
-    strict_exception_groups: bool = attr.ib(default=False)
+    strict_exception_groups: bool = attr.ib(default=True)
 
     @enable_ki_protection
     async def __aenter__(self) -> Nursery:
@@ -1004,9 +995,10 @@ def open_nursery(
     have exited.
 
     Args:
-      strict_exception_groups (bool): If true, even a single raised exception will be
-          wrapped in an exception group. This will eventually become the default
-          behavior. If not specified, uses the value passed to :func:`run`.
+      strict_exception_groups (bool): Unless set to False, even a single raised exception
+          will be wrapped in an exception group. If not specified, uses the value passed
+          to :func:`run`, which defaults to true. Setting it to False will be deprecated
+          and ultimately removed in a future version of Trio.
 
     """
     if strict_exception_groups is None:
@@ -2171,7 +2163,7 @@ def run(
     clock: Clock | None = None,
     instruments: Sequence[Instrument] = (),
     restrict_keyboard_interrupt_to_checkpoints: bool = False,
-    strict_exception_groups: bool = False,
+    strict_exception_groups: bool = True,
 ) -> RetT:
     """Run a Trio-flavored async function, and return the result.
 
@@ -2228,9 +2220,10 @@ def run(
           main thread (this is a Python limitation), or if you use
           :func:`open_signal_receiver` to catch SIGINT.
 
-      strict_exception_groups (bool): If true, nurseries will always wrap even a single
-          raised exception in an exception group. This can be overridden on the level of
-          individual nurseries. This will eventually become the default behavior.
+      strict_exception_groups (bool): Unless set to False, nurseries will always wrap
+          even a single raised exception in an exception group. This can be overridden
+          on the level of individual nurseries. Setting it to False will be deprecated
+          and ultimately removed in a future version of Trio.
 
     Returns:
       Whatever ``async_fn`` returns.
@@ -2288,7 +2281,7 @@ def start_guest_run(
     clock: Clock | None = None,
     instruments: Sequence[Instrument] = (),
     restrict_keyboard_interrupt_to_checkpoints: bool = False,
-    strict_exception_groups: bool = False,
+    strict_exception_groups: bool = True,
 ) -> None:
     """Start a "guest" run of Trio on top of some other "host" event loop.
 

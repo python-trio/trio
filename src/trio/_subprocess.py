@@ -11,9 +11,7 @@ from typing import TYPE_CHECKING, Final, Literal, Protocol, Union, overload
 
 import trio
 
-from ._abc import AsyncResource, ReceiveStream, SendStream
 from ._core import ClosedResourceError, TaskStatus
-from ._deprecate import deprecated
 from ._highlevel_generic import StapledStream
 from ._subprocess_platform import (
     create_pipe_from_child_output,
@@ -28,7 +26,9 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Mapping, Sequence
     from io import TextIOWrapper
 
-    from typing_extensions import Self, TypeAlias
+    from typing_extensions import TypeAlias
+
+    from ._abc import ReceiveStream, SendStream
 
 
 # Sphinx cannot parse the stringified version
@@ -101,7 +101,7 @@ class HasFileno(Protocol):
 
 
 @final
-class Process(AsyncResource, metaclass=NoPublicConstructor):
+class Process(metaclass=NoPublicConstructor):
     r"""A child process. Like :class:`subprocess.Popen`, but async.
 
     This class has no public constructor. The most common way to get a
@@ -222,41 +222,6 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         if result is not None:
             self._close_pidfd()
         return result
-
-    @deprecated(
-        "0.20.0",
-        thing="using trio.Process as an async context manager",
-        issue=1104,
-        instead="run_process or nursery.start(run_process, ...)",
-    )
-    async def __aenter__(self) -> Self:
-        return self
-
-    # Type ignore is for `Type of decorated function contains type "Any" ("Callable[[Process], Coroutine[Any, Any, None]]")`
-    @deprecated(
-        "0.20.0", issue=1104, instead="run_process or nursery.start(run_process, ...)"
-    )
-    async def aclose(self) -> None:  # type: ignore[misc]
-        """Close any pipes we have to the process (both input and output)
-        and wait for it to exit.
-
-        If cancelled, kills the process and waits for it to finish
-        exiting before propagating the cancellation.
-        """
-        with trio.CancelScope(shield=True):
-            if self.stdin is not None:
-                await self.stdin.aclose()
-            if self.stdout is not None:
-                await self.stdout.aclose()
-            if self.stderr is not None:
-                await self.stderr.aclose()
-        try:
-            await self.wait()
-        finally:
-            if self._proc.returncode is None:
-                self.kill()
-                with trio.CancelScope(shield=True):
-                    await self.wait()
 
     def _close_pidfd(self) -> None:
         if self._pidfd is not None:
@@ -687,6 +652,7 @@ async def _run_process(
           and the process exits with a nonzero exit status
       OSError: if an error is encountered starting or communicating with
           the process
+      ExceptionGroup: if exceptions occur in ``deliver_cancel``, or when exceptions occur when communicating with the subprocess. If strict_exception_groups is set to false in the global context, then single exceptions will be collapsed.
 
     .. note:: The child process runs in the same process group as the parent
        Trio process, so a Ctrl+C will be delivered simultaneously to both
@@ -760,9 +726,11 @@ async def _run_process(
             async for chunk in stream:
                 chunks.append(chunk)
 
+    # Opening the process does not need to be inside the nursery, so we put it outside
+    # so any exceptions get directly seen by users.
+    # options needs a complex TypedDict. The overload error only occurs on Unix.
+    proc = await open_process(command, **options)  # type: ignore[arg-type, call-overload, unused-ignore]
     async with trio.open_nursery() as nursery:
-        # options needs a complex TypedDict. The overload error only occurs on Unix.
-        proc = await open_process(command, **options)  # type: ignore[arg-type, call-overload, unused-ignore]
         try:
             if input is not None:
                 assert proc.stdin is not None
