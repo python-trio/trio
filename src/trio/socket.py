@@ -13,7 +13,7 @@ from __future__ import annotations
 # have:
 import socket as _stdlib_socket
 import sys
-import typing as _t
+from typing import TYPE_CHECKING
 
 from . import _socket
 
@@ -49,7 +49,7 @@ from ._socket import (
 )
 
 # not always available so expose only if
-if sys.platform == "win32" or not _t.TYPE_CHECKING:
+if sys.platform == "win32" or not TYPE_CHECKING:
     with _suppress(ImportError):
         from ._socket import fromshare as fromshare
 
@@ -82,13 +82,13 @@ if sys.implementation.name == "cpython":
 
 
 # not always available so expose only if
-if sys.platform != "win32" or not _t.TYPE_CHECKING:
+if sys.platform != "win32" or not TYPE_CHECKING:
     with _suppress(ImportError):
         from socket import (
             sethostname as sethostname,
         )
 
-if _t.TYPE_CHECKING:
+if TYPE_CHECKING:
     IP_BIND_ADDRESS_NO_PORT: int
 else:
     try:
@@ -108,7 +108,7 @@ del sys
 # import statement statically lists every constant that *could* be
 # exported. There's a test in test_exports.py to make sure that the list is
 # kept up to date.
-if _t.TYPE_CHECKING:
+if TYPE_CHECKING:
     from socket import (  # type: ignore[attr-defined]
         AF_ALG as AF_ALG,
         AF_APPLETALK as AF_APPLETALK,

@@ -5,7 +5,7 @@ but useful for extending Trio's functionality.
 
 import select as _select
 import sys
-import typing as _t
+from typing import TYPE_CHECKING
 
 # Generally available symbols
 from ._core import (
@@ -69,7 +69,7 @@ else:
     from ._unix_pipes import FdStream as FdStream
 
     # Kqueue-specific symbols
-    if sys.platform != "linux" and (_t.TYPE_CHECKING or not hasattr(_select, "epoll")):
+    if sys.platform != "linux" and (TYPE_CHECKING or not hasattr(_select, "epoll")):
         from ._core import (
             current_kqueue as current_kqueue,
             monitor_kevent as monitor_kevent,
