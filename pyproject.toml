@@ -93,8 +93,6 @@ src = ["src/trio", "notes-to-self"]
 select = [
     "ASYNC", # flake8-async
     "B",     # flake8-bugbear
-    "E",     # Error
-    "F",     # pyflakes
     "C4",    # flake8-comprehensions
     "E",     # Error
     "F",     # pyflakes
