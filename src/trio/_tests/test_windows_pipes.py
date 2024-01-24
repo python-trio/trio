@@ -96,7 +96,7 @@ async def test_close_during_write() -> None:
     async with _core.open_nursery() as nursery:
 
         async def write_forever() -> None:
-            with pytest.raises(_core.ClosedResourceError) as excinfo:  # noqa: PT012
+            with pytest.raises(_core.ClosedResourceError) as excinfo:
                 while True:
                     await w.send_all(b"x" * 4096)
             assert "another task" in str(excinfo.value)

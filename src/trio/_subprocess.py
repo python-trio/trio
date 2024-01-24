@@ -652,6 +652,7 @@ async def _run_process(
           and the process exits with a nonzero exit status
       OSError: if an error is encountered starting or communicating with
           the process
+      ExceptionGroup: if exceptions occur in ``deliver_cancel``, or when exceptions occur when communicating with the subprocess. If strict_exception_groups is set to false in the global context, then single exceptions will be collapsed.
 
     .. note:: The child process runs in the same process group as the parent
        Trio process, so a Ctrl+C will be delivered simultaneously to both
@@ -725,9 +726,11 @@ async def _run_process(
             async for chunk in stream:
                 chunks.append(chunk)
 
+    # Opening the process does not need to be inside the nursery, so we put it outside
+    # so any exceptions get directly seen by users.
+    # options needs a complex TypedDict. The overload error only occurs on Unix.
+    proc = await open_process(command, **options)  # type: ignore[arg-type, call-overload, unused-ignore]
     async with trio.open_nursery() as nursery:
-        # options needs a complex TypedDict. The overload error only occurs on Unix.
-        proc = await open_process(command, **options)  # type: ignore[arg-type, call-overload, unused-ignore]
         try:
             if input is not None:
                 assert proc.stdin is not None

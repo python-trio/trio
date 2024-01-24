@@ -1061,7 +1061,7 @@ class _SocketType(SocketType):
     # _make_simple_sock_method_wrapper is typed, so this checks that the above is correct
     # this requires that we refrain from using `/` to specify pos-only
     # args, or mypy thinks the signature differs from typeshed.
-    recv = _make_simple_sock_method_wrapper(  # noqa: F811
+    recv = _make_simple_sock_method_wrapper(
         _stdlib_socket.socket.recv, _core.wait_readable
     )
 
@@ -1076,7 +1076,7 @@ class _SocketType(SocketType):
         ) -> Awaitable[int]:
             ...
 
-    recv_into = _make_simple_sock_method_wrapper(  # noqa: F811
+    recv_into = _make_simple_sock_method_wrapper(
         _stdlib_socket.socket.recv_into, _core.wait_readable
     )
 
@@ -1091,7 +1091,7 @@ class _SocketType(SocketType):
         ) -> Awaitable[tuple[bytes, AddressFormat]]:
             ...
 
-    recvfrom = _make_simple_sock_method_wrapper(  # noqa: F811
+    recvfrom = _make_simple_sock_method_wrapper(
         _stdlib_socket.socket.recvfrom, _core.wait_readable
     )
 
@@ -1106,7 +1106,7 @@ class _SocketType(SocketType):
         ) -> Awaitable[tuple[int, AddressFormat]]:
             ...
 
-    recvfrom_into = _make_simple_sock_method_wrapper(  # noqa: F811
+    recvfrom_into = _make_simple_sock_method_wrapper(
         _stdlib_socket.socket.recvfrom_into, _core.wait_readable
     )
 
@@ -1158,7 +1158,7 @@ class _SocketType(SocketType):
         def send(__self, __bytes: Buffer, __flags: int = 0) -> Awaitable[int]:
             ...
 
-    send = _make_simple_sock_method_wrapper(  # noqa: F811
+    send = _make_simple_sock_method_wrapper(
         _stdlib_socket.socket.send, _core.wait_writable
     )
 
