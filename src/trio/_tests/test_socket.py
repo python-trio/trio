@@ -981,7 +981,7 @@ async def test_custom_hostname_resolver(monkeygai: MonkeypatchedGAI) -> None:
             host: str,
             port: str,
             family: int,
-            type: int,  # noqa: A002  # name shadowing builtin
+            type: int,
             proto: int,
             flags: int,
         ) -> tuple[str, str, str, int, int, int, int]:
@@ -1037,7 +1037,7 @@ async def test_custom_socket_factory() -> None:
         def socket(
             self,
             family: AddressFamily,
-            type: SocketKind,  # noqa: A002  # name shadowing builtin
+            type: SocketKind,
             proto: int,
         ) -> tuple[str, AddressFamily, SocketKind, int]:
             return ("hi", family, type, proto)

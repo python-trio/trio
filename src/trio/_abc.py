@@ -171,7 +171,7 @@ class HostnameResolver(metaclass=ABCMeta):
         host: bytes | str | None,
         port: bytes | str | int | None,
         family: int = 0,
-        type: int = 0,  # noqa: A002  # Name shadows builtin
+        type: int = 0,
         proto: int = 0,
         flags: int = 0,
     ) -> list[
@@ -221,7 +221,7 @@ class SocketFactory(metaclass=ABCMeta):
     def socket(
         self,
         family: socket.AddressFamily | int = socket.AF_INET,
-        type: socket.SocketKind | int = socket.SOCK_STREAM,  # noqa: A002
+        type: socket.SocketKind | int = socket.SOCK_STREAM,
         proto: int = 0,
     ) -> SocketType:
         """Create and return a socket object.

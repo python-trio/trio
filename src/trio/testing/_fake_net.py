@@ -141,7 +141,7 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
         host: bytes | str | None,
         port: bytes | str | int | None,
         family: int = 0,
-        type: int = 0,  # noqa: A002  # name shadowing builtin
+        type: int = 0,
         proto: int = 0,
         flags: int = 0,
     ) -> list[
@@ -203,7 +203,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         self,
         fake_net: FakeNet,
         family: AddressFamily,
-        type: SocketKind,  # noqa: A002  # name shadowing builtin
+        type: SocketKind,
         proto: int,
     ):
         self._fake_net = fake_net

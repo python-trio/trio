@@ -236,7 +236,7 @@ class FakeHostnameResolver(HostnameResolver):
         host: bytes | str | None,
         port: bytes | str | int | None,
         family: int = 0,
-        type: int = 0,  # noqa: A002  # name shadowing builtin
+        type: int = 0,
         proto: int = 0,
         flags: int = 0,
     ) -> list[

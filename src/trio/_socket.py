@@ -174,7 +174,7 @@ async def getaddrinfo(
     host: bytes | str | None,
     port: bytes | str | int | None,
     family: int = 0,
-    type: int = 0,  # noqa: A002  # name shadowing builtin
+    type: int = 0,
     proto: int = 0,
     flags: int = 0,
 ) -> list[
@@ -296,7 +296,7 @@ def from_stdlib_socket(sock: _stdlib_socket.socket) -> SocketType:
 def fromfd(
     fd: SupportsIndex,
     family: AddressFamily | int = _stdlib_socket.AF_INET,
-    type: SocketKind | int = _stdlib_socket.SOCK_STREAM,  # noqa: A002
+    type: SocketKind | int = _stdlib_socket.SOCK_STREAM,
     proto: int = 0,
 ) -> SocketType:
     """Like :func:`socket.fromfd`, but returns a Trio socket object."""
@@ -327,7 +327,7 @@ else:
 @_wraps(_stdlib_socket.socketpair, assigned=(), updated=())
 def socketpair(
     family: FamilyT = FamilyDefault,
-    type: TypeT = SocketKind.SOCK_STREAM,  # noqa: A002
+    type: TypeT = SocketKind.SOCK_STREAM,
     proto: int = 0,
 ) -> tuple[SocketType, SocketType]:
     """Like :func:`socket.socketpair`, but returns a pair of Trio socket
@@ -341,7 +341,7 @@ def socketpair(
 @_wraps(_stdlib_socket.socket, assigned=(), updated=())
 def socket(
     family: AddressFamily | int = _stdlib_socket.AF_INET,
-    type: SocketKind | int = _stdlib_socket.SOCK_STREAM,  # noqa: A002
+    type: SocketKind | int = _stdlib_socket.SOCK_STREAM,
     proto: int = 0,
     fileno: int | None = None,
 ) -> SocketType:
@@ -365,7 +365,7 @@ def socket(
 
 def _sniff_sockopts_for_fileno(
     family: AddressFamily | int,
-    type_: SocketKind | int,  # name shadowing builtin
+    type_: SocketKind | int,
     proto: int,
     fileno: int | None,
 ) -> tuple[AddressFamily | int, SocketKind | int, int]:

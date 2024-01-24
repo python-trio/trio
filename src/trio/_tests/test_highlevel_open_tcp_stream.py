@@ -299,7 +299,7 @@ class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
         host: str | bytes | None,
         port: bytes | str | int | None,
         family: int = -1,
-        type: int = -1,  # noqa: A002  # name shadowing builtin
+        type: int = -1,
         proto: int = -1,
         flags: int = -1,
     ) -> list[
