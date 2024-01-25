@@ -81,6 +81,7 @@ if sys.implementation.name == "cpython":
             if_nameindex as if_nameindex,
         )
 
+
 # not always available so expose only if
 if sys.platform != "win32" or not _t.TYPE_CHECKING:
     with _suppress(ImportError):
