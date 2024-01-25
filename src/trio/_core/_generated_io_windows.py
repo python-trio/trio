@@ -11,8 +11,8 @@ from ._run import GLOBAL_RUN_CONTEXT
 if TYPE_CHECKING:
     from typing_extensions import Buffer
 
+    from .._channel import MemoryReceiveChannel
     from .._file_io import _HasFileNo
-    from ._unbounded_queue import UnboundedQueue
     from ._windows_cffi import CData, Handle
 import sys
 
@@ -189,7 +189,9 @@ def current_iocp() -> int:
         raise RuntimeError("must be called from async context") from None
 
 
-def monitor_completion_key() -> ContextManager[tuple[int, UnboundedQueue[object]]]:
+def monitor_completion_key() -> (
+    ContextManager[tuple[int, MemoryReceiveChannel[object]]]
+):
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26
     <https://github.com/python-trio/trio/issues/26>`__ and `#52
