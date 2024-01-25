@@ -128,9 +128,9 @@ async def open_tcp_listeners(
     listeners = []
     unsupported_address_families = []
     try:
-        for family, type, proto, _, sockaddr in addresses:
+        for family, type_, proto, _, sockaddr in addresses:
             try:
-                sock = tsocket.socket(family, type, proto)
+                sock = tsocket.socket(family, type_, proto)
             except OSError as ex:
                 if ex.errno == errno.EAFNOSUPPORT:
                     # If a system only supports IPv4, or only IPv6, it

@@ -134,8 +134,8 @@ async def test_getaddrinfo(monkeygai: MonkeypatchedGAI) -> None:
             tuple[str, int] | tuple[str, int, int] | tuple[str, int, int, int],
         ]:
             # (family, type, proto, canonname, sockaddr)
-            family, type, proto, canonname, sockaddr = gai_tup
-            return (family, type, sockaddr)
+            family, type_, proto, canonname, sockaddr = gai_tup
+            return (family, type_, sockaddr)
 
         def filtered(
             gai_list: GetAddrInfoResponse,
@@ -323,8 +323,8 @@ async def test_sniff_sockopts() -> None:
     # generate the combinations of families/types we're testing:
     sockets = []
     for family in [AF_INET, AF_INET6]:
-        for type in [SOCK_DGRAM, SOCK_STREAM]:
-            sockets.append(stdlib_socket.socket(family, type))
+        for type_ in [SOCK_DGRAM, SOCK_STREAM]:
+            sockets.append(stdlib_socket.socket(family, type_))
     for socket in sockets:
         # regular Trio socket constructor
         tsocket_socket = tsocket.socket(fileno=socket.fileno())
@@ -977,7 +977,13 @@ async def test_custom_hostname_resolver(monkeygai: MonkeypatchedGAI) -> None:
     # This intentionally breaks the signatures used in HostnameResolver
     class CustomResolver:
         async def getaddrinfo(
-            self, host: str, port: str, family: int, type: int, proto: int, flags: int
+            self,
+            host: str,
+            port: str,
+            family: int,
+            type: int,
+            proto: int,
+            flags: int,
         ) -> tuple[str, str, str, int, int, int, int]:
             return ("custom_gai", host, port, family, type, proto, flags)
 
@@ -1029,7 +1035,10 @@ async def test_custom_hostname_resolver(monkeygai: MonkeypatchedGAI) -> None:
 async def test_custom_socket_factory() -> None:
     class CustomSocketFactory:
         def socket(
-            self, family: AddressFamily, type: SocketKind, proto: int
+            self,
+            family: AddressFamily,
+            type: SocketKind,
+            proto: int,
         ) -> tuple[str, AddressFamily, SocketKind, int]:
             return ("hi", family, type, proto)
 
