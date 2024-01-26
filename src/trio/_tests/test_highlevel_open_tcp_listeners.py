@@ -210,16 +210,16 @@ class FakeSocketFactory(SocketFactory):
     def socket(
         self,
         family: AddressFamily | int | None = None,
-        type: SocketKind | int | None = None,
+        type_: SocketKind | int | None = None,
         proto: int = 0,
     ) -> tsocket.SocketType:
         assert family is not None
-        assert type is not None
+        assert type_ is not None
         if isinstance(family, int) and not isinstance(family, AddressFamily):
             family = AddressFamily(family)  # pragma: no cover
         if family in self.raise_on_family:
             raise OSError(self.raise_on_family[family], "nope")
-        sock = FakeSocket(family, type, proto)
+        sock = FakeSocket(family, type_, proto)
         self.poison_after -= 1
         if self.poison_after == 0:
             sock.poison_listen = True

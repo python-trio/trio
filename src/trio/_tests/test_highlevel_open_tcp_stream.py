@@ -42,14 +42,14 @@ def test_close_all() -> None:
     assert c.closed
 
     c = CloseMe()
-    with pytest.raises(RuntimeError):  # noqa: PT012
+    with pytest.raises(RuntimeError):
         with close_all() as to_close:
             to_close.add(c)
             raise RuntimeError
     assert c.closed
 
     c = CloseMe()
-    with pytest.raises(OSError, match="os error text"):  # noqa: PT012
+    with pytest.raises(OSError, match="os error text"):
         with close_all() as to_close:
             to_close.add(CloseKiller())
             to_close.add(c)
@@ -265,16 +265,16 @@ class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
     def socket(
         self,
         family: AddressFamily | int | None = None,
-        type: SocketKind | int | None = None,
+        type_: SocketKind | int | None = None,
         proto: int | None = None,
     ) -> SocketType:
         assert isinstance(family, AddressFamily)
-        assert isinstance(type, SocketKind)
+        assert isinstance(type_, SocketKind)
         assert proto is not None
         if family not in self.supported_families:
             raise OSError("pretending not to support this family")
         self.socket_count += 1
-        return FakeSocket(self, family, type, proto)
+        return FakeSocket(self, family, type_, proto)
 
     def _ip_to_gai_entry(
         self, ip: str
