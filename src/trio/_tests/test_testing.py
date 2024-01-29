@@ -669,8 +669,9 @@ async def test_open_stream_to_socket_listener() -> None:
 
 
 def test_trio_test() -> None:
-    async def busy_kitchen(*, mock_clock: object, autojump_clock: object) -> None:
-        ...  # pragma: no cover
+    async def busy_kitchen(
+        *, mock_clock: object, autojump_clock: object
+    ) -> None: ...  # pragma: no cover
 
     with pytest.raises(ValueError, match="^too many clocks spoil the broth!$"):
         trio_test(busy_kitchen)(

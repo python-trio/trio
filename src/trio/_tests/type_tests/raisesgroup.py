@@ -11,6 +11,7 @@ ExceptionInfo[BaseExceptionGroup[RaisesGroup[ValueError]]]. To get around that w
 RaisesGroup as a subclass of BaseExceptionGroup during type checking - which should mean
 that most static type checking for end users should be mostly correct.
 """
+
 from __future__ import annotations
 
 import sys

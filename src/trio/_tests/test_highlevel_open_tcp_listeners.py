@@ -155,12 +155,10 @@ class FakeSocket(tsocket.SocketType):
         return self._proto
 
     @overload
-    def getsockopt(self, /, level: int, optname: int) -> int:
-        ...
+    def getsockopt(self, /, level: int, optname: int) -> int: ...
 
     @overload
-    def getsockopt(self, /, level: int, optname: int, buflen: int) -> bytes:
-        ...
+    def getsockopt(self, /, level: int, optname: int, buflen: int) -> bytes: ...
 
     def getsockopt(
         self, /, level: int, optname: int, buflen: int | None = None
@@ -170,12 +168,12 @@ class FakeSocket(tsocket.SocketType):
         raise AssertionError()  # pragma: no cover
 
     @overload
-    def setsockopt(self, /, level: int, optname: int, value: int | Buffer) -> None:
-        ...
+    def setsockopt(self, /, level: int, optname: int, value: int | Buffer) -> None: ...
 
     @overload
-    def setsockopt(self, /, level: int, optname: int, value: None, optlen: int) -> None:
-        ...
+    def setsockopt(
+        self, /, level: int, optname: int, value: None, optlen: int
+    ) -> None: ...
 
     def setsockopt(
         self,

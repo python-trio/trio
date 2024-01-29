@@ -17,12 +17,10 @@ _create_child_pipe_error: ImportError | None = None
 if TYPE_CHECKING:
     # internal types for the pipe representations used in type checking only
     class ClosableSendStream(SendStream):
-        def close(self) -> None:
-            ...
+        def close(self) -> None: ...
 
     class ClosableReceiveStream(ReceiveStream):
-        def close(self) -> None:
-            ...
+        def close(self) -> None: ...
 
 
 # Fallback versions of the functions provided -- implementations

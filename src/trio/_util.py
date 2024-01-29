@@ -39,8 +39,7 @@ if TYPE_CHECKING:
 
 if TYPE_CHECKING:
     # Don't type check the implementation below, pthread_kill does not exist on Windows.
-    def signal_raise(signum: int) -> None:
-        ...
+    def signal_raise(signum: int) -> None: ...
 
 
 # Equivalent to the C function raise(), which Python doesn't wrap
@@ -409,8 +408,7 @@ if TYPE_CHECKING:
         wrapped: Callable[..., object],
         assigned: Sequence[str] = ...,
         updated: Sequence[str] = ...,
-    ) -> Callable[[Fn], Fn]:
-        ...
+    ) -> Callable[[Fn], Fn]: ...
 
 else:
     from functools import wraps  # noqa: F401  # this is re-exported

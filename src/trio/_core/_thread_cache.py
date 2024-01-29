@@ -118,11 +118,14 @@ name_counter = count()
 
 class WorkerThread(Generic[RetT]):
     def __init__(self, thread_cache: ThreadCache) -> None:
-        self._job: tuple[
-            Callable[[], RetT],
-            Callable[[outcome.Outcome[RetT]], object],
-            str | None,
-        ] | None = None
+        self._job: (
+            tuple[
+                Callable[[], RetT],
+                Callable[[outcome.Outcome[RetT]], object],
+                str | None,
+            ]
+            | None
+        ) = None
         self._thread_cache = thread_cache
         # This Lock is used in an unconventional way.
         #

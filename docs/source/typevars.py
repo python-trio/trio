@@ -2,6 +2,7 @@
 
 See https://github.com/sphinx-doc/sphinx/issues/7722 also.
 """
+
 from __future__ import annotations
 
 import re

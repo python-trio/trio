@@ -409,12 +409,10 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         _fake_err(errno.ENOTCONN)
 
     @overload
-    def getsockopt(self, /, level: int, optname: int) -> int:
-        ...
+    def getsockopt(self, /, level: int, optname: int) -> int: ...
 
     @overload
-    def getsockopt(self, /, level: int, optname: int, buflen: int) -> bytes:
-        ...
+    def getsockopt(self, /, level: int, optname: int, buflen: int) -> bytes: ...
 
     def getsockopt(
         self, /, level: int, optname: int, buflen: int | None = None
@@ -423,12 +421,12 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         raise OSError(f"FakeNet doesn't implement getsockopt({level}, {optname})")
 
     @overload
-    def setsockopt(self, /, level: int, optname: int, value: int | Buffer) -> None:
-        ...
+    def setsockopt(self, /, level: int, optname: int, value: int | Buffer) -> None: ...
 
     @overload
-    def setsockopt(self, /, level: int, optname: int, value: None, optlen: int) -> None:
-        ...
+    def setsockopt(
+        self, /, level: int, optname: int, value: None, optlen: int
+    ) -> None: ...
 
     def setsockopt(
         self,
@@ -469,8 +467,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
     @overload
     async def sendto(
         self, __data: Buffer, __address: tuple[object, ...] | str | Buffer
-    ) -> int:
-        ...
+    ) -> int: ...
 
     @overload
     async def sendto(
@@ -478,8 +475,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         __data: Buffer,
         __flags: int,
         __address: tuple[object, ...] | str | None | Buffer,
-    ) -> int:
-        ...
+    ) -> int: ...
 
     async def sendto(self, *args: Any) -> int:
         data: Buffer

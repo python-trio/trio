@@ -1,4 +1,5 @@
 """Path wrapping is quite complex, ensure all methods are understood as wrapped correctly."""
+
 import io
 import os
 import pathlib
