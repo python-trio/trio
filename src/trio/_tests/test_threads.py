@@ -237,9 +237,17 @@ def _get_thread_name(ident: int | None = None) -> str | None:
 
     libpthread_path = ctypes.util.find_library("pthread")
     if not libpthread_path:
-        print(f"no pthread on {sys.platform})")
+        # musl includes pthread functions directly in libc.so
+        # (but note that find_library("c") does not work on musl,
+        #  see: https://github.com/python/cpython/issues/65821)
+        # so try that library instead
+        # if it doesn't exist, CDLL() will fail below
+        libpthread_path = "libc.so"
+    try:
+        libpthread = ctypes.CDLL(libpthread_path)
+    except Exception:
+        print(f"no pthread on {sys.platform}")
         return None
-    libpthread = ctypes.CDLL(libpthread_path)
 
     pthread_getname_np = getattr(libpthread, "pthread_getname_np", None)
 
