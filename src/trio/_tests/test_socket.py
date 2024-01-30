@@ -624,14 +624,11 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
                 sock.setsockopt(tsocket.IPPROTO_IPV6, tsocket.IPV6_V6ONLY, True)
                 with pytest.raises(tsocket.gaierror) as excinfo:
                     await res(("1.2.3.4", 80))
-                # Windows, macOS
-                expected_errnos = {tsocket.EAI_NONAME}
+                # Windows, macOS, musl/Linux
+                expected_errnos = {tsocket.EAI_NONAME, tsocket.EAI_NODATA}
                 # Linux
                 if hasattr(tsocket, "EAI_ADDRFAMILY"):
                     expected_errnos.add(tsocket.EAI_ADDRFAMILY)
-                # musl libc
-                if hasattr(tsocket, "EAI_NODATA"):
-                    expected_errnos.add(tsocket.EAI_NODATA)
                 assert excinfo.value.errno in expected_errnos
 
             # A family where we know nothing about the addresses, so should just
