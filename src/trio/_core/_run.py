@@ -1249,9 +1249,10 @@ class Nursery(metaclass=NoPublicConstructor):
             except BaseExceptionGroup as exc:
                 if len(exc.exceptions) == 1:
                     raise exc.exceptions[0] from None
-                # TODO: give a deprecationwarning instead?
                 raise TrioInternalError(
-                    "internal nursery should not have multiple tasks"
+                    "Internal nursery should not have multiple tasks. This can be "
+                    'caused by the user managing to access the "old" nursery in '
+                    "`task_status` and spawning tasks in it."
                 ) from exc
 
             # If we get here, then the child either got reparented or exited
