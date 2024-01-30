@@ -223,7 +223,7 @@ master_doc = "index"
 
 # General information about the project.
 project = "Trio"
-copyright = "2017, Nathaniel J. Smith"
+copyright = "2017, Nathaniel J. Smith"  # noqa: A001 # Name shadows builtin
 author = "Nathaniel J. Smith"
 
 # The version info for the project you're documenting, acts as replacement for
