@@ -233,7 +233,8 @@ jobs:
       #- Windows
       #- Ubuntu
       #- macOS
-      - Alpine
+      #- Alpine
+      - Cython
 
     runs-on: ubuntu-latest
 
