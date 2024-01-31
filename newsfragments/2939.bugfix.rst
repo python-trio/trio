@@ -1,0 +1,1 @@
+The pthread functions are now correctly found on systems using vanilla versions of musl libc.
