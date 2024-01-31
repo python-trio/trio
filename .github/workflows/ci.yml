@@ -207,8 +207,9 @@ jobs:
   Cython:
     name: "Cython"
     runs-on: ubuntu-latest
-    matrix:
-      cython: ['0.29.14', '<3', '>=3']
+    strategy:
+      matrix:
+        cython: ['0.29.14', '<3', '>=3']
     steps:
       - name: Checkout
         uses: actions/checkout@v3
