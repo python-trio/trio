@@ -1,4 +1,5 @@
 """These are the only functions that ever yield back to the task runner."""
+
 from __future__ import annotations
 
 import enum

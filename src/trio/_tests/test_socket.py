@@ -580,12 +580,14 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
         for local in [False, True]:
 
             async def res(
-                args: tuple[str, int]
-                | tuple[str, int, int]
-                | tuple[str, int, int, int]
-                | tuple[str, str]
-                | tuple[str, str, int]
-                | tuple[str, str, int, int]
+                args: (
+                    tuple[str, int]
+                    | tuple[str, int, int]
+                    | tuple[str, int, int, int]
+                    | tuple[str, str]
+                    | tuple[str, str, int]
+                    | tuple[str, str, int, int]
+                )
             ) -> Any:
                 return await sock._resolve_address_nocp(
                     args,

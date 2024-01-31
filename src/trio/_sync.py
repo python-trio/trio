@@ -109,11 +109,9 @@ class Event:
 class _HasAcquireRelease(Protocol):
     """Only classes with acquire() and release() can use the mixin's implementations."""
 
-    async def acquire(self) -> object:
-        ...
+    async def acquire(self) -> object: ...
 
-    def release(self) -> object:
-        ...
+    def release(self) -> object: ...
 
 
 class AsyncContextManagerMixin:
@@ -721,6 +719,7 @@ class ConditionStatistics:
       :class:`Lock`\s  :meth:`~Lock.statistics` method.
 
     """
+
     tasks_waiting: int = attr.ib()
     lock_statistics: LockStatistics = attr.ib()
 

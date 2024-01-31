@@ -18,7 +18,7 @@ attrs==23.2.0
     #   outcome
 babel==2.14.0
     # via sphinx
-black==23.12.1 ; implementation_name == "cpython"
+black==24.1.1 ; implementation_name == "cpython"
     # via -r test-requirements.in
 build==1.0.3
     # via pip-tools
