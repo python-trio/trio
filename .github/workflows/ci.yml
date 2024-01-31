@@ -210,8 +210,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cython: ['==0.29.16', '==0.29.20', '==0.29.23', '==0.29.24', '<3', '>=3']
-        python: ['3.8', '3.10', '3']
+        cython: ['==0.29.23', '==0.29.26', '==0.29.30', '<3', '>=3']
+        python: ['3.8', '3.10', '3.11', '3']
     steps:
       - name: Checkout
         uses: actions/checkout@v3
