@@ -1756,8 +1756,7 @@ class Runner:
                 name = f"{name.__module__}.{name.__qualname__}"  # type: ignore[attr-defined]
             except AttributeError:
                 name = repr(name)
-
-        if hasattr(coro, "cr_frame"):
+        if not hasattr(coro, "cr_frame"):
             # This async function is implemented in C or Cython
             async def python_wrapper(orig_coro: Awaitable[RetT]) -> RetT:
                 return await orig_coro
