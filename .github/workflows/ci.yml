@@ -222,8 +222,8 @@ jobs:
             cache-dependency-path: test-requirements.txt
       - name: install cython
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install cython${{ matrix.cython}}
+          python -m pip install --upgrade pip distutils
+          python -m pip install "cython${{ matrix.cython}}"
       - name: install trio
           # use -e?
         run: python -m pip install .
