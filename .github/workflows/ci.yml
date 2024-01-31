@@ -204,6 +204,26 @@ jobs:
           name: Alpine
           flags: Alpine,3.12
 
+  Cython:
+    name: "Cython"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup python
+        uses: actions/setup-python@v4
+      - name: install cython
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install cython
+      - name: install trio
+          # use -e?
+        run: python -m pip install .
+      - name: compile pyx file
+        run: cythonize -i src/_tests/cython/test_cython.pyx
+      - name: import & run module
+        run: python -c 'import test_cython'
+
   # https://github.com/marketplace/actions/alls-green#why
   check:  # This job does nothing and is only used for the branch protection
 
