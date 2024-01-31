@@ -208,8 +208,9 @@ jobs:
     name: "Cython"
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        cython: ['0.29.14', '<3', '>=3']
+        cython: ['==0.29.14', '<3', '>=3']
     steps:
       - name: Checkout
         uses: actions/checkout@v3
