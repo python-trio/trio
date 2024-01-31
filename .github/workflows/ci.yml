@@ -211,13 +211,14 @@ jobs:
       fail-fast: false
       matrix:
         cython: ['==0.29.15', '<3', '>=3']
+        python: ['3.8', '3.10', '3']
     steps:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Setup python
         uses: actions/setup-python@v4
         with:
-            python-version: 3
+            python-version: '${{ matrix.python }}'
             cache: pip
             cache-dependency-path: test-requirements.txt
       - name: install cython
