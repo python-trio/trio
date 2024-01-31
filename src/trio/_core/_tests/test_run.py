@@ -2700,3 +2700,19 @@ def test_trio_run_strict_before_started(
         assert type(should_be_raiser_exc) == type(raiser_exc)
         assert should_be_raiser_exc.message == raiser_exc.message
         assert should_be_raiser_exc.exceptions == raiser_exc.exceptions
+
+
+async def test_internal_error_old_nursery_multiple_tasks() -> None:
+    async def error_func() -> None:
+        raise ValueError
+
+    async def spawn_tasks_in_old_nursery(task_status: _core.TaskStatus[None]) -> None:
+        old_nursery = _core.current_task().parent_nursery
+        assert old_nursery is not None
+        old_nursery.start_soon(error_func)
+        old_nursery.start_soon(error_func)
+
+    async with _core.open_nursery() as nursery:
+        with pytest.raises(_core.TrioInternalError) as excinfo:
+            await nursery.start(spawn_tasks_in_old_nursery)
+    assert RaisesGroup(ValueError, ValueError).matches(excinfo.value.__cause__)

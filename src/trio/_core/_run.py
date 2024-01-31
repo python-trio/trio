@@ -1227,19 +1227,30 @@ class Nursery(metaclass=NoPublicConstructor):
             raise RuntimeError("Nursery is closed to new arrivals")
         try:
             self._pending_starts += 1
-            # `strict_exception_groups=False` prevents the implementation-detail
-            # nursery from inheriting `strict_exception_groups=True` from the
-            # `run` option, which would cause it to wrap a pre-started()
-            # exception in an extra ExceptionGroup. See #2611.
-            async with open_nursery(strict_exception_groups=False) as old_nursery:
-                task_status: _TaskStatus[Any] = _TaskStatus(old_nursery, self)
-                thunk = functools.partial(async_fn, task_status=task_status)
-                task = GLOBAL_RUN_CONTEXT.runner.spawn_impl(
-                    thunk, args, old_nursery, name
-                )
-                task._eventual_parent_nursery = self
-                # Wait for either TaskStatus.started or an exception to
-                # cancel this nursery:
+            # wrap internal nursery in try-except to unroll any exceptiongroups
+            # to avoid wrapping pre-started() exceptions in an extra ExceptionGroup.
+            # See #2611.
+            try:
+                # set strict_exception_groups = True to make sure we always unwrap
+                # *this* nursery's exceptiongroup
+                async with open_nursery(strict_exception_groups=True) as old_nursery:
+                    task_status: _TaskStatus[Any] = _TaskStatus(old_nursery, self)
+                    thunk = functools.partial(async_fn, task_status=task_status)
+                    task = GLOBAL_RUN_CONTEXT.runner.spawn_impl(
+                        thunk, args, old_nursery, name
+                    )
+                    task._eventual_parent_nursery = self
+                    # Wait for either TaskStatus.started or an exception to
+                    # cancel this nursery:
+            except BaseExceptionGroup as exc:
+                if len(exc.exceptions) == 1:
+                    raise exc.exceptions[0] from None
+                raise TrioInternalError(
+                    "Internal nursery should not have multiple tasks. This can be "
+                    'caused by the user managing to access the "old" nursery in '
+                    "`task_status` and spawning tasks in it."
+                ) from exc
+
             # If we get here, then the child either got reparented or exited
             # normally. The complicated logic is all in TaskStatus.started().
             # (Any exceptions propagate directly out of the above.)
