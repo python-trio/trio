@@ -222,7 +222,7 @@ jobs:
       - name: compile pyx file
         run: cythonize -i tests/cython/test_cython.pyx
       - name: import & run module
-        run: python -c 'import test_cython'
+        run: python -c 'import tests.cython.test_cython'
 
   # https://github.com/marketplace/actions/alls-green#why
   check:  # This job does nothing and is only used for the branch protection
