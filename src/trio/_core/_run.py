@@ -33,6 +33,7 @@ from sortedcontainers import SortedDict
 
 from .. import _core
 from .._abc import Clock, Instrument
+from .._deprecate import warn_deprecated
 from .._util import NoPublicConstructor, coroutine_or_error, final
 from ._asyncgens import AsyncGenerators
 from ._concat_tb import concat_tb
@@ -997,6 +998,15 @@ def open_nursery(
           and ultimately removed in a future version of Trio.
 
     """
+    # only warn if explicitly set to falsy, not if we get it from the global context.
+    if strict_exception_groups is not None and not strict_exception_groups:
+        warn_deprecated(
+            "open_nursery(strict_exception_groups=False)",
+            version="0.24.1",
+            issue=2929,
+            instead="the default value of True and rewrite exception handlers to handle ExceptionGroups",
+        )
+
     if strict_exception_groups is None:
         strict_exception_groups = GLOBAL_RUN_CONTEXT.runner.strict_exception_groups
 
@@ -2244,6 +2254,13 @@ def run(
           propagates it.
 
     """
+    if strict_exception_groups is not None and not strict_exception_groups:
+        warn_deprecated(
+            "trio.run(..., strict_exception_groups=False)",
+            version="0.24.1",
+            issue=2929,
+            instead="the default value of True and rewrite exception handlers to handle ExceptionGroups",
+        )
 
     __tracebackhide__ = True
 
@@ -2350,6 +2367,14 @@ def start_guest_run(
     For the meaning of other arguments, see `trio.run`.
 
     """
+    if strict_exception_groups is not None and not strict_exception_groups:
+        warn_deprecated(
+            "trio.start_guest_run(..., strict_exception_groups=False)",
+            version="0.24.1",
+            issue=2929,
+            instead="the default value of True and rewrite exception handlers to handle ExceptionGroups",
+        )
+
     runner = setup_runner(
         clock,
         instruments,

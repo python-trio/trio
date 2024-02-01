@@ -582,9 +582,6 @@ def test_bad_deliver_cancel() -> None:
     with RaisesGroup(RaisesGroup(Matcher(ValueError, "^foo$"))):
         _core.run(do_stuff, strict_exception_groups=True)
 
-    with pytest.raises(ValueError, match="^foo$"):
-        _core.run(do_stuff, strict_exception_groups=False)
-
 
 async def test_warn_on_failed_cancel_terminate(monkeypatch: pytest.MonkeyPatch) -> None:
     original_terminate = Process.terminate
