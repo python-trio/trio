@@ -547,12 +547,10 @@ class SocketType:
         raise NotImplementedError
 
     @overload
-    def getsockopt(self, /, level: int, optname: int) -> int:
-        ...
+    def getsockopt(self, /, level: int, optname: int) -> int: ...
 
     @overload
-    def getsockopt(self, /, level: int, optname: int, buflen: int) -> bytes:
-        ...
+    def getsockopt(self, /, level: int, optname: int, buflen: int) -> bytes: ...
 
     def getsockopt(
         self, /, level: int, optname: int, buflen: int | None = None
@@ -560,12 +558,12 @@ class SocketType:
         raise NotImplementedError
 
     @overload
-    def setsockopt(self, /, level: int, optname: int, value: int | Buffer) -> None:
-        ...
+    def setsockopt(self, /, level: int, optname: int, value: int | Buffer) -> None: ...
 
     @overload
-    def setsockopt(self, /, level: int, optname: int, value: None, optlen: int) -> None:
-        ...
+    def setsockopt(
+        self, /, level: int, optname: int, value: None, optlen: int
+    ) -> None: ...
 
     def setsockopt(
         self,
@@ -698,8 +696,7 @@ class SocketType:
     @overload
     async def sendto(
         self, __data: Buffer, __address: tuple[object, ...] | str | Buffer
-    ) -> int:
-        ...
+    ) -> int: ...
 
     @overload
     async def sendto(
@@ -707,8 +704,7 @@ class SocketType:
         __data: Buffer,
         __flags: int,
         __address: tuple[object, ...] | str | Buffer,
-    ) -> int:
-        ...
+    ) -> int: ...
 
     async def sendto(self, *args: Any) -> int:
         raise NotImplementedError
@@ -758,12 +754,10 @@ class _SocketType(SocketType):
         return self._sock.getsockname()
 
     @overload
-    def getsockopt(self, /, level: int, optname: int) -> int:
-        ...
+    def getsockopt(self, /, level: int, optname: int) -> int: ...
 
     @overload
-    def getsockopt(self, /, level: int, optname: int, buflen: int) -> bytes:
-        ...
+    def getsockopt(self, /, level: int, optname: int, buflen: int) -> bytes: ...
 
     def getsockopt(
         self, /, level: int, optname: int, buflen: int | None = None
@@ -773,12 +767,12 @@ class _SocketType(SocketType):
         return self._sock.getsockopt(level, optname, buflen)
 
     @overload
-    def setsockopt(self, /, level: int, optname: int, value: int | Buffer) -> None:
-        ...
+    def setsockopt(self, /, level: int, optname: int, value: int | Buffer) -> None: ...
 
     @overload
-    def setsockopt(self, /, level: int, optname: int, value: None, optlen: int) -> None:
-        ...
+    def setsockopt(
+        self, /, level: int, optname: int, value: None, optlen: int
+    ) -> None: ...
 
     def setsockopt(
         self,
@@ -1057,8 +1051,7 @@ class _SocketType(SocketType):
     # complain about AmbiguousType
     if TYPE_CHECKING:
 
-        def recv(__self, __buflen: int, __flags: int = 0) -> Awaitable[bytes]:
-            ...
+        def recv(__self, __buflen: int, __flags: int = 0) -> Awaitable[bytes]: ...
 
     # _make_simple_sock_method_wrapper is typed, so this checks that the above is correct
     # this requires that we refrain from using `/` to specify pos-only
@@ -1075,8 +1068,7 @@ class _SocketType(SocketType):
 
         def recv_into(
             __self, buffer: Buffer, nbytes: int = 0, flags: int = 0
-        ) -> Awaitable[int]:
-            ...
+        ) -> Awaitable[int]: ...
 
     recv_into = _make_simple_sock_method_wrapper(
         _stdlib_socket.socket.recv_into, _core.wait_readable
@@ -1090,8 +1082,7 @@ class _SocketType(SocketType):
         # return type of socket.socket.recvfrom in typeshed is tuple[bytes, Any]
         def recvfrom(
             __self, __bufsize: int, __flags: int = 0
-        ) -> Awaitable[tuple[bytes, AddressFormat]]:
-            ...
+        ) -> Awaitable[tuple[bytes, AddressFormat]]: ...
 
     recvfrom = _make_simple_sock_method_wrapper(
         _stdlib_socket.socket.recvfrom, _core.wait_readable
@@ -1105,8 +1096,7 @@ class _SocketType(SocketType):
         # return type of socket.socket.recvfrom_into in typeshed is tuple[bytes, Any]
         def recvfrom_into(
             __self, buffer: Buffer, nbytes: int = 0, flags: int = 0
-        ) -> Awaitable[tuple[int, AddressFormat]]:
-            ...
+        ) -> Awaitable[tuple[int, AddressFormat]]: ...
 
     recvfrom_into = _make_simple_sock_method_wrapper(
         _stdlib_socket.socket.recvfrom_into, _core.wait_readable
@@ -1123,8 +1113,7 @@ class _SocketType(SocketType):
 
             def recvmsg(
                 __self, __bufsize: int, __ancbufsize: int = 0, __flags: int = 0
-            ) -> Awaitable[tuple[bytes, list[tuple[int, int, bytes]], int, Any]]:
-                ...
+            ) -> Awaitable[tuple[bytes, list[tuple[int, int, bytes]], int, Any]]: ...
 
         recvmsg = _make_simple_sock_method_wrapper(
             _stdlib_socket.socket.recvmsg, _core.wait_readable, maybe_avail=True
@@ -1144,8 +1133,7 @@ class _SocketType(SocketType):
                 __buffers: Iterable[Buffer],
                 __ancbufsize: int = 0,
                 __flags: int = 0,
-            ) -> Awaitable[tuple[int, list[tuple[int, int, bytes]], int, Any]]:
-                ...
+            ) -> Awaitable[tuple[int, list[tuple[int, int, bytes]], int, Any]]: ...
 
         recvmsg_into = _make_simple_sock_method_wrapper(
             _stdlib_socket.socket.recvmsg_into, _core.wait_readable, maybe_avail=True
@@ -1157,8 +1145,7 @@ class _SocketType(SocketType):
 
     if TYPE_CHECKING:
 
-        def send(__self, __bytes: Buffer, __flags: int = 0) -> Awaitable[int]:
-            ...
+        def send(__self, __bytes: Buffer, __flags: int = 0) -> Awaitable[int]: ...
 
     send = _make_simple_sock_method_wrapper(
         _stdlib_socket.socket.send, _core.wait_writable
@@ -1171,14 +1158,12 @@ class _SocketType(SocketType):
     @overload
     async def sendto(
         self, __data: Buffer, __address: tuple[object, ...] | str | Buffer
-    ) -> int:
-        ...
+    ) -> int: ...
 
     @overload
     async def sendto(
         self, __data: Buffer, __flags: int, __address: tuple[object, ...] | str | Buffer
-    ) -> int:
-        ...
+    ) -> int: ...
 
     @_wraps(_stdlib_socket.socket.sendto, assigned=(), updated=())  # type: ignore[misc]
     async def sendto(self, *args: Any) -> int:

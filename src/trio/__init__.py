@@ -1,5 +1,6 @@
 """Trio - A friendly Python library for async concurrency and I/O
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

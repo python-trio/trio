@@ -18,7 +18,7 @@ assert not TYPE_CHECKING or sys.platform == "linux"
 __all__ = ["notify_closing", "wait_readable", "wait_writable"]
 
 
-async def wait_readable(fd: (int | _HasFileNo)) -> None:
+async def wait_readable(fd: int | _HasFileNo) -> None:
     """Block until the kernel reports that the given object is readable.
 
     On Unix systems, ``fd`` must either be an integer file descriptor,
@@ -47,7 +47,7 @@ async def wait_readable(fd: (int | _HasFileNo)) -> None:
         raise RuntimeError("must be called from async context") from None
 
 
-async def wait_writable(fd: (int | _HasFileNo)) -> None:
+async def wait_writable(fd: int | _HasFileNo) -> None:
     """Block until the kernel reports that the given object is writable.
 
     See `wait_readable` for the definition of ``fd``.
@@ -66,7 +66,7 @@ async def wait_writable(fd: (int | _HasFileNo)) -> None:
         raise RuntimeError("must be called from async context") from None
 
 
-def notify_closing(fd: (int | _HasFileNo)) -> None:
+def notify_closing(fd: int | _HasFileNo) -> None:
     """Notify waiters of the given object that it will be closed.
 
     Call this before closing a file descriptor (on Unix) or socket (on

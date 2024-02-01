@@ -45,8 +45,7 @@ else:
 can_try_pidfd_open: bool
 if TYPE_CHECKING:
 
-    def pidfd_open(fd: int, flags: int) -> int:
-        ...
+    def pidfd_open(fd: int, flags: int) -> int: ...
 
     from ._subprocess_platform import ClosableReceiveStream, ClosableSendStream
 
@@ -96,8 +95,7 @@ else:
 class HasFileno(Protocol):
     """Represents any file-like object that has a file descriptor."""
 
-    def fileno(self) -> int:
-        ...
+    def fileno(self) -> int: ...
 
 
 @final
@@ -143,6 +141,7 @@ class Process(metaclass=NoPublicConstructor):
           available; otherwise this will be None.
 
     """
+
     # We're always in binary mode.
     universal_newlines: Final = False
     encoding: Final = None
@@ -1082,8 +1081,7 @@ if TYPE_CHECKING:
             restore_signals: bool = True,
             start_new_session: bool = False,
             pass_fds: Sequence[int] = (),
-        ) -> trio.Process:
-            ...
+        ) -> trio.Process: ...
 
         @overload
         async def open_process(
@@ -1100,8 +1098,7 @@ if TYPE_CHECKING:
             restore_signals: bool = True,
             start_new_session: bool = False,
             pass_fds: Sequence[int] = (),
-        ) -> trio.Process:
-            ...
+        ) -> trio.Process: ...
 
         @overload  # type: ignore[no-overload-impl]
         async def run_process(
@@ -1123,8 +1120,7 @@ if TYPE_CHECKING:
             restore_signals: bool = True,
             start_new_session: bool = False,
             pass_fds: Sequence[int] = (),
-        ) -> subprocess.CompletedProcess[bytes]:
-            ...
+        ) -> subprocess.CompletedProcess[bytes]: ...
 
         @overload
         async def run_process(
@@ -1146,8 +1142,7 @@ if TYPE_CHECKING:
             restore_signals: bool = True,
             start_new_session: bool = False,
             pass_fds: Sequence[int] = (),
-        ) -> subprocess.CompletedProcess[bytes]:
-            ...
+        ) -> subprocess.CompletedProcess[bytes]: ...
 
 else:
     # At runtime, use the actual implementations.

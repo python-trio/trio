@@ -247,8 +247,7 @@ async def to_thread_run_sync(  # type: ignore[misc]
     thread_name: str | None = None,
     abandon_on_cancel: bool = False,
     limiter: CapacityLimiter | None = None,
-) -> RetT:
-    ...
+) -> RetT: ...
 
 
 @overload  # Decorator used on function with Coroutine[Any, Any, RetT]
@@ -258,8 +257,7 @@ async def to_thread_run_sync(  # type: ignore[misc]
     thread_name: str | None = None,
     cancellable: bool = False,
     limiter: CapacityLimiter | None = None,
-) -> RetT:
-    ...
+) -> RetT: ...
 
 
 @enable_ki_protection  # Decorator used on function with Coroutine[Any, Any, RetT]
@@ -462,9 +460,9 @@ async def to_thread_run_sync(  # type: ignore[misc]
 
         while True:
             # wait_task_rescheduled return value cannot be typed
-            msg_from_thread: outcome.Outcome[RetT] | Run[object] | RunSync[
-                object
-            ] = await trio.lowlevel.wait_task_rescheduled(abort)
+            msg_from_thread: outcome.Outcome[RetT] | Run[object] | RunSync[object] = (
+                await trio.lowlevel.wait_task_rescheduled(abort)
+            )
             if isinstance(msg_from_thread, outcome.Outcome):
                 return msg_from_thread.unwrap()
             elif isinstance(msg_from_thread, Run):

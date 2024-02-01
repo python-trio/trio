@@ -409,9 +409,10 @@ def ssl_wrap_pair(
 MemoryStapledStream: TypeAlias = StapledStream[MemorySendStream, MemoryReceiveStream]
 
 
-def ssl_memory_stream_pair(
-    client_ctx: SSLContext, **kwargs: Any
-) -> tuple[SSLStream[MemoryStapledStream], SSLStream[MemoryStapledStream],]:
+def ssl_memory_stream_pair(client_ctx: SSLContext, **kwargs: Any) -> tuple[
+    SSLStream[MemoryStapledStream],
+    SSLStream[MemoryStapledStream],
+]:
     client_transport, server_transport = memory_stream_pair()
     return ssl_wrap_pair(client_ctx, client_transport, server_transport, **kwargs)
 
@@ -419,9 +420,10 @@ def ssl_memory_stream_pair(
 MyStapledStream: TypeAlias = StapledStream[SendStream, ReceiveStream]
 
 
-def ssl_lockstep_stream_pair(
-    client_ctx: SSLContext, **kwargs: Any
-) -> tuple[SSLStream[MyStapledStream], SSLStream[MyStapledStream],]:
+def ssl_lockstep_stream_pair(client_ctx: SSLContext, **kwargs: Any) -> tuple[
+    SSLStream[MyStapledStream],
+    SSLStream[MyStapledStream],
+]:
     client_transport, server_transport = lockstep_stream_pair()
     return ssl_wrap_pair(client_ctx, client_transport, server_transport, **kwargs)
 

@@ -6,6 +6,7 @@ This first is run with Mypy's output piped in, to collect messages in
 mypy_annotate.dat. After all platforms run, we run this again, which prints the
 messages in GitHub's format but with cross-platform failures deduplicated.
 """
+
 from __future__ import annotations
 
 import argparse
