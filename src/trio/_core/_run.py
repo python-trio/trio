@@ -998,13 +998,13 @@ def open_nursery(
           and ultimately removed in a future version of Trio.
 
     """
-    # only warn if explicitly set to False, not if we get it from the global context.
-    if strict_exception_groups is False:
+    # only warn if explicitly set to falsy, not if we get it from the global context.
+    if strict_exception_groups is not None and not strict_exception_groups:
         warn_deprecated(
             "open_nursery(strict_exception_groups=False)",
             version="0.24.1",
             issue=2929,
-            instead="Use the default value of True and rewrite exception handlers to handle ExceptionGroups",
+            instead="the default value of True and rewrite exception handlers to handle ExceptionGroups",
         )
 
     if strict_exception_groups is None:
@@ -2254,7 +2254,7 @@ def run(
           propagates it.
 
     """
-    if strict_exception_groups is False:
+    if strict_exception_groups is not None and not strict_exception_groups:
         warn_deprecated(
             "trio.run(..., strict_exception_groups=False)",
             version="0.24.1",
@@ -2367,12 +2367,12 @@ def start_guest_run(
     For the meaning of other arguments, see `trio.run`.
 
     """
-    if strict_exception_groups is False:
+    if strict_exception_groups is not None and not strict_exception_groups:
         warn_deprecated(
             "trio.start_guest_run(..., strict_exception_groups=False)",
             version="0.24.1",
             issue=2929,
-            instead="Use the default value of True and rewrite exception handlers to handle ExceptionGroups",
+            instead="the default value of True and rewrite exception handlers to handle ExceptionGroups",
         )
 
     runner = setup_runner(
