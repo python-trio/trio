@@ -22,9 +22,9 @@ if TYPE_CHECKING:
 
 @attr.s(slots=True, eq=False)
 class EpollWaiters:
-    read_task: Task | None = attr.ib(default=None)
-    write_task: Task | None = attr.ib(default=None)
-    current_flags: int = attr.ib(default=0)
+    read_task: Task | None = attr.field(default=None)
+    write_task: Task | None = attr.field(default=None)
+    current_flags: int = attr.field(default=0)
 
 
 assert not TYPE_CHECKING or sys.platform == "linux"
@@ -35,9 +35,9 @@ EventResult: TypeAlias = "list[tuple[int, int]]"
 
 @attr.s(slots=True, eq=False, frozen=True)
 class _EpollStatistics:
-    tasks_waiting_read: int = attr.ib()
-    tasks_waiting_write: int = attr.ib()
-    backend: Literal["epoll"] = attr.ib(init=False, default="epoll")
+    tasks_waiting_read: int = attr.field()
+    tasks_waiting_write: int = attr.field()
+    backend: Literal["epoll"] = attr.field(init=False, default="epoll")
 
 
 # Some facts about epoll
@@ -200,13 +200,13 @@ class _EpollStatistics:
 
 @attr.s(slots=True, eq=False, hash=False)
 class EpollIOManager:
-    _epoll: select.epoll = attr.ib(factory=select.epoll)
+    _epoll: select.epoll = attr.field(factory=select.epoll)
     # {fd: EpollWaiters}
-    _registered: defaultdict[int, EpollWaiters] = attr.ib(
+    _registered: defaultdict[int, EpollWaiters] = attr.field(
         factory=lambda: defaultdict(EpollWaiters)
     )
-    _force_wakeup: WakeupSocketpair = attr.ib(factory=WakeupSocketpair)
-    _force_wakeup_fd: int | None = attr.ib(default=None)
+    _force_wakeup: WakeupSocketpair = attr.field(factory=WakeupSocketpair)
+    _force_wakeup_fd: int | None = attr.field(default=None)
 
     def __attrs_post_init__(self) -> None:
         self._epoll.register(self._force_wakeup.wakeup_sock, select.EPOLLIN)

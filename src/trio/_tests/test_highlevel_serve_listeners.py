@@ -31,13 +31,13 @@ StapledMemoryStream = StapledStream[MemorySendStream, MemoryReceiveStream]
 
 @attr.s(hash=False, eq=False)
 class MemoryListener(trio.abc.Listener[StapledMemoryStream]):
-    closed: bool = attr.ib(default=False)
-    accepted_streams: list[trio.abc.Stream] = attr.ib(factory=list)
+    closed: bool = attr.field(default=False)
+    accepted_streams: list[trio.abc.Stream] = attr.field(factory=list)
     queued_streams: tuple[
         MemorySendChannel[StapledMemoryStream],
         MemoryReceiveChannel[StapledMemoryStream],
-    ] = attr.ib(factory=(lambda: trio.open_memory_channel[StapledMemoryStream](1)))
-    accept_hook: Callable[[], Awaitable[object]] | None = attr.ib(default=None)
+    ] = attr.field(factory=(lambda: trio.open_memory_channel[StapledMemoryStream](1)))
+    accept_hook: Callable[[], Awaitable[object]] | None = attr.field(default=None)
 
     async def connect(self) -> StapledMemoryStream:
         assert not self.closed

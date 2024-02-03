@@ -29,7 +29,7 @@ class EventStatistics:
 
     """
 
-    tasks_waiting: int = attr.ib()
+    tasks_waiting: int = attr.field()
 
 
 @final
@@ -60,8 +60,8 @@ class Event:
 
     """
 
-    _tasks: set[Task] = attr.ib(factory=set, init=False)
-    _flag: bool = attr.ib(default=False, init=False)
+    _tasks: set[Task] = attr.field(factory=set, init=False)
+    _flag: bool = attr.field(default=False, init=False)
 
     def is_set(self) -> bool:
         """Return the current value of the internal flag."""
@@ -148,10 +148,10 @@ class CapacityLimiterStatistics:
 
     """
 
-    borrowed_tokens: int = attr.ib()
-    total_tokens: int | float = attr.ib()
-    borrowers: list[Task | object] = attr.ib()
-    tasks_waiting: int = attr.ib()
+    borrowed_tokens: int = attr.field()
+    total_tokens: int | float = attr.field()
+    borrowers: list[Task | object] = attr.field()
+    tasks_waiting: int = attr.field()
 
 
 # Can be a generic type with a default of Task if/when PEP 696 is released
@@ -535,15 +535,15 @@ class LockStatistics:
 
     """
 
-    locked: bool = attr.ib()
-    owner: Task | None = attr.ib()
-    tasks_waiting: int = attr.ib()
+    locked: bool = attr.field()
+    owner: Task | None = attr.field()
+    tasks_waiting: int = attr.field()
 
 
 @attr.s(eq=False, hash=False, repr=False)
 class _LockImpl(AsyncContextManagerMixin):
-    _lot: ParkingLot = attr.ib(factory=ParkingLot, init=False)
-    _owner: Task | None = attr.ib(default=None, init=False)
+    _lot: ParkingLot = attr.field(factory=ParkingLot, init=False)
+    _owner: Task | None = attr.field(default=None, init=False)
 
     def __repr__(self) -> str:
         if self.locked():
@@ -720,8 +720,8 @@ class ConditionStatistics:
 
     """
 
-    tasks_waiting: int = attr.ib()
-    lock_statistics: LockStatistics = attr.ib()
+    tasks_waiting: int = attr.field()
+    lock_statistics: LockStatistics = attr.field()
 
 
 @final

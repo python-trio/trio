@@ -18,9 +18,9 @@ class _NoValue: ...
 @final
 @attr.s(eq=False, hash=False, slots=True)
 class RunVarToken(Generic[T], metaclass=NoPublicConstructor):
-    _var: RunVar[T] = attr.ib()
-    previous_value: T | type[_NoValue] = attr.ib(default=_NoValue)
-    redeemed: bool = attr.ib(default=False, init=False)
+    _var: RunVar[T] = attr.field()
+    previous_value: T | type[_NoValue] = attr.field(default=_NoValue)
+    redeemed: bool = attr.field(default=False, init=False)
 
     @classmethod
     def _empty(cls, var: RunVar[T]) -> RunVarToken[T]:
@@ -38,8 +38,8 @@ class RunVar(Generic[T]):
 
     """
 
-    _name: str = attr.ib()
-    _default: T | type[_NoValue] = attr.ib(default=_NoValue)
+    _name: str = attr.field()
+    _default: T | type[_NoValue] = attr.field(default=_NoValue)
 
     def get(self, default: T | type[_NoValue] = _NoValue) -> T:
         """Gets the value of this :class:`RunVar` for the current run call."""

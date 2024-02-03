@@ -26,8 +26,8 @@ class UnboundedQueueStatistics:
 
     """
 
-    qsize: int = attr.ib()
-    tasks_waiting: int = attr.ib()
+    qsize: int = attr.field()
+    tasks_waiting: int = attr.field()
 
 
 @final

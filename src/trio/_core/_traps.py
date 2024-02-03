@@ -69,7 +69,7 @@ class Abort(enum.Enum):
 # Not exported in the trio._core namespace, but imported directly by _run.
 @attr.s(frozen=True)
 class WaitTaskRescheduled:
-    abort_func: Callable[[RaiseCancelT], Abort] = attr.ib()
+    abort_func: Callable[[RaiseCancelT], Abort] = attr.field()
 
 
 RaiseCancelT: TypeAlias = Callable[[], NoReturn]
@@ -182,7 +182,7 @@ async def wait_task_rescheduled(abort_func: Callable[[RaiseCancelT], Abort]) -> 
 # Not exported in the trio._core namespace, but imported directly by _run.
 @attr.s(frozen=True)
 class PermanentlyDetachCoroutineObject:
-    final_outcome: outcome.Outcome[Any] = attr.ib()
+    final_outcome: outcome.Outcome[Any] = attr.field()
 
 
 async def permanently_detach_coroutine_object(

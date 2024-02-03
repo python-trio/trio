@@ -115,7 +115,7 @@ class UDPBinding:
 class UDPPacket:
     source: UDPEndpoint
     destination: UDPEndpoint
-    payload: bytes = attr.ib(repr=lambda p: p.hex())
+    payload: bytes = attr.field(repr=lambda p: p.hex())
 
     # not used/tested anywhere
     def reply(self, payload: bytes) -> UDPPacket:  # pragma: no cover

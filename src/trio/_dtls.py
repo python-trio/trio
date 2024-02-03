@@ -163,9 +163,9 @@ def to_hex(data: bytes) -> str:  # pragma: no cover
 @attr.frozen
 class Record:
     content_type: int
-    version: bytes = attr.ib(repr=to_hex)
+    version: bytes = attr.field(repr=to_hex)
     epoch_seqno: int
-    payload: bytes = attr.ib(repr=to_hex)
+    payload: bytes = attr.field(repr=to_hex)
 
 
 def records_untrusted(packet: bytes) -> Iterator[Record]:
@@ -212,7 +212,7 @@ class HandshakeFragment:
     msg_seq: int
     frag_offset: int
     frag_len: int
-    frag: bytes = attr.ib(repr=to_hex)
+    frag: bytes = attr.field(repr=to_hex)
 
 
 def decode_handshake_fragment_untrusted(payload: bytes) -> HandshakeFragment:
@@ -327,19 +327,19 @@ def decode_client_hello_untrusted(packet: bytes) -> tuple[int, bytes, bytes]:
 
 @attr.frozen
 class HandshakeMessage:
-    record_version: bytes = attr.ib(repr=to_hex)
+    record_version: bytes = attr.field(repr=to_hex)
     msg_type: HandshakeType
     msg_seq: int
-    body: bytearray = attr.ib(repr=to_hex)
+    body: bytearray = attr.field(repr=to_hex)
 
 
 # ChangeCipherSpec is part of the handshake, but it's not a "handshake
 # message" and can't be fragmented the same way. Sigh.
 @attr.frozen
 class PseudoHandshakeMessage:
-    record_version: bytes = attr.ib(repr=to_hex)
+    record_version: bytes = attr.field(repr=to_hex)
     content_type: int
-    payload: bytes = attr.ib(repr=to_hex)
+    payload: bytes = attr.field(repr=to_hex)
 
 
 # The final record in a handshake is Finished, which is encrypted, can't be fragmented

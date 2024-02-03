@@ -26,20 +26,20 @@ EventResult: TypeAlias = "list[select.kevent]"
 
 @attr.s(slots=True, eq=False, frozen=True)
 class _KqueueStatistics:
-    tasks_waiting: int = attr.ib()
-    monitors: int = attr.ib()
-    backend: Literal["kqueue"] = attr.ib(init=False, default="kqueue")
+    tasks_waiting: int = attr.field()
+    monitors: int = attr.field()
+    backend: Literal["kqueue"] = attr.field(init=False, default="kqueue")
 
 
 @attr.s(slots=True, eq=False)
 class KqueueIOManager:
-    _kqueue: select.kqueue = attr.ib(factory=select.kqueue)
+    _kqueue: select.kqueue = attr.field(factory=select.kqueue)
     # {(ident, filter): Task or UnboundedQueue}
-    _registered: dict[tuple[int, int], Task | UnboundedQueue[select.kevent]] = attr.ib(
-        factory=dict
+    _registered: dict[tuple[int, int], Task | UnboundedQueue[select.kevent]] = (
+        attr.field(factory=dict)
     )
-    _force_wakeup: WakeupSocketpair = attr.ib(factory=WakeupSocketpair)
-    _force_wakeup_fd: int | None = attr.ib(default=None)
+    _force_wakeup: WakeupSocketpair = attr.field(factory=WakeupSocketpair)
+    _force_wakeup_fd: int | None = attr.field(default=None)
 
     def __attrs_post_init__(self) -> None:
         force_wakeup_event = select.kevent(

@@ -97,7 +97,7 @@ class ParkingLotStatistics:
 
     """
 
-    tasks_waiting: int = attr.ib()
+    tasks_waiting: int = attr.field()
 
 
 @final
@@ -117,7 +117,7 @@ class ParkingLot:
 
     # {task: None}, we just want a deque where we can quickly delete random
     # items
-    _parked: OrderedDict[Task, None] = attr.ib(factory=OrderedDict, init=False)
+    _parked: OrderedDict[Task, None] = attr.field(factory=OrderedDict, init=False)
 
     def __len__(self) -> int:
         """Returns the number of parked tasks."""

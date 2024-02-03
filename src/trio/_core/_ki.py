@@ -203,7 +203,7 @@ disable_ki_protection.__name__ = "disable_ki_protection"
 
 @attr.s
 class KIManager:
-    handler: Callable[[int, types.FrameType | None], None] | None = attr.ib(
+    handler: Callable[[int, types.FrameType | None], None] | None = attr.field(
         default=None
     )
 

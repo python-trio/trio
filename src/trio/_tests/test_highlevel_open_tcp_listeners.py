@@ -134,13 +134,13 @@ class FakeOSError(OSError):
 
 @attr.s
 class FakeSocket(tsocket.SocketType):
-    _family: AddressFamily = attr.ib(converter=AddressFamily)
-    _type: SocketKind = attr.ib(converter=SocketKind)
-    _proto: int = attr.ib()
+    _family: AddressFamily = attr.field(converter=AddressFamily)
+    _type: SocketKind = attr.field(converter=SocketKind)
+    _proto: int = attr.field()
 
-    closed: bool = attr.ib(default=False)
-    poison_listen: bool = attr.ib(default=False)
-    backlog: int | None = attr.ib(default=None)
+    closed: bool = attr.field(default=False)
+    poison_listen: bool = attr.field(default=False)
+    backlog: int | None = attr.field(default=None)
 
     @property
     def type(self) -> SocketKind:
@@ -201,9 +201,11 @@ class FakeSocket(tsocket.SocketType):
 
 @attr.s
 class FakeSocketFactory(SocketFactory):
-    poison_after: int = attr.ib()
-    sockets: list[tsocket.SocketType] = attr.ib(factory=list)
-    raise_on_family: dict[AddressFamily, int] = attr.ib(factory=dict)  # family => errno
+    poison_after: int = attr.field()
+    sockets: list[tsocket.SocketType] = attr.field(factory=list)
+    raise_on_family: dict[AddressFamily, int] = attr.field(
+        factory=dict
+    )  # family => errno
 
     def socket(
         self,
@@ -227,7 +229,7 @@ class FakeSocketFactory(SocketFactory):
 
 @attr.s
 class FakeHostnameResolver(HostnameResolver):
-    family_addr_pairs: Sequence[tuple[AddressFamily, str]] = attr.ib()
+    family_addr_pairs: Sequence[tuple[AddressFamily, str]] = attr.field()
 
     async def getaddrinfo(
         self,

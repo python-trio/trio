@@ -34,11 +34,11 @@ import attr
 
 @attr.s(repr=False)
 class Options:
-    listen1_early = attr.ib(default=None)
-    listen1_middle = attr.ib(default=None)
-    listen1_late = attr.ib(default=None)
-    server = attr.ib(default=None)
-    listen2 = attr.ib(default=None)
+    listen1_early = attr.field(default=None)
+    listen1_middle = attr.field(default=None)
+    listen1_late = attr.field(default=None)
+    server = attr.field(default=None)
+    listen2 = attr.field(default=None)
 
     def set(self, which, sock):
         value = getattr(self, which)

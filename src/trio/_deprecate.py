@@ -130,10 +130,10 @@ def deprecated_alias(
 class DeprecatedAttribute:
     _not_set: ClassVar[object] = object()
 
-    value: object = attr.ib()
-    version: str = attr.ib()
-    issue: int | None = attr.ib()
-    instead: object = attr.ib(default=_not_set)
+    value: object = attr.field()
+    version: str = attr.field()
+    issue: int | None = attr.field()
+    instead: object = attr.field(default=_not_set)
 
 
 class _ModuleWithDeprecations(ModuleType):

@@ -244,9 +244,9 @@ WRITABLE_FLAGS = (
 # operation and start a new one.
 @attr.s(slots=True, eq=False)
 class AFDWaiters:
-    read_task: _core.Task | None = attr.ib(default=None)
-    write_task: _core.Task | None = attr.ib(default=None)
-    current_op: AFDPollOp | None = attr.ib(default=None)
+    read_task: _core.Task | None = attr.field(default=None)
+    write_task: _core.Task | None = attr.field(default=None)
+    current_op: AFDPollOp | None = attr.field(default=None)
 
 
 # We also need to bundle up all the info for a single op into a standalone
@@ -254,10 +254,10 @@ class AFDWaiters:
 # finishes, even if we're throwing it away.
 @attr.s(slots=True, eq=False, frozen=True)
 class AFDPollOp:
-    lpOverlapped: CData = attr.ib()
-    poll_info: Any = attr.ib()
-    waiters: AFDWaiters = attr.ib()
-    afd_group: AFDGroup = attr.ib()
+    lpOverlapped: CData = attr.field()
+    poll_info: Any = attr.field()
+    waiters: AFDWaiters = attr.field()
+    afd_group: AFDGroup = attr.field()
 
 
 # The Windows kernel has a weird issue when using AFD handles. If you have N
@@ -273,8 +273,8 @@ MAX_AFD_GROUP_SIZE = 500  # at 1000, the cubic scaling is just starting to bite
 
 @attr.s(slots=True, eq=False)
 class AFDGroup:
-    size: int = attr.ib()
-    handle: Handle = attr.ib()
+    size: int = attr.field()
+    handle: Handle = attr.field()
 
 
 assert not TYPE_CHECKING or sys.platform == "win32"
@@ -282,11 +282,11 @@ assert not TYPE_CHECKING or sys.platform == "win32"
 
 @attr.s(slots=True, eq=False, frozen=True)
 class _WindowsStatistics:
-    tasks_waiting_read: int = attr.ib()
-    tasks_waiting_write: int = attr.ib()
-    tasks_waiting_overlapped: int = attr.ib()
-    completion_key_monitors: int = attr.ib()
-    backend: Literal["windows"] = attr.ib(init=False, default="windows")
+    tasks_waiting_read: int = attr.field()
+    tasks_waiting_write: int = attr.field()
+    tasks_waiting_overlapped: int = attr.field()
+    completion_key_monitors: int = attr.field()
+    backend: Literal["windows"] = attr.field(init=False, default="windows")
 
 
 # Maximum number of events to dequeue from the completion port on each pass
@@ -407,8 +407,8 @@ def _afd_helper_handle() -> Handle:
 
 @attr.s(frozen=True)
 class CompletionKeyEventInfo:
-    lpOverlapped: CData = attr.ib()
-    dwNumberOfBytesTransferred: int = attr.ib()
+    lpOverlapped: CData = attr.field()
+    dwNumberOfBytesTransferred: int = attr.field()
 
 
 class WindowsIOManager:
