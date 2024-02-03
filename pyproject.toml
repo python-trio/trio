@@ -38,7 +38,7 @@ requires-python = ">=3.8"
 dependencies = [
     # attrs 19.2.0 adds `eq` option to decorators
     # attrs 20.1.0 adds @frozen
-    "attrs >= 20.1.0",
+    "attrs >= 21.2.0",
     "sortedcontainers",
     "idna",
     "outcome",
