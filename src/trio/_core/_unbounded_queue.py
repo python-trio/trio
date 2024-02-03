@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
 
-@attr.s(slots=True, frozen=True)
+@attr.frozen
 class UnboundedQueueStatistics:
     """An object containing debugging information.
 

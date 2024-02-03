@@ -24,7 +24,7 @@ assert not TYPE_CHECKING or (sys.platform != "linux" and sys.platform != "win32"
 EventResult: TypeAlias = "list[select.kevent]"
 
 
-@attr.s(slots=True, eq=False, frozen=True)
+@attr.frozen(eq=False)
 class _KqueueStatistics:
     tasks_waiting: int = attr.field()
     monitors: int = attr.field()

@@ -252,7 +252,7 @@ class AFDWaiters:
 # We also need to bundle up all the info for a single op into a standalone
 # object, because we need to keep all these objects alive until the operation
 # finishes, even if we're throwing it away.
-@attr.s(slots=True, eq=False, frozen=True)
+@attr.frozen(eq=False)
 class AFDPollOp:
     lpOverlapped: CData = attr.field()
     poll_info: Any = attr.field()
@@ -280,7 +280,7 @@ class AFDGroup:
 assert not TYPE_CHECKING or sys.platform == "win32"
 
 
-@attr.s(slots=True, eq=False, frozen=True)
+@attr.frozen(eq=False)
 class _WindowsStatistics:
     tasks_waiting_read: int = attr.field()
     tasks_waiting_write: int = attr.field()
@@ -405,7 +405,7 @@ def _afd_helper_handle() -> Handle:
     return handle
 
 
-@attr.s(frozen=True)
+@attr.frozen(slots=False)
 class CompletionKeyEventInfo:
     lpOverlapped: CData = attr.field()
     dwNumberOfBytesTransferred: int = attr.field()

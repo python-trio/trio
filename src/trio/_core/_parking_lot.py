@@ -86,7 +86,7 @@ if TYPE_CHECKING:
     from ._run import Task
 
 
-@attr.s(frozen=True, slots=True)
+@attr.frozen
 class ParkingLotStatistics:
     """An object containing debugging information for a ParkingLot.
 

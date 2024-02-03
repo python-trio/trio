@@ -33,7 +33,7 @@ assert not TYPE_CHECKING or sys.platform == "linux"
 EventResult: TypeAlias = "list[tuple[int, int]]"
 
 
-@attr.s(slots=True, eq=False, frozen=True)
+@attr.frozen(eq=False)
 class _EpollStatistics:
     tasks_waiting_read: int = attr.field()
     tasks_waiting_write: int = attr.field()

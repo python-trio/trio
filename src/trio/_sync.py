@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from ._core._parking_lot import ParkingLotStatistics
 
 
-@attr.s(frozen=True, slots=True)
+@attr.frozen
 class EventStatistics:
     """An object containing debugging information.
 
@@ -129,7 +129,7 @@ class AsyncContextManagerMixin:
         self.release()
 
 
-@attr.s(frozen=True, slots=True)
+@attr.frozen
 class CapacityLimiterStatistics:
     """An object containing debugging information.
 
@@ -521,7 +521,7 @@ class Semaphore(AsyncContextManagerMixin):
         return self._lot.statistics()
 
 
-@attr.s(frozen=True, slots=True)
+@attr.frozen
 class LockStatistics:
     """An object containing debugging information for a Lock.
 
@@ -707,7 +707,7 @@ class StrictFIFOLock(_LockImpl):
     """
 
 
-@attr.s(frozen=True, slots=True)
+@attr.frozen
 class ConditionStatistics:
     r"""An object containing debugging information for a Condition.
 

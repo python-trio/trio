@@ -126,7 +126,7 @@ def deprecated_alias(
     return wrapper
 
 
-@attr.s(frozen=True)
+@attr.frozen(slots=False)
 class DeprecatedAttribute:
     _not_set: ClassVar[object] = object()
 

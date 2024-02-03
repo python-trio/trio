@@ -109,7 +109,7 @@ else:
     open_memory_channel = generic_function(_open_memory_channel)
 
 
-@attr.s(frozen=True, slots=True)
+@attr.frozen
 class MemoryChannelStats:
     current_buffer_used: int = attr.field()
     max_buffer_size: int | float = attr.field()

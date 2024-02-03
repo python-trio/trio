@@ -72,13 +72,13 @@ def current_default_thread_limiter() -> CapacityLimiter:
 # system; see https://github.com/python-trio/trio/issues/182
 # But for now we just need an object to stand in for the thread, so we can
 # keep track of who's holding the CapacityLimiter's token.
-@attr.s(frozen=True, eq=False, hash=False)
+@attr.frozen(eq=False, hash=False, slots=False)
 class ThreadPlaceholder:
     name: str = attr.field()
 
 
 # Types for the to_thread_run_sync message loop
-@attr.s(frozen=True, eq=False)
+@attr.frozen(eq=False, slots=False)
 class Run(Generic[RetT]):
     afn: Callable[..., Awaitable[RetT]] = attr.field()
     args: tuple[object, ...] = attr.field()
@@ -133,7 +133,7 @@ class Run(Generic[RetT]):
         token.run_sync_soon(in_trio_thread)
 
 
-@attr.s(frozen=True, eq=False)
+@attr.frozen(eq=False, slots=False)
 class RunSync(Generic[RetT]):
     fn: Callable[..., RetT] = attr.field()
     args: tuple[object, ...] = attr.field()
