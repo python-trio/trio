@@ -318,7 +318,7 @@ class CancelStatus:
     # Our associated cancel scope. Can be any object with attributes
     # `deadline`, `shield`, and `cancel_called`, but in current usage
     # is always a CancelScope object. Must not be None.
-    _scope: CancelScope = attr.ib()
+    _scope: CancelScope = attr.ib(alias="scope")
 
     # True iff the tasks in self._tasks should receive cancellations
     # when they checkpoint. Always True when scope.cancel_called is True;
@@ -335,7 +335,7 @@ class CancelStatus:
     # is True.  May be None (for the outermost CancelStatus in a call
     # to trio.run(), briefly during TaskStatus.started(), or during
     # recovery from mis-nesting of cancel scopes).
-    _parent: CancelStatus | None = attr.ib(default=None, repr=False)
+    _parent: CancelStatus | None = attr.ib(default=None, repr=False, alias="parent")
 
     # All of the CancelStatuses that have this CancelStatus as their parent.
     _children: set[CancelStatus] = attr.ib(factory=set, init=False, repr=False)
@@ -530,8 +530,8 @@ class CancelScope:
     cancelled_caught: bool = attr.ib(default=False, init=False)
 
     # Constructor arguments:
-    _deadline: float = attr.ib(default=inf, kw_only=True)
-    _shield: bool = attr.ib(default=False, kw_only=True)
+    _deadline: float = attr.ib(default=inf, kw_only=True, alias="deadline")
+    _shield: bool = attr.ib(default=False, kw_only=True, alias="shield")
 
     @enable_ki_protection
     def __enter__(self) -> Self:
