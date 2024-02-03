@@ -33,7 +33,7 @@ class EventStatistics:
 
 
 @final
-@attr.s(repr=False, eq=False, hash=False, slots=True)
+@attr.define(repr=False, eq=False, hash=False)
 class Event:
     """A waitable boolean value useful for inter-task synchronization,
     inspired by :class:`threading.Event`.
@@ -540,7 +540,7 @@ class LockStatistics:
     tasks_waiting: int = attr.field()
 
 
-@attr.s(eq=False, hash=False, repr=False)
+@attr.define(eq=False, hash=False, repr=False, slots=False)
 class _LockImpl(AsyncContextManagerMixin):
     _lot: ParkingLot = attr.field(factory=ParkingLot, init=False)
     _owner: Task | None = attr.field(default=None, init=False)

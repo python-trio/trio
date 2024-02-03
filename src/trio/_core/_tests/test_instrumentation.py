@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from ...lowlevel import Task
 
 
-@attr.s(eq=False, hash=False)
+@attr.define(eq=False, hash=False, slots=False)
 class TaskRecorder(_abc.Instrument):
     record: list[tuple[str, Task | None]] = attr.field(factory=list)
 

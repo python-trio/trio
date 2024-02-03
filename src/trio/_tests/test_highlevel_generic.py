@@ -9,7 +9,7 @@ from .._highlevel_generic import StapledStream
 from ..abc import ReceiveStream, SendStream
 
 
-@attr.s
+@attr.define(slots=False)
 class RecordSendStream(SendStream):
     record: list[str | tuple[str, object]] = attr.field(factory=list)
 
@@ -23,7 +23,7 @@ class RecordSendStream(SendStream):
         self.record.append("aclose")
 
 
-@attr.s
+@attr.define(slots=False)
 class RecordReceiveStream(ReceiveStream):
     record: list[str | tuple[str, int | None]] = attr.field(factory=list)
 

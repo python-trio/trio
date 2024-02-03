@@ -19,7 +19,7 @@ Function = Callable[..., object]
 Job = Tuple[Function, Tuple[object, ...]]
 
 
-@attr.s(slots=True)
+@attr.define
 class EntryQueue:
     # This used to use a queue.Queue. but that was broken, because Queues are
     # implemented in Python, and not reentrant -- so it was thread-safe, but
@@ -146,7 +146,7 @@ class EntryQueue:
 
 
 @final
-@attr.s(eq=False, hash=False, slots=True)
+@attr.define(eq=False, hash=False)
 class TrioToken(metaclass=NoPublicConstructor):
     """An opaque object representing a single call to :func:`trio.run`.
 

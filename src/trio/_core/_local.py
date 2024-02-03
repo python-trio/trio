@@ -16,7 +16,7 @@ class _NoValue: ...
 
 
 @final
-@attr.s(eq=False, hash=False, slots=True)
+@attr.define(eq=False, hash=False)
 class RunVarToken(Generic[T], metaclass=NoPublicConstructor):
     _var: RunVar[T] = attr.field()
     previous_value: T | type[_NoValue] = attr.field(default=_NoValue)
@@ -28,7 +28,7 @@ class RunVarToken(Generic[T], metaclass=NoPublicConstructor):
 
 
 @final
-@attr.s(eq=False, hash=False, slots=True, repr=False)
+@attr.define(eq=False, hash=False, repr=False)
 class RunVar(Generic[T]):
     """The run-local variant of a context variable.
 

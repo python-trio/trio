@@ -188,7 +188,7 @@ async def test_local_address_real() -> None:
 # Now, thorough tests using fake sockets
 
 
-@attr.s(eq=False)
+@attr.define(eq=False, slots=False)
 class FakeSocket(trio.socket.SocketType):
     scenario: Scenario = attr.field()
     _family: AddressFamily = attr.field()

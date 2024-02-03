@@ -242,7 +242,7 @@ WRITABLE_FLAGS = (
 # To avoid this, we have to coalesce all the operations on a single socket
 # into one, and when the set of waiters changes we have to throw away the old
 # operation and start a new one.
-@attr.s(slots=True, eq=False)
+@attr.define(eq=False)
 class AFDWaiters:
     read_task: _core.Task | None = attr.field(default=None)
     write_task: _core.Task | None = attr.field(default=None)
@@ -271,7 +271,7 @@ class AFDPollOp:
 MAX_AFD_GROUP_SIZE = 500  # at 1000, the cubic scaling is just starting to bite
 
 
-@attr.s(slots=True, eq=False)
+@attr.define(eq=False)
 class AFDGroup:
     size: int = attr.field()
     handle: Handle = attr.field()

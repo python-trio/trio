@@ -43,7 +43,7 @@ async def echo_handler(stream: Stream) -> None:
 
 # Resolver that always returns the given sockaddr, no matter what host/port
 # you ask for.
-@attr.s
+@attr.define(slots=False)
 class FakeHostnameResolver(trio.abc.HostnameResolver):
     sockaddr: tuple[str, int] | tuple[str, int, int, int] = attr.field()
 

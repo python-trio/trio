@@ -101,7 +101,7 @@ class ParkingLotStatistics:
 
 
 @final
-@attr.s(eq=False, hash=False, slots=True)
+@attr.define(eq=False, hash=False)
 class ParkingLot:
     """A fair wait queue with cancellation and requeueing.
 

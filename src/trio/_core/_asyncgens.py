@@ -26,7 +26,7 @@ else:
     _ASYNC_GEN_SET = set
 
 
-@attr.s(eq=False, slots=True)
+@attr.define(eq=False)
 class AsyncGenerators:
     # Async generators are added to this set when first iterated. Any
     # left after the main task exits will be closed before trio.run()

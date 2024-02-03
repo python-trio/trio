@@ -132,7 +132,7 @@ class FakeOSError(OSError):
     pass
 
 
-@attr.s
+@attr.define(slots=False)
 class FakeSocket(tsocket.SocketType):
     _family: AddressFamily = attr.field(converter=AddressFamily)
     _type: SocketKind = attr.field(converter=SocketKind)
@@ -199,7 +199,7 @@ class FakeSocket(tsocket.SocketType):
         self.closed = True
 
 
-@attr.s
+@attr.define(slots=False)
 class FakeSocketFactory(SocketFactory):
     poison_after: int = attr.field()
     sockets: list[tsocket.SocketType] = attr.field(factory=list)
@@ -227,7 +227,7 @@ class FakeSocketFactory(SocketFactory):
         return sock
 
 
-@attr.s
+@attr.define(slots=False)
 class FakeHostnameResolver(HostnameResolver):
     family_addr_pairs: Sequence[tuple[AddressFamily, str]] = attr.field()
 

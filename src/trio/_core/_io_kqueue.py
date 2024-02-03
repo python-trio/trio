@@ -31,7 +31,7 @@ class _KqueueStatistics:
     backend: Literal["kqueue"] = attr.field(init=False, default="kqueue")
 
 
-@attr.s(slots=True, eq=False)
+@attr.define(eq=False)
 class KqueueIOManager:
     _kqueue: select.kqueue = attr.field(factory=select.kqueue)
     # {(ident, filter): Task or UnboundedQueue}

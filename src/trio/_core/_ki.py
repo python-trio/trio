@@ -201,7 +201,7 @@ disable_ki_protection: KIProtectionSignature = _ki_protection_decorator(False)  
 disable_ki_protection.__name__ = "disable_ki_protection"
 
 
-@attr.s
+@attr.define(slots=False)
 class KIManager:
     handler: Callable[[int, types.FrameType | None], None] | None = attr.field(
         default=None

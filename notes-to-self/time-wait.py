@@ -32,7 +32,7 @@ import socket
 import attr
 
 
-@attr.s(repr=False)
+@attr.define(repr=False, slots=False)
 class Options:
     listen1_early = attr.field(default=None)
     listen1_middle = attr.field(default=None)

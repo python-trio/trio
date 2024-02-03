@@ -512,7 +512,7 @@ def gai_without_v4mapped_is_buggy() -> bool:  # pragma: no cover
         return True
 
 
-@attr.s
+@attr.define(slots=False)
 class Addresses:
     bind_all: str = attr.field()
     localhost: str = attr.field()

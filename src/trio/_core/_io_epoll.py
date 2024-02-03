@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from .._file_io import _HasFileNo
 
 
-@attr.s(slots=True, eq=False)
+@attr.define(eq=False)
 class EpollWaiters:
     read_task: Task | None = attr.field(default=None)
     write_task: Task | None = attr.field(default=None)
@@ -198,7 +198,7 @@ class _EpollStatistics:
 # wanted to about how epoll works.
 
 
-@attr.s(slots=True, eq=False, hash=False)
+@attr.define(eq=False, hash=False)
 class EpollIOManager:
     _epoll: select.epoll = attr.field(factory=select.epoll)
     # {fd: EpollWaiters}

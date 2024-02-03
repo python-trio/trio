@@ -216,7 +216,7 @@ def collapse_exception_group(
         return excgroup
 
 
-@attr.s(eq=False, slots=True)
+@attr.define(eq=False)
 class Deadlines:
     """A container of deadlined cancel scopes.
 
@@ -285,7 +285,7 @@ class Deadlines:
         return did_something
 
 
-@attr.s(eq=False, slots=True)
+@attr.define(eq=False)
 class CancelStatus:
     """Tracks the cancellation status for a contiguous extent
     of code that will become cancelled, or not, as a unit.
@@ -483,7 +483,7 @@ https://github.com/python-trio/trio/issues/new
 
 
 @final
-@attr.s(eq=False, repr=False, slots=True)
+@attr.define(eq=False, repr=False)
 class CancelScope:
     """A *cancellation scope*: the link between a unit of cancellable
     work and Trio's cancellation system.
@@ -845,7 +845,7 @@ class TaskStatus(Protocol[StatusT_contra]):
 
 # This code needs to be read alongside the code from Nursery.start to make
 # sense.
-@attr.s(eq=False, hash=False, repr=False)
+@attr.define(eq=False, hash=False, repr=False, slots=False)
 class _TaskStatus(TaskStatus[StatusT]):
     _old_nursery: Nursery = attr.field()
     _new_nursery: Nursery = attr.field()
@@ -914,7 +914,7 @@ class _TaskStatus(TaskStatus[StatusT]):
         self._old_nursery._check_nursery_closed()
 
 
-@attr.s
+@attr.define(slots=False)
 class NurseryManager:
     """Nursery context manager.
 
@@ -1281,7 +1281,7 @@ class Nursery(metaclass=NoPublicConstructor):
 
 
 @final
-@attr.s(eq=False, hash=False, repr=False, slots=True)
+@attr.define(eq=False, hash=False, repr=False)
 class Task(metaclass=NoPublicConstructor):
     _parent_nursery: Nursery | None = attr.field()
     coro: Coroutine[Any, Outcome[object], Any] = attr.field()
@@ -1524,7 +1524,7 @@ class RunStatistics:
 # worker thread.
 
 
-@attr.s(eq=False, hash=False, slots=True)
+@attr.define(eq=False, hash=False)
 class GuestState:
     runner: Runner = attr.field()
     run_sync_soon_threadsafe: Callable[[Callable[[], object]], object] = attr.field()
@@ -1576,7 +1576,7 @@ class GuestState:
             start_thread_soon(get_events, deliver)
 
 
-@attr.s(eq=False, hash=False, slots=True)
+@attr.define(eq=False, hash=False)
 class Runner:
     clock: Clock = attr.field()
     instruments: Instruments = attr.field()

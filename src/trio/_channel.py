@@ -119,7 +119,7 @@ class MemoryChannelStats:
     tasks_waiting_receive: int = attr.field()
 
 
-@attr.s(slots=True)
+@attr.define
 class MemoryChannelState(Generic[T]):
     max_buffer_size: int | float = attr.field()
     data: deque[T] = attr.field(factory=deque)
@@ -143,7 +143,7 @@ class MemoryChannelState(Generic[T]):
 
 
 @final
-@attr.s(eq=False, repr=False)
+@attr.define(eq=False, repr=False, slots=False)
 class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
     _state: MemoryChannelState[SendType] = attr.field()
     _closed: bool = attr.field(default=False)
@@ -286,7 +286,7 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
 
 
 @final
-@attr.s(eq=False, repr=False)
+@attr.define(eq=False, repr=False, slots=False)
 class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstructor):
     _state: MemoryChannelState[ReceiveType] = attr.field()
     _closed: bool = attr.field(default=False)
