@@ -6,7 +6,7 @@ import sys
 from socket import AddressFamily, SocketKind
 from typing import TYPE_CHECKING, Any, Sequence, overload
 
-import attr
+import attrs
 import pytest
 
 import trio
@@ -132,15 +132,15 @@ class FakeOSError(OSError):
     pass
 
 
-@attr.define(slots=False)
+@attrs.define(slots=False)
 class FakeSocket(tsocket.SocketType):
-    _family: AddressFamily = attr.field(converter=AddressFamily)
-    _type: SocketKind = attr.field(converter=SocketKind)
-    _proto: int = attr.field()
+    _family: AddressFamily = attrs.field(converter=AddressFamily)
+    _type: SocketKind = attrs.field(converter=SocketKind)
+    _proto: int = attrs.field()
 
-    closed: bool = attr.field(default=False)
-    poison_listen: bool = attr.field(default=False)
-    backlog: int | None = attr.field(default=None)
+    closed: bool = attrs.field(default=False)
+    poison_listen: bool = attrs.field(default=False)
+    backlog: int | None = attrs.field(default=None)
 
     @property
     def type(self) -> SocketKind:
@@ -199,11 +199,11 @@ class FakeSocket(tsocket.SocketType):
         self.closed = True
 
 
-@attr.define(slots=False)
+@attrs.define(slots=False)
 class FakeSocketFactory(SocketFactory):
-    poison_after: int = attr.field()
-    sockets: list[tsocket.SocketType] = attr.field(factory=list)
-    raise_on_family: dict[AddressFamily, int] = attr.field(
+    poison_after: int = attrs.field()
+    sockets: list[tsocket.SocketType] = attrs.field(factory=list)
+    raise_on_family: dict[AddressFamily, int] = attrs.field(
         factory=dict
     )  # family => errno
 
@@ -227,9 +227,9 @@ class FakeSocketFactory(SocketFactory):
         return sock
 
 
-@attr.define(slots=False)
+@attrs.define(slots=False)
 class FakeHostnameResolver(HostnameResolver):
-    family_addr_pairs: Sequence[tuple[AddressFamily, str]] = attr.field()
+    family_addr_pairs: Sequence[tuple[AddressFamily, str]] = attrs.field()
 
     async def getaddrinfo(
         self,

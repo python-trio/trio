@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Container, Iterable, NoReturn
 
-import attr
+import attrs
 import pytest
 
 from ... import _abc, _core
@@ -12,9 +12,9 @@ if TYPE_CHECKING:
     from ...lowlevel import Task
 
 
-@attr.define(eq=False, hash=False, slots=False)
+@attrs.define(eq=False, hash=False, slots=False)
 class TaskRecorder(_abc.Instrument):
-    record: list[tuple[str, Task | None]] = attr.field(factory=list)
+    record: list[tuple[str, Task | None]] = attrs.field(factory=list)
 
     def before_run(self) -> None:
         self.record.append(("before_run", None))

@@ -26,7 +26,7 @@ from typing import (
     overload,
 )
 
-import attr
+import attrs
 from outcome import Error, Outcome, Value, capture
 from sniffio import thread_local as sniffio_library
 from sortedcontainers import SortedDict
@@ -155,12 +155,12 @@ def _count_context_run_tb_frames() -> int:
 CONTEXT_RUN_TB_FRAMES: Final = _count_context_run_tb_frames()
 
 
-@attr.frozen
+@attrs.frozen
 class SystemClock(Clock):
     # Add a large random offset to our clock to ensure that if people
     # accidentally call time.perf_counter() directly or start comparing clocks
     # between different runs, then they'll notice the bug quickly:
-    offset: float = attr.field(factory=lambda: _r.uniform(10000, 200000))
+    offset: float = attrs.field(factory=lambda: _r.uniform(10000, 200000))
 
     def start_clock(self) -> None:
         pass
@@ -216,7 +216,7 @@ def collapse_exception_group(
         return excgroup
 
 
-@attr.define(eq=False)
+@attrs.define(eq=False)
 class Deadlines:
     """A container of deadlined cancel scopes.
 
@@ -226,9 +226,9 @@ class Deadlines:
     """
 
     # Heap of (deadline, id(CancelScope), CancelScope)
-    _heap: list[tuple[float, int, CancelScope]] = attr.field(factory=list)
+    _heap: list[tuple[float, int, CancelScope]] = attrs.field(factory=list)
     # Count of active deadlines (those that haven't been changed)
-    _active: int = attr.field(default=0)
+    _active: int = attrs.field(default=0)
 
     def add(self, deadline: float, cancel_scope: CancelScope) -> None:
         heappush(self._heap, (deadline, id(cancel_scope), cancel_scope))
@@ -285,7 +285,7 @@ class Deadlines:
         return did_something
 
 
-@attr.define(eq=False)
+@attrs.define(eq=False)
 class CancelStatus:
     """Tracks the cancellation status for a contiguous extent
     of code that will become cancelled, or not, as a unit.
@@ -318,7 +318,7 @@ class CancelStatus:
     # Our associated cancel scope. Can be any object with attributes
     # `deadline`, `shield`, and `cancel_called`, but in current usage
     # is always a CancelScope object. Must not be None.
-    _scope: CancelScope = attr.field(alias="scope")
+    _scope: CancelScope = attrs.field(alias="scope")
 
     # True iff the tasks in self._tasks should receive cancellations
     # when they checkpoint. Always True when scope.cancel_called is True;
@@ -328,29 +328,29 @@ class CancelStatus:
     # effectively cancelled due to the cancel scope two levels out
     # becoming cancelled, but then the cancel scope one level out
     # becomes shielded so we're not effectively cancelled anymore.
-    effectively_cancelled: bool = attr.field(default=False)
+    effectively_cancelled: bool = attrs.field(default=False)
 
     # The CancelStatus whose cancellations can propagate to us; we
     # become effectively cancelled when they do, unless scope.shield
     # is True.  May be None (for the outermost CancelStatus in a call
     # to trio.run(), briefly during TaskStatus.started(), or during
     # recovery from mis-nesting of cancel scopes).
-    _parent: CancelStatus | None = attr.field(default=None, repr=False, alias="parent")
+    _parent: CancelStatus | None = attrs.field(default=None, repr=False, alias="parent")
 
     # All of the CancelStatuses that have this CancelStatus as their parent.
-    _children: set[CancelStatus] = attr.field(factory=set, init=False, repr=False)
+    _children: set[CancelStatus] = attrs.field(factory=set, init=False, repr=False)
 
     # Tasks whose cancellation state is currently tied directly to
     # the cancellation state of this CancelStatus object. Don't modify
     # this directly; instead, use Task._activate_cancel_status().
     # Invariant: all(task._cancel_status is self for task in self._tasks)
-    _tasks: set[Task] = attr.field(factory=set, init=False, repr=False)
+    _tasks: set[Task] = attrs.field(factory=set, init=False, repr=False)
 
     # Set to True on still-active cancel statuses that are children
     # of a cancel status that's been closed. This is used to permit
     # recovery from mis-nested cancel scopes (well, at least enough
     # recovery to show a useful traceback).
-    abandoned_by_misnesting: bool = attr.field(default=False, init=False, repr=False)
+    abandoned_by_misnesting: bool = attrs.field(default=False, init=False, repr=False)
 
     def __attrs_post_init__(self) -> None:
         if self._parent is not None:
@@ -483,7 +483,7 @@ https://github.com/python-trio/trio/issues/new
 
 
 @final
-@attr.define(eq=False, repr=False)
+@attrs.define(eq=False, repr=False)
 class CancelScope:
     """A *cancellation scope*: the link between a unit of cancellable
     work and Trio's cancellation system.
@@ -523,15 +523,15 @@ class CancelScope:
     has been entered yet, and changes take immediate effect.
     """
 
-    _cancel_status: CancelStatus | None = attr.field(default=None, init=False)
-    _has_been_entered: bool = attr.field(default=False, init=False)
-    _registered_deadline: float = attr.field(default=inf, init=False)
-    _cancel_called: bool = attr.field(default=False, init=False)
-    cancelled_caught: bool = attr.field(default=False, init=False)
+    _cancel_status: CancelStatus | None = attrs.field(default=None, init=False)
+    _has_been_entered: bool = attrs.field(default=False, init=False)
+    _registered_deadline: float = attrs.field(default=inf, init=False)
+    _cancel_called: bool = attrs.field(default=False, init=False)
+    cancelled_caught: bool = attrs.field(default=False, init=False)
 
     # Constructor arguments:
-    _deadline: float = attr.field(default=inf, kw_only=True, alias="deadline")
-    _shield: bool = attr.field(default=False, kw_only=True, alias="shield")
+    _deadline: float = attrs.field(default=inf, kw_only=True, alias="deadline")
+    _shield: bool = attrs.field(default=False, kw_only=True, alias="shield")
 
     @enable_ki_protection
     def __enter__(self) -> Self:
@@ -845,12 +845,12 @@ class TaskStatus(Protocol[StatusT_contra]):
 
 # This code needs to be read alongside the code from Nursery.start to make
 # sense.
-@attr.define(eq=False, hash=False, repr=False, slots=False)
+@attrs.define(eq=False, hash=False, repr=False, slots=False)
 class _TaskStatus(TaskStatus[StatusT]):
-    _old_nursery: Nursery = attr.field()
-    _new_nursery: Nursery = attr.field()
+    _old_nursery: Nursery = attrs.field()
+    _new_nursery: Nursery = attrs.field()
     # NoStatus is a sentinel.
-    _value: StatusT | type[_NoStatus] = attr.field(default=_NoStatus)
+    _value: StatusT | type[_NoStatus] = attrs.field(default=_NoStatus)
 
     def __repr__(self) -> str:
         return f"<Task status object at {id(self):#x}>"
@@ -914,7 +914,7 @@ class _TaskStatus(TaskStatus[StatusT]):
         self._old_nursery._check_nursery_closed()
 
 
-@attr.define(slots=False)
+@attrs.define(slots=False)
 class NurseryManager:
     """Nursery context manager.
 
@@ -925,7 +925,7 @@ class NurseryManager:
 
     """
 
-    strict_exception_groups: bool = attr.field(default=True)
+    strict_exception_groups: bool = attrs.field(default=True)
 
     @enable_ki_protection
     async def __aenter__(self) -> Nursery:
@@ -1281,14 +1281,14 @@ class Nursery(metaclass=NoPublicConstructor):
 
 
 @final
-@attr.define(eq=False, hash=False, repr=False)
+@attrs.define(eq=False, hash=False, repr=False)
 class Task(metaclass=NoPublicConstructor):
-    _parent_nursery: Nursery | None = attr.field()
-    coro: Coroutine[Any, Outcome[object], Any] = attr.field()
-    _runner: Runner = attr.field()
-    name: str = attr.field()
-    context: contextvars.Context = attr.field()
-    _counter: int = attr.field(init=False, factory=itertools.count().__next__)
+    _parent_nursery: Nursery | None = attrs.field()
+    coro: Coroutine[Any, Outcome[object], Any] = attrs.field()
+    _runner: Runner = attrs.field()
+    name: str = attrs.field()
+    context: contextvars.Context = attrs.field()
+    _counter: int = attrs.field(init=False, factory=itertools.count().__next__)
 
     # Invariant:
     # - for unscheduled tasks, _next_send_fn and _next_send are both None
@@ -1301,20 +1301,22 @@ class Task(metaclass=NoPublicConstructor):
     #   tracebacks with extraneous frames.
     # - for scheduled tasks, custom_sleep_data is None
     # Tasks start out unscheduled.
-    _next_send_fn: Callable[[Any], object] = attr.field(default=None)
-    _next_send: Outcome[Any] | None | BaseException = attr.field(default=None)
-    _abort_func: Callable[[_core.RaiseCancelT], Abort] | None = attr.field(default=None)
-    custom_sleep_data: Any = attr.field(default=None)
+    _next_send_fn: Callable[[Any], object] = attrs.field(default=None)
+    _next_send: Outcome[Any] | None | BaseException = attrs.field(default=None)
+    _abort_func: Callable[[_core.RaiseCancelT], Abort] | None = attrs.field(
+        default=None
+    )
+    custom_sleep_data: Any = attrs.field(default=None)
 
     # For introspection and nursery.start()
-    _child_nurseries: list[Nursery] = attr.field(factory=list)
-    _eventual_parent_nursery: Nursery | None = attr.field(default=None)
+    _child_nurseries: list[Nursery] = attrs.field(factory=list)
+    _eventual_parent_nursery: Nursery | None = attrs.field(default=None)
 
     # these are counts of how many cancel/schedule points this task has
     # executed, for assert{_no,}_checkpoints
     # XX maybe these should be exposed as part of a statistics() method?
-    _cancel_points: int = attr.field(default=0)
-    _schedule_points: int = attr.field(default=0)
+    _cancel_points: int = attrs.field(default=0)
+    _schedule_points: int = attrs.field(default=0)
 
     def __repr__(self) -> str:
         return f"<Task {self.name!r} at {id(self):#x}>"
@@ -1406,7 +1408,7 @@ class Task(metaclass=NoPublicConstructor):
     # The CancelStatus object that is currently active for this task.
     # Don't change this directly; instead, use _activate_cancel_status().
     # This can be None, but only in the init task.
-    _cancel_status: CancelStatus = attr.field(default=None, repr=False)
+    _cancel_status: CancelStatus = attrs.field(default=None, repr=False)
 
     def _activate_cancel_status(self, cancel_status: CancelStatus | None) -> None:
         if self._cancel_status is not None:
@@ -1472,7 +1474,7 @@ class RunContext(threading.local):
 GLOBAL_RUN_CONTEXT: Final = RunContext()
 
 
-@attr.frozen
+@attrs.frozen
 class RunStatistics:
     """An object containing run-loop-level debugging information.
 
@@ -1524,16 +1526,16 @@ class RunStatistics:
 # worker thread.
 
 
-@attr.define(eq=False, hash=False)
+@attrs.define(eq=False, hash=False)
 class GuestState:
-    runner: Runner = attr.field()
-    run_sync_soon_threadsafe: Callable[[Callable[[], object]], object] = attr.field()
+    runner: Runner = attrs.field()
+    run_sync_soon_threadsafe: Callable[[Callable[[], object]], object] = attrs.field()
     run_sync_soon_not_threadsafe: Callable[[Callable[[], object]], object] = (
-        attr.field()
+        attrs.field()
     )
-    done_callback: Callable[[Outcome[Any]], object] = attr.field()
-    unrolled_run_gen: Generator[float, EventResult, None] = attr.field()
-    unrolled_run_next_send: Outcome[Any] = attr.field(factory=lambda: Value(None))
+    done_callback: Callable[[Outcome[Any]], object] = attrs.field()
+    unrolled_run_gen: Generator[float, EventResult, None] = attrs.field()
+    unrolled_run_next_send: Outcome[Any] = attrs.field(factory=lambda: Value(None))
 
     def guest_tick(self) -> None:
         prev_library, sniffio_library.name = sniffio_library.name, "trio"
@@ -1576,38 +1578,38 @@ class GuestState:
             start_thread_soon(get_events, deliver)
 
 
-@attr.define(eq=False, hash=False)
+@attrs.define(eq=False, hash=False)
 class Runner:
-    clock: Clock = attr.field()
-    instruments: Instruments = attr.field()
-    io_manager: TheIOManager = attr.field()
-    ki_manager: KIManager = attr.field()
-    strict_exception_groups: bool = attr.field()
+    clock: Clock = attrs.field()
+    instruments: Instruments = attrs.field()
+    io_manager: TheIOManager = attrs.field()
+    ki_manager: KIManager = attrs.field()
+    strict_exception_groups: bool = attrs.field()
 
     # Run-local values, see _local.py
-    _locals: dict[_core.RunVar[Any], Any] = attr.field(factory=dict)
+    _locals: dict[_core.RunVar[Any], Any] = attrs.field(factory=dict)
 
-    runq: deque[Task] = attr.field(factory=deque)
-    tasks: set[Task] = attr.field(factory=set)
+    runq: deque[Task] = attrs.field(factory=deque)
+    tasks: set[Task] = attrs.field(factory=set)
 
-    deadlines: Deadlines = attr.field(factory=Deadlines)
+    deadlines: Deadlines = attrs.field(factory=Deadlines)
 
-    init_task: Task | None = attr.field(default=None)
-    system_nursery: Nursery | None = attr.field(default=None)
-    system_context: contextvars.Context = attr.field(kw_only=True)
-    main_task: Task | None = attr.field(default=None)
-    main_task_outcome: Outcome[Any] | None = attr.field(default=None)
+    init_task: Task | None = attrs.field(default=None)
+    system_nursery: Nursery | None = attrs.field(default=None)
+    system_context: contextvars.Context = attrs.field(kw_only=True)
+    main_task: Task | None = attrs.field(default=None)
+    main_task_outcome: Outcome[Any] | None = attrs.field(default=None)
 
-    entry_queue: EntryQueue = attr.field(factory=EntryQueue)
-    trio_token: TrioToken | None = attr.field(default=None)
-    asyncgens: AsyncGenerators = attr.field(factory=AsyncGenerators)
+    entry_queue: EntryQueue = attrs.field(factory=EntryQueue)
+    trio_token: TrioToken | None = attrs.field(default=None)
+    asyncgens: AsyncGenerators = attrs.field(factory=AsyncGenerators)
 
     # If everything goes idle for this long, we call clock._autojump()
-    clock_autojump_threshold: float = attr.field(default=inf)
+    clock_autojump_threshold: float = attrs.field(default=inf)
 
     # Guest mode stuff
-    is_guest: bool = attr.field(default=False)
-    guest_tick_scheduled: bool = attr.field(default=False)
+    is_guest: bool = attrs.field(default=False)
+    guest_tick_scheduled: bool = attrs.field(default=False)
 
     def force_guest_tick_asap(self) -> None:
         if self.guest_tick_scheduled:
@@ -1966,7 +1968,7 @@ class Runner:
     # KI handling
     ################
 
-    ki_pending: bool = attr.field(default=False)
+    ki_pending: bool = attrs.field(default=False)
 
     # deliver_ki is broke. Maybe move all the actual logic and state into
     # RunToken, and we'll only have one instance per runner? But then we can't
@@ -1999,7 +2001,7 @@ class Runner:
 
     # sortedcontainers doesn't have types, and is reportedly very hard to type:
     # https://github.com/grantjenks/python-sortedcontainers/issues/68
-    waiting_for_idle: Any = attr.field(factory=SortedDict)
+    waiting_for_idle: Any = attrs.field(factory=SortedDict)
 
     @_public
     async def wait_all_tasks_blocked(self, cushion: float = 0.0) -> None:

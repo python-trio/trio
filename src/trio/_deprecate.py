@@ -6,7 +6,7 @@ from functools import wraps
 from types import ModuleType
 from typing import TYPE_CHECKING, ClassVar, TypeVar
 
-import attr
+import attrs
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -126,14 +126,14 @@ def deprecated_alias(
     return wrapper
 
 
-@attr.frozen(slots=False)
+@attrs.frozen(slots=False)
 class DeprecatedAttribute:
     _not_set: ClassVar[object] = object()
 
-    value: object = attr.field()
-    version: str = attr.field()
-    issue: int | None = attr.field()
-    instead: object = attr.field(default=_not_set)
+    value: object = attrs.field()
+    version: str = attrs.field()
+    issue: int | None = attrs.field()
+    instead: object = attrs.field(default=_not_set)
 
 
 class _ModuleWithDeprecations(ModuleType):

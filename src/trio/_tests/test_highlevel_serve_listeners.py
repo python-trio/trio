@@ -4,7 +4,7 @@ import errno
 from functools import partial
 from typing import TYPE_CHECKING, Awaitable, Callable, NoReturn
 
-import attr
+import attrs
 
 import trio
 from trio import Nursery, StapledStream, TaskStatus
@@ -29,15 +29,15 @@ if TYPE_CHECKING:
 StapledMemoryStream = StapledStream[MemorySendStream, MemoryReceiveStream]
 
 
-@attr.define(hash=False, eq=False, slots=False)
+@attrs.define(hash=False, eq=False, slots=False)
 class MemoryListener(trio.abc.Listener[StapledMemoryStream]):
-    closed: bool = attr.field(default=False)
-    accepted_streams: list[trio.abc.Stream] = attr.field(factory=list)
+    closed: bool = attrs.field(default=False)
+    accepted_streams: list[trio.abc.Stream] = attrs.field(factory=list)
     queued_streams: tuple[
         MemorySendChannel[StapledMemoryStream],
         MemoryReceiveChannel[StapledMemoryStream],
-    ] = attr.field(factory=(lambda: trio.open_memory_channel[StapledMemoryStream](1)))
-    accept_hook: Callable[[], Awaitable[object]] | None = attr.field(default=None)
+    ] = attrs.field(factory=(lambda: trio.open_memory_channel[StapledMemoryStream](1)))
+    accept_hook: Callable[[], Awaitable[object]] | None = attrs.field(default=None)
 
     async def connect(self) -> StapledMemoryStream:
         assert not self.closed

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Generic, TypeVar
 
-import attr
+import attrs
 
 import trio
 from trio._util import final
@@ -53,7 +53,7 @@ def _is_halfclosable(stream: SendStream) -> TypeGuard[HalfCloseableStream]:
 
 
 @final
-@attr.define(eq=False, hash=False, slots=False)
+@attrs.define(eq=False, hash=False, slots=False)
 class StapledStream(
     HalfCloseableStream,
     Generic[SendStreamT, ReceiveStreamT],
@@ -92,8 +92,8 @@ class StapledStream(
 
     """
 
-    send_stream: SendStreamT = attr.field()
-    receive_stream: ReceiveStreamT = attr.field()
+    send_stream: SendStreamT = attrs.field()
+    receive_stream: ReceiveStreamT = attrs.field()
 
     async def send_all(self, data: bytes | bytearray | memoryview) -> None:
         """Calls ``self.send_stream.send_all``."""

@@ -8,7 +8,7 @@ from typing import (
     Tuple,  # only needed for typechecking on <3.9
 )
 
-import attr
+import attrs
 from outcome import Error, Value
 
 import trio
@@ -109,27 +109,27 @@ else:
     open_memory_channel = generic_function(_open_memory_channel)
 
 
-@attr.frozen
+@attrs.frozen
 class MemoryChannelStats:
-    current_buffer_used: int = attr.field()
-    max_buffer_size: int | float = attr.field()
-    open_send_channels: int = attr.field()
-    open_receive_channels: int = attr.field()
-    tasks_waiting_send: int = attr.field()
-    tasks_waiting_receive: int = attr.field()
+    current_buffer_used: int = attrs.field()
+    max_buffer_size: int | float = attrs.field()
+    open_send_channels: int = attrs.field()
+    open_receive_channels: int = attrs.field()
+    tasks_waiting_send: int = attrs.field()
+    tasks_waiting_receive: int = attrs.field()
 
 
-@attr.define
+@attrs.define
 class MemoryChannelState(Generic[T]):
-    max_buffer_size: int | float = attr.field()
-    data: deque[T] = attr.field(factory=deque)
+    max_buffer_size: int | float = attrs.field()
+    data: deque[T] = attrs.field(factory=deque)
     # Counts of open endpoints using this state
-    open_send_channels: int = attr.field(default=0)
-    open_receive_channels: int = attr.field(default=0)
+    open_send_channels: int = attrs.field(default=0)
+    open_receive_channels: int = attrs.field(default=0)
     # {task: value}
-    send_tasks: OrderedDict[Task, T] = attr.field(factory=OrderedDict)
+    send_tasks: OrderedDict[Task, T] = attrs.field(factory=OrderedDict)
     # {task: None}
-    receive_tasks: OrderedDict[Task, None] = attr.field(factory=OrderedDict)
+    receive_tasks: OrderedDict[Task, None] = attrs.field(factory=OrderedDict)
 
     def statistics(self) -> MemoryChannelStats:
         return MemoryChannelStats(
@@ -143,14 +143,14 @@ class MemoryChannelState(Generic[T]):
 
 
 @final
-@attr.define(eq=False, repr=False, slots=False)
+@attrs.define(eq=False, repr=False, slots=False)
 class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
-    _state: MemoryChannelState[SendType] = attr.field()
-    _closed: bool = attr.field(default=False)
+    _state: MemoryChannelState[SendType] = attrs.field()
+    _closed: bool = attrs.field(default=False)
     # This is just the tasks waiting on *this* object. As compared to
     # self._state.send_tasks, which includes tasks from this object and
     # all clones.
-    _tasks: set[Task] = attr.field(factory=set)
+    _tasks: set[Task] = attrs.field(factory=set)
 
     def __attrs_post_init__(self) -> None:
         self._state.open_send_channels += 1
@@ -286,11 +286,11 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
 
 
 @final
-@attr.define(eq=False, repr=False, slots=False)
+@attrs.define(eq=False, repr=False, slots=False)
 class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstructor):
-    _state: MemoryChannelState[ReceiveType] = attr.field()
-    _closed: bool = attr.field(default=False)
-    _tasks: set[trio._core._run.Task] = attr.field(factory=set)
+    _state: MemoryChannelState[ReceiveType] = attrs.field()
+    _closed: bool = attrs.field(default=False)
+    _tasks: set[trio._core._run.Task] = attrs.field(factory=set)
 
     def __attrs_post_init__(self) -> None:
         self._state.open_receive_channels += 1

@@ -29,16 +29,16 @@
 import errno
 import socket
 
-import attr
+import attrs
 
 
-@attr.define(repr=False, slots=False)
+@attrs.define(repr=False, slots=False)
 class Options:
-    listen1_early = attr.field(default=None)
-    listen1_middle = attr.field(default=None)
-    listen1_late = attr.field(default=None)
-    server = attr.field(default=None)
-    listen2 = attr.field(default=None)
+    listen1_early = attrs.field(default=None)
+    listen1_middle = attrs.field(default=None)
+    listen1_late = attrs.field(default=None)
+    server = attrs.field(default=None)
+    listen2 = attrs.field(default=None)
 
     def set(self, which, sock):
         value = getattr(self, which)
@@ -47,7 +47,7 @@ class Options:
 
     def describe(self):
         info = []
-        for f in attr.fields(self.__class__):
+        for f in attrs.fields(self.__class__):
             value = getattr(self, f.name)
             if value is not None:
                 info.append(f"{f.name}={value}")

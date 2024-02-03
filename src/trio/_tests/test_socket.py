@@ -9,7 +9,7 @@ import tempfile
 from socket import AddressFamily, SocketKind
 from typing import TYPE_CHECKING, Any, Callable, List, Tuple, Union
 
-import attr
+import attrs
 import pytest
 
 from .. import _core, socket as tsocket
@@ -512,12 +512,12 @@ def gai_without_v4mapped_is_buggy() -> bool:  # pragma: no cover
         return True
 
 
-@attr.define(slots=False)
+@attrs.define(slots=False)
 class Addresses:
-    bind_all: str = attr.field()
-    localhost: str = attr.field()
-    arbitrary: str = attr.field()
-    broadcast: str = attr.field()
+    bind_all: str = attrs.field()
+    localhost: str = attrs.field()
+    arbitrary: str = attrs.field()
+    broadcast: str = attrs.field()
 
 
 # Direct thorough tests of the implicit resolver helpers

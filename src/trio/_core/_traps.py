@@ -6,7 +6,7 @@ import enum
 import types
 from typing import TYPE_CHECKING, Any, Callable, NoReturn
 
-import attr
+import attrs
 import outcome
 
 from . import _run
@@ -67,9 +67,9 @@ class Abort(enum.Enum):
 
 
 # Not exported in the trio._core namespace, but imported directly by _run.
-@attr.frozen(slots=False)
+@attrs.frozen(slots=False)
 class WaitTaskRescheduled:
-    abort_func: Callable[[RaiseCancelT], Abort] = attr.field()
+    abort_func: Callable[[RaiseCancelT], Abort] = attrs.field()
 
 
 RaiseCancelT: TypeAlias = Callable[[], NoReturn]
@@ -180,9 +180,9 @@ async def wait_task_rescheduled(abort_func: Callable[[RaiseCancelT], Abort]) -> 
 
 
 # Not exported in the trio._core namespace, but imported directly by _run.
-@attr.frozen(slots=False)
+@attrs.frozen(slots=False)
 class PermanentlyDetachCoroutineObject:
-    final_outcome: outcome.Outcome[Any] = attr.field()
+    final_outcome: outcome.Outcome[Any] = attrs.field()
 
 
 async def permanently_detach_coroutine_object(

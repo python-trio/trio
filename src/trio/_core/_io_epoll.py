@@ -6,7 +6,7 @@ import sys
 from collections import defaultdict
 from typing import TYPE_CHECKING, Literal
 
-import attr
+import attrs
 
 from .. import _core
 from ._io_common import wake_all
@@ -20,11 +20,11 @@ if TYPE_CHECKING:
     from .._file_io import _HasFileNo
 
 
-@attr.define(eq=False)
+@attrs.define(eq=False)
 class EpollWaiters:
-    read_task: Task | None = attr.field(default=None)
-    write_task: Task | None = attr.field(default=None)
-    current_flags: int = attr.field(default=0)
+    read_task: Task | None = attrs.field(default=None)
+    write_task: Task | None = attrs.field(default=None)
+    current_flags: int = attrs.field(default=0)
 
 
 assert not TYPE_CHECKING or sys.platform == "linux"
@@ -33,11 +33,11 @@ assert not TYPE_CHECKING or sys.platform == "linux"
 EventResult: TypeAlias = "list[tuple[int, int]]"
 
 
-@attr.frozen(eq=False)
+@attrs.frozen(eq=False)
 class _EpollStatistics:
-    tasks_waiting_read: int = attr.field()
-    tasks_waiting_write: int = attr.field()
-    backend: Literal["epoll"] = attr.field(init=False, default="epoll")
+    tasks_waiting_read: int = attrs.field()
+    tasks_waiting_write: int = attrs.field()
+    backend: Literal["epoll"] = attrs.field(init=False, default="epoll")
 
 
 # Some facts about epoll
@@ -198,15 +198,15 @@ class _EpollStatistics:
 # wanted to about how epoll works.
 
 
-@attr.define(eq=False, hash=False)
+@attrs.define(eq=False, hash=False)
 class EpollIOManager:
-    _epoll: select.epoll = attr.field(factory=select.epoll)
+    _epoll: select.epoll = attrs.field(factory=select.epoll)
     # {fd: EpollWaiters}
-    _registered: defaultdict[int, EpollWaiters] = attr.field(
+    _registered: defaultdict[int, EpollWaiters] = attrs.field(
         factory=lambda: defaultdict(EpollWaiters)
     )
-    _force_wakeup: WakeupSocketpair = attr.field(factory=WakeupSocketpair)
-    _force_wakeup_fd: int | None = attr.field(default=None)
+    _force_wakeup: WakeupSocketpair = attrs.field(factory=WakeupSocketpair)
+    _force_wakeup_fd: int | None = attrs.field(default=None)
 
     def __attrs_post_init__(self) -> None:
         self._epoll.register(self._force_wakeup.wakeup_sock, select.EPOLLIN)

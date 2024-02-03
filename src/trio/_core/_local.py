@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Generic, TypeVar, cast
 
 # Runvar implementations
-import attr
+import attrs
 
 from .._util import NoPublicConstructor, final
 from . import _run
@@ -16,11 +16,11 @@ class _NoValue: ...
 
 
 @final
-@attr.define(eq=False, hash=False)
+@attrs.define(eq=False, hash=False)
 class RunVarToken(Generic[T], metaclass=NoPublicConstructor):
-    _var: RunVar[T] = attr.field()
-    previous_value: T | type[_NoValue] = attr.field(default=_NoValue)
-    redeemed: bool = attr.field(default=False, init=False)
+    _var: RunVar[T] = attrs.field()
+    previous_value: T | type[_NoValue] = attrs.field(default=_NoValue)
+    redeemed: bool = attrs.field(default=False, init=False)
 
     @classmethod
     def _empty(cls, var: RunVar[T]) -> RunVarToken[T]:
@@ -28,7 +28,7 @@ class RunVarToken(Generic[T], metaclass=NoPublicConstructor):
 
 
 @final
-@attr.define(eq=False, hash=False, repr=False)
+@attrs.define(eq=False, hash=False, repr=False)
 class RunVar(Generic[T]):
     """The run-local variant of a context variable.
 
@@ -38,8 +38,8 @@ class RunVar(Generic[T]):
 
     """
 
-    _name: str = attr.field()
-    _default: T | type[_NoValue] = attr.field(default=_NoValue)
+    _name: str = attrs.field()
+    _default: T | type[_NoValue] = attrs.field(default=_NoValue)
 
     def get(self, default: T | type[_NoValue] = _NoValue) -> T:
         """Gets the value of this :class:`RunVar` for the current run call."""

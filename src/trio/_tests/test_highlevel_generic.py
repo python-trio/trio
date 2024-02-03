@@ -2,16 +2,16 @@ from __future__ import annotations
 
 from typing import NoReturn
 
-import attr
+import attrs
 import pytest
 
 from .._highlevel_generic import StapledStream
 from ..abc import ReceiveStream, SendStream
 
 
-@attr.define(slots=False)
+@attrs.define(slots=False)
 class RecordSendStream(SendStream):
-    record: list[str | tuple[str, object]] = attr.field(factory=list)
+    record: list[str | tuple[str, object]] = attrs.field(factory=list)
 
     async def send_all(self, data: object) -> None:
         self.record.append(("send_all", data))
@@ -23,9 +23,9 @@ class RecordSendStream(SendStream):
         self.record.append("aclose")
 
 
-@attr.define(slots=False)
+@attrs.define(slots=False)
 class RecordReceiveStream(ReceiveStream):
-    record: list[str | tuple[str, int | None]] = attr.field(factory=list)
+    record: list[str | tuple[str, int | None]] = attrs.field(factory=list)
 
     async def receive_some(self, max_bytes: int | None = None) -> bytes:
         self.record.append(("receive_some", max_bytes))
