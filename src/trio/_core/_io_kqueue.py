@@ -33,12 +33,12 @@ class _KqueueStatistics:
 
 @attrs.define(eq=False)
 class KqueueIOManager:
-    _kqueue: select.kqueue = attrs.field(factory=select.kqueue)
+    _kqueue: select.kqueue = attrs.Factory(select.kqueue)
     # {(ident, filter): Task or UnboundedQueue}
     _registered: dict[tuple[int, int], Task | UnboundedQueue[select.kevent]] = (
-        attrs.field(factory=dict)
+        attrs.Factory(dict)
     )
-    _force_wakeup: WakeupSocketpair = attrs.field(factory=WakeupSocketpair)
+    _force_wakeup: WakeupSocketpair = attrs.Factory(WakeupSocketpair)
     _force_wakeup_fd: int | None = attrs.field(default=None)
 
     def __attrs_post_init__(self) -> None:

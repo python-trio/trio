@@ -122,14 +122,14 @@ class MemoryChannelStats:
 @attrs.define
 class MemoryChannelState(Generic[T]):
     max_buffer_size: int | float
-    data: deque[T] = attrs.field(factory=deque)
+    data: deque[T] = attrs.Factory(deque)
     # Counts of open endpoints using this state
     open_send_channels: int = attrs.field(default=0)
     open_receive_channels: int = attrs.field(default=0)
     # {task: value}
-    send_tasks: OrderedDict[Task, T] = attrs.field(factory=OrderedDict)
+    send_tasks: OrderedDict[Task, T] = attrs.Factory(OrderedDict)
     # {task: None}
-    receive_tasks: OrderedDict[Task, None] = attrs.field(factory=OrderedDict)
+    receive_tasks: OrderedDict[Task, None] = attrs.Factory(OrderedDict)
 
     def statistics(self) -> MemoryChannelStats:
         return MemoryChannelStats(
@@ -150,7 +150,7 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
     # This is just the tasks waiting on *this* object. As compared to
     # self._state.send_tasks, which includes tasks from this object and
     # all clones.
-    _tasks: set[Task] = attrs.field(factory=set)
+    _tasks: set[Task] = attrs.Factory(set)
 
     def __attrs_post_init__(self) -> None:
         self._state.open_send_channels += 1
@@ -290,7 +290,7 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
 class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstructor):
     _state: MemoryChannelState[ReceiveType]
     _closed: bool = attrs.field(default=False)
-    _tasks: set[trio._core._run.Task] = attrs.field(factory=set)
+    _tasks: set[trio._core._run.Task] = attrs.Factory(set)
 
     def __attrs_post_init__(self) -> None:
         self._state.open_receive_channels += 1

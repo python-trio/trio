@@ -11,7 +11,7 @@ from ..abc import ReceiveStream, SendStream
 
 @attrs.define(slots=False)
 class RecordSendStream(SendStream):
-    record: list[str | tuple[str, object]] = attrs.field(factory=list)
+    record: list[str | tuple[str, object]] = attrs.Factory(list)
 
     async def send_all(self, data: object) -> None:
         self.record.append(("send_all", data))
@@ -25,7 +25,7 @@ class RecordSendStream(SendStream):
 
 @attrs.define(slots=False)
 class RecordReceiveStream(ReceiveStream):
-    record: list[str | tuple[str, int | None]] = attrs.field(factory=list)
+    record: list[str | tuple[str, int | None]] = attrs.Factory(list)
 
     async def receive_some(self, max_bytes: int | None = None) -> bytes:
         self.record.append(("receive_some", max_bytes))

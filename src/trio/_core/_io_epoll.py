@@ -200,12 +200,12 @@ class _EpollStatistics:
 
 @attrs.define(eq=False, hash=False)
 class EpollIOManager:
-    _epoll: select.epoll = attrs.field(factory=select.epoll)
+    _epoll: select.epoll = attrs.Factory(select.epoll)
     # {fd: EpollWaiters}
-    _registered: defaultdict[int, EpollWaiters] = attrs.field(
-        factory=lambda: defaultdict(EpollWaiters)
+    _registered: defaultdict[int, EpollWaiters] = attrs.Factory(
+        lambda: defaultdict(EpollWaiters)
     )
-    _force_wakeup: WakeupSocketpair = attrs.field(factory=WakeupSocketpair)
+    _force_wakeup: WakeupSocketpair = attrs.Factory(WakeupSocketpair)
     _force_wakeup_fd: int | None = attrs.field(default=None)
 
     def __attrs_post_init__(self) -> None:

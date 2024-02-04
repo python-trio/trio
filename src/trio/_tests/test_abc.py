@@ -32,7 +32,7 @@ def test_instrument_implements_hook_methods() -> None:
 async def test_AsyncResource_defaults() -> None:
     @attrs.define(slots=False)
     class MyAR(tabc.AsyncResource):
-        record: list[str] = attrs.field(factory=list)
+        record: list[str] = attrs.Factory(list)
 
         async def aclose(self) -> None:
             self.record.append("ac")

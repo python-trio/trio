@@ -202,10 +202,8 @@ class FakeSocket(tsocket.SocketType):
 @attrs.define(slots=False)
 class FakeSocketFactory(SocketFactory):
     poison_after: int
-    sockets: list[tsocket.SocketType] = attrs.field(factory=list)
-    raise_on_family: dict[AddressFamily, int] = attrs.field(
-        factory=dict
-    )  # family => errno
+    sockets: list[tsocket.SocketType] = attrs.Factory(list)
+    raise_on_family: dict[AddressFamily, int] = attrs.Factory(dict)  # family => errno
 
     def socket(
         self,

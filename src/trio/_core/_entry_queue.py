@@ -28,10 +28,10 @@ class EntryQueue:
     # atomic WRT signal delivery (signal handlers can run on either side, but
     # not *during* a deque operation). dict makes similar guarantees - and
     # it's even ordered!
-    queue: deque[Job] = attrs.field(factory=deque)
-    idempotent_queue: dict[Job, None] = attrs.field(factory=dict)
+    queue: deque[Job] = attrs.Factory(deque)
+    idempotent_queue: dict[Job, None] = attrs.Factory(dict)
 
-    wakeup: WakeupSocketpair = attrs.field(factory=WakeupSocketpair)
+    wakeup: WakeupSocketpair = attrs.Factory(WakeupSocketpair)
     done: bool = attrs.field(default=False)
     # Must be a reentrant lock, because it's acquired from signal handlers.
     # RLock is signal-safe as of cpython 3.2. NB that this does mean that the
@@ -41,7 +41,7 @@ class EntryQueue:
     # main thread -- it just might happen at some inconvenient place. But if
     # you look at the one place where the main thread holds the lock, it's
     # just to make 1 assignment, so that's atomic WRT a signal anyway.
-    lock: threading.RLock = attrs.field(factory=threading.RLock)
+    lock: threading.RLock = attrs.Factory(threading.RLock)
 
     async def task(self) -> None:
         assert _core.currently_ki_protected()

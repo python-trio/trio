@@ -160,7 +160,7 @@ class SystemClock(Clock):
     # Add a large random offset to our clock to ensure that if people
     # accidentally call time.perf_counter() directly or start comparing clocks
     # between different runs, then they'll notice the bug quickly:
-    offset: float = attrs.field(factory=lambda: _r.uniform(10000, 200000))
+    offset: float = attrs.Factory(lambda: _r.uniform(10000, 200000))
 
     def start_clock(self) -> None:
         pass
@@ -226,7 +226,7 @@ class Deadlines:
     """
 
     # Heap of (deadline, id(CancelScope), CancelScope)
-    _heap: list[tuple[float, int, CancelScope]] = attrs.field(factory=list)
+    _heap: list[tuple[float, int, CancelScope]] = attrs.Factory(list)
     # Count of active deadlines (those that haven't been changed)
     _active: int = attrs.field(default=0)
 
@@ -1309,7 +1309,7 @@ class Task(metaclass=NoPublicConstructor):
     custom_sleep_data: Any = attrs.field(default=None)
 
     # For introspection and nursery.start()
-    _child_nurseries: list[Nursery] = attrs.field(factory=list)
+    _child_nurseries: list[Nursery] = attrs.Factory(list)
     _eventual_parent_nursery: Nursery | None = attrs.field(default=None)
 
     # these are counts of how many cancel/schedule points this task has
@@ -1535,7 +1535,7 @@ class GuestState:
     )
     done_callback: Callable[[Outcome[Any]], object]
     unrolled_run_gen: Generator[float, EventResult, None]
-    unrolled_run_next_send: Outcome[Any] = attrs.field(factory=lambda: Value(None))
+    unrolled_run_next_send: Outcome[Any] = attrs.Factory(lambda: Value(None))
 
     def guest_tick(self) -> None:
         prev_library, sniffio_library.name = sniffio_library.name, "trio"
@@ -1587,12 +1587,12 @@ class Runner:
     strict_exception_groups: bool
 
     # Run-local values, see _local.py
-    _locals: dict[_core.RunVar[Any], Any] = attrs.field(factory=dict)
+    _locals: dict[_core.RunVar[Any], Any] = attrs.Factory(dict)
 
-    runq: deque[Task] = attrs.field(factory=deque)
-    tasks: set[Task] = attrs.field(factory=set)
+    runq: deque[Task] = attrs.Factory(deque)
+    tasks: set[Task] = attrs.Factory(set)
 
-    deadlines: Deadlines = attrs.field(factory=Deadlines)
+    deadlines: Deadlines = attrs.Factory(Deadlines)
 
     init_task: Task | None = attrs.field(default=None)
     system_nursery: Nursery | None = attrs.field(default=None)
@@ -1600,9 +1600,9 @@ class Runner:
     main_task: Task | None = attrs.field(default=None)
     main_task_outcome: Outcome[Any] | None = attrs.field(default=None)
 
-    entry_queue: EntryQueue = attrs.field(factory=EntryQueue)
+    entry_queue: EntryQueue = attrs.Factory(EntryQueue)
     trio_token: TrioToken | None = attrs.field(default=None)
-    asyncgens: AsyncGenerators = attrs.field(factory=AsyncGenerators)
+    asyncgens: AsyncGenerators = attrs.Factory(AsyncGenerators)
 
     # If everything goes idle for this long, we call clock._autojump()
     clock_autojump_threshold: float = attrs.field(default=inf)
@@ -2001,7 +2001,7 @@ class Runner:
 
     # sortedcontainers doesn't have types, and is reportedly very hard to type:
     # https://github.com/grantjenks/python-sortedcontainers/issues/68
-    waiting_for_idle: Any = attrs.field(factory=SortedDict)
+    waiting_for_idle: Any = attrs.Factory(SortedDict)
 
     @_public
     async def wait_all_tasks_blocked(self, cushion: float = 0.0) -> None:

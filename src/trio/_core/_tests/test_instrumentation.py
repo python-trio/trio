@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 @attrs.define(eq=False, hash=False, slots=False)
 class TaskRecorder(_abc.Instrument):
-    record: list[tuple[str, Task | None]] = attrs.field(factory=list)
+    record: list[tuple[str, Task | None]] = attrs.Factory(list)
 
     def before_run(self) -> None:
         self.record.append(("before_run", None))
