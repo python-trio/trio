@@ -1528,9 +1528,7 @@ class RunStatistics:
 class GuestState:
     runner: Runner
     run_sync_soon_threadsafe: Callable[[Callable[[], object]], object]
-    run_sync_soon_not_threadsafe: Callable[[Callable[[], object]], object] = (
-        attrs.field()
-    )
+    run_sync_soon_not_threadsafe: Callable[[Callable[[], object]], object]
     done_callback: Callable[[Outcome[Any]], object]
     unrolled_run_gen: Generator[float, EventResult, None]
     unrolled_run_next_send: Outcome[Any] = attrs.Factory(lambda: Value(None))
