@@ -1301,7 +1301,7 @@ class Task(metaclass=NoPublicConstructor):
     #   tracebacks with extraneous frames.
     # - for scheduled tasks, custom_sleep_data is None
     # Tasks start out unscheduled.
-    _next_send_fn: Callable[[Any], object] = attrs.field(default=None)
+    _next_send_fn: Callable[[Any], object] | None = attrs.field(default=None)
     _next_send: Outcome[Any] | None | BaseException = attrs.field(default=None)
     _abort_func: Callable[[_core.RaiseCancelT], Abort] | None = attrs.field(
         default=None
