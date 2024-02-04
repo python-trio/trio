@@ -133,7 +133,7 @@ class DeprecatedAttribute:
     value: object
     version: str
     issue: int | None
-    instead: object = attrs.field(default=_not_set)
+    instead: object = _not_set
 
 
 class _ModuleWithDeprecations(ModuleType):

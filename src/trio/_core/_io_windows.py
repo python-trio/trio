@@ -244,9 +244,9 @@ WRITABLE_FLAGS = (
 # operation and start a new one.
 @attrs.define(eq=False)
 class AFDWaiters:
-    read_task: _core.Task | None = attrs.field(default=None)
-    write_task: _core.Task | None = attrs.field(default=None)
-    current_op: AFDPollOp | None = attrs.field(default=None)
+    read_task: _core.Task | None = None
+    write_task: _core.Task | None = None
+    current_op: AFDPollOp | None = None
 
 
 # We also need to bundle up all the info for a single op into a standalone

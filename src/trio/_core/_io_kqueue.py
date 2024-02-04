@@ -39,7 +39,7 @@ class KqueueIOManager:
         attrs.Factory(dict)
     )
     _force_wakeup: WakeupSocketpair = attrs.Factory(WakeupSocketpair)
-    _force_wakeup_fd: int | None = attrs.field(default=None)
+    _force_wakeup_fd: int | None = None
 
     def __attrs_post_init__(self) -> None:
         force_wakeup_event = select.kevent(

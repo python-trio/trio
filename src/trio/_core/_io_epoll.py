@@ -22,9 +22,9 @@ if TYPE_CHECKING:
 
 @attrs.define(eq=False)
 class EpollWaiters:
-    read_task: Task | None = attrs.field(default=None)
-    write_task: Task | None = attrs.field(default=None)
-    current_flags: int = attrs.field(default=0)
+    read_task: Task | None = None
+    write_task: Task | None = None
+    current_flags: int = 0
 
 
 assert not TYPE_CHECKING or sys.platform == "linux"
@@ -206,7 +206,7 @@ class EpollIOManager:
         lambda: defaultdict(EpollWaiters)
     )
     _force_wakeup: WakeupSocketpair = attrs.Factory(WakeupSocketpair)
-    _force_wakeup_fd: int | None = attrs.field(default=None)
+    _force_wakeup_fd: int | None = None
 
     def __attrs_post_init__(self) -> None:
         self._epoll.register(self._force_wakeup.wakeup_sock, select.EPOLLIN)

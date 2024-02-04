@@ -195,11 +195,11 @@ class FakeSocket(trio.socket.SocketType):
     _type: SocketKind
     _proto: int
 
-    ip: str | int | None = attrs.field(default=None)
-    port: str | int | None = attrs.field(default=None)
-    succeeded: bool = attrs.field(default=False)
-    closed: bool = attrs.field(default=False)
-    failing: bool = attrs.field(default=False)
+    ip: str | int | None = None
+    port: str | int | None = None
+    succeeded: bool = False
+    closed: bool = False
+    failing: bool = False
 
     @property
     def type(self) -> SocketKind:

@@ -19,7 +19,7 @@ class _NoValue: ...
 @attrs.define(eq=False, hash=False)
 class RunVarToken(Generic[T], metaclass=NoPublicConstructor):
     _var: RunVar[T]
-    previous_value: T | type[_NoValue] = attrs.field(default=_NoValue)
+    previous_value: T | type[_NoValue] = _NoValue
     redeemed: bool = attrs.field(default=False, init=False)
 
     @classmethod
@@ -39,7 +39,7 @@ class RunVar(Generic[T]):
     """
 
     _name: str
-    _default: T | type[_NoValue] = attrs.field(default=_NoValue)
+    _default: T | type[_NoValue] = _NoValue
 
     def get(self, default: T | type[_NoValue] = _NoValue) -> T:
         """Gets the value of this :class:`RunVar` for the current run call."""

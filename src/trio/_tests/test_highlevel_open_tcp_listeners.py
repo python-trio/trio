@@ -138,9 +138,9 @@ class FakeSocket(tsocket.SocketType):
     _type: SocketKind = attrs.field(converter=SocketKind)
     _proto: int
 
-    closed: bool = attrs.field(default=False)
-    poison_listen: bool = attrs.field(default=False)
-    backlog: int | None = attrs.field(default=None)
+    closed: bool = False
+    poison_listen: bool = False
+    backlog: int | None = None
 
     @property
     def type(self) -> SocketKind:

@@ -203,9 +203,7 @@ disable_ki_protection.__name__ = "disable_ki_protection"
 
 @attrs.define(slots=False)
 class KIManager:
-    handler: Callable[[int, types.FrameType | None], None] | None = attrs.field(
-        default=None
-    )
+    handler: Callable[[int, types.FrameType | None], None] | None = None
 
     def install(
         self,

@@ -228,7 +228,7 @@ class Deadlines:
     # Heap of (deadline, id(CancelScope), CancelScope)
     _heap: list[tuple[float, int, CancelScope]] = attrs.Factory(list)
     # Count of active deadlines (those that haven't been changed)
-    _active: int = attrs.field(default=0)
+    _active: int = 0
 
     def add(self, deadline: float, cancel_scope: CancelScope) -> None:
         heappush(self._heap, (deadline, id(cancel_scope), cancel_scope))
@@ -328,7 +328,7 @@ class CancelStatus:
     # effectively cancelled due to the cancel scope two levels out
     # becoming cancelled, but then the cancel scope one level out
     # becomes shielded so we're not effectively cancelled anymore.
-    effectively_cancelled: bool = attrs.field(default=False)
+    effectively_cancelled: bool = False
 
     # The CancelStatus whose cancellations can propagate to us; we
     # become effectively cancelled when they do, unless scope.shield
@@ -850,7 +850,7 @@ class _TaskStatus(TaskStatus[StatusT]):
     _old_nursery: Nursery
     _new_nursery: Nursery
     # NoStatus is a sentinel.
-    _value: StatusT | type[_NoStatus] = attrs.field(default=_NoStatus)
+    _value: StatusT | type[_NoStatus] = _NoStatus
 
     def __repr__(self) -> str:
         return f"<Task status object at {id(self):#x}>"
@@ -925,7 +925,7 @@ class NurseryManager:
 
     """
 
-    strict_exception_groups: bool = attrs.field(default=True)
+    strict_exception_groups: bool = True
 
     @enable_ki_protection
     async def __aenter__(self) -> Nursery:
@@ -1301,22 +1301,20 @@ class Task(metaclass=NoPublicConstructor):
     #   tracebacks with extraneous frames.
     # - for scheduled tasks, custom_sleep_data is None
     # Tasks start out unscheduled.
-    _next_send_fn: Callable[[Any], object] | None = attrs.field(default=None)
-    _next_send: Outcome[Any] | None | BaseException = attrs.field(default=None)
-    _abort_func: Callable[[_core.RaiseCancelT], Abort] | None = attrs.field(
-        default=None
-    )
-    custom_sleep_data: Any = attrs.field(default=None)
+    _next_send_fn: Callable[[Any], object] | None = None
+    _next_send: Outcome[Any] | None | BaseException = None
+    _abort_func: Callable[[_core.RaiseCancelT], Abort] | None = None
+    custom_sleep_data: Any = None
 
     # For introspection and nursery.start()
     _child_nurseries: list[Nursery] = attrs.Factory(list)
-    _eventual_parent_nursery: Nursery | None = attrs.field(default=None)
+    _eventual_parent_nursery: Nursery | None = None
 
     # these are counts of how many cancel/schedule points this task has
     # executed, for assert{_no,}_checkpoints
     # XX maybe these should be exposed as part of a statistics() method?
-    _cancel_points: int = attrs.field(default=0)
-    _schedule_points: int = attrs.field(default=0)
+    _cancel_points: int = 0
+    _schedule_points: int = 0
 
     def __repr__(self) -> str:
         return f"<Task {self.name!r} at {id(self):#x}>"
@@ -1594,22 +1592,22 @@ class Runner:
 
     deadlines: Deadlines = attrs.Factory(Deadlines)
 
-    init_task: Task | None = attrs.field(default=None)
-    system_nursery: Nursery | None = attrs.field(default=None)
+    init_task: Task | None = None
+    system_nursery: Nursery | None = None
     system_context: contextvars.Context = attrs.field(kw_only=True)
-    main_task: Task | None = attrs.field(default=None)
-    main_task_outcome: Outcome[Any] | None = attrs.field(default=None)
+    main_task: Task | None = None
+    main_task_outcome: Outcome[Any] | None = None
 
     entry_queue: EntryQueue = attrs.Factory(EntryQueue)
-    trio_token: TrioToken | None = attrs.field(default=None)
+    trio_token: TrioToken | None = None
     asyncgens: AsyncGenerators = attrs.Factory(AsyncGenerators)
 
     # If everything goes idle for this long, we call clock._autojump()
-    clock_autojump_threshold: float = attrs.field(default=inf)
+    clock_autojump_threshold: float = inf
 
     # Guest mode stuff
-    is_guest: bool = attrs.field(default=False)
-    guest_tick_scheduled: bool = attrs.field(default=False)
+    is_guest: bool = False
+    guest_tick_scheduled: bool = False
 
     def force_guest_tick_asap(self) -> None:
         if self.guest_tick_scheduled:
@@ -1968,7 +1966,7 @@ class Runner:
     # KI handling
     ################
 
-    ki_pending: bool = attrs.field(default=False)
+    ki_pending: bool = False
 
     # deliver_ki is broke. Maybe move all the actual logic and state into
     # RunToken, and we'll only have one instance per runner? But then we can't

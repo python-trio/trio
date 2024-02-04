@@ -32,7 +32,7 @@ class EntryQueue:
     idempotent_queue: dict[Job, None] = attrs.Factory(dict)
 
     wakeup: WakeupSocketpair = attrs.Factory(WakeupSocketpair)
-    done: bool = attrs.field(default=False)
+    done: bool = False
     # Must be a reentrant lock, because it's acquired from signal handlers.
     # RLock is signal-safe as of cpython 3.2. NB that this does mean that the
     # lock is effectively *disabled* when we enter from signal context. The
