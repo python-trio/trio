@@ -18,7 +18,7 @@ class _NoValue: ...
 @final
 @attrs.define(eq=False, hash=False)
 class RunVarToken(Generic[T], metaclass=NoPublicConstructor):
-    _var: RunVar[T] = attrs.field()
+    _var: RunVar[T]
     previous_value: T | type[_NoValue] = attrs.field(default=_NoValue)
     redeemed: bool = attrs.field(default=False, init=False)
 
@@ -38,7 +38,7 @@ class RunVar(Generic[T]):
 
     """
 
-    _name: str = attrs.field()
+    _name: str
     _default: T | type[_NoValue] = attrs.field(default=_NoValue)
 
     def get(self, default: T | type[_NoValue] = _NoValue) -> T:

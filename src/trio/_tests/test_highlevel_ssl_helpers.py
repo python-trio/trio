@@ -45,7 +45,7 @@ async def echo_handler(stream: Stream) -> None:
 # you ask for.
 @attrs.define(slots=False)
 class FakeHostnameResolver(trio.abc.HostnameResolver):
-    sockaddr: tuple[str, int] | tuple[str, int, int, int] = attrs.field()
+    sockaddr: tuple[str, int] | tuple[str, int, int, int]
 
     async def getaddrinfo(
         self,

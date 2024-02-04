@@ -29,7 +29,7 @@ class EventStatistics:
 
     """
 
-    tasks_waiting: int = attrs.field()
+    tasks_waiting: int
 
 
 @final
@@ -148,10 +148,10 @@ class CapacityLimiterStatistics:
 
     """
 
-    borrowed_tokens: int = attrs.field()
-    total_tokens: int | float = attrs.field()
-    borrowers: list[Task | object] = attrs.field()
-    tasks_waiting: int = attrs.field()
+    borrowed_tokens: int
+    total_tokens: int | float
+    borrowers: list[Task | object]
+    tasks_waiting: int
 
 
 # Can be a generic type with a default of Task if/when PEP 696 is released
@@ -535,9 +535,9 @@ class LockStatistics:
 
     """
 
-    locked: bool = attrs.field()
-    owner: Task | None = attrs.field()
-    tasks_waiting: int = attrs.field()
+    locked: bool
+    owner: Task | None
+    tasks_waiting: int
 
 
 @attrs.define(eq=False, hash=False, repr=False, slots=False)
@@ -720,8 +720,8 @@ class ConditionStatistics:
 
     """
 
-    tasks_waiting: int = attrs.field()
-    lock_statistics: LockStatistics = attrs.field()
+    tasks_waiting: int
+    lock_statistics: LockStatistics
 
 
 @final

@@ -514,10 +514,10 @@ def gai_without_v4mapped_is_buggy() -> bool:  # pragma: no cover
 
 @attrs.define(slots=False)
 class Addresses:
-    bind_all: str = attrs.field()
-    localhost: str = attrs.field()
-    arbitrary: str = attrs.field()
-    broadcast: str = attrs.field()
+    bind_all: str
+    localhost: str
+    arbitrary: str
+    broadcast: str
 
 
 # Direct thorough tests of the implicit resolver helpers

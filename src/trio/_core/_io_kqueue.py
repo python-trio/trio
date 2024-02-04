@@ -26,8 +26,8 @@ EventResult: TypeAlias = "list[select.kevent]"
 
 @attrs.frozen(eq=False)
 class _KqueueStatistics:
-    tasks_waiting: int = attrs.field()
-    monitors: int = attrs.field()
+    tasks_waiting: int
+    monitors: int
     backend: Literal["kqueue"] = attrs.field(init=False, default="kqueue")
 
 

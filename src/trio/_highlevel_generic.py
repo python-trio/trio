@@ -92,8 +92,8 @@ class StapledStream(
 
     """
 
-    send_stream: SendStreamT = attrs.field()
-    receive_stream: ReceiveStreamT = attrs.field()
+    send_stream: SendStreamT
+    receive_stream: ReceiveStreamT
 
     async def send_all(self, data: bytes | bytearray | memoryview) -> None:
         """Calls ``self.send_stream.send_all``."""

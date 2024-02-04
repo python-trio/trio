@@ -35,8 +35,8 @@ EventResult: TypeAlias = "list[tuple[int, int]]"
 
 @attrs.frozen(eq=False)
 class _EpollStatistics:
-    tasks_waiting_read: int = attrs.field()
-    tasks_waiting_write: int = attrs.field()
+    tasks_waiting_read: int
+    tasks_waiting_write: int
     backend: Literal["epoll"] = attrs.field(init=False, default="epoll")
 
 

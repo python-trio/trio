@@ -166,7 +166,7 @@ class TrioToken(metaclass=NoPublicConstructor):
 
     """
 
-    _reentry_queue: EntryQueue = attrs.field()
+    _reentry_queue: EntryQueue
 
     def run_sync_soon(
         self,

@@ -254,10 +254,10 @@ class AFDWaiters:
 # finishes, even if we're throwing it away.
 @attrs.frozen(eq=False)
 class AFDPollOp:
-    lpOverlapped: CData = attrs.field()
-    poll_info: Any = attrs.field()
-    waiters: AFDWaiters = attrs.field()
-    afd_group: AFDGroup = attrs.field()
+    lpOverlapped: CData
+    poll_info: Any
+    waiters: AFDWaiters
+    afd_group: AFDGroup
 
 
 # The Windows kernel has a weird issue when using AFD handles. If you have N
@@ -273,8 +273,8 @@ MAX_AFD_GROUP_SIZE = 500  # at 1000, the cubic scaling is just starting to bite
 
 @attrs.define(eq=False)
 class AFDGroup:
-    size: int = attrs.field()
-    handle: Handle = attrs.field()
+    size: int
+    handle: Handle
 
 
 assert not TYPE_CHECKING or sys.platform == "win32"
@@ -282,10 +282,10 @@ assert not TYPE_CHECKING or sys.platform == "win32"
 
 @attrs.frozen(eq=False)
 class _WindowsStatistics:
-    tasks_waiting_read: int = attrs.field()
-    tasks_waiting_write: int = attrs.field()
-    tasks_waiting_overlapped: int = attrs.field()
-    completion_key_monitors: int = attrs.field()
+    tasks_waiting_read: int
+    tasks_waiting_write: int
+    tasks_waiting_overlapped: int
+    completion_key_monitors: int
     backend: Literal["windows"] = attrs.field(init=False, default="windows")
 
 
@@ -407,8 +407,8 @@ def _afd_helper_handle() -> Handle:
 
 @attrs.frozen(slots=False)
 class CompletionKeyEventInfo:
-    lpOverlapped: CData = attrs.field()
-    dwNumberOfBytesTransferred: int = attrs.field()
+    lpOverlapped: CData
+    dwNumberOfBytesTransferred: int
 
 
 class WindowsIOManager:

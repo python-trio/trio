@@ -97,7 +97,7 @@ class ParkingLotStatistics:
 
     """
 
-    tasks_waiting: int = attrs.field()
+    tasks_waiting: int
 
 
 @final

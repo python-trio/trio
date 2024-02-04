@@ -190,10 +190,10 @@ async def test_local_address_real() -> None:
 
 @attrs.define(eq=False, slots=False)
 class FakeSocket(trio.socket.SocketType):
-    scenario: Scenario = attrs.field()
-    _family: AddressFamily = attrs.field()
-    _type: SocketKind = attrs.field()
-    _proto: int = attrs.field()
+    scenario: Scenario
+    _family: AddressFamily
+    _type: SocketKind
+    _proto: int
 
     ip: str | int | None = attrs.field(default=None)
     port: str | int | None = attrs.field(default=None)

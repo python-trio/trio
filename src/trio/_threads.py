@@ -74,14 +74,14 @@ def current_default_thread_limiter() -> CapacityLimiter:
 # keep track of who's holding the CapacityLimiter's token.
 @attrs.frozen(eq=False, hash=False, slots=False)
 class ThreadPlaceholder:
-    name: str = attrs.field()
+    name: str
 
 
 # Types for the to_thread_run_sync message loop
 @attrs.frozen(eq=False, slots=False)
 class Run(Generic[RetT]):
-    afn: Callable[..., Awaitable[RetT]] = attrs.field()
-    args: tuple[object, ...] = attrs.field()
+    afn: Callable[..., Awaitable[RetT]]
+    args: tuple[object, ...]
     context: contextvars.Context = attrs.field(
         init=False, factory=contextvars.copy_context
     )
@@ -135,8 +135,8 @@ class Run(Generic[RetT]):
 
 @attrs.frozen(eq=False, slots=False)
 class RunSync(Generic[RetT]):
-    fn: Callable[..., RetT] = attrs.field()
-    args: tuple[object, ...] = attrs.field()
+    fn: Callable[..., RetT]
+    args: tuple[object, ...]
     context: contextvars.Context = attrs.field(
         init=False, factory=contextvars.copy_context
     )

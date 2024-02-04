@@ -136,7 +136,7 @@ class FakeOSError(OSError):
 class FakeSocket(tsocket.SocketType):
     _family: AddressFamily = attrs.field(converter=AddressFamily)
     _type: SocketKind = attrs.field(converter=SocketKind)
-    _proto: int = attrs.field()
+    _proto: int
 
     closed: bool = attrs.field(default=False)
     poison_listen: bool = attrs.field(default=False)
@@ -201,7 +201,7 @@ class FakeSocket(tsocket.SocketType):
 
 @attrs.define(slots=False)
 class FakeSocketFactory(SocketFactory):
-    poison_after: int = attrs.field()
+    poison_after: int
     sockets: list[tsocket.SocketType] = attrs.field(factory=list)
     raise_on_family: dict[AddressFamily, int] = attrs.field(
         factory=dict
@@ -229,7 +229,7 @@ class FakeSocketFactory(SocketFactory):
 
 @attrs.define(slots=False)
 class FakeHostnameResolver(HostnameResolver):
-    family_addr_pairs: Sequence[tuple[AddressFamily, str]] = attrs.field()
+    family_addr_pairs: Sequence[tuple[AddressFamily, str]]
 
     async def getaddrinfo(
         self,

@@ -847,8 +847,8 @@ class TaskStatus(Protocol[StatusT_contra]):
 # sense.
 @attrs.define(eq=False, hash=False, repr=False, slots=False)
 class _TaskStatus(TaskStatus[StatusT]):
-    _old_nursery: Nursery = attrs.field()
-    _new_nursery: Nursery = attrs.field()
+    _old_nursery: Nursery
+    _new_nursery: Nursery
     # NoStatus is a sentinel.
     _value: StatusT | type[_NoStatus] = attrs.field(default=_NoStatus)
 
@@ -1283,11 +1283,11 @@ class Nursery(metaclass=NoPublicConstructor):
 @final
 @attrs.define(eq=False, hash=False, repr=False)
 class Task(metaclass=NoPublicConstructor):
-    _parent_nursery: Nursery | None = attrs.field()
-    coro: Coroutine[Any, Outcome[object], Any] = attrs.field()
-    _runner: Runner = attrs.field()
-    name: str = attrs.field()
-    context: contextvars.Context = attrs.field()
+    _parent_nursery: Nursery | None
+    coro: Coroutine[Any, Outcome[object], Any]
+    _runner: Runner
+    name: str
+    context: contextvars.Context
     _counter: int = attrs.field(init=False, factory=itertools.count().__next__)
 
     # Invariant:
@@ -1528,13 +1528,13 @@ class RunStatistics:
 
 @attrs.define(eq=False, hash=False)
 class GuestState:
-    runner: Runner = attrs.field()
-    run_sync_soon_threadsafe: Callable[[Callable[[], object]], object] = attrs.field()
+    runner: Runner
+    run_sync_soon_threadsafe: Callable[[Callable[[], object]], object]
     run_sync_soon_not_threadsafe: Callable[[Callable[[], object]], object] = (
         attrs.field()
     )
-    done_callback: Callable[[Outcome[Any]], object] = attrs.field()
-    unrolled_run_gen: Generator[float, EventResult, None] = attrs.field()
+    done_callback: Callable[[Outcome[Any]], object]
+    unrolled_run_gen: Generator[float, EventResult, None]
     unrolled_run_next_send: Outcome[Any] = attrs.field(factory=lambda: Value(None))
 
     def guest_tick(self) -> None:
@@ -1580,11 +1580,11 @@ class GuestState:
 
 @attrs.define(eq=False, hash=False)
 class Runner:
-    clock: Clock = attrs.field()
-    instruments: Instruments = attrs.field()
-    io_manager: TheIOManager = attrs.field()
-    ki_manager: KIManager = attrs.field()
-    strict_exception_groups: bool = attrs.field()
+    clock: Clock
+    instruments: Instruments
+    io_manager: TheIOManager
+    ki_manager: KIManager
+    strict_exception_groups: bool
 
     # Run-local values, see _local.py
     _locals: dict[_core.RunVar[Any], Any] = attrs.field(factory=dict)
