@@ -5,7 +5,7 @@ import sys
 from socket import AddressFamily, SocketKind
 from typing import TYPE_CHECKING, Any, Sequence
 
-import attr
+import attrs
 import pytest
 
 import trio
@@ -188,18 +188,18 @@ async def test_local_address_real() -> None:
 # Now, thorough tests using fake sockets
 
 
-@attr.s(eq=False)
+@attrs.define(eq=False, slots=False)
 class FakeSocket(trio.socket.SocketType):
-    scenario: Scenario = attr.ib()
-    _family: AddressFamily = attr.ib()
-    _type: SocketKind = attr.ib()
-    _proto: int = attr.ib()
+    scenario: Scenario
+    _family: AddressFamily
+    _type: SocketKind
+    _proto: int
 
-    ip: str | int | None = attr.ib(default=None)
-    port: str | int | None = attr.ib(default=None)
-    succeeded: bool = attr.ib(default=False)
-    closed: bool = attr.ib(default=False)
-    failing: bool = attr.ib(default=False)
+    ip: str | int | None = None
+    port: str | int | None = None
+    succeeded: bool = False
+    closed: bool = False
+    failing: bool = False
 
     @property
     def type(self) -> SocketKind:

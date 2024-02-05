@@ -8,7 +8,7 @@ import threading
 from itertools import count
 from typing import TYPE_CHECKING, Generic, TypeVar, overload
 
-import attr
+import attrs
 import outcome
 from sniffio import current_async_library_cvar
 
@@ -72,18 +72,20 @@ def current_default_thread_limiter() -> CapacityLimiter:
 # system; see https://github.com/python-trio/trio/issues/182
 # But for now we just need an object to stand in for the thread, so we can
 # keep track of who's holding the CapacityLimiter's token.
-@attr.s(frozen=True, eq=False, hash=False)
+@attrs.frozen(eq=False, hash=False, slots=False)
 class ThreadPlaceholder:
-    name: str = attr.ib()
+    name: str
 
 
 # Types for the to_thread_run_sync message loop
-@attr.s(frozen=True, eq=False)
+@attrs.frozen(eq=False, slots=False)
 class Run(Generic[RetT]):
-    afn: Callable[..., Awaitable[RetT]] = attr.ib()
-    args: tuple[object, ...] = attr.ib()
-    context: contextvars.Context = attr.ib(init=False, factory=contextvars.copy_context)
-    queue: stdlib_queue.SimpleQueue[outcome.Outcome[RetT]] = attr.ib(
+    afn: Callable[..., Awaitable[RetT]]
+    args: tuple[object, ...]
+    context: contextvars.Context = attrs.field(
+        init=False, factory=contextvars.copy_context
+    )
+    queue: stdlib_queue.SimpleQueue[outcome.Outcome[RetT]] = attrs.field(
         init=False, factory=stdlib_queue.SimpleQueue
     )
 
@@ -131,12 +133,14 @@ class Run(Generic[RetT]):
         token.run_sync_soon(in_trio_thread)
 
 
-@attr.s(frozen=True, eq=False)
+@attrs.frozen(eq=False, slots=False)
 class RunSync(Generic[RetT]):
-    fn: Callable[..., RetT] = attr.ib()
-    args: tuple[object, ...] = attr.ib()
-    context: contextvars.Context = attr.ib(init=False, factory=contextvars.copy_context)
-    queue: stdlib_queue.SimpleQueue[outcome.Outcome[RetT]] = attr.ib(
+    fn: Callable[..., RetT]
+    args: tuple[object, ...]
+    context: contextvars.Context = attrs.field(
+        init=False, factory=contextvars.copy_context
+    )
+    queue: stdlib_queue.SimpleQueue[outcome.Outcome[RetT]] = attrs.field(
         init=False, factory=stdlib_queue.SimpleQueue
     )
 

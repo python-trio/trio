@@ -4,7 +4,7 @@ from collections import defaultdict
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
-import attr
+import attrs
 
 from .. import Event, _core, _util
 
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 @_util.final
-@attr.s(eq=False, hash=False)
+@attrs.define(eq=False, hash=False, slots=False)
 class Sequencer:
     """A convenience class for forcing code in different tasks to run in an
     explicit linear order.
@@ -54,11 +54,11 @@ class Sequencer:
 
     """
 
-    _sequence_points: defaultdict[int, Event] = attr.ib(
+    _sequence_points: defaultdict[int, Event] = attrs.field(
         factory=lambda: defaultdict(Event), init=False
     )
-    _claimed: set[int] = attr.ib(factory=set, init=False)
-    _broken: bool = attr.ib(default=False, init=False)
+    _claimed: set[int] = attrs.field(factory=set, init=False)
+    _broken: bool = attrs.field(default=False, init=False)
 
     @asynccontextmanager
     async def __call__(self, position: int) -> AsyncIterator[None]:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import attr
+import attrs
 import pytest
 
 from .. import abc as tabc
@@ -30,9 +30,9 @@ def test_instrument_implements_hook_methods() -> None:
 
 
 async def test_AsyncResource_defaults() -> None:
-    @attr.s
+    @attrs.define(slots=False)
     class MyAR(tabc.AsyncResource):
-        record: list[str] = attr.ib(factory=list)
+        record: list[str] = attrs.Factory(list)
 
         async def aclose(self) -> None:
             self.record.append("ac")

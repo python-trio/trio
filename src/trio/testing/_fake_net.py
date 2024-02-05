@@ -24,7 +24,7 @@ from typing import (
     overload,
 )
 
-import attr
+import attrs
 
 import trio
 from trio._util import NoPublicConstructor, final
@@ -83,7 +83,7 @@ def _scatter(data: bytes, buffers: Iterable[Buffer]) -> int:
 T_UDPEndpoint = TypeVar("T_UDPEndpoint", bound="UDPEndpoint")
 
 
-@attr.frozen
+@attrs.frozen
 class UDPEndpoint:
     ip: IPAddress
     port: int
@@ -105,17 +105,17 @@ class UDPEndpoint:
         return cls(ip=ipaddress.ip_address(ip), port=port)
 
 
-@attr.frozen
+@attrs.frozen
 class UDPBinding:
     local: UDPEndpoint
     # remote: UDPEndpoint # ??
 
 
-@attr.frozen
+@attrs.frozen
 class UDPPacket:
     source: UDPEndpoint
     destination: UDPEndpoint
-    payload: bytes = attr.ib(repr=lambda p: p.hex())
+    payload: bytes = attrs.field(repr=lambda p: p.hex())
 
     # not used/tested anywhere
     def reply(self, payload: bytes) -> UDPPacket:  # pragma: no cover
@@ -124,7 +124,7 @@ class UDPPacket:
         )
 
 
-@attr.frozen
+@attrs.frozen
 class FakeSocketFactory(trio.abc.SocketFactory):
     fake_net: FakeNet
 
@@ -132,7 +132,7 @@ class FakeSocketFactory(trio.abc.SocketFactory):
         return FakeSocket._create(self.fake_net, family, type_, proto)
 
 
-@attr.frozen
+@attrs.frozen
 class FakeHostnameResolver(trio.abc.HostnameResolver):
     fake_net: FakeNet
 
