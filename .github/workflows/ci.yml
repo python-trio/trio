@@ -210,7 +210,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cython: ['<3', '>=3']
         python: ['3.8', '3.12']
     steps:
       - name: Checkout
@@ -220,12 +219,19 @@ jobs:
         with:
             python-version: '${{ matrix.python }}'
             cache: pip
-      - name: install cython
-        run: |
           # setuptools is needed to get distutils on 3.12, which cythonize requires
-          python -m pip install setuptools "cython${{ matrix.cython}}"
-      - name: install trio
-        run: python -m pip install .
+      - name: install trio and setuptools
+        run: python -m pip install . setuptools
+
+      - name: install cython<3
+        run: python -m pip install "cython<3"
+      - name: compile pyx file
+        run: cythonize -i tests/cython/test_cython.pyx
+      - name: import & run module
+        run: python -c 'import tests.cython.test_cython'
+
+      - name: install cython>=3
+        run: python -m pip install "cython>=3"
       - name: compile pyx file
         run: cythonize -i tests/cython/test_cython.pyx
       - name: import & run module
