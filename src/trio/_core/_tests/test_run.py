@@ -2551,6 +2551,9 @@ def _create_kwargs(strictness: bool | None) -> dict[str, bool]:
     return {"strict_exception_groups": strictness}
 
 
+@pytest.mark.filterwarnings(
+    "ignore:.*strict_exception_groups=False:trio.TrioDeprecationWarning"
+)
 @pytest.mark.parametrize("run_strict", [True, False, None])
 @pytest.mark.parametrize("open_nursery_strict", [True, False, None])
 @pytest.mark.parametrize("multiple_exceptions", [True, False])
@@ -2591,6 +2594,9 @@ def test_setting_strict_exception_groups(
             run_main()
 
 
+@pytest.mark.filterwarnings(
+    "ignore:.*strict_exception_groups=False:trio.TrioDeprecationWarning"
+)
 @pytest.mark.parametrize("strict", [True, False, None])
 async def test_nursery_collapse(strict: bool | None) -> None:
     """
@@ -2630,6 +2636,9 @@ async def test_cancel_scope_no_cancellederror() -> None:
     assert not scope.cancelled_caught
 
 
+@pytest.mark.filterwarnings(
+    "ignore:.*strict_exception_groups=False:trio.TrioDeprecationWarning"
+)
 @pytest.mark.parametrize("run_strict", [False, True])
 @pytest.mark.parametrize("start_raiser_strict", [False, True, None])
 @pytest.mark.parametrize("raise_after_started", [False, True])

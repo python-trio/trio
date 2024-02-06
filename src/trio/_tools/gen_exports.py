@@ -14,7 +14,7 @@ from pathlib import Path
 from textwrap import indent
 from typing import TYPE_CHECKING
 
-import attr
+import attrs
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
@@ -44,12 +44,12 @@ except AttributeError:
 """
 
 
-@attr.define
+@attrs.define
 class File:
     path: Path
     modname: str
-    platform: str = attr.field(default="", kw_only=True)
-    imports: str = attr.field(default="", kw_only=True)
+    platform: str = attrs.field(default="", kw_only=True)
+    imports: str = attrs.field(default="", kw_only=True)
 
 
 def is_function(node: ast.AST) -> TypeGuard[ast.FunctionDef | ast.AsyncFunctionDef]:

@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from itertools import count
 from typing import TYPE_CHECKING, NoReturn
 
-import attr
+import attrs
 import pytest
 
 from trio._tests.pytest_plugin import skip_if_optional_else_raise
@@ -160,7 +160,7 @@ async def test_handshake_over_terrible_network(
                     # elif op == "distort":
                     #     payload = bytearray(packet.payload)
                     #     payload[r.randrange(len(payload))] ^= 1 << r.randrange(8)
-                    #     packet = attr.evolve(packet, payload=payload)
+                    #     packet = attrs.evolve(packet, payload=payload)
                     else:
                         assert op == "deliver"
                         print(
@@ -485,7 +485,7 @@ async def test_invalid_cookie_rejected(autojump_clock: trio.abc.Clock) -> None:
                         offset = len(payload) - 1
                         cscope.cancel()
                     payload[offset] ^= 0x01
-                    packet = attr.evolve(packet, payload=payload)
+                    packet = attrs.evolve(packet, payload=payload)
 
             fn.deliver_packet(packet)
 

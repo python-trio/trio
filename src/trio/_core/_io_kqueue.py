@@ -6,7 +6,7 @@ import sys
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Callable, Iterator, Literal
 
-import attr
+import attrs
 import outcome
 
 from .. import _core
@@ -24,22 +24,22 @@ assert not TYPE_CHECKING or (sys.platform != "linux" and sys.platform != "win32"
 EventResult: TypeAlias = "list[select.kevent]"
 
 
-@attr.s(slots=True, eq=False, frozen=True)
+@attrs.frozen(eq=False)
 class _KqueueStatistics:
-    tasks_waiting: int = attr.ib()
-    monitors: int = attr.ib()
-    backend: Literal["kqueue"] = attr.ib(init=False, default="kqueue")
+    tasks_waiting: int
+    monitors: int
+    backend: Literal["kqueue"] = attrs.field(init=False, default="kqueue")
 
 
-@attr.s(slots=True, eq=False)
+@attrs.define(eq=False)
 class KqueueIOManager:
-    _kqueue: select.kqueue = attr.ib(factory=select.kqueue)
+    _kqueue: select.kqueue = attrs.Factory(select.kqueue)
     # {(ident, filter): Task or UnboundedQueue}
-    _registered: dict[tuple[int, int], Task | UnboundedQueue[select.kevent]] = attr.ib(
-        factory=dict
+    _registered: dict[tuple[int, int], Task | UnboundedQueue[select.kevent]] = (
+        attrs.Factory(dict)
     )
-    _force_wakeup: WakeupSocketpair = attr.ib(factory=WakeupSocketpair)
-    _force_wakeup_fd: int | None = attr.ib(default=None)
+    _force_wakeup: WakeupSocketpair = attrs.Factory(WakeupSocketpair)
+    _force_wakeup_fd: int | None = None
 
     def __attrs_post_init__(self) -> None:
         force_wakeup_event = select.kevent(
