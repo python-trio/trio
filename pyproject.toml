@@ -106,6 +106,7 @@ select = [
     "RUF",   # Ruff-specific rules
     "SIM",   # flake8-simplify
     "TCH",   # flake8-type-checking
+    "TRIO",  # flake8-trio
     "UP",    # pyupgrade
     "W",     # Warning
     "YTT",   # flake8-2020
