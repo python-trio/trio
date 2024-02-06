@@ -24,6 +24,8 @@ from typing import (
 import pytest
 import sniffio
 
+from trio import lowlevel
+
 from .. import (
     CancelScope,
     CapacityLimiter,
@@ -165,7 +167,7 @@ def test_run_in_trio_thread_ki() -> None:
         thread.start()
         print("waiting")
         while thread.is_alive():
-            await sleep(0.01)
+            await lowlevel.checkpoint()
         print("waited, joining")
         thread.join()
         print("done")
@@ -535,7 +537,7 @@ async def test_run_in_worker_thread_limiter(
             # check below won't fail due to scheduling issues. (It could still
             # fail if too many threads are let through here.)
             while state.parked != MAX or c.statistics().tasks_waiting != MAX:
-                await sleep(0.01)  # pragma: no cover
+                await lowlevel.checkpoint()  # pragma: no cover
             # Then release the threads
             gate.set()
 
@@ -546,7 +548,7 @@ async def test_run_in_worker_thread_limiter(
             # finish before checking that all threads ran. We can do this
             # using the CapacityLimiter.
             while c.borrowed_tokens > 0:
-                await sleep(0.01)  # pragma: no cover
+                await lowlevel.checkpoint()  # pragma: no cover
 
         assert state.ran == COUNT
         assert state.running == 0
