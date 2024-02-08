@@ -106,6 +106,7 @@ Tools and Utilities
 * `perf-timer <https://github.com/belm0/perf-timer>`__ - A code timer with Trio async support (see ``TrioPerfTimer``).  Collects execution time of a block of code excluding time when the coroutine isn't scheduled, such as during blocking I/O and sleep.  Also offers ``trio_perf_counter()`` for low-level timing.
 * `aiometer <https://github.com/florimondmanca/aiometer>`__ - Execute lots of tasks concurrently while controlling concurrency limits
 * `triotp <https://linkdd.github.io/triotp>`__ - OTP framework for Python Trio
+* `aioresult <https://github.com/arthur-tacca/aioresult>`__ - Get the return value of a background async function in Trio or anyio, along with a simple Future class and wait utilities
 
 Trio/Asyncio Interoperability
 -----------------------------
