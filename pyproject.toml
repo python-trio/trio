@@ -86,11 +86,19 @@ ignore-words-list = 'astroid,crasher,asend'
 respect-gitignore = true
 fix = true
 
-allowed-confusables = ["–"]
-
 # The directories to consider when resolving first vs. third-party imports.
 # Does not control what files to include/exclude!
 src = ["src/trio", "notes-to-self"]
+
+include = ["*.py", "*.pyi", "**/pyproject.toml"]
+
+extend-exclude = [
+  "docs/source/reference-*",
+  "docs/source/tutorial/*",
+]
+
+[tool.ruff.lint]
+allowed-confusables = ["–"]
 
 select = [
     "A",     # flake8-builtins
@@ -120,14 +128,7 @@ extend-ignore = [
     'SIM117', # multiple-with-statements (messes up lots of context-based stuff and looks bad)
 ]
 
-include = ["*.py", "*.pyi", "**/pyproject.toml"]
-
-extend-exclude = [
-  "docs/source/reference-*",
-  "docs/source/tutorial/*",
-]
-
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 # F401 is ignoring unused imports. For these particular files,
 # these are public APIs where we are importing everything we want
 # to export for public use.
@@ -138,10 +139,10 @@ extend-exclude = [
 'src/trio/socket.py' = ['F401']
 'src/trio/testing/__init__.py' = ['F401']
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 combine-as-imports = true
 
-[tool.ruff.flake8-pytest-style]
+[tool.ruff.lint.flake8-pytest-style]
 fixture-parentheses = false
 
 [tool.mypy]
