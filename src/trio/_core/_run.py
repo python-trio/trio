@@ -1767,6 +1767,7 @@ class Runner:
             except AttributeError:
                 name = repr(name)
 
+        # very old Cython versions (<0.29.24) has the attribute, but with a value of None
         if getattr(coro, "cr_frame", None) is None:
             # This async function is implemented in C or Cython
             async def python_wrapper(orig_coro: Awaitable[RetT]) -> RetT:
