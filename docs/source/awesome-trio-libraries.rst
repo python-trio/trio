@@ -94,6 +94,7 @@ Testing
 * `hypothesis-trio <https://github.com/python-trio/hypothesis-trio>`__ - Hypothesis plugin for trio.
 * `trustme <https://github.com/python-trio/trustme>`__ - #1 quality TLS certs while you wait, for the discerning tester.
 * `pytest-aio <https://github.com/klen/pytest-aio>`_ - Pytest plugin with support for trio, curio, asyncio
+* `logot <https://github.com/etianen/logot>`_ - Test whether your async code is logging correctly.
 
 
 Tools and Utilities
