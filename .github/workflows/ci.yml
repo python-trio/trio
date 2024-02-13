@@ -57,9 +57,9 @@ jobs:
       }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           # This allows the matrix to specify just the major.minor version while still
           # expanding it to get the latest patch version including alpha releases.
@@ -117,9 +117,9 @@ jobs:
       }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         if: "!endsWith(matrix.python, '-dev')"
         with:
           python-version: ${{ fromJSON(format('["{0}", "{1}"]', format('{0}.0-alpha - {0}.X', matrix.python), matrix.python))[startsWith(matrix.python, 'pypy')] }}
@@ -162,9 +162,9 @@ jobs:
       }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ fromJSON(format('["{0}", "{1}"]', format('{0}.0-alpha - {0}.X', matrix.python), matrix.python))[startsWith(matrix.python, 'pypy')] }}
           cache: pip
@@ -186,7 +186,7 @@ jobs:
     container: alpine
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install necessary packages
         # can't use setup-python because that python doesn't seem to work;
         # `python3-dev` (rather than `python:alpine`) for some ctypes reason,
@@ -205,6 +205,40 @@ jobs:
           name: Alpine
           flags: Alpine,3.12
 
+  Cython:
+    name: "Cython"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.8', '3.12']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup python
+        uses: actions/setup-python@v5
+        with:
+            python-version: '${{ matrix.python }}'
+            cache: pip
+        # setuptools is needed to get distutils on 3.12, which cythonize requires
+      - name: install trio and setuptools
+        run: python -m pip install --upgrade pip . setuptools
+
+      - name: install cython<3
+        run: python -m pip install "cython<3"
+      - name: compile pyx file
+        run: cythonize -i tests/cython/test_cython.pyx
+      - name: import & run module
+        run: python -c 'import tests.cython.test_cython'
+
+      - name: install cython>=3
+        run: python -m pip install "cython>=3"
+      - name: compile pyx file
+        # different cython version should trigger a re-compile, but --force just in case
+        run: cythonize --inplace --force tests/cython/test_cython.pyx
+      - name: import & run module
+        run: python -c 'import tests.cython.test_cython'
+
   # https://github.com/marketplace/actions/alls-green#why
   check:  # This job does nothing and is only used for the branch protection
 
@@ -215,6 +249,7 @@ jobs:
       - Ubuntu
       - macOS
       - Alpine
+      - Cython
 
     runs-on: ubuntu-latest
 
