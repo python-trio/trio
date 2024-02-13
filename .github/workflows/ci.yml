@@ -82,7 +82,7 @@ jobs:
       - if: always()
         uses: codecov/codecov-action@v4
         with:
-          directory: empty
+          file: empty/coverage.xml
           token: 87cefb17-c44b-4f2f-8b30-1fff5769ce46
           name: Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})
           flags: Windows,${{ matrix.python }}
@@ -138,7 +138,7 @@ jobs:
       - if: always()
         uses: codecov/codecov-action@v4
         with:
-          directory: empty
+          file: empty/coverage.xml
           token: 87cefb17-c44b-4f2f-8b30-1fff5769ce46
           name: Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})
           flags: Ubuntu,${{ matrix.python }}
@@ -174,7 +174,7 @@ jobs:
       - if: always()
         uses: codecov/codecov-action@v4
         with:
-          directory: empty
+          file: empty/coverage.xml
           token: 87cefb17-c44b-4f2f-8b30-1fff5769ce46
           name: macOS (${{ matrix.python }})
           flags: macOS,${{ matrix.python }}
@@ -200,7 +200,7 @@ jobs:
         # Can't update to v4 quite yet, see https://github.com/codecov/codecov-action/issues/1279
         uses: codecov/codecov-action@v3
         with:
-          directory: empty
+          file: empty/coverage.xml
           token: 87cefb17-c44b-4f2f-8b30-1fff5769ce46
           name: Alpine
           flags: Alpine,3.12
