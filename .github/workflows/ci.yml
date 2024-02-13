@@ -18,18 +18,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # pypy 3.9 and 3.10 are failing, see https://github.com/python-trio/trio/issues/2678 and https://github.com/python-trio/trio/issues/2776 respectively
-        python: ['3.8', '3.9', '3.10'] #, 'pypy-3.9-nightly', 'pypy-3.10-nightly']
+        python: ['3.8', '3.9', '3.10']
         arch: ['x86', 'x64']
         lsp: ['']
         lsp_extract_file: ['']
         extra_name: ['']
-        exclude:
-          # pypy does not release 32-bit binaries
-          - python: 'pypy-3.9-nightly'
-            arch: 'x86'
-          #- python: 'pypy-3.10-nightly'
-          #  arch: 'x86'
         include:
           - python: '3.8'
             arch: 'x64'
@@ -94,7 +87,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.9', 'pypy-3.10', '3.8', '3.9', '3.10', '3.11', '3.12', 'pypy-3.9-nightly', 'pypy-3.10-nightly']
+        python: ['pypy-3.9', 'pypy-3.10', '3.8', '3.9', '3.10', '3.11', '3.12']
         check_formatting: ['0']
         no_test_requirements: ['0']
         extra_name: ['']
@@ -150,7 +143,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.8', '3.9', '3.10', 'pypy-3.9-nightly', 'pypy-3.10-nightly']
+        python: ['3.8', '3.9', '3.10']
     continue-on-error: >-
       ${{
         (
