@@ -37,7 +37,7 @@ python -c "import sys, struct, ssl; print('python:', sys.version); print('versio
 echo "::endgroup::"
 
 echo "::group::Install dependencies"
-python -m pip install -U pip build uv
+python -m pip install -U pip build
 python -m pip --version
 
 python -m build
