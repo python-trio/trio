@@ -44,7 +44,7 @@ uv venv .venv
 
 if [ $(python -c "import sys;print(sys.platform.startswith('win'))") = "True" ]; then
     ls .venv/Scripts
-    .venv/Scripts/activate.bat
+    ./.venv/Scripts/activate
 else
     source .venv/bin/activate
 fi
