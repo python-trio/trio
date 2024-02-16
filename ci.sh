@@ -40,13 +40,16 @@ echo "::group::Install dependencies"
 python -m pip install -U pip uv build
 python -m pip --version
 uv --version
-uv venv .venv
+uv venv .venv --seed
 
 if [ $(python -c "import sys;print(sys.platform.startswith('win'))") = "True" ]; then
     source ./.venv/Scripts/activate
 else
     source .venv/bin/activate
 fi
+
+# Make sure build is there
+uv pip install build
 
 python -m build
 wheel_package=$(ls dist/*.whl)
