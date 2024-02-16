@@ -42,7 +42,7 @@ python -m pip --version
 uv --version
 uv venv .venv
 
-if [ $(python -c "import sys;print('win' in sys.platform)") = "True" ]; then
+if [ $(python -c "import sys;print(sys.platform.startswith('win')"))") = "True" ]; then
     .\.venv\Scripts\activate.ps1
 else
     source .venv/bin/activate
