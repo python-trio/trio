@@ -37,19 +37,16 @@ python -c "import sys, struct, ssl; print('python:', sys.version); print('versio
 echo "::endgroup::"
 
 echo "::group::Install dependencies"
-python -m pip install -U pip uv
+python -m pip install -U pip uv build
 python -m pip --version
 uv --version
 uv venv .venv
 
 if [ $(python -c "import sys;print(sys.platform.startswith('win'))") = "True" ]; then
-    ls .venv/Scripts
     source ./.venv/Scripts/activate
 else
     source .venv/bin/activate
 fi
-
-uv pip install build
 
 python -m build
 wheel_package=$(ls dist/*.whl)
