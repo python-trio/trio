@@ -40,6 +40,8 @@ echo "::group::Install dependencies"
 python -m pip install -U pip uv
 python -m pip --version
 uv --version
+uv venv .venv
+source .venv/bin/activate
 uv pip install build
 
 python -m build
