@@ -41,7 +41,13 @@ python -m pip install -U pip uv
 python -m pip --version
 uv --version
 uv venv .venv
-source .venv/bin/activate
+
+if [ $(python -c "import sys;print('win' in sys.platform)") = "True" ]; then
+    .\.venv\Scripts\activate.ps1
+else
+    source .venv/bin/activate
+fi
+
 uv pip install build
 
 python -m build
