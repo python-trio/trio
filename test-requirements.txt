@@ -34,7 +34,7 @@ dill==0.3.8
     # via pylint
 docutils==0.20.1
     # via sphinx
-exceptiongroup==1.2.0 ; python_version < "3.11"
+exceptiongroup==1.2.0
     # via pytest
 idna==3.6
     # via

@@ -26,7 +26,6 @@ idna==3.6
 imagesize==1.4.1
     # via sphinx
 immutables==0.20
-    # via -r docs-requirements.in
 importlib-metadata==7.0.1
     # via sphinx
 importlib-resources==6.1.1
