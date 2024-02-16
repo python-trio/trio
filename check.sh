@@ -78,10 +78,10 @@ fi
 
 # Check pip compile is consistent
 echo "::group::Pip Compile - Tests"
-pip-compile test-requirements.in
+uv pip compile --python-version=3.8 test-requirements.in -o test-requirements.txt
 echo "::endgroup::"
 echo "::group::Pip Compile - Docs"
-pip-compile docs-requirements.in
+uv pip compile --python-version=3.8 docs-requirements.in -o docs-requirements.txt
 echo "::endgroup::"
 
 if git status --porcelain | grep -q "requirements.txt"; then
@@ -122,7 +122,7 @@ if [ $EXIT_STATUS -ne 0 ]; then
 Problems were found by static analysis (listed above).
 To fix formatting and see remaining errors, run
 
-    pip install -r test-requirements.txt
+    uv pip install -r test-requirements.txt
     black src/trio
     ruff check src/trio
     ./check.sh

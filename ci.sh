@@ -37,14 +37,17 @@ python -c "import sys, struct, ssl; print('python:', sys.version); print('versio
 echo "::endgroup::"
 
 echo "::group::Install dependencies"
-python -m pip install -U pip build
+python -m pip install -U pip uv
 python -m pip --version
+uv --version
+uv pip install build
 
 python -m build
-python -m pip install dist/*.whl
+wheel_package=$(ls dist/*.whl)
+uv pip install "trio @ file://$wheel_package"
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
-    python -m pip install -r test-requirements.txt
+    uv pip install -r test-requirements.txt
     echo "::endgroup::"
     source check.sh
 else
@@ -52,10 +55,10 @@ else
     # expands to 0 != 1 if NO_TEST_REQUIREMENTS is not set, if set the `-0` has no effect
     # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_06_02
     if [ ${NO_TEST_REQUIREMENTS-0} == 1 ]; then
-        python -m pip install pytest coverage
+        uv pip install pytest coverage
         flags="--skip-optional-imports"
     else
-        python -m pip install -r test-requirements.txt
+        uv pip install -r test-requirements.txt
         flags=""
     fi
 
