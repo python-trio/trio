@@ -145,6 +145,7 @@ typing-extensions==4.9.0
     #   pylint
 urllib3==2.2.0
     # via requests
+uv==0.1.1
 wheel==0.42.0
     # via pip-tools
 zipp==3.17.0
