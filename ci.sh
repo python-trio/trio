@@ -43,7 +43,7 @@ uv --version
 uv venv .venv
 
 if [ $(python -c "import sys;print(sys.platform.startswith('win'))") = "True" ]; then
-    ls venv/Scripts
+    ls .venv/Scripts
     .venv/Scripts/activate.bat
 else
     source .venv/bin/activate
