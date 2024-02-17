@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Generic, TypeVar, overload
 
 import attrs
 import outcome
+from attrs import define
 from sniffio import current_async_library_cvar
 
 import trio
@@ -17,16 +18,17 @@ import trio
 from ._core import (
     RunVar,
     TrioToken,
+    checkpoint,
     disable_ki_protection,
     enable_ki_protection,
     start_thread_soon,
 )
 from ._deprecate import warn_deprecated
-from ._sync import CapacityLimiter
+from ._sync import CapacityLimiter, Event
 from ._util import coroutine_or_error
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
+    from collections.abc import Awaitable, Callable, Generator
 
     from trio._core._traps import RaiseCancelT
 
@@ -50,6 +52,72 @@ _limiter_local: RunVar[CapacityLimiter] = RunVar("limiter")
 # should make some kind of measurements to pick a good value.
 DEFAULT_LIMIT = 40
 _thread_counter = count()
+
+
+@define
+class _ActiveThreadCount:
+    count: int
+    event: Event
+
+
+_active_threads_local: RunVar[_ActiveThreadCount] = RunVar("active_threads")
+
+
+@contextlib.contextmanager
+def _track_active_thread() -> Generator[None, None, None]:
+    try:
+        active_threads_local = _active_threads_local.get()
+    except LookupError:
+        active_threads_local = _ActiveThreadCount(0, Event())
+        _active_threads_local.set(active_threads_local)
+
+    active_threads_local.count += 1
+    try:
+        yield
+    finally:
+        active_threads_local.count -= 1
+        if active_threads_local.count == 0:
+            active_threads_local.event.set()
+            active_threads_local.event = Event()
+
+
+async def wait_all_threads_completed() -> None:
+    """Wait until no threads are still running tasks.
+
+    This is intended to be used when testing code with trio.to_thread to
+    make sure no tasks are still making progress in a thread. See the
+    following code for a usage example::
+
+        async def wait_all_settled():
+            while True:
+                await trio.testing.wait_all_threads_complete()
+                await trio.testing.wait_all_tasks_blocked()
+                if trio.testing.active_thread_count() == 0:
+                    break
+    """
+
+    await checkpoint()
+
+    try:
+        active_threads_local = _active_threads_local.get()
+    except LookupError:
+        # If there would have been active threads, the
+        # _active_threads_local would have been set
+        return
+
+    while active_threads_local.count != 0:
+        await active_threads_local.event.wait()
+
+
+def active_thread_count() -> int:
+    """Returns the number of threads that are currently running a task
+
+    See `trio.testing.wait_all_threads_completed`
+    """
+    try:
+        return _active_threads_local.get().count
+    except LookupError:
+        return 0
 
 
 def current_default_thread_limiter() -> CapacityLimiter:
@@ -377,39 +445,40 @@ async def to_thread_run_sync(  # type: ignore[misc]
             current_trio_token.run_sync_soon(report_back_in_trio_thread_fn, result)
 
     await limiter.acquire_on_behalf_of(placeholder)
-    try:
-        start_thread_soon(worker_fn, deliver_worker_fn_result, thread_name)
-    except:
-        limiter.release_on_behalf_of(placeholder)
-        raise
+    with _track_active_thread():
+        try:
+            start_thread_soon(worker_fn, deliver_worker_fn_result, thread_name)
+        except:
+            limiter.release_on_behalf_of(placeholder)
+            raise
 
-    def abort(raise_cancel: RaiseCancelT) -> trio.lowlevel.Abort:
-        # fill so from_thread_check_cancelled can raise
-        cancel_register[0] = raise_cancel
-        if abandon_bool:
-            # empty so report_back_in_trio_thread_fn cannot reschedule
-            task_register[0] = None
-            return trio.lowlevel.Abort.SUCCEEDED
-        else:
-            return trio.lowlevel.Abort.FAILED
+        def abort(raise_cancel: RaiseCancelT) -> trio.lowlevel.Abort:
+            # fill so from_thread_check_cancelled can raise
+            cancel_register[0] = raise_cancel
+            if abandon_bool:
+                # empty so report_back_in_trio_thread_fn cannot reschedule
+                task_register[0] = None
+                return trio.lowlevel.Abort.SUCCEEDED
+            else:
+                return trio.lowlevel.Abort.FAILED
 
-    while True:
-        # wait_task_rescheduled return value cannot be typed
-        msg_from_thread: outcome.Outcome[RetT] | Run[object] | RunSync[object] = (
-            await trio.lowlevel.wait_task_rescheduled(abort)
-        )
-        if isinstance(msg_from_thread, outcome.Outcome):
-            return msg_from_thread.unwrap()
-        elif isinstance(msg_from_thread, Run):
-            await msg_from_thread.run()
-        elif isinstance(msg_from_thread, RunSync):
-            msg_from_thread.run_sync()
-        else:  # pragma: no cover, internal debugging guard TODO: use assert_never
-            raise TypeError(
-                "trio.to_thread.run_sync received unrecognized thread message {!r}."
-                "".format(msg_from_thread)
+        while True:
+            # wait_task_rescheduled return value cannot be typed
+            msg_from_thread: outcome.Outcome[RetT] | Run[object] | RunSync[object] = (
+                await trio.lowlevel.wait_task_rescheduled(abort)
             )
-        del msg_from_thread
+            if isinstance(msg_from_thread, outcome.Outcome):
+                return msg_from_thread.unwrap()
+            elif isinstance(msg_from_thread, Run):
+                await msg_from_thread.run()
+            elif isinstance(msg_from_thread, RunSync):
+                msg_from_thread.run_sync()
+            else:  # pragma: no cover, internal debugging guard TODO: use assert_never
+                raise TypeError(
+                    "trio.to_thread.run_sync received unrecognized thread message {!r}."
+                    "".format(msg_from_thread)
+                )
+            del msg_from_thread
 
 
 def from_thread_check_cancelled() -> None:
