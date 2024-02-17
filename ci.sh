@@ -49,7 +49,7 @@ else
 fi
 
 # Install uv in venv
-python -m uv pip install uv
+python -m pip install -U uv
 
 # Make sure build is there
 uv pip install build
