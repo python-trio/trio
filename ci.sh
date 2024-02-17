@@ -48,6 +48,9 @@ else
     source .venv/bin/activate
 fi
 
+# Install uv in venv
+python -m uv pip install uv
+
 # Make sure build is there
 uv pip install build
 
