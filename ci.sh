@@ -48,6 +48,9 @@ else
     source .venv/bin/activate
 fi
 
+# Make sure pip is installed (pypy weirdness)
+python -m ensurepip
+
 # Install uv in venv
 python -m pip install -U uv
 
