@@ -4,6 +4,7 @@ import os
 import pathlib
 import sys
 from functools import partial, update_wrapper
+from inspect import cleandoc
 from typing import IO, TYPE_CHECKING, Any, BinaryIO, TypeVar, overload
 
 from trio._file_io import AsyncIOWrapper, wrap_file
@@ -37,8 +38,11 @@ def _wraps_async(
             return await run_sync(partial(fn, *args, **kwargs))
 
         update_wrapper(wrapper, wrapped)
+        assert wrapped.__doc__ is not None
         wrapper.__doc__ = (
-            f"Like :meth:`~{wrapped.__module__}.{wrapped.__qualname__}`, but async."
+            f"Like :meth:`~{wrapped.__module__}.{wrapped.__qualname__}`, but async.\n"
+            f"\n"
+            f"{cleandoc(wrapped.__doc__)}\n"
         )
         return wrapper
 
@@ -73,20 +77,22 @@ def _wrap_method_path_iterable(
         return map(self.__class__, [*fn(pathlib.Path(self), *args, **kwargs)])
 
     assert wrapper.__doc__ is not None
-    wrapper.__doc__ += f"""
-
-    This is an async method that returns a synchronous iterator, so you
-    use it like::
-
-       for subpath in await mypath.{fn.__name__}():
-           ...
-
-    .. note::
-
-        The iterator is loaded into memory immediately during the initial
-        call, (see `issue #501
-        <https://github.com/python-trio/trio/issues/501>`__ for discussion).
-    """
+    wrapper.__doc__ += (
+        f"\n"
+        f"This is an async method that returns a synchronous iterator, so you\n"
+        f"use it like:\n"
+        f"\n"
+        f".. code:: python\n"
+        f"\n"
+        f"    for subpath in await mypath.{fn.__name__}():\n"
+        f"        ...\n"
+        f"\n"
+        f".. note::\n"
+        f"\n"
+        f"    The iterator is loaded into memory immediately during the initial\n"
+        f"    call, (see `issue #501\n"
+        f"    <https://github.com/python-trio/trio/issues/501>`__ for discussion).\n"
+    )
     return wrapper
 
 
