@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
     P = ParamSpec("P")
 
-    Self = TypeVar("Self", bound="Path")
+    PathT = TypeVar("PathT", bound="Path")
     T = TypeVar("T")
 
 
@@ -57,9 +57,9 @@ def _wrap_method(
 
 def _wrap_method_path(
     fn: Callable[Concatenate[pathlib.Path, P], pathlib.Path],
-) -> Callable[Concatenate[Self, P], Awaitable[Self]]:
+) -> Callable[Concatenate[PathT, P], Awaitable[PathT]]:
     @_wraps_async(fn)
-    def wrapper(self: Self, /, *args: P.args, **kwargs: P.kwargs) -> Self:
+    def wrapper(self: PathT, /, *args: P.args, **kwargs: P.kwargs) -> PathT:
         return self.__class__(fn(pathlib.Path(self), *args, **kwargs))
 
     return wrapper
@@ -67,9 +67,9 @@ def _wrap_method_path(
 
 def _wrap_method_path_iterable(
     fn: Callable[Concatenate[pathlib.Path, P], Iterable[pathlib.Path]],
-) -> Callable[Concatenate[Self, P], Awaitable[Iterable[Self]]]:
+) -> Callable[Concatenate[PathT, P], Awaitable[Iterable[PathT]]]:
     @_wraps_async(fn)
-    def wrapper(self: Self, /, *args: P.args, **kwargs: P.kwargs) -> Iterable[Self]:
+    def wrapper(self: PathT, /, *args: P.args, **kwargs: P.kwargs) -> Iterable[PathT]:
         return map(self.__class__, [*fn(pathlib.Path(self), *args, **kwargs)])
 
     assert wrapper.__doc__ is not None
@@ -98,19 +98,19 @@ class Path(pathlib.PurePath):
 
     __slots__ = ()
 
-    def __new__(cls: type[Self], *args: str | os.PathLike[str]) -> Self:
+    def __new__(cls: type[PathT], *args: str | os.PathLike[str]) -> PathT:
         if cls is Path:
             cls = WindowsPath if os.name == "nt" else PosixPath  # type: ignore[assignment]
         return super().__new__(cls, *args)
 
     @classmethod
     @_wraps_async(pathlib.Path.cwd)
-    def cwd(cls: type[Self]) -> Self:
+    def cwd(cls: type[PathT]) -> PathT:
         return cls(pathlib.Path.cwd())
 
     @classmethod
     @_wraps_async(pathlib.Path.home)
-    def home(cls: type[Self]) -> Self:
+    def home(cls: type[PathT]) -> PathT:
         return cls(pathlib.Path.home())
 
     @overload
