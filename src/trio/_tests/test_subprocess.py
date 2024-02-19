@@ -21,6 +21,9 @@ from typing import (
 
 import pytest
 
+import trio
+from trio.testing import Matcher, RaisesGroup
+
 from .. import (
     Event,
     Process,
@@ -562,6 +565,24 @@ async def test_custom_deliver_cancel() -> None:
     assert custom_deliver_cancel_called
 
 
+def test_bad_deliver_cancel() -> None:
+    async def custom_deliver_cancel(proc: Process) -> None:
+        proc.terminate()
+        raise ValueError("foo")
+
+    async def do_stuff() -> None:
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(
+                partial(run_process, SLEEP(9999), deliver_cancel=custom_deliver_cancel)
+            )
+            await wait_all_tasks_blocked()
+            nursery.cancel_scope.cancel()
+
+    # double wrap from our nursery + the internal nursery
+    with RaisesGroup(RaisesGroup(Matcher(ValueError, "^foo$"))):
+        _core.run(do_stuff, strict_exception_groups=True)
+
+
 async def test_warn_on_failed_cancel_terminate(monkeypatch: pytest.MonkeyPatch) -> None:
     original_terminate = Process.terminate
 
@@ -594,7 +615,7 @@ async def test_warn_on_cancel_SIGKILL_escalation(
 # the background_process_param exercises a lot of run_process cases, but it uses
 # check=False, so lets have a test that uses check=True as well
 async def test_run_process_background_fail() -> None:
-    with pytest.raises(subprocess.CalledProcessError):
+    with RaisesGroup(subprocess.CalledProcessError):
         async with _core.open_nursery() as nursery:
             proc: Process = await nursery.start(run_process, EXIT_FALSE)
     assert proc.returncode == 1
@@ -618,6 +639,17 @@ async def test_for_leaking_fds() -> None:
     with pytest.raises(PermissionError):
         await run_process(["/dev/fd/0"])
     assert set(SyncPath("/dev/fd").iterdir()) == starting_fds
+
+
+async def test_run_process_internal_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    # There's probably less extreme ways of triggering errors inside the nursery
+    # in run_process.
+    async def very_broken_open(*args: object, **kwargs: object) -> str:
+        return "oops"
+
+    monkeypatch.setattr(trio._subprocess, "open_process", very_broken_open)
+    with RaisesGroup(AttributeError, AttributeError):
+        await run_process(EXIT_TRUE, capture_stdout=True)
 
 
 # regression test for #2209

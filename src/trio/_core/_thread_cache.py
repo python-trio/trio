@@ -41,10 +41,15 @@ def get_os_thread_name_func() -> Callable[[int | None, str], None] | None:
             setname(_to_os_thread_name(name))
 
     # find the pthread library
-    # this will fail on windows
+    # this will fail on windows and musl
     libpthread_path = ctypes.util.find_library("pthread")
     if not libpthread_path:
-        return None
+        # musl includes pthread functions directly in libc.so
+        # (but note that find_library("c") does not work on musl,
+        #  see: https://github.com/python/cpython/issues/65821)
+        # so try that library instead
+        # if it doesn't exist, CDLL() will fail below
+        libpthread_path = "libc.so"
 
     # Sometimes windows can find the path, but gives a permission error when
     # accessing it. Catching a wider exception in case of more esoteric errors.
@@ -118,11 +123,14 @@ name_counter = count()
 
 class WorkerThread(Generic[RetT]):
     def __init__(self, thread_cache: ThreadCache) -> None:
-        self._job: tuple[
-            Callable[[], RetT],
-            Callable[[outcome.Outcome[RetT]], object],
-            str | None,
-        ] | None = None
+        self._job: (
+            tuple[
+                Callable[[], RetT],
+                Callable[[outcome.Outcome[RetT]], object],
+                str | None,
+            ]
+            | None
+        ) = None
         self._thread_cache = thread_cache
         # This Lock is used in an unconventional way.
         #

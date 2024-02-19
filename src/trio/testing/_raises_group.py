@@ -156,8 +156,7 @@ class Matcher(Generic[E]):
         exception_type: type[E],
         match: str | Pattern[str] = ...,
         check: Callable[[E], bool] = ...,
-    ):
-        ...
+    ): ...
 
     @overload
     def __init__(
@@ -166,12 +165,10 @@ class Matcher(Generic[E]):
         match: str | Pattern[str],
         # If exception_type is not provided, check() must do any typechecks itself.
         check: Callable[[BaseException], bool] = ...,
-    ):
-        ...
+    ): ...
 
     @overload
-    def __init__(self, *, check: Callable[[BaseException], bool]):
-        ...
+    def __init__(self, *, check: Callable[[BaseException], bool]): ...
 
     def __init__(
         self,
@@ -304,8 +301,7 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
     # needed for pyright, since BaseExceptionGroup.__new__ takes two arguments
     if TYPE_CHECKING:
 
-        def __new__(cls, *args: object, **kwargs: object) -> RaisesGroup[E]:
-            ...
+        def __new__(cls, *args: object, **kwargs: object) -> RaisesGroup[E]: ...
 
     def __init__(
         self,
