@@ -22,7 +22,7 @@ if TYPE_CHECKING:
         OpenBinaryModeWriting,
         OpenTextMode,
     )
-    from typing_extensions import Concatenate, Literal, ParamSpec
+    from typing_extensions import Concatenate, Literal, ParamSpec, Self
 
     P = ParamSpec("P")
 
@@ -104,19 +104,19 @@ class Path(pathlib.PurePath):
 
     __slots__ = ()
 
-    def __new__(cls: type[PathT], *args: str | os.PathLike[str]) -> PathT:
+    def __new__(cls, *args: str | os.PathLike[str]) -> Self:
         if cls is Path:
             cls = WindowsPath if os.name == "nt" else PosixPath  # type: ignore[assignment]
         return super().__new__(cls, *args)
 
     @classmethod
     @_wraps_async(pathlib.Path.cwd)
-    def cwd(cls: type[PathT]) -> PathT:
+    def cwd(cls) -> Self:
         return cls(pathlib.Path.cwd())
 
     @classmethod
     @_wraps_async(pathlib.Path.home)
-    def home(cls: type[PathT]) -> PathT:
+    def home(cls) -> Self:
         return cls(pathlib.Path.home())
 
     @overload
