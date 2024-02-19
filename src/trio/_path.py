@@ -259,6 +259,3 @@ class WindowsPath(Path, pathlib.PureWindowsPath):
     """
 
     __slots__ = ()
-
-
-final(Path)

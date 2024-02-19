@@ -549,6 +549,9 @@ def test_classes_are_final() -> None:
                 continue
             # ... insert other special cases here ...
 
+            # The `Path` class needs to support inheritance to allow `WindowsPath` and `PosixPath`.
+            if class_ is trio.Path:
+                continue
             # don't care about the *Statistics classes
             if name.endswith("Statistics"):
                 continue
