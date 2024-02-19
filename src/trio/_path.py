@@ -5,7 +5,7 @@ import pathlib
 import sys
 from functools import partial, update_wrapper
 from inspect import cleandoc
-from typing import IO, TYPE_CHECKING, Any, BinaryIO, TypeVar, overload
+from typing import IO, TYPE_CHECKING, Any, BinaryIO, ClassVar, TypeVar, overload
 
 from trio._file_io import AsyncIOWrapper, wrap_file
 from trio._util import final
@@ -54,7 +54,7 @@ def _wrap_method(
 ) -> Callable[Concatenate[Path, P], Awaitable[T]]:
     @_wraps_async(fn)
     def wrapper(self: Path, /, *args: P.args, **kwargs: P.kwargs) -> T:
-        return fn(pathlib.Path(self), *args, **kwargs)
+        return fn(self.wrapped_cls(self), *args, **kwargs)
 
     return wrapper
 
@@ -64,7 +64,7 @@ def _wrap_method_path(
 ) -> Callable[Concatenate[PathT, P], Awaitable[PathT]]:
     @_wraps_async(fn)
     def wrapper(self: PathT, /, *args: P.args, **kwargs: P.kwargs) -> PathT:
-        return self.__class__(fn(pathlib.Path(self), *args, **kwargs))
+        return self.__class__(fn(self.wrapped_cls(self), *args, **kwargs))
 
     return wrapper
 
@@ -74,7 +74,7 @@ def _wrap_method_path_iterable(
 ) -> Callable[Concatenate[PathT, P], Awaitable[Iterable[PathT]]]:
     @_wraps_async(fn)
     def wrapper(self: PathT, /, *args: P.args, **kwargs: P.kwargs) -> Iterable[PathT]:
-        return map(self.__class__, [*fn(pathlib.Path(self), *args, **kwargs)])
+        return map(self.__class__, [*fn(self.wrapped_cls(self), *args, **kwargs)])
 
     assert wrapper.__doc__ is not None
     wrapper.__doc__ += (
@@ -103,6 +103,14 @@ class Path(pathlib.PurePath):
     """
 
     __slots__ = ()
+
+    wrapped_cls: ClassVar[type[pathlib.Path]] = pathlib.Path
+    """
+    The wrapped :class:`pathlib.Path` type.
+
+    To wrap :class:`pathlib.Path` subclasses (Python 3.13+), create a :class:`trio.Path` subclass and override
+    `wrapped_cls` with the wrapped type.
+    """
 
     def __new__(cls, *args: str | os.PathLike[str]) -> Self:
         if cls is Path:
@@ -191,7 +199,7 @@ class Path(pathlib.PurePath):
 
     @_wraps_async(pathlib.Path.open)  # type: ignore[misc]  # Overload return mismatch.
     def open(self, *args: Any, **kwargs: Any) -> AsyncIOWrapper[IO[Any]]:
-        return wrap_file(pathlib.Path(self).open(*args, **kwargs))  # noqa: SIM115
+        return wrap_file(self.wrapped_cls(self).open(*args, **kwargs))
 
     def __repr__(self) -> str:
         return f"trio.Path({str(self)!r})"
@@ -250,6 +258,8 @@ class PosixPath(Path, pathlib.PurePosixPath):
 
     __slots__ = ()
 
+    wrapped_cls: ClassVar[type[pathlib.Path]] = pathlib.PosixPath
+
 
 @final
 class WindowsPath(Path, pathlib.PureWindowsPath):
@@ -259,3 +269,5 @@ class WindowsPath(Path, pathlib.PureWindowsPath):
     """
 
     __slots__ = ()
+
+    wrapped_cls: ClassVar[type[pathlib.Path]] = pathlib.WindowsPath
