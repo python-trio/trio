@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 import importlib
 import io
 import os
-import pathlib
 import re
-from typing import List, Tuple
+from typing import TYPE_CHECKING
 from unittest import mock
 from unittest.mock import sentinel
 
@@ -12,6 +13,9 @@ import pytest
 import trio
 from trio import _core, _file_io
 from trio._file_io import _FILE_ASYNC_METHODS, _FILE_SYNC_ATTRS, AsyncIOWrapper
+
+if TYPE_CHECKING:
+    import pathlib
 
 
 @pytest.fixture
@@ -109,7 +113,7 @@ def test_type_stubs_match_lists() -> None:
         pytest.fail("No TYPE CHECKING line?")
 
     # Now we should be at the type checking block.
-    found: List[Tuple[str, str]] = []
+    found: list[tuple[str, str]] = []
     for line in source:  # pragma: no branch - expected to break early
         if line.strip() and not line.startswith(" " * 8):
             break  # Dedented out of the if TYPE_CHECKING block.

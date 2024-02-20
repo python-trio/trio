@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Generic, TypeVar
 
-import attr
+import attrs
 
 from .. import _core
 from .._deprecate import deprecated
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
 
-@attr.s(slots=True, frozen=True)
+@attrs.frozen
 class UnboundedQueueStatistics:
     """An object containing debugging information.
 
@@ -26,8 +26,8 @@ class UnboundedQueueStatistics:
 
     """
 
-    qsize: int = attr.ib()
-    tasks_waiting: int = attr.ib()
+    qsize: int
+    tasks_waiting: int
 
 
 @final

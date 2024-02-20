@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # This is a public namespace, so we don't want to expose any non-underscored
 # attributes that aren't actually part of our public API. But it's very
 # annoying to carefully always use underscored names for module-level
@@ -5,25 +7,23 @@
 # implementation in an underscored module, and then re-export the public parts
 # here.
 # We still have some underscore names though but only a few.
-
-
-# Uses `from x import y as y` for compatibility with `pyright --verifytypes` (#2625)
-
-# Dynamically re-export whatever constants this particular Python happens to
-# have:
 import socket as _stdlib_socket
+
+# static checkers don't understand if importing this as _sys, so it's deleted later
 import sys
 import typing as _t
 
 from . import _socket
 
-_bad_symbols: _t.Set[str] = set()
+_bad_symbols: set[str] = set()
 if sys.platform == "win32":
     # See https://github.com/python-trio/trio/issues/39
     # Do not import for windows platform
     # (you can still get it from stdlib socket, of course, if you want it)
     _bad_symbols.add("SO_REUSEADDR")
 
+# Dynamically re-export whatever constants this particular Python happens to
+# have:
 globals().update(
     {
         _name: getattr(_stdlib_socket, _name)
@@ -35,6 +35,7 @@ globals().update(
 # import the overwrites
 from contextlib import suppress as _suppress
 
+# Uses `from x import y as y` for compatibility with `pyright --verifytypes` (#2625)
 from ._socket import (
     SocketType as SocketType,
     from_stdlib_socket as from_stdlib_socket,
@@ -70,9 +71,15 @@ from socket import (
 if sys.implementation.name == "cpython":
     from socket import (
         if_indextoname as if_indextoname,
-        if_nameindex as if_nameindex,
         if_nametoindex as if_nametoindex,
     )
+
+    # For android devices, if_nameindex support was introduced in API 24,
+    # so it doesn't exist for any version prior.
+    with _suppress(ImportError):
+        from socket import (
+            if_nameindex as if_nameindex,
+        )
 
 
 # not always available so expose only if
@@ -98,7 +105,7 @@ del sys
 # re-export them. Since the exact set of constants varies depending on Python
 # version, platform, the libc installed on the system where Python was built,
 # etc., we figure out which constants to re-export dynamically at runtime (see
-# below). But that confuses static analysis tools like jedi and mypy. So this
+# above). But that confuses static analysis tools like jedi and mypy. So this
 # import statement statically lists every constant that *could* be
 # exported. There's a test in test_exports.py to make sure that the list is
 # kept up to date.

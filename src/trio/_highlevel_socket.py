@@ -147,12 +147,10 @@ class SocketStream(HalfCloseableStream):
     # __aenter__, __aexit__ inherited from HalfCloseableStream are OK
 
     @overload
-    def setsockopt(self, level: int, option: int, value: int | Buffer) -> None:
-        ...
+    def setsockopt(self, level: int, option: int, value: int | Buffer) -> None: ...
 
     @overload
-    def setsockopt(self, level: int, option: int, value: None, length: int) -> None:
-        ...
+    def setsockopt(self, level: int, option: int, value: None, length: int) -> None: ...
 
     def setsockopt(
         self,
@@ -179,12 +177,10 @@ class SocketStream(HalfCloseableStream):
         return self.socket.setsockopt(level, option, value, length)
 
     @overload
-    def getsockopt(self, level: int, option: int) -> int:
-        ...
+    def getsockopt(self, level: int, option: int) -> int: ...
 
     @overload
-    def getsockopt(self, level: int, option: int, buffersize: int) -> bytes:
-        ...
+    def getsockopt(self, level: int, option: int, buffersize: int) -> bytes: ...
 
     def getsockopt(self, level: int, option: int, buffersize: int = 0) -> int | bytes:
         """Check the current value of an option on the underlying socket.
