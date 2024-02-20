@@ -300,8 +300,8 @@ def fromfd(
     proto: int = 0,
 ) -> SocketType:
     """Like :func:`socket.fromfd`, but returns a Trio socket object."""
-    family, type, proto = _sniff_sockopts_for_fileno(family, type, proto, index(fd))
-    return from_stdlib_socket(_stdlib_socket.fromfd(fd, family, type, proto))
+    family, type_, proto = _sniff_sockopts_for_fileno(family, type, proto, index(fd))
+    return from_stdlib_socket(_stdlib_socket.fromfd(fd, family, type_, proto))
 
 
 if sys.platform == "win32" or (
@@ -356,14 +356,16 @@ def socket(
         if sf is not None:
             return sf.socket(family, type, proto)
     else:
-        family, type, proto = _sniff_sockopts_for_fileno(family, type, proto, fileno)
+        family, type, proto = _sniff_sockopts_for_fileno(  # noqa: A001
+            family, type, proto, fileno
+        )
     stdlib_socket = _stdlib_socket.socket(family, type, proto, fileno)
     return from_stdlib_socket(stdlib_socket)
 
 
 def _sniff_sockopts_for_fileno(
     family: AddressFamily | int,
-    type: SocketKind | int,
+    type_: SocketKind | int,
     proto: int,
     fileno: int | None,
 ) -> tuple[AddressFamily | int, SocketKind | int, int]:
@@ -372,7 +374,7 @@ def _sniff_sockopts_for_fileno(
     # This object might have the wrong metadata, but it lets us easily call getsockopt
     # and then we'll throw it away and construct a new one with the correct metadata.
     if sys.platform != "linux":
-        return family, type, proto
+        return family, type_, proto
     from socket import (  # type: ignore[attr-defined]
         SO_DOMAIN,
         SO_PROTOCOL,
@@ -380,15 +382,15 @@ def _sniff_sockopts_for_fileno(
         SOL_SOCKET,
     )
 
-    sockobj = _stdlib_socket.socket(family, type, proto, fileno=fileno)
+    sockobj = _stdlib_socket.socket(family, type_, proto, fileno=fileno)
     try:
         family = sockobj.getsockopt(SOL_SOCKET, SO_DOMAIN)
         proto = sockobj.getsockopt(SOL_SOCKET, SO_PROTOCOL)
-        type = sockobj.getsockopt(SOL_SOCKET, SO_TYPE)
+        type_ = sockobj.getsockopt(SOL_SOCKET, SO_TYPE)
     finally:
         # Unwrap it again, so that sockobj.__del__ doesn't try to close our socket
         sockobj.detach()
-    return family, type, proto
+    return family, type_, proto
 
 
 ################################################################
@@ -448,7 +450,7 @@ def _make_simple_sock_method_wrapper(
 # @overload likely works, but is extremely verbose.
 # NOTE: this function does not always checkpoint
 async def _resolve_address_nocp(
-    type: int,
+    type_: int,
     family: AddressFamily,
     proto: int,
     *,
@@ -502,7 +504,7 @@ async def _resolve_address_nocp(
     # flags |= AI_ADDRCONFIG
     if family == _stdlib_socket.AF_INET6 and not ipv6_v6only:
         flags |= _stdlib_socket.AI_V4MAPPED
-    gai_res = await getaddrinfo(host, port, family, type, proto, flags)
+    gai_res = await getaddrinfo(host, port, family, type_, proto, flags)
     # AFAICT from the spec it's not possible for getaddrinfo to return an
     # empty list.
     assert len(gai_res) >= 1
@@ -545,12 +547,10 @@ class SocketType:
         raise NotImplementedError
 
     @overload
-    def getsockopt(self, /, level: int, optname: int) -> int:
-        ...
+    def getsockopt(self, /, level: int, optname: int) -> int: ...
 
     @overload
-    def getsockopt(self, /, level: int, optname: int, buflen: int) -> bytes:
-        ...
+    def getsockopt(self, /, level: int, optname: int, buflen: int) -> bytes: ...
 
     def getsockopt(
         self, /, level: int, optname: int, buflen: int | None = None
@@ -558,12 +558,12 @@ class SocketType:
         raise NotImplementedError
 
     @overload
-    def setsockopt(self, /, level: int, optname: int, value: int | Buffer) -> None:
-        ...
+    def setsockopt(self, /, level: int, optname: int, value: int | Buffer) -> None: ...
 
     @overload
-    def setsockopt(self, /, level: int, optname: int, value: None, optlen: int) -> None:
-        ...
+    def setsockopt(
+        self, /, level: int, optname: int, value: None, optlen: int
+    ) -> None: ...
 
     def setsockopt(
         self,
@@ -696,8 +696,7 @@ class SocketType:
     @overload
     async def sendto(
         self, __data: Buffer, __address: tuple[object, ...] | str | Buffer
-    ) -> int:
-        ...
+    ) -> int: ...
 
     @overload
     async def sendto(
@@ -705,8 +704,7 @@ class SocketType:
         __data: Buffer,
         __flags: int,
         __address: tuple[object, ...] | str | Buffer,
-    ) -> int:
-        ...
+    ) -> int: ...
 
     async def sendto(self, *args: Any) -> int:
         raise NotImplementedError
@@ -756,12 +754,10 @@ class _SocketType(SocketType):
         return self._sock.getsockname()
 
     @overload
-    def getsockopt(self, /, level: int, optname: int) -> int:
-        ...
+    def getsockopt(self, /, level: int, optname: int) -> int: ...
 
     @overload
-    def getsockopt(self, /, level: int, optname: int, buflen: int) -> bytes:
-        ...
+    def getsockopt(self, /, level: int, optname: int, buflen: int) -> bytes: ...
 
     def getsockopt(
         self, /, level: int, optname: int, buflen: int | None = None
@@ -771,12 +767,12 @@ class _SocketType(SocketType):
         return self._sock.getsockopt(level, optname, buflen)
 
     @overload
-    def setsockopt(self, /, level: int, optname: int, value: int | Buffer) -> None:
-        ...
+    def setsockopt(self, /, level: int, optname: int, value: int | Buffer) -> None: ...
 
     @overload
-    def setsockopt(self, /, level: int, optname: int, value: None, optlen: int) -> None:
-        ...
+    def setsockopt(
+        self, /, level: int, optname: int, value: None, optlen: int
+    ) -> None: ...
 
     def setsockopt(
         self,
@@ -1055,8 +1051,7 @@ class _SocketType(SocketType):
     # complain about AmbiguousType
     if TYPE_CHECKING:
 
-        def recv(__self, __buflen: int, __flags: int = 0) -> Awaitable[bytes]:
-            ...
+        def recv(__self, __buflen: int, __flags: int = 0) -> Awaitable[bytes]: ...
 
     # _make_simple_sock_method_wrapper is typed, so this checks that the above is correct
     # this requires that we refrain from using `/` to specify pos-only
@@ -1073,8 +1068,7 @@ class _SocketType(SocketType):
 
         def recv_into(
             __self, buffer: Buffer, nbytes: int = 0, flags: int = 0
-        ) -> Awaitable[int]:
-            ...
+        ) -> Awaitable[int]: ...
 
     recv_into = _make_simple_sock_method_wrapper(
         _stdlib_socket.socket.recv_into, _core.wait_readable
@@ -1088,8 +1082,7 @@ class _SocketType(SocketType):
         # return type of socket.socket.recvfrom in typeshed is tuple[bytes, Any]
         def recvfrom(
             __self, __bufsize: int, __flags: int = 0
-        ) -> Awaitable[tuple[bytes, AddressFormat]]:
-            ...
+        ) -> Awaitable[tuple[bytes, AddressFormat]]: ...
 
     recvfrom = _make_simple_sock_method_wrapper(
         _stdlib_socket.socket.recvfrom, _core.wait_readable
@@ -1103,8 +1096,7 @@ class _SocketType(SocketType):
         # return type of socket.socket.recvfrom_into in typeshed is tuple[bytes, Any]
         def recvfrom_into(
             __self, buffer: Buffer, nbytes: int = 0, flags: int = 0
-        ) -> Awaitable[tuple[int, AddressFormat]]:
-            ...
+        ) -> Awaitable[tuple[int, AddressFormat]]: ...
 
     recvfrom_into = _make_simple_sock_method_wrapper(
         _stdlib_socket.socket.recvfrom_into, _core.wait_readable
@@ -1121,8 +1113,7 @@ class _SocketType(SocketType):
 
             def recvmsg(
                 __self, __bufsize: int, __ancbufsize: int = 0, __flags: int = 0
-            ) -> Awaitable[tuple[bytes, list[tuple[int, int, bytes]], int, Any]]:
-                ...
+            ) -> Awaitable[tuple[bytes, list[tuple[int, int, bytes]], int, Any]]: ...
 
         recvmsg = _make_simple_sock_method_wrapper(
             _stdlib_socket.socket.recvmsg, _core.wait_readable, maybe_avail=True
@@ -1142,8 +1133,7 @@ class _SocketType(SocketType):
                 __buffers: Iterable[Buffer],
                 __ancbufsize: int = 0,
                 __flags: int = 0,
-            ) -> Awaitable[tuple[int, list[tuple[int, int, bytes]], int, Any]]:
-                ...
+            ) -> Awaitable[tuple[int, list[tuple[int, int, bytes]], int, Any]]: ...
 
         recvmsg_into = _make_simple_sock_method_wrapper(
             _stdlib_socket.socket.recvmsg_into, _core.wait_readable, maybe_avail=True
@@ -1155,8 +1145,7 @@ class _SocketType(SocketType):
 
     if TYPE_CHECKING:
 
-        def send(__self, __bytes: Buffer, __flags: int = 0) -> Awaitable[int]:
-            ...
+        def send(__self, __bytes: Buffer, __flags: int = 0) -> Awaitable[int]: ...
 
     send = _make_simple_sock_method_wrapper(
         _stdlib_socket.socket.send, _core.wait_writable
@@ -1169,14 +1158,12 @@ class _SocketType(SocketType):
     @overload
     async def sendto(
         self, __data: Buffer, __address: tuple[object, ...] | str | Buffer
-    ) -> int:
-        ...
+    ) -> int: ...
 
     @overload
     async def sendto(
         self, __data: Buffer, __flags: int, __address: tuple[object, ...] | str | Buffer
-    ) -> int:
-        ...
+    ) -> int: ...
 
     @_wraps(_stdlib_socket.socket.sendto, assigned=(), updated=())  # type: ignore[misc]
     async def sendto(self, *args: Any) -> int:

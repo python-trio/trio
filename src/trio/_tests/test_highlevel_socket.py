@@ -224,14 +224,12 @@ async def test_SocketListener_accept_errors() -> None:
 
         # Fool the check for SO_ACCEPTCONN in SocketListener.__init__
         @overload
-        def getsockopt(self, /, level: int, optname: int) -> int:
-            ...
+        def getsockopt(self, /, level: int, optname: int) -> int: ...
 
         @overload
         def getsockopt(  # noqa: F811
             self, /, level: int, optname: int, buflen: int
-        ) -> bytes:
-            ...
+        ) -> bytes: ...
 
         def getsockopt(  # noqa: F811
             self, /, level: int, optname: int, buflen: int | None = None
@@ -239,14 +237,14 @@ async def test_SocketListener_accept_errors() -> None:
             return True
 
         @overload
-        def setsockopt(self, /, level: int, optname: int, value: int | Buffer) -> None:
-            ...
+        def setsockopt(
+            self, /, level: int, optname: int, value: int | Buffer
+        ) -> None: ...
 
         @overload
         def setsockopt(  # noqa: F811
             self, /, level: int, optname: int, value: None, optlen: int
-        ) -> None:
-            ...
+        ) -> None: ...
 
         def setsockopt(  # noqa: F811
             self,

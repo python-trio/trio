@@ -2551,6 +2551,9 @@ def _create_kwargs(strictness: bool | None) -> dict[str, bool]:
     return {"strict_exception_groups": strictness}
 
 
+@pytest.mark.filterwarnings(
+    "ignore:.*strict_exception_groups=False:trio.TrioDeprecationWarning"
+)
 @pytest.mark.parametrize("run_strict", [True, False, None])
 @pytest.mark.parametrize("open_nursery_strict", [True, False, None])
 @pytest.mark.parametrize("multiple_exceptions", [True, False])
@@ -2591,6 +2594,9 @@ def test_setting_strict_exception_groups(
             run_main()
 
 
+@pytest.mark.filterwarnings(
+    "ignore:.*strict_exception_groups=False:trio.TrioDeprecationWarning"
+)
 @pytest.mark.parametrize("strict", [True, False, None])
 async def test_nursery_collapse(strict: bool | None) -> None:
     """
@@ -2630,6 +2636,9 @@ async def test_cancel_scope_no_cancellederror() -> None:
     assert not scope.cancelled_caught
 
 
+@pytest.mark.filterwarnings(
+    "ignore:.*strict_exception_groups=False:trio.TrioDeprecationWarning"
+)
 @pytest.mark.parametrize("run_strict", [False, True])
 @pytest.mark.parametrize("start_raiser_strict", [False, True, None])
 @pytest.mark.parametrize("raise_after_started", [False, True])
@@ -2700,3 +2709,19 @@ def test_trio_run_strict_before_started(
         assert type(should_be_raiser_exc) == type(raiser_exc)
         assert should_be_raiser_exc.message == raiser_exc.message
         assert should_be_raiser_exc.exceptions == raiser_exc.exceptions
+
+
+async def test_internal_error_old_nursery_multiple_tasks() -> None:
+    async def error_func() -> None:
+        raise ValueError
+
+    async def spawn_tasks_in_old_nursery(task_status: _core.TaskStatus[None]) -> None:
+        old_nursery = _core.current_task().parent_nursery
+        assert old_nursery is not None
+        old_nursery.start_soon(error_func)
+        old_nursery.start_soon(error_func)
+
+    async with _core.open_nursery() as nursery:
+        with pytest.raises(_core.TrioInternalError) as excinfo:
+            await nursery.start(spawn_tasks_in_old_nursery)
+    assert RaisesGroup(ValueError, ValueError).matches(excinfo.value.__cause__)

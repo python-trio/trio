@@ -30,7 +30,7 @@ from typing import (
 )
 from weakref import ReferenceType, WeakValueDictionary
 
-import attr
+import attrs
 
 import trio
 
@@ -160,12 +160,12 @@ def to_hex(data: bytes) -> str:  # pragma: no cover
     return data.hex()
 
 
-@attr.frozen
+@attrs.frozen
 class Record:
     content_type: int
-    version: bytes = attr.ib(repr=to_hex)
+    version: bytes = attrs.field(repr=to_hex)
     epoch_seqno: int
-    payload: bytes = attr.ib(repr=to_hex)
+    payload: bytes = attrs.field(repr=to_hex)
 
 
 def records_untrusted(packet: bytes) -> Iterator[Record]:
@@ -205,14 +205,14 @@ def encode_record(record: Record) -> bytes:
 HANDSHAKE_MESSAGE_HEADER = struct.Struct("!B3sH3s3s")
 
 
-@attr.frozen
+@attrs.frozen
 class HandshakeFragment:
     msg_type: int
     msg_len: int
     msg_seq: int
     frag_offset: int
     frag_len: int
-    frag: bytes = attr.ib(repr=to_hex)
+    frag: bytes = attrs.field(repr=to_hex)
 
 
 def decode_handshake_fragment_untrusted(payload: bytes) -> HandshakeFragment:
@@ -325,21 +325,21 @@ def decode_client_hello_untrusted(packet: bytes) -> tuple[int, bytes, bytes]:
         raise BadPacket("bad ClientHello") from exc
 
 
-@attr.frozen
+@attrs.frozen
 class HandshakeMessage:
-    record_version: bytes = attr.ib(repr=to_hex)
+    record_version: bytes = attrs.field(repr=to_hex)
     msg_type: HandshakeType
     msg_seq: int
-    body: bytearray = attr.ib(repr=to_hex)
+    body: bytearray = attrs.field(repr=to_hex)
 
 
 # ChangeCipherSpec is part of the handshake, but it's not a "handshake
 # message" and can't be fragmented the same way. Sigh.
-@attr.frozen
+@attrs.frozen
 class PseudoHandshakeMessage:
-    record_version: bytes = attr.ib(repr=to_hex)
+    record_version: bytes = attrs.field(repr=to_hex)
     content_type: int
-    payload: bytes = attr.ib(repr=to_hex)
+    payload: bytes = attrs.field(repr=to_hex)
 
 
 # The final record in a handshake is Finished, which is encrypted, can't be fragmented
@@ -347,7 +347,7 @@ class PseudoHandshakeMessage:
 # just pass it through unchanged. (Fortunately, the payload is only a single hash value,
 # so the largest it will ever be is 64 bytes for a 512-bit hash. Which is small enough
 # that it never requires fragmenting to fit into a UDP packet.
-@attr.frozen
+@attrs.frozen
 class OpaqueHandshakeMessage:
     record: Record
 
@@ -803,7 +803,7 @@ async def dtls_receive_loop(
             raise
 
 
-@attr.frozen
+@attrs.frozen
 class DTLSChannelStatistics:
     """Currently this has only one attribute:
 

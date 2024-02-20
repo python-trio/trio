@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import partial
 from typing import TYPE_CHECKING, Any, NoReturn
 
-import attr
+import attrs
 import pytest
 
 import trio
@@ -43,9 +43,9 @@ async def echo_handler(stream: Stream) -> None:
 
 # Resolver that always returns the given sockaddr, no matter what host/port
 # you ask for.
-@attr.s
+@attrs.define(slots=False)
 class FakeHostnameResolver(trio.abc.HostnameResolver):
-    sockaddr: tuple[str, int] | tuple[str, int, int, int] = attr.ib()
+    sockaddr: tuple[str, int] | tuple[str, int, int, int]
 
     async def getaddrinfo(
         self,
