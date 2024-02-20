@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from trio.testing import RaisesGroup
+
 from .. import _core, sleep, socket as tsocket
 from .._core._tests.tutil import can_bind_ipv6
 from .._highlevel_generic import StapledStream, aclose_forcefully
@@ -157,7 +159,7 @@ async def test_assert_no_checkpoints(recwarn: pytest.WarningsRecorder) -> None:
                 await partial_yield()
 
     # And both together also count as a checkpoint
-    with pytest.raises(AssertionError):  # noqa: PT012
+    with pytest.raises(AssertionError):
         with assert_no_checkpoints():
             await _core.checkpoint_if_cancelled()
             await _core.cancel_shielded_checkpoint()
@@ -234,8 +236,6 @@ async def test_Sequencer_cancel() -> None:
 
 
 ################################################################
-
-
 async def test__assert_raises() -> None:
     with pytest.raises(AssertionError):
         with _assert_raises(RuntimeError):
@@ -292,7 +292,7 @@ async def test__UnboundeByteQueue() -> None:
         nursery.start_soon(putter, b"xyz")
 
     # Two gets at the same time -> BusyResourceError
-    with pytest.raises(_core.BusyResourceError):  # noqa: PT012
+    with RaisesGroup(_core.BusyResourceError):
         async with _core.open_nursery() as nursery:
             nursery.start_soon(getter, b"asdf")
             nursery.start_soon(getter, b"asdf")
@@ -426,7 +426,7 @@ async def test_MemoryReceiveStream() -> None:
     mrs.put_data(b"abc")
     assert await do_receive_some(None) == b"abc"
 
-    with pytest.raises(_core.BusyResourceError):  # noqa: PT012
+    with RaisesGroup(_core.BusyResourceError):
         async with _core.open_nursery() as nursery:
             nursery.start_soon(do_receive_some, 10)
             nursery.start_soon(do_receive_some, 10)
@@ -669,8 +669,9 @@ async def test_open_stream_to_socket_listener() -> None:
 
 
 def test_trio_test() -> None:
-    async def busy_kitchen(*, mock_clock: object, autojump_clock: object) -> None:
-        ...  # pragma: no cover
+    async def busy_kitchen(
+        *, mock_clock: object, autojump_clock: object
+    ) -> None: ...  # pragma: no cover
 
     with pytest.raises(ValueError, match="^too many clocks spoil the broth!$"):
         trio_test(busy_kitchen)(

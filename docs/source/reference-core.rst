@@ -768,8 +768,13 @@ inside the handler function(s) with the ``nonlocal`` keyword::
         async with trio.open_nursery() as nursery:
             nursery.start_soon(broken1)
 
+.. _strict_exception_groups:
+
 "Strict" versus "loose" ExceptionGroup semantics
 ++++++++++++++++++++++++++++++++++++++++++++++++
+
+..
+    TODO: rewrite this (and possible other) sections from the new strict-by-default perspective, under the heading "Deprecated: non-strict ExceptionGroups" - to explain that it only exists for backwards-compatibility, will be removed in future, and that we recommend against it for all new code.
 
 Ideally, in some abstract sense we'd want everything that *can* raise an
 `ExceptionGroup` to *always* raise an `ExceptionGroup` (rather than, say, a single
@@ -796,9 +801,10 @@ to set the default behavior for any nursery in your program that doesn't overrid
   wrapping, so you'll get maximum compatibility with code that was written to
   support older versions of Trio.
 
-To maintain backwards compatibility, the default is ``strict_exception_groups=False``.
-The default will eventually change to ``True`` in a future version of Trio, once
-Python 3.11 and later versions are in wide use.
+The default is set to ``strict_exception_groups=True``, in line with the default behaviour
+of ``TaskGroup`` in asyncio and anyio.  We've also found that non-strict mode makes it
+too easy to neglect the possibility of several exceptions being raised concurrently,
+causing nasty latent bugs when errors occur under load.
 
 .. _exceptiongroup: https://pypi.org/project/exceptiongroup/
 

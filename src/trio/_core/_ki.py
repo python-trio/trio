@@ -6,7 +6,7 @@ import sys
 from functools import wraps
 from typing import TYPE_CHECKING, Final, Protocol, TypeVar
 
-import attr
+import attrs
 
 from .._util import is_main_thread
 
@@ -201,11 +201,9 @@ disable_ki_protection: KIProtectionSignature = _ki_protection_decorator(False)  
 disable_ki_protection.__name__ = "disable_ki_protection"
 
 
-@attr.s
+@attrs.define(slots=False)
 class KIManager:
-    handler: Callable[[int, types.FrameType | None], None] | None = attr.ib(
-        default=None
-    )
+    handler: Callable[[int, types.FrameType | None], None] | None = None
 
     def install(
         self,

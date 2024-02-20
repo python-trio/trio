@@ -1,11 +1,12 @@
 """These are the only functions that ever yield back to the task runner."""
+
 from __future__ import annotations
 
 import enum
 import types
 from typing import TYPE_CHECKING, Any, Callable, NoReturn
 
-import attr
+import attrs
 import outcome
 
 from . import _run
@@ -66,9 +67,9 @@ class Abort(enum.Enum):
 
 
 # Not exported in the trio._core namespace, but imported directly by _run.
-@attr.s(frozen=True)
+@attrs.frozen(slots=False)
 class WaitTaskRescheduled:
-    abort_func: Callable[[RaiseCancelT], Abort] = attr.ib()
+    abort_func: Callable[[RaiseCancelT], Abort]
 
 
 RaiseCancelT: TypeAlias = Callable[[], NoReturn]
@@ -179,9 +180,9 @@ async def wait_task_rescheduled(abort_func: Callable[[RaiseCancelT], Abort]) -> 
 
 
 # Not exported in the trio._core namespace, but imported directly by _run.
-@attr.s(frozen=True)
+@attrs.frozen(slots=False)
 class PermanentlyDetachCoroutineObject:
-    final_outcome: outcome.Outcome[Any] = attr.ib()
+    final_outcome: outcome.Outcome[Any]
 
 
 async def permanently_detach_coroutine_object(

@@ -23,7 +23,12 @@ import pytest
 from trio import StapledStream
 from trio._tests.pytest_plugin import skip_if_optional_else_raise
 from trio.abc import ReceiveStream, SendStream
-from trio.testing import MemoryReceiveStream, MemorySendStream
+from trio.testing import (
+    Matcher,
+    MemoryReceiveStream,
+    MemorySendStream,
+    RaisesGroup,
+)
 
 try:
     import trustme
@@ -356,9 +361,7 @@ async def test_PyOpenSSLEchoStream_gives_resource_busy_errors() -> None:
         func1: str, args1: tuple[object, ...], func2: str, args2: tuple[object, ...]
     ) -> None:
         s = PyOpenSSLEchoStream()
-        with pytest.raises(  # noqa: PT012
-            _core.BusyResourceError, match="simultaneous"
-        ):
+        with RaisesGroup(Matcher(_core.BusyResourceError, "simultaneous")):
             async with _core.open_nursery() as nursery:
                 nursery.start_soon(getattr(s, func1), *args1)
                 nursery.start_soon(getattr(s, func2), *args2)
@@ -406,9 +409,10 @@ def ssl_wrap_pair(
 MemoryStapledStream: TypeAlias = StapledStream[MemorySendStream, MemoryReceiveStream]
 
 
-def ssl_memory_stream_pair(
-    client_ctx: SSLContext, **kwargs: Any
-) -> tuple[SSLStream[MemoryStapledStream], SSLStream[MemoryStapledStream],]:
+def ssl_memory_stream_pair(client_ctx: SSLContext, **kwargs: Any) -> tuple[
+    SSLStream[MemoryStapledStream],
+    SSLStream[MemoryStapledStream],
+]:
     client_transport, server_transport = memory_stream_pair()
     return ssl_wrap_pair(client_ctx, client_transport, server_transport, **kwargs)
 
@@ -416,9 +420,10 @@ def ssl_memory_stream_pair(
 MyStapledStream: TypeAlias = StapledStream[SendStream, ReceiveStream]
 
 
-def ssl_lockstep_stream_pair(
-    client_ctx: SSLContext, **kwargs: Any
-) -> tuple[SSLStream[MyStapledStream], SSLStream[MyStapledStream],]:
+def ssl_lockstep_stream_pair(client_ctx: SSLContext, **kwargs: Any) -> tuple[
+    SSLStream[MyStapledStream],
+    SSLStream[MyStapledStream],
+]:
     client_transport, server_transport = lockstep_stream_pair()
     return ssl_wrap_pair(client_ctx, client_transport, server_transport, **kwargs)
 
@@ -745,9 +750,7 @@ async def test_resource_busy_errors(client_ctx: SSLContext) -> None:
         func1: Callable[[S], Awaitable[None]], func2: Callable[[S], Awaitable[None]]
     ) -> None:
         s, _ = ssl_lockstep_stream_pair(client_ctx)
-        with pytest.raises(  # noqa: PT012
-            _core.BusyResourceError, match="another task"
-        ):
+        with RaisesGroup(Matcher(_core.BusyResourceError, "another task")):
             async with _core.open_nursery() as nursery:
                 nursery.start_soon(func1, s)
                 nursery.start_soon(func2, s)

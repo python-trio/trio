@@ -28,7 +28,7 @@ sphinx
 
 # Trio's own dependencies
 cffi; os_name == "nt"
-attrs >= 20.1.0
+attrs >= 23.2.0
 sortedcontainers
 idna
 outcome

@@ -50,11 +50,11 @@ def test_asyncgen_basics() -> None:
         await _core.wait_all_tasks_blocked()
         assert collected.pop() == "abandoned"
 
-        aiter = example("exhausted 1")
+        aiter_ = example("exhausted 1")
         try:
-            assert await aiter.asend(None) == 42
+            assert await aiter_.asend(None) == 42
         finally:
-            await aiter.aclose()
+            await aiter_.aclose()
         assert collected.pop() == "exhausted 1"
 
         # Also fine if you exhaust it at point of use
@@ -65,12 +65,12 @@ def test_asyncgen_basics() -> None:
         gc_collect_harder()
 
         # No problems saving the geniter when using either of these patterns
-        aiter = example("exhausted 3")
+        aiter_ = example("exhausted 3")
         try:
-            saved.append(aiter)
-            assert await aiter.asend(None) == 42
+            saved.append(aiter_)
+            assert await aiter_.asend(None) == 42
         finally:
-            await aiter.aclose()
+            await aiter_.aclose()
         assert collected.pop() == "exhausted 3"
 
         # Also fine if you exhaust it at point of use
@@ -132,10 +132,10 @@ def test_firstiter_after_closing() -> None:
             await funky_agen().asend(None)
 
     async def async_main() -> None:
-        aiter = funky_agen()
-        saved.append(aiter)
-        assert await aiter.asend(None) == 1
-        assert await aiter.asend(None) == 2
+        aiter_ = funky_agen()
+        saved.append(aiter_)
+        assert await aiter_.asend(None) == 1
+        assert await aiter_.asend(None) == 2
 
     _core.run(async_main)
     assert record == ["cleanup 2", "cleanup 1"]
@@ -239,7 +239,7 @@ def test_last_minute_gc_edge_case() -> None:
         )
 
 
-async def step_outside_async_context(aiter: AsyncGenerator[int, None]) -> None:
+async def step_outside_async_context(aiter_: AsyncGenerator[int, None]) -> None:
     # abort_fns run outside of task context, at least if they're
     # triggered by a deadline expiry rather than a direct
     # cancellation.  Thus, an asyncgen first iterated inside one
@@ -256,7 +256,7 @@ async def step_outside_async_context(aiter: AsyncGenerator[int, None]) -> None:
         del abort_fn.aiter  # type: ignore[attr-defined]
         return _core.Abort.SUCCEEDED
 
-    abort_fn.aiter = aiter  # type: ignore[attr-defined]
+    abort_fn.aiter = aiter_  # type: ignore[attr-defined]
 
     async with _core.open_nursery() as nursery:
         nursery.start_soon(_core.wait_task_rescheduled, abort_fn)

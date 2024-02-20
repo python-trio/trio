@@ -38,11 +38,13 @@ from .. import (
 from .._core._tests.test_ki import ki_self
 from .._core._tests.tutil import slow
 from .._threads import (
+    active_thread_count,
     current_default_thread_limiter,
     from_thread_check_cancelled,
     from_thread_run,
     from_thread_run_sync,
     to_thread_run_sync,
+    wait_all_threads_completed,
 )
 from ..testing import wait_all_tasks_blocked
 
@@ -237,9 +239,17 @@ def _get_thread_name(ident: int | None = None) -> str | None:
 
     libpthread_path = ctypes.util.find_library("pthread")
     if not libpthread_path:
-        print(f"no pthread on {sys.platform})")
+        # musl includes pthread functions directly in libc.so
+        # (but note that find_library("c") does not work on musl,
+        #  see: https://github.com/python/cpython/issues/65821)
+        # so try that library instead
+        # if it doesn't exist, CDLL() will fail below
+        libpthread_path = "libc.so"
+    try:
+        libpthread = ctypes.CDLL(libpthread_path)
+    except Exception:
+        print(f"no pthread on {sys.platform}")
         return None
-    libpthread = ctypes.CDLL(libpthread_path)
 
     pthread_getname_np = getattr(libpthread, "pthread_getname_np", None)
 
@@ -1106,3 +1116,50 @@ async def test_cancellable_warns() -> None:
 
     with pytest.warns(TrioDeprecationWarning):
         await to_thread_run_sync(bool, cancellable=True)
+
+
+async def test_wait_all_threads_completed() -> None:
+    no_threads_left = False
+    e1 = Event()
+    e2 = Event()
+
+    e1_exited = Event()
+    e2_exited = Event()
+
+    async def wait_event(e: Event, e_exit: Event) -> None:
+        def thread() -> None:
+            from_thread_run(e.wait)
+
+        await to_thread_run_sync(thread)
+        e_exit.set()
+
+    async def wait_no_threads_left() -> None:
+        nonlocal no_threads_left
+        await wait_all_threads_completed()
+        no_threads_left = True
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(wait_event, e1, e1_exited)
+        nursery.start_soon(wait_event, e2, e2_exited)
+        await wait_all_tasks_blocked()
+        nursery.start_soon(wait_no_threads_left)
+        await wait_all_tasks_blocked()
+        assert not no_threads_left
+        assert active_thread_count() == 2
+
+        e1.set()
+        await e1_exited.wait()
+        await wait_all_tasks_blocked()
+        assert not no_threads_left
+        assert active_thread_count() == 1
+
+        e2.set()
+        await e2_exited.wait()
+        await wait_all_tasks_blocked()
+        assert no_threads_left
+        assert active_thread_count() == 0
+
+
+async def test_wait_all_threads_completed_no_threads() -> None:
+    await wait_all_threads_completed()
+    assert active_thread_count() == 0
