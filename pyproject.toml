@@ -54,7 +54,7 @@ dependencies = [
 dynamic = ["version"]
 
 [project.readme]
-file = "LONG_DESCRIPTION.rst"
+file = "README.rst"
 content-type = "text/x-rst"
 
 [project.urls]
