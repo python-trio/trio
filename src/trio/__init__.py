@@ -1,5 +1,6 @@
 """Trio - A friendly Python library for async concurrency and I/O
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -44,10 +45,6 @@ from ._core import (
     current_time as current_time,
     open_nursery as open_nursery,
     run as run,
-)
-from ._core._multierror import (
-    MultiError as _MultiError,
-    NonBaseMultiError as _NonBaseMultiError,
 )
 from ._deprecate import TrioDeprecationWarning as TrioDeprecationWarning
 from ._dtls import (
@@ -120,26 +117,7 @@ from . import _deprecate as _deprecate
 
 _deprecate.enable_attribute_deprecations(__name__)
 
-__deprecated_attributes__: dict[str, _deprecate.DeprecatedAttribute] = {
-    "MultiError": _deprecate.DeprecatedAttribute(
-        value=_MultiError,
-        version="0.22.0",
-        issue=2211,
-        instead=(
-            "BaseExceptionGroup (on Python 3.11 and later) or "
-            "exceptiongroup.BaseExceptionGroup (earlier versions)"
-        ),
-    ),
-    "NonBaseMultiError": _deprecate.DeprecatedAttribute(
-        value=_NonBaseMultiError,
-        version="0.22.0",
-        issue=2211,
-        instead=(
-            "ExceptionGroup (on Python 3.11 and later) or "
-            "exceptiongroup.ExceptionGroup (earlier versions)"
-        ),
-    ),
-}
+__deprecated_attributes__: dict[str, _deprecate.DeprecatedAttribute] = {}
 
 # Having the public path in .__module__ attributes is important for:
 # - exception names in printed tracebacks

@@ -32,7 +32,7 @@ __all__ = [
 ]
 
 
-async def wait_readable(sock: (_HasFileNo | int)) -> None:
+async def wait_readable(sock: _HasFileNo | int) -> None:
     """Block until the kernel reports that the given object is readable.
 
     On Unix systems, ``sock`` must either be an integer file descriptor,
@@ -61,7 +61,7 @@ async def wait_readable(sock: (_HasFileNo | int)) -> None:
         raise RuntimeError("must be called from async context") from None
 
 
-async def wait_writable(sock: (_HasFileNo | int)) -> None:
+async def wait_writable(sock: _HasFileNo | int) -> None:
     """Block until the kernel reports that the given object is writable.
 
     See `wait_readable` for the definition of ``sock``.
@@ -80,7 +80,7 @@ async def wait_writable(sock: (_HasFileNo | int)) -> None:
         raise RuntimeError("must be called from async context") from None
 
 
-def notify_closing(handle: (Handle | int | _HasFileNo)) -> None:
+def notify_closing(handle: Handle | int | _HasFileNo) -> None:
     """Notify waiters of the given object that it will be closed.
 
     Call this before closing a file descriptor (on Unix) or socket (on
@@ -112,7 +112,7 @@ def notify_closing(handle: (Handle | int | _HasFileNo)) -> None:
         raise RuntimeError("must be called from async context") from None
 
 
-def register_with_iocp(handle: (int | CData)) -> None:
+def register_with_iocp(handle: int | CData) -> None:
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26
     <https://github.com/python-trio/trio/issues/26>`__ and `#52
@@ -125,9 +125,7 @@ def register_with_iocp(handle: (int | CData)) -> None:
         raise RuntimeError("must be called from async context") from None
 
 
-async def wait_overlapped(
-    handle_: (int | CData), lpOverlapped: (CData | int)
-) -> object:
+async def wait_overlapped(handle_: int | CData, lpOverlapped: CData | int) -> object:
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26
     <https://github.com/python-trio/trio/issues/26>`__ and `#52
@@ -143,7 +141,7 @@ async def wait_overlapped(
 
 
 async def write_overlapped(
-    handle: (int | CData), data: Buffer, file_offset: int = 0
+    handle: int | CData, data: Buffer, file_offset: int = 0
 ) -> int:
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26
@@ -160,7 +158,7 @@ async def write_overlapped(
 
 
 async def readinto_overlapped(
-    handle: (int | CData), buffer: Buffer, file_offset: int = 0
+    handle: int | CData, buffer: Buffer, file_offset: int = 0
 ) -> int:
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26

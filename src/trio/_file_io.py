@@ -184,7 +184,7 @@ if TYPE_CHECKING:
         def readline(self, size: int = ..., /) -> AnyStr_co: ...
 
     class _CanReadLines(Protocol[AnyStr]):
-        def readlines(self, hint: int = ...) -> list[AnyStr]: ...
+        def readlines(self, hint: int = ..., /) -> list[AnyStr]: ...
 
     class _CanSeek(Protocol):
         def seek(self, target: int, whence: int = 0, /) -> int: ...
@@ -355,8 +355,7 @@ async def open_file(
     newline: str | None = None,
     closefd: bool = True,
     opener: _Opener | None = None,
-) -> AsyncIOWrapper[io.TextIOWrapper]:
-    ...
+) -> AsyncIOWrapper[io.TextIOWrapper]: ...
 
 
 @overload
@@ -369,8 +368,7 @@ async def open_file(
     newline: None = None,
     closefd: bool = True,
     opener: _Opener | None = None,
-) -> AsyncIOWrapper[io.FileIO]:
-    ...
+) -> AsyncIOWrapper[io.FileIO]: ...
 
 
 @overload
@@ -383,8 +381,7 @@ async def open_file(
     newline: None = None,
     closefd: bool = True,
     opener: _Opener | None = None,
-) -> AsyncIOWrapper[io.BufferedRandom]:
-    ...
+) -> AsyncIOWrapper[io.BufferedRandom]: ...
 
 
 @overload
@@ -397,8 +394,7 @@ async def open_file(
     newline: None = None,
     closefd: bool = True,
     opener: _Opener | None = None,
-) -> AsyncIOWrapper[io.BufferedWriter]:
-    ...
+) -> AsyncIOWrapper[io.BufferedWriter]: ...
 
 
 @overload
@@ -411,8 +407,7 @@ async def open_file(
     newline: None = None,
     closefd: bool = True,
     opener: _Opener | None = None,
-) -> AsyncIOWrapper[io.BufferedReader]:
-    ...
+) -> AsyncIOWrapper[io.BufferedReader]: ...
 
 
 @overload
@@ -425,8 +420,7 @@ async def open_file(
     newline: None = None,
     closefd: bool = True,
     opener: _Opener | None = None,
-) -> AsyncIOWrapper[BinaryIO]:
-    ...
+) -> AsyncIOWrapper[BinaryIO]: ...
 
 
 @overload
@@ -439,8 +433,7 @@ async def open_file(  # type: ignore[misc]  # Any usage matches builtins.open().
     newline: str | None = None,
     closefd: bool = True,
     opener: _Opener | None = None,
-) -> AsyncIOWrapper[IO[Any]]:
-    ...
+) -> AsyncIOWrapper[IO[Any]]: ...
 
 
 async def open_file(

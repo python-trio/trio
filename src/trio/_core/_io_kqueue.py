@@ -6,7 +6,7 @@ import sys
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Callable, Iterator, Literal
 
-import attr
+import attrs
 import outcome
 
 from .. import _core
@@ -24,22 +24,22 @@ assert not TYPE_CHECKING or (sys.platform != "linux" and sys.platform != "win32"
 EventResult: TypeAlias = "list[select.kevent]"
 
 
-@attr.s(slots=True, eq=False, frozen=True)
+@attrs.frozen(eq=False)
 class _KqueueStatistics:
-    tasks_waiting: int = attr.ib()
-    monitors: int = attr.ib()
-    backend: Literal["kqueue"] = attr.ib(init=False, default="kqueue")
+    tasks_waiting: int
+    monitors: int
+    backend: Literal["kqueue"] = attrs.field(init=False, default="kqueue")
 
 
-@attr.s(slots=True, eq=False)
+@attrs.define(eq=False)
 class KqueueIOManager:
-    _kqueue: select.kqueue = attr.ib(factory=select.kqueue)
+    _kqueue: select.kqueue = attrs.Factory(select.kqueue)
     # {(ident, filter): Task or UnboundedQueue}
-    _registered: dict[tuple[int, int], Task | UnboundedQueue[select.kevent]] = attr.ib(
-        factory=dict
+    _registered: dict[tuple[int, int], Task | UnboundedQueue[select.kevent]] = (
+        attrs.Factory(dict)
     )
-    _force_wakeup: WakeupSocketpair = attr.ib(factory=WakeupSocketpair)
-    _force_wakeup_fd: int | None = attr.ib(default=None)
+    _force_wakeup: WakeupSocketpair = attrs.Factory(WakeupSocketpair)
+    _force_wakeup_fd: int | None = None
 
     def __attrs_post_init__(self) -> None:
         force_wakeup_event = select.kevent(
@@ -118,7 +118,9 @@ class KqueueIOManager:
     @contextmanager
     @_public
     def monitor_kevent(
-        self, ident: int, filter: int
+        self,
+        ident: int,
+        filter: int,
     ) -> Iterator[_core.UnboundedQueue[select.kevent]]:
         """TODO: these are implemented, but are currently more of a sketch than
         anything real. See `#26
@@ -138,7 +140,10 @@ class KqueueIOManager:
 
     @_public
     async def wait_kevent(
-        self, ident: int, filter: int, abort_func: Callable[[RaiseCancelT], Abort]
+        self,
+        ident: int,
+        filter: int,
+        abort_func: Callable[[RaiseCancelT], Abort],
     ) -> Abort:
         """TODO: these are implemented, but are currently more of a sketch than
         anything real. See `#26
@@ -160,7 +165,11 @@ class KqueueIOManager:
         # wait_task_rescheduled does not have its return type typed
         return await _core.wait_task_rescheduled(abort)  # type: ignore[no-any-return]
 
-    async def _wait_common(self, fd: int | _HasFileNo, filter: int) -> None:
+    async def _wait_common(
+        self,
+        fd: int | _HasFileNo,
+        filter: int,
+    ) -> None:
         if not isinstance(fd, int):
             fd = fd.fileno()
         flags = select.KQ_EV_ADD | select.KQ_EV_ONESHOT
@@ -260,15 +269,15 @@ class KqueueIOManager:
         if not isinstance(fd, int):
             fd = fd.fileno()
 
-        for filter in [select.KQ_FILTER_READ, select.KQ_FILTER_WRITE]:
-            key = (fd, filter)
+        for filter_ in [select.KQ_FILTER_READ, select.KQ_FILTER_WRITE]:
+            key = (fd, filter_)
             receiver = self._registered.get(key)
 
             if receiver is None:
                 continue
 
             if type(receiver) is _core.Task:
-                event = select.kevent(fd, filter, select.KQ_EV_DELETE)
+                event = select.kevent(fd, filter_, select.KQ_EV_DELETE)
                 self._kqueue.control([event], 0)
                 exc = _core.ClosedResourceError("another task closed this fd")
                 _core.reschedule(receiver, outcome.Error(exc))

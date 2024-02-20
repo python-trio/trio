@@ -72,6 +72,10 @@ Inter-task ordering
 
 .. autofunction:: wait_all_tasks_blocked
 
+.. autofunction:: wait_all_threads_completed
+
+.. autofunction:: active_thread_count
+
 
 .. _testing-streams:
 
@@ -219,3 +223,16 @@ Testing checkpoints
 
 .. autofunction:: assert_no_checkpoints
    :with:
+
+
+ExceptionGroup helpers
+----------------------
+
+.. autoclass:: RaisesGroup
+   :members:
+
+.. autoclass:: Matcher
+   :members:
+
+.. autoclass:: trio.testing._raises_group._ExceptionInfo
+   :members:

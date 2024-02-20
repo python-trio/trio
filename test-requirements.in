@@ -22,12 +22,16 @@ codespell
 mypy-extensions; implementation_name == "cpython"
 typing-extensions
 types-cffi; implementation_name == "cpython"
+# annotations in doc files
+types-docutils
+sphinx
 
 # Trio's own dependencies
 cffi; os_name == "nt"
-attrs >= 20.1.0
+attrs >= 23.2.0
 sortedcontainers
 idna
 outcome
 sniffio
-exceptiongroup >= 1.0.0rc9; python_version < "3.11"
+# 1.2.0 ships monkeypatching for apport excepthook
+exceptiongroup >= 1.2.0; python_version < "3.11"

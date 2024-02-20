@@ -3,7 +3,11 @@ This namespace represents low-level functionality not intended for daily use,
 but useful for extending Trio's functionality.
 """
 
+# imports are renamed with leading underscores to indicate they are not part of the public API
+
 import select as _select
+
+# static checkers don't understand if importing this as _sys, so it's deleted later
 import sys
 import typing as _t
 

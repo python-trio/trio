@@ -4,6 +4,10 @@ from .._core import (
     MockClock as MockClock,
     wait_all_tasks_blocked as wait_all_tasks_blocked,
 )
+from .._threads import (
+    active_thread_count as active_thread_count,
+    wait_all_threads_completed as wait_all_threads_completed,
+)
 from .._util import fixup_module_metadata
 from ._check_streams import (
     check_half_closeable_stream as check_half_closeable_stream,
@@ -24,6 +28,7 @@ from ._memory_streams import (
     memory_stream_pump as memory_stream_pump,
 )
 from ._network import open_stream_to_socket_listener as open_stream_to_socket_listener
+from ._raises_group import Matcher as Matcher, RaisesGroup as RaisesGroup
 from ._sequencer import Sequencer as Sequencer
 from ._trio_test import trio_test as trio_test
 

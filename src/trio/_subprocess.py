@@ -11,9 +11,7 @@ from typing import TYPE_CHECKING, Final, Literal, Protocol, Union, overload
 
 import trio
 
-from ._abc import AsyncResource, ReceiveStream, SendStream
 from ._core import ClosedResourceError, TaskStatus
-from ._deprecate import deprecated
 from ._highlevel_generic import StapledStream
 from ._subprocess_platform import (
     create_pipe_from_child_output,
@@ -28,7 +26,9 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Mapping, Sequence
     from io import TextIOWrapper
 
-    from typing_extensions import Self, TypeAlias
+    from typing_extensions import TypeAlias
+
+    from ._abc import ReceiveStream, SendStream
 
 
 # Sphinx cannot parse the stringified version
@@ -45,8 +45,7 @@ else:
 can_try_pidfd_open: bool
 if TYPE_CHECKING:
 
-    def pidfd_open(fd: int, flags: int) -> int:
-        ...
+    def pidfd_open(fd: int, flags: int) -> int: ...
 
     from ._subprocess_platform import ClosableReceiveStream, ClosableSendStream
 
@@ -96,12 +95,11 @@ else:
 class HasFileno(Protocol):
     """Represents any file-like object that has a file descriptor."""
 
-    def fileno(self) -> int:
-        ...
+    def fileno(self) -> int: ...
 
 
 @final
-class Process(AsyncResource, metaclass=NoPublicConstructor):
+class Process(metaclass=NoPublicConstructor):
     r"""A child process. Like :class:`subprocess.Popen`, but async.
 
     This class has no public constructor. The most common way to get a
@@ -143,6 +141,7 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
           available; otherwise this will be None.
 
     """
+
     # We're always in binary mode.
     universal_newlines: Final = False
     encoding: Final = None
@@ -222,40 +221,6 @@ class Process(AsyncResource, metaclass=NoPublicConstructor):
         if result is not None:
             self._close_pidfd()
         return result
-
-    @deprecated(
-        "0.20.0",
-        thing="using trio.Process as an async context manager",
-        issue=1104,
-        instead="run_process or nursery.start(run_process, ...)",
-    )
-    async def __aenter__(self) -> Self:
-        return self
-
-    @deprecated(
-        "0.20.0", issue=1104, instead="run_process or nursery.start(run_process, ...)"
-    )
-    async def aclose(self) -> None:
-        """Close any pipes we have to the process (both input and output)
-        and wait for it to exit.
-
-        If cancelled, kills the process and waits for it to finish
-        exiting before propagating the cancellation.
-        """
-        with trio.CancelScope(shield=True):
-            if self.stdin is not None:
-                await self.stdin.aclose()
-            if self.stdout is not None:
-                await self.stdout.aclose()
-            if self.stderr is not None:
-                await self.stderr.aclose()
-        try:
-            await self.wait()
-        finally:
-            if self._proc.returncode is None:
-                self.kill()
-                with trio.CancelScope(shield=True):
-                    await self.wait()
 
     def _close_pidfd(self) -> None:
         if self._pidfd is not None:
@@ -686,6 +651,7 @@ async def _run_process(
           and the process exits with a nonzero exit status
       OSError: if an error is encountered starting or communicating with
           the process
+      ExceptionGroup: if exceptions occur in ``deliver_cancel``, or when exceptions occur when communicating with the subprocess. If strict_exception_groups is set to false in the global context, then single exceptions will be collapsed.
 
     .. note:: The child process runs in the same process group as the parent
        Trio process, so a Ctrl+C will be delivered simultaneously to both
@@ -715,13 +681,13 @@ async def _run_process(
                 "since that's the only way to access the pipe"
             )
     if isinstance(stdin, (bytes, bytearray, memoryview)):
-        input = stdin
+        input_ = stdin
         options["stdin"] = subprocess.PIPE
     else:
         # stdin should be something acceptable to Process
         # (None, DEVNULL, a file descriptor, etc) and Process
         # will raise if it's not
-        input = None
+        input_ = None
         options["stdin"] = stdin
 
     if capture_stdout:
@@ -746,8 +712,8 @@ async def _run_process(
     async def feed_input(stream: SendStream) -> None:
         async with stream:
             try:
-                assert input is not None
-                await stream.send_all(input)
+                assert input_ is not None
+                await stream.send_all(input_)
             except trio.BrokenResourceError:
                 pass
 
@@ -759,11 +725,13 @@ async def _run_process(
             async for chunk in stream:
                 chunks.append(chunk)
 
+    # Opening the process does not need to be inside the nursery, so we put it outside
+    # so any exceptions get directly seen by users.
+    # options needs a complex TypedDict. The overload error only occurs on Unix.
+    proc = await open_process(command, **options)  # type: ignore[arg-type, call-overload, unused-ignore]
     async with trio.open_nursery() as nursery:
-        # options needs a complex TypedDict. The overload error only occurs on Unix.
-        proc = await open_process(command, **options)  # type: ignore[arg-type, call-overload, unused-ignore]
         try:
-            if input is not None:
+            if input_ is not None:
                 assert proc.stdin is not None
                 nursery.start_soon(feed_input, proc.stdin)
                 proc.stdin = None
@@ -1113,8 +1081,7 @@ if TYPE_CHECKING:
             restore_signals: bool = True,
             start_new_session: bool = False,
             pass_fds: Sequence[int] = (),
-        ) -> trio.Process:
-            ...
+        ) -> trio.Process: ...
 
         @overload
         async def open_process(
@@ -1131,8 +1098,7 @@ if TYPE_CHECKING:
             restore_signals: bool = True,
             start_new_session: bool = False,
             pass_fds: Sequence[int] = (),
-        ) -> trio.Process:
-            ...
+        ) -> trio.Process: ...
 
         @overload  # type: ignore[no-overload-impl]
         async def run_process(
@@ -1154,8 +1120,7 @@ if TYPE_CHECKING:
             restore_signals: bool = True,
             start_new_session: bool = False,
             pass_fds: Sequence[int] = (),
-        ) -> subprocess.CompletedProcess[bytes]:
-            ...
+        ) -> subprocess.CompletedProcess[bytes]: ...
 
         @overload
         async def run_process(
@@ -1177,8 +1142,7 @@ if TYPE_CHECKING:
             restore_signals: bool = True,
             start_new_session: bool = False,
             pass_fds: Sequence[int] = (),
-        ) -> subprocess.CompletedProcess[bytes]:
-            ...
+        ) -> subprocess.CompletedProcess[bytes]: ...
 
 else:
     # At runtime, use the actual implementations.

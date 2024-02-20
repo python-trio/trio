@@ -9,7 +9,7 @@ import tempfile
 from socket import AddressFamily, SocketKind
 from typing import TYPE_CHECKING, Any, Callable, List, Tuple, Union
 
-import attr
+import attrs
 import pytest
 
 from .. import _core, socket as tsocket
@@ -134,8 +134,8 @@ async def test_getaddrinfo(monkeygai: MonkeypatchedGAI) -> None:
             tuple[str, int] | tuple[str, int, int] | tuple[str, int, int, int],
         ]:
             # (family, type, proto, canonname, sockaddr)
-            family, type, proto, canonname, sockaddr = gai_tup
-            return (family, type, sockaddr)
+            family, type_, proto, canonname, sockaddr = gai_tup
+            return (family, type_, sockaddr)
 
         def filtered(
             gai_list: GetAddrInfoResponse,
@@ -323,8 +323,8 @@ async def test_sniff_sockopts() -> None:
     # generate the combinations of families/types we're testing:
     sockets = []
     for family in [AF_INET, AF_INET6]:
-        for type in [SOCK_DGRAM, SOCK_STREAM]:
-            sockets.append(stdlib_socket.socket(family, type))
+        for type_ in [SOCK_DGRAM, SOCK_STREAM]:
+            sockets.append(stdlib_socket.socket(family, type_))
     for socket in sockets:
         # regular Trio socket constructor
         tsocket_socket = tsocket.socket(fileno=socket.fileno())
@@ -512,12 +512,12 @@ def gai_without_v4mapped_is_buggy() -> bool:  # pragma: no cover
         return True
 
 
-@attr.s
+@attrs.define(slots=False)
 class Addresses:
-    bind_all: str = attr.ib()
-    localhost: str = attr.ib()
-    arbitrary: str = attr.ib()
-    broadcast: str = attr.ib()
+    bind_all: str
+    localhost: str
+    arbitrary: str
+    broadcast: str
 
 
 # Direct thorough tests of the implicit resolver helpers
@@ -580,12 +580,14 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
         for local in [False, True]:
 
             async def res(
-                args: tuple[str, int]
-                | tuple[str, int, int]
-                | tuple[str, int, int, int]
-                | tuple[str, str]
-                | tuple[str, str, int]
-                | tuple[str, str, int, int]
+                args: (
+                    tuple[str, int]
+                    | tuple[str, int, int]
+                    | tuple[str, int, int, int]
+                    | tuple[str, str]
+                    | tuple[str, str, int]
+                    | tuple[str, str, int, int]
+                )
             ) -> Any:
                 return await sock._resolve_address_nocp(
                     args,
@@ -624,8 +626,8 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
                 sock.setsockopt(tsocket.IPPROTO_IPV6, tsocket.IPV6_V6ONLY, True)
                 with pytest.raises(tsocket.gaierror) as excinfo:
                     await res(("1.2.3.4", 80))
-                # Windows, macOS
-                expected_errnos = {tsocket.EAI_NONAME}
+                # Windows, macOS, musl/Linux
+                expected_errnos = {tsocket.EAI_NONAME, tsocket.EAI_NODATA}
                 # Linux
                 if hasattr(tsocket, "EAI_ADDRFAMILY"):
                     expected_errnos.add(tsocket.EAI_ADDRFAMILY)
@@ -653,7 +655,7 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
                 await res("1.2.3.4")  # type: ignore[arg-type]
             with pytest.raises(ValueError, match=address):
                 await res(("1.2.3.4",))  # type: ignore[arg-type]
-            with pytest.raises(  # noqa: PT012
+            with pytest.raises(
                 ValueError,
                 match=address,
             ):
@@ -977,7 +979,13 @@ async def test_custom_hostname_resolver(monkeygai: MonkeypatchedGAI) -> None:
     # This intentionally breaks the signatures used in HostnameResolver
     class CustomResolver:
         async def getaddrinfo(
-            self, host: str, port: str, family: int, type: int, proto: int, flags: int
+            self,
+            host: str,
+            port: str,
+            family: int,
+            type: int,
+            proto: int,
+            flags: int,
         ) -> tuple[str, str, str, int, int, int, int]:
             return ("custom_gai", host, port, family, type, proto, flags)
 
@@ -1029,7 +1037,10 @@ async def test_custom_hostname_resolver(monkeygai: MonkeypatchedGAI) -> None:
 async def test_custom_socket_factory() -> None:
     class CustomSocketFactory:
         def socket(
-            self, family: AddressFamily, type: SocketKind, proto: int
+            self,
+            family: AddressFamily,
+            type: SocketKind,
+            proto: int,
         ) -> tuple[str, AddressFamily, SocketKind, int]:
             return ("hi", family, type, proto)
 

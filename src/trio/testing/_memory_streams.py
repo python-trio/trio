@@ -368,12 +368,10 @@ def _make_stapled_pair(
     return stream1, stream2
 
 
-def memory_stream_pair() -> (
-    tuple[
-        StapledStream[MemorySendStream, MemoryReceiveStream],
-        StapledStream[MemorySendStream, MemoryReceiveStream],
-    ]
-):
+def memory_stream_pair() -> tuple[
+    StapledStream[MemorySendStream, MemoryReceiveStream],
+    StapledStream[MemorySendStream, MemoryReceiveStream],
+]:
     """Create a connected, pure-Python, bidirectional stream with infinite
     buffering and flexible configuration options.
 
@@ -609,12 +607,10 @@ def lockstep_stream_one_way_pair() -> tuple[SendStream, ReceiveStream]:
     return _LockstepSendStream(lbq), _LockstepReceiveStream(lbq)
 
 
-def lockstep_stream_pair() -> (
-    tuple[
-        StapledStream[SendStream, ReceiveStream],
-        StapledStream[SendStream, ReceiveStream],
-    ]
-):
+def lockstep_stream_pair() -> tuple[
+    StapledStream[SendStream, ReceiveStream],
+    StapledStream[SendStream, ReceiveStream],
+]:
     """Create a connected, pure-Python, bidirectional stream where data flows
     in lockstep.
 

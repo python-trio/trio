@@ -2,6 +2,7 @@
 
 See https://github.com/sphinx-doc/sphinx/issues/7722 also.
 """
+
 from __future__ import annotations
 
 import re
@@ -60,7 +61,7 @@ def lookup_reference(
         new_node["reftarget"] = f"typing.{target[18:]}"
         # This fires off this same event, with our new modified node in order to fetch the right
         # URL to use.
-        return app.emit_firstresult(
+        return app.emit_firstresult(  # type: ignore[no-any-return]
             "missing-reference",
             env,
             new_node,

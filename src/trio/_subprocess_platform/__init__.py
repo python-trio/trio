@@ -1,32 +1,31 @@
 # Platform-specific subprocess bits'n'pieces.
+from __future__ import annotations
 
 import os
 import sys
-from typing import TYPE_CHECKING, Optional, Tuple
+from typing import TYPE_CHECKING
 
 import trio
 
 from .. import _core, _subprocess
 from .._abc import ReceiveStream, SendStream  # noqa: TCH001
 
-_wait_child_exiting_error: Optional[ImportError] = None
-_create_child_pipe_error: Optional[ImportError] = None
+_wait_child_exiting_error: ImportError | None = None
+_create_child_pipe_error: ImportError | None = None
 
 
 if TYPE_CHECKING:
     # internal types for the pipe representations used in type checking only
     class ClosableSendStream(SendStream):
-        def close(self) -> None:
-            ...
+        def close(self) -> None: ...
 
     class ClosableReceiveStream(ReceiveStream):
-        def close(self) -> None:
-            ...
+        def close(self) -> None: ...
 
 
 # Fallback versions of the functions provided -- implementations
 # per OS are imported atop these at the bottom of the module.
-async def wait_child_exiting(process: "_subprocess.Process") -> None:
+async def wait_child_exiting(process: _subprocess.Process) -> None:
     """Block until the child process managed by ``process`` is exiting.
 
     It is invalid to call this function if the process has already
@@ -41,7 +40,7 @@ async def wait_child_exiting(process: "_subprocess.Process") -> None:
     raise NotImplementedError from _wait_child_exiting_error  # pragma: no cover
 
 
-def create_pipe_to_child_stdin() -> Tuple["ClosableSendStream", int]:
+def create_pipe_to_child_stdin() -> tuple[ClosableSendStream, int]:
     """Create a new pipe suitable for sending data from this
     process to the standard input of a child we're about to spawn.
 
@@ -54,7 +53,7 @@ def create_pipe_to_child_stdin() -> Tuple["ClosableSendStream", int]:
     raise NotImplementedError from _create_child_pipe_error  # pragma: no cover
 
 
-def create_pipe_from_child_output() -> Tuple["ClosableReceiveStream", int]:
+def create_pipe_from_child_output() -> tuple[ClosableReceiveStream, int]:
     """Create a new pipe suitable for receiving data into this
     process from the standard output or error stream of a child
     we're about to spawn.
@@ -70,7 +69,7 @@ def create_pipe_from_child_output() -> Tuple["ClosableReceiveStream", int]:
 
 try:
     if sys.platform == "win32":
-        from .windows import wait_child_exiting  # noqa: F811
+        from .windows import wait_child_exiting
     elif sys.platform != "linux" and (TYPE_CHECKING or hasattr(_core, "wait_kevent")):
         from .kqueue import wait_child_exiting
     else:
@@ -86,11 +85,11 @@ try:
 
     elif os.name == "posix":
 
-        def create_pipe_to_child_stdin():  # noqa: F811
+        def create_pipe_to_child_stdin():
             rfd, wfd = os.pipe()
             return trio.lowlevel.FdStream(wfd), rfd
 
-        def create_pipe_from_child_output():  # noqa: F811
+        def create_pipe_from_child_output():
             rfd, wfd = os.pipe()
             return trio.lowlevel.FdStream(rfd), wfd
 

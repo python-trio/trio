@@ -26,20 +26,21 @@ from typing import (
     overload,
 )
 
-import attr
+import attrs
 from outcome import Error, Outcome, Value, capture
 from sniffio import thread_local as sniffio_library
 from sortedcontainers import SortedDict
 
 from .. import _core
 from .._abc import Clock, Instrument
+from .._deprecate import warn_deprecated
 from .._util import NoPublicConstructor, coroutine_or_error, final
 from ._asyncgens import AsyncGenerators
+from ._concat_tb import concat_tb
 from ._entry_queue import EntryQueue, TrioToken
 from ._exceptions import Cancelled, RunFinishedError, TrioInternalError
 from ._instrumentation import Instruments
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED, KIManager, enable_ki_protection
-from ._multierror import MultiError, concat_tb
 from ._thread_cache import start_thread_soon
 from ._traps import (
     Abort,
@@ -80,20 +81,14 @@ if TYPE_CHECKING:
 
     PosArgT = TypeVarTuple("PosArgT")
 
-    # Needs to be guarded, since Unpack[] would be evaluated at runtime.
-    class _NurseryStartFunc(Protocol[Unpack[PosArgT], StatusT_co]):
-        """Type of functions passed to `nursery.start() <trio.Nursery.start>`."""
-
-        def __call__(
-            self, *args: Unpack[PosArgT], task_status: TaskStatus[StatusT_co]
-        ) -> Awaitable[object]:
-            ...
-
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: Final = 1000
 
 # Passed as a sentinel
 _NO_SEND: Final[Outcome[Any]] = cast("Outcome[Any]", object())
+
+# Used to track if an exceptiongroup can be collapsed
+NONSTRICT_EXCEPTIONGROUP_NOTE = 'This is a "loose" ExceptionGroup, and may be collapsed by Trio if it only contains one exception - typically after `Cancelled` has been stripped from it. Note this has consequences for exception handling, and strict_exception_groups=True is recommended.'
 
 
 @final
@@ -160,13 +155,13 @@ def _count_context_run_tb_frames() -> int:
 CONTEXT_RUN_TB_FRAMES: Final = _count_context_run_tb_frames()
 
 
-@attr.s(frozen=True, slots=True)
+@attrs.frozen
 class SystemClock(Clock):
     "aoeu"
     # Add a large random offset to our clock to ensure that if people
     # accidentally call time.perf_counter() directly or start comparing clocks
     # between different runs, then they'll notice the bug quickly:
-    offset: float = attr.ib(factory=lambda: _r.uniform(10000, 200000))
+    offset: float = attrs.Factory(lambda: _r.uniform(10000, 200000))
 
     def start_clock(self) -> None:
         pass
@@ -207,7 +202,11 @@ def collapse_exception_group(
                 modified = True
                 exceptions[i] = new_exc
 
-    if len(exceptions) == 1 and isinstance(excgroup, MultiError) and excgroup.collapse:
+    if (
+        len(exceptions) == 1
+        and isinstance(excgroup, BaseExceptionGroup)
+        and NONSTRICT_EXCEPTIONGROUP_NOTE in getattr(excgroup, "__notes__", ())
+    ):
         exceptions[0].__traceback__ = concat_tb(
             excgroup.__traceback__, exceptions[0].__traceback__
         )
@@ -218,7 +217,7 @@ def collapse_exception_group(
         return excgroup
 
 
-@attr.s(eq=False, slots=True)
+@attrs.define(eq=False)
 class Deadlines:
     """A container of deadlined cancel scopes.
 
@@ -228,9 +227,9 @@ class Deadlines:
     """
 
     # Heap of (deadline, id(CancelScope), CancelScope)
-    _heap: list[tuple[float, int, CancelScope]] = attr.ib(factory=list)
+    _heap: list[tuple[float, int, CancelScope]] = attrs.Factory(list)
     # Count of active deadlines (those that haven't been changed)
-    _active: int = attr.ib(default=0)
+    _active: int = 0
 
     def add(self, deadline: float, cancel_scope: CancelScope) -> None:
         heappush(self._heap, (deadline, id(cancel_scope), cancel_scope))
@@ -287,7 +286,7 @@ class Deadlines:
         return did_something
 
 
-@attr.s(eq=False, slots=True)
+@attrs.define(eq=False)
 class CancelStatus:
     """Tracks the cancellation status for a contiguous extent
     of code that will become cancelled, or not, as a unit.
@@ -320,7 +319,7 @@ class CancelStatus:
     # Our associated cancel scope. Can be any object with attributes
     # `deadline`, `shield`, and `cancel_called`, but in current usage
     # is always a CancelScope object. Must not be None.
-    _scope: CancelScope = attr.ib()
+    _scope: CancelScope = attrs.field(alias="scope")
 
     # True iff the tasks in self._tasks should receive cancellations
     # when they checkpoint. Always True when scope.cancel_called is True;
@@ -330,29 +329,29 @@ class CancelStatus:
     # effectively cancelled due to the cancel scope two levels out
     # becoming cancelled, but then the cancel scope one level out
     # becomes shielded so we're not effectively cancelled anymore.
-    effectively_cancelled: bool = attr.ib(default=False)
+    effectively_cancelled: bool = False
 
     # The CancelStatus whose cancellations can propagate to us; we
     # become effectively cancelled when they do, unless scope.shield
     # is True.  May be None (for the outermost CancelStatus in a call
     # to trio.run(), briefly during TaskStatus.started(), or during
     # recovery from mis-nesting of cancel scopes).
-    _parent: CancelStatus | None = attr.ib(default=None, repr=False)
+    _parent: CancelStatus | None = attrs.field(default=None, repr=False, alias="parent")
 
     # All of the CancelStatuses that have this CancelStatus as their parent.
-    _children: set[CancelStatus] = attr.ib(factory=set, init=False, repr=False)
+    _children: set[CancelStatus] = attrs.field(factory=set, init=False, repr=False)
 
     # Tasks whose cancellation state is currently tied directly to
     # the cancellation state of this CancelStatus object. Don't modify
     # this directly; instead, use Task._activate_cancel_status().
     # Invariant: all(task._cancel_status is self for task in self._tasks)
-    _tasks: set[Task] = attr.ib(factory=set, init=False, repr=False)
+    _tasks: set[Task] = attrs.field(factory=set, init=False, repr=False)
 
     # Set to True on still-active cancel statuses that are children
     # of a cancel status that's been closed. This is used to permit
     # recovery from mis-nested cancel scopes (well, at least enough
     # recovery to show a useful traceback).
-    abandoned_by_misnesting: bool = attr.ib(default=False, init=False, repr=False)
+    abandoned_by_misnesting: bool = attrs.field(default=False, init=False, repr=False)
 
     def __attrs_post_init__(self) -> None:
         if self._parent is not None:
@@ -485,7 +484,7 @@ https://github.com/python-trio/trio/issues/new
 
 
 @final
-@attr.s(eq=False, repr=False, slots=True)
+@attrs.define(eq=False, repr=False)
 class CancelScope:
     """A *cancellation scope*: the link between a unit of cancellable
     work and Trio's cancellation system.
@@ -525,15 +524,15 @@ class CancelScope:
     has been entered yet, and changes take immediate effect.
     """
 
-    _cancel_status: CancelStatus | None = attr.ib(default=None, init=False)
-    _has_been_entered: bool = attr.ib(default=False, init=False)
-    _registered_deadline: float = attr.ib(default=inf, init=False)
-    _cancel_called: bool = attr.ib(default=False, init=False)
-    cancelled_caught: bool = attr.ib(default=False, init=False)
+    _cancel_status: CancelStatus | None = attrs.field(default=None, init=False)
+    _has_been_entered: bool = attrs.field(default=False, init=False)
+    _registered_deadline: float = attrs.field(default=inf, init=False)
+    _cancel_called: bool = attrs.field(default=False, init=False)
+    cancelled_caught: bool = attrs.field(default=False, init=False)
 
     # Constructor arguments:
-    _deadline: float = attr.ib(default=inf, kw_only=True)
-    _shield: bool = attr.ib(default=False, kw_only=True)
+    _deadline: float = attrs.field(default=inf, kw_only=True, alias="deadline")
+    _shield: bool = attrs.field(default=False, kw_only=True, alias="shield")
 
     @enable_ki_protection
     def __enter__(self) -> Self:
@@ -643,7 +642,7 @@ class CancelScope:
         elif remaining_error_after_cancel_scope is exc:
             return False
         else:
-            # Copied verbatim from MultiErrorCatcher.  Python doesn't
+            # Copied verbatim from the old MultiErrorCatcher.  Python doesn't
             # allow us to encapsulate this __context__ fixup.
             old_context = remaining_error_after_cancel_scope.__context__
             try:
@@ -654,6 +653,7 @@ class CancelScope:
                 value.__context__ = old_context
                 # delete references from locals to avoid creating cycles
                 # see test_cancel_scope_exit_doesnt_create_cyclic_garbage
+                # Note: still relevant
                 del remaining_error_after_cancel_scope, value, _, exc
                 # deep magic to remove refs via f_locals
                 locals()
@@ -832,12 +832,10 @@ class TaskStatus(Protocol[StatusT_contra]):
     """
 
     @overload
-    def started(self: TaskStatus[None]) -> None:
-        ...
+    def started(self: TaskStatus[None]) -> None: ...
 
     @overload
-    def started(self, value: StatusT_contra) -> None:
-        ...
+    def started(self, value: StatusT_contra) -> None: ...
 
     def started(self, value: StatusT_contra | None = None) -> None:
         """Tasks call this method to indicate that they have initialized.
@@ -848,23 +846,21 @@ class TaskStatus(Protocol[StatusT_contra]):
 
 # This code needs to be read alongside the code from Nursery.start to make
 # sense.
-@attr.s(eq=False, hash=False, repr=False)
+@attrs.define(eq=False, hash=False, repr=False, slots=False)
 class _TaskStatus(TaskStatus[StatusT]):
-    _old_nursery: Nursery = attr.ib()
-    _new_nursery: Nursery = attr.ib()
+    _old_nursery: Nursery
+    _new_nursery: Nursery
     # NoStatus is a sentinel.
-    _value: StatusT | type[_NoStatus] = attr.ib(default=_NoStatus)
+    _value: StatusT | type[_NoStatus] = _NoStatus
 
     def __repr__(self) -> str:
         return f"<Task status object at {id(self):#x}>"
 
     @overload
-    def started(self: _TaskStatus[None]) -> None:
-        ...
+    def started(self: _TaskStatus[None]) -> None: ...
 
     @overload
-    def started(self: _TaskStatus[StatusT], value: StatusT) -> None:
-        ...
+    def started(self: _TaskStatus[StatusT], value: StatusT) -> None: ...
 
     def started(self, value: StatusT | None = None) -> None:
         if self._value is not _NoStatus:
@@ -919,7 +915,7 @@ class _TaskStatus(TaskStatus[StatusT]):
         self._old_nursery._check_nursery_closed()
 
 
-@attr.s
+@attrs.define(slots=False)
 class NurseryManager:
     """Nursery context manager.
 
@@ -930,7 +926,7 @@ class NurseryManager:
 
     """
 
-    strict_exception_groups: bool = attr.ib(default=False)
+    strict_exception_groups: bool = True
 
     @enable_ki_protection
     async def __aenter__(self) -> Nursery:
@@ -957,7 +953,7 @@ class NurseryManager:
         elif combined_error_from_nursery is exc:
             return False
         else:
-            # Copied verbatim from MultiErrorCatcher.  Python doesn't
+            # Copied verbatim from the old MultiErrorCatcher.  Python doesn't
             # allow us to encapsulate this __context__ fixup.
             old_context = combined_error_from_nursery.__context__
             try:
@@ -967,7 +963,7 @@ class NurseryManager:
                 assert value is combined_error_from_nursery
                 value.__context__ = old_context
                 # delete references from locals to avoid creating cycles
-                # see test_simple_cancel_scope_usage_doesnt_create_cyclic_garbage
+                # see test_cancel_scope_exit_doesnt_create_cyclic_garbage
                 del _, combined_error_from_nursery, value, new_exc
 
     # make sure these raise errors in static analysis if called
@@ -997,11 +993,21 @@ def open_nursery(
     have exited.
 
     Args:
-      strict_exception_groups (bool): If true, even a single raised exception will be
-          wrapped in an exception group. This will eventually become the default
-          behavior. If not specified, uses the value passed to :func:`run`.
+      strict_exception_groups (bool): Unless set to False, even a single raised exception
+          will be wrapped in an exception group. If not specified, uses the value passed
+          to :func:`run`, which defaults to true. Setting it to False will be deprecated
+          and ultimately removed in a future version of Trio.
 
     """
+    # only warn if explicitly set to falsy, not if we get it from the global context.
+    if strict_exception_groups is not None and not strict_exception_groups:
+        warn_deprecated(
+            "open_nursery(strict_exception_groups=False)",
+            version="0.24.1",
+            issue=2929,
+            instead="the default value of True and rewrite exception handlers to handle ExceptionGroups",
+        )
+
     if strict_exception_groups is None:
         strict_exception_groups = GLOBAL_RUN_CONTEXT.runner.strict_exception_groups
 
@@ -1088,7 +1094,7 @@ class Nursery(metaclass=NoPublicConstructor):
     async def _nested_child_finished(
         self, nested_child_exc: BaseException | None
     ) -> BaseException | None:
-        # Returns MultiError instance (or any exception if the nursery is in loose mode
+        # Returns ExceptionGroup instance (or any exception if the nursery is in loose mode
         # and there is just one contained exception) if there are pending exceptions
         if nested_child_exc is not None:
             self._add_exc(nested_child_exc)
@@ -1103,6 +1109,7 @@ class Nursery(metaclass=NoPublicConstructor):
                 exn = capture(raise_cancel).error
                 if not isinstance(exn, Cancelled):
                     self._add_exc(exn)
+                # see test_cancel_scope_exit_doesnt_create_cyclic_garbage
                 del exn  # prevent cyclic garbage creation
                 return Abort.FAILED
 
@@ -1121,12 +1128,17 @@ class Nursery(metaclass=NoPublicConstructor):
         assert popped is self
         if self._pending_excs:
             try:
-                return MultiError(
-                    self._pending_excs, _collapse=not self._strict_exception_groups
+                if not self._strict_exception_groups and len(self._pending_excs) == 1:
+                    return self._pending_excs[0]
+                exception = BaseExceptionGroup(
+                    "Exceptions from Trio nursery", self._pending_excs
                 )
+                if not self._strict_exception_groups:
+                    exception.add_note(NONSTRICT_EXCEPTIONGROUP_NOTE)
+                return exception
             finally:
                 # avoid a garbage cycle
-                # (see test_nursery_cancel_doesnt_create_cyclic_garbage)
+                # (see test_locals_destroyed_promptly_on_cancel)
                 del self._pending_excs
         return None
 
@@ -1226,19 +1238,30 @@ class Nursery(metaclass=NoPublicConstructor):
             raise RuntimeError("Nursery is closed to new arrivals")
         try:
             self._pending_starts += 1
-            # `strict_exception_groups=False` prevents the implementation-detail
-            # nursery from inheriting `strict_exception_groups=True` from the
-            # `run` option, which would cause it to wrap a pre-started()
-            # exception in an extra ExceptionGroup. See #2611.
-            async with open_nursery(strict_exception_groups=False) as old_nursery:
-                task_status: _TaskStatus[Any] = _TaskStatus(old_nursery, self)
-                thunk = functools.partial(async_fn, task_status=task_status)
-                task = GLOBAL_RUN_CONTEXT.runner.spawn_impl(
-                    thunk, args, old_nursery, name
-                )
-                task._eventual_parent_nursery = self
-                # Wait for either TaskStatus.started or an exception to
-                # cancel this nursery:
+            # wrap internal nursery in try-except to unroll any exceptiongroups
+            # to avoid wrapping pre-started() exceptions in an extra ExceptionGroup.
+            # See #2611.
+            try:
+                # set strict_exception_groups = True to make sure we always unwrap
+                # *this* nursery's exceptiongroup
+                async with open_nursery(strict_exception_groups=True) as old_nursery:
+                    task_status: _TaskStatus[Any] = _TaskStatus(old_nursery, self)
+                    thunk = functools.partial(async_fn, task_status=task_status)
+                    task = GLOBAL_RUN_CONTEXT.runner.spawn_impl(
+                        thunk, args, old_nursery, name
+                    )
+                    task._eventual_parent_nursery = self
+                    # Wait for either TaskStatus.started or an exception to
+                    # cancel this nursery:
+            except BaseExceptionGroup as exc:
+                if len(exc.exceptions) == 1:
+                    raise exc.exceptions[0] from None
+                raise TrioInternalError(
+                    "Internal nursery should not have multiple tasks. This can be "
+                    'caused by the user managing to access the "old" nursery in '
+                    "`task_status` and spawning tasks in it."
+                ) from exc
+
             # If we get here, then the child either got reparented or exited
             # normally. The complicated logic is all in TaskStatus.started().
             # (Any exceptions propagate directly out of the above.)
@@ -1259,14 +1282,14 @@ class Nursery(metaclass=NoPublicConstructor):
 
 
 @final
-@attr.s(eq=False, hash=False, repr=False, slots=True)
+@attrs.define(eq=False, hash=False, repr=False)
 class Task(metaclass=NoPublicConstructor):
-    _parent_nursery: Nursery | None = attr.ib()
-    coro: Coroutine[Any, Outcome[object], Any] = attr.ib()
-    _runner: Runner = attr.ib()
-    name: str = attr.ib()
-    context: contextvars.Context = attr.ib()
-    _counter: int = attr.ib(init=False, factory=itertools.count().__next__)
+    _parent_nursery: Nursery | None
+    coro: Coroutine[Any, Outcome[object], Any]
+    _runner: Runner
+    name: str
+    context: contextvars.Context
+    _counter: int = attrs.field(init=False, factory=itertools.count().__next__)
 
     # Invariant:
     # - for unscheduled tasks, _next_send_fn and _next_send are both None
@@ -1279,20 +1302,20 @@ class Task(metaclass=NoPublicConstructor):
     #   tracebacks with extraneous frames.
     # - for scheduled tasks, custom_sleep_data is None
     # Tasks start out unscheduled.
-    _next_send_fn: Callable[[Any], object] = attr.ib(default=None)
-    _next_send: Outcome[Any] | None | BaseException = attr.ib(default=None)
-    _abort_func: Callable[[_core.RaiseCancelT], Abort] | None = attr.ib(default=None)
-    custom_sleep_data: Any = attr.ib(default=None)
+    _next_send_fn: Callable[[Any], object] | None = None
+    _next_send: Outcome[Any] | None | BaseException = None
+    _abort_func: Callable[[_core.RaiseCancelT], Abort] | None = None
+    custom_sleep_data: Any = None
 
     # For introspection and nursery.start()
-    _child_nurseries: list[Nursery] = attr.ib(factory=list)
-    _eventual_parent_nursery: Nursery | None = attr.ib(default=None)
+    _child_nurseries: list[Nursery] = attrs.Factory(list)
+    _eventual_parent_nursery: Nursery | None = None
 
     # these are counts of how many cancel/schedule points this task has
     # executed, for assert{_no,}_checkpoints
     # XX maybe these should be exposed as part of a statistics() method?
-    _cancel_points: int = attr.ib(default=0)
-    _schedule_points: int = attr.ib(default=0)
+    _cancel_points: int = 0
+    _schedule_points: int = 0
 
     def __repr__(self) -> str:
         return f"<Task {self.name!r} at {id(self):#x}>"
@@ -1384,7 +1407,7 @@ class Task(metaclass=NoPublicConstructor):
     # The CancelStatus object that is currently active for this task.
     # Don't change this directly; instead, use _activate_cancel_status().
     # This can be None, but only in the init task.
-    _cancel_status: CancelStatus = attr.ib(default=None, repr=False)
+    _cancel_status: CancelStatus = attrs.field(default=None, repr=False)
 
     def _activate_cancel_status(self, cancel_status: CancelStatus | None) -> None:
         if self._cancel_status is not None:
@@ -1450,7 +1473,7 @@ class RunContext(threading.local):
 GLOBAL_RUN_CONTEXT: Final = RunContext()
 
 
-@attr.frozen
+@attrs.frozen
 class RunStatistics:
     """An object containing run-loop-level debugging information.
 
@@ -1502,14 +1525,14 @@ class RunStatistics:
 # worker thread.
 
 
-@attr.s(eq=False, hash=False, slots=True)
+@attrs.define(eq=False, hash=False)
 class GuestState:
-    runner: Runner = attr.ib()
-    run_sync_soon_threadsafe: Callable[[Callable[[], object]], object] = attr.ib()
-    run_sync_soon_not_threadsafe: Callable[[Callable[[], object]], object] = attr.ib()
-    done_callback: Callable[[Outcome[Any]], object] = attr.ib()
-    unrolled_run_gen: Generator[float, EventResult, None] = attr.ib()
-    unrolled_run_next_send: Outcome[Any] = attr.ib(factory=lambda: Value(None))
+    runner: Runner
+    run_sync_soon_threadsafe: Callable[[Callable[[], object]], object]
+    run_sync_soon_not_threadsafe: Callable[[Callable[[], object]], object]
+    done_callback: Callable[[Outcome[Any]], object]
+    unrolled_run_gen: Generator[float, EventResult, None]
+    unrolled_run_next_send: Outcome[Any] = attrs.Factory(lambda: Value(None))
 
     def guest_tick(self) -> None:
         prev_library, sniffio_library.name = sniffio_library.name, "trio"
@@ -1552,38 +1575,38 @@ class GuestState:
             start_thread_soon(get_events, deliver)
 
 
-@attr.s(eq=False, hash=False, slots=True)
+@attrs.define(eq=False, hash=False)
 class Runner:
-    clock: Clock = attr.ib()
-    instruments: Instruments = attr.ib()
-    io_manager: TheIOManager = attr.ib()
-    ki_manager: KIManager = attr.ib()
-    strict_exception_groups: bool = attr.ib()
+    clock: Clock
+    instruments: Instruments
+    io_manager: TheIOManager
+    ki_manager: KIManager
+    strict_exception_groups: bool
 
     # Run-local values, see _local.py
-    _locals: dict[_core.RunVar[Any], Any] = attr.ib(factory=dict)
+    _locals: dict[_core.RunVar[Any], Any] = attrs.Factory(dict)
 
-    runq: deque[Task] = attr.ib(factory=deque)
-    tasks: set[Task] = attr.ib(factory=set)
+    runq: deque[Task] = attrs.Factory(deque)
+    tasks: set[Task] = attrs.Factory(set)
 
-    deadlines: Deadlines = attr.ib(factory=Deadlines)
+    deadlines: Deadlines = attrs.Factory(Deadlines)
 
-    init_task: Task | None = attr.ib(default=None)
-    system_nursery: Nursery | None = attr.ib(default=None)
-    system_context: contextvars.Context = attr.ib(kw_only=True)
-    main_task: Task | None = attr.ib(default=None)
-    main_task_outcome: Outcome[Any] | None = attr.ib(default=None)
+    init_task: Task | None = None
+    system_nursery: Nursery | None = None
+    system_context: contextvars.Context = attrs.field(kw_only=True)
+    main_task: Task | None = None
+    main_task_outcome: Outcome[Any] | None = None
 
-    entry_queue: EntryQueue = attr.ib(factory=EntryQueue)
-    trio_token: TrioToken | None = attr.ib(default=None)
-    asyncgens: AsyncGenerators = attr.ib(factory=AsyncGenerators)
+    entry_queue: EntryQueue = attrs.Factory(EntryQueue)
+    trio_token: TrioToken | None = None
+    asyncgens: AsyncGenerators = attrs.Factory(AsyncGenerators)
 
     # If everything goes idle for this long, we call clock._autojump()
-    clock_autojump_threshold: float = attr.ib(default=inf)
+    clock_autojump_threshold: float = inf
 
     # Guest mode stuff
-    is_guest: bool = attr.ib(default=False)
-    guest_tick_scheduled: bool = attr.ib(default=False)
+    is_guest: bool = False
+    guest_tick_scheduled: bool = False
 
     def force_guest_tick_asap(self) -> None:
         if self.guest_tick_scheduled:
@@ -1745,7 +1768,8 @@ class Runner:
             except AttributeError:
                 name = repr(name)
 
-        if not hasattr(coro, "cr_frame"):
+        # very old Cython versions (<0.29.24) has the attribute, but with a value of None
+        if getattr(coro, "cr_frame", None) is None:
             # This async function is implemented in C or Cython
             async def python_wrapper(orig_coro: Awaitable[RetT]) -> RetT:
                 return await orig_coro
@@ -1769,8 +1793,7 @@ class Runner:
             self.instruments.call("task_spawned", task)
         # Special case: normally next_send should be an Outcome, but for the
         # very first send we have to send a literal unboxed None.
-        # TODO: remove [unused-ignore] when Outcome is typed
-        self.reschedule(task, None)  # type: ignore[arg-type, unused-ignore]
+        self.reschedule(task, None)  # type: ignore[arg-type]
         return task
 
     def task_exited(self, task: Task, outcome: Outcome[Any]) -> None:
@@ -1943,7 +1966,7 @@ class Runner:
     # KI handling
     ################
 
-    ki_pending: bool = attr.ib(default=False)
+    ki_pending: bool = False
 
     # deliver_ki is broke. Maybe move all the actual logic and state into
     # RunToken, and we'll only have one instance per runner? But then we can't
@@ -1976,7 +1999,7 @@ class Runner:
 
     # sortedcontainers doesn't have types, and is reportedly very hard to type:
     # https://github.com/grantjenks/python-sortedcontainers/issues/68
-    waiting_for_idle: Any = attr.ib(factory=SortedDict)
+    waiting_for_idle: Any = attrs.Factory(SortedDict)
 
     @_public
     async def wait_all_tasks_blocked(self, cushion: float = 0.0) -> None:
@@ -2159,7 +2182,7 @@ def run(
     clock: Clock | None = None,
     instruments: Sequence[Instrument] = (),
     restrict_keyboard_interrupt_to_checkpoints: bool = False,
-    strict_exception_groups: bool = False,
+    strict_exception_groups: bool = True,
 ) -> RetT:
     """Run a Trio-flavored async function, and return the result.
 
@@ -2216,9 +2239,10 @@ def run(
           main thread (this is a Python limitation), or if you use
           :func:`open_signal_receiver` to catch SIGINT.
 
-      strict_exception_groups (bool): If true, nurseries will always wrap even a single
-          raised exception in an exception group. This can be overridden on the level of
-          individual nurseries. This will eventually become the default behavior.
+      strict_exception_groups (bool): Unless set to False, nurseries will always wrap
+          even a single raised exception in an exception group. This can be overridden
+          on the level of individual nurseries. Setting it to False will be deprecated
+          and ultimately removed in a future version of Trio.
 
     Returns:
       Whatever ``async_fn`` returns.
@@ -2232,6 +2256,13 @@ def run(
           propagates it.
 
     """
+    if strict_exception_groups is not None and not strict_exception_groups:
+        warn_deprecated(
+            "trio.run(..., strict_exception_groups=False)",
+            version="0.24.1",
+            issue=2929,
+            instead="the default value of True and rewrite exception handlers to handle ExceptionGroups",
+        )
 
     __tracebackhide__ = True
 
@@ -2270,13 +2301,14 @@ def start_guest_run(
     *args: object,
     run_sync_soon_threadsafe: Callable[[Callable[[], object]], object],
     done_callback: Callable[[outcome.Outcome[RetT]], object],
-    run_sync_soon_not_threadsafe: Callable[[Callable[[], object]], object]
-    | None = None,
+    run_sync_soon_not_threadsafe: (
+        Callable[[Callable[[], object]], object] | None
+    ) = None,
     host_uses_signal_set_wakeup_fd: bool = False,
     clock: Clock | None = None,
     instruments: Sequence[Instrument] = (),
     restrict_keyboard_interrupt_to_checkpoints: bool = False,
-    strict_exception_groups: bool = False,
+    strict_exception_groups: bool = True,
 ) -> None:
     """Start a "guest" run of Trio on top of some other "host" event loop.
 
@@ -2337,6 +2369,14 @@ def start_guest_run(
     For the meaning of other arguments, see `trio.run`.
 
     """
+    if strict_exception_groups is not None and not strict_exception_groups:
+        warn_deprecated(
+            "trio.start_guest_run(..., strict_exception_groups=False)",
+            version="0.24.1",
+            issue=2929,
+            instead="the default value of True and rewrite exception handlers to handle ExceptionGroups",
+        )
+
     runner = setup_runner(
         clock,
         instruments,
@@ -2616,8 +2656,7 @@ def unrolled_run(
                         # protocol of unwrapping whatever outcome gets sent in.
                         # Instead, we'll arrange to throw `exc` in directly,
                         # which works for at least asyncio and curio.
-                        # TODO: remove [unused-ignore] when Outcome is typed
-                        runner.reschedule(task, exc)  # type: ignore[arg-type, unused-ignore]
+                        runner.reschedule(task, exc)  # type: ignore[arg-type]
                         task._next_send_fn = task.coro.throw
                     # prevent long-lived reference
                     # TODO: develop test for this deletion
@@ -2627,7 +2666,7 @@ def unrolled_run(
                     runner.instruments.call("after_task_step", task)
                 del GLOBAL_RUN_CONTEXT.task
                 # prevent long-lived references
-                # TODO: develop test for these deletions
+                # TODO: develop test for this deletion
                 del task, next_send, next_send_fn
 
     except GeneratorExit:
