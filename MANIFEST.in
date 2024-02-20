@@ -1,6 +1,5 @@
 include LICENSE LICENSE.MIT LICENSE.APACHE2
 include README.rst
-include LONG_DESCRIPTION.rst
 include CODE_OF_CONDUCT.md CONTRIBUTING.md
 include test-requirements.txt
 include src/trio/py.typed
