@@ -7,13 +7,9 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from collections.abc import Mapping
-
-# the result file is not marked in MANIFEST.in so it's not included in the package
-failed = False
+import trio
+import trio.testing
 
 printed_diagnostics: set[str] = set()
 
@@ -35,14 +31,35 @@ def run_pyright(platform: str) -> subprocess.CompletedProcess[bytes]:
     )
 
 
-def check_zero(key: str, current_dict: Mapping[str, float]) -> None:
-    global failed
-    if current_dict[key] != 0:
-        failed = True
-        print(f"ERROR: {key} is {current_dict[key]}")
+def has_docstring_at_runtime(name: str) -> bool:
+    assert trio.testing
+    # this is rickety, but works for all current symbols
+    name_parts = name.split(".")
+    split_i = 1
+    if name_parts[1] == "tests":
+        return True
+    if name_parts[1] in ("_core", "testing"):  # noqa: SIM108
+        split_i = 2
+    else:
+        split_i = 1
+    module = sys.modules[".".join(name_parts[:split_i])]
+    obj = module
+    try:
+        for obj_name in name_parts[split_i:]:
+            obj = getattr(obj, obj_name)
+    except AttributeError as exc:
+        # asynciowrapper does funky getattr stuff
+        if "AsyncIOWrapper" in str(exc):
+            return True
+        # raise
+        print(exc)
+    return bool(obj.__doc__)
 
 
 def check_type(args: argparse.Namespace, platform: str) -> int:
+    # convince isort we use the trio import
+    assert trio
+
     res = run_pyright(platform)
     current_result = json.loads(res.stdout)
 
@@ -53,40 +70,51 @@ def check_type(args: argparse.Namespace, platform: str) -> int:
         with open(args.full_diagnostics_file, "w") as f:
             json.dump(current_result, f, sort_keys=True, indent=4)
 
-    missingFunctionDocStringCount = current_result["typeCompleteness"][
-        "missingFunctionDocStringCount"
-    ]
-    # missingClassDocStringCount = current_result["typeCompleteness"][
-    #    "missingClassDocStringCount"
-    # ]
+    counts = {}
+    for where, key in (
+        (("typeCompleteness",), "missingFunctionDocStringCount"),
+        (("typeCompleteness",), "missingClassDocStringCount"),
+        (("typeCompleteness",), "missingDefaultParamCount"),
+        (("summary",), "errorCount"),
+        (("summary",), "warningCount"),
+        (("summary",), "informationCount"),
+        (("typeCompleteness", "exportedSymbolCounts"), "withUnknownType"),
+        (("typeCompleteness", "exportedSymbolCounts"), "withAmbiguousType"),
+    ):
+        curr_dict = current_result
+        for subdict in where:
+            curr_dict = curr_dict[subdict]
+
+        counts[key] = curr_dict[key]
 
     for symbol in current_result["typeCompleteness"]["symbols"]:
+        category = symbol["category"]
         diagnostics = symbol["diagnostics"]
+        name = symbol["name"]
         if not diagnostics:
+            if (
+                category
+                not in ("variable", "symbol", "type alias", "constant", "module")
+                and not name.endswith("__")
+                and not has_docstring_at_runtime(symbol["name"])
+            ):
+                print(
+                    "not warned by pyright, but missing docstring:",
+                    symbol["name"],
+                    symbol["category"],
+                )
             continue
         for diagnostic in diagnostics:
-            if diagnostic["message"].startswith("No docstring found for"):
-                # check if it actually has a docstring at runtime
-                # this is rickety and incomplete - but works for the current
-                # missing docstrings
-                name_parts = symbol["name"].split(".")
-                if name_parts[1] == "_core":  # noqa: SIM108
-                    split_i = 2
+            if diagnostic["message"].startswith(
+                "No docstring found for"
+            ) and has_docstring_at_runtime(symbol["name"]):
+                if category in ("method", "function"):
+                    counts["missingFunctionDocStringCount"] -= 1
+                elif category == "class":
+                    counts["missingClassDocStringCount"] -= 1
                 else:
-                    split_i = 1
-                module = sys.modules[".".join(name_parts[:split_i])]
-                obj = module
-                try:
-                    for obj_name in name_parts[split_i:]:
-                        obj = getattr(obj, obj_name)
-                except AttributeError as exc:
-                    # asynciowrapper does funky getattr stuff
-                    if "AsyncIOWrapper" in str(exc):
-                        missingFunctionDocStringCount -= 1
-                        continue
-                if obj.__doc__:
-                    missingFunctionDocStringCount -= 1
-                    continue
+                    raise AssertionError("This category shouldn't be possible here")
+                continue
 
             if diagnostic["message"] in printed_diagnostics:
                 continue
@@ -95,25 +123,10 @@ def check_type(args: argparse.Namespace, platform: str) -> int:
 
         continue
 
-    if missingFunctionDocStringCount > 0:
-        print(
-            f"ERROR: missingFunctionDocStringCount is {missingFunctionDocStringCount}"
-        )
-        failed = True
-
-    for key in "errorCount", "warningCount", "informationCount":
-        check_zero(key, current_result["summary"])
-
-    for key in (
-        # "missingFunctionDocStringCount",
-        "missingClassDocStringCount",
-        "missingDefaultParamCount",
-        # "completenessScore",
-    ):
-        check_zero(key, current_result["typeCompleteness"])
-
-    for key in ("withUnknownType", "withAmbiguousType"):
-        check_zero(key, current_result["typeCompleteness"]["exportedSymbolCounts"])
+    for name, val in counts.items():
+        if val > 0:
+            print(f"ERROR: {name} is {val}")
+            failed = True
 
     return int(failed)
 
