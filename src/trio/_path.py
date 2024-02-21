@@ -90,7 +90,7 @@ def _wrap_method_path_iterable(
         f".. note::\n"
         f"\n"
         f"    The iterator is loaded into memory immediately during the initial\n"
-        f"    call, (see `issue #501\n"
+        f"    call (see `issue #501\n"
         f"    <https://github.com/python-trio/trio/issues/501>`__ for discussion).\n"
     )
     return wrapper
