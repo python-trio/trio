@@ -54,7 +54,7 @@ def _wrap_method(
 ) -> Callable[Concatenate[Path, P], Awaitable[T]]:
     @_wraps_async(fn)
     def wrapper(self: Path, /, *args: P.args, **kwargs: P.kwargs) -> T:
-        return fn(self.wrapped_cls(self), *args, **kwargs)
+        return fn(self._wrapped_cls(self), *args, **kwargs)
 
     return wrapper
 
@@ -64,7 +64,7 @@ def _wrap_method_path(
 ) -> Callable[Concatenate[PathT, P], Awaitable[PathT]]:
     @_wraps_async(fn)
     def wrapper(self: PathT, /, *args: P.args, **kwargs: P.kwargs) -> PathT:
-        return self.__class__(fn(self.wrapped_cls(self), *args, **kwargs))
+        return self.__class__(fn(self._wrapped_cls(self), *args, **kwargs))
 
     return wrapper
 
@@ -74,7 +74,7 @@ def _wrap_method_path_iterable(
 ) -> Callable[Concatenate[PathT, P], Awaitable[Iterable[PathT]]]:
     @_wraps_async(fn)
     def wrapper(self: PathT, /, *args: P.args, **kwargs: P.kwargs) -> Iterable[PathT]:
-        return map(self.__class__, [*fn(self.wrapped_cls(self), *args, **kwargs)])
+        return map(self.__class__, [*fn(self._wrapped_cls(self), *args, **kwargs)])
 
     assert wrapper.__doc__ is not None
     wrapper.__doc__ += (
@@ -97,20 +97,15 @@ def _wrap_method_path_iterable(
 
 
 class Path(pathlib.PurePath):
-    """A :class:`pathlib.Path` wrapper that executes blocking methods in
-    :meth:`trio.to_thread.run_sync`.
+    """An async :class:`pathlib.Path` that executes blocking methods in :meth:`trio.to_thread.run_sync`.
 
+    Instantiating :class:`Path` returns a concrete platform-specific subclass, one of :class:`PosixPath` or
+    :class:`WindowsPath`.
     """
 
     __slots__ = ()
 
-    wrapped_cls: ClassVar[type[pathlib.Path]] = pathlib.Path
-    """
-    The wrapped :class:`pathlib.Path` type.
-
-    To wrap :class:`pathlib.Path` subclasses (Python 3.13+), create a :class:`trio.Path` subclass and override
-    `wrapped_cls` with the wrapped type.
-    """
+    _wrapped_cls: ClassVar[type[pathlib.Path]]
 
     def __new__(cls, *args: str | os.PathLike[str]) -> Self:
         if cls is Path:
@@ -199,7 +194,7 @@ class Path(pathlib.PurePath):
 
     @_wraps_async(pathlib.Path.open)  # type: ignore[misc]  # Overload return mismatch.
     def open(self, *args: Any, **kwargs: Any) -> AsyncIOWrapper[IO[Any]]:
-        return wrap_file(self.wrapped_cls(self).open(*args, **kwargs))
+        return wrap_file(self._wrapped_cls(self).open(*args, **kwargs))
 
     def __repr__(self) -> str:
         return f"trio.Path({str(self)!r})"
@@ -251,23 +246,21 @@ class Path(pathlib.PurePath):
 
 @final
 class PosixPath(Path, pathlib.PurePosixPath):
-    """A :class:`pathlib.PosixPath` wrapper that executes blocking methods in
-    :meth:`trio.to_thread.run_sync`.
+    """An async :class:`pathlib.PosixPath` that executes blocking methods in :meth:`trio.to_thread.run_sync`.
 
     """
 
     __slots__ = ()
 
-    wrapped_cls: ClassVar[type[pathlib.Path]] = pathlib.PosixPath
+    _wrapped_cls: ClassVar[type[pathlib.Path]] = pathlib.PosixPath
 
 
 @final
 class WindowsPath(Path, pathlib.PureWindowsPath):
-    """A :class:`pathlib.WindowsPath` wrapper that executes blocking methods in
-    :meth:`trio.to_thread.run_sync`.
+    """An async :class:`pathlib.WindowsPath` that executes blocking methods in :meth:`trio.to_thread.run_sync`.
 
     """
 
     __slots__ = ()
 
-    wrapped_cls: ClassVar[type[pathlib.Path]] = pathlib.WindowsPath
+    _wrapped_cls: ClassVar[type[pathlib.Path]] = pathlib.WindowsPath
