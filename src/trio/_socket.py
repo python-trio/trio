@@ -727,8 +727,7 @@ class SocketType:
             raise NotImplementedError
 
 
-# copy docstrings from socket.SocketType
-# this doesn't satisfy pyright for platform-specific objects though
+# copy docstrings from socket.SocketType / socket.socket
 for name, obj in SocketType.__dict__.items():
     # skip dunders and already defined docstrings
     if name.startswith("__") or obj.__doc__:
