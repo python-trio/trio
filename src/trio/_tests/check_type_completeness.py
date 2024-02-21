@@ -185,6 +185,7 @@ def main(args: argparse.Namespace) -> int:
 
     # cut down the size of the json file by a lot, and make it easier to parse for
     # humans, by moving errors that appear on all platforms to a separate category
+    errors_by_platform["all"] = []
     for e in errors_by_platform["Linux"].copy():
         if e in errors_by_platform["Darwin"] and e in errors_by_platform["Windows"]:
             for platform in "Linux", "Windows", "Darwin":
