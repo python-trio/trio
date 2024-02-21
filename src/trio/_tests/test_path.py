@@ -27,6 +27,16 @@ def method_pair(
     return getattr(sync_path, method_name), getattr(async_path, method_name)
 
 
+@pytest.mark.skipif(os.name == "nt", reason="OS is not posix")
+async def test_instantiate_posix() -> None:
+    assert isinstance(trio.Path(), trio.PosixPath)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="OS is not Windows")
+async def test_instantiate_windows() -> None:
+    assert isinstance(trio.Path(), trio.WindowsPath)
+
+
 async def test_open_is_async_context_manager(path: trio.Path) -> None:
     async with await path.open("w") as f:
         assert isinstance(f, AsyncIOWrapper)

@@ -246,9 +246,7 @@ class Path(pathlib.PurePath):
 
 @final
 class PosixPath(Path, pathlib.PurePosixPath):
-    """An async :class:`pathlib.PosixPath` that executes blocking methods in :meth:`trio.to_thread.run_sync`.
-
-    """
+    """An async :class:`pathlib.PosixPath` that executes blocking methods in :meth:`trio.to_thread.run_sync`."""
 
     __slots__ = ()
 
@@ -257,9 +255,7 @@ class PosixPath(Path, pathlib.PurePosixPath):
 
 @final
 class WindowsPath(Path, pathlib.PureWindowsPath):
-    """An async :class:`pathlib.WindowsPath` that executes blocking methods in :meth:`trio.to_thread.run_sync`.
-
-    """
+    """An async :class:`pathlib.WindowsPath` that executes blocking methods in :meth:`trio.to_thread.run_sync`."""
 
     __slots__ = ()
 
