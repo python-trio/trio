@@ -128,6 +128,6 @@ typing-extensions==4.9.0
     #   pylint
 urllib3==2.2.0
     # via requests
-uv==0.1.6
+uv==0.1.11
 zipp==3.17.0
     # via importlib-metadata
