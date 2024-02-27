@@ -138,7 +138,7 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
 
     async def getaddrinfo(
         self,
-        host: bytes | str | None,
+        host: bytes | None,
         port: bytes | str | int | None,
         family: int = 0,
         type: int = 0,
