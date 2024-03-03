@@ -150,6 +150,8 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinxcontrib_trio",
     "sphinxcontrib.jquery",
+    "hoverxref.extension",
+    "sphinx_codeautolink",
     "local_customization",
     "typevars",
 ]
@@ -160,6 +162,27 @@ intersphinx_mapping = {
     "pyopenssl": ("https://www.pyopenssl.org/en/stable/", None),
     "sniffio": ("https://sniffio.readthedocs.io/en/latest/", None),
 }
+
+# See https://sphinx-hoverxref.readthedocs.io/en/latest/configuration.html
+hoverxref_auto_ref = True
+hoverxref_domains = ["py"]
+hoverxref_role_types = {
+    "attr": "tooltip",
+    "class": "tooltip",
+    "const": "tooltip",
+    "exc": "tooltip",
+    "func": "tooltip",
+    "meth": "tooltip",
+    "mod": "tooltip",
+    "obj": "tooltip",
+    "ref": "tooltip",
+}
+
+# See https://sphinx-codeautolink.readthedocs.io/en/latest/reference.html#configuration
+codeautolink_autodoc_inject = False
+codeautolink_global_preface = """
+from trio import *
+"""
 
 
 def add_intersphinx(app: Sphinx) -> None:
