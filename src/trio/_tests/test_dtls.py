@@ -30,10 +30,10 @@ if TYPE_CHECKING:
 ca = trustme.CA()
 server_cert = ca.issue_cert("example.com")
 
-server_ctx = SSL.Context(SSL.DTLS_METHOD)  # type: ignore[attr-defined]
+server_ctx = SSL.Context(SSL.DTLS_METHOD)
 server_cert.configure_cert(server_ctx)
 
-client_ctx = SSL.Context(SSL.DTLS_METHOD)  # type: ignore[attr-defined]
+client_ctx = SSL.Context(SSL.DTLS_METHOD)
 ca.configure_trust(client_ctx)
 
 
