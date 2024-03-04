@@ -45,23 +45,20 @@ def has_docstring_at_runtime(name: str) -> bool:
     can resolve it, in order to check whether it has a `__doc__` at runtime and
     verifytypes misses it because we're doing overly fancy stuff.
     """
+    # This assert is solely for stopping isort from removing our imports of trio & trio.testing
+    # It could also be done with isort:skip, but that'd also disable import sorting and the like.
     assert trio.testing
 
     # figure out what part of the name is the module, so we can "import" it
     name_parts = name.split(".")
-    split_i = 1
+    assert name_parts[0] == "trio"
     if name_parts[1] == "tests":
         return True
-    if name_parts[1] in ("_core", "testing"):  # noqa: SIM108
-        split_i = 2
-    else:
-        split_i = 1
-    module = sys.modules[".".join(name_parts[:split_i])]
 
     # traverse down the remaining identifiers with getattr
-    obj = module
+    obj = trio
     try:
-        for obj_name in name_parts[split_i:]:
+        for obj_name in name_parts[1:]:
             obj = getattr(obj, obj_name)
     except AttributeError as exc:
         # asynciowrapper does funky getattr stuff
@@ -69,6 +66,9 @@ def has_docstring_at_runtime(name: str) -> bool:
             # Symbols not existing on all platforms, so we can't dynamically inspect them.
             # Manually confirmed to have docstrings but pyright doesn't see them due to
             # export shenanigans. TODO: actually manually confirm that.
+            # In theory we could verify these at runtime, probably by running the script separately
+            # on separate platforms. It might also be a decent idea to work the other way around,
+            # a la test_static_tool_sees_class_members
             # darwin
             "trio.lowlevel.current_kqueue",
             "trio.lowlevel.monitor_kevent",
@@ -86,6 +86,10 @@ def has_docstring_at_runtime(name: str) -> bool:
             "trio.lowlevel.write_overlapped",
             "trio.lowlevel.WaitForSingleObject",
             "trio.socket.fromshare",
+            # linux
+            # this test will fail on linux, but I don't develop on linux. So the next
+            # person to do so is very welcome to open a pull request and populate with
+            # objects
             # TODO: these are erroring on all platforms, why?
             "trio._highlevel_generic.StapledStream.send_stream",
             "trio._highlevel_generic.StapledStream.receive_stream",
@@ -97,7 +101,8 @@ def has_docstring_at_runtime(name: str) -> bool:
 
         else:
             print(
-                f"Pyright sees {name} at runtime, but unable to getattr({obj.__name__}, {obj_name})."
+                f"Pyright sees {name} at runtime, but unable to getattr({obj.__name__}, {obj_name}).",
+                file=sys.stderr,
             )
             return False
     return bool(obj.__doc__)
@@ -114,7 +119,7 @@ def check_type(
     current_result = json.loads(res.stdout)
 
     if res.stderr:
-        print(res.stderr)
+        print(res.stderr, file=sys.stderr)
 
     if full_diagnostics_file:
         with open(full_diagnostics_file, "a") as f:
@@ -136,7 +141,7 @@ def check_type(
                 # Other errors don't, so we add it.
                 message = f"{name}: {message}"
             if message not in expected_errors and message not in printed_diagnostics:
-                print(f"new error: {message}")
+                print(f"new error: {message}", file=sys.stderr)
             errors.append(message)
             printed_diagnostics.add(message)
 
@@ -170,15 +175,17 @@ def main(args: argparse.Namespace) -> int:
 
         if new_errors:
             print(
-                f"New errors introduced in `pyright --verifytypes`. Fix them, or ignore them by modifying {errors_by_platform_file}. The latter can be done by pre-commit CI bot."
+                f"New errors introduced in `pyright --verifytypes`. Fix them, or ignore them by modifying {errors_by_platform_file}. The latter can be done by pre-commit CI bot.",
+                file=sys.stderr,
             )
             changed = True
         if missing_errors:
             print(
-                f"Congratulations, you have resolved existing errors! Please remove them from {errors_by_platform_file}, either manually or with the pre-commit CI bot."
+                f"Congratulations, you have resolved existing errors! Please remove them from {errors_by_platform_file}, either manually or with the pre-commit CI bot.",
+                file=sys.stderr,
             )
             changed = True
-            print(missing_errors)
+            print(missing_errors, file=sys.stderr)
 
         errors_by_platform[platform] = errors
     print("*" * 20)
