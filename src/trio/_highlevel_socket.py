@@ -400,7 +400,7 @@ class SocketListener(Listener[SocketStream]):
         while True:
             try:
                 sock, _ = await self.socket.accept()
-            except OSError as exc:
+            except OSError as exc:  # noqa: PERF203  # try-except in loop
                 if exc.errno in _closed_stream_errnos:
                     raise trio.ClosedResourceError from None
                 if exc.errno not in _ignorable_accept_errnos:

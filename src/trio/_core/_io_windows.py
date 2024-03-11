@@ -345,7 +345,7 @@ def _get_base_socket(sock: _HasFileNo | int | Handle) -> Handle:
             # If this is not a Komodia-intercepted socket, we can just use
             # SIO_BASE_HANDLE.
             return _get_underlying_socket(sock)
-        except OSError as ex:
+        except OSError as ex:  # noqa: PERF203  # try-except in loop
             if ex.winerror == ErrorCodes.ERROR_NOT_SOCKET:
                 # SIO_BASE_HANDLE might fail even without LSP intervention,
                 # if we get something that's not a socket.

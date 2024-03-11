@@ -109,6 +109,7 @@ select = [
     "F",     # pyflakes
     "FA",    # flake8-future-annotations
     "I",     # isort
+    "PERF",  # Perflint
     "PT",    # flake8-pytest-style
     "PYI",   # flake8-pyi
     "RUF",   # Ruff-specific rules

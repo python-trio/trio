@@ -530,7 +530,7 @@ def test_nopublic_is_final() -> None:
     assert class_is_final(_util.NoPublicConstructor)  # This is itself final.
 
     for module in ALL_MODULES:
-        for _name, class_ in module.__dict__.items():
+        for class_ in module.__dict__.values():
             if isinstance(class_, _util.NoPublicConstructor):
                 assert class_is_final(class_)
 
