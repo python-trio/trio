@@ -294,7 +294,7 @@ class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
 
     async def getaddrinfo(
         self,
-        host: str | bytes | None,
+        host: bytes | None,
         port: bytes | str | int | None,
         family: int = -1,
         type: int = -1,
