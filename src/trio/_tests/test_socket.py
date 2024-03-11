@@ -324,7 +324,7 @@ async def test_sniff_sockopts() -> None:
     sockets = []
     for family in [AF_INET, AF_INET6]:
         for type_ in [SOCK_DGRAM, SOCK_STREAM]:
-            sockets.append(  # noqa: PERF401  # Makes sense hear, clarity.
+            sockets.append(  # noqa: PERF401  # Makes sense here, clarity.
                 stdlib_socket.socket(family, type_)
             )
     for socket in sockets:
