@@ -631,6 +631,11 @@ Asynchronous path objects
 
 .. autoclass:: Path
    :members:
+   :inherited-members:
+
+.. autoclass:: PosixPath
+
+.. autoclass:: WindowsPath
 
 
 .. _async-file-objects:
