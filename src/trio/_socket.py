@@ -616,6 +616,7 @@ class SocketType:
 
     @property
     def did_shutdown_SHUT_WR(self) -> bool:
+        """Return True if the socket has been shut down with the SHUT_WR flag"""
         raise NotImplementedError
 
     def __repr__(self) -> str:
@@ -634,9 +635,11 @@ class SocketType:
         raise NotImplementedError
 
     def is_readable(self) -> bool:
+        """Return True if the socket is readable. This is checked with `select.select` on Windows, otherwise `select.poll`."""
         raise NotImplementedError
 
     async def wait_writable(self) -> None:
+        """Convenience method that calls trio.lowlevel.wait_writable for the object."""
         raise NotImplementedError
 
     async def accept(self) -> tuple[SocketType, AddressFormat]:
@@ -722,6 +725,21 @@ class SocketType:
             __address: AddressFormat | None = None,
         ) -> int:
             raise NotImplementedError
+
+
+# copy docstrings from socket.SocketType / socket.socket
+for name, obj in SocketType.__dict__.items():
+    # skip dunders and already defined docstrings
+    if name.startswith("__") or obj.__doc__:
+        continue
+    # try both socket.socket and socket.SocketType
+    for stdlib_type in _stdlib_socket.socket, _stdlib_socket.SocketType:
+        stdlib_obj = getattr(stdlib_type, name, None)
+        if stdlib_obj and stdlib_obj.__doc__:
+            break
+    else:
+        continue
+    obj.__doc__ = stdlib_obj.__doc__
 
 
 class _SocketType(SocketType):
