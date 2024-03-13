@@ -79,6 +79,7 @@ jobs:
           token: 87cefb17-c44b-4f2f-8b30-1fff5769ce46
           name: Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})
           flags: Windows,${{ matrix.python }}
+          verbose: true
 
   Ubuntu:
     name: 'Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})'
@@ -135,6 +136,7 @@ jobs:
           token: 87cefb17-c44b-4f2f-8b30-1fff5769ce46
           name: Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})
           flags: Ubuntu,${{ matrix.python }}
+          verbose: true
 
   macOS:
     name: 'macOS (${{ matrix.python }})'
@@ -171,6 +173,7 @@ jobs:
           token: 87cefb17-c44b-4f2f-8b30-1fff5769ce46
           name: macOS (${{ matrix.python }})
           flags: macOS,${{ matrix.python }}
+          verbose: true
 
   # run CI on a musl linux
   Alpine:
@@ -197,6 +200,7 @@ jobs:
           token: 87cefb17-c44b-4f2f-8b30-1fff5769ce46
           name: Alpine
           flags: Alpine,3.12
+          verbose: true
 
   Cython:
     name: "Cython"
