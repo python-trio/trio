@@ -97,9 +97,7 @@ def deprecated(
             if instead is not None:
                 doc += f"   Use {_stringify(instead)} instead.\n"
             if issue is not None:
-                doc += "   For details, see `issue #{} <{}>`__.\n".format(
-                    issue, _url_for_issue(issue)
-                )
+                doc += f"   For details, see `issue #{issue} <{_url_for_issue(issue)}>`__.\n"
             doc += "\n"
             wrapper.__doc__ = doc
 

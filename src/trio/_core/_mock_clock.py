@@ -79,9 +79,7 @@ class MockClock(Clock):
         self.autojump_threshold = autojump_threshold
 
     def __repr__(self) -> str:
-        return "<MockClock, time={:.7f}, rate={} @ {:#x}>".format(
-            self.current_time(), self._rate, id(self)
-        )
+        return f"<MockClock, time={self.current_time():.7f}, rate={self._rate} @ {id(self):#x}>"
 
     @property
     def rate(self) -> float:
