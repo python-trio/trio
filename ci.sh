@@ -139,6 +139,7 @@ else
     coverage combine --rcfile ../pyproject.toml
     coverage report -m --rcfile ../pyproject.toml
     coverage xml --rcfile ../pyproject.toml
+    mv coverage.xml ..
 
     # Remove the LSP again; again we want to do this ASAP to avoid
     # accidentally breaking other stuff.
