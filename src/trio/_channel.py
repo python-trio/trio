@@ -299,7 +299,9 @@ class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstr
         return self._state.statistics()
 
     def __repr__(self) -> str:
-        return f"<receive channel at {id(self):#x}, using buffer at {id(self._state):#x}>"
+        return (
+            f"<receive channel at {id(self):#x}, using buffer at {id(self._state):#x}>"
+        )
 
     @enable_ki_protection
     def receive_nowait(self) -> ReceiveType:
