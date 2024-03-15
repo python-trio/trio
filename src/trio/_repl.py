@@ -1,7 +1,11 @@
+from __future__ import annotations
+
 import ast
 import contextlib
 import inspect
 import sys
+import types
+import typing
 import warnings
 from code import InteractiveConsole
 
@@ -10,14 +14,19 @@ import trio.lowlevel
 
 
 class TrioInteractiveConsole(InteractiveConsole):
-    def __init__(self, repl_locals=None):
-        super().__init__(repl_locals)
+    def __init__(self, repl_locals: dict[str, object] | None = None):
+        super().__init__(locals=repl_locals)
         self.compile.compiler.flags |= ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
 
-    def runcode(self, code):
-        async def _runcode_in_trio():
+    def runcode(self, code: types.CodeType) -> None:
+        async def _runcode_in_trio() -> BaseException | None:
+            # code.InteractiveInterpreter defines locals as Mapping[str, Any]
+            # However FunctionType expects a dict. We know our copy of
+            # locals will be a dict due to the annotation on repl_locals in __init__
+            # so the cast is safe.
+            func = types.FunctionType(code, typing.cast(dict[str, object], self.locals))
             try:
-                coro = eval(code, self.locals)
+                coro = func()
             except BaseException as e:
                 return e
 
@@ -38,11 +47,8 @@ class TrioInteractiveConsole(InteractiveConsole):
             except BaseException:  # Only SystemExit should quit the repl
                 self.showtraceback()
 
-    async def task(self, repl_func):
-        await trio.to_thread.run_sync(repl_func, self)
 
-
-def run_repl(console):
+async def run_repl(console: TrioInteractiveConsole) -> None:
     banner = (
         f"trio REPL {sys.version} on {sys.platform}\n"
         f'Use "await" directly instead of "trio.run()".\n'
@@ -51,7 +57,7 @@ def run_repl(console):
         f'{getattr(sys, "ps1", ">>> ")}import trio'
     )
     try:
-        console.interact(banner=banner)
+        await trio.to_thread.run_sync(console.interact, banner)
     finally:
         warnings.filterwarnings(
             "ignore",
@@ -60,11 +66,11 @@ def run_repl(console):
         )
 
 
-def main(original_locals):
+def main(original_locals: dict[str, object]) -> None:
     with contextlib.suppress(ImportError):
         import readline  # noqa: F401
 
-    repl_locals = {"trio": trio}
+    repl_locals: dict[str, object] = {"trio": trio}
     for key in {
         "__name__",
         "__package__",
@@ -76,4 +82,4 @@ def main(original_locals):
         repl_locals[key] = original_locals[key]
 
     console = TrioInteractiveConsole(repl_locals)
-    trio.run(console.task, run_repl)
+    trio.run(run_repl, console)

@@ -1,12 +1,19 @@
+from __future__ import annotations
+
 import subprocess
 import sys
+from typing import Protocol
 
 import pytest
 
 import trio._repl
 
 
-def build_raw_input(cmds):
+class RawInput(Protocol):
+    def __call__(self, prompt: str = "") -> str: ...
+
+
+def build_raw_input(cmds: list[str]) -> RawInput:
     """
     Pass in a list of strings.
     Returns a callable that returns each string, each time its called
@@ -15,7 +22,7 @@ def build_raw_input(cmds):
     cmds_iter = iter(cmds)
     prompts = []
 
-    def _raw_helper(prompt=""):
+    def _raw_helper(prompt: str = "") -> str:
         prompts.append(prompt)
         try:
             return next(cmds_iter)
@@ -25,7 +32,7 @@ def build_raw_input(cmds):
     return _raw_helper
 
 
-def test_build_raw_input():
+def test_build_raw_input() -> None:
     """Quick test of our helper function."""
     raw_input = build_raw_input(["cmd1"])
     assert raw_input() == "cmd1"
@@ -33,13 +40,16 @@ def test_build_raw_input():
         raw_input()
 
 
-async def test_basic_interaction(capsys):
+async def test_basic_interaction(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """
     Run some basic commands through the interpreter while capturing stdout.
     Ensure that the interpreted prints the expected results.
     """
     console = trio._repl.TrioInteractiveConsole(repl_locals={"trio": trio})
-    console.raw_input = build_raw_input(
+    raw_input = build_raw_input(
         [
             # evaluate simple expression and recall the value
             "x = 1",
@@ -48,7 +58,7 @@ async def test_basic_interaction(capsys):
             "'hello'",
             # define and call sync function
             "def func():",
-            "  print(x)",
+            "  print(x + 1)",
             "",
             "func()",
             # define and call async function
@@ -61,40 +71,50 @@ async def test_basic_interaction(capsys):
             "sys.stdout.write('hello stdout\\n')",
         ]
     )
-    await console.task(console.interact)
+    monkeypatch.setattr(console, "raw_input", raw_input)
+    await trio._repl.run_repl(console)
     out, err = capsys.readouterr()
-    assert out.splitlines() == ["x=1", "'hello'", "1", "4", "hello stdout", "13"]
+    print(err)
+    assert out.splitlines() == ["x=1", "'hello'", "2", "4", "hello stdout", "13"]
 
 
-async def test_system_exits_quit_interpreter():
+async def test_system_exits_quit_interpreter(monkeypatch: pytest.MonkeyPatch) -> None:
     console = trio._repl.TrioInteractiveConsole(repl_locals={"trio": trio})
-    console.raw_input = build_raw_input(
+    raw_input = build_raw_input(
         [
             # evaluate simple expression and recall the value
             "raise SystemExit",
         ]
     )
+    monkeypatch.setattr(console, "raw_input", raw_input)
     with pytest.raises(SystemExit):
-        await console.task(console.interact)
+        await trio._repl.run_repl(console)
 
 
-async def test_base_exception_captured(capsys):
+async def test_base_exception_captured(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     console = trio._repl.TrioInteractiveConsole(repl_locals={"trio": trio})
-    console.raw_input = build_raw_input(
+    raw_input = build_raw_input(
         [
             # The statement after raise should still get executed
             "raise BaseException",
             "print('AFTER BaseException')",
         ]
     )
-    await console.task(console.interact)
+    monkeypatch.setattr(console, "raw_input", raw_input)
+    await trio._repl.run_repl(console)
     out, err = capsys.readouterr()
     assert "AFTER BaseException" in out
 
 
-async def test_base_exception_capture_from_coroutine(capsys):
+async def test_base_exception_capture_from_coroutine(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     console = trio._repl.TrioInteractiveConsole(repl_locals={"trio": trio})
-    console.raw_input = build_raw_input(
+    raw_input = build_raw_input(
         [
             "async def async_func_raises_base_exception():",
             "  raise BaseException",
@@ -105,12 +125,13 @@ async def test_base_exception_capture_from_coroutine(capsys):
             "print('AFTER BaseException')",
         ]
     )
-    await console.task(console.interact)
+    monkeypatch.setattr(console, "raw_input", raw_input)
+    await trio._repl.run_repl(console)
     out, err = capsys.readouterr()
     assert "AFTER BaseException" in out
 
 
-def test_main_entrypoint():
+def test_main_entrypoint() -> None:
     """
     Basic smoke test when running via the package __main__ entrypoint.
     """
