@@ -5,29 +5,26 @@ import contextlib
 import inspect
 import sys
 import types
-import typing
 import warnings
 from code import InteractiveConsole
-from typing import Dict
 
 import trio
 import trio.lowlevel
 
 
 class TrioInteractiveConsole(InteractiveConsole):
+    # code.InteractiveInterpreter defines locals as Mapping[str, Any]
+    # but when we pass this to FunctionType it expects a dict. So
+    # we make the type more specific on our subclass
+    locals: dict[str, object]
+
     def __init__(self, repl_locals: dict[str, object] | None = None):
         super().__init__(locals=repl_locals)
         self.compile.compiler.flags |= ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
 
     def runcode(self, code: types.CodeType) -> None:
         async def _runcode_in_trio() -> BaseException | None:
-            # code.InteractiveInterpreter defines locals as Mapping[str, Any]
-            # However FunctionType expects a dict. We know our copy of
-            # locals will be a dict due to the annotation on repl_locals in __init__
-            # so the cast is safe.
-            # In addition, we need to use typing.Dict here, because this is _not_ an
-            # annotation, so from __future__ import annotations doesn't help.
-            func = types.FunctionType(code, typing.cast(Dict[str, object], self.locals))
+            func = types.FunctionType(code, self.locals)
             try:
                 coro = func()
             except BaseException as e:
