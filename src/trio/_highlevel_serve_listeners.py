@@ -44,7 +44,7 @@ async def _serve_one_listener(
         while True:
             try:
                 stream = await listener.accept()
-            except OSError as exc:  # noqa: PERF203
+            except OSError as exc:
                 if exc.errno in ACCEPT_CAPACITY_ERRNOS:
                     LOGGER.error(
                         "accept returned %s (%s); retrying in %s seconds",

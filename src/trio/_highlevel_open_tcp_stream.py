@@ -124,7 +124,7 @@ def close_all() -> Generator[set[SocketType], None, None]:
         for sock in sockets_to_close:
             try:
                 sock.close()
-            except BaseException as exc:  # noqa: PERF203  # try-except in loop
+            except BaseException as exc:
                 errs.append(exc)
         if len(errs) == 1:
             raise errs[0]

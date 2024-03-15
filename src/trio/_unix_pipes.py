@@ -177,7 +177,7 @@ class FdStream(Stream):
             while True:
                 try:
                     data = os.read(self._fd_holder.fd, max_bytes)
-                except BlockingIOError:  # noqa: PERF203
+                except BlockingIOError:
                     await trio.lowlevel.wait_readable(self._fd_holder.fd)
                 except OSError as exc:
                     if exc.errno == errno.EBADF:
