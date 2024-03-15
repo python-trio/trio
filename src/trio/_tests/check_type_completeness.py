@@ -4,6 +4,8 @@
     pyright will give a number of missing docstrings, and error messages, but not exit with a non-zero value.
 2. filter out specific errors we don't care about.
     this is largely due to 1, but also because Trio does some very complex stuff and --verifytypes has few to no ways of ignoring specific errors.
+
+If this check is giving you false alarms, you can ignore them by adding logic to `has_docstring_at_runtime`, in the main loop in `check_type`, or by updating the json file.
 """
 from __future__ import annotations
 
@@ -132,6 +134,20 @@ def check_type(
         name = symbol["name"]
         for diagnostic in diagnostics:
             message = diagnostic["message"]
+            if name in (
+                "trio._path.PosixPath",
+                "trio._path.WindowsPath",
+            ) and message.startswith("Type of base class "):
+                continue
+
+            if name.startswith("trio._path.Path"):
+                if message.startswith("No docstring found for"):
+                    continue
+                if message.startswith(
+                    "Type is missing type annotation and could be inferred differently by type checkers"
+                ):
+                    continue
+
             # ignore errors about missing docstrings if they're available at runtime
             if message.startswith("No docstring found for"):
                 if has_docstring_at_runtime(symbol["name"]):
@@ -175,13 +191,13 @@ def main(args: argparse.Namespace) -> int:
 
         if new_errors:
             print(
-                f"New errors introduced in `pyright --verifytypes`. Fix them, or ignore them by modifying {errors_by_platform_file}. The latter can be done by pre-commit CI bot.",
+                f"New errors introduced in `pyright --verifytypes`. Fix them, or ignore them by modifying {errors_by_platform_file}, either manually or with '--overwrite-file'.",
                 file=sys.stderr,
             )
             changed = True
         if missing_errors:
             print(
-                f"Congratulations, you have resolved existing errors! Please remove them from {errors_by_platform_file}, either manually or with the pre-commit CI bot.",
+                f"Congratulations, you have resolved existing errors! Please remove them from {errors_by_platform_file}, either manually or with '--overwrite-file'.",
                 file=sys.stderr,
             )
             changed = True

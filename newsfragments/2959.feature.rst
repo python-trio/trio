@@ -1,0 +1,5 @@
+:class:`Path` is now a subclass of :class:`pathlib.PurePath`, allowing it to interoperate with other standard
+:mod:`pathlib` types.
+
+Instantiating :class:`Path` now returns a concrete platform-specific subclass, one of :class:`PosixPath` or
+:class:`WindowsPath`, matching the behavior of :class:`pathlib.Path`.
