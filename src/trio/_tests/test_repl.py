@@ -40,6 +40,13 @@ def test_build_raw_input() -> None:
         raw_input()
 
 
+# In 3.10 or later, types.FunctionType (used internally) will automatically
+# attach __builtins__ to the function objects. However we need to explicitly
+# include it for 3.8 & 3.9
+def build_locals() -> dict[str, object]:
+    return {"__builtins__": __builtins__}
+
+
 async def test_basic_interaction(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
@@ -48,7 +55,7 @@ async def test_basic_interaction(
     Run some basic commands through the interpreter while capturing stdout.
     Ensure that the interpreted prints the expected results.
     """
-    console = trio._repl.TrioInteractiveConsole(repl_locals={"trio": trio})
+    console = trio._repl.TrioInteractiveConsole(repl_locals=build_locals())
     raw_input = build_raw_input(
         [
             # evaluate simple expression and recall the value
@@ -74,12 +81,11 @@ async def test_basic_interaction(
     monkeypatch.setattr(console, "raw_input", raw_input)
     await trio._repl.run_repl(console)
     out, err = capsys.readouterr()
-    print(err)
     assert out.splitlines() == ["x=1", "'hello'", "2", "4", "hello stdout", "13"]
 
 
 async def test_system_exits_quit_interpreter(monkeypatch: pytest.MonkeyPatch) -> None:
-    console = trio._repl.TrioInteractiveConsole(repl_locals={"trio": trio})
+    console = trio._repl.TrioInteractiveConsole(repl_locals=build_locals())
     raw_input = build_raw_input(
         [
             # evaluate simple expression and recall the value
@@ -95,7 +101,7 @@ async def test_base_exception_captured(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    console = trio._repl.TrioInteractiveConsole(repl_locals={"trio": trio})
+    console = trio._repl.TrioInteractiveConsole(repl_locals=build_locals())
     raw_input = build_raw_input(
         [
             # The statement after raise should still get executed
@@ -113,7 +119,7 @@ async def test_base_exception_capture_from_coroutine(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    console = trio._repl.TrioInteractiveConsole(repl_locals={"trio": trio})
+    console = trio._repl.TrioInteractiveConsole(repl_locals=build_locals())
     raw_input = build_raw_input(
         [
             "async def async_func_raises_base_exception():",
