@@ -100,6 +100,10 @@ async def test_system_exits_in_exc_group(monkeypatch: pytest.MonkeyPatch) -> Non
     console = trio._repl.TrioInteractiveConsole(repl_locals=build_locals())
     raw_input = build_raw_input(
         [
+            "import sys",
+            "if sys.version_info < (3, 11):",
+            "  from exceptiongroup import BaseExceptionGroup",
+            "",
             "raise BaseExceptionGroup('', [RuntimeError(), SystemExit()])",
         ]
     )
