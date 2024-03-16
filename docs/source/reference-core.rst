@@ -1903,6 +1903,48 @@ explicit and might be easier to reason about.
    ``contextvars``.
 
 
+
+ .. _interactive debugging:
+
+ Interactive debugging
+ ---------------------
+
+ When you start an interactive Python session to debug any async program
+ (whether it's based on ``asyncio``, Trio, or something else), every await
+ expression needs to be inside an async function:
+
+ .. code-block:: console
+    $ python
+    Python 3.10.6
+    Type "help", "copyright", "credits" or "license" for more information.
+    >>> import trio
+    >>> await trio.sleep(1)
+      File "<stdin>", line 1
+    SyntaxError: 'await' outside function
+    >>> async def main():
+    ...     print("hello...")
+    ...     await trio.sleep(1)
+    ...     print("world!")
+    ...
+    >>> trio.run(main)
+    hello...
+    world!
+ This can make it difficult to iterate quickly since you have to redefine the
+ whole function body whenever you make a tweak.
+
+ Trio provides a modified interactive console that lets you ``await`` at the top
+ level. You can access this console by running ``python -m trio``:
+
+ .. code-block:: console
+    $ python -m trio
+    Trio 0.21.0+dev, Python 3.10.6
+    Use "await" directly instead of "trio.run()".
+    Type "help", "copyright", "credits" or "license" for more information.
+    >>> import trio
+    >>> print("hello..."); await trio.sleep(1); print("world!")
+    hello...
+    world!
+
 Exceptions and warnings
 -----------------------
 
