@@ -11,6 +11,9 @@ from code import InteractiveConsole
 import trio
 import trio.lowlevel
 
+if sys.version_info < (3, 11):
+    from exceptiongroup import BaseExceptionGroup
+
 
 class TrioInteractiveConsole(InteractiveConsole):
     # code.InteractiveInterpreter defines locals as Mapping[str, Any]
@@ -37,15 +40,27 @@ class TrioInteractiveConsole(InteractiveConsole):
                     return e
             return None
 
-        e = trio.from_thread.run(_runcode_in_trio)
+        maybe_exc_or_excgroup = trio.from_thread.run(_runcode_in_trio)
 
-        if e is not None:
-            try:
-                raise e
-            except SystemExit:
-                raise
-            except BaseException:  # Only SystemExit should quit the repl
-                self.showtraceback()
+        if maybe_exc_or_excgroup is not None:
+            # maybe_exc_or_excgroup is an exception, or an exception group.
+            # If it is SystemExit or if the exception group contains
+            # a SystemExit, quit the repl. Otherwise, print the traceback.
+            if isinstance(maybe_exc_or_excgroup, SystemExit):
+                raise SystemExit()
+            elif isinstance(maybe_exc_or_excgroup, BaseExceptionGroup):
+                for exc in maybe_exc_or_excgroup.exceptions:
+                    if isinstance(exc, SystemExit):
+                        raise SystemExit
+                try:
+                    raise maybe_exc_or_excgroup
+                except BaseException:
+                    self.showtraceback()
+            else:
+                try:
+                    raise maybe_exc_or_excgroup
+                except BaseException:
+                    self.showtraceback()
 
 
 async def run_repl(console: TrioInteractiveConsole) -> None:

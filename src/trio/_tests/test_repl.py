@@ -88,8 +88,19 @@ async def test_system_exits_quit_interpreter(monkeypatch: pytest.MonkeyPatch) ->
     console = trio._repl.TrioInteractiveConsole(repl_locals=build_locals())
     raw_input = build_raw_input(
         [
-            # evaluate simple expression and recall the value
             "raise SystemExit",
+        ]
+    )
+    monkeypatch.setattr(console, "raw_input", raw_input)
+    with pytest.raises(SystemExit):
+        await trio._repl.run_repl(console)
+
+
+async def test_system_exits_in_exc_group(monkeypatch: pytest.MonkeyPatch) -> None:
+    console = trio._repl.TrioInteractiveConsole(repl_locals=build_locals())
+    raw_input = build_raw_input(
+        [
+            "raise BaseExceptionGroup('', [RuntimeError(), SystemExit()])",
         ]
     )
     monkeypatch.setattr(console, "raw_input", raw_input)
