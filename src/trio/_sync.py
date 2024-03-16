@@ -223,9 +223,7 @@ class CapacityLimiter(AsyncContextManagerMixin):
         assert self._total_tokens == total_tokens
 
     def __repr__(self) -> str:
-        return "<trio.CapacityLimiter at {:#x}, {}/{} with {} waiting>".format(
-            id(self), len(self._borrowers), self._total_tokens, len(self._lot)
-        )
+        return f"<trio.CapacityLimiter at {id(self):#x}, {len(self._borrowers)}/{self._total_tokens} with {len(self._lot)} waiting>"
 
     @property
     def total_tokens(self) -> int | float:
