@@ -585,13 +585,8 @@ class CancelScope:
                 # we just need to make sure we don't let the error
                 # pass silently.
                 new_exc = RuntimeError(
-                    "Cancel scope stack corrupted: attempted to exit {!r} "
-                    "in {!r} that's still within its child {!r}\n{}".format(
-                        self,
-                        scope_task,
-                        scope_task._cancel_status._scope,
-                        MISNESTING_ADVICE,
-                    )
+                    f"Cancel scope stack corrupted: attempted to exit {self!r} "
+                    f"in {scope_task!r} that's still within its child {scope_task._cancel_status._scope!r}\n{MISNESTING_ADVICE}"
                 )
                 new_exc.__context__ = exc
                 exc = new_exc
