@@ -20,4 +20,5 @@ from ._abc import (
     SendStream as SendStream,
     SocketFactory as SocketFactory,
     Stream as Stream,
+    TaskSpawner as TaskSpawner,
 )

@@ -3,9 +3,12 @@ from __future__ import annotations
 import errno
 import logging
 import os
-from typing import Any, Awaitable, Callable, NoReturn, TypeVar
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, NoReturn, TypeVar
 
 import trio
+
+if TYPE_CHECKING:
+    from .abc import TaskSpawner
 
 # Errors that accept(2) can return, and which indicate that the system is
 # overloaded
@@ -37,7 +40,7 @@ async def _run_handler(stream: StreamT, handler: Handler[StreamT]) -> None:
 
 async def _serve_one_listener(
     listener: trio.abc.Listener[StreamT],
-    handler_nursery: trio.Nursery,
+    handler_nursery: TaskSpawner,
     handler: Handler[StreamT],
 ) -> NoReturn:
     async with listener:
@@ -70,7 +73,7 @@ async def serve_listeners(
     handler: Handler[StreamT],
     listeners: list[ListenerT],
     *,
-    handler_nursery: trio.Nursery | None = None,
+    handler_nursery: TaskSpawner | None = None,
     task_status: trio.TaskStatus[list[ListenerT]] = trio.TASK_STATUS_IGNORED,
 ) -> NoReturn:
     r"""Listen for incoming connections on ``listeners``, and for each one
