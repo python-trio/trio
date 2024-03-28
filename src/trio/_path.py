@@ -38,11 +38,10 @@ def _wraps_async(
             return await run_sync(partial(fn, *args, **kwargs))
 
         update_wrapper(wrapper, wrapped)
-        assert wrapped.__doc__ is not None
         wrapper.__doc__ = (
             f"Like :meth:`~{wrapped.__module__}.{wrapped.__qualname__}`, but async.\n"
             f"\n"
-            f"{cleandoc(wrapped.__doc__)}\n"
+            f"{cleandoc(wrapped.__doc__ or '')}\n"
         )
         return wrapper
 
@@ -76,7 +75,8 @@ def _wrap_method_path_iterable(
     def wrapper(self: PathT, /, *args: P.args, **kwargs: P.kwargs) -> Iterable[PathT]:
         return map(self.__class__, [*fn(self._wrapped_cls(self), *args, **kwargs)])
 
-    assert wrapper.__doc__ is not None
+    if wrapper.__doc__ is None:
+        wrapper.__doc__ = ""
     wrapper.__doc__ += (
         f"\n"
         f"This is an async method that returns a synchronous iterator, so you\n"
