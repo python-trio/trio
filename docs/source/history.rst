@@ -5,6 +5,47 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.25.0 (2024-03-17)
+------------------------
+
+Breaking changes
+~~~~~~~~~~~~~~~~
+
+- The :ref:`strict_exception_groups <strict_exception_groups>` parameter now defaults to `True` in `trio.run` and `trio.lowlevel.start_guest_run`. `trio.open_nursery` still defaults to the same value as was specified in `trio.run`/`trio.lowlevel.start_guest_run`, but if you didn't specify it there then all subsequent calls to `trio.open_nursery` will change.
+  This is unfortunately very tricky to change with a deprecation period, as raising a `DeprecationWarning` whenever :ref:`strict_exception_groups <strict_exception_groups>` is not specified would raise a lot of unnecessary warnings.
+
+  Notable side effects of changing code to run with ``strict_exception_groups==True``
+
+  * If an iterator raises `StopAsyncIteration` or `StopIteration` inside a nursery, then python will not recognize wrapped instances of those for stopping iteration.
+  * `trio.run_process` is now documented that it can raise an `ExceptionGroup`. It previously could do this in very rare circumstances, but with :ref:`strict_exception_groups <strict_exception_groups>` set to `True` it will now do so whenever exceptions occur in ``deliver_cancel`` or with problems communicating with the subprocess.
+
+    * Errors in opening the process is now done outside the internal nursery, so if code previously ran with ``strict_exception_groups=True`` there are cases now where an `ExceptionGroup` is *no longer* added.
+  * `trio.TrioInternalError` ``.__cause__`` might be wrapped in one or more `ExceptionGroups <ExceptionGroup>` (`#2786 <https://github.com/python-trio/trio/issues/2786>`__)
+
+
+Features
+~~~~~~~~
+
+- Add `trio.testing.wait_all_threads_completed`, which blocks until no threads are running tasks. This is intended to be used in the same way as `trio.testing.wait_all_tasks_blocked`. (`#2937 <https://github.com/python-trio/trio/issues/2937>`__)
+- :class:`Path` is now a subclass of :class:`pathlib.PurePath`, allowing it to interoperate with other standard
+  :mod:`pathlib` types.
+
+  Instantiating :class:`Path` now returns a concrete platform-specific subclass, one of :class:`PosixPath` or
+  :class:`WindowsPath`, matching the behavior of :class:`pathlib.Path`. (`#2959 <https://github.com/python-trio/trio/issues/2959>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- The pthread functions are now correctly found on systems using vanilla versions of musl libc. (`#2939 <https://github.com/python-trio/trio/issues/2939>`__)
+
+
+Miscellaneous internal changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- use the regular readme for the PyPI long_description (`#2866 <https://github.com/python-trio/trio/issues/2866>`__)
+
+
 Trio 0.24.0 (2024-01-10)
 ------------------------
 
