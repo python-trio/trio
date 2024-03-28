@@ -321,10 +321,11 @@ async def test_sniff_sockopts() -> None:
     from socket import AF_INET, AF_INET6, SOCK_DGRAM, SOCK_STREAM
 
     # generate the combinations of families/types we're testing:
-    sockets = []
-    for family in [AF_INET, AF_INET6]:
-        for type_ in [SOCK_DGRAM, SOCK_STREAM]:
-            sockets.append(stdlib_socket.socket(family, type_))
+    sockets = [
+        stdlib_socket.socket(family, type_)
+        for family in [AF_INET, AF_INET6]
+        for type_ in [SOCK_DGRAM, SOCK_STREAM]
+    ]
     for socket in sockets:
         # regular Trio socket constructor
         tsocket_socket = tsocket.socket(fileno=socket.fileno())
