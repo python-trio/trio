@@ -375,9 +375,12 @@ def _sniff_sockopts_for_fileno(
     # and then we'll throw it away and construct a new one with the correct metadata.
     if sys.platform != "linux":
         return family, type_, proto
-    if TYPE_CHECKING and (sys.platform == "win32" or sys.platform == "macos"):
+    if TYPE_CHECKING:
         # Mypy doesn't seem to recognize previous if statement properly
-        return family, type_, proto
+        if sys.platform == "win32":
+            return family, type_, proto
+        if sys.platform == "darwin":
+            return family, type_, proto
     from socket import (
         SO_DOMAIN,
         SO_PROTOCOL,
