@@ -247,11 +247,7 @@ def async_wraps(
         func.__name__ = attr_name
         func.__qualname__ = ".".join((cls.__qualname__, attr_name))
 
-        func.__doc__ = """Like :meth:`~{}.{}.{}`, but async.
-
-        """.format(
-            wrapped_cls.__module__, wrapped_cls.__qualname__, attr_name
-        )
+        func.__doc__ = f"Like :meth:`~{wrapped_cls.__module__}.{wrapped_cls.__qualname__}.{attr_name}`, but async."
 
         return func
 

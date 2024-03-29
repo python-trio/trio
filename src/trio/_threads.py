@@ -475,8 +475,7 @@ async def to_thread_run_sync(  # type: ignore[misc]
                 msg_from_thread.run_sync()
             else:  # pragma: no cover, internal debugging guard TODO: use assert_never
                 raise TypeError(
-                    "trio.to_thread.run_sync received unrecognized thread message {!r}."
-                    "".format(msg_from_thread)
+                    f"trio.to_thread.run_sync received unrecognized thread message {msg_from_thread!r}."
                 )
             del msg_from_thread
 

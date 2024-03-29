@@ -26,10 +26,11 @@ jobs:
           python-version: "3.8"
       - name: Bump dependencies
         run: |
-          python -m pip install -U pip
+          python -m pip install -U pip pre-commit
           python -m pip install -r test-requirements.txt
           uv pip compile --upgrade test-requirements.in -o test-requirements.txt
           uv pip compile --upgrade docs-requirements.in -o docs-requirements.txt
+          pre-commit autoupdate --jobs 0
       - name: Black
         run: |
           # The new dependencies may contain a new black version.
