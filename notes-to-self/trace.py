@@ -94,17 +94,17 @@ class Trace(trio.abc.Instrument):
         except RuntimeError:
             pass
         else:
-            id = next(self.ids)
+            id_ = next(self.ids)
             self._write(
                 ph="s",
                 cat="wakeup",
-                id=id,
+                id=id_,
                 tid=waker._counter,
             )
             self._write(
                 cat="wakeup",
                 ph="f",
-                id=id,
+                id=id_,
                 tid=task._counter,
             )
 
@@ -149,5 +149,6 @@ async def parent():
     print("parent: all done!")
 
 
-t = Trace(open("/tmp/t.json", "w"))
-trio.run(parent, instruments=[t])
+with open("/tmp/t.json", "w") as t_json:
+    t = Trace(t_json)
+    trio.run(parent, instruments=[t])

@@ -631,6 +631,11 @@ Asynchronous path objects
 
 .. autoclass:: Path
    :members:
+   :inherited-members:
+
+.. autoclass:: PosixPath
+
+.. autoclass:: WindowsPath
 
 
 .. _async-file-objects:
@@ -727,6 +732,8 @@ task and interact with it while it's running:
 .. autoclass:: trio._subprocess.HasFileno(Protocol)
 
    .. automethod:: fileno
+
+.. autoclass:: trio._subprocess.StrOrBytesPath
 
 .. autoclass:: trio.Process()
 

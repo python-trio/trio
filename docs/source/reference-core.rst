@@ -768,14 +768,13 @@ inside the handler function(s) with the ``nonlocal`` keyword::
         async with trio.open_nursery() as nursery:
             nursery.start_soon(broken1)
 
-For reasons of backwards compatibility, nurseries raise ``trio.MultiError`` and
-``trio.NonBaseMultiError`` which inherit from :exc:`BaseExceptionGroup` and
-:exc:`ExceptionGroup`, respectively. Users should refrain from attempting to raise or
-catch the Trio specific exceptions themselves, and treat them as if they were standard
-:exc:`BaseExceptionGroup` or :exc:`ExceptionGroup` instances instead.
+.. _strict_exception_groups:
 
 "Strict" versus "loose" ExceptionGroup semantics
 ++++++++++++++++++++++++++++++++++++++++++++++++
+
+..
+    TODO: rewrite this (and possible other) sections from the new strict-by-default perspective, under the heading "Deprecated: non-strict ExceptionGroups" - to explain that it only exists for backwards-compatibility, will be removed in future, and that we recommend against it for all new code.
 
 Ideally, in some abstract sense we'd want everything that *can* raise an
 `ExceptionGroup` to *always* raise an `ExceptionGroup` (rather than, say, a single
@@ -802,9 +801,10 @@ to set the default behavior for any nursery in your program that doesn't overrid
   wrapping, so you'll get maximum compatibility with code that was written to
   support older versions of Trio.
 
-To maintain backwards compatibility, the default is ``strict_exception_groups=False``.
-The default will eventually change to ``True`` in a future version of Trio, once
-Python 3.11 and later versions are in wide use.
+The default is set to ``strict_exception_groups=True``, in line with the default behaviour
+of ``TaskGroup`` in asyncio and anyio.  We've also found that non-strict mode makes it
+too easy to neglect the possibility of several exceptions being raised concurrently,
+causing nasty latent bugs when errors occur under load.
 
 .. _exceptiongroup: https://pypi.org/project/exceptiongroup/
 
@@ -1827,8 +1827,8 @@ to spawn a child thread, and then use a :ref:`memory channel
 
    The ``from_thread.run*`` functions reuse the host task that called
    :func:`trio.to_thread.run_sync` to run your provided function, as long as you're
-   using the default ``cancellable=False`` so Trio can be sure that the task will remain
-   around to perform the work. If you pass ``cancellable=True`` at the outset, or if
+   using the default ``abandon_on_cancel=False`` so Trio can be sure that the task will remain
+   around to perform the work. If you pass ``abandon_on_cancel=True`` at the outset, or if
    you provide a :class:`~trio.lowlevel.TrioToken` when calling back in to Trio, your
    functions will be executed in a new system task. Therefore, the
    :func:`~trio.lowlevel.current_task`, :func:`current_effective_deadline`, or other
@@ -1836,7 +1836,7 @@ to spawn a child thread, and then use a :ref:`memory channel
 
 You can also use :func:`trio.from_thread.check_cancelled` to check for cancellation from
 a thread that was spawned by :func:`trio.to_thread.run_sync`. If the call to
-:func:`~trio.to_thread.run_sync` was cancelled (even if ``cancellable=False``!), then
+:func:`~trio.to_thread.run_sync` was cancelled, then
 :func:`~trio.from_thread.check_cancelled` will raise :func:`trio.Cancelled`.
 It's like ``trio.from_thread.run(trio.sleep, 0)``, but much faster.
 

@@ -133,7 +133,7 @@ in separate sections below:
   adding a test to make sure it stays fixed.
 
 * :ref:`pull-request-formatting`: If you changed Python code, then did
-  you run ``black setup.py trio``? (Or for other packages, replace
+  you run ``black trio``? (Or for other packages, replace
   ``trio`` with the package name.)
 
 * :ref:`pull-request-release-notes`: If your change affects
@@ -316,7 +316,7 @@ you can can add ``# fmt: off`` and ``# fmt: on`` comments.
 
 If you want to see what changes black will make, you can use::
 
-    black --diff setup.py trio
+    black --diff trio
 
 (``--diff`` displays a diff, versus the default mode which fixes files
 in-place.)
@@ -379,7 +379,7 @@ Documentation is hosted at `Read the Docs
 rebuilding it after every commit.
 
 For docstrings, we use `the Google docstring format
-<https://www.sphinx-doc.org/en/3.x/usage/extensions/example_google.html#example-google-style-python-docstrings>`__.
+<https://www.sphinx-doc.org/en/master/usage/extensions/example_google.html#example-google-style-python-docstrings>`__.
 If you add a new function or class, there's no mechanism for
 automatically adding that to the docs: you'll have to at least add a
 line like ``.. autofunction:: <your function>`` in the appropriate
