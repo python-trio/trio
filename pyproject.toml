@@ -54,7 +54,7 @@ dependencies = [
 dynamic = ["version"]
 
 [project.readme]
-file = "LONG_DESCRIPTION.rst"
+file = "README.rst"
 content-type = "text/x-rst"
 
 [project.urls]
@@ -251,6 +251,8 @@ omit = [
     "*/trio/_core/_generated_*",
     # Type tests aren't intended to be run, just passed to type checkers.
     "*/type_tests/*",
+    # Script used to check type completeness that isn't run in tests
+    "*/trio/_tests/check_type_completeness.py",
 ]
 # The test suite spawns subprocesses to test some stuff, so make sure
 # this doesn't corrupt the coverage files
