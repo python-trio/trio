@@ -23,7 +23,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: trio-wheel
-          path: dist/*.zip
+          path: dist/*.whl
 
   pypi-publish:
     needs: [build]
