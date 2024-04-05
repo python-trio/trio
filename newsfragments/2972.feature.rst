@@ -1,6 +1,6 @@
 Added an interactive interpreter ``python -m trio``.
 
-This makes it easier to try things and experiment with trio in the a python repl.
+This makes it easier to try things and experiment with trio in the a Python repl.
 Use the ``await`` keyword without needing to call ``trio.run()``
 
 .. code-block:: console
