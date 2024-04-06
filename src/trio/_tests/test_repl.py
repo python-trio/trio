@@ -8,9 +8,6 @@ import pytest
 
 import trio._repl
 
-if sys.version_info < (3, 11):
-    from exceptiongroup import ExceptionGroup
-
 
 class RawInput(Protocol):
     def __call__(self, prompt: str = "") -> str: ...
@@ -99,7 +96,10 @@ async def test_system_exits_quit_interpreter(monkeypatch: pytest.MonkeyPatch) ->
         await trio._repl.run_repl(console)
 
 
-async def test_system_exits_in_exc_group(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_system_exits_in_exc_group(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     console = trio._repl.TrioInteractiveConsole(repl_locals=build_locals())
     raw_input = build_raw_input(
         [
@@ -108,14 +108,19 @@ async def test_system_exits_in_exc_group(monkeypatch: pytest.MonkeyPatch) -> Non
             "  from exceptiongroup import BaseExceptionGroup",
             "",
             "raise BaseExceptionGroup('', [RuntimeError(), SystemExit()])",
+            "print('AFTER BaseExceptionGroup')",
         ]
     )
     monkeypatch.setattr(console, "raw_input", raw_input)
-    with pytest.raises(SystemExit):
-        await trio._repl.run_repl(console)
+    await trio._repl.run_repl(console)
+    out, err = capsys.readouterr()
+    # assert that raise SystemExit in an exception group
+    # doesn't quit
+    assert "AFTER BaseExceptionGroup" in out
 
 
 async def test_system_exits_in_nested_exc_group(
+    capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     console = trio._repl.TrioInteractiveConsole(repl_locals=build_locals())
@@ -127,11 +132,15 @@ async def test_system_exits_in_nested_exc_group(
             "",
             "raise BaseExceptionGroup(",
             "  '', [BaseExceptionGroup('', [RuntimeError(), SystemExit()])])",
+            "print('AFTER BaseExceptionGroup')",
         ]
     )
     monkeypatch.setattr(console, "raw_input", raw_input)
-    with pytest.raises(SystemExit):
-        await trio._repl.run_repl(console)
+    await trio._repl.run_repl(console)
+    out, err = capsys.readouterr()
+    # assert that raise SystemExit in an exception group
+    # doesn't quit
+    assert "AFTER BaseExceptionGroup" in out
 
 
 async def test_base_exception_captured(
@@ -198,12 +207,3 @@ def test_main_entrypoint() -> None:
     """
     repl = subprocess.run([sys.executable, "-m", "trio"], input=b"exit()")
     assert repl.returncode == 0
-
-
-def test_flatten_exception_group() -> None:
-    ex1 = RuntimeError()
-    ex2 = IndexError()
-    ex3 = OSError()
-
-    eg = ExceptionGroup("", [ExceptionGroup("", [ex2, ex3]), ex1])
-    assert set(trio._repl._flatten_exception_group(eg)) == {ex1, ex2, ex3}
