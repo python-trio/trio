@@ -8,6 +8,8 @@ import types
 import warnings
 from code import InteractiveConsole
 
+import outcome
+
 import trio
 import trio.lowlevel
 
@@ -23,40 +25,25 @@ class TrioInteractiveConsole(InteractiveConsole):
         self.compile.compiler.flags |= ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
 
     def runcode(self, code: types.CodeType) -> None:
-        async def _runcode_in_trio() -> BaseException | None:
+        async def _runcode_in_trio() -> outcome.Outcome[object]:
             func = types.FunctionType(code, self.locals)
-            try:
-                coro = func()
-            except BaseException as e:
-                return e
+            if inspect.iscoroutinefunction(func):
+                return await outcome.acapture(func)
+            else:
+                return outcome.capture(func)
 
-            if inspect.iscoroutine(coro):
-                try:
-                    await coro
-                except BaseException as e:
-                    return e
-            return None
-
-        maybe_exc_or_excgroup = trio.from_thread.run(_runcode_in_trio)
-
-        if maybe_exc_or_excgroup is not None:
-            # maybe_exc_or_excgroup is an exception, or an exception group.
+        try:
+            trio.from_thread.run(_runcode_in_trio).unwrap()
+        except SystemExit:
             # If it is SystemExit quit the repl. Otherwise, print the
             # traceback.
             # There could be a SystemExit inside a BaseExceptionGroup. If
             # that happens, it probably isn't the user trying to quit the
             # repl, but an error in the code. So we print the exception
             # and stay in the repl.
-            if isinstance(maybe_exc_or_excgroup, SystemExit):
-                raise maybe_exc_or_excgroup
-
-            # If we didn't raise above, there was an exception, but no
-            # SystemExit. So we raise here and except, so that the console
-            # can print the traceback to the user.
-            try:
-                raise maybe_exc_or_excgroup
-            except BaseException:
-                self.showtraceback()
+            raise
+        except BaseException:
+            self.showtraceback()
 
 
 async def run_repl(console: TrioInteractiveConsole) -> None:
