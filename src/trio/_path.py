@@ -38,11 +38,12 @@ def _wraps_async(
             return await run_sync(partial(fn, *args, **kwargs))
 
         update_wrapper(wrapper, wrapped)
-        wrapper.__doc__ = (
-            f"Like :meth:`~{wrapped.__module__}.{wrapped.__qualname__}`, but async.\n"
-            f"\n"
-            f"{cleandoc(wrapped.__doc__ or '')}\n"
-        )
+        if wrapped.__doc__:
+            wrapper.__doc__ = (
+                f"Like :meth:`~{wrapped.__module__}.{wrapped.__qualname__}`, but async.\n"
+                f"\n"
+                f"{cleandoc(wrapped.__doc__)}\n"
+            )
         return wrapper
 
     return decorator
