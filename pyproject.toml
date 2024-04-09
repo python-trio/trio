@@ -62,6 +62,9 @@ Homepage = "https://github.com/python-trio/trio"
 Documentation = "https://trio.readthedocs.io/"
 Changelog = "https://trio.readthedocs.io/en/latest/history.html"
 
+[project.entry-points.hypothesis]
+trio = "trio._core._run:_hypothesis_plugin_setup"
+
 [tool.setuptools]
 # This means, just install *everything* you see under trio/, even if it
 # doesn't look like a source file, so long as it appears in MANIFEST.in:

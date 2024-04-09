@@ -103,12 +103,21 @@ def _public(fn: FnT) -> FnT:
 
 
 # When running under Hypothesis, we want examples to be reproducible and
-# shrinkable.  pytest-trio's Hypothesis integration monkeypatches this
-# variable to True, and registers the Random instance _r for Hypothesis
-# to manage for each test case, which together should make Trio's task
+# shrinkable.  We therefore register `_hypothesis_plugin_setup()` as a
+# plugin, so that importing *Hypothesis* will make Trio's task
 # scheduling loop deterministic.  We have a test for that, of course.
+# Before Hypothesis supported entry-point plugins this integration was
+# handled by pytest-trio, but we want it to work in e.g. unittest too.
 _ALLOW_DETERMINISTIC_SCHEDULING: Final = False
 _r = random.Random()
+
+
+def _hypothesis_plugin_setup() -> None:
+    from hypothesis import register_random
+
+    global _ALLOW_DETERMINISTIC_SCHEDULING
+    _ALLOW_DETERMINISTIC_SCHEDULING = True  # type: ignore
+    register_random(_r)
 
 
 def _count_context_run_tb_frames() -> int:
