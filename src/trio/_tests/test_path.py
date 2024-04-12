@@ -267,6 +267,6 @@ def test_wrapping_without_docstrings(
     wrapper: Callable[[Callable[[], None]], Callable[[], None]]
 ) -> None:
     @wrapper
-    def func_without_docstring() -> None: ...
+    def func_without_docstring() -> None: ...  # pragma: no cover
 
     assert func_without_docstring.__doc__ is None
