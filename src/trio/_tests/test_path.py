@@ -252,3 +252,21 @@ async def test_classmethods() -> None:
 
     # Wrapped method has docstring
     assert trio.Path.home.__doc__
+
+
+@pytest.mark.parametrize(
+    "wrapper",
+    [
+        trio._path._wraps_async,
+        trio._path._wrap_method,
+        trio._path._wrap_method_path,
+        trio._path._wrap_method_path_iterable,
+    ],
+)
+def test_wrapping_without_docstrings(
+    wrapper: Callable[[Callable[[], None]], Callable[[], None]]
+) -> None:
+    @wrapper
+    def func_without_docstring() -> None: ...
+
+    assert func_without_docstring.__doc__ is None
