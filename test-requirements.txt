@@ -39,6 +39,7 @@ idna==3.6
 imagesize==1.4.1
     # via sphinx
 importlib-metadata==7.1.0
+    # via sphinx
 iniconfig==2.0.0
     # via pytest
 isort==5.13.2
