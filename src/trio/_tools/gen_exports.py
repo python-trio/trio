@@ -104,37 +104,6 @@ def create_passthrough_args(funcdef: ast.FunctionDef | ast.AsyncFunctionDef) -> 
     return "({})".format(", ".join(call_args))
 
 
-def run_black(file: File, source: str) -> tuple[bool, str]:
-    """Run black on the specified file.
-
-    Returns:
-      Tuple of success and result string.
-      ex.:
-        (False, "Failed to run black!\nerror: cannot format ...")
-        (True, "<formatted source>")
-
-    Raises:
-      ImportError: If black is not installed.
-    """
-    # imported to check that `subprocess` calls will succeed
-    import black  # noqa: F401
-
-    # Black has an undocumented API, but it doesn't easily allow reading configuration from
-    # pyproject.toml, and simultaneously pass in / receive the code as a string.
-    # https://github.com/psf/black/issues/779
-    result = subprocess.run(
-        # "-" as a filename = use stdin, return on stdout.
-        [sys.executable, "-m", "black", "--stdin-filename", file.path, "-"],
-        input=source,
-        capture_output=True,
-        encoding="utf8",
-    )
-
-    if result.returncode != 0:
-        return False, f"Failed to run black!\n{result.stderr}"
-    return True, result.stdout
-
-
 def run_ruff(file: File, source: str) -> tuple[bool, str]:
     """Run ruff on the specified file.
 
@@ -175,7 +144,7 @@ def run_ruff(file: File, source: str) -> tuple[bool, str]:
 
 
 def run_linters(file: File, source: str) -> str:
-    """Format the specified file using black and ruff.
+    """Format the specified file using ruff.
 
     Returns:
       Formatted source code.
@@ -185,12 +154,7 @@ def run_linters(file: File, source: str) -> str:
       SystemExit: If either failed.
     """
 
-    success, response = run_black(file, source)
-    if not success:
-        print(response)
-        sys.exit(1)
-
-    success, response = run_ruff(file, response)
+    success, response = run_ruff(file, source)
     if not success:  # pragma: no cover  # Test for run_ruff should catch
         print(response)
         sys.exit(1)

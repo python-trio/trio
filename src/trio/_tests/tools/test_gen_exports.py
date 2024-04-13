@@ -19,7 +19,6 @@ from trio._tools.gen_exports import (
     create_passthrough_args,
     get_public_methods,
     process,
-    run_black,
     run_linters,
     run_ruff,
 )
@@ -93,12 +92,6 @@ skip_lints = pytest.mark.skipif(
 @skip_lints
 @pytest.mark.parametrize("imports", [IMPORT_1, IMPORT_2, IMPORT_3])
 def test_process(tmp_path: Path, imports: str) -> None:
-    try:
-        import black  # noqa: F401
-    # there's no dedicated CI run that has astor+isort, but lacks black.
-    except ImportError as error:  # pragma: no cover
-        skip_if_optional_else_raise(error)
-
     modpath = tmp_path / "_module.py"
     genpath = tmp_path / "_generated_module.py"
     modpath.write_text(SOURCE, encoding="utf-8")
@@ -121,23 +114,6 @@ def test_process(tmp_path: Path, imports: str) -> None:
     with pytest.raises(SystemExit) as excinfo:
         process([File(modpath, "runner", imports=imports)], do_test=True)
     assert excinfo.value.code == 1
-
-
-@skip_lints
-def test_run_black(tmp_path: Path) -> None:
-    """Test that processing properly fails if black does."""
-    try:
-        import black  # noqa: F401
-    except ImportError as error:  # pragma: no cover
-        skip_if_optional_else_raise(error)
-
-    file = File(tmp_path / "module.py", "module")
-
-    success, _ = run_black(file, "class not valid code ><")
-    assert not success
-
-    success, _ = run_black(file, "import waffle\n;import trio")
-    assert not success
 
 
 @skip_lints
@@ -170,7 +146,6 @@ def test_run_ruff(tmp_path: Path) -> None:
 def test_lint_failure(tmp_path: Path) -> None:
     """Test that processing properly fails if black or ruff does."""
     try:
-        import black  # noqa: F401
         import ruff  # noqa: F401
     except ImportError as error:  # pragma: no cover
         skip_if_optional_else_raise(error)
