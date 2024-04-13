@@ -92,16 +92,41 @@ def create_passthrough_args(funcdef: ast.FunctionDef | ast.AsyncFunctionDef) -> 
     Example input: ast.parse("def f(a, *, b): ...")
     Example output: "(a, b=b)"
     """
-    call_args = []
+    call_args: list[str] = []
     for arg in funcdef.args.args:
         call_args.append(arg.arg)
+
     if funcdef.args.vararg:
         call_args.append("*" + funcdef.args.vararg.arg)
+
     for arg in funcdef.args.kwonlyargs:
         call_args.append(arg.arg + "=" + arg.arg)
+
     if funcdef.args.kwarg:
         call_args.append("**" + funcdef.args.kwarg.arg)
+
     return "({})".format(", ".join(call_args))
+
+
+def run_ruff_format(file: File, source: str) -> tuple[bool, str]:
+    result = subprocess.run(
+        args=[
+            sys.executable,
+            "-m",
+            "ruff",
+            "format",
+            "--stdin-filename",
+            str(file.path),
+            "-",
+        ],
+        input=source,
+        capture_output=True,
+        encoding="utf8",
+    )
+
+    if result.returncode != 0:
+        return False, f"Failed to run ruff!\n{result.stderr}"
+    return True, result.stdout
 
 
 def run_ruff(file: File, source: str) -> tuple[bool, str]:
@@ -116,8 +141,6 @@ def run_ruff(file: File, source: str) -> tuple[bool, str]:
     Raises:
       ImportError: If ruff is not installed.
     """
-    # imported to check that `subprocess` calls will succeed
-    import ruff  # noqa: F401
 
     result = subprocess.run(
         # "-" as a filename = use stdin, return on stdout.
@@ -154,7 +177,13 @@ def run_linters(file: File, source: str) -> str:
       SystemExit: If either failed.
     """
 
-    success, response = run_ruff(file, source)
+    success, response = run_ruff_format(file, source)
+
+    if not success:  # pragma: no cover
+        print(response)
+        sys.exit(1)
+
+    success, response = run_ruff(file, response)
     if not success:  # pragma: no cover  # Test for run_ruff should catch
         print(response)
         sys.exit(1)
@@ -184,8 +213,8 @@ def gen_public_wrappers_source(file: File) -> str:
 
     generated = ["".join(header)]
 
-    source = astor.code_to_ast.parse_file(file.path)
-    method_names = []
+    source = ast.parse(file.path.read_text())
+    method_names: list[str] = []
     for method in get_public_methods(source):
         # Remove self from arguments
         assert method.args.args[0].arg == "self"
@@ -213,7 +242,7 @@ def gen_public_wrappers_source(file: File) -> str:
             del method.body[1:]
 
         # Create the function definition including the body
-        func = astor.to_source(method, indent_with=" " * 4)
+        func: str = astor.to_source(method, indent_with=" " * 4)  # type: ignore
 
         if is_cm:  # pragma: no cover
             func = func.replace("->Iterator", "->ContextManager")
@@ -249,7 +278,8 @@ def matches_disk_files(new_files: dict[str, str]) -> bool:
 
 
 def process(files: Iterable[File], *, do_test: bool) -> None:
-    new_files = {}
+    new_files: dict[str, str] = {}
+
     for file in files:
         print("Scanning:", file.path)
         new_source = gen_public_wrappers_source(file)
@@ -257,12 +287,14 @@ def process(files: Iterable[File], *, do_test: bool) -> None:
         dirname, basename = os.path.split(file.path)
         new_path = os.path.join(dirname, PREFIX + basename)
         new_files[new_path] = new_source
+
     if do_test:
         if not matches_disk_files(new_files):
             print("Generated sources are outdated. Please regenerate.")
             sys.exit(1)
         else:
             print("Generated sources are up to date.")
+
     else:
         for new_path, new_source in new_files.items():
             with open(new_path, "w", encoding="utf-8") as f:
