@@ -144,7 +144,7 @@ def test_run_ruff(tmp_path: Path) -> None:
 
 @skip_lints
 def test_lint_failure(tmp_path: Path) -> None:
-    """Test that processing properly fails if black or ruff does."""
+    """Test that processing properly fails if ruff does."""
     try:
         import ruff  # noqa: F401
     except ImportError as error:  # pragma: no cover

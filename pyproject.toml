@@ -86,7 +86,6 @@ force-exclude = '''
 ignore-words-list = 'astroid,crasher,asend'
 
 [tool.ruff]
-target-version = "py38"
 respect-gitignore = true
 fix = true
 

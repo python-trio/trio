@@ -4,8 +4,6 @@ Code generation script for class methods
 to be exported as public API
 """
 
-# mypy: disable-error-code="unused-ignore"
-
 from __future__ import annotations
 
 import argparse
@@ -175,8 +173,7 @@ def run_linters(file: File, source: str) -> str:
       Formatted source code.
 
     Raises:
-      ImportError: If either is not installed.
-      SystemExit: If either failed.
+      SystemExit: If format/check fails.
     """
 
     success, response = run_ruff_format(file, source)
@@ -244,7 +241,7 @@ def gen_public_wrappers_source(file: File) -> str:
             del method.body[1:]
 
         # Create the function definition including the body
-        func: str = astor.to_source(method, indent_with=" " * 4)  # type: ignore
+        func: str = astor.to_source(method, indent_with=" " * 4)  # type: ignore[unused-ignore]
 
         if is_cm:  # pragma: no cover
             func = func.replace("->Iterator", "->ContextManager")
