@@ -22,13 +22,13 @@ echo "::endgroup::"
 # see https://forum.bors.tech/t/pre-test-and-pre-merge-hooks/322)
 # autoflake --recursive --in-place .
 # pyupgrade --py3-plus $(find . -name "*.py")
-echo "::group::Black"
-if ! black --check src/trio; then
-    echo "* Black found issues" >> "$GITHUB_STEP_SUMMARY"
+echo "::group::Ruff-Format"
+if ! ruff format --check src/trio; then
+    echo "* Ruff found issues" >> "$GITHUB_STEP_SUMMARY"
     EXIT_STATUS=1
-    black --diff src/trio
+    ruff format --diff src/trio
     echo "::endgroup::"
-    echo "::error:: Black found issues"
+    echo "::error:: Ruff found issues"
 else
     echo "::endgroup::"
 fi
