@@ -587,7 +587,7 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
                     | tuple[str, str]
                     | tuple[str, str, int]
                     | tuple[str, str, int, int]
-                )
+                ),
             ) -> Any:
                 return await sock._resolve_address_nocp(
                     args,

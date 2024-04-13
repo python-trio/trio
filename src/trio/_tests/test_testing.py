@@ -602,10 +602,12 @@ async def test_memory_streams_with_generic_tests() -> None:
 
     await check_one_way_stream(one_way_stream_maker, None)
 
-    async def half_closeable_stream_maker() -> tuple[
-        StapledStream[MemorySendStream, MemoryReceiveStream],
-        StapledStream[MemorySendStream, MemoryReceiveStream],
-    ]:
+    async def half_closeable_stream_maker() -> (
+        tuple[
+            StapledStream[MemorySendStream, MemoryReceiveStream],
+            StapledStream[MemorySendStream, MemoryReceiveStream],
+        ]
+    ):
         return memory_stream_pair()
 
     await check_half_closeable_stream(half_closeable_stream_maker, None)
@@ -617,10 +619,12 @@ async def test_lockstep_streams_with_generic_tests() -> None:
 
     await check_one_way_stream(one_way_stream_maker, one_way_stream_maker)
 
-    async def two_way_stream_maker() -> tuple[
-        StapledStream[SendStream, ReceiveStream],
-        StapledStream[SendStream, ReceiveStream],
-    ]:
+    async def two_way_stream_maker() -> (
+        tuple[
+            StapledStream[SendStream, ReceiveStream],
+            StapledStream[SendStream, ReceiveStream],
+        ]
+    ):
         return lockstep_stream_pair()
 
     await check_two_way_stream(two_way_stream_maker, two_way_stream_maker)

@@ -464,9 +464,9 @@ async def to_thread_run_sync(  # type: ignore[misc]
 
         while True:
             # wait_task_rescheduled return value cannot be typed
-            msg_from_thread: outcome.Outcome[RetT] | Run[object] | RunSync[object] = (
-                await trio.lowlevel.wait_task_rescheduled(abort)
-            )
+            msg_from_thread: (
+                outcome.Outcome[RetT] | Run[object] | RunSync[object]
+            ) = await trio.lowlevel.wait_task_rescheduled(abort)
             if isinstance(msg_from_thread, outcome.Outcome):
                 return msg_from_thread.unwrap()
             elif isinstance(msg_from_thread, Run):

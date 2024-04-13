@@ -141,7 +141,7 @@ def reorder_for_rfc_6555_section_5_4(
             str,
             Any,
         ]
-    ]
+    ],
 ) -> None:
     # RFC 6555 section 5.4 says that if getaddrinfo returns multiple address
     # families (e.g. IPv4 and IPv6), then you should make sure that your first

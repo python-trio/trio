@@ -219,7 +219,7 @@ async def permanently_detach_coroutine_object(
 
 
 async def temporarily_detach_coroutine_object(
-    abort_func: Callable[[RaiseCancelT], Abort]
+    abort_func: Callable[[RaiseCancelT], Abort],
 ) -> Any:
     """Temporarily detach the current coroutine object from the Trio
     scheduler.

@@ -3,6 +3,7 @@
 Code generation script for class methods
 to be exported as public API
 """
+
 from __future__ import annotations
 
 import argparse

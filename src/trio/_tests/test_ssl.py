@@ -409,7 +409,9 @@ def ssl_wrap_pair(
 MemoryStapledStream: TypeAlias = StapledStream[MemorySendStream, MemoryReceiveStream]
 
 
-def ssl_memory_stream_pair(client_ctx: SSLContext, **kwargs: Any) -> tuple[
+def ssl_memory_stream_pair(
+    client_ctx: SSLContext, **kwargs: Any
+) -> tuple[
     SSLStream[MemoryStapledStream],
     SSLStream[MemoryStapledStream],
 ]:
@@ -420,7 +422,9 @@ def ssl_memory_stream_pair(client_ctx: SSLContext, **kwargs: Any) -> tuple[
 MyStapledStream: TypeAlias = StapledStream[SendStream, ReceiveStream]
 
 
-def ssl_lockstep_stream_pair(client_ctx: SSLContext, **kwargs: Any) -> tuple[
+def ssl_lockstep_stream_pair(
+    client_ctx: SSLContext, **kwargs: Any
+) -> tuple[
     SSLStream[MyStapledStream],
     SSLStream[MyStapledStream],
 ]:
@@ -837,20 +841,24 @@ async def test_send_all_empty_string(client_ctx: SSLContext) -> None:
 async def test_SSLStream_generic(
     client_ctx: SSLContext, https_compatible: bool
 ) -> None:
-    async def stream_maker() -> tuple[
-        SSLStream[MemoryStapledStream],
-        SSLStream[MemoryStapledStream],
-    ]:
+    async def stream_maker() -> (
+        tuple[
+            SSLStream[MemoryStapledStream],
+            SSLStream[MemoryStapledStream],
+        ]
+    ):
         return ssl_memory_stream_pair(
             client_ctx,
             client_kwargs={"https_compatible": https_compatible},
             server_kwargs={"https_compatible": https_compatible},
         )
 
-    async def clogged_stream_maker() -> tuple[
-        SSLStream[MyStapledStream],
-        SSLStream[MyStapledStream],
-    ]:
+    async def clogged_stream_maker() -> (
+        tuple[
+            SSLStream[MyStapledStream],
+            SSLStream[MyStapledStream],
+        ]
+    ):
         client, server = ssl_lockstep_stream_pair(client_ctx)
         # If we don't do handshakes up front, then we run into a problem in
         # the following situation:

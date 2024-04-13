@@ -276,7 +276,9 @@ class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
         self.socket_count += 1
         return FakeSocket(self, family, type_, proto)
 
-    def _ip_to_gai_entry(self, ip: str) -> tuple[
+    def _ip_to_gai_entry(
+        self, ip: str
+    ) -> tuple[
         AddressFamily,
         SocketKind,
         int,
