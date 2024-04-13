@@ -4,6 +4,8 @@ Code generation script for class methods
 to be exported as public API
 """
 
+# mypy: disable-error-code="unused-ignore"
+
 from __future__ import annotations
 
 import argparse
