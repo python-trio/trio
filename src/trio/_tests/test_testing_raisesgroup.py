@@ -129,6 +129,11 @@ def test_catch_unwrapped_exceptions() -> None:
         with RaisesGroup(ValueError):
             raise ValueError("value error text")
 
+    # code coverage
+    with pytest.raises(TypeError):
+        with RaisesGroup(ValueError, strict=False):
+            raise TypeError
+
 
 def test_match() -> None:
     # supports match string
