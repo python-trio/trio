@@ -1,0 +1,1 @@
+Fix crash when importing trio in python windows embedded, and other installs that removes docstrings.
