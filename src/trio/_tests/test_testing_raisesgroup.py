@@ -100,9 +100,33 @@ def test_raises_group() -> None:
     ):
         RaisesGroup(RaisesGroup(ValueError), strict=False)
 
-    # currently not fully identical in behaviour to expect*, which would also catch an unwrapped exception
-    with pytest.raises(ValueError, match="^value error text$"):
-        with RaisesGroup(ValueError, strict=False):
+
+def test_catch_unwrapped_exceptions() -> None:
+    # Catches lone exceptions with strict=False
+    # just as expect* would
+    with RaisesGroup(ValueError, strict=False):
+        raise ValueError
+
+    with pytest.raises(ValueError, match="foo"):
+        # This not being caught is perhaps confusing for users used to pytest.raises
+        with RaisesGroup(SyntaxError, ValueError, strict=False):
+            raise ValueError("foo")
+    with pytest.raises(ExceptionGroup, match="foo"):
+        # but if we made that work, then it would be unexpected that wrapping the exception
+        # does not get caught
+        with RaisesGroup(SyntaxError, ValueError, strict=False):
+            raise ExceptionGroup("foo", (ValueError(),))
+    # and changing *that* is not really an option, as the entire point of RaisesGroup is
+    # to verify *all* exceptions specified are there and *no others*.
+    # Users are required to instead do
+    with RaisesGroup(
+        Matcher(check=lambda x: isinstance(x, (SyntaxError, ValueError))), strict=False
+    ):
+        raise ValueError("foo")
+
+    # with strict=True (default) it will not be caught
+    with pytest.raises(ValueError, match="value error text"):
+        with RaisesGroup(ValueError):
             raise ValueError("value error text")
 
 

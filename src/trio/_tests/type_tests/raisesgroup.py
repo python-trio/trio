@@ -84,9 +84,9 @@ def check_matcher_init() -> None:
     Matcher(exception_type=ValueError)
     Matcher(match="regex")
     Matcher(check=check_exc)
-    Matcher(check=check_filenotfound)  # type: ignore
     Matcher(ValueError, match="regex")
     Matcher(FileNotFoundError, check=check_filenotfound)
+    Matcher(check=check_filenotfound)  # type: ignore # not narrowed
     Matcher(match="regex", check=check_exc)
     Matcher(FileNotFoundError, match="regex", check=check_filenotfound)
 
@@ -134,3 +134,26 @@ def check_nested_raisesgroups_matches() -> None:
     # has the same problems as check_nested_raisesgroups_contextmanager
     if RaisesGroup(RaisesGroup(ValueError)).matches(exc):
         assert_type(exc, BaseExceptionGroup[RaisesGroup[ValueError]])
+
+
+def check_multiple_exceptions_1() -> None:
+    a = RaisesGroup(ValueError, ValueError)
+    b = RaisesGroup(Matcher(ValueError), Matcher(ValueError))
+    c = RaisesGroup(ValueError, Matcher(ValueError))
+
+    d: BaseExceptionGroup[ValueError]
+    d = a
+    d = b
+    d = c
+    assert d
+
+
+def check_multiple_exceptions_2() -> None:
+    # "Cannot infer argument 1 of RaisesGroup"
+    # if removing overloads from Matcher then pyright stops warning, but mypy still
+    # complains
+    RaisesGroup(Matcher(ValueError), Matcher(TypeError))  # type: ignore
+    RaisesGroup(Matcher(ValueError), TypeError)  # type: ignore
+    # so it requires explicit type
+    RaisesGroup[Exception](Matcher(ValueError), Matcher(TypeError))
+    RaisesGroup[Exception](Matcher(ValueError), TypeError)

@@ -263,8 +263,9 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
     This works similar to ``pytest.raises``, and a version of it will hopefully be added upstream, after which this can be deprecated and removed. See https://github.com/pytest-dev/pytest/issues/11538
 
 
-    This differs from :ref:`except* <except_star>` in that all specified exceptions must be present, *and no others*. It will similarly not catch exceptions *not* wrapped in an exceptiongroup.
-    If you don't care for the nesting level of the exceptions you can pass ``strict=False``.
+    This differs from :ref:`except* <except_star>` in that all specified exceptions must be present, *and no others*. It will by default not catch exceptions *not* wrapped in an exceptiongroup.
+    To match :ref:`except* <except_star>` you can pass ``strict=False``. This will make it ignore the nesting level, and also catch an exception not wrapped in an ExceptionGroup.
+    If you want to catch unwrapped exceptions and expect one of several different exceptions you need to use a :ref:`Matcher` object.
     It currently does not care about the order of the exceptions, so ``RaisesGroups(ValueError, TypeError)`` is equivalent to ``RaisesGroups(TypeError, ValueError)``.
 
     This class is not as polished as ``pytest.raises``, and is currently not as helpful in e.g. printing diffs when strings don't match, suggesting you use ``re.escape``, etc.
@@ -383,6 +384,15 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
         # maybe have a list of strings logging failed matches, that __exit__ can
         # recursively step through and print on a failing match.
         if not isinstance(exc_val, BaseExceptionGroup):
+            if not self.strict and len(self.expected_exceptions) == 1:
+                exp_exc = self.expected_exceptions[0]
+                if isinstance(exp_exc, Matcher) and exp_exc.matches(exc_val):
+                    return True
+                if isinstance(exp_exc, type) and isinstance(exc_val, exp_exc):
+                    return True
+            # Consider printing a helpful message on unwrapped exception, strict=False and
+            # `len(self.expected_exceptions) > 1`; since they might expect the exceptions
+            # to be 'or'd like with `pytest.raises`.
             return False
         if len(exc_val.exceptions) != len(self.expected_exceptions):
             return False
