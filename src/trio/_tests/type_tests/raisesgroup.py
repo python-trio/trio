@@ -149,11 +149,13 @@ def check_multiple_exceptions_1() -> None:
 
 
 def check_multiple_exceptions_2() -> None:
-    # "Cannot infer argument 1 of RaisesGroup"
-    # if removing overloads from Matcher then pyright stops warning, but mypy still
-    # complains
-    RaisesGroup(Matcher(ValueError), Matcher(TypeError))  # type: ignore
-    RaisesGroup(Matcher(ValueError), TypeError)  # type: ignore
-    # so it requires explicit type
-    RaisesGroup[Exception](Matcher(ValueError), Matcher(TypeError))
-    RaisesGroup[Exception](Matcher(ValueError), TypeError)
+    # This previously failed due to lack of covariance in the TypeVar
+    a = RaisesGroup(Matcher(ValueError), Matcher(TypeError))
+    b = RaisesGroup(Matcher(ValueError), TypeError)
+    c = RaisesGroup(ValueError, TypeError)
+
+    d: BaseExceptionGroup[Exception]
+    d = a
+    d = b
+    d = c
+    assert d

@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
 
-E = TypeVar("E", bound=BaseException)
+E = TypeVar("E", bound=BaseException, covariant=True)
 
 
 @final
