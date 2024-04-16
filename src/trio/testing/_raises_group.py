@@ -263,9 +263,19 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
     This works similar to ``pytest.raises``, and a version of it will hopefully be added upstream, after which this can be deprecated and removed. See https://github.com/pytest-dev/pytest/issues/11538
 
 
-    This differs from :ref:`except* <except_star>` in that all specified exceptions must be present, *and no others*. It will by default not catch exceptions *not* wrapped in an exceptiongroup.
-    To match :ref:`except* <except_star>` you can pass ``strict=False``. This will make it ignore the nesting level, and also catch an exception not wrapped in an ExceptionGroup.
-    If you want to catch unwrapped exceptions and expect one of several different exceptions you need to use a :ref:`Matcher` object.
+    The catching behaviour differs from :ref:`except* <except_star>` in multiple different ways, being much stricter by default.
+    #. All specified exceptions must be present, *and no others*.
+
+       * If you expect a variable number of exceptions you need to use ``pytest.raises(ExceptionGroup)`` and manually check the contained exceptions. Consider making use of :func:`Matcher.matches`.
+
+    #. With ``strict=True`` (the default) it will only catch exceptions wrapped in an exceptiongroup.
+
+       * With ``strict=False`` and a single expected exception or `Matcher` it will try matching against it. If you want to catch an unwrapped exception and expect one of several different exception types you need to use a `Matcher` object.
+
+    #. With ``strict=True`` (the default) it cares about the nesting level of the exceptions.
+
+       * With ``strict=False`` it will "flatten" the raised `ExceptionGroup` before matching against it.
+
     It currently does not care about the order of the exceptions, so ``RaisesGroups(ValueError, TypeError)`` is equivalent to ``RaisesGroups(TypeError, ValueError)``.
 
     This class is not as polished as ``pytest.raises``, and is currently not as helpful in e.g. printing diffs when strings don't match, suggesting you use ``re.escape``, etc.
@@ -288,7 +298,7 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
     `RaisesGroup.matches` can also be used directly to check a standalone exception group.
 
 
-    This class is also not perfectly smart, e.g. this will likely fail currently::
+    The matching algorithm is greedy, which means cases such as this may fail::
 
         with RaisesGroups(ValueError, Matcher(ValueError, match="hello")):
             raise ExceptionGroup("", (ValueError("hello"), ValueError("goodbye")))
