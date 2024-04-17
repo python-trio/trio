@@ -114,6 +114,13 @@ def autodoc_process_signature(
             # Strip the type from the union, make it look like = ...
             signature = signature.replace(" | type[trio._core._local._NoValue]", "")
             signature = signature.replace("<class 'trio._core._local._NoValue'>", "...")
+        if (
+            name in ("trio.testing.RaisesGroup", "trio.testing.Matcher")
+            and "+E" in signature
+        ):
+            # This typevar being covariant isn't handled correctly in some cases, strip the +
+            # and insert the fully-qualified name.
+            signature = signature.replace("+E", "~trio.testing._raises_group.E")
         if "DTLS" in name:
             signature = signature.replace("SSL.Context", "OpenSSL.SSL.Context")
         # Don't specify PathLike[str] | PathLike[bytes], this is just for humans.
