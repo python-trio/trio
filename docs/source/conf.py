@@ -21,6 +21,7 @@ from __future__ import annotations
 import collections.abc
 import os
 import sys
+import types
 from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
@@ -98,7 +99,7 @@ autodoc_type_aliases = {
 # https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html#event-autodoc-process-signature
 def autodoc_process_signature(
     app: Sphinx,
-    what: object,
+    what: str,
     name: str,
     obj: object,
     options: object,
@@ -106,6 +107,14 @@ def autodoc_process_signature(
     return_annotation: str,
 ) -> tuple[str, str]:
     """Modify found signatures to fix various issues."""
+    if name == "trio.testing._raises_group._ExceptionInfo.type":
+        # This has the type "type[E]", which gets resolved into the property itself.
+        # That means Sphinx can't resolve it. Fix the issue by overwriting with a fully-qualified
+        # name.
+        assert isinstance(obj, property), obj
+        assert isinstance(obj.fget, types.FunctionType), obj.fget
+        assert obj.fget.__annotations__["return"] == "type[E]", obj.fget.__annotations__
+        obj.fget.__annotations__["return"] = "type[~trio.testing._raises_group.E]"
     if signature is not None:
         signature = signature.replace("~_contextvars.Context", "~contextvars.Context")
         if name == "trio.lowlevel.RunVar":  # Typevar is not useful here.
