@@ -329,7 +329,7 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
             exception,
             *other_exceptions,
         )
-        self.flatten_subgroups = flatten_subgroups
+        self.flatten_subgroups: bool = flatten_subgroups
         self.allow_unwrapped = allow_unwrapped
         self.match_expr = match
         self.check = check
