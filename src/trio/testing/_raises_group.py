@@ -264,18 +264,19 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
     This works similar to ``pytest.raises``, and a version of it will hopefully be added upstream, after which this can be deprecated and removed. See https://github.com/pytest-dev/pytest/issues/11538
 
 
-    The catching behaviour differs from :ref:`except* <except_star>` in multiple different ways, being much stricter by default.
+    The catching behaviour differs from :ref:`except* <except_star>` in multiple different ways, being much stricter by default. By using ``allow_unwrapped=True`` and ``flatten_subgroups=True`` you can match ``except*`` fully when expecting a single exception.
+
     #. All specified exceptions must be present, *and no others*.
 
        * If you expect a variable number of exceptions you need to use ``pytest.raises(ExceptionGroup)`` and manually check the contained exceptions. Consider making use of :func:`Matcher.matches`.
 
-    #. With ``strict=True`` (the default) it will only catch exceptions wrapped in an exceptiongroup.
+    #. It will only catch exceptions wrapped in an exceptiongroup by default.
 
-       * With ``strict=False`` and a single expected exception or `Matcher` it will try matching against it. If you want to catch an unwrapped exception and expect one of several different exception types you need to use a `Matcher` object.
+       * With ``allow_unwrapped=True`` you can specify a single expected exception or `Matcher` and it will match the exception even if it is not inside an `ExceptionGroup`. If you expect one of several different exception types you need to use a `Matcher` object.
 
-    #. With ``strict=True`` (the default) it cares about the nesting level of the exceptions.
+    #. By default it cares about the full structure with potentially nested `ExceptionGroup`s. You can specify nested `ExceptionGroup`s by passing `RaisesGroup` objects as expected exceptions.
 
-       * With ``strict=False`` it will "flatten" the raised `ExceptionGroup` before matching against it.
+       * With ``flatten_subgroups=True`` it will "flatten" the raised `ExceptionGroup`, extracting all exceptions inside any nested `ExceptionGroup`s, before matching.
 
     It currently does not care about the order of the exceptions, so ``RaisesGroups(ValueError, TypeError)`` is equivalent to ``RaisesGroups(TypeError, ValueError)``.
 
@@ -292,8 +293,13 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
         with RaisesGroups(RaisesGroups(ValueError)):
             raise ExceptionGroup("", (ExceptionGroup("", (ValueError(),)),))
 
-        with RaisesGroups(ValueError, strict=False):
+        # flatten_subgroups
+        with RaisesGroups(ValueError, flatten_subgroups=True):
             raise ExceptionGroup("", (ExceptionGroup("", (ValueError(),)),))
+
+        # allow_unwrapped
+        with RaisesGroups(ValueError, allow_unwrapped=True):
+            raise ValueError
 
 
     `RaisesGroup.matches` can also be used directly to check a standalone exception group.
