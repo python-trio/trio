@@ -1,1 +1,1 @@
-Fixed a bug where :class:`trio.testing.RaisesGroup` would check the number of exceptions in the raised `ExceptionGroup` before flattening subgroups, leading to incorrectly failed matches with ``flatten_subgroups=True`` (previously ``strict=False``).
+Fixed a bug where :class:`trio.testing.RaisesGroup` would check the number of exceptions in the raised `ExceptionGroup` before flattening subgroups, leading to incorrectly failed matches with ``strict=False`` (now known as ``flatten_subgroups=True``).
