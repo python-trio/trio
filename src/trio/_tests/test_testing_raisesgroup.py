@@ -103,7 +103,7 @@ def test_raises_group() -> None:
 
 def test_catch_unwrapped_exceptions() -> None:
     # Catches lone exceptions with strict=False
-    # just as expect* would
+    # just as except* would
     with RaisesGroup(ValueError, strict=False):
         raise ValueError
 
