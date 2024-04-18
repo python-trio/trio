@@ -1,1 +1,1 @@
-:class:`trio.testing.RaisesGroup` can now catch unwrapped exceptions with ``strict=False``, similar to ``except*``.
+:class:`trio.testing.RaisesGroup` can now catch an unwrapped exception with ``unwrapped=True``, similar to ``except*``.

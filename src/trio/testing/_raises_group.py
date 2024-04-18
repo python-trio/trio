@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import sys
+import warnings
 from typing import (
     TYPE_CHECKING,
     Callable,
@@ -322,6 +323,7 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
         flatten_subgroups: bool = False,
         match: str | Pattern[str] | None = None,
         check: Callable[[BaseExceptionGroup[E]], bool] | None = None,
+        strict: None = None,
     ):
         self.expected_exceptions: tuple[type[E] | Matcher[E] | E, ...] = (
             exception,
@@ -332,6 +334,16 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
         self.match_expr = match
         self.check = check
         self.is_baseexceptiongroup = False
+
+        if strict is not None:
+            warnings.warn(
+                DeprecationWarning(
+                    "`strict=False` has been replaced with `flatten_subgroups=True`"
+                    " with the introduction of `allow_unwrapped` as a parameter."
+                ),
+                stacklevel=2,
+            )
+            self.flatten_subgroups = not strict
 
         if allow_unwrapped and other_exceptions:
             raise ValueError(

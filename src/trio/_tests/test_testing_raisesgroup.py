@@ -304,3 +304,12 @@ def test__ExceptionInfo(monkeypatch: pytest.MonkeyPatch) -> None:
     assert excinfo.type is ExceptionGroup
     assert excinfo.value.exceptions[0].args == ("hello",)
     assert isinstance(excinfo.tb, TracebackType)
+
+
+def test_deprecated_strict() -> None:
+    """`strict` has been replaced with `flatten_subgroups`"""
+    # parameter is typed as `None` to also emit a type error if passing anything
+    with pytest.deprecated_call():
+        RaisesGroup(ValueError, strict=False)  # type: ignore[arg-type]
+    with pytest.deprecated_call():
+        RaisesGroup(ValueError, strict=True)  # type: ignore[arg-type]
