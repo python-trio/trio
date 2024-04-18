@@ -78,60 +78,75 @@ def test_raises_group() -> None:
         with RaisesGroup(ValueError, SyntaxError):
             raise ExceptionGroup("", (ValueError(),))
 
+
+def test_flatten_subgroups() -> None:
     # loose semantics, as with expect*
-    with RaisesGroup(ValueError, strict=False):
+    with RaisesGroup(ValueError, flatten_subgroups=True):
         raise ExceptionGroup("", (ExceptionGroup("", (ValueError(),)),))
 
+    with RaisesGroup(ValueError, TypeError, flatten_subgroups=True):
+        raise ExceptionGroup("", (ExceptionGroup("", (ValueError(), TypeError())),))
+    with RaisesGroup(ValueError, TypeError, flatten_subgroups=True):
+        raise ExceptionGroup("", [ExceptionGroup("", [ValueError()]), TypeError()])
+
     # mixed loose is possible if you want it to be at least N deep
-    with RaisesGroup(RaisesGroup(ValueError, strict=False)):
+    with RaisesGroup(RaisesGroup(ValueError, flatten_subgroups=True)):
         raise ExceptionGroup("", (ExceptionGroup("", (ValueError(),)),))
-    with RaisesGroup(RaisesGroup(ValueError, strict=False)):
+    with RaisesGroup(RaisesGroup(ValueError, flatten_subgroups=True)):
         raise ExceptionGroup(
             "", (ExceptionGroup("", (ExceptionGroup("", (ValueError(),)),)),)
         )
     with pytest.raises(ExceptionGroup):
-        with RaisesGroup(RaisesGroup(ValueError, strict=False)):
+        with RaisesGroup(RaisesGroup(ValueError, flatten_subgroups=True)):
             raise ExceptionGroup("", (ValueError(),))
 
     # but not the other way around
     with pytest.raises(
         ValueError,
-        match="^You cannot specify a nested structure inside a RaisesGroup with strict=False$",
+        match="^You cannot specify a nested structure inside a RaisesGroup with",
     ):
-        RaisesGroup(RaisesGroup(ValueError), strict=False)
+        RaisesGroup(RaisesGroup(ValueError), flatten_subgroups=True)
 
 
 def test_catch_unwrapped_exceptions() -> None:
     # Catches lone exceptions with strict=False
     # just as except* would
-    with RaisesGroup(ValueError, strict=False):
+    with RaisesGroup(ValueError, allow_unwrapped=True):
         raise ValueError
 
-    with pytest.raises(ValueError, match="foo"):
-        # This not being caught is perhaps confusing for users used to pytest.raises
-        with RaisesGroup(SyntaxError, ValueError, strict=False):
-            raise ValueError("foo")
-    with pytest.raises(ExceptionGroup, match="foo"):
-        # but if we made that work, then it would be unexpected that wrapping the exception
-        # does not get caught
-        with RaisesGroup(SyntaxError, ValueError, strict=False):
-            raise ExceptionGroup("foo", (ValueError(),))
-    # and changing *that* is not really an option, as the entire point of RaisesGroup is
-    # to verify *all* exceptions specified are there and *no others*.
-    # Users are required to instead do
-    with RaisesGroup(
-        Matcher(check=lambda x: isinstance(x, (SyntaxError, ValueError))), strict=False
+    # expecting multiple unwrapped exceptions is not possible
+    with pytest.raises(
+        ValueError, match="^You cannot specify multiple exceptions with"
     ):
-        raise ValueError("foo")
+        with RaisesGroup(SyntaxError, ValueError, allow_unwrapped=True):
+            ...
+    # if users want one of several exception types they need to use a Matcher
+    # (which the error message suggests)
+    with RaisesGroup(
+        Matcher(check=lambda e: isinstance(e, (SyntaxError, ValueError))),
+        allow_unwrapped=True,
+    ):
+        raise ValueError
 
-    # with strict=True (default) it will not be caught
+    # Unwrapped nested `RaisesGroup` is likely a user error, so we raise an error.
+    with pytest.raises(ValueError, match="has no effect when expecting"):
+        with RaisesGroup(RaisesGroup(ValueError), allow_unwrapped=True):
+            ...
+    # But it *can* be used to check for nesting level +- 1 if they move it to
+    # the nested RaisesGroup. Users should probably use `Matcher`s instead though.
+    with RaisesGroup(RaisesGroup(ValueError, allow_unwrapped=True)):
+        raise ExceptionGroup("", [ExceptionGroup("", [ValueError()])])
+    with RaisesGroup(RaisesGroup(ValueError, allow_unwrapped=True)):
+        raise ExceptionGroup("", [ValueError()])
+
+    # with allow_unwrapped=False (default) it will not be caught
     with pytest.raises(ValueError, match="value error text"):
         with RaisesGroup(ValueError):
             raise ValueError("value error text")
 
     # code coverage
     with pytest.raises(TypeError):
-        with RaisesGroup(ValueError, strict=False):
+        with RaisesGroup(ValueError, allow_unwrapped=True):
             raise TypeError
 
 
