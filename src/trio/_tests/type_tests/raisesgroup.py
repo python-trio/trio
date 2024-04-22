@@ -33,12 +33,7 @@ def check_inheritance_and_assignments() -> None:
 
     a: BaseExceptionGroup[BaseExceptionGroup[ValueError]]
     a = RaisesGroup(RaisesGroup(ValueError))
-    # pyright-ignore due to bug in exceptiongroup
-    # https://github.com/agronholm/exceptiongroup/pull/101
-    # once fixed we'll get errors for unnecessary-pyright-ignore and can clean up
-    a = BaseExceptionGroup(
-        "", (BaseExceptionGroup("", (ValueError(),)),)  # pyright: ignore
-    )
+    a = BaseExceptionGroup("", (BaseExceptionGroup("", (ValueError(),)),))
     assert a
 
 
@@ -125,11 +120,8 @@ def check_nested_raisesgroups_contextmanager() -> None:
 
 def check_nested_raisesgroups_matches() -> None:
     """Check nested RaisesGroups with .matches"""
-    # pyright-ignore due to bug in exceptiongroup
-    # https://github.com/agronholm/exceptiongroup/pull/101
-    # once fixed we'll get errors for unnecessary-pyright-ignore and can clean up
     exc: ExceptionGroup[ExceptionGroup[ValueError]] = ExceptionGroup(
-        "", (ExceptionGroup("", (ValueError(),)),)  # pyright: ignore
+        "", (ExceptionGroup("", (ValueError(),)),)
     )
     # has the same problems as check_nested_raisesgroups_contextmanager
     if RaisesGroup(RaisesGroup(ValueError)).matches(exc):
