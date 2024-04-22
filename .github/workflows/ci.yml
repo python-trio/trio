@@ -199,7 +199,7 @@ jobs:
         # Can't update to v4 quite yet, see https://github.com/codecov/codecov-action/issues/1279
         uses: codecov/codecov-action@v3
         with:
-          working-directory: empty
+          directory: empty
           token: 87cefb17-c44b-4f2f-8b30-1fff5769ce46
           name: Alpine
           flags: Alpine,3.12
