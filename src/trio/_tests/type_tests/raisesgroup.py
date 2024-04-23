@@ -66,12 +66,8 @@ def check_matcher_init() -> None:
     def check_exc(exc: BaseException) -> bool:
         return isinstance(exc, ValueError)
 
-    def check_filenotfound(exc: FileNotFoundError) -> bool:
-        return not exc.filename.endswith(".tmp")
-
     # Check various combinations of constructor signatures.
-    # At least 1 arg must be provided. If exception_type is provided, that narrows
-    # check's argument.
+    # At least 1 arg must be provided.
     Matcher()  # type: ignore
     Matcher(ValueError)
     Matcher(ValueError, "regex")
@@ -80,9 +76,15 @@ def check_matcher_init() -> None:
     Matcher(match="regex")
     Matcher(check=check_exc)
     Matcher(ValueError, match="regex")
-    Matcher(FileNotFoundError, check=check_filenotfound)
-    Matcher(check=check_filenotfound)  # type: ignore # not narrowed
     Matcher(match="regex", check=check_exc)
+
+    def check_filenotfound(exc: FileNotFoundError) -> bool:
+        return not exc.filename.endswith(".tmp")
+
+    # If exception_type is provided, that narrows the `check` method's argument.
+    Matcher(FileNotFoundError, check=check_filenotfound)
+    Matcher(ValueError, check=check_filenotfound)  # type: ignore
+    Matcher(check=check_filenotfound)  # type: ignore
     Matcher(FileNotFoundError, match="regex", check=check_filenotfound)
 
 

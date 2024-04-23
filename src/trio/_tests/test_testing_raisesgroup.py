@@ -140,7 +140,7 @@ def test_catch_unwrapped_exceptions() -> None:
         raise ExceptionGroup("", [ValueError()])
 
     # with allow_unwrapped=False (default) it will not be caught
-    with pytest.raises(ValueError, match="value error text"):
+    with pytest.raises(ValueError, match="^value error text$"):
         with RaisesGroup(ValueError):
             raise ValueError("value error text")
 
