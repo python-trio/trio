@@ -113,7 +113,9 @@ code. Checkpoint-ness is a transitive property: if function A acts as
 a checkpoint, and you write a function that calls function A, then
 your function also acts as a checkpoint. If you don't, then it
 isn't. So there's nothing stopping someone from writing a function
-like::
+like:
+
+.. code:: python
 
    # technically legal, but bad style:
    async def why_is_this_async():
@@ -136,7 +138,9 @@ technical requirement that Python imposes, but since it exactly
 matches the transitivity of checkpoint-ness, we're able to exploit it
 to help you keep track of checkpoints. Pretty sneaky, eh?)
 
-A slightly trickier case is a function like::
+A slightly trickier case is a function like:
+
+.. code:: python
 
    async def sleep_or_not(should_sleep):
        if should_sleep:
@@ -157,7 +161,9 @@ Inside Trio, we're very picky about this, because Trio is the
 foundation of the whole system so we think it's worth the extra effort
 to make things extra predictable. It's up to you how picky you want to
 be in your code. To give you a more realistic example of what this
-kind of issue looks like in real life, consider this function::
+kind of issue looks like in real life, consider this function:
+
+.. code:: python
 
     async def recv_exactly(sock, nbytes):
         data = bytearray()
@@ -249,7 +255,9 @@ explicitly or when a timeout expires.
 A simple timeout example
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-In the simplest case, you can apply a timeout to a block of code::
+In the simplest case, you can apply a timeout to a block of code:
+
+.. code:: python
 
    with trio.move_on_after(30):
        result = await do_http_get("https://...")
@@ -350,7 +358,9 @@ exception "knows" which block it belongs to. So long as you don't stop
 it, the exception will keep propagating until it reaches the block
 that raised it, at which point it will stop automatically.
 
-Here's an example::
+Here's an example:
+
+.. code:: python
 
    print("starting...")
    with trio.move_on_after(5):
@@ -379,7 +389,9 @@ block timed out – perhaps you want to do something different, like try
 a fallback procedure or report a failure to our caller. To make this
 easier, :func:`move_on_after`\´s ``__enter__`` function returns an
 object representing this cancel scope, which we can use to check
-whether this scope caught a :exc:`Cancelled` exception::
+whether this scope caught a :exc:`Cancelled` exception:
+
+.. code:: python
 
    with trio.move_on_after(5) as cancel_scope:
        await trio.sleep(10)
@@ -397,7 +409,9 @@ has been cancelled, *all* cancellable operations in that block will
 keep raising :exc:`Cancelled`. This helps avoid some pitfalls around
 resource clean-up. For example, imagine that we have a function that
 connects to a remote server and sends some messages, and then cleans
-up on the way out::
+up on the way out:
+
+.. code:: python
 
    with trio.move_on_after(TIMEOUT):
        conn = make_connection()
@@ -424,7 +438,9 @@ cleanup handler, Trio will let you; it's trying to prevent you from
 accidentally shooting yourself in the foot. Intentional foot-shooting
 is no problem (or at least – it's not Trio's problem). To do this,
 create a new scope, and set its :attr:`~CancelScope.shield`
-attribute to :data:`True`::
+attribute to :data:`True`:
+
+.. code:: python
 
    with trio.move_on_after(TIMEOUT):
        conn = make_connection()
@@ -547,14 +563,18 @@ situation of just wanting to impose a timeout on some code:
 Cheat sheet:
 
 * If you want to impose a timeout on a function, but you don't care
-  whether it timed out or not::
+  whether it timed out or not:
+
+  .. code:: python
 
      with trio.move_on_after(TIMEOUT):
          await do_whatever()
      # carry on!
 
 * If you want to impose a timeout on a function, and then do some
-  recovery if it timed out::
+  recovery if it timed out:
+
+  .. code:: python
 
      with trio.move_on_after(TIMEOUT) as cancel_scope:
          await do_whatever()
@@ -564,7 +584,9 @@ Cheat sheet:
 
 * If you want to impose a timeout on a function, and then if it times
   out then just give up and raise an error for your caller to deal
-  with::
+  with:
+
+  .. code:: python
 
      with trio.fail_after(TIMEOUT):
          await do_whatever()
@@ -598,13 +620,17 @@ Most libraries for concurrent programming let you start new child
 tasks (or threads, or whatever) willy-nilly, whenever and where-ever
 you feel like it. Trio is a bit different: you can't start a child
 task unless you're prepared to be a responsible parent. The way you
-demonstrate your responsibility is by creating a nursery::
+demonstrate your responsibility is by creating a nursery:
+
+.. code:: python
 
    async with trio.open_nursery() as nursery:
        ...
 
 And once you have a reference to a nursery object, you can start
-children in that nursery::
+children in that nursery:
+
+.. code:: python
 
    async def child():
        ...
@@ -649,7 +675,9 @@ finished.
 
 .. note::
 
-   A return statement will not cancel the nursery if it still has tasks running::
+   A return statement will not cancel the nursery if it still has tasks running:
+
+   .. code:: python
 
      async def main():
          async with trio.open_nursery() as nursery:
@@ -665,7 +693,9 @@ Child tasks and cancellation
 
 In Trio, child tasks inherit the parent nursery's cancel scopes. So in
 this example, both the child tasks will be cancelled when the timeout
-expires::
+expires:
+
+.. code:: python
 
    with trio.move_on_after(TIMEOUT):
        async with trio.open_nursery() as nursery:
@@ -675,7 +705,9 @@ expires::
 Note that what matters here is the scopes that were active when
 :func:`open_nursery` was called, *not* the scopes active when
 ``start_soon`` is called. So for example, the timeout block below does
-nothing at all::
+nothing at all:
+
+.. code:: python
 
    async with trio.open_nursery() as nursery:
        with trio.move_on_after(TIMEOUT):  # don't do this!
@@ -694,7 +726,9 @@ Errors in multiple child tasks
 
 Normally, in Python, only one thing happens at a time, which means
 that only one thing can go wrong at a time. Trio has no such
-limitation. Consider code like::
+limitation. Consider code like:
+
+.. code:: python
 
     async def broken1():
         d = {}
@@ -716,7 +750,9 @@ what? The answer is that both exceptions are grouped in an :exc:`ExceptionGroup`
 encapsulate multiple exceptions being raised at once.
 
 To catch individual exceptions encapsulated in an exception group, the ``except*``
-clause was introduced in Python 3.11 (:pep:`654`). Here's how it works::
+clause was introduced in Python 3.11 (:pep:`654`). Here's how it works:
+
+.. code:: python
 
     try:
         async with trio.open_nursery() as nursery:
@@ -735,7 +771,9 @@ group.
 
 But what if you can't use ``except*`` just yet? Well, for that there is the handy
 exceptiongroup_ library which lets you approximate this behavior with exception handler
-callbacks::
+callbacks:
+
+.. code:: python
 
     from exceptiongroup import catch
 
@@ -757,7 +795,9 @@ callbacks::
 
 The semantics for the handler functions are equal to ``except*`` blocks, except for
 setting local variables. If you need to set local variables, you need to declare them
-inside the handler function(s) with the ``nonlocal`` keyword::
+inside the handler function(s) with the ``nonlocal`` keyword:
+
+.. code:: python
 
     def handle_keyerrors(excgroup):
         nonlocal myflag
@@ -818,7 +858,9 @@ connections and supervise children at the same time.
 
 The solution here is simple once you see it: there's no requirement
 that a nursery object stay in the task that created it! We can write
-code like this::
+code like this:
+
+.. code:: python
 
    async def new_connection_listener(handler, nursery):
        while True:
@@ -832,7 +874,9 @@ code like this::
 Notice that ``server`` opens a nursery and passes it to
 ``new_connection_listener``, and then ``new_connection_listener`` is
 able to start new tasks as "siblings" of itself. Of course, in this
-case, we could just as well have written::
+case, we could just as well have written:
+
+.. code:: python
 
    async def server(handler):
        async with trio.open_nursery() as nursery:
@@ -846,7 +890,9 @@ handy.
 One thing to remember, though: cancel scopes are inherited from the
 nursery, **not** from the task that calls ``start_soon``. So in this
 example, the timeout does *not* apply to ``child`` (or to anything
-else)::
+else):
+
+.. code:: python
 
    async def do_spawn(nursery):
        with trio.move_on_after(TIMEOUT):  # don't do this, it has no effect
@@ -874,7 +920,9 @@ no reason everyone should have to write their own.
 
 For example, here's a function that takes a list of functions, runs
 them all concurrently, and returns the result from the one that
-finishes first::
+finishes first:
+
+.. code:: python
 
    async def race(*async_fns):
        if not async_fns:
@@ -1072,7 +1120,9 @@ releasing the lock will call :meth:`~Lock.acquire` before the other
 task wakes up; in Trio releasing a lock is not a checkpoint.)  With
 an unfair lock, this would result in the same task holding the lock
 forever and the other task being starved out. But if you run this,
-you'll see that the two tasks politely take turns::
+you'll see that the two tasks politely take turns:
+
+.. code:: python
 
    # fairness-demo.py
 
@@ -1267,7 +1317,9 @@ Notice a small trick we use: the code in ``main`` creates clone
 objects to pass into all the child tasks, and then closes the original
 objects using ``async with``. Another option is to pass clones into
 all-but-one of the child tasks, and then pass the original object into
-the last task, like::
+the last task, like:
+
+.. code:: python
 
    # Also works, but is more finicky:
    send_channel, receive_channel = trio.open_memory_channel(0)
@@ -1279,7 +1331,9 @@ the last task, like::
 But this is more error-prone, especially if you use a loop to spawn
 the producers/consumers.
 
-Just make sure that you don't write::
+Just make sure that you don't write:
+
+.. code:: python
 
    # Broken, will cause program to hang:
    send_channel, receive_channel = trio.open_memory_channel(0)
@@ -1483,7 +1537,9 @@ statements. As you might expect, you use ``async for`` to iterate
 over them. :pep:`525` has many more details if you want them.
 
 For example, the following is a roundabout way to print
-the numbers 0 through 9 with a 1-second delay before each one::
+the numbers 0 through 9 with a 1-second delay before each one:
+
+.. code:: python
 
     async def range_slowly(*args):
         """Like range(), but adds a 1-second sleep before each value."""
@@ -1531,7 +1587,9 @@ If you don't like that ambiguity, and you want to ensure that a
 generator's ``finally`` blocks and ``__aexit__`` handlers execute as
 soon as you're done using it, then you'll need to wrap your use of the
 generator in something like `async_generator.aclosing()
-<https://async-generator.readthedocs.io/en/latest/reference.html#context-managers>`__::
+<https://async-generator.readthedocs.io/en/latest/reference.html#context-managers>`__:
+
+.. code:: python
 
     # Instead of this:
     async for value in my_generator():
@@ -1589,7 +1647,9 @@ Cancel scopes and nurseries
 .. warning:: You may not write a ``yield`` statement that suspends an async generator
    inside a `CancelScope` or `Nursery` that was entered within the generator.
 
-That is, this is OK::
+That is, this is OK:
+
+.. code:: python
 
     async def some_agen():
         with trio.move_on_after(1):
@@ -1601,7 +1661,9 @@ That is, this is OK::
         yield "second"
         ...
 
-But this is not::
+But this is not:
+
+.. code:: python
 
     async def some_agen():
         with trio.move_on_after(1):
@@ -1746,7 +1808,9 @@ it's just a matter of creating two separate :class:`CapacityLimiter`
 objects and passing them in when running these jobs. Or here's an
 example of defining a custom policy that respects the global thread
 limit, while making sure that no individual user can use more than 3
-threads at a time::
+threads at a time:
+
+.. code:: python
 
    class CombinedLimiter:
         def __init__(self, first, second):

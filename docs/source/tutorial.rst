@@ -116,7 +116,9 @@ Python 3.5 added a major new feature: async functions. Using Trio is
 all about writing async functions, so let's start there.
 
 An async function is defined like a normal function, except you write
-``async def`` instead of ``def``::
+``async def`` instead of ``def``:
+
+.. code:: python
 
    # A regular function
    def regular_double(x):
@@ -138,12 +140,16 @@ async function and a regular function:
    ``await async_double(3)``.
 
 2. You can't use the ``await`` keyword inside the body of a regular
-   function. If you try it, you'll get a syntax error::
+   function. If you try it, you'll get a syntax error:
+
+   .. code:: python
 
       def print_double(x):
           print(await async_double(x))   # <-- SyntaxError here
 
-   But inside an async function, ``await`` is allowed::
+   But inside an async function, ``await`` is allowed:
+
+   .. code:: python
 
       async def print_double(x):
           print(await async_double(x))   # <-- OK!
@@ -183,7 +189,9 @@ things:
 
 1. A runner function, which is a special *synchronous* function that
    takes and calls an *asynchronous* function. In Trio, this is
-   ``trio.run``::
+   ``trio.run``:
+
+   .. code:: python
 
       import trio
 
@@ -254,7 +262,9 @@ little with writing simple async functions and running them with
 
 At some point in this process, you'll probably write some code like
 this, that tries to call an async function but leaves out the
-``await``::
+``await``:
+
+.. code:: python
 
    import time
    import trio
@@ -335,7 +345,9 @@ use ``await``. But Python's trying to keep its options open for other
 libraries that are *ahem* a little less organized about things. So
 while for our purposes we can think of ``await trio.sleep(...)`` as a
 single piece of syntax, Python thinks of it as two things: first a
-function call that returns this weird "coroutine" object::
+function call that returns this weird "coroutine" object:
+
+.. code:: pycon
 
    >>> trio.sleep(3)
    <coroutine object sleep at 0x7f5ac77be6d0>
@@ -343,7 +355,9 @@ function call that returns this weird "coroutine" object::
 and then that object gets passed to ``await``, which actually runs the
 function. So if you forget ``await``, then two bad things happen: your
 function doesn't actually get called, and you get a "coroutine" object
-where you might have been expecting something else, like a number::
+where you might have been expecting something else, like a number:
+
+.. code:: pycon
 
    >>> async_double(3) + 1
    TypeError: unsupported operand type(s) for +: 'coroutine' and 'int'
@@ -1024,7 +1038,9 @@ Flow control in our echo client and server
 Here's a question you might be wondering about: why does our client
 use two separate tasks for sending and receiving, instead of a single
 task that alternates between them – like the server has? For example,
-our client could use a single task like::
+our client could use a single task like:
+
+.. code:: python
 
    # Can you spot the two problems with this code?
    async def send_and_receive(client_stream):
@@ -1060,7 +1076,9 @@ backed up in the network, until eventually something breaks.
    a limit on how many bytes you read each time, and see what happens.
 
 We could fix this by keeping track of how much data we're expecting at
-each moment, and then keep calling ``receive_some`` until we get it all::
+each moment, and then keep calling ``receive_some`` until we get it all:
+
+.. code:: python
 
    expected = len(data)
    while expected > 0:
@@ -1154,7 +1172,9 @@ TODO: maybe a brief discussion of :exc:`KeyboardInterrupt` handling?
 
    XX todo
 
-   timeout example::
+   timeout example:
+
+   .. code:: python
 
       async def counter():
           for i in range(100000):

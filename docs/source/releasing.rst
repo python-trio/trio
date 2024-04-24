@@ -41,7 +41,9 @@ Things to do for releasing:
 
 * tag with vVERSION, push tag on ``python-trio/trio`` (not on your personal repository)
 
-* push to PyPI::
+* push to PyPI:
+
+  .. code::
 
     git clean -xdf   # maybe run 'git clean -xdn' first to see what it will delete
     python3 -m build

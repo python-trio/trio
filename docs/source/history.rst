@@ -1207,7 +1207,9 @@ Highlights
 * The new nursery :meth:`~Nursery.start` method makes it
   easy to perform controlled start-up of long-running tasks. For
   example, given an appropriate ``http_server_on_random_open_port``
-  function, you could write::
+  function, you could write:
+
+  .. code:: python
 
       port = await nursery.start(http_server_on_random_open_port)
 
@@ -1449,7 +1451,9 @@ Other changes
   functions, if you're using asyncio you have to use asyncio
   functions, and so forth. (See the discussion of the "async sandwich"
   in the Trio tutorial for more details.) So for example, this isn't
-  going to work::
+  going to work:
+
+  .. code:: python
 
       async def main():
           # asyncio here

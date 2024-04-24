@@ -181,6 +181,7 @@ hoverxref_role_types = {
 # See https://sphinx-codeautolink.readthedocs.io/en/latest/reference.html#configuration
 codeautolink_autodoc_inject = False
 codeautolink_global_preface = """
+import trio
 from trio import *
 """
 
