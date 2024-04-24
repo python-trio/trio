@@ -382,11 +382,11 @@ Specific style guidelines
 
   .. code:: python
 
-     def call_the_thing(fn, *args, kwonly1, kwonly2, ...):
+     def call_the_thing(fn, *args, kwonly1, kwonly2):
          ...
 
   where ``fn(*args)`` is the thing to be called, and ``kwonly1``,
-  ``kwonly2``, ... are keyword-only arguments that belong to
+  ``kwonly2``, are keyword-only arguments that belong to
   ``call_the_thing``. This applies even if ``call_the_thing`` doesn't
   take any arguments of its own, i.e. in this case its signature looks
   like:
@@ -420,10 +420,10 @@ Specific style guidelines
 
   .. code:: python
 
-     async def OPERATION(...):
+     async def OPERATION(arg1, arg2):
          ...
 
-     def OPERATION_nowait(...):
+     def OPERATION_nowait(arg1, arg2):
          ...
 
   and the ``nowait`` version raises :exc:`trio.WouldBlock` if it would block.

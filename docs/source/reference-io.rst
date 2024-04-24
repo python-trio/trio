@@ -378,7 +378,7 @@ broken features:
 
   .. code:: python
 
-     _, service_name = await getnameinfo((127.0.0.1, port), NI_NUMERICHOST))
+     _, service_name = await getnameinfo(('127.0.0.1', port), NI_NUMERICHOST)
 
 * :func:`~socket.getservbyname`: obsolete and `buggy
   <https://bugs.python.org/issue30482>`__; instead, do:

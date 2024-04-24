@@ -711,7 +711,8 @@ can use as a model:
 
 .. code:: python
 
-    import asyncio, trio
+    import asyncio
+    import trio
 
     # A tiny Trio program
     async def trio_main():

@@ -203,6 +203,8 @@ it being merely hard to fix). For example:
 
 .. code:: python
 
+    if ...:
+        ...
     else:  # pragma: no cover
         raise AssertionError("this can't happen!")
 
