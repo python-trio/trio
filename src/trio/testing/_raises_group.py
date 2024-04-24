@@ -123,7 +123,7 @@ else:
 def _stringify_exception(exc: BaseException) -> str:
     return "\n".join(
         [
-            str(exc),
+            getattr(exc, "message", str(exc)),
             *getattr(exc, "__notes__", []),
         ]
     )

@@ -155,6 +155,23 @@ def test_match() -> None:
     with RaisesGroup(ValueError, match="bar"):
         raise ExceptionGroup("bar", (ValueError(),))
 
+    # now also works with ^$
+    with RaisesGroup(ValueError, match="^bar$"):
+        raise ExceptionGroup("bar", (ValueError(),))
+
+    # it also includes notes
+    with RaisesGroup(ValueError, match="my note"):
+        e = ExceptionGroup("bar", (ValueError(),))
+        e.add_note("my note")
+        raise e
+
+    # and technically you can match it all with ^$
+    # but you're probably better off using a Matcher at that point
+    with RaisesGroup(ValueError, match="^bar\nmy note$"):
+        e = ExceptionGroup("bar", (ValueError(),))
+        e.add_note("my note")
+        raise e
+
     with pytest.raises(ExceptionGroup):
         with RaisesGroup(ValueError, match="foo"):
             raise ExceptionGroup("bar", (ValueError(),))
@@ -259,6 +276,13 @@ def test_matcher_match() -> None:
     with pytest.raises(ExceptionGroup):
         with RaisesGroup(Matcher(match="foo")):
             raise ExceptionGroup("", (ValueError("bar"),))
+
+    # check ^$
+    with RaisesGroup(Matcher(ValueError, match="^bar$")):
+        raise ExceptionGroup("", [ValueError("bar")])
+    with pytest.raises(ExceptionGroup):
+        with RaisesGroup(Matcher(ValueError, match="^bar$")):
+            raise ExceptionGroup("", [ValueError("barr")])
 
 
 def test_Matcher_check() -> None:
