@@ -166,6 +166,8 @@ intersphinx_mapping = {
 # See https://sphinx-hoverxref.readthedocs.io/en/latest/configuration.html
 hoverxref_auto_ref = True
 hoverxref_domains = ["py"]
+# Set the default style (tooltip) for all types to silence logging.
+# See https://github.com/readthedocs/sphinx-hoverxref/issues/211
 hoverxref_role_types = {
     "attr": "tooltip",
     "class": "tooltip",
@@ -176,6 +178,7 @@ hoverxref_role_types = {
     "mod": "tooltip",
     "obj": "tooltip",
     "ref": "tooltip",
+    "data": "tooltip",
 }
 
 # See https://sphinx-codeautolink.readthedocs.io/en/latest/reference.html#configuration
