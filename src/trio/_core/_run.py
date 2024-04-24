@@ -103,12 +103,21 @@ def _public(fn: FnT) -> FnT:
 
 
 # When running under Hypothesis, we want examples to be reproducible and
-# shrinkable.  pytest-trio's Hypothesis integration monkeypatches this
-# variable to True, and registers the Random instance _r for Hypothesis
-# to manage for each test case, which together should make Trio's task
+# shrinkable.  We therefore register `_hypothesis_plugin_setup()` as a
+# plugin, so that importing *Hypothesis* will make Trio's task
 # scheduling loop deterministic.  We have a test for that, of course.
+# Before Hypothesis supported entry-point plugins this integration was
+# handled by pytest-trio, but we want it to work in e.g. unittest too.
 _ALLOW_DETERMINISTIC_SCHEDULING: Final = False
 _r = random.Random()
+
+
+def _hypothesis_plugin_setup() -> None:
+    from hypothesis import register_random
+
+    global _ALLOW_DETERMINISTIC_SCHEDULING
+    _ALLOW_DETERMINISTIC_SCHEDULING = True  # type: ignore
+    register_random(_r)
 
 
 def _count_context_run_tb_frames() -> int:
@@ -585,13 +594,8 @@ class CancelScope:
                 # we just need to make sure we don't let the error
                 # pass silently.
                 new_exc = RuntimeError(
-                    "Cancel scope stack corrupted: attempted to exit {!r} "
-                    "in {!r} that's still within its child {!r}\n{}".format(
-                        self,
-                        scope_task,
-                        scope_task._cancel_status._scope,
-                        MISNESTING_ADVICE,
-                    )
+                    f"Cancel scope stack corrupted: attempted to exit {self!r} "
+                    f"in {scope_task!r} that's still within its child {scope_task._cancel_status._scope!r}\n{MISNESTING_ADVICE}"
                 )
                 new_exc.__context__ = exc
                 exc = new_exc
