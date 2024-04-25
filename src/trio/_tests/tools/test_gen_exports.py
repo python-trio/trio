@@ -19,7 +19,6 @@ from trio._tools.gen_exports import (
     create_passthrough_args,
     get_public_methods,
     process,
-    run_black,
     run_linters,
     run_ruff,
 )
