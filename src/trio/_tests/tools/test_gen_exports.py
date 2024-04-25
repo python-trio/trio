@@ -124,23 +124,6 @@ def test_process(tmp_path: Path, imports: str) -> None:
 
 
 @skip_lints
-def test_run_black(tmp_path: Path) -> None:
-    """Test that processing properly fails if black does."""
-    try:
-        import black  # noqa: F401
-    except ImportError as error:  # pragma: no cover
-        skip_if_optional_else_raise(error)
-
-    file = File(tmp_path / "module.py", "module")
-
-    success, _ = run_black(file, "class not valid code ><")
-    assert not success
-
-    success, _ = run_black(file, "import waffle\n;import trio")
-    assert not success
-
-
-@skip_lints
 def test_run_ruff(tmp_path: Path) -> None:
     """Test that processing properly fails if ruff does."""
     try:
