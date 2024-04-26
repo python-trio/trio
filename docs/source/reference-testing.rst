@@ -72,6 +72,10 @@ Inter-task ordering
 
 .. autofunction:: wait_all_tasks_blocked
 
+.. autofunction:: wait_all_threads_completed
+
+.. autofunction:: active_thread_count
+
 
 .. _testing-streams:
 

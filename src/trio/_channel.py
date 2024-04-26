@@ -299,8 +299,8 @@ class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstr
         return self._state.statistics()
 
     def __repr__(self) -> str:
-        return "<receive channel at {:#x}, using buffer at {:#x}>".format(
-            id(self), id(self._state)
+        return (
+            f"<receive channel at {id(self):#x}, using buffer at {id(self._state):#x}>"
         )
 
     @enable_ki_protection
