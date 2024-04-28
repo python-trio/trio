@@ -1006,9 +1006,12 @@ def open_nursery(
     if strict_exception_groups is not None and not strict_exception_groups:
         warn_deprecated(
             "open_nursery(strict_exception_groups=False)",
-            version="0.24.1",
+            version="0.25.0",
             issue=2929,
-            instead="the default value of True and rewrite exception handlers to handle ExceptionGroups",
+            instead=(
+                "the default value of True and rewrite exception handlers to handle ExceptionGroups. "
+                "See https://trio.readthedocs.io/en/stable/reference-core.html#designing-for-multiple-errors"
+            ),
         )
 
     if strict_exception_groups is None:
@@ -2262,9 +2265,12 @@ def run(
     if strict_exception_groups is not None and not strict_exception_groups:
         warn_deprecated(
             "trio.run(..., strict_exception_groups=False)",
-            version="0.24.1",
+            version="0.25.0",
             issue=2929,
-            instead="the default value of True and rewrite exception handlers to handle ExceptionGroups",
+            instead=(
+                "the default value of True and rewrite exception handlers to handle ExceptionGroups. "
+                "See https://trio.readthedocs.io/en/stable/reference-core.html#designing-for-multiple-errors"
+            ),
         )
 
     __tracebackhide__ = True
@@ -2375,9 +2381,12 @@ def start_guest_run(
     if strict_exception_groups is not None and not strict_exception_groups:
         warn_deprecated(
             "trio.start_guest_run(..., strict_exception_groups=False)",
-            version="0.24.1",
+            version="0.25.0",
             issue=2929,
-            instead="the default value of True and rewrite exception handlers to handle ExceptionGroups",
+            instead=(
+                "the default value of True and rewrite exception handlers to handle ExceptionGroups. "
+                "See https://trio.readthedocs.io/en/stable/reference-core.html#designing-for-multiple-errors"
+            ),
         )
 
     runner = setup_runner(
