@@ -118,8 +118,7 @@ def test_catch_unwrapped_exceptions() -> None:
     with pytest.raises(
         ValueError, match="^You cannot specify multiple exceptions with"
     ):
-        with RaisesGroup(SyntaxError, ValueError, allow_unwrapped=True):
-            ...
+        RaisesGroup(SyntaxError, ValueError, allow_unwrapped=True)
     # if users want one of several exception types they need to use a Matcher
     # (which the error message suggests)
     with RaisesGroup(
@@ -130,8 +129,8 @@ def test_catch_unwrapped_exceptions() -> None:
 
     # Unwrapped nested `RaisesGroup` is likely a user error, so we raise an error.
     with pytest.raises(ValueError, match="has no effect when expecting"):
-        with RaisesGroup(RaisesGroup(ValueError), allow_unwrapped=True):
-            ...
+        RaisesGroup(RaisesGroup(ValueError), allow_unwrapped=True)
+
     # But it *can* be used to check for nesting level +- 1 if they move it to
     # the nested RaisesGroup. Users should probably use `Matcher`s instead though.
     with RaisesGroup(RaisesGroup(ValueError, allow_unwrapped=True)):
@@ -184,6 +183,34 @@ def test_check() -> None:
     with pytest.raises(ExceptionGroup):
         with RaisesGroup(ValueError, check=lambda x: x is exc):
             raise ExceptionGroup("", (ValueError(),))
+
+
+def test_unwrapped_match_check() -> None:
+    msg = (
+        "`allow_unwrapped=True` bypasses the `match` and `check` parameters"
+        " if the exception is unwrapped. If you intended to match/check the"
+        " exception you should use a `Matcher` object. If you want to match/check"
+        " the exceptiongroup when the exception *is* wrapped you need to"
+        " do e.g. `if isinstance(exc.value, ExceptionGroup):"
+        " assert RaisesGroup(...).matches(exc.value)` afterwards."
+    )
+    with pytest.raises(ValueError, match=re.escape(msg)):
+        RaisesGroup(ValueError, allow_unwrapped=True, match="foo")
+    with pytest.raises(ValueError, match=re.escape(msg)):
+        RaisesGroup(ValueError, allow_unwrapped=True, check=lambda x: True)
+
+    # Users should instead use a Matcher
+    rg = RaisesGroup(Matcher(ValueError, match="^foo$"), allow_unwrapped=True)
+    with rg:
+        raise ValueError("foo")
+    with rg:
+        raise ExceptionGroup("", [ValueError("foo")])
+
+    # or if they wanted to match/check the group, do a conditional `.matches()`
+    with RaisesGroup(ValueError, allow_unwrapped=True) as exc:
+        raise ExceptionGroup("bar", [ValueError("foo")])
+    if isinstance(exc.value, ExceptionGroup):
+        assert RaisesGroup(ValueError, match="bar").matches(exc.value)
 
 
 def test_RaisesGroup_matches() -> None:

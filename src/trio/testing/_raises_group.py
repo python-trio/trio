@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 import sys
-import warnings
 from typing import (
     TYPE_CHECKING,
     Callable,
@@ -15,6 +14,7 @@ from typing import (
     overload,
 )
 
+from trio._deprecate import warn_deprecated
 from trio._util import final
 
 if TYPE_CHECKING:
@@ -342,12 +342,11 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
         self.is_baseexceptiongroup = False
 
         if strict is not None:
-            warnings.warn(
-                DeprecationWarning(
-                    "`strict=False` has been replaced with `flatten_subgroups=True`"
-                    " with the introduction of `allow_unwrapped` as a parameter."
-                ),
-                stacklevel=2,
+            warn_deprecated(
+                "The `strict` parameter",
+                "0.25.1",
+                issue=2989,
+                instead="flatten_subgroups=True (for strict=False}",
             )
             self.flatten_subgroups = not strict
 
@@ -363,6 +362,15 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
                 "`allow_unwrapped=True` has no effect when expecting a `RaisesGroup`."
                 " You might want it in the expected `RaisesGroup`, or"
                 " `flatten_subgroups=True` if you don't care about the structure."
+            )
+        if allow_unwrapped and (match is not None or check is not None):
+            raise ValueError(
+                "`allow_unwrapped=True` bypasses the `match` and `check` parameters"
+                " if the exception is unwrapped. If you intended to match/check the"
+                " exception you should use a `Matcher` object. If you want to match/check"
+                " the exceptiongroup when the exception *is* wrapped you need to"
+                " do e.g. `if isinstance(exc, ExceptionGroup):"
+                " assert RaisesGroup(...).matches(exc)` afterwards."
             )
 
         # verify `expected_exceptions` and set `self.is_baseexceptiongroup`

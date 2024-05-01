@@ -1009,6 +1009,7 @@ def open_nursery(
             version="0.24.1",
             issue=2929,
             instead="the default value of True and rewrite exception handlers to handle ExceptionGroups",
+            use_triodeprecationwarning=True,
         )
 
     if strict_exception_groups is None:
@@ -2265,6 +2266,7 @@ def run(
             version="0.24.1",
             issue=2929,
             instead="the default value of True and rewrite exception handlers to handle ExceptionGroups",
+            use_triodeprecationwarning=True,
         )
 
     __tracebackhide__ = True
@@ -2378,6 +2380,7 @@ def start_guest_run(
             version="0.24.1",
             issue=2929,
             instead="the default value of True and rewrite exception handlers to handle ExceptionGroups",
+            use_triodeprecationwarning=True,
         )
 
     runner = setup_runner(
