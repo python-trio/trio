@@ -369,8 +369,8 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
                 " if the exception is unwrapped. If you intended to match/check the"
                 " exception you should use a `Matcher` object. If you want to match/check"
                 " the exceptiongroup when the exception *is* wrapped you need to"
-                " do e.g. `if isinstance(exc, ExceptionGroup):"
-                " assert RaisesGroup(...).matches(exc)` afterwards."
+                " do e.g. `if isinstance(exc.value, ExceptionGroup):"
+                " assert RaisesGroup(...).matches(exc.value)` afterwards."
             )
 
         # verify `expected_exceptions` and set `self.is_baseexceptiongroup`
