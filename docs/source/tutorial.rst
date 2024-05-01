@@ -118,7 +118,7 @@ all about writing async functions, so let's start there.
 An async function is defined like a normal function, except you write
 ``async def`` instead of ``def``:
 
-.. code:: python
+.. code-block:: python
 
    # A regular function
    def regular_double(x):
@@ -142,14 +142,14 @@ async function and a regular function:
 2. You can't use the ``await`` keyword inside the body of a regular
    function. If you try it, you'll get a syntax error:
 
-   .. code:: python
+   .. code-block:: python
 
       def print_double(x):
           print(await async_double(x))   # <-- SyntaxError here
 
    But inside an async function, ``await`` is allowed:
 
-   .. code:: python
+   .. code-block:: python
 
       async def print_double(x):
           print(await async_double(x))   # <-- OK!
@@ -191,7 +191,7 @@ things:
    takes and calls an *asynchronous* function. In Trio, this is
    ``trio.run``:
 
-   .. code:: python
+   .. code-block:: python
 
       import trio
 
@@ -264,7 +264,7 @@ At some point in this process, you'll probably write some code like
 this, that tries to call an async function but leaves out the
 ``await``:
 
-.. code:: python
+.. code-block:: python
 
    import time
    import trio
@@ -346,7 +346,7 @@ while for our purposes we can think of ``await trio.sleep(...)`` as a
 single piece of syntax, Python thinks of it as two things: first a
 function call that returns this weird "coroutine" object:
 
-.. code:: pycon
+.. code-block:: pycon
 
    >>> trio.sleep(3)
    <coroutine object sleep at 0x7f5ac77be6d0>
@@ -356,7 +356,7 @@ function. So if you forget ``await``, then two bad things happen: your
 function doesn't actually get called, and you get a "coroutine" object
 where you might have been expecting something else, like a number:
 
-.. code:: pycon
+.. code-block:: pycon
 
    >>> async_double(3) + 1
    TypeError: unsupported operand type(s) for +: 'coroutine' and 'int'
@@ -1039,7 +1039,7 @@ use two separate tasks for sending and receiving, instead of a single
 task that alternates between them – like the server has? For example,
 our client could use a single task like:
 
-.. code:: python
+.. code-block:: python
 
    # Can you spot the two problems with this code?
    async def send_and_receive(client_stream):
@@ -1077,7 +1077,7 @@ backed up in the network, until eventually something breaks.
 We could fix this by keeping track of how much data we're expecting at
 each moment, and then keep calling ``receive_some`` until we get it all:
 
-.. code:: python
+.. code-block:: python
 
    expected = len(data)
    while expected > 0:
@@ -1173,7 +1173,7 @@ TODO: maybe a brief discussion of :exc:`KeyboardInterrupt` handling?
 
    timeout example:
 
-   .. code:: python
+   .. code-block:: python
 
       async def counter():
           for i in range(100000):

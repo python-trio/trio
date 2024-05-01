@@ -314,7 +314,7 @@ soon code has to jump through some hoops to make it happen – but its
 most dramatic influence can seen in Trio's task-spawning interface,
 where it motivates the use of "nurseries":
 
-.. code:: python
+.. code-block:: python
 
    async def parent():
        async with trio.open_nursery() as nursery:
@@ -380,7 +380,7 @@ Specific style guidelines
 * Any function that takes a callable to run should have a signature
   like:
 
-  .. code:: python
+  .. code-block:: python
 
      def call_the_thing(fn, *args, kwonly1, kwonly2):
          ...
@@ -391,7 +391,7 @@ Specific style guidelines
   take any arguments of its own, i.e. in this case its signature looks
   like:
 
-  .. code:: python
+  .. code-block:: python
 
      def call_the_thing(fn, *args):
          ...
@@ -418,7 +418,7 @@ Specific style guidelines
 * If it's desirable to have both blocking and non-blocking versions of
   a function, then they look like:
 
-  .. code:: python
+  .. code-block:: python
 
      async def OPERATION(arg1, arg2):
          ...

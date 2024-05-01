@@ -32,7 +32,7 @@ create complex transport configurations. Here's some examples:
   into a single bidirectional :class:`~trio.abc.Stream`, and then wrap
   that in an :class:`~trio.SSLStream`:
 
-  .. code:: python
+  .. code-block:: python
 
      ssl_context = ssl.create_default_context()
      ssl_context.check_hostname = False
@@ -46,7 +46,7 @@ create complex transport configurations. Here's some examples:
   :class:`~trio.SSLStream` in a second
   :class:`~trio.SSLStream`:
 
-  .. code:: python
+  .. code-block:: python
 
      # Get a raw SocketStream connection to the proxy:
      s0 = await open_tcp_stream("proxy", 443)
@@ -376,14 +376,14 @@ broken features:
 * :func:`~socket.getservbyport`: obsolete and `buggy
   <https://bugs.python.org/issue30482>`__; instead, do:
 
-  .. code:: python
+  .. code-block:: python
 
      _, service_name = await getnameinfo(('127.0.0.1', port), NI_NUMERICHOST)
 
 * :func:`~socket.getservbyname`: obsolete and `buggy
   <https://bugs.python.org/issue30482>`__; instead, do:
 
-  .. code:: python
+  .. code-block:: python
 
      await getaddrinfo(None, service_name)
 
@@ -705,7 +705,7 @@ Asynchronous file objects
    * Async file objects can be used as async iterators to iterate over
      the lines of the file:
 
-     .. code:: python
+     .. code-block:: python
 
         async with await trio.open_file(...) as f:
             async for line in f:
@@ -862,14 +862,14 @@ a double quote) can be escaped using a leading ``^``.  But since a
 pipeline is processed by running each command in the pipeline in a
 subshell, multiple layers of escaping can be needed:
 
-.. code:: sh
+.. code-block:: sh
 
     echo ^^^&x | find "x" | find "x"          # prints: &x
 
 And if you combine pipelines with () grouping, you can need even more
 levels of escaping:
 
-.. code:: sh
+.. code-block:: sh
 
     (echo ^^^^^^^&x | find "x") | find "x"    # prints: &x
 
@@ -878,7 +878,7 @@ quoting does not influence word splitting, and double quotes are not
 removed during CMD.EXE's expansion pass. Double quotes are troublesome
 because CMD.EXE handles them differently from the MSVC runtime rules; in:
 
-.. code:: sh
+.. code-block:: sh
 
     prog.exe "foo \"bar\" baz"
 

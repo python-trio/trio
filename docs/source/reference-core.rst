@@ -115,7 +115,7 @@ your function also acts as a checkpoint. If you don't, then it
 isn't. So there's nothing stopping someone from writing a function
 like:
 
-.. code:: python
+.. code-block:: python
 
    # technically legal, but bad style:
    async def why_is_this_async():
@@ -140,7 +140,7 @@ to help you keep track of checkpoints. Pretty sneaky, eh?)
 
 A slightly trickier case is a function like:
 
-.. code:: python
+.. code-block:: python
 
    async def sleep_or_not(should_sleep):
        if should_sleep:
@@ -163,7 +163,7 @@ to make things extra predictable. It's up to you how picky you want to
 be in your code. To give you a more realistic example of what this
 kind of issue looks like in real life, consider this function:
 
-.. code:: python
+.. code-block:: python
 
     async def recv_exactly(sock, nbytes):
         data = bytearray()
@@ -257,7 +257,7 @@ A simple timeout example
 
 In the simplest case, you can apply a timeout to a block of code:
 
-.. code:: python
+.. code-block:: python
 
    with trio.move_on_after(30):
        result = await do_http_get("https://...")
@@ -360,7 +360,7 @@ that raised it, at which point it will stop automatically.
 
 Here's an example:
 
-.. code:: python
+.. code-block:: python
 
    print("starting...")
    with trio.move_on_after(5):
@@ -391,7 +391,7 @@ easier, :func:`move_on_after`\´s ``__enter__`` function returns an
 object representing this cancel scope, which we can use to check
 whether this scope caught a :exc:`Cancelled` exception:
 
-.. code:: python
+.. code-block:: python
 
    with trio.move_on_after(5) as cancel_scope:
        await trio.sleep(10)
@@ -411,7 +411,7 @@ resource clean-up. For example, imagine that we have a function that
 connects to a remote server and sends some messages, and then cleans
 up on the way out:
 
-.. code:: python
+.. code-block:: python
 
    with trio.move_on_after(TIMEOUT):
        conn = make_connection()
@@ -440,7 +440,7 @@ is no problem (or at least – it's not Trio's problem). To do this,
 create a new scope, and set its :attr:`~CancelScope.shield`
 attribute to :data:`True`:
 
-.. code:: python
+.. code-block:: python
 
    with trio.move_on_after(TIMEOUT):
        conn = make_connection()
@@ -565,7 +565,7 @@ Cheat sheet:
 * If you want to impose a timeout on a function, but you don't care
   whether it timed out or not:
 
-  .. code:: python
+  .. code-block:: python
 
      with trio.move_on_after(TIMEOUT):
          await do_whatever()
@@ -574,7 +574,7 @@ Cheat sheet:
 * If you want to impose a timeout on a function, and then do some
   recovery if it timed out:
 
-  .. code:: python
+  .. code-block:: python
 
      with trio.move_on_after(TIMEOUT) as cancel_scope:
          await do_whatever()
@@ -586,7 +586,7 @@ Cheat sheet:
   out then just give up and raise an error for your caller to deal
   with:
 
-  .. code:: python
+  .. code-block:: python
 
      with trio.fail_after(TIMEOUT):
          await do_whatever()
@@ -622,7 +622,7 @@ you feel like it. Trio is a bit different: you can't start a child
 task unless you're prepared to be a responsible parent. The way you
 demonstrate your responsibility is by creating a nursery:
 
-.. code:: python
+.. code-block:: python
 
    async with trio.open_nursery() as nursery:
        ...
@@ -630,7 +630,7 @@ demonstrate your responsibility is by creating a nursery:
 And once you have a reference to a nursery object, you can start
 children in that nursery:
 
-.. code:: python
+.. code-block:: python
 
    async def child():
        ...
@@ -676,7 +676,7 @@ finished.
 
    A return statement will not cancel the nursery if it still has tasks running:
 
-   .. code:: python
+   .. code-block:: python
 
      async def main():
          async with trio.open_nursery() as nursery:
@@ -694,7 +694,7 @@ In Trio, child tasks inherit the parent nursery's cancel scopes. So in
 this example, both the child tasks will be cancelled when the timeout
 expires:
 
-.. code:: python
+.. code-block:: python
 
    with trio.move_on_after(TIMEOUT):
        async with trio.open_nursery() as nursery:
@@ -706,7 +706,7 @@ Note that what matters here is the scopes that were active when
 ``start_soon`` is called. So for example, the timeout block below does
 nothing at all:
 
-.. code:: python
+.. code-block:: python
 
    async with trio.open_nursery() as nursery:
        with trio.move_on_after(TIMEOUT):  # don't do this!
@@ -727,7 +727,7 @@ Normally, in Python, only one thing happens at a time, which means
 that only one thing can go wrong at a time. Trio has no such
 limitation. Consider code like:
 
-.. code:: python
+.. code-block:: python
 
     async def broken1():
         d = {}
@@ -751,7 +751,7 @@ encapsulate multiple exceptions being raised at once.
 To catch individual exceptions encapsulated in an exception group, the ``except*``
 clause was introduced in Python 3.11 (:pep:`654`). Here's how it works:
 
-.. code:: python
+.. code-block:: python
 
     try:
         async with trio.open_nursery() as nursery:
@@ -772,7 +772,7 @@ But what if you can't use Python 3.11, and therefore ``except*``, just yet?
 The same exceptiongroup_ library which backports `ExceptionGroup`  also lets
 you approximate this behavior with exception handler callbacks:
 
-.. code:: python
+.. code-block:: python
 
     from exceptiongroup import catch
 
@@ -796,7 +796,7 @@ The semantics for the handler functions are equal to ``except*`` blocks, except 
 setting local variables. If you need to set local variables, you need to declare them
 inside the handler function(s) with the ``nonlocal`` keyword:
 
-.. code:: python
+.. code-block:: python
 
     def handle_keyerrors(excgroup):
         nonlocal myflag
@@ -907,7 +907,7 @@ The solution here is simple once you see it: there's no requirement
 that a nursery object stay in the task that created it! We can write
 code like this:
 
-.. code:: python
+.. code-block:: python
 
    async def new_connection_listener(handler, nursery):
        while True:
@@ -923,7 +923,7 @@ Notice that ``server`` opens a nursery and passes it to
 able to start new tasks as "siblings" of itself. Of course, in this
 case, we could just as well have written:
 
-.. code:: python
+.. code-block:: python
 
    async def server(handler):
        async with trio.open_nursery() as nursery:
@@ -939,7 +939,7 @@ nursery, **not** from the task that calls ``start_soon``. So in this
 example, the timeout does *not* apply to ``child`` (or to anything
 else):
 
-.. code:: python
+.. code-block:: python
 
    async def do_spawn(nursery):
        with trio.move_on_after(TIMEOUT):  # don't do this, it has no effect
@@ -969,7 +969,7 @@ For example, here's a function that takes a list of functions, runs
 them all concurrently, and returns the result from the one that
 finishes first:
 
-.. code:: python
+.. code-block:: python
 
    async def race(*async_fns):
        if not async_fns:
@@ -1169,7 +1169,7 @@ an unfair lock, this would result in the same task holding the lock
 forever and the other task being starved out. But if you run this,
 you'll see that the two tasks politely take turns:
 
-.. code:: python
+.. code-block:: python
 
    # fairness-demo.py
 
@@ -1366,7 +1366,7 @@ objects using ``async with``. Another option is to pass clones into
 all-but-one of the child tasks, and then pass the original object into
 the last task, like:
 
-.. code:: python
+.. code-block:: python
 
    # Also works, but is more finicky:
    send_channel, receive_channel = trio.open_memory_channel(0)
@@ -1380,7 +1380,7 @@ the producers/consumers.
 
 Just make sure that you don't write:
 
-.. code:: python
+.. code-block:: python
 
    # Broken, will cause program to hang:
    send_channel, receive_channel = trio.open_memory_channel(0)
@@ -1586,7 +1586,7 @@ over them. :pep:`525` has many more details if you want them.
 For example, the following is a roundabout way to print
 the numbers 0 through 9 with a 1-second delay before each one:
 
-.. code:: python
+.. code-block:: python
 
     async def range_slowly(*args):
         """Like range(), but adds a 1-second sleep before each value."""
@@ -1636,7 +1636,7 @@ soon as you're done using it, then you'll need to wrap your use of the
 generator in something like `async_generator.aclosing()
 <https://async-generator.readthedocs.io/en/latest/reference.html#context-managers>`__:
 
-.. code:: python
+.. code-block:: python
 
     # Instead of this:
     async for value in my_generator():
@@ -1696,7 +1696,7 @@ Cancel scopes and nurseries
 
 That is, this is OK:
 
-.. code:: python
+.. code-block:: python
 
     async def some_agen():
         with trio.move_on_after(1):
@@ -1710,7 +1710,7 @@ That is, this is OK:
 
 But this is not:
 
-.. code:: python
+.. code-block:: python
 
     async def some_agen():
         with trio.move_on_after(1):
@@ -1857,7 +1857,7 @@ example of defining a custom policy that respects the global thread
 limit, while making sure that no individual user can use more than 3
 threads at a time:
 
-.. code:: python
+.. code-block:: python
 
    class CombinedLimiter:
         def __init__(self, first, second):

@@ -1250,7 +1250,7 @@ Highlights
   example, given an appropriate ``http_server_on_random_open_port``
   function, you could write:
 
-  .. code:: python
+  .. code-block:: python
 
       port = await nursery.start(http_server_on_random_open_port)
 
@@ -1494,7 +1494,7 @@ Other changes
   in the Trio tutorial for more details.) So for example, this isn't
   going to work:
 
-  .. code:: python
+  .. code-block:: python
 
       async def main():
           # asyncio here

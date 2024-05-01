@@ -43,7 +43,7 @@ Things to do for releasing:
 
 * push to PyPI:
 
-  .. code::
+  .. code-block::
 
     git clean -xdf   # maybe run 'git clean -xdn' first to see what it will delete
     python3 -m build
