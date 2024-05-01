@@ -161,6 +161,7 @@ intersphinx_mapping = {
     "outcome": ("https://outcome.readthedocs.io/en/latest/", None),
     "pyopenssl": ("https://www.pyopenssl.org/en/stable/", None),
     "sniffio": ("https://sniffio.readthedocs.io/en/latest/", None),
+    "trio-util": ("https://trio-util.readthedocs.io/en/latest/", None),
 }
 
 # See https://sphinx-hoverxref.readthedocs.io/en/latest/configuration.html

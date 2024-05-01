@@ -665,8 +665,7 @@ crucial things to keep in mind:
   * The nursery is marked as "closed", meaning that no new tasks can
     be started inside it.
 
-  * Any unhandled exceptions are re-raised inside the parent task. If
-    there are multiple exceptions, then they're collected up into a
+  * Any unhandled exceptions are re-raised inside the parent task, grouped into a
     single :exc:`BaseExceptionGroup` or :exc:`ExceptionGroup` exception.
 
 Since all tasks are descendents of the initial task, one consequence
@@ -769,9 +768,9 @@ If you want to reraise exceptions, or raise new ones, you can do so, but be awar
 exceptions raised in ``except*`` sections will be raised together in a new exception
 group.
 
-But what if you can't use ``except*`` just yet? Well, for that there is the handy
-exceptiongroup_ library which lets you approximate this behavior with exception handler
-callbacks:
+But what if you can't use Python 3.11, and therefore ``except*``, just yet?
+The same exceptiongroup_ library which backports `ExceptionGroup`  also lets
+you approximate this behavior with exception handler callbacks:
 
 .. code:: python
 
@@ -808,43 +807,91 @@ inside the handler function(s) with the ``nonlocal`` keyword:
         async with trio.open_nursery() as nursery:
             nursery.start_soon(broken1)
 
-.. _strict_exception_groups:
+.. _handling_exception_groups:
 
-"Strict" versus "loose" ExceptionGroup semantics
-++++++++++++++++++++++++++++++++++++++++++++++++
+Designing for multiple errors
++++++++++++++++++++++++++++++
+
+Structured concurrency is still a young design pattern, but there are a few patterns
+we've identified for how you (or your users) might want to handle groups of exceptions.
+Note that the final pattern, simply raising an `ExceptionGroup`, is the most common -
+and nurseries automatically do that for you.
+
+**First**, you might want to 'defer to' a particular exception type, raising just that if
+there is any such instance in the group.  For example: `KeyboardInterrupt` has a clear
+meaning for the surrounding code, could reasonably take priority over errors of other
+types, and whether you have one or several of them doesn't really matter.
+
+This pattern can often be implemented using a decorator or a context manager, such
+as :func:`trio_util.multi_error_defer_to` or :func:`trio_util.defer_to_cancelled`.
+Note however that re-raising a 'leaf' exception will discard whatever part of the
+traceback is attached to the `ExceptionGroup` itself, so we don't recommend this for
+errors that will be presented to humans.
 
 ..
-    TODO: rewrite this (and possible other) sections from the new strict-by-default perspective, under the heading "Deprecated: non-strict ExceptionGroups" - to explain that it only exists for backwards-compatibility, will be removed in future, and that we recommend against it for all new code.
+    TODO: what about `Cancelled`?  It's relevantly similar to `KeyboardInterrupt`,
+    but if you have multiple Cancelleds destined for different scopes, it seems
+    like it might be bad to abandon all-but-one of those - we might try to execute
+    some more code which then itself gets cancelled again, and incur more cleanup.
+    That's only a mild inefficiency though, and the semantics are fine overall.
 
-Ideally, in some abstract sense we'd want everything that *can* raise an
-`ExceptionGroup` to *always* raise an `ExceptionGroup` (rather than, say, a single
-`ValueError`). Otherwise, it would be easy to accidentally write something like ``except
-ValueError:`` (not ``except*``), which works if a single exception is raised but fails to
-catch _anything_ in the case of multiple simultaneous exceptions (even if one of them is
-a ValueError). However, this is not how Trio worked in the past: as a concession to
-practicality when the ``except*`` syntax hadn't been dreamed up yet, the old
-``trio.MultiError`` was raised only when at least two exceptions occurred
-simultaneously. Adding a layer of `ExceptionGroup` around every nursery, while
-theoretically appealing, would probably break a lot of existing code in practice.
+**Second**, you might want to treat the concurrency inside your code as an implementation
+detail which is hidden from your users - for example, abstracting a protocol which
+involves sending and receiving data to a simple receive-only interface, or implementing
+a context manager which maintains some background tasks for the length of the
+``async with`` block.
 
-Therefore, we've chosen to gate the newer, "stricter" behavior behind a parameter
-called ``strict_exception_groups``. This is accepted as a parameter to
-:func:`open_nursery`, to set the behavior for that nursery, and to :func:`trio.run`,
-to set the default behavior for any nursery in your program that doesn't override it.
+The simple option here is to ``raise MySpecificError from group``, allowing users to
+handle your library-specific error.  This is simple and reliable, but doesn't completely
+hide the nursery.  *Do not* unwrap single exceptions if there could ever be multiple
+exceptions though; that always ends in latent bugs and then tears.
 
-* With ``strict_exception_groups=True``, the exception(s) coming out of a nursery will
-  always be wrapped in an `ExceptionGroup`, so you'll know that if you're handling
-  single errors correctly, multiple simultaneous errors will work as well.
+The more complex option is to ensure that only one exception can in fact happen at a time.
+This is *very hard*, for example you'll need to handle `KeyboardInterrupt` somehow, and
+we strongly recommend having a ``raise PleaseReportBug from group`` fallback just in case
+you get a group containing more than one exception.
+This is useful when writing a context manager which starts some background tasks, and then
+yields to user code which effectively runs 'inline' in the body of the nursery block.
+In this case, the background tasks can be wrapped with e.g. the `outcome
+<https://pypi.org/project/outcome/>`__ library to ensure that only one exception
+can be raised (from end-user code); and then you can either ``raise SomeInternalError``
+if a background task failed, or unwrap the user exception if that was the only error.
 
-* With ``strict_exception_groups=False``, a nursery in which only one task has failed
-  will raise that task's exception without an additional layer of `ExceptionGroup`
-  wrapping, so you'll get maximum compatibility with code that was written to
-  support older versions of Trio.
+..
+    For more on this pattern, see https://github.com/python-trio/trio/issues/2929
+    and the linked issue on trio-websocket.  We may want to provide a nursery mode
+    which handles this automatically; it's annoying but not too complicated and
+    seems like it might be a good feature to ship for such cases.
 
-The default is set to ``strict_exception_groups=True``, in line with the default behaviour
-of ``TaskGroup`` in asyncio and anyio.  We've also found that non-strict mode makes it
-too easy to neglect the possibility of several exceptions being raised concurrently,
-causing nasty latent bugs when errors occur under load.
+**Third and most often**, the existence of a nursery in your code is not just an
+implementation detail, and callers *should* be prepared to handle multiple exceptions
+in the form of an `ExceptionGroup`, whether with ``except*`` or manual inspection
+or by just letting it propagate to *their* callers.  Because this is so common,
+it's nurseries' default behavior and you don't need to do anything.
+
+.. _strict_exception_groups:
+
+Historical Note: "non-strict" ExceptionGroups
++++++++++++++++++++++++++++++++++++++++++++++
+
+In early versions of Trio, the ``except*`` syntax hadn't be dreamt up yet, and we
+hadn't worked with structured concurrency for long or in large codebases.
+As a concession to convenience, some APIs would therefore raise single exceptions,
+and only wrap concurrent exceptions in the old ``trio.MultiError`` type if there
+were two or more.
+
+Unfortunately, the results were not good: calling code often didn't realize that
+some function *could* raise a ``MultiError``, and therefore handle only the common
+case - with the result that things would work well in testing, and then crash under
+heavier load (typically in production).  `asyncio.TaskGroup` learned from this
+experience and *always* wraps errors into an `ExceptionGroup`, as does ``anyio``,
+and as of Trio 0.25 that's our default behavior too.
+
+We currently support a compatibility argument ``strict_exception_groups=False`` to
+`trio.run` and `trio.open_nursery`, which restores the old behavior (although
+``MultiError`` itself has been fully removed).  We strongly advise against it for
+new code, and encourage existing uses to migrate - we consider the option deprecated
+and plan to remove it after a period of documented and then runtime warnings.
 
 .. _exceptiongroup: https://pypi.org/project/exceptiongroup/
 
