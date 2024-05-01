@@ -216,7 +216,7 @@ things:
    :func:`trio.sleep`. (:func:`trio.sleep` is like :func:`time.sleep`,
    but with more async.)
 
-   .. code-block:: python3
+   .. code-block:: python
 
       import trio
 
@@ -288,7 +288,7 @@ argument, then we would get a nice :exc:`TypeError` saying so. But
 unfortunately, if you forget an ``await``, you don't get that. What
 you actually get is:
 
-.. code-block:: none
+.. code-block:: pycon
 
    >>> trio.run(broken_double_sleep, 3)
    *yawn* Going to sleep
@@ -305,21 +305,20 @@ depends on the whims of the garbage collector. If you're using PyPy,
 you might not even get a warning at all until the next GC collection
 runs:
 
-.. code-block:: none
+.. code-block:: pycon
 
    # On PyPy:
-   >>>> trio.run(broken_double_sleep, 3)
+   >>> trio.run(broken_double_sleep, 3)
    *yawn* Going to sleep
    Woke up after 0.00 seconds, feeling well rested!
-   >>>> # what the ... ?? not even a warning!
+   >>> # what the ... ?? not even a warning!
 
-   >>>> # but forcing a garbage collection gives us a warning:
-   >>>> import gc
-   >>>> gc.collect()
+   >>> # but forcing a garbage collection gives us a warning:
+   >>> import gc
+   >>> gc.collect()
    /home/njs/pypy-3.8-nightly/lib-python/3/importlib/_bootstrap.py:191: RuntimeWarning: coroutine 'sleep' was never awaited
    if _module_locks.get(name) is wr:    # XXX PyPy fix?
    0
-   >>>>
 
 (If you can't see the warning above, try scrolling right.)
 
