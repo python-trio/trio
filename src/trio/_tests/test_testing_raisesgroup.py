@@ -186,6 +186,9 @@ def test_check() -> None:
 
 
 def test_unwrapped_match_check() -> None:
+    def my_check(e: object) -> bool:  # pragma: no cover
+        return True
+
     msg = (
         "`allow_unwrapped=True` bypasses the `match` and `check` parameters"
         " if the exception is unwrapped. If you intended to match/check the"
@@ -197,7 +200,7 @@ def test_unwrapped_match_check() -> None:
     with pytest.raises(ValueError, match=re.escape(msg)):
         RaisesGroup(ValueError, allow_unwrapped=True, match="foo")
     with pytest.raises(ValueError, match=re.escape(msg)):
-        RaisesGroup(ValueError, allow_unwrapped=True, check=lambda x: True)
+        RaisesGroup(ValueError, allow_unwrapped=True, check=my_check)
 
     # Users should instead use a Matcher
     rg = RaisesGroup(Matcher(ValueError, match="^foo$"), allow_unwrapped=True)
@@ -209,7 +212,7 @@ def test_unwrapped_match_check() -> None:
     # or if they wanted to match/check the group, do a conditional `.matches()`
     with RaisesGroup(ValueError, allow_unwrapped=True) as exc:
         raise ExceptionGroup("bar", [ValueError("foo")])
-    if isinstance(exc.value, ExceptionGroup):
+    if isinstance(exc.value, ExceptionGroup):  # pragma: no branch
         assert RaisesGroup(ValueError, match="bar").matches(exc.value)
 
 
