@@ -2044,9 +2044,7 @@ async def test_nursery_stop_async_iteration() -> None:
 
             return items
 
-    result: list[list[int]] = []
-    async for vals in async_zip(it(4), it(2)):
-        result.append(vals)  # maintain partial results
+    result: list[list[int]] = [vals async for vals in async_zip(it(4), it(2))]
     assert result == [[0, 0], [1, 1]]
 
 
