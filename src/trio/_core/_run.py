@@ -103,12 +103,21 @@ def _public(fn: FnT) -> FnT:
 
 
 # When running under Hypothesis, we want examples to be reproducible and
-# shrinkable.  pytest-trio's Hypothesis integration monkeypatches this
-# variable to True, and registers the Random instance _r for Hypothesis
-# to manage for each test case, which together should make Trio's task
+# shrinkable.  We therefore register `_hypothesis_plugin_setup()` as a
+# plugin, so that importing *Hypothesis* will make Trio's task
 # scheduling loop deterministic.  We have a test for that, of course.
+# Before Hypothesis supported entry-point plugins this integration was
+# handled by pytest-trio, but we want it to work in e.g. unittest too.
 _ALLOW_DETERMINISTIC_SCHEDULING: Final = False
 _r = random.Random()
+
+
+def _hypothesis_plugin_setup() -> None:
+    from hypothesis import register_random
+
+    global _ALLOW_DETERMINISTIC_SCHEDULING
+    _ALLOW_DETERMINISTIC_SCHEDULING = True  # type: ignore
+    register_random(_r)
 
 
 def _count_context_run_tb_frames() -> int:
@@ -997,9 +1006,12 @@ def open_nursery(
     if strict_exception_groups is not None and not strict_exception_groups:
         warn_deprecated(
             "open_nursery(strict_exception_groups=False)",
-            version="0.24.1",
+            version="0.25.0",
             issue=2929,
-            instead="the default value of True and rewrite exception handlers to handle ExceptionGroups",
+            instead=(
+                "the default value of True and rewrite exception handlers to handle ExceptionGroups. "
+                "See https://trio.readthedocs.io/en/stable/reference-core.html#designing-for-multiple-errors"
+            ),
         )
 
     if strict_exception_groups is None:
@@ -2253,9 +2265,12 @@ def run(
     if strict_exception_groups is not None and not strict_exception_groups:
         warn_deprecated(
             "trio.run(..., strict_exception_groups=False)",
-            version="0.24.1",
+            version="0.25.0",
             issue=2929,
-            instead="the default value of True and rewrite exception handlers to handle ExceptionGroups",
+            instead=(
+                "the default value of True and rewrite exception handlers to handle ExceptionGroups. "
+                "See https://trio.readthedocs.io/en/stable/reference-core.html#designing-for-multiple-errors"
+            ),
         )
 
     __tracebackhide__ = True
@@ -2366,9 +2381,12 @@ def start_guest_run(
     if strict_exception_groups is not None and not strict_exception_groups:
         warn_deprecated(
             "trio.start_guest_run(..., strict_exception_groups=False)",
-            version="0.24.1",
+            version="0.25.0",
             issue=2929,
-            instead="the default value of True and rewrite exception handlers to handle ExceptionGroups",
+            instead=(
+                "the default value of True and rewrite exception handlers to handle ExceptionGroups. "
+                "See https://trio.readthedocs.io/en/stable/reference-core.html#designing-for-multiple-errors"
+            ),
         )
 
     runner = setup_runner(

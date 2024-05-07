@@ -26,9 +26,9 @@ docutils==0.20.1
     # via
     #   sphinx
     #   sphinx-rtd-theme
-exceptiongroup==1.2.0
+exceptiongroup==1.2.1
     # via -r docs-requirements.in
-idna==3.6
+idna==3.7
     # via
     #   -r docs-requirements.in
     #   requests

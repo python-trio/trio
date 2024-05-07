@@ -18,7 +18,7 @@ attrs==23.2.0
     #   outcome
 babel==2.14.0
     # via sphinx
-black==24.3.0 ; implementation_name == "cpython"
+black==24.4.2 ; implementation_name == "cpython"
     # via -r test-requirements.in
 build==1.2.1
     # via pip-tools
@@ -34,7 +34,7 @@ click==8.1.7
     #   pip-tools
 codespell==2.2.6
     # via -r test-requirements.in
-coverage==7.4.4
+coverage==7.5.0
     # via -r test-requirements.in
 cryptography==42.0.5
     # via
@@ -46,11 +46,11 @@ dill==0.3.8
     # via pylint
 docutils==0.20.1
     # via sphinx
-exceptiongroup==1.2.0 ; python_version < "3.11"
+exceptiongroup==1.2.1 ; python_version < "3.11"
     # via
     #   -r test-requirements.in
     #   pytest
-idna==3.6
+idna==3.7
     # via
     #   -r test-requirements.in
     #   requests
@@ -73,7 +73,7 @@ markupsafe==2.1.5
     # via jinja2
 mccabe==0.7.0
     # via pylint
-mypy==1.9.0 ; implementation_name == "cpython"
+mypy==1.10.0 ; implementation_name == "cpython"
     # via -r test-requirements.in
 mypy-extensions==1.0.0 ; implementation_name == "cpython"
     # via
@@ -90,17 +90,17 @@ packaging==24.0
     #   build
     #   pytest
     #   sphinx
-parso==0.8.3
+parso==0.8.4
     # via jedi
 pathspec==0.12.1
     # via black
 pip-tools==7.4.1
     # via -r test-requirements.in
-platformdirs==4.2.0
+platformdirs==4.2.1
     # via
     #   black
     #   pylint
-pluggy==1.4.0
+pluggy==1.5.0
     # via pytest
 pycparser==2.22
     # via cffi
@@ -110,19 +110,19 @@ pylint==3.1.0
     # via -r test-requirements.in
 pyopenssl==24.1.0
     # via -r test-requirements.in
-pyproject-hooks==1.0.0
+pyproject-hooks==1.1.0
     # via
     #   build
     #   pip-tools
-pyright==1.1.356
+pyright==1.1.360
     # via -r test-requirements.in
-pytest==8.1.1
+pytest==8.2.0
     # via -r test-requirements.in
 pytz==2024.1
     # via babel
 requests==2.31.0
     # via sphinx
-ruff==0.3.4
+ruff==0.4.3
     # via -r test-requirements.in
 sniffio==1.3.1
     # via -r test-requirements.in
@@ -151,21 +151,22 @@ tomli==2.0.1
     #   mypy
     #   pip-tools
     #   pylint
-    #   pyproject-hooks
     #   pytest
 tomlkit==0.12.4
     # via pylint
 trustme==1.1.0
     # via -r test-requirements.in
 types-cffi==1.16.0.20240331 ; implementation_name == "cpython"
+    # via
+    #   -r test-requirements.in
+    #   types-pyopenssl
+types-docutils==0.21.0.20240423
     # via -r test-requirements.in
-types-docutils==0.20.0.20240331
+types-pyopenssl==24.1.0.20240425 ; implementation_name == "cpython"
     # via -r test-requirements.in
-types-pyopenssl==24.0.0.20240311 ; implementation_name == "cpython"
-    # via -r test-requirements.in
-types-setuptools==69.2.0.20240317
+types-setuptools==69.5.0.20240423
     # via types-cffi
-typing-extensions==4.10.0
+typing-extensions==4.11.0
     # via
     #   -r test-requirements.in
     #   astroid
