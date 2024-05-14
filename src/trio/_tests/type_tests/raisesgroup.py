@@ -153,3 +153,31 @@ def check_multiple_exceptions_2() -> None:
     d = b
     d = c
     assert d
+
+
+def check_raisesgroup_overloads() -> None:
+    # allow_unwrapped=True does not allow:
+    # multiple exceptions
+    RaisesGroup(ValueError, TypeError, allow_unwrapped=True)  # type: ignore
+    # nested RaisesGroup
+    RaisesGroup(RaisesGroup(ValueError), allow_unwrapped=True)  # type: ignore
+    # specifying match
+    RaisesGroup(ValueError, match="foo", allow_unwrapped=True)  # type: ignore
+    # specifying check
+    RaisesGroup(ValueError, check=bool, allow_unwrapped=True)  # type: ignore
+    # allowed variants
+    RaisesGroup(ValueError, allow_unwrapped=True)
+    RaisesGroup(ValueError, allow_unwrapped=True, flatten_subgroups=True)
+    RaisesGroup(Matcher(ValueError), allow_unwrapped=True)
+
+    # flatten_subgroups=True does not allow nested RaisesGroup
+    RaisesGroup(RaisesGroup(ValueError), flatten_subgroups=True)  # type: ignore
+    # but rest is plenty fine
+    RaisesGroup(ValueError, TypeError, flatten_subgroups=True)
+    RaisesGroup(ValueError, match="foo", flatten_subgroups=True)
+    RaisesGroup(ValueError, check=bool, flatten_subgroups=True)
+    RaisesGroup(ValueError, flatten_subgroups=True)
+    RaisesGroup(Matcher(ValueError), flatten_subgroups=True)
+
+    # if they're both false we can of course specify nested raisesgroup
+    RaisesGroup(RaisesGroup(ValueError))

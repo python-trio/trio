@@ -105,7 +105,7 @@ def test_flatten_subgroups() -> None:
         ValueError,
         match="^You cannot specify a nested structure inside a RaisesGroup with",
     ):
-        RaisesGroup(RaisesGroup(ValueError), flatten_subgroups=True)
+        RaisesGroup(RaisesGroup(ValueError), flatten_subgroups=True)  # type: ignore[call-overload]
 
 
 def test_catch_unwrapped_exceptions() -> None:
@@ -118,7 +118,7 @@ def test_catch_unwrapped_exceptions() -> None:
     with pytest.raises(
         ValueError, match="^You cannot specify multiple exceptions with"
     ):
-        RaisesGroup(SyntaxError, ValueError, allow_unwrapped=True)
+        RaisesGroup(SyntaxError, ValueError, allow_unwrapped=True)  # type: ignore[call-overload]
     # if users want one of several exception types they need to use a Matcher
     # (which the error message suggests)
     with RaisesGroup(
@@ -129,7 +129,7 @@ def test_catch_unwrapped_exceptions() -> None:
 
     # Unwrapped nested `RaisesGroup` is likely a user error, so we raise an error.
     with pytest.raises(ValueError, match="has no effect when expecting"):
-        RaisesGroup(RaisesGroup(ValueError), allow_unwrapped=True)
+        RaisesGroup(RaisesGroup(ValueError), allow_unwrapped=True)  # type: ignore[call-overload]
 
     # But it *can* be used to check for nesting level +- 1 if they move it to
     # the nested RaisesGroup. Users should probably use `Matcher`s instead though.
@@ -207,9 +207,9 @@ def test_unwrapped_match_check() -> None:
         " assert RaisesGroup(...).matches(exc.value)` afterwards."
     )
     with pytest.raises(ValueError, match=re.escape(msg)):
-        RaisesGroup(ValueError, allow_unwrapped=True, match="foo")
+        RaisesGroup(ValueError, allow_unwrapped=True, match="foo")  # type: ignore[call-overload]
     with pytest.raises(ValueError, match=re.escape(msg)):
-        RaisesGroup(ValueError, allow_unwrapped=True, check=my_check)
+        RaisesGroup(ValueError, allow_unwrapped=True, check=my_check)  # type: ignore[call-overload]
 
     # Users should instead use a Matcher
     rg = RaisesGroup(Matcher(ValueError, match="^foo$"), allow_unwrapped=True)
@@ -371,8 +371,8 @@ def test__ExceptionInfo(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_deprecated_strict() -> None:
     """`strict` has been replaced with `flatten_subgroups`"""
-    # parameter is typed as `None` to also emit a type error if passing anything
+    # parameter is not included in overloaded signatures at all
     with pytest.deprecated_call():
-        RaisesGroup(ValueError, strict=False)  # type: ignore[arg-type]
+        RaisesGroup(ValueError, strict=False)  # type: ignore[call-overload]
     with pytest.deprecated_call():
-        RaisesGroup(ValueError, strict=True)  # type: ignore[arg-type]
+        RaisesGroup(ValueError, strict=True)  # type: ignore[call-overload]

@@ -7,6 +7,7 @@ from typing import (
     Callable,
     ContextManager,
     Generic,
+    Literal,
     Pattern,
     Sequence,
     TypeVar,
@@ -320,6 +321,42 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
     if TYPE_CHECKING:
 
         def __new__(cls, *args: object, **kwargs: object) -> RaisesGroup[E]: ...
+
+    # allow_unwrapped=True requires: singular exception, exception not being
+    # RaisesGroup instance, match is None, check is None
+    @overload
+    def __init__(
+        self,
+        exception: type[E] | Matcher[E],
+        *,
+        allow_unwrapped: Literal[True],
+        flatten_subgroups: bool = False,
+        match: None = None,
+        check: None = None,
+    ): ...
+
+    # flatten_subgroups = True also requires no nested RaisesGroup
+    @overload
+    def __init__(
+        self,
+        exception: type[E] | Matcher[E],
+        *other_exceptions: type[E] | Matcher[E],
+        allow_unwrapped: Literal[False] = False,
+        flatten_subgroups: Literal[True],
+        match: str | Pattern[str] | None = None,
+        check: Callable[[BaseExceptionGroup[E]], bool] | None = None,
+    ): ...
+
+    @overload
+    def __init__(
+        self,
+        exception: type[E] | Matcher[E] | E,
+        *other_exceptions: type[E] | Matcher[E] | E,
+        allow_unwrapped: Literal[False] = False,
+        flatten_subgroups: Literal[False] = False,
+        match: str | Pattern[str] | None = None,
+        check: Callable[[BaseExceptionGroup[E]], bool] | None = None,
+    ): ...
 
     def __init__(
         self,
