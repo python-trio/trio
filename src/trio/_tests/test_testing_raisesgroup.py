@@ -143,6 +143,15 @@ def test_catch_unwrapped_exceptions() -> None:
         with RaisesGroup(ValueError):
             raise ValueError("value error text")
 
+    # allow_unwrapped on it's own won't match against nested groups
+    with pytest.raises(ExceptionGroup):
+        with RaisesGroup(ValueError, allow_unwrapped=True):
+            raise ExceptionGroup("", [ExceptionGroup("", [ValueError()])])
+
+    # for that you need both allow_unwrapped and flatten_subgroups
+    with RaisesGroup(ValueError, allow_unwrapped=True, flatten_subgroups=True):
+        raise ExceptionGroup("", [ExceptionGroup("", [ValueError()])])
+
     # code coverage
     with pytest.raises(TypeError):
         with RaisesGroup(ValueError, allow_unwrapped=True):
