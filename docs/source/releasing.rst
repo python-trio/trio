@@ -41,7 +41,7 @@ Things to do for releasing:
 
 * tag with vVERSION, push tag on ``python-trio/trio`` (not on your personal repository)
 
-* approve the release workflow
+* approve the release workflow's publish job
 
 * update version number in the same pull request
 

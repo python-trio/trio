@@ -1,6 +1,7 @@
 on:
-  label:
-    types: [created]
+  push:
+    tags:
+      - v*
 
 # a lot of code taken from https://github.com/pypa/cibuildwheel/blob/main/examples/github-deploy.yml
 jobs:
@@ -17,19 +18,18 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: trio-sdist
-          path: dist/*.tar.gz
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: trio-wheel
-          path: dist/*.whl
+          name: trio-dist
+          path: |
+            dist/*.tar.gz
+            dist/*.whl
 
   pypi-publish:
     needs: [build]
     name: upload release to PyPI
     runs-on: ubuntu-latest
-    environment: release
+    environment:
+      name: release
+      url: https://pypi.org/project/trio
     permissions:
       id-token: write
 
