@@ -88,6 +88,67 @@ def check_matcher_init() -> None:
     Matcher(FileNotFoundError, match="regex", check=check_filenotfound)
 
 
+def raisesgroup_check_type_narrowing() -> None:
+    """Check type narrowing on the `check` argument to `RaisesGroup`.
+    All `type: ignore`s are correctly pointing out type errors, except
+    where otherwise noted.
+
+
+    """
+
+    def handle_exc(e: BaseExceptionGroup[BaseException]) -> bool:
+        return True
+
+    def handle_kbi(e: BaseExceptionGroup[KeyboardInterrupt]) -> bool:
+        return True
+
+    def handle_value(e: BaseExceptionGroup[ValueError]) -> bool:
+        return True
+
+    RaisesGroup(BaseException, check=handle_exc)
+    RaisesGroup(BaseException, check=handle_kbi)  # type: ignore
+
+    RaisesGroup(Exception, check=handle_exc)
+    RaisesGroup(Exception, check=handle_value)  # type: ignore
+
+    RaisesGroup(KeyboardInterrupt, check=handle_exc)
+    RaisesGroup(KeyboardInterrupt, check=handle_kbi)
+    RaisesGroup(KeyboardInterrupt, check=handle_value)  # type: ignore
+
+    RaisesGroup(ValueError, check=handle_exc)
+    RaisesGroup(ValueError, check=handle_kbi)  # type: ignore
+    RaisesGroup(ValueError, check=handle_value)
+
+    RaisesGroup(ValueError, KeyboardInterrupt, check=handle_exc)
+    RaisesGroup(ValueError, KeyboardInterrupt, check=handle_kbi)  # type: ignore
+    RaisesGroup(ValueError, KeyboardInterrupt, check=handle_value)  # type: ignore
+
+
+def raisesgroup_narrow_baseexceptiongroup() -> None:
+    """Check type narrowing specifically for the container exceptiongroup.
+    This is not currently working, and after playing around with it for a bit
+    I think the only way is to introduce a subclass `NonBaseRaisesGroup`, and overload
+    `__new__` in Raisesgroup to return the subclass when exceptions are non-base.
+    (or make current class BaseRaisesGroup and introduce RaisesGroup for non-base)
+    I encountered problems trying to type this though, see
+    https://github.com/python/mypy/issues/17251
+    That is probably possible to work around by entirely using `__new__` instead of
+    `__init__`, but........ ugh.
+    """
+
+    def handle_group(e: ExceptionGroup[Exception]) -> bool:
+        return True
+
+    def handle_group_value(e: ExceptionGroup[ValueError]) -> bool:
+        return True
+
+    # should work, but BaseExceptionGroup does not get narrowed to ExceptionGroup
+    RaisesGroup(ValueError, check=handle_group_value)  # type: ignore
+
+    # should work, but BaseExceptionGroup does not get narrowed to ExceptionGroup
+    RaisesGroup(Exception, check=handle_group)  # type: ignore
+
+
 def check_matcher_transparent() -> None:
     with RaisesGroup(Matcher(ValueError)) as e:
         ...
