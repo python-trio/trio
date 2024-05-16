@@ -263,6 +263,10 @@ def test_module_with_deprecations(recwarn_always: pytest.WarningsRecorder) -> No
 
 
 def test_warning_class() -> None:
+    with pytest.deprecated_call():
+        warn_deprecated("foo", "bar", issue=None, instead=None)
+
+    # essentially the same as the above check
     with pytest.warns(DeprecationWarning):
         warn_deprecated("foo", "bar", issue=None, instead=None)
 
