@@ -68,7 +68,7 @@ class Clock(metaclass=ABCMeta):
         """
 
 
-class Instrument(metaclass=ABCMeta):
+class Instrument(metaclass=ABCMeta):  # noqa: B024  # conceptually is ABC
     """The interface for run loop instrumentation.
 
     Instruments don't have to inherit from this abstract base class, and all
