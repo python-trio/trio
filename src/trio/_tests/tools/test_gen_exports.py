@@ -19,7 +19,6 @@ from trio._tools.gen_exports import (
     create_passthrough_args,
     get_public_methods,
     process,
-    run_black,
     run_linters,
     run_ruff,
 )
@@ -121,23 +120,6 @@ def test_process(tmp_path: Path, imports: str) -> None:
     with pytest.raises(SystemExit) as excinfo:
         process([File(modpath, "runner", imports=imports)], do_test=True)
     assert excinfo.value.code == 1
-
-
-@skip_lints
-def test_run_black(tmp_path: Path) -> None:
-    """Test that processing properly fails if black does."""
-    try:
-        import black  # noqa: F401
-    except ImportError as error:  # pragma: no cover
-        skip_if_optional_else_raise(error)
-
-    file = File(tmp_path / "module.py", "module")
-
-    success, _ = run_black(file, "class not valid code ><")
-    assert not success
-
-    success, _ = run_black(file, "import waffle\n;import trio")
-    assert not success
 
 
 @skip_lints
