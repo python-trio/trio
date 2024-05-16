@@ -5,6 +5,15 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.25.1 (2024-05-16)
+------------------------
+
+Bugfixes
+~~~~~~~~
+
+- Fix crash when importing trio in embedded Python on Windows, and other installs that remove docstrings. (`#2987 <https://github.com/python-trio/trio/issues/2987>`__)
+
+
 Trio 0.25.0 (2024-03-17)
 ------------------------
 
