@@ -367,6 +367,7 @@ async def to_thread_run_sync(  # type: ignore[misc]
             "0.23.0",
             issue=2841,
             instead="`abandon_on_cancel=`",
+            use_triodeprecationwarning=True,
         )
         abandon_on_cancel = cancellable
     # raise early if abandon_on_cancel.__bool__ raises

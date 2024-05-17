@@ -1012,6 +1012,7 @@ def open_nursery(
                 "the default value of True and rewrite exception handlers to handle ExceptionGroups. "
                 "See https://trio.readthedocs.io/en/stable/reference-core.html#designing-for-multiple-errors"
             ),
+            use_triodeprecationwarning=True,
         )
 
     if strict_exception_groups is None:
@@ -2271,6 +2272,7 @@ def run(
                 "the default value of True and rewrite exception handlers to handle ExceptionGroups. "
                 "See https://trio.readthedocs.io/en/stable/reference-core.html#designing-for-multiple-errors"
             ),
+            use_triodeprecationwarning=True,
         )
 
     __tracebackhide__ = True
@@ -2387,6 +2389,7 @@ def start_guest_run(
                 "the default value of True and rewrite exception handlers to handle ExceptionGroups. "
                 "See https://trio.readthedocs.io/en/stable/reference-core.html#designing-for-multiple-errors"
             ),
+            use_triodeprecationwarning=True,
         )
 
     runner = setup_runner(

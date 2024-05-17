@@ -78,38 +78,107 @@ def test_raises_group() -> None:
         with RaisesGroup(ValueError, SyntaxError):
             raise ExceptionGroup("", (ValueError(),))
 
+
+def test_flatten_subgroups() -> None:
     # loose semantics, as with expect*
-    with RaisesGroup(ValueError, strict=False):
+    with RaisesGroup(ValueError, flatten_subgroups=True):
         raise ExceptionGroup("", (ExceptionGroup("", (ValueError(),)),))
 
+    with RaisesGroup(ValueError, TypeError, flatten_subgroups=True):
+        raise ExceptionGroup("", (ExceptionGroup("", (ValueError(), TypeError())),))
+    with RaisesGroup(ValueError, TypeError, flatten_subgroups=True):
+        raise ExceptionGroup("", [ExceptionGroup("", [ValueError()]), TypeError()])
+
     # mixed loose is possible if you want it to be at least N deep
-    with RaisesGroup(RaisesGroup(ValueError, strict=False)):
+    with RaisesGroup(RaisesGroup(ValueError, flatten_subgroups=True)):
         raise ExceptionGroup("", (ExceptionGroup("", (ValueError(),)),))
-    with RaisesGroup(RaisesGroup(ValueError, strict=False)):
+    with RaisesGroup(RaisesGroup(ValueError, flatten_subgroups=True)):
         raise ExceptionGroup(
             "", (ExceptionGroup("", (ExceptionGroup("", (ValueError(),)),)),)
         )
     with pytest.raises(ExceptionGroup):
-        with RaisesGroup(RaisesGroup(ValueError, strict=False)):
+        with RaisesGroup(RaisesGroup(ValueError, flatten_subgroups=True)):
             raise ExceptionGroup("", (ValueError(),))
 
     # but not the other way around
     with pytest.raises(
         ValueError,
-        match="^You cannot specify a nested structure inside a RaisesGroup with strict=False$",
+        match="^You cannot specify a nested structure inside a RaisesGroup with",
     ):
-        RaisesGroup(RaisesGroup(ValueError), strict=False)
+        RaisesGroup(RaisesGroup(ValueError), flatten_subgroups=True)  # type: ignore[call-overload]
 
-    # currently not fully identical in behaviour to expect*, which would also catch an unwrapped exception
+
+def test_catch_unwrapped_exceptions() -> None:
+    # Catches lone exceptions with strict=False
+    # just as except* would
+    with RaisesGroup(ValueError, allow_unwrapped=True):
+        raise ValueError
+
+    # expecting multiple unwrapped exceptions is not possible
+    with pytest.raises(
+        ValueError, match="^You cannot specify multiple exceptions with"
+    ):
+        RaisesGroup(SyntaxError, ValueError, allow_unwrapped=True)  # type: ignore[call-overload]
+    # if users want one of several exception types they need to use a Matcher
+    # (which the error message suggests)
+    with RaisesGroup(
+        Matcher(check=lambda e: isinstance(e, (SyntaxError, ValueError))),
+        allow_unwrapped=True,
+    ):
+        raise ValueError
+
+    # Unwrapped nested `RaisesGroup` is likely a user error, so we raise an error.
+    with pytest.raises(ValueError, match="has no effect when expecting"):
+        RaisesGroup(RaisesGroup(ValueError), allow_unwrapped=True)  # type: ignore[call-overload]
+
+    # But it *can* be used to check for nesting level +- 1 if they move it to
+    # the nested RaisesGroup. Users should probably use `Matcher`s instead though.
+    with RaisesGroup(RaisesGroup(ValueError, allow_unwrapped=True)):
+        raise ExceptionGroup("", [ExceptionGroup("", [ValueError()])])
+    with RaisesGroup(RaisesGroup(ValueError, allow_unwrapped=True)):
+        raise ExceptionGroup("", [ValueError()])
+
+    # with allow_unwrapped=False (default) it will not be caught
     with pytest.raises(ValueError, match="^value error text$"):
-        with RaisesGroup(ValueError, strict=False):
+        with RaisesGroup(ValueError):
             raise ValueError("value error text")
+
+    # allow_unwrapped on it's own won't match against nested groups
+    with pytest.raises(ExceptionGroup):
+        with RaisesGroup(ValueError, allow_unwrapped=True):
+            raise ExceptionGroup("", [ExceptionGroup("", [ValueError()])])
+
+    # for that you need both allow_unwrapped and flatten_subgroups
+    with RaisesGroup(ValueError, allow_unwrapped=True, flatten_subgroups=True):
+        raise ExceptionGroup("", [ExceptionGroup("", [ValueError()])])
+
+    # code coverage
+    with pytest.raises(TypeError):
+        with RaisesGroup(ValueError, allow_unwrapped=True):
+            raise TypeError
 
 
 def test_match() -> None:
     # supports match string
     with RaisesGroup(ValueError, match="bar"):
         raise ExceptionGroup("bar", (ValueError(),))
+
+    # now also works with ^$
+    with RaisesGroup(ValueError, match="^bar$"):
+        raise ExceptionGroup("bar", (ValueError(),))
+
+    # it also includes notes
+    with RaisesGroup(ValueError, match="my note"):
+        e = ExceptionGroup("bar", (ValueError(),))
+        e.add_note("my note")
+        raise e
+
+    # and technically you can match it all with ^$
+    # but you're probably better off using a Matcher at that point
+    with RaisesGroup(ValueError, match="^bar\nmy note$"):
+        e = ExceptionGroup("bar", (ValueError(),))
+        e.add_note("my note")
+        raise e
 
     with pytest.raises(ExceptionGroup):
         with RaisesGroup(ValueError, match="foo"):
@@ -123,6 +192,37 @@ def test_check() -> None:
     with pytest.raises(ExceptionGroup):
         with RaisesGroup(ValueError, check=lambda x: x is exc):
             raise ExceptionGroup("", (ValueError(),))
+
+
+def test_unwrapped_match_check() -> None:
+    def my_check(e: object) -> bool:  # pragma: no cover
+        return True
+
+    msg = (
+        "`allow_unwrapped=True` bypasses the `match` and `check` parameters"
+        " if the exception is unwrapped. If you intended to match/check the"
+        " exception you should use a `Matcher` object. If you want to match/check"
+        " the exceptiongroup when the exception *is* wrapped you need to"
+        " do e.g. `if isinstance(exc.value, ExceptionGroup):"
+        " assert RaisesGroup(...).matches(exc.value)` afterwards."
+    )
+    with pytest.raises(ValueError, match=re.escape(msg)):
+        RaisesGroup(ValueError, allow_unwrapped=True, match="foo")  # type: ignore[call-overload]
+    with pytest.raises(ValueError, match=re.escape(msg)):
+        RaisesGroup(ValueError, allow_unwrapped=True, check=my_check)  # type: ignore[call-overload]
+
+    # Users should instead use a Matcher
+    rg = RaisesGroup(Matcher(ValueError, match="^foo$"), allow_unwrapped=True)
+    with rg:
+        raise ValueError("foo")
+    with rg:
+        raise ExceptionGroup("", [ValueError("foo")])
+
+    # or if they wanted to match/check the group, do a conditional `.matches()`
+    with RaisesGroup(ValueError, allow_unwrapped=True) as exc:
+        raise ExceptionGroup("bar", [ValueError("foo")])
+    if isinstance(exc.value, ExceptionGroup):  # pragma: no branch
+        assert RaisesGroup(ValueError, match="bar").matches(exc.value)
 
 
 def test_RaisesGroup_matches() -> None:
@@ -216,6 +316,13 @@ def test_matcher_match() -> None:
         with RaisesGroup(Matcher(match="foo")):
             raise ExceptionGroup("", (ValueError("bar"),))
 
+    # check ^$
+    with RaisesGroup(Matcher(ValueError, match="^bar$")):
+        raise ExceptionGroup("", [ValueError("bar")])
+    with pytest.raises(ExceptionGroup):
+        with RaisesGroup(Matcher(ValueError, match="^bar$")):
+            raise ExceptionGroup("", [ValueError("barr")])
+
 
 def test_Matcher_check() -> None:
     def check_oserror_and_errno_is_5(e: BaseException) -> bool:
@@ -260,3 +367,12 @@ def test__ExceptionInfo(monkeypatch: pytest.MonkeyPatch) -> None:
     assert excinfo.type is ExceptionGroup
     assert excinfo.value.exceptions[0].args == ("hello",)
     assert isinstance(excinfo.tb, TracebackType)
+
+
+def test_deprecated_strict() -> None:
+    """`strict` has been replaced with `flatten_subgroups`"""
+    # parameter is not included in overloaded signatures at all
+    with pytest.deprecated_call():
+        RaisesGroup(ValueError, strict=False)  # type: ignore[call-overload]
+    with pytest.deprecated_call():
+        RaisesGroup(ValueError, strict=True)  # type: ignore[call-overload]
