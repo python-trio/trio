@@ -588,7 +588,7 @@ def from_thread_run(
           "foreign" thread, spawned using some other framework, and still want
           to enter Trio, or if you want to use a new system task to call ``afn``,
           maybe to avoid the cancellation context of a corresponding
-          `trio.to_thread.run_sync` task. You can get this token from 
+          `trio.to_thread.run_sync` task. You can get this token from
           :func:`trio.hazmat.current_trio_token`.
     """
     return _send_message_to_trio(trio_token, Run(afn, args))
