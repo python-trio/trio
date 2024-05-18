@@ -96,6 +96,36 @@ async def test_system_exits_quit_interpreter(monkeypatch: pytest.MonkeyPatch) ->
         await trio._repl.run_repl(console)
 
 
+async def test_KI_interrupts(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    console = trio._repl.TrioInteractiveConsole(repl_locals=build_locals())
+    raw_input = build_raw_input(
+        [
+            "from trio._util import signal_raise",
+            "import signal, trio, trio.lowlevel",
+            "async def f():",
+            "  trio.lowlevel.spawn_system_task("
+            "    trio.to_thread.run_sync,"
+            "    signal_raise,signal.SIGINT,"
+            "  )",  # just awaiting this kills the test runner?!
+            "  await trio.sleep_forever()",
+            "  print('should not see this')",
+            "",
+            "await f()",
+            "print('AFTER KeyboardInterrupt')",
+        ]
+    )
+    monkeypatch.setattr(console, "raw_input", raw_input)
+    await trio._repl.run_repl(console)
+    out, err = capsys.readouterr()
+    assert "KeyboardInterrupt" in err
+    assert "running" in out
+    assert "should" not in out
+    assert "AFTER KeyboardInterrupt" in out
+
+
 async def test_system_exits_in_exc_group(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
