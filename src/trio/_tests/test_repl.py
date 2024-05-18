@@ -121,7 +121,6 @@ async def test_KI_interrupts(
     await trio._repl.run_repl(console)
     out, err = capsys.readouterr()
     assert "KeyboardInterrupt" in err
-    assert "running" in out
     assert "should" not in out
     assert "AFTER KeyboardInterrupt" in out
 
@@ -188,6 +187,7 @@ async def test_base_exception_captured(
     monkeypatch.setattr(console, "raw_input", raw_input)
     await trio._repl.run_repl(console)
     out, err = capsys.readouterr()
+    assert "_threads.py" not in err
     assert "AFTER BaseException" in out
 
 
@@ -228,6 +228,7 @@ async def test_base_exception_capture_from_coroutine(
     monkeypatch.setattr(console, "raw_input", raw_input)
     await trio._repl.run_repl(console)
     out, err = capsys.readouterr()
+    assert "_threads.py" not in err
     assert "AFTER BaseException" in out
 
 

@@ -23,11 +23,13 @@ class TrioInteractiveConsole(InteractiveConsole):
         self.compile.compiler.flags |= ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
 
     def runcode(self, code: types.CodeType) -> None:
+        n = 4
         try:
             func = types.FunctionType(code, self.locals)
             if inspect.iscoroutinefunction(func):
                 trio.from_thread.run(func)
             else:
+                n = 5
                 trio.from_thread.run_sync(func)
         except SystemExit:
             # If it is SystemExit quit the repl. Otherwise, print the
@@ -37,7 +39,13 @@ class TrioInteractiveConsole(InteractiveConsole):
             # repl, but an error in the code. So we print the exception
             # and stay in the repl.
             raise
-        except BaseException:
+        except BaseException as exc:
+            # remove our code from traceback
+            tb = exc.__traceback__
+            for _ in range(n):
+                assert tb is not None
+                tb = tb.tb_next
+            exc.__traceback__ = tb
             self.showtraceback()
 
 
