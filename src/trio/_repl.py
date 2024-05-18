@@ -8,8 +8,6 @@ import types
 import warnings
 from code import InteractiveConsole
 
-import outcome
-
 import trio
 import trio.lowlevel
 
@@ -25,15 +23,12 @@ class TrioInteractiveConsole(InteractiveConsole):
         self.compile.compiler.flags |= ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
 
     def runcode(self, code: types.CodeType) -> None:
-        async def _runcode_in_trio() -> outcome.Outcome[object]:
+        try:
             func = types.FunctionType(code, self.locals)
             if inspect.iscoroutinefunction(func):
-                return await outcome.acapture(func)
+                trio.from_thread.run(func)
             else:
-                return outcome.capture(func)
-
-        try:
-            trio.from_thread.run(_runcode_in_trio).unwrap()
+                trio.from_thread.run_sync(func)
         except SystemExit:
             # If it is SystemExit quit the repl. Otherwise, print the
             # traceback.
