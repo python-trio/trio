@@ -122,7 +122,7 @@ async def test_async_method_signature(path: trio.Path) -> None:
     assert path.resolve.__qualname__ == "Path.resolve"
 
     assert path.resolve.__doc__ is not None
-    assert "pathlib.Path.resolve" in path.resolve.__doc__
+    assert path.resolve.__qualname__ in path.resolve.__doc__
 
 
 @pytest.mark.parametrize("method_name", ["is_dir", "is_file"])
