@@ -658,7 +658,6 @@ class CancelScope:
                 # see test_cancel_scope_exit_doesnt_create_cyclic_garbage
                 # Note: still relevant
                 del remaining_error_after_cancel_scope, value, _, exc
-                del sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED]
 
     def __repr__(self) -> str:
         if self._cancel_status is not None:
