@@ -3,6 +3,7 @@
 # *************************************************************
 from __future__ import annotations
 
+import sys
 from typing import TYPE_CHECKING
 
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
@@ -10,7 +11,6 @@ from ._run import GLOBAL_RUN_CONTEXT
 
 if TYPE_CHECKING:
     from .._file_io import _HasFileNo
-import sys
 
 assert not TYPE_CHECKING or sys.platform == "linux"
 
@@ -40,7 +40,7 @@ async def wait_readable(fd: int | _HasFileNo) -> None:
         if another task calls :func:`notify_closing` while this
         function is still working.
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_readable(fd)
     except AttributeError:
@@ -59,7 +59,7 @@ async def wait_writable(fd: int | _HasFileNo) -> None:
         if another task calls :func:`notify_closing` while this
         function is still working.
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_writable(fd)
     except AttributeError:
@@ -91,7 +91,7 @@ def notify_closing(fd: int | _HasFileNo) -> None:
     step, so other tasks won't be able to tell what order they happened
     in anyway.
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.notify_closing(fd)
     except AttributeError:
