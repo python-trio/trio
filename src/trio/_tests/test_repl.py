@@ -187,8 +187,8 @@ async def test_base_exception_captured(
     monkeypatch.setattr(console, "raw_input", raw_input)
     await trio._repl.run_repl(console)
     out, err = capsys.readouterr()
-    if sys.version_info >= (3, 11):
-        assert "_threads.py" not in err
+    assert "_threads.py" not in err
+    assert "_repl.py" not in err
     assert "AFTER BaseException" in out
 
 
@@ -229,8 +229,8 @@ async def test_base_exception_capture_from_coroutine(
     monkeypatch.setattr(console, "raw_input", raw_input)
     await trio._repl.run_repl(console)
     out, err = capsys.readouterr()
-    if sys.version_info >= (3, 11):
-        assert "_threads.py" not in err
+    assert "_threads.py" not in err
+    assert "_repl.py" not in err
     assert "AFTER BaseException" in out
 
 

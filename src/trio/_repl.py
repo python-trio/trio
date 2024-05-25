@@ -8,10 +8,14 @@ import types
 import warnings
 from code import InteractiveConsole
 
+import outcome
+
 import trio
 import trio.lowlevel
+from trio._util import final
 
 
+@final
 class TrioInteractiveConsole(InteractiveConsole):
     # code.InteractiveInterpreter defines locals as Mapping[str, Any]
     # but when we pass this to FunctionType it expects a dict. So
@@ -23,30 +27,32 @@ class TrioInteractiveConsole(InteractiveConsole):
         self.compile.compiler.flags |= ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
 
     def runcode(self, code: types.CodeType) -> None:
-        n = 4
-        try:
-            func = types.FunctionType(code, self.locals)
-            if inspect.iscoroutinefunction(func):
-                trio.from_thread.run(func)
+        func = types.FunctionType(code, self.locals)
+        if inspect.iscoroutinefunction(func):
+            result = trio.from_thread.run(outcome.acapture, func)
+        else:
+            result = trio.from_thread.run_sync(outcome.capture, func)
+        if isinstance(result, outcome.Error):
+            # If it is SystemExit quit the repl. Otherwise, print the traceback.
+            if isinstance(result.error, SystemExit):
+                # There could be a SystemExit inside a BaseExceptionGroup. If
+                # that happens, it probably isn't the user trying to quit the
+                # repl, but an error in the code. So we print the exception
+                # and stay in the repl.
+                raise result.error
             else:
-                n = 5
-                trio.from_thread.run_sync(func)
-        except SystemExit:
-            # If it is SystemExit quit the repl. Otherwise, print the
-            # traceback.
-            # There could be a SystemExit inside a BaseExceptionGroup. If
-            # that happens, it probably isn't the user trying to quit the
-            # repl, but an error in the code. So we print the exception
-            # and stay in the repl.
-            raise
-        except BaseException as exc:
-            # remove our code from traceback
-            tb = exc.__traceback__
-            for _ in range(n):
-                assert tb is not None
-                tb = tb.tb_next
-            exc.__traceback__ = tb
-            self.showtraceback()
+                # Inline our own version of self.showtraceback that can use
+                # outcome.Error.error directly to print clean tracebacks.
+                # This also means overriding self.showtraceback does nothing.
+                sys.last_traceback = result.error.__traceback__
+                sys.last_type, sys.last_value = type(result.error), result.error
+                # see https://docs.python.org/3/library/sys.html#sys.last_exc
+                if sys.version_info >= (3, 12):
+                    sys.last_exc = result.error
+
+                # We always use sys.excepthook, unlike other implementations.
+                # This means that overriding self.write also does nothing to tbs.
+                sys.excepthook(sys.last_type, sys.last_value, sys.last_traceback)
 
 
 async def run_repl(console: TrioInteractiveConsole) -> None:
