@@ -76,9 +76,7 @@ async def test_channel_multiple_producers() -> None:
             for i in range(10):
                 nursery.start_soon(producer, send_channel.clone(), i)
 
-        got = []
-        async for value in receive_channel:
-            got.append(value)
+        got = [value async for value in receive_channel]
 
         got.sort()
         assert got == list(range(30))
@@ -291,16 +289,14 @@ async def test_close_multiple_receive_handles() -> None:
 
 
 async def test_inf_capacity() -> None:
-    s, r = open_memory_channel[int](float("inf"))
+    send, receive = open_memory_channel[int](float("inf"))
 
     # It's accepted, and we can send all day without blocking
-    with s:
+    with send:
         for i in range(10):
-            s.send_nowait(i)
+            send.send_nowait(i)
 
-    got = []
-    async for i in r:
-        got.append(i)
+    got = [i async for i in receive]
     assert got == list(range(10))
 
 

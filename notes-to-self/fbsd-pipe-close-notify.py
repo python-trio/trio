@@ -12,11 +12,11 @@ r, w = os.pipe()
 os.set_blocking(w, False)
 
 print("filling pipe buffer")
-while True:
-    try:
+try:
+    while True:
         os.write(w, b"x")
-    except BlockingIOError:
-        break
+except BlockingIOError:
+    pass
 
 _, wfds, _ = select.select([], [w], [], 0)
 print("select() says the write pipe is", "writable" if w in wfds else "NOT writable")
