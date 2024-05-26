@@ -33,19 +33,19 @@ class TrioInteractiveConsole(InteractiveConsole):
         else:
             result = trio.from_thread.run_sync(outcome.capture, func)
         if isinstance(result, outcome.Error):
-            # If it is SystemExit quit the repl. Otherwise, print the traceback.
+            # If it is SystemExit, quit the repl. Otherwise, print the traceback.
+            # If there is a SystemExit inside a BaseExceptionGroup, it probably isn't
+            # the user trying to quit the repl, but rather an error in the code. So, we
+            # don't try to inspect groups for SystemExit. Instead, we just print and
+            # return to the REPL.
             if isinstance(result.error, SystemExit):
-                # There could be a SystemExit inside a BaseExceptionGroup. If
-                # that happens, it probably isn't the user trying to quit the
-                # repl, but an error in the code. So we print the exception
-                # and stay in the repl.
                 raise result.error
             else:
                 # Inline our own version of self.showtraceback that can use
                 # outcome.Error.error directly to print clean tracebacks.
                 # This also means overriding self.showtraceback does nothing.
-                sys.last_traceback = result.error.__traceback__
                 sys.last_type, sys.last_value = type(result.error), result.error
+                sys.last_traceback = result.error.__traceback__
                 # see https://docs.python.org/3/library/sys.html#sys.last_exc
                 if sys.version_info >= (3, 12):
                     sys.last_exc = result.error
