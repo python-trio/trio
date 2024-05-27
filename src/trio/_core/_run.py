@@ -623,6 +623,7 @@ class CancelScope:
             self._cancel_status = None
         return exc
 
+    @enable_ki_protection
     def __exit__(
         self,
         etype: type[BaseException] | None,
@@ -632,10 +633,6 @@ class CancelScope:
         # NB: NurseryManager calls _close() directly rather than __exit__(),
         # so __exit__() must be just _close() plus this logic for adapting
         # the exception-filtering result to the context manager API.
-
-        # This inlines the enable_ki_protection decorator so we can fix
-        # f_locals *locally* below to avoid reference cycles
-        sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
 
         # Tracebacks show the 'raise' line below out of context, so let's give
         # this variable a name that makes sense out of context.
