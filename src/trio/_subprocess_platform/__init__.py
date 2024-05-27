@@ -81,7 +81,7 @@ except ImportError as ex:  # pragma: no cover
 try:
     if TYPE_CHECKING:
         # Not worth type checking these definitions
-        pass  # noqa: TCH005
+        pass
 
     elif os.name == "posix":
 
