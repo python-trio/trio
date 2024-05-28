@@ -91,7 +91,8 @@ RPC
 Testing
 -------
 * `pytest-trio <https://github.com/python-trio/pytest-trio>`__ - Pytest plugin for trio.
-* `hypothesis-trio <https://github.com/python-trio/hypothesis-trio>`__ - Hypothesis plugin for trio.
+* `hypothesis-trio <https://github.com/python-trio/hypothesis-trio>`__ - Hypothesis supports Trio out of the box for
+  ``@given(...)`` tests; this extension provides Trio-compatible stateful testing.
 * `trustme <https://github.com/python-trio/trustme>`__ - #1 quality TLS certs while you wait, for the discerning tester.
 * `pytest-aio <https://github.com/klen/pytest-aio>`_ - Pytest plugin with support for trio, curio, asyncio
 * `logot <https://github.com/etianen/logot>`_ - Test whether your async code is logging correctly.
@@ -99,9 +100,8 @@ Testing
 
 Tools and Utilities
 -------------------
-* `trio-typing <https://github.com/python-trio/trio-typing>`__ - Type hints for Trio and related projects.
 * `trio-util <https://github.com/groove-x/trio-util>`__ - An assortment of utilities for the Trio async/await framework.
-* `flake8-trio <https://github.com/Zac-HD/flake8-trio>`__ - Highly opinionated linter for various sorts of problems in Trio and/or AnyIO. Can run as a flake8 plugin, or standalone with support for autofixing some errors.
+* `flake8-async <https://github.com/python-trio/flake8-async>`__ - Highly opinionated linter for various sorts of problems in Trio, AnyIO and/or asyncio. Can run as a flake8 plugin, or standalone with support for autofixing some errors.
 * `tricycle <https://github.com/oremanj/tricycle>`__ - This is a library of interesting-but-maybe-not-yet-fully-proven extensions to Trio.
 * `tenacity <https://github.com/jd/tenacity>`__ - Retrying library for Python with async/await support.
 * `perf-timer <https://github.com/belm0/perf-timer>`__ - A code timer with Trio async support (see ``TrioPerfTimer``).  Collects execution time of a block of code excluding time when the coroutine isn't scheduled, such as during blocking I/O and sleep.  Also offers ``trio_perf_counter()`` for low-level timing.
@@ -109,8 +109,9 @@ Tools and Utilities
 * `triotp <https://linkdd.github.io/triotp>`__ - OTP framework for Python Trio
 * `aioresult <https://github.com/arthur-tacca/aioresult>`__ - Get the return value of a background async function in Trio or anyio, along with a simple Future class and wait utilities
 
+
 Trio/Asyncio Interoperability
 -----------------------------
-* `anyio <https://github.com/agronholm/anyio>`__ - AnyIO is a asynchronous compatibility API that allows applications and libraries written against it to run unmodified on asyncio, curio and trio.
+* `anyio <https://github.com/agronholm/anyio>`__ - AnyIO is a asynchronous compatibility API that allows applications and libraries written against it to run unmodified on asyncio or trio.
 * `sniffio <https://github.com/python-trio/sniffio>`__ - This is a tiny package whose only purpose is to let you detect which async library your code is running under.
 * `trio-asyncio <https://github.com/python-trio/trio-asyncio>`__ - Trio-Asyncio lets you use many asyncio libraries from your Trio app.

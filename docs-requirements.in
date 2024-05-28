@@ -6,6 +6,8 @@ sphinx_rtd_theme
 sphinxcontrib-jquery
 sphinxcontrib-trio
 towncrier
+sphinx-hoverxref
+sphinx-codeautolink
 
 # Trio's own dependencies
 cffi; os_name == "nt"

@@ -7,13 +7,15 @@ from typing import (
     Callable,
     ContextManager,
     Generic,
-    Iterable,
+    Literal,
     Pattern,
+    Sequence,
     TypeVar,
     cast,
     overload,
 )
 
+from trio._deprecate import warn_deprecated
 from trio._util import final
 
 if TYPE_CHECKING:
@@ -29,7 +31,7 @@ if TYPE_CHECKING:
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
 
-E = TypeVar("E", bound=BaseException)
+E = TypeVar("E", bound=BaseException, covariant=True)
 
 
 @final
@@ -122,7 +124,7 @@ else:
 def _stringify_exception(exc: BaseException) -> str:
     return "\n".join(
         [
-            str(exc),
+            getattr(exc, "message", str(exc)),
             *getattr(exc, "__notes__", []),
         ]
     )
@@ -263,8 +265,20 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
     This works similar to ``pytest.raises``, and a version of it will hopefully be added upstream, after which this can be deprecated and removed. See https://github.com/pytest-dev/pytest/issues/11538
 
 
-    This differs from :ref:`except* <except_star>` in that all specified exceptions must be present, *and no others*. It will similarly not catch exceptions *not* wrapped in an exceptiongroup.
-    If you don't care for the nesting level of the exceptions you can pass ``strict=False``.
+    The catching behaviour differs from :ref:`except* <except_star>` in multiple different ways, being much stricter by default. By using ``allow_unwrapped=True`` and ``flatten_subgroups=True`` you can match ``except*`` fully when expecting a single exception.
+
+    #. All specified exceptions must be present, *and no others*.
+
+       * If you expect a variable number of exceptions you need to use ``pytest.raises(ExceptionGroup)`` and manually check the contained exceptions. Consider making use of :func:`Matcher.matches`.
+
+    #. It will only catch exceptions wrapped in an exceptiongroup by default.
+
+       * With ``allow_unwrapped=True`` you can specify a single expected exception or `Matcher` and it will match the exception even if it is not inside an `ExceptionGroup`. If you expect one of several different exception types you need to use a `Matcher` object.
+
+    #. By default it cares about the full structure with nested `ExceptionGroup`'s. You can specify nested `ExceptionGroup`'s by passing `RaisesGroup` objects as expected exceptions.
+
+       * With ``flatten_subgroups=True`` it will "flatten" the raised `ExceptionGroup`, extracting all exceptions inside any nested :class:`ExceptionGroup`, before matching.
+
     It currently does not care about the order of the exceptions, so ``RaisesGroups(ValueError, TypeError)`` is equivalent to ``RaisesGroups(TypeError, ValueError)``.
 
     This class is not as polished as ``pytest.raises``, and is currently not as helpful in e.g. printing diffs when strings don't match, suggesting you use ``re.escape``, etc.
@@ -280,14 +294,19 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
         with RaisesGroups(RaisesGroups(ValueError)):
             raise ExceptionGroup("", (ExceptionGroup("", (ValueError(),)),))
 
-        with RaisesGroups(ValueError, strict=False):
+        # flatten_subgroups
+        with RaisesGroups(ValueError, flatten_subgroups=True):
             raise ExceptionGroup("", (ExceptionGroup("", (ValueError(),)),))
+
+        # allow_unwrapped
+        with RaisesGroups(ValueError, allow_unwrapped=True):
+            raise ValueError
 
 
     `RaisesGroup.matches` can also be used directly to check a standalone exception group.
 
 
-    This class is also not perfectly smart, e.g. this will likely fail currently::
+    The matching algorithm is greedy, which means cases such as this may fail::
 
         with RaisesGroups(ValueError, Matcher(ValueError, match="hello")):
             raise ExceptionGroup("", (ValueError("hello"), ValueError("goodbye")))
@@ -303,32 +322,108 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
 
         def __new__(cls, *args: object, **kwargs: object) -> RaisesGroup[E]: ...
 
+    # allow_unwrapped=True requires: singular exception, exception not being
+    # RaisesGroup instance, match is None, check is None
+    @overload
+    def __init__(
+        self,
+        exception: type[E] | Matcher[E],
+        *,
+        allow_unwrapped: Literal[True],
+        flatten_subgroups: bool = False,
+        match: None = None,
+        check: None = None,
+    ): ...
+
+    # flatten_subgroups = True also requires no nested RaisesGroup
+    @overload
+    def __init__(
+        self,
+        exception: type[E] | Matcher[E],
+        *other_exceptions: type[E] | Matcher[E],
+        allow_unwrapped: Literal[False] = False,
+        flatten_subgroups: Literal[True],
+        match: str | Pattern[str] | None = None,
+        check: Callable[[BaseExceptionGroup[E]], bool] | None = None,
+    ): ...
+
+    @overload
     def __init__(
         self,
         exception: type[E] | Matcher[E] | E,
         *other_exceptions: type[E] | Matcher[E] | E,
-        strict: bool = True,
+        allow_unwrapped: Literal[False] = False,
+        flatten_subgroups: Literal[False] = False,
         match: str | Pattern[str] | None = None,
         check: Callable[[BaseExceptionGroup[E]], bool] | None = None,
+    ): ...
+
+    def __init__(
+        self,
+        exception: type[E] | Matcher[E] | E,
+        *other_exceptions: type[E] | Matcher[E] | E,
+        allow_unwrapped: bool = False,
+        flatten_subgroups: bool = False,
+        match: str | Pattern[str] | None = None,
+        check: Callable[[BaseExceptionGroup[E]], bool] | None = None,
+        strict: None = None,
     ):
         self.expected_exceptions: tuple[type[E] | Matcher[E] | E, ...] = (
             exception,
             *other_exceptions,
         )
-        self.strict = strict
+        self.flatten_subgroups: bool = flatten_subgroups
+        self.allow_unwrapped = allow_unwrapped
         self.match_expr = match
         self.check = check
         self.is_baseexceptiongroup = False
 
+        if strict is not None:
+            warn_deprecated(
+                "The `strict` parameter",
+                "0.25.1",
+                issue=2989,
+                instead="flatten_subgroups=True (for strict=False}",
+            )
+            self.flatten_subgroups = not strict
+
+        if allow_unwrapped and other_exceptions:
+            raise ValueError(
+                "You cannot specify multiple exceptions with `allow_unwrapped=True.`"
+                " If you want to match one of multiple possible exceptions you should"
+                " use a `Matcher`."
+                " E.g. `Matcher(check=lambda e: isinstance(e, (...)))`"
+            )
+        if allow_unwrapped and isinstance(exception, RaisesGroup):
+            raise ValueError(
+                "`allow_unwrapped=True` has no effect when expecting a `RaisesGroup`."
+                " You might want it in the expected `RaisesGroup`, or"
+                " `flatten_subgroups=True` if you don't care about the structure."
+            )
+        if allow_unwrapped and (match is not None or check is not None):
+            raise ValueError(
+                "`allow_unwrapped=True` bypasses the `match` and `check` parameters"
+                " if the exception is unwrapped. If you intended to match/check the"
+                " exception you should use a `Matcher` object. If you want to match/check"
+                " the exceptiongroup when the exception *is* wrapped you need to"
+                " do e.g. `if isinstance(exc.value, ExceptionGroup):"
+                " assert RaisesGroup(...).matches(exc.value)` afterwards."
+            )
+
+        # verify `expected_exceptions` and set `self.is_baseexceptiongroup`
         for exc in self.expected_exceptions:
             if isinstance(exc, RaisesGroup):
-                if not strict:
+                if self.flatten_subgroups:
                     raise ValueError(
                         "You cannot specify a nested structure inside a RaisesGroup with"
-                        " strict=False"
+                        " `flatten_subgroups=True`. The parameter will flatten subgroups"
+                        " in the raised exceptiongroup before matching, which would never"
+                        " match a nested structure."
                     )
                 self.is_baseexceptiongroup |= exc.is_baseexceptiongroup
             elif isinstance(exc, Matcher):
+                # The Matcher could match BaseExceptions through the other arguments
+                # but `self.is_baseexceptiongroup` is only used for printing.
                 if exc.exception_type is None:
                     continue
                 # Matcher __init__ assures it's a subclass of BaseException
@@ -348,9 +443,9 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
         return self.excinfo
 
     def _unroll_exceptions(
-        self, exceptions: Iterable[BaseException]
-    ) -> Iterable[BaseException]:
-        """Used in non-strict mode."""
+        self, exceptions: Sequence[BaseException]
+    ) -> Sequence[BaseException]:
+        """Used if `flatten_subgroups=True`."""
         res: list[BaseException] = []
         for exc in exceptions:
             if isinstance(exc, BaseExceptionGroup):
@@ -383,32 +478,38 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
         # maybe have a list of strings logging failed matches, that __exit__ can
         # recursively step through and print on a failing match.
         if not isinstance(exc_val, BaseExceptionGroup):
+            if self.allow_unwrapped:
+                exp_exc = self.expected_exceptions[0]
+                if isinstance(exp_exc, Matcher) and exp_exc.matches(exc_val):
+                    return True
+                if isinstance(exp_exc, type) and isinstance(exc_val, exp_exc):
+                    return True
             return False
-        if len(exc_val.exceptions) != len(self.expected_exceptions):
-            return False
+
         if self.match_expr is not None and not re.search(
             self.match_expr, _stringify_exception(exc_val)
         ):
             return False
         if self.check is not None and not self.check(exc_val):
             return False
+
         remaining_exceptions = list(self.expected_exceptions)
-        actual_exceptions: Iterable[BaseException] = exc_val.exceptions
-        if not self.strict:
+        actual_exceptions: Sequence[BaseException] = exc_val.exceptions
+        if self.flatten_subgroups:
             actual_exceptions = self._unroll_exceptions(actual_exceptions)
 
+        # important to check the length *after* flattening subgroups
+        if len(actual_exceptions) != len(self.expected_exceptions):
+            return False
+
         # it should be possible to get RaisesGroup.matches typed so as not to
-        # need these type: ignores, but I'm not sure that's possible while also having it
+        # need type: ignore, but I'm not sure that's possible while also having it
         # transparent for the end user.
         for e in actual_exceptions:
             for rem_e in remaining_exceptions:
                 if (
                     (isinstance(rem_e, type) and isinstance(e, rem_e))
-                    or (
-                        isinstance(e, BaseExceptionGroup)
-                        and isinstance(rem_e, RaisesGroup)
-                        and rem_e.matches(e)
-                    )
+                    or (isinstance(rem_e, RaisesGroup) and rem_e.matches(e))
                     or (isinstance(rem_e, Matcher) and rem_e.matches(e))
                 ):
                     remaining_exceptions.remove(rem_e)  # type: ignore[arg-type]

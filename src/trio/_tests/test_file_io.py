@@ -226,11 +226,9 @@ async def test_open_context_manager(path: pathlib.Path) -> None:
 async def test_async_iter() -> None:
     async_file = trio.wrap_file(io.StringIO("test\nfoo\nbar"))
     expected = list(async_file.wrapped)
-    result = []
     async_file.wrapped.seek(0)
 
-    async for line in async_file:
-        result.append(line)
+    result = [line async for line in async_file]
 
     assert result == expected
 

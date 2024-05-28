@@ -91,13 +91,11 @@ def create_passthrough_args(funcdef: ast.FunctionDef | ast.AsyncFunctionDef) -> 
     Example input: ast.parse("def f(a, *, b): ...")
     Example output: "(a, b=b)"
     """
-    call_args = []
-    for arg in funcdef.args.args:
-        call_args.append(arg.arg)
+    call_args = [arg.arg for arg in funcdef.args.args]
     if funcdef.args.vararg:
         call_args.append("*" + funcdef.args.vararg.arg)
     for arg in funcdef.args.kwonlyargs:
-        call_args.append(arg.arg + "=" + arg.arg)
+        call_args.append(arg.arg + "=" + arg.arg)  # noqa: PERF401  # clarity
     if funcdef.args.kwarg:
         call_args.append("**" + funcdef.args.kwarg.arg)
     return "({})".format(", ".join(call_args))
