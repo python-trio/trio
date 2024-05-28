@@ -200,6 +200,8 @@ class _EpollStatistics:
 
 @attrs.define(eq=False, hash=False)
 class EpollIOManager:
+    # Using lambda here because otherwise crash on import with gevent monkey patching
+    # See https://github.com/python-trio/trio/issues/2848
     _epoll: select.epoll = attrs.Factory(lambda: select.epoll())
     # {fd: EpollWaiters}
     _registered: defaultdict[int, EpollWaiters] = attrs.Factory(
