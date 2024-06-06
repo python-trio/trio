@@ -12,8 +12,10 @@ import outcome
 
 import trio
 import trio.lowlevel
+from trio._util import final
 
 
+@final
 class TrioInteractiveConsole(InteractiveConsole):
     # code.InteractiveInterpreter defines locals as Mapping[str, Any]
     # but when we pass this to FunctionType it expects a dict. So
@@ -25,25 +27,32 @@ class TrioInteractiveConsole(InteractiveConsole):
         self.compile.compiler.flags |= ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
 
     def runcode(self, code: types.CodeType) -> None:
-        async def _runcode_in_trio() -> outcome.Outcome[object]:
-            func = types.FunctionType(code, self.locals)
-            if inspect.iscoroutinefunction(func):
-                return await outcome.acapture(func)
+        func = types.FunctionType(code, self.locals)
+        if inspect.iscoroutinefunction(func):
+            result = trio.from_thread.run(outcome.acapture, func)
+        else:
+            result = trio.from_thread.run_sync(outcome.capture, func)
+        if isinstance(result, outcome.Error):
+            # If it is SystemExit, quit the repl. Otherwise, print the traceback.
+            # If there is a SystemExit inside a BaseExceptionGroup, it probably isn't
+            # the user trying to quit the repl, but rather an error in the code. So, we
+            # don't try to inspect groups for SystemExit. Instead, we just print and
+            # return to the REPL.
+            if isinstance(result.error, SystemExit):
+                raise result.error
             else:
-                return outcome.capture(func)
+                # Inline our own version of self.showtraceback that can use
+                # outcome.Error.error directly to print clean tracebacks.
+                # This also means overriding self.showtraceback does nothing.
+                sys.last_type, sys.last_value = type(result.error), result.error
+                sys.last_traceback = result.error.__traceback__
+                # see https://docs.python.org/3/library/sys.html#sys.last_exc
+                if sys.version_info >= (3, 12):
+                    sys.last_exc = result.error
 
-        try:
-            trio.from_thread.run(_runcode_in_trio).unwrap()
-        except SystemExit:
-            # If it is SystemExit quit the repl. Otherwise, print the
-            # traceback.
-            # There could be a SystemExit inside a BaseExceptionGroup. If
-            # that happens, it probably isn't the user trying to quit the
-            # repl, but an error in the code. So we print the exception
-            # and stay in the repl.
-            raise
-        except BaseException:
-            self.showtraceback()
+                # We always use sys.excepthook, unlike other implementations.
+                # This means that overriding self.write also does nothing to tbs.
+                sys.excepthook(sys.last_type, sys.last_value, sys.last_traceback)
 
 
 async def run_repl(console: TrioInteractiveConsole) -> None:
