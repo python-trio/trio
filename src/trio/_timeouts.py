@@ -27,6 +27,9 @@ def move_on_after(seconds: float) -> trio.CancelScope:
     """Use as a context manager to create a cancel scope whose deadline is
     set to now + *seconds*.
 
+    The deadline of the cancel scope is calculated at creation time, not upon
+    entering the context manager.
+
     Args:
       seconds (float): The timeout.
 
@@ -137,6 +140,9 @@ def fail_after(seconds: float) -> AbstractContextManager[trio.CancelScope]:
     is that when the :exc:`Cancelled` exception reaches :func:`move_on_after`,
     it's caught and discarded. When it reaches :func:`fail_after`, then it's
     caught and :exc:`TooSlowError` is raised in its place.
+
+    The deadline of the cancel scope is calculated at creation time, not upon
+    entering the context manager.
 
     Args:
       seconds (float): The timeout.
