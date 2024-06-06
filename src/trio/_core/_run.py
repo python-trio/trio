@@ -993,7 +993,8 @@ def open_nursery(
     new `Nursery`.
 
     It does not block on entry; on exit it blocks until all child tasks
-    have exited.
+    have exited. If no child tasks are running on exit, it will insert a
+    schedule point (but no cancellation point).
 
     Args:
       strict_exception_groups (bool): Unless set to False, even a single raised exception
