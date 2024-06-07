@@ -25,10 +25,7 @@ def move_on_at(deadline: float) -> trio.CancelScope:
 
 def move_on_after(seconds: float) -> trio.CancelScope:
     """Use as a context manager to create a cancel scope whose deadline is
-    set to now + *seconds*.
-
-    The deadline of the cancel scope is calculated at creation time, not upon
-    entering the context manager.
+    set to creation time + *seconds*.
 
     Args:
       seconds (float): The timeout.
