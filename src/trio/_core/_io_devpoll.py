@@ -27,7 +27,7 @@ class DevpollWaiters:
     current_flags: int = 0
 
 
-assert not TYPE_CHECKING or sys.platform == "linux"
+assert not TYPE_CHECKING or sys.platform == "solaris"
 
 
 EventResult: TypeAlias = "list[tuple[int, int]]"
