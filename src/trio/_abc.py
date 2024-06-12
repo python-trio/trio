@@ -215,6 +215,8 @@ class SocketFactory(ABC):
 
     """
 
+    __slots__ = ()
+
     @abstractmethod
     def socket(
         self,
@@ -696,3 +698,5 @@ class Channel(SendChannel[T], ReceiveChannel[T]):
     `ReceiveChannel` interfaces, so you can both send and receive objects.
 
     """
+
+    __slots__ = ()
