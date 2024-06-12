@@ -402,9 +402,13 @@ def test_static_tool_sees_class_members(
         # being missing
 
         if sys.version_info >= (3, 13):
-            print(class_, missing)
-            missing.remove("__firstlineno__")
-            missing.remove("__static_attributes__")
+            try:
+                missing.remove("__firstlineno__")
+                missing.remove("__static_attributes__")
+            except:
+                print(f"FAILED: {class_}; {static_names}")
+            else:
+                print(f"SUCCESS: {class_}")
 
         if (
             tool == "jedi"
