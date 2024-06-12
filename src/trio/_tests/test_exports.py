@@ -346,6 +346,12 @@ def test_static_tool_sees_class_members(
             "__deepcopy__",
         }
 
+        if type(class_) == type:
+            # C extension classes don't have these dunders, but Python classes do
+            ignore_names.add("__firstlineno__")
+            ignore_names.add("__static_attributes__")
+
+
         # pypy seems to have some additional dunders that differ
         if sys.implementation.name == "pypy":
             ignore_names |= {
@@ -400,15 +406,6 @@ def test_static_tool_sees_class_members(
 
         # using .remove() instead of .delete() to get an error in case they start not
         # being missing
-
-        if sys.version_info >= (3, 13):
-            try:
-                missing.remove("__firstlineno__")
-                missing.remove("__static_attributes__")
-            except:
-                print(f"FAILED: {class_}; {static_names}")
-            else:
-                print(f"SUCCESS: {class_}")
 
         if (
             tool == "jedi"
