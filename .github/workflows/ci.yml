@@ -87,7 +87,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.9', 'pypy-3.10', '3.8', '3.9', '3.10', '3.11', '3.12']
+        python: ['pypy-3.9', 'pypy-3.10', '3.8', '3.9', '3.10', '3.11', '3.12', '3.13']
         check_formatting: ['0']
         no_test_requirements: ['0']
         extra_name: ['']
@@ -99,10 +99,6 @@ jobs:
           - python: '3.8'
             no_test_requirements: '1'
             extra_name: ', no test-requirements'
-          # avoid `cryptography`
-          - python: '3.13'
-            no_test_requirements: '1'
-            extra_name: ', temporarily no test-requirements'
     continue-on-error: >-
       ${{
         (
