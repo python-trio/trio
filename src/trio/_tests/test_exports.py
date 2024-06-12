@@ -497,7 +497,7 @@ def test_static_tool_sees_class_members(
                 missing -= {"owner", "is_mount", "group"}
             if tool == "jedi" and sys.platform == "win32":
                 extra -= {"owner", "is_mount", "group"}
-        
+
         # not sure why jedi in particular ignores this (static?) method in 3.13
         # (especially given the method is from 3.12....)
         if (
