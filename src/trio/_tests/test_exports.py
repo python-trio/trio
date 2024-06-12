@@ -401,7 +401,7 @@ def test_static_tool_sees_class_members(
         # using .remove() instead of .delete() to get an error in case they start not
         # being missing
 
-        if BaseException in class_.__mro__ and sys.version_info >= (3, 13):
+        if hasattr(class_, "__attrs_attrs__") and sys.version_info >= (3, 13):
             missing.remove("__firstlineno__")
             missing.remove("__static_attributes__")
 
