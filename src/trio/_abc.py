@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from .lowlevel import Task
 
 
-class Clock(metaclass=ABC):
+class Clock(ABC):
     """The interface for custom run loop clocks."""
 
     __slots__ = ()
