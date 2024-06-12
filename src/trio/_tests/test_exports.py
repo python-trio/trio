@@ -351,7 +351,6 @@ def test_static_tool_sees_class_members(
             ignore_names.add("__firstlineno__")
             ignore_names.add("__static_attributes__")
 
-
         # pypy seems to have some additional dunders that differ
         if sys.implementation.name == "pypy":
             ignore_names |= {
@@ -498,6 +497,15 @@ def test_static_tool_sees_class_members(
                 missing -= {"owner", "is_mount", "group"}
             if tool == "jedi" and sys.platform == "win32":
                 extra -= {"owner", "is_mount", "group"}
+        
+        # not sure why jedi in particular ignores this (static?) method in 3.13
+        # (especially given the method is from 3.12....)
+        if (
+            tool == "jedi"
+            and sys.version_info >= (3, 13)
+            and class_ in (trio.Path, trio.WindowsPath, trio.PosixPath)
+        ):
+            missing.remove("with_segments")
 
         if missing or extra:  # pragma: no cover
             errors[f"{module_name}.{class_name}"] = {
