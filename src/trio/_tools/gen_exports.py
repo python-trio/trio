@@ -32,11 +32,13 @@ HEADER = """# ***********************************************************
 # *************************************************************
 from __future__ import annotations
 
+import sys
+
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 from ._run import GLOBAL_RUN_CONTEXT
 """
 
-TEMPLATE = """locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+TEMPLATE = """sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
 try:
     return{}GLOBAL_RUN_CONTEXT.{}.{}
 except AttributeError:
