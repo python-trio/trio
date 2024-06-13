@@ -53,6 +53,42 @@ class TrioInteractiveConsole(InteractiveConsole):
                 # We always use sys.excepthook, unlike other implementations.
                 # This means that overriding self.write also does nothing to tbs.
                 sys.excepthook(sys.last_type, sys.last_value, sys.last_traceback)
+        # clear any residual KI
+        trio.from_thread.run(trio.lowlevel.checkpoint_if_cancelled)
+        # trio.from_thread.check_cancelled() has too long of a memory
+
+    if sys.platform == "win32":
+
+        def raw_input(self, prompt: str = "") -> str:
+            try:
+                return input(prompt)
+            except EOFError:
+                # check if trio has a pending KI
+                trio.from_thread.run(trio.lowlevel.checkpoint_if_cancelled)
+                raise
+
+    else:
+
+        def raw_input(self, prompt: str = "") -> str:
+            import fcntl
+            import termios
+            from signal import SIGINT, signal
+
+            interrupted = False
+
+            def handler(sig: int, frame: types.FrameType | None) -> None:
+                nonlocal interrupted
+                interrupted = True
+                # Fake up a newline char as if user had typed it at terminal
+                fcntl.ioctl(sys.stdin, termios.TIOCSTI, b"\n")
+
+            prev_handler = trio.from_thread.run_sync(signal, SIGINT, handler)
+            try:
+                return input(prompt)
+            finally:
+                trio.from_thread.run_sync(signal, SIGINT, prev_handler)
+                if interrupted:
+                    raise KeyboardInterrupt
 
 
 async def run_repl(console: TrioInteractiveConsole) -> None:
