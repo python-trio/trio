@@ -986,7 +986,11 @@ def open_nursery(
     new `Nursery`.
 
     It does not block on entry; on exit it blocks until all child tasks
-    have exited.
+    have exited. If no child tasks are running on exit, it will insert a
+    schedule point (but no cancellation point) - equivalent to
+    :func:`trio.lowlevel.cancel_shielded_checkpoint`. This means a nursery
+    is never the source of a cancellation exception, it only propagates it
+    from sub-tasks.
 
     Args:
       strict_exception_groups (bool): Unless set to False, even a single raised exception
