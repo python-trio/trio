@@ -10,7 +10,6 @@ from typing import (
     Literal,
     Pattern,
     Sequence,
-    TypeVar,
     cast,
     overload,
 )
@@ -26,12 +25,16 @@ if TYPE_CHECKING:
     import types
 
     from _pytest._code.code import ExceptionChainRepr, ReprExceptionInfo, Traceback
-    from typing_extensions import TypeGuard
+    from typing_extensions import TypeGuard, TypeVar
+
+    E = TypeVar("E", bound=BaseException, default=BaseException, covariant=True)
+else:
+    from typing import TypeVar
+
+    E = TypeVar("E", bound=BaseException, covariant=True)
 
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
-
-E = TypeVar("E", bound=BaseException, covariant=True)
 
 
 @final
