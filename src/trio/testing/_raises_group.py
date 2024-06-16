@@ -233,7 +233,7 @@ class Matcher(Generic[MatchE]):
             return False
         # If exception_type is None check() accepts BaseException.
         # If non-none, we have done an isinstance check above.
-        if self.check is not None and not self.check(cast(E, exception)):
+        if self.check is not None and not self.check(cast(MatchE, exception)):
             return False
         return True
 
