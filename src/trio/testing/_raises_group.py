@@ -36,6 +36,7 @@ else:
     MatchE = TypeVar("MatchE", bound=BaseException, covariant=True)
 # RaisesGroup doesn't work with a default.
 E = TypeVar("E", bound=BaseException, covariant=True)
+# These two typevars are special cased in sphinx config to workaround lookup bugs.
 
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
@@ -64,6 +65,7 @@ class _ExceptionInfo(Generic[MatchE]):
         """Return an unfilled ExceptionInfo."""
         return cls(None)
 
+    # Note, special cased in sphinx config, since "type" conflicts.
     @property
     def type(self) -> type[MatchE]:
         """The exception class."""

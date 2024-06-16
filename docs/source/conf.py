@@ -113,8 +113,10 @@ def autodoc_process_signature(
         # name.
         assert isinstance(obj, property), obj
         assert isinstance(obj.fget, types.FunctionType), obj.fget
-        assert obj.fget.__annotations__["return"] == "type[E]", obj.fget.__annotations__
-        obj.fget.__annotations__["return"] = "type[~trio.testing._raises_group.E]"
+        assert (
+            obj.fget.__annotations__["return"] == "type[MatchE]"
+        ), obj.fget.__annotations__
+        obj.fget.__annotations__["return"] = "type[~trio.testing._raises_group.MatchE]"
     if signature is not None:
         signature = signature.replace("~_contextvars.Context", "~contextvars.Context")
         if name == "trio.lowlevel.RunVar":  # Typevar is not useful here.
@@ -123,13 +125,15 @@ def autodoc_process_signature(
             # Strip the type from the union, make it look like = ...
             signature = signature.replace(" | type[trio._core._local._NoValue]", "")
             signature = signature.replace("<class 'trio._core._local._NoValue'>", "...")
-        if (
-            name in ("trio.testing.RaisesGroup", "trio.testing.Matcher")
-            and "+E" in signature
+        if name in ("trio.testing.RaisesGroup", "trio.testing.Matcher") and (
+            "+E" in signature or "+MatchE" in signature
         ):
             # This typevar being covariant isn't handled correctly in some cases, strip the +
             # and insert the fully-qualified name.
             signature = signature.replace("+E", "~trio.testing._raises_group.E")
+            signature = signature.replace(
+                "+MatchE", "~trio.testing._raises_group.MatchE"
+            )
         if "DTLS" in name:
             signature = signature.replace("SSL.Context", "OpenSSL.SSL.Context")
         # Don't specify PathLike[str] | PathLike[bytes], this is just for humans.
