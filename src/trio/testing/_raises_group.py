@@ -15,7 +15,7 @@ from typing import (
 )
 
 from trio._deprecate import warn_deprecated
-from trio._util import EmptySuperclass, final
+from trio._util import final
 
 if TYPE_CHECKING:
     import builtins
@@ -108,7 +108,7 @@ class _ExceptionInfo(Generic[MatchE]):
         showlocals: bool = False,
         style: str = "long",
         abspath: bool = False,
-        tbfilter: bool | Callable[[_ExceptionInfo[BaseException]], Traceback] = True,
+        tbfilter: bool | Callable[[_ExceptionInfo], Traceback] = True,
         funcargs: bool = False,
         truncate_locals: bool = True,
         chain: bool = True,
@@ -268,14 +268,12 @@ class Matcher(Generic[MatchE]):
 if TYPE_CHECKING:
     SuperClass = BaseExceptionGroup
 else:
-    # At runtime, just discard this base class.
-    SuperClass = EmptySuperclass()
+    # At runtime, use a redundant Generic base class which effectively gets ignored.
+    SuperClass = Generic
 
 
 @final
-class RaisesGroup(
-    SuperClass[E], ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], Generic[E]
-):
+class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperClass[E]):
     """Contextmanager for checking for an expected `ExceptionGroup`.
     This works similar to ``pytest.raises``, and a version of it will hopefully be added upstream, after which this can be deprecated and removed. See https://github.com/pytest-dev/pytest/issues/11538
 

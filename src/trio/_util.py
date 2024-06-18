@@ -203,23 +203,6 @@ def coroutine_or_error(
     return coro
 
 
-class EmptySuperclass:
-    """Used as a runtime placeholder for classes which should be imported only during TYPE_CHECKING.
-
-    This can be subscripted with anything, then gets discarded entirely from the base classes list.
-    """
-
-    def __getitem__(self, item: object) -> EmptySuperclass:
-        return self
-
-    def __mro_entries__(
-        self,
-        bases: tuple[type[object], ...],
-    ) -> tuple[type[object], ...]:
-        """This is discarded."""
-        return ()
-
-
 class ConflictDetector:
     """Detect when two tasks are about to perform operations that would
     conflict.
