@@ -10,7 +10,6 @@ from typing import (
     Literal,
     Pattern,
     Sequence,
-    TypeVar,
     cast,
     overload,
 )
@@ -26,35 +25,49 @@ if TYPE_CHECKING:
     import types
 
     from _pytest._code.code import ExceptionChainRepr, ReprExceptionInfo, Traceback
-    from typing_extensions import TypeGuard
+    from typing_extensions import TypeGuard, TypeVar
+
+    MatchE = TypeVar(
+        "MatchE", bound=BaseException, default=BaseException, covariant=True
+    )
+else:
+    from typing import TypeVar
+
+    MatchE = TypeVar("MatchE", bound=BaseException, covariant=True)
+# RaisesGroup doesn't work with a default.
+E = TypeVar("E", bound=BaseException, covariant=True)
+# These two typevars are special cased in sphinx config to workaround lookup bugs.
 
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
 
-E = TypeVar("E", bound=BaseException, covariant=True)
-
 
 @final
-class _ExceptionInfo(Generic[E]):
+class _ExceptionInfo(Generic[MatchE]):
     """Minimal re-implementation of pytest.ExceptionInfo, only used if pytest is not available. Supports a subset of its features necessary for functionality of :class:`trio.testing.RaisesGroup` and :class:`trio.testing.Matcher`."""
 
-    _excinfo: tuple[type[E], E, types.TracebackType] | None
+    _excinfo: tuple[type[MatchE], MatchE, types.TracebackType] | None
 
-    def __init__(self, excinfo: tuple[type[E], E, types.TracebackType] | None):
+    def __init__(
+        self, excinfo: tuple[type[MatchE], MatchE, types.TracebackType] | None
+    ):
         self._excinfo = excinfo
 
-    def fill_unfilled(self, exc_info: tuple[type[E], E, types.TracebackType]) -> None:
+    def fill_unfilled(
+        self, exc_info: tuple[type[MatchE], MatchE, types.TracebackType]
+    ) -> None:
         """Fill an unfilled ExceptionInfo created with ``for_later()``."""
         assert self._excinfo is None, "ExceptionInfo was already filled"
         self._excinfo = exc_info
 
     @classmethod
-    def for_later(cls) -> _ExceptionInfo[E]:
+    def for_later(cls) -> _ExceptionInfo[MatchE]:
         """Return an unfilled ExceptionInfo."""
         return cls(None)
 
+    # Note, special cased in sphinx config, since "type" conflicts.
     @property
-    def type(self) -> type[E]:
+    def type(self) -> type[MatchE]:
         """The exception class."""
         assert (
             self._excinfo is not None
@@ -62,7 +75,7 @@ class _ExceptionInfo(Generic[E]):
         return self._excinfo[0]
 
     @property
-    def value(self) -> E:
+    def value(self) -> MatchE:
         """The exception value."""
         assert (
             self._excinfo is not None
@@ -95,7 +108,7 @@ class _ExceptionInfo(Generic[E]):
         showlocals: bool = False,
         style: str = "long",
         abspath: bool = False,
-        tbfilter: bool | Callable[[_ExceptionInfo[BaseException]], Traceback] = True,
+        tbfilter: bool | Callable[[_ExceptionInfo], Traceback] = True,
         funcargs: bool = False,
         truncate_locals: bool = True,
         chain: bool = True,
@@ -135,7 +148,7 @@ _regex_no_flags = re.compile("").flags
 
 
 @final
-class Matcher(Generic[E]):
+class Matcher(Generic[MatchE]):
     """Helper class to be used together with RaisesGroups when you want to specify requirements on sub-exceptions. Only specifying the type is redundant, and it's also unnecessary when the type is a nested `RaisesGroup` since it supports the same arguments.
     The type is checked with `isinstance`, and does not need to be an exact match. If that is wanted you can use the ``check`` parameter.
     :meth:`trio.testing.Matcher.matches` can also be used standalone to check individual exceptions.
@@ -154,10 +167,10 @@ class Matcher(Generic[E]):
     # At least one of the three parameters must be passed.
     @overload
     def __init__(
-        self: Matcher[E],
-        exception_type: type[E],
+        self: Matcher[MatchE],
+        exception_type: type[MatchE],
         match: str | Pattern[str] = ...,
-        check: Callable[[E], bool] = ...,
+        check: Callable[[MatchE], bool] = ...,
     ): ...
 
     @overload
@@ -174,9 +187,9 @@ class Matcher(Generic[E]):
 
     def __init__(
         self,
-        exception_type: type[E] | None = None,
+        exception_type: type[MatchE] | None = None,
         match: str | Pattern[str] | None = None,
-        check: Callable[[E], bool] | None = None,
+        check: Callable[[MatchE], bool] | None = None,
     ):
         if exception_type is None and match is None and check is None:
             raise ValueError("You must specify at least one parameter to match on.")
@@ -192,7 +205,7 @@ class Matcher(Generic[E]):
             self.match = match
         self.check = check
 
-    def matches(self, exception: BaseException) -> TypeGuard[E]:
+    def matches(self, exception: BaseException) -> TypeGuard[MatchE]:
         """Check if an exception matches the requirements of this Matcher.
 
         Examples::
@@ -220,7 +233,7 @@ class Matcher(Generic[E]):
             return False
         # If exception_type is None check() accepts BaseException.
         # If non-none, we have done an isinstance check above.
-        if self.check is not None and not self.check(cast(E, exception)):
+        if self.check is not None and not self.check(cast(MatchE, exception)):
             return False
         return True
 
@@ -254,8 +267,8 @@ class Matcher(Generic[E]):
 # We lie to type checkers that we inherit, so excinfo.value and sub-exceptiongroups can be treated as ExceptionGroups
 if TYPE_CHECKING:
     SuperClass = BaseExceptionGroup
-# Inheriting at runtime leads to a series of TypeErrors, so we do not want to do that.
 else:
+    # At runtime, use a redundant Generic base class which effectively gets ignored.
     SuperClass = Generic
 
 

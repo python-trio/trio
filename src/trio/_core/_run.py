@@ -21,7 +21,6 @@ from typing import (
     Final,
     NoReturn,
     Protocol,
-    TypeVar,
     cast,
     overload,
 )
@@ -54,12 +53,6 @@ from ._traps import (
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
 
-FnT = TypeVar("FnT", bound="Callable[..., Any]")
-StatusT = TypeVar("StatusT")
-StatusT_co = TypeVar("StatusT_co", covariant=True)
-StatusT_contra = TypeVar("StatusT_contra", contravariant=True)
-RetT = TypeVar("RetT")
-
 
 if TYPE_CHECKING:
     import contextvars
@@ -77,9 +70,19 @@ if TYPE_CHECKING:
     # for some strange reason Sphinx works with outcome.Outcome, but not Outcome, in
     # start_guest_run. Same with types.FrameType in iter_await_frames
     import outcome
-    from typing_extensions import Self, TypeVarTuple, Unpack
+    from typing_extensions import Self, TypeVar, TypeVarTuple, Unpack
 
     PosArgT = TypeVarTuple("PosArgT")
+    StatusT = TypeVar("StatusT", default=None)
+    StatusT_contra = TypeVar("StatusT_contra", contravariant=True, default=None)
+else:
+    from typing import TypeVar
+
+    StatusT = TypeVar("StatusT")
+    StatusT_contra = TypeVar("StatusT_contra", contravariant=True)
+
+FnT = TypeVar("FnT", bound="Callable[..., Any]")
+RetT = TypeVar("RetT")
 
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: Final = 1000

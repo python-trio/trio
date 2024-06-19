@@ -37,6 +37,14 @@ def check_inheritance_and_assignments() -> None:
     assert a
 
 
+def check_matcher_typevar_default(e: Matcher) -> object:
+    assert e.exception_type is not None
+    exc: type[BaseException] = e.exception_type
+    # this would previously pass, as the type would be `Any`
+    e.exception_type().blah()  # type: ignore
+    return exc  # Silence Pyright unused var warning
+
+
 def check_basic_contextmanager() -> None:
     # One level of Group is correctly translated - except it's a BaseExceptionGroup
     # instead of an ExceptionGroup.
