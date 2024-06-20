@@ -102,6 +102,8 @@ them. Here are the rules:
     only that one will act as a checkpoint. This is documented
     on a case-by-case basis.
 
+    * :func:`trio.open_nursery` is a further exception to this rule.
+
 * Third-party async functions / iterators / context managers can act
   as checkpoints; if you see ``await <something>`` or one of its
   friends, then that *might* be a checkpoint. So to be safe, you
