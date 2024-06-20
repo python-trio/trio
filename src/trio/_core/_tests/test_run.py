@@ -643,6 +643,17 @@ async def test_relative_timeout(mock_clock: _core.MockClock) -> None:
         mock_clock.jump(1)
         assert scope.relative_deadline == 2
 
+    # no deadline / infinite deadline
+    with _core.CancelScope() as scope:
+        assert scope.deadline == inf
+        assert scope.relative_deadline is None
+
+    start = _core.current_time()
+    with _core.CancelScope(relative_deadline=1) as scope:
+        assert scope.deadline == start + 1
+        scope.relative_deadline = None
+        assert scope.deadline == inf
+
 
 async def test_cancel_scope_nesting() -> None:
     # Nested scopes: if two triggering at once, the outer one wins
