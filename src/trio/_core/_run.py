@@ -540,6 +540,11 @@ class CancelScope:
 
     # Constructor arguments:
     _deadline: float = attrs.field(default=inf, kw_only=True, alias="deadline")
+    # use float|None, or math.inf?
+    # or take it as an opportunity to also introduce deadline=None?
+    _relative_deadline: float | None = attrs.field(
+        default=None, kw_only=True, alias="relative_deadline"
+    )
     _shield: bool = attrs.field(default=False, kw_only=True, alias="shield")
 
     @enable_ki_protection
@@ -550,6 +555,13 @@ class CancelScope:
                 "Each CancelScope may only be used for a single 'with' block"
             )
         self._has_been_entered = True
+
+        if self._relative_deadline is not None:
+            if self._relative_deadline + current_time() < self._deadline:
+                self._deadline = self._relative_deadline + current_time()
+            else:
+                self._relative_deadline = self.deadline - current_time()
+
         if current_time() >= self._deadline:
             self.cancel()
         with self._might_change_registered_deadline():
@@ -743,6 +755,25 @@ class CancelScope:
     def deadline(self, new_deadline: float) -> None:
         with self._might_change_registered_deadline():
             self._deadline = float(new_deadline)
+
+    @property
+    def relative_deadline(self) -> float | None:
+        """TODO: write docstring"""
+        if self._has_been_entered:
+            if self.deadline == inf:
+                return None
+            return self._deadline - current_time()
+        return self._relative_deadline
+
+    @relative_deadline.setter
+    def relative_deadline(self, relative_deadline: float | None) -> None:
+        self._relative_deadline = relative_deadline
+        if self._has_been_entered:
+            with self._might_change_registered_deadline():
+                if relative_deadline is None:
+                    self._deadline = inf
+                else:
+                    self._deadline = current_time() + relative_deadline
 
     @property
     def shield(self) -> bool:

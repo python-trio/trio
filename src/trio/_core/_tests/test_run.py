@@ -601,6 +601,49 @@ async def test_basic_timeout(mock_clock: _core.MockClock) -> None:
             await _core.checkpoint()
 
 
+async def test_relative_timeout(mock_clock: _core.MockClock) -> None:
+    # test defaults
+    scope = _core.CancelScope()
+    assert scope.deadline == inf
+    assert scope.relative_deadline is None
+
+    # setting relative_deadline before entering does not modify deadline
+    scope.relative_deadline = 1
+    assert scope.deadline == inf
+    assert scope.relative_deadline == 1
+
+    # check that setting either deadline updates the other (after entering)
+    start = _core.current_time()
+    with scope:
+        assert scope.deadline == start + 1
+        scope.relative_deadline = 2
+        assert scope.deadline == start + 2
+        scope.deadline = start + 3
+        assert scope.relative_deadline == 3
+
+    # relative_deadline < deadline, deadline is updated
+    with _core.CancelScope(relative_deadline=1, deadline=start + 2) as scope:
+        assert scope.deadline == start + 1
+        assert scope.relative_deadline == 1
+
+    # deadline < relative_deadline, relative_deadline is updated
+    with _core.CancelScope(relative_deadline=2, deadline=start + 1):
+        assert scope.deadline == start + 1
+        assert scope.relative_deadline == 1
+
+    # once entered, accessing relative_deadline returns deadline-now()
+    # and setting it calculates it relative to now()
+    start = _core.current_time()
+    with _core.CancelScope(relative_deadline=3) as scope:
+        mock_clock.jump(1)
+        assert scope.relative_deadline == 2
+        mock_clock.jump(1)
+        assert scope.relative_deadline == 1
+        scope.relative_deadline = 3
+        mock_clock.jump(1)
+        assert scope.relative_deadline == 2
+
+
 async def test_cancel_scope_nesting() -> None:
     # Nested scopes: if two triggering at once, the outer one wins
     with _core.CancelScope() as scope1:

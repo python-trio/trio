@@ -129,3 +129,23 @@ async def test_timeouts_raise_value_error() -> None:
         ):
             with cm(val):
                 pass  # pragma: no cover
+
+
+async def test_timeout_deadline_on_entry(mock_clock: _core.MockClock) -> None:
+    cs = move_on_after(5)
+    assert cs.relative_deadline == 5
+    mock_clock.jump(3)
+    start = _core.current_time()
+    with cs:
+        # This would previously be start+2
+        assert cs.deadline == start + 5
+        assert cs.relative_deadline == 5
+
+    # because fail_after is a wrapping contextmanager we cannot directly inspect
+    # cs_gen.relative_deadline before entering
+    cs_gen = fail_after(5)
+    mock_clock.jump(3)
+    start = _core.current_time()
+    with cs_gen as cs:
+        assert cs.deadline == start + 5
+        assert cs.relative_deadline == 5
