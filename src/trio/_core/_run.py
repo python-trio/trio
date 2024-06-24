@@ -550,6 +550,13 @@ class CancelScope:
     )
     _shield: bool = attrs.field(default=False, kw_only=True, alias="shield")
 
+    # introduced during deprecation period of handling relative timeouts from
+    # initialization
+    _timeout_from_enter: bool = attrs.field(
+        default=True, kw_only=True, alias="_timeout_from_enter"
+    )
+    _creation_time: float | None = attrs.field(default=None, alias="_creation_time")
+
     @enable_ki_protection
     def __enter__(self) -> Self:
         task = _core.current_task()
@@ -557,13 +564,38 @@ class CancelScope:
             raise RuntimeError(
                 "Each CancelScope may only be used for a single 'with' block"
             )
+
+        if (
+            self._creation_time is not None
+            and abs(self._creation_time - current_time()) > 0.01
+            and not self._timeout_from_enter
+        ):
+            # not using warn_deprecated because the message template is a weird fit
+            # TODO: mention versions in the message?
+            warnings.warn(
+                DeprecationWarning(
+                    "`move_on_after` and `fail_after` will change behaviour to "
+                    "start the deadline relative to entering the cm, instead of "
+                    "at creation time. To silence this warning and opt into the "
+                    "new behaviour, pass `timeout_from_enter=True`. "
+                    "To keep old behaviour, use `move_on_at(trio.current_time() + x)` "
+                    "(or `fail_at`), where `x` is the previous timeout length. "
+                    "See https://github.com/python-trio/trio/issues/2512"
+                ),
+                stacklevel=2,
+            )
+            assert (
+                self._relative_deadline is not None
+            ), "User is manually passing `_timeout_from_enter=False`. Don't do that."
+            self._relative_deadline -= current_time() - self._creation_time
+
         self._has_been_entered = True
 
-        if self._relative_deadline is not None:
-            if self._relative_deadline + current_time() < self._deadline:
-                self._deadline = self._relative_deadline + current_time()
-            else:
-                self._relative_deadline = self.deadline - current_time()
+        if (
+            self._relative_deadline is not None
+            and self._relative_deadline + current_time() < self._deadline
+        ):
+            self._deadline = self._relative_deadline + current_time()
 
         if current_time() >= self._deadline:
             self.cancel()

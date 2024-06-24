@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import math
-from contextlib import contextmanager
-from typing import TYPE_CHECKING
+from contextlib import AbstractContextManager, contextmanager
+from typing import TYPE_CHECKING, TypeVar
 
 import trio
 
+from ._util import final
+
+T = TypeVar("T")
+
 if TYPE_CHECKING:
     from collections.abc import Generator
+    from types import TracebackType
 
 
 def move_on_at(deadline: float) -> trio.CancelScope:
@@ -26,7 +31,12 @@ def move_on_at(deadline: float) -> trio.CancelScope:
     return trio.CancelScope(deadline=deadline)
 
 
-def move_on_after(seconds: float) -> trio.CancelScope:
+def move_on_after(
+    seconds: float,
+    *,
+    timeout_from_enter: bool = False,
+    _creation_time: float | None = None,
+) -> trio.CancelScope:
     """Use as a context manager to create a cancel scope whose deadline is
     set to creation time + *seconds*.
 
@@ -41,7 +51,13 @@ def move_on_after(seconds: float) -> trio.CancelScope:
         raise ValueError("timeout must be non-negative")
     if math.isnan(seconds):
         raise ValueError("timeout must not be NaN")
-    return trio.CancelScope(relative_deadline=seconds)
+    if _creation_time is None:
+        _creation_time = trio.current_time()
+    return trio.CancelScope(
+        relative_deadline=seconds,
+        _timeout_from_enter=timeout_from_enter,
+        _creation_time=_creation_time,
+    )
 
 
 async def sleep_forever() -> None:
@@ -127,8 +143,14 @@ def fail_at(deadline: float) -> Generator[trio.CancelScope, None, None]:
         raise TooSlowError
 
 
-@contextmanager
-def fail_after(seconds: float) -> Generator[trio.CancelScope, None, None]:
+# This was previously a simple @contextmanager-based cm, but in order to save
+# the current time at initialization it needed to be class-based.
+# Once that change of behaviour has gone through and the old functionality is removed
+# it can be reverted.
+
+
+@final
+class fail_after(AbstractContextManager[trio.CancelScope]):
     """Creates a cancel scope with the given timeout, and raises an error if
     it is actually cancelled.
 
@@ -151,7 +173,30 @@ def fail_after(seconds: float) -> Generator[trio.CancelScope, None, None]:
       ValueError: if *seconds* is less than zero or NaN.
 
     """
-    with move_on_after(seconds) as scope:
-        yield scope
-    if scope.cancelled_caught:
-        raise TooSlowError
+
+    def __init__(self, seconds: float, *, timeout_from_enter: bool = False):
+        self.seconds = seconds
+        self.timeout_from_enter = timeout_from_enter
+        self._creation_time = trio.current_time()
+        self.scope: trio.CancelScope | None = None
+
+    def __enter__(self) -> trio.CancelScope:
+        self.scope = trio.move_on_after(
+            self.seconds,
+            timeout_from_enter=self.timeout_from_enter,
+            _creation_time=self._creation_time,
+        )
+        return self.scope.__enter__()
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> bool | None:
+        if self.scope is None:
+            raise RuntimeError("__exit__ called before __enter__")
+        result = self.scope.__exit__(exc_type, exc_value, traceback)
+        if self.scope.cancelled_caught:
+            raise TooSlowError
+        return result

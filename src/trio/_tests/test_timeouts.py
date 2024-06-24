@@ -135,7 +135,7 @@ async def test_timeouts_raise_value_error() -> None:
 
 
 async def test_timeout_deadline_on_entry(mock_clock: _core.MockClock) -> None:
-    cs = move_on_after(5)
+    cs = move_on_after(5, timeout_from_enter=True)
     assert cs.relative_deadline == 5
     mock_clock.jump(3)
     start = _core.current_time()
@@ -146,9 +146,26 @@ async def test_timeout_deadline_on_entry(mock_clock: _core.MockClock) -> None:
 
     # because fail_after is a wrapping contextmanager we cannot directly inspect
     # cs_gen.relative_deadline before entering
-    cs_gen = fail_after(5)
+    cs_gen = fail_after(5, timeout_from_enter=True)
     mock_clock.jump(3)
     start = _core.current_time()
     with cs_gen as cs:
         assert cs.deadline == start + 5
         assert cs.relative_deadline == 5
+
+
+async def test_timeout_deadline_not_on_entry(mock_clock: _core.MockClock) -> None:
+    """Test that not setting timeout_from_enter gives a DeprecationWarning and
+    retains old behaviour."""
+    with pytest.warns(DeprecationWarning, match="issues/2512"):
+        cs = move_on_after(5)
+        mock_clock.jump(3)
+        with cs:
+            assert cs.deadline - _core.current_time() == 2
+            assert cs.relative_deadline == 2
+    with pytest.warns(DeprecationWarning, match="issues/2512"):
+        cs_gen = fail_after(5)
+        mock_clock.jump(3)
+        with cs_gen as cs:
+            assert cs.deadline - _core.current_time() == 2
+            assert cs.relative_deadline == 2
