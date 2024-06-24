@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from contextlib import AbstractContextManager, contextmanager
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, TypeVar
 
 import trio
@@ -150,7 +150,7 @@ def fail_at(deadline: float) -> Generator[trio.CancelScope, None, None]:
 
 
 @final
-class fail_after(AbstractContextManager[trio.CancelScope]):
+class fail_after:
     """Creates a cancel scope with the given timeout, and raises an error if
     it is actually cancelled.
 
@@ -175,18 +175,18 @@ class fail_after(AbstractContextManager[trio.CancelScope]):
     """
 
     def __init__(self, seconds: float, *, timeout_from_enter: bool = False):
-        self.seconds = seconds
-        self.timeout_from_enter = timeout_from_enter
+        self._seconds = seconds
+        self._timeout_from_enter = timeout_from_enter
         self._creation_time = trio.current_time()
-        self.scope: trio.CancelScope | None = None
+        self._scope: trio.CancelScope | None = None
 
     def __enter__(self) -> trio.CancelScope:
-        self.scope = trio.move_on_after(
-            self.seconds,
-            timeout_from_enter=self.timeout_from_enter,
+        self._scope = trio.move_on_after(
+            self._seconds,
+            timeout_from_enter=self._timeout_from_enter,
             _creation_time=self._creation_time,
         )
-        return self.scope.__enter__()
+        return self._scope.__enter__()
 
     def __exit__(
         self,
@@ -194,9 +194,9 @@ class fail_after(AbstractContextManager[trio.CancelScope]):
         exc_value: BaseException | None,
         traceback: TracebackType | None,
     ) -> bool | None:
-        if self.scope is None:
+        if self._scope is None:
             raise RuntimeError("__exit__ called before __enter__")
-        result = self.scope.__exit__(exc_type, exc_value, traceback)
-        if self.scope.cancelled_caught:
+        result = self._scope.__exit__(exc_type, exc_value, traceback)
+        if self._scope.cancelled_caught:
             raise TooSlowError
         return result
