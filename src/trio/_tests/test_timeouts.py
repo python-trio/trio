@@ -6,7 +6,15 @@ import pytest
 
 from .. import _core
 from .._core._tests.tutil import slow
-from .._timeouts import *
+from .._timeouts import (
+    TooSlowError,
+    fail_after,
+    fail_at,
+    move_on_after,
+    move_on_at,
+    sleep,
+    sleep_until,
+)
 from ..testing import assert_checkpoints
 
 T = TypeVar("T")

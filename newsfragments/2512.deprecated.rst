@@ -1,6 +1,6 @@
 :func:`trio.move_on_after` and :func:`trio.fail_after` previously set the deadline relative to initialization time, instead of more intuitively upon entering the context manager. Any code where these two points in time do not line up (according to :func:`trio.current_time`) will now issue a `DeprecationWarning`. To silence the warning and adopt the new behaviour, pass ``timeout_from_enter = True``. If you want to retain current behaviour, you should instead use :func:`trio.move_on_at`/:func:`trio.fail_at`. For example:
 
-.. code-block:: python3
+.. code-block:: python
 
     # this is equivalent to how trio.move_on_after(5) would function previously
     cs = trio.move_on_at(trio.current_time() + 5)

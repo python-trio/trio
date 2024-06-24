@@ -2,13 +2,11 @@ from __future__ import annotations
 
 import math
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING
 
 import trio
 
 from ._util import final
-
-T = TypeVar("T")
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -194,7 +192,7 @@ class fail_after:
         exc_value: BaseException | None,
         traceback: TracebackType | None,
     ) -> bool | None:
-        if self._scope is None:
+        if self._scope is None:  # pragma: no cover
             raise RuntimeError("__exit__ called before __enter__")
         result = self._scope.__exit__(exc_type, exc_value, traceback)
         if self._scope.cancelled_caught:
