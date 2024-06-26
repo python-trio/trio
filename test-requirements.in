@@ -15,7 +15,8 @@ mypy; implementation_name == "cpython"
 types-pyOpenSSL; implementation_name == "cpython" # and annotations
 ruff >= 0.4.3
 astor          # code generation
-uv >= 0.1.26
+#uv >= 0.1.26
+uv @ git+https://github.com/astral-sh/uv@ca92b55605fe37c354f42e1126185cae6e8d0d66
 codespell
 
 # https://github.com/python-trio/trio/pull/654#issuecomment-420518745
