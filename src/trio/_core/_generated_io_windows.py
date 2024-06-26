@@ -3,6 +3,7 @@
 # *************************************************************
 from __future__ import annotations
 
+import sys
 from typing import TYPE_CHECKING, ContextManager
 
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
@@ -14,7 +15,6 @@ if TYPE_CHECKING:
     from .._file_io import _HasFileNo
     from ._unbounded_queue import UnboundedQueue
     from ._windows_cffi import CData, Handle
-import sys
 
 assert not TYPE_CHECKING or sys.platform == "win32"
 
@@ -54,7 +54,7 @@ async def wait_readable(sock: _HasFileNo | int) -> None:
         if another task calls :func:`notify_closing` while this
         function is still working.
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_readable(sock)
     except AttributeError:
@@ -73,7 +73,7 @@ async def wait_writable(sock: _HasFileNo | int) -> None:
         if another task calls :func:`notify_closing` while this
         function is still working.
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_writable(sock)
     except AttributeError:
@@ -105,7 +105,7 @@ def notify_closing(handle: Handle | int | _HasFileNo) -> None:
     step, so other tasks won't be able to tell what order they happened
     in anyway.
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.notify_closing(handle)
     except AttributeError:
@@ -118,7 +118,7 @@ def register_with_iocp(handle: int | CData) -> None:
     <https://github.com/python-trio/trio/issues/26>`__ and `#52
     <https://github.com/python-trio/trio/issues/52>`__.
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.register_with_iocp(handle)
     except AttributeError:
@@ -131,7 +131,7 @@ async def wait_overlapped(handle_: int | CData, lpOverlapped: CData | int) -> ob
     <https://github.com/python-trio/trio/issues/26>`__ and `#52
     <https://github.com/python-trio/trio/issues/52>`__.
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_overlapped(
             handle_, lpOverlapped
@@ -148,7 +148,7 @@ async def write_overlapped(
     <https://github.com/python-trio/trio/issues/26>`__ and `#52
     <https://github.com/python-trio/trio/issues/52>`__.
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.write_overlapped(
             handle, data, file_offset
@@ -165,7 +165,7 @@ async def readinto_overlapped(
     <https://github.com/python-trio/trio/issues/26>`__ and `#52
     <https://github.com/python-trio/trio/issues/52>`__.
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.readinto_overlapped(
             handle, buffer, file_offset
@@ -180,7 +180,7 @@ def current_iocp() -> int:
     <https://github.com/python-trio/trio/issues/26>`__ and `#52
     <https://github.com/python-trio/trio/issues/52>`__.
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.current_iocp()
     except AttributeError:
@@ -193,7 +193,7 @@ def monitor_completion_key() -> ContextManager[tuple[int, UnboundedQueue[object]
     <https://github.com/python-trio/trio/issues/26>`__ and `#52
     <https://github.com/python-trio/trio/issues/52>`__.
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.monitor_completion_key()
     except AttributeError:

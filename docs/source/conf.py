@@ -21,6 +21,7 @@ from __future__ import annotations
 import collections.abc
 import os
 import sys
+import types
 from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
@@ -98,7 +99,7 @@ autodoc_type_aliases = {
 # https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html#event-autodoc-process-signature
 def autodoc_process_signature(
     app: Sphinx,
-    what: object,
+    what: str,
     name: str,
     obj: object,
     options: object,
@@ -106,6 +107,16 @@ def autodoc_process_signature(
     return_annotation: str,
 ) -> tuple[str, str]:
     """Modify found signatures to fix various issues."""
+    if name == "trio.testing._raises_group._ExceptionInfo.type":
+        # This has the type "type[E]", which gets resolved into the property itself.
+        # That means Sphinx can't resolve it. Fix the issue by overwriting with a fully-qualified
+        # name.
+        assert isinstance(obj, property), obj
+        assert isinstance(obj.fget, types.FunctionType), obj.fget
+        assert (
+            obj.fget.__annotations__["return"] == "type[MatchE]"
+        ), obj.fget.__annotations__
+        obj.fget.__annotations__["return"] = "type[~trio.testing._raises_group.MatchE]"
     if signature is not None:
         signature = signature.replace("~_contextvars.Context", "~contextvars.Context")
         if name == "trio.lowlevel.RunVar":  # Typevar is not useful here.
@@ -114,6 +125,15 @@ def autodoc_process_signature(
             # Strip the type from the union, make it look like = ...
             signature = signature.replace(" | type[trio._core._local._NoValue]", "")
             signature = signature.replace("<class 'trio._core._local._NoValue'>", "...")
+        if name in ("trio.testing.RaisesGroup", "trio.testing.Matcher") and (
+            "+E" in signature or "+MatchE" in signature
+        ):
+            # This typevar being covariant isn't handled correctly in some cases, strip the +
+            # and insert the fully-qualified name.
+            signature = signature.replace("+E", "~trio.testing._raises_group.E")
+            signature = signature.replace(
+                "+MatchE", "~trio.testing._raises_group.MatchE"
+            )
         if "DTLS" in name:
             signature = signature.replace("SSL.Context", "OpenSSL.SSL.Context")
         # Don't specify PathLike[str] | PathLike[bytes], this is just for humans.
@@ -150,6 +170,8 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinxcontrib_trio",
     "sphinxcontrib.jquery",
+    "hoverxref.extension",
+    "sphinx_codeautolink",
     "local_customization",
     "typevars",
 ]
@@ -159,7 +181,33 @@ intersphinx_mapping = {
     "outcome": ("https://outcome.readthedocs.io/en/latest/", None),
     "pyopenssl": ("https://www.pyopenssl.org/en/stable/", None),
     "sniffio": ("https://sniffio.readthedocs.io/en/latest/", None),
+    "trio-util": ("https://trio-util.readthedocs.io/en/latest/", None),
 }
+
+# See https://sphinx-hoverxref.readthedocs.io/en/latest/configuration.html
+hoverxref_auto_ref = True
+hoverxref_domains = ["py"]
+# Set the default style (tooltip) for all types to silence logging.
+# See https://github.com/readthedocs/sphinx-hoverxref/issues/211
+hoverxref_role_types = {
+    "attr": "tooltip",
+    "class": "tooltip",
+    "const": "tooltip",
+    "exc": "tooltip",
+    "func": "tooltip",
+    "meth": "tooltip",
+    "mod": "tooltip",
+    "obj": "tooltip",
+    "ref": "tooltip",
+    "data": "tooltip",
+}
+
+# See https://sphinx-codeautolink.readthedocs.io/en/latest/reference.html#configuration
+codeautolink_autodoc_inject = False
+codeautolink_global_preface = """
+import trio
+from trio import *
+"""
 
 
 def add_intersphinx(app: Sphinx) -> None:

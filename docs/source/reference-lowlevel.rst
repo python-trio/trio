@@ -203,7 +203,9 @@ a stream.
 
 If you have two different file descriptors for sending and receiving,
 and want to bundle them together into a single bidirectional
-`~trio.abc.Stream`, then use `trio.StapledStream`::
+`~trio.abc.Stream`, then use `trio.StapledStream`:
+
+.. code-block:: python
 
     bidirectional_stream = trio.StapledStream(
         trio.lowlevel.FdStream(write_fd),
@@ -403,7 +405,9 @@ The next two functions are used *together* to make up a checkpoint:
 
 These are commonly used in cases where you have an operation that
 might-or-might-not block, and you want to implement Trio's standard
-checkpoint semantics. Example::
+checkpoint semantics. Example:
+
+.. code-block:: python
 
    async def operation_that_maybe_blocks():
        await checkpoint_if_cancelled()
@@ -464,7 +468,9 @@ non-blocking path, etc. If you really want to implement your own lock,
 then you should study the implementation of :class:`trio.Lock` and use
 :class:`ParkingLot`, which handles some of these issues for you. But
 this does serve to illustrate the basic structure of the
-:func:`wait_task_rescheduled` API::
+:func:`wait_task_rescheduled` API:
+
+.. code-block:: python
 
    class NotVeryGoodLock:
        def __init__(self):
@@ -596,7 +602,9 @@ like Qt. Its advantages are:
   from the host, and call sync host APIs from Trio. For example, if
   you're making a GUI app with Qt as the host loop, then making a
   `cancel button <https://doc.qt.io/qt-5/qpushbutton.html>`__ and
-  connecting it to a `trio.CancelScope` is as easy as writing::
+  connecting it to a `trio.CancelScope` is as easy as writing:
+
+  .. code-block:: python
 
       # Trio code can create Qt objects without any special ceremony...
       my_cancel_button = QPushButton("Cancel")
@@ -699,9 +707,12 @@ with your favorite event loop. Treat this section like a checklist.
 
 **Getting started:** The first step is to get something basic working.
 Here's a minimal example of running Trio on top of asyncio, that you
-can use as a model::
+can use as a model:
 
-    import asyncio, trio
+.. code-block:: python
+
+    import asyncio
+    import trio
 
     # A tiny Trio program
     async def trio_main():
@@ -811,7 +822,9 @@ Here's how we'd extend our asyncio example to implement this pattern:
        return trio_main_outcome.unwrap()
 
 And then you can encapsulate all this machinery in a utility function
-that exposes a `trio.run`-like API, but runs both loops together::
+that exposes a `trio.run`-like API, but runs both loops together:
+
+.. code-block:: python
 
    def trio_run_with_asyncio(trio_main, *args, **trio_run_kwargs):
        async def asyncio_main():

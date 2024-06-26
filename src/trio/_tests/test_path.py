@@ -122,7 +122,7 @@ async def test_async_method_signature(path: trio.Path) -> None:
     assert path.resolve.__qualname__ == "Path.resolve"
 
     assert path.resolve.__doc__ is not None
-    assert "pathlib.Path.resolve" in path.resolve.__doc__
+    assert path.resolve.__qualname__ in path.resolve.__doc__
 
 
 @pytest.mark.parametrize("method_name", ["is_dir", "is_file"])
@@ -252,3 +252,21 @@ async def test_classmethods() -> None:
 
     # Wrapped method has docstring
     assert trio.Path.home.__doc__
+
+
+@pytest.mark.parametrize(
+    "wrapper",
+    [
+        trio._path._wraps_async,
+        trio._path._wrap_method,
+        trio._path._wrap_method_path,
+        trio._path._wrap_method_path_iterable,
+    ],
+)
+def test_wrapping_without_docstrings(
+    wrapper: Callable[[Callable[[], None]], Callable[[], None]]
+) -> None:
+    @wrapper
+    def func_without_docstring() -> None: ...  # pragma: no cover
+
+    assert func_without_docstring.__doc__ is None
