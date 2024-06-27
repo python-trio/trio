@@ -726,7 +726,7 @@ async def _run_process(
     ) -> None:
         async with stream:
             async for chunk in stream:
-                chunks.append(chunk)
+                chunks.append(chunk)  # noqa: PERF401
 
     # Opening the process does not need to be inside the nursery, so we put it outside
     # so any exceptions get directly seen by users.

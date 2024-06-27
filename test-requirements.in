@@ -34,5 +34,5 @@ sortedcontainers
 idna
 outcome
 sniffio
-# 1.2.0 ships monkeypatching for apport excepthook
-exceptiongroup >= 1.2.0; python_version < "3.11"
+# 1.2.1 fixes types
+exceptiongroup >= 1.2.1; python_version < "3.11"

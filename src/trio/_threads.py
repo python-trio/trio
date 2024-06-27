@@ -367,6 +367,7 @@ async def to_thread_run_sync(  # type: ignore[misc]
             "0.23.0",
             issue=2841,
             instead="`abandon_on_cancel=`",
+            use_triodeprecationwarning=True,
         )
         abandon_on_cancel = cancellable
     # raise early if abandon_on_cancel.__bool__ raises
@@ -587,7 +588,8 @@ def from_thread_run(
           "foreign" thread, spawned using some other framework, and still want
           to enter Trio, or if you want to use a new system task to call ``afn``,
           maybe to avoid the cancellation context of a corresponding
-          `trio.to_thread.run_sync` task.
+          `trio.to_thread.run_sync` task. You can get this token from
+          :func:`trio.lowlevel.current_trio_token`.
     """
     return _send_message_to_trio(trio_token, Run(afn, args))
 

@@ -116,7 +116,9 @@ Python 3.5 added a major new feature: async functions. Using Trio is
 all about writing async functions, so let's start there.
 
 An async function is defined like a normal function, except you write
-``async def`` instead of ``def``::
+``async def`` instead of ``def``:
+
+.. code-block:: python
 
    # A regular function
    def regular_double(x):
@@ -138,12 +140,16 @@ async function and a regular function:
    ``await async_double(3)``.
 
 2. You can't use the ``await`` keyword inside the body of a regular
-   function. If you try it, you'll get a syntax error::
+   function. If you try it, you'll get a syntax error:
+
+   .. code-block:: python
 
       def print_double(x):
           print(await async_double(x))   # <-- SyntaxError here
 
-   But inside an async function, ``await`` is allowed::
+   But inside an async function, ``await`` is allowed:
+
+   .. code-block:: python
 
       async def print_double(x):
           print(await async_double(x))   # <-- OK!
@@ -183,7 +189,9 @@ things:
 
 1. A runner function, which is a special *synchronous* function that
    takes and calls an *asynchronous* function. In Trio, this is
-   ``trio.run``::
+   ``trio.run``:
+
+   .. code-block:: python
 
       import trio
 
@@ -208,7 +216,7 @@ things:
    :func:`trio.sleep`. (:func:`trio.sleep` is like :func:`time.sleep`,
    but with more async.)
 
-   .. code-block:: python3
+   .. code-block:: python
 
       import trio
 
@@ -254,7 +262,9 @@ little with writing simple async functions and running them with
 
 At some point in this process, you'll probably write some code like
 this, that tries to call an async function but leaves out the
-``await``::
+``await``:
+
+.. code-block:: python
 
    import time
    import trio
@@ -278,7 +288,7 @@ argument, then we would get a nice :exc:`TypeError` saying so. But
 unfortunately, if you forget an ``await``, you don't get that. What
 you actually get is:
 
-.. code-block:: none
+.. code-block:: pycon
 
    >>> trio.run(broken_double_sleep, 3)
    *yawn* Going to sleep
@@ -295,21 +305,20 @@ depends on the whims of the garbage collector. If you're using PyPy,
 you might not even get a warning at all until the next GC collection
 runs:
 
-.. code-block:: none
+.. code-block:: pycon
 
    # On PyPy:
-   >>>> trio.run(broken_double_sleep, 3)
+   >>> trio.run(broken_double_sleep, 3)
    *yawn* Going to sleep
    Woke up after 0.00 seconds, feeling well rested!
-   >>>> # what the ... ?? not even a warning!
+   >>> # what the ... ?? not even a warning!
 
-   >>>> # but forcing a garbage collection gives us a warning:
-   >>>> import gc
-   >>>> gc.collect()
+   >>> # but forcing a garbage collection gives us a warning:
+   >>> import gc
+   >>> gc.collect()
    /home/njs/pypy-3.8-nightly/lib-python/3/importlib/_bootstrap.py:191: RuntimeWarning: coroutine 'sleep' was never awaited
    if _module_locks.get(name) is wr:    # XXX PyPy fix?
    0
-   >>>>
 
 (If you can't see the warning above, try scrolling right.)
 
@@ -335,7 +344,9 @@ use ``await``. But Python's trying to keep its options open for other
 libraries that are *ahem* a little less organized about things. So
 while for our purposes we can think of ``await trio.sleep(...)`` as a
 single piece of syntax, Python thinks of it as two things: first a
-function call that returns this weird "coroutine" object::
+function call that returns this weird "coroutine" object:
+
+.. code-block:: pycon
 
    >>> trio.sleep(3)
    <coroutine object sleep at 0x7f5ac77be6d0>
@@ -343,7 +354,9 @@ function call that returns this weird "coroutine" object::
 and then that object gets passed to ``await``, which actually runs the
 function. So if you forget ``await``, then two bad things happen: your
 function doesn't actually get called, and you get a "coroutine" object
-where you might have been expecting something else, like a number::
+where you might have been expecting something else, like a number:
+
+.. code-block:: pycon
 
    >>> async_double(3) + 1
    TypeError: unsupported operand type(s) for +: 'coroutine' and 'int'
@@ -1024,7 +1037,9 @@ Flow control in our echo client and server
 Here's a question you might be wondering about: why does our client
 use two separate tasks for sending and receiving, instead of a single
 task that alternates between them – like the server has? For example,
-our client could use a single task like::
+our client could use a single task like:
+
+.. code-block:: python
 
    # Can you spot the two problems with this code?
    async def send_and_receive(client_stream):
@@ -1060,7 +1075,9 @@ backed up in the network, until eventually something breaks.
    a limit on how many bytes you read each time, and see what happens.
 
 We could fix this by keeping track of how much data we're expecting at
-each moment, and then keep calling ``receive_some`` until we get it all::
+each moment, and then keep calling ``receive_some`` until we get it all:
+
+.. code-block:: python
 
    expected = len(data)
    while expected > 0:
@@ -1154,7 +1171,9 @@ TODO: maybe a brief discussion of :exc:`KeyboardInterrupt` handling?
 
    XX todo
 
-   timeout example::
+   timeout example:
+
+   .. code-block:: python
 
       async def counter():
           for i in range(100000):

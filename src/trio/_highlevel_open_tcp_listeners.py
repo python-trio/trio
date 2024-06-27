@@ -56,6 +56,7 @@ def _compute_backlog(backlog: int | None) -> int:
             version="0.23.0",
             instead="None",
             issue=2842,
+            use_triodeprecationwarning=True,
         )
     if not isinstance(backlog, int) and backlog is not None:
         raise TypeError(f"backlog must be an int or None, not {backlog!r}")

@@ -3,6 +3,7 @@
 # *************************************************************
 from __future__ import annotations
 
+import sys
 from typing import TYPE_CHECKING
 
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
@@ -23,7 +24,7 @@ def add_instrument(instrument: Instrument) -> None:
     If ``instrument`` is already active, does nothing.
 
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.instruments.add_instrument(instrument)
     except AttributeError:
@@ -43,7 +44,7 @@ def remove_instrument(instrument: Instrument) -> None:
           deactivated.
 
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.instruments.remove_instrument(instrument)
     except AttributeError:
