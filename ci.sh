@@ -43,7 +43,7 @@ uv --version
 
 # expands to 0 != 1 if MAKE_VENV is not set, if set the `-0` has no effect
 # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_06_02
-if [ ${MAKE_VENV-0} == 1 ]; then
+if [ "${MAKE_VENV-0}" == 1 ]; then
     uv venv .venv --seed
 
     if [ $(python -c "import sys;print(sys.platform.startswith('win'))") = "True" ]; then
@@ -58,26 +58,27 @@ if [ ${MAKE_VENV-0} == 1 ]; then
     # Install uv in venv
     python -m pip install --upgrade uv
 fi
+PYTHON_PATH=$(which python)
 
-uv pip install build
+uv pip install --python=$PYTHON_PATH build
 
 python -m build
 wheel_package=$(ls dist/*.whl)
-uv pip install "trio @ $wheel_package"
+uv pip install --python=$PYTHON_PATH "trio @ $wheel_package"
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
-    uv pip install -r test-requirements.txt
+    uv pip install --python=$PYTHON_PATH -r test-requirements.txt
     echo "::endgroup::"
     source check.sh
 else
     # Actual tests
     # expands to 0 != 1 if NO_TEST_REQUIREMENTS is not set, if set the `-0` has no effect
     # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_06_02
-    if [ ${NO_TEST_REQUIREMENTS-0} == 1 ]; then
-        uv pip install pytest coverage
+    if [ "${NO_TEST_REQUIREMENTS-0}" == 1 ]; then
+        uv pip install --python=$PYTHON_PATH pytest coverage
         flags="--skip-optional-imports"
     else
-        uv pip install -r test-requirements.txt
+        uv pip install --python=$PYTHON_PATH -r test-requirements.txt
         flags=""
     fi
 
@@ -140,7 +141,7 @@ else
     cd empty
 
     INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
-    cp ../pyproject.toml $INSTALLDIR
+    cp ../pyproject.toml "$INSTALLDIR"
 
     # get mypy tests a nice cache
     MYPYPATH=".." mypy --config-file= --cache-dir=./.mypy_cache -c "import trio" >/dev/null 2>/dev/null || true
@@ -150,7 +151,7 @@ else
 
     echo "::endgroup::"
     echo "::group:: Run Tests"
-    if COVERAGE_PROCESS_START=$(pwd)/../pyproject.toml coverage run --rcfile=../pyproject.toml -m pytest -ra --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --verbose --durations=10 $flags; then
+    if COVERAGE_PROCESS_START=$(pwd)/../pyproject.toml coverage run --rcfile=../pyproject.toml -m pytest -ra --junitxml=../test-results.xml --run-slow "${INSTALLDIR}" --verbose --durations=10 $flags; then
         PASSED=true
     else
         PASSED=false
