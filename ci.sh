@@ -6,6 +6,8 @@ set -ex -o pipefail
 # used in test_exports and in check.sh
 export PYRIGHT_PYTHON_IGNORE_WARNINGS=1
 
+ON_WINDOWS=$(python -c "import sys;print(sys.platform.startswith('win'))")
+
 # Log some general info about the environment
 echo "::group::Environment"
 uname -a
@@ -37,25 +39,53 @@ python -c "import sys, struct, ssl; print('python:', sys.version); print('versio
 echo "::endgroup::"
 
 echo "::group::Install dependencies"
-python -m pip install -U pip build
+python -m pip install -U pip uv
 python -m pip --version
+uv --version
+
+# expands to 0 != 1 if MAKE_VENV is not set, if set the `-0` has no effect
+# https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_06_02
+if [ "${MAKE_VENV-0}" == 1 ]; then
+    uv venv .venv --seed
+
+    if [ "$ON_WINDOWS" = "True" ]; then
+        source ./.venv/Scripts/activate
+    else
+        source .venv/bin/activate
+    fi
+
+    # Make sure pip is installed (pypy weirdness)
+    python -m ensurepip
+
+    # Install uv in venv
+    python -m pip install --upgrade uv
+fi
+
+if [ "$ON_WINDOWS" = "True" ]; then
+    PYTHON_PATH=$(python -c "import os, sys; print(os.path.dirname(sys.executable))")
+else
+    PYTHON_PATH=$(which python)
+fi
+
+uv pip install --python="$PYTHON_PATH" build
 
 python -m build
-python -m pip install dist/*.whl
+wheel_package=$(ls dist/*.whl)
+uv pip install --python="$PYTHON_PATH" "trio @ $wheel_package"
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
-    python -m pip install -r test-requirements.txt
+    uv pip install --python="$PYTHON_PATH" -r test-requirements.txt
     echo "::endgroup::"
     source check.sh
 else
     # Actual tests
     # expands to 0 != 1 if NO_TEST_REQUIREMENTS is not set, if set the `-0` has no effect
     # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_06_02
-    if [ ${NO_TEST_REQUIREMENTS-0} == 1 ]; then
-        python -m pip install pytest coverage
+    if [ "${NO_TEST_REQUIREMENTS-0}" == 1 ]; then
+        uv pip install --python="$PYTHON_PATH" pytest coverage
         flags="--skip-optional-imports"
     else
-        python -m pip install -r test-requirements.txt
+        uv pip install --python="$PYTHON_PATH" -r test-requirements.txt
         flags=""
     fi
 
@@ -118,7 +148,7 @@ else
     cd empty
 
     INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
-    cp ../pyproject.toml $INSTALLDIR
+    cp ../pyproject.toml "$INSTALLDIR"
 
     # get mypy tests a nice cache
     MYPYPATH=".." mypy --config-file= --cache-dir=./.mypy_cache -c "import trio" >/dev/null 2>/dev/null || true
@@ -128,7 +158,7 @@ else
 
     echo "::endgroup::"
     echo "::group:: Run Tests"
-    if COVERAGE_PROCESS_START=$(pwd)/../pyproject.toml coverage run --rcfile=../pyproject.toml -m pytest -ra --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --verbose --durations=10 $flags; then
+    if COVERAGE_PROCESS_START=$(pwd)/../pyproject.toml coverage run --rcfile=../pyproject.toml -m pytest -ra --junitxml=../test-results.xml --run-slow "${INSTALLDIR}" --verbose --durations=10 $flags; then
         PASSED=true
     else
         PASSED=false
