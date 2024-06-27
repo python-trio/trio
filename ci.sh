@@ -37,29 +37,33 @@ python -c "import sys, struct, ssl; print('python:', sys.version); print('versio
 echo "::endgroup::"
 
 echo "::group::Install dependencies"
-python -m pip install -U pip uv build
+python -m pip install -U pip uv
 python -m pip --version
 uv --version
-uv venv .venv --seed
 
-if [ $(python -c "import sys;print(sys.platform.startswith('win'))") = "True" ]; then
-    source ./.venv/Scripts/activate
-else
-    source .venv/bin/activate
+# expands to 0 != 1 if MAKE_VENV is not set, if set the `-0` has no effect
+# https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_06_02
+if [ ${MAKE_VENV-0} == 1 ]; then
+    uv venv .venv --seed
+
+    if [ $(python -c "import sys;print(sys.platform.startswith('win'))") = "True" ]; then
+        source ./.venv/Scripts/activate
+    else
+        source .venv/bin/activate
+    fi
+
+    # Make sure pip is installed (pypy weirdness)
+    python -m ensurepip
+
+    # Install uv in venv
+    python -m pip install --upgrade uv
 fi
 
-# Make sure pip is installed (pypy weirdness)
-python -m ensurepip
-
-# Install uv in venv
-python -m pip install --upgrade uv
-
-# Make sure build is there
 uv pip install build
 
 python -m build
 wheel_package=$(ls dist/*.whl)
-uv pip install "trio @ file://$wheel_package"
+uv pip install "trio @ $wheel_package"
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
     uv pip install -r test-requirements.txt
