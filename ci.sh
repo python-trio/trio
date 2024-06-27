@@ -58,7 +58,7 @@ if [ "${MAKE_VENV-0}" == 1 ]; then
     # Install uv in venv
     python -m pip install --upgrade uv
 fi
-PYTHON_PATH=$(which python)
+PYTHON_PATH=$(python -c "import os, sys; print(os.path.dirname(sys.executable))")
 
 uv pip install --python=$PYTHON_PATH build
 
