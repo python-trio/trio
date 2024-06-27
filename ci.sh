@@ -6,6 +6,8 @@ set -ex -o pipefail
 # used in test_exports and in check.sh
 export PYRIGHT_PYTHON_IGNORE_WARNINGS=1
 
+ON_WINDOWS=$(python -c "import sys;print(sys.platform.startswith('win'))")
+
 # Log some general info about the environment
 echo "::group::Environment"
 uname -a
@@ -46,7 +48,7 @@ uv --version
 if [ "${MAKE_VENV-0}" == 1 ]; then
     uv venv .venv --seed
 
-    if [ $(python -c "import sys;print(sys.platform.startswith('win'))") = "True" ]; then
+    if [ "$ON_WINDOWS" = "True" ]; then
         source ./.venv/Scripts/activate
     else
         source .venv/bin/activate
@@ -58,16 +60,21 @@ if [ "${MAKE_VENV-0}" == 1 ]; then
     # Install uv in venv
     python -m pip install --upgrade uv
 fi
-PYTHON_PATH=$(python -c "import os, sys; print(os.path.dirname(sys.executable))")
 
-uv pip install --python=$PYTHON_PATH build
+if [ "$ON_WINDOWS" = "True" ]; then
+    PYTHON_PATH=$(python -c "import os, sys; print(os.path.dirname(sys.executable))")
+else
+    PYTHON_PATH=$(which python)
+fi
+
+uv pip install --python="$PYTHON_PATH" build
 
 python -m build
 wheel_package=$(ls dist/*.whl)
-uv pip install --python=$PYTHON_PATH "trio @ $wheel_package"
+uv pip install --python="$PYTHON_PATH" "trio @ $wheel_package"
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
-    uv pip install --python=$PYTHON_PATH -r test-requirements.txt
+    uv pip install --python="$PYTHON_PATH" -r test-requirements.txt
     echo "::endgroup::"
     source check.sh
 else
@@ -75,10 +82,10 @@ else
     # expands to 0 != 1 if NO_TEST_REQUIREMENTS is not set, if set the `-0` has no effect
     # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_06_02
     if [ "${NO_TEST_REQUIREMENTS-0}" == 1 ]; then
-        uv pip install --python=$PYTHON_PATH pytest coverage
+        uv pip install --python="$PYTHON_PATH" pytest coverage
         flags="--skip-optional-imports"
     else
-        uv pip install --python=$PYTHON_PATH -r test-requirements.txt
+        uv pip install --python="$PYTHON_PATH" -r test-requirements.txt
         flags=""
     fi
 
