@@ -1,10 +1,76 @@
 from __future__ import annotations
 
 import math
-from contextlib import AbstractContextManager, contextmanager
+import warnings
+from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 import trio
+
+from ._util import final
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+    from types import TracebackType
+
+
+@final
+class _RelativeCancelScope:
+    """Makes it possible to specify relative deadlines at initialization, that does
+    not start counting until the cm is entered.
+    Upon entering it returns a CancelScope, so unless initialization and entering
+    are separate, this class will be transparent to end users.
+    """
+
+    def __init__(self, relative_deadline: float, *, timeout_from_enter: bool = False):
+        self.relative_deadline = relative_deadline
+        self._timeout_from_enter = timeout_from_enter
+
+        self._fail: bool = False
+        self._creation_time = trio.current_time()
+        self._scope: trio.CancelScope | None = None
+
+    def __enter__(self) -> trio.CancelScope:
+        if (
+            abs(self._creation_time - trio.current_time()) > 0.01
+            and not self._timeout_from_enter
+        ):
+            # not using warn_deprecated because the message template is a weird fit
+            # TODO: mention versions in the message?
+            warnings.warn(
+                DeprecationWarning(
+                    "`move_on_after` and `fail_after` will change behaviour to "
+                    "start the deadline relative to entering the cm, instead of "
+                    "at creation time. To silence this warning and opt into the "
+                    "new behaviour, pass `timeout_from_enter=True`. "
+                    "To keep old behaviour, use `move_on_at(trio.current_time() + x)` "
+                    "(or `fail_at`), where `x` is the previous timeout length. "
+                    "See https://github.com/python-trio/trio/issues/2512"
+                ),
+                stacklevel=2,
+            )
+
+        if self._timeout_from_enter:
+            start_time = trio.current_time()
+        else:
+            start_time = self._creation_time
+
+        self._scope = trio.CancelScope(deadline=start_time + self.relative_deadline)
+        self._scope.__enter__()
+        return self._scope
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> bool | None:
+        if self._scope is None:  # pragma: no cover
+            raise RuntimeError("__exit__ called before __enter__")
+        res = self._scope.__exit__(exc_type, exc_value, traceback)
+        if self._fail and self._scope.cancelled_caught:
+            raise TooSlowError
+        return res
 
 
 def move_on_at(deadline: float) -> trio.CancelScope:
@@ -23,9 +89,13 @@ def move_on_at(deadline: float) -> trio.CancelScope:
     return trio.CancelScope(deadline=deadline)
 
 
-def move_on_after(seconds: float) -> trio.CancelScope:
+def move_on_after(
+    seconds: float,
+    *,
+    timeout_from_enter: bool = False,
+) -> _RelativeCancelScope:
     """Use as a context manager to create a cancel scope whose deadline is
-    set to now + *seconds*.
+    set to creation time + *seconds*.
 
     Args:
       seconds (float): The timeout.
@@ -36,7 +106,12 @@ def move_on_after(seconds: float) -> trio.CancelScope:
     """
     if seconds < 0:
         raise ValueError("timeout must be non-negative")
-    return move_on_at(trio.current_time() + seconds)
+    if math.isnan(seconds):
+        raise ValueError("timeout must not be NaN")
+    return _RelativeCancelScope(
+        relative_deadline=seconds,
+        timeout_from_enter=timeout_from_enter,
+    )
 
 
 async def sleep_forever() -> None:
@@ -94,9 +169,8 @@ class TooSlowError(Exception):
     """
 
 
-# workaround for PyCharm not being able to infer return type from @contextmanager
-# see https://youtrack.jetbrains.com/issue/PY-36444/PyCharm-doesnt-infer-types-when-using-contextlib.contextmanager-decorator
-def fail_at(deadline: float) -> AbstractContextManager[trio.CancelScope]:  # type: ignore[misc]
+@contextmanager
+def fail_at(deadline: float) -> Generator[trio.CancelScope, None, None]:
     """Creates a cancel scope with the given deadline, and raises an error if it
     is actually cancelled.
 
@@ -123,11 +197,11 @@ def fail_at(deadline: float) -> AbstractContextManager[trio.CancelScope]:  # typ
         raise TooSlowError
 
 
-if not TYPE_CHECKING:
-    fail_at = contextmanager(fail_at)
-
-
-def fail_after(seconds: float) -> AbstractContextManager[trio.CancelScope]:
+def fail_after(
+    seconds: float,
+    *,
+    timeout_from_enter: bool = False,
+) -> _RelativeCancelScope:
     """Creates a cancel scope with the given timeout, and raises an error if
     it is actually cancelled.
 
@@ -138,6 +212,11 @@ def fail_after(seconds: float) -> AbstractContextManager[trio.CancelScope]:
     it's caught and discarded. When it reaches :func:`fail_after`, then it's
     caught and :exc:`TooSlowError` is raised in its place.
 
+    The deadline of the cancel scope was previously calculated at creation time,
+    not upon entering the context manager. This is still the default, but deprecated.
+    If you pass ``timeout_from_enter=True`` it will instead be calculated relative
+    to entering the cm, and silence the deprecationwarning.
+
     Args:
       seconds (float): The timeout.
 
@@ -147,6 +226,6 @@ def fail_after(seconds: float) -> AbstractContextManager[trio.CancelScope]:
       ValueError: if *seconds* is less than zero or NaN.
 
     """
-    if seconds < 0:
-        raise ValueError("timeout must be non-negative")
-    return fail_at(trio.current_time() + seconds)
+    rcs = move_on_after(seconds, timeout_from_enter=timeout_from_enter)
+    rcs._fail = True
+    return rcs
