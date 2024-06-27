@@ -177,7 +177,7 @@ urllib3==2.2.1
     # via requests
 uv==0.2.17
     # via -r test-requirements.in
-wheel==0.42.0
+wheel==0.43.0
     # via pip-tools
 zipp==3.19.1
     # via importlib-metadata
