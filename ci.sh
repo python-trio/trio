@@ -52,7 +52,7 @@ fi
 python -m ensurepip
 
 # Install uv in venv
-python -m pip install -U uv
+python -m pip install --upgrade uv
 
 # Make sure build is there
 uv pip install build
