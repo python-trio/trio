@@ -56,6 +56,7 @@ class _RelativeCancelScope:
             start_time = self._creation_time
 
         self._scope = trio.CancelScope(deadline=start_time + self.relative_deadline)
+        self._scope.__enter__()
         return self._scope
 
     def __exit__(
@@ -66,9 +67,10 @@ class _RelativeCancelScope:
     ) -> bool | None:
         if self._scope is None:  # pragma: no cover
             raise RuntimeError("__exit__ called before __enter__")
+        res = self._scope.__exit__(exc_type, exc_value, traceback)
         if self._fail and self._scope.cancelled_caught:
             raise TooSlowError
-        return None
+        return res
 
 
 def move_on_at(deadline: float) -> trio.CancelScope:

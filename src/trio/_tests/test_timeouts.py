@@ -157,6 +157,11 @@ async def test_timeout_deadline_on_entry(mock_clock: _core.MockClock) -> None:
     with rcs as cs:
         assert cs.deadline == start + 5
 
+        # TODO: not implemented
+        # check that code that does not "re-save" the cancelscope still functions
+        # assert rcs.deadline == start + 5
+        # assert rcs.shield == False
+
 
 async def test_timeout_deadline_not_on_entry(mock_clock: _core.MockClock) -> None:
     """Test that not setting timeout_from_enter gives a DeprecationWarning and
