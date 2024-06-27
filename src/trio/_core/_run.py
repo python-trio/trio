@@ -2184,8 +2184,8 @@ def setup_runner(
 
 
 def run(
-    async_fn: Callable[..., Awaitable[RetT]],
-    *args: object,
+    async_fn: Callable[[Unpack[PosArgT]], Awaitable[RetT]],
+    *args: Unpack[PosArgT],
     clock: Clock | None = None,
     instruments: Sequence[Instrument] = (),
     restrict_keyboard_interrupt_to_checkpoints: bool = False,

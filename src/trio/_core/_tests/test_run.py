@@ -76,7 +76,7 @@ def test_basic() -> None:
 
     with pytest.raises(TypeError):
         # Missing an argument
-        _core.run(trivial)
+        _core.run(trivial)  # type: ignore[arg-type]
 
     with pytest.raises(TypeError):
         # Not an async function
