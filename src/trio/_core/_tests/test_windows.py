@@ -116,9 +116,7 @@ async def test_readinto_overlapped() -> None:
 
     with tempfile.TemporaryDirectory() as tdir:
         tfile = os.path.join(tdir, "numbers.txt")
-        with open(  # This is a test, synchronous is ok
-            tfile, "wb"
-        ) as fp:
+        with open(tfile, "wb") as fp:  # This is a test, synchronous is ok
             fp.write(data)
             fp.flush()
 
