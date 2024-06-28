@@ -687,7 +687,7 @@ async def test_renegotiation_randomized(
     # Our receive_some() call will get stuck when it hits send_all
     async def sleeper_with_slow_send_all(method: str) -> None:
         if method == "send_all":
-            await trio.sleep(100000)
+            await trio.sleep_forever()
 
     # And our wait_send_all_might_not_block call will give it time to get
     # stuck, and then start
@@ -711,7 +711,7 @@ async def test_renegotiation_randomized(
 
     async def sleeper_with_slow_wait_writable_and_expect(method: str) -> None:
         if method == "wait_send_all_might_not_block":
-            await trio.sleep(100000)
+            await trio.sleep_forever()
         elif method == "expect":
             await trio.sleep(1000)
 
@@ -1161,7 +1161,7 @@ async def test_https_mode_eof_before_handshake(client_ctx: SSLContext) -> None:
 
 
 async def test_send_error_during_handshake(client_ctx: SSLContext) -> None:
-    client, server = ssl_memory_stream_pair(client_ctx)
+    client, _server = ssl_memory_stream_pair(client_ctx)
 
     async def bad_hook() -> NoReturn:
         raise KeyError
