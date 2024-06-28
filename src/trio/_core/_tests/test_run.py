@@ -259,7 +259,7 @@ async def test_current_time() -> None:
     t1 = _core.current_time()
     # Windows clock is pretty low-resolution -- appveyor tests fail unless we
     # sleep for a bit here.
-    time.sleep(time.get_clock_info("perf_counter").resolution)  # noqa: ASYNC101
+    time.sleep(time.get_clock_info("perf_counter").resolution)
     t2 = _core.current_time()
     assert t1 < t2
 
