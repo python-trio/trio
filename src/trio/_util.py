@@ -127,9 +127,7 @@ def coroutine_or_error(
         # This janky check catches tornado Futures and twisted Deferreds.
         # By the time we're calling this function, we already know
         # something has gone wrong, so a heuristic is pretty safe.
-        if value.__class__.__name__ in ("Future", "Deferred"):
-            return True
-        return False
+        return value.__class__.__name__ in ("Future", "Deferred")
 
     # Make sure a sync-fn-that-returns-coroutine still sees itself as being
     # in trio context
