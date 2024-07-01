@@ -11,7 +11,7 @@ async def reschedule_loop(depth):
         global LOOPS
         while RUNNING:
             LOOPS += 1
-            await trio.sleep(0)
+            await trio.lowlevel.checkpoint()
             # await trio.lowlevel.cancel_shielded_checkpoint()
     else:
         await reschedule_loop(depth - 1)
