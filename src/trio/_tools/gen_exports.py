@@ -158,7 +158,6 @@ def run_ruff(file: File, source: str) -> tuple[bool, str]:
             "check",
             "--fix",
             "--unsafe-fixes",
-            "--output-format=text",
             "--stdin-filename",
             file.path,
             "-",
