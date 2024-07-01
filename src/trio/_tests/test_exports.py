@@ -346,7 +346,7 @@ def test_static_tool_sees_class_members(
             "__deepcopy__",
         }
 
-        if type(class_) == type:
+        if type(class_) is type:
             # C extension classes don't have these dunders, but Python classes do
             ignore_names.add("__firstlineno__")
             ignore_names.add("__static_attributes__")
