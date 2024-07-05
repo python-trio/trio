@@ -9,7 +9,7 @@ Trio: a friendly Python library for async concurrency and I/O
 
 The Trio project's goal is to produce a production-quality,
 `permissively licensed
-<https://github.com/python-trio/trio/blob/master/LICENSE>`__,
+<https://github.com/python-trio/trio/blob/main/LICENSE>`__,
 async/await-native I/O library for Python. Like all async libraries,
 its main purpose is to help you write programs that do **multiple
 things at the same time** with **parallelized I/O**. A web spider that

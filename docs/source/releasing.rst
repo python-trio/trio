@@ -35,7 +35,7 @@ Things to do for releasing:
 
 * push to your personal repository
 
-* create pull request to ``python-trio/trio``'s "master" branch
+* create pull request to ``python-trio/trio``'s "main" branch
 
 * verify that all checks succeeded
 
