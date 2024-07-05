@@ -28,7 +28,6 @@ from .. import (
     CancelScope,
     CapacityLimiter,
     Event,
-    TrioDeprecationWarning,
     _core,
     fail_after,
     move_on_after,
@@ -574,7 +573,7 @@ async def test_run_in_worker_thread_custom_limiter() -> None:
 
     # TODO: should CapacityLimiter have an abc or protocol so users can modify it?
     # because currently it's `final` so writing code like this is not allowed.
-    await to_thread_run_sync(lambda: None, limiter=CustomLimiter())  # type: ignore[call-overload]
+    await to_thread_run_sync(lambda: None, limiter=CustomLimiter())  # type: ignore[arg-type]
     assert record == ["acquire", "release"]
 
 
@@ -592,7 +591,7 @@ async def test_run_in_worker_thread_limiter_error() -> None:
     bs = BadCapacityLimiter()
 
     with pytest.raises(ValueError, match="^release on behalf$") as excinfo:
-        await to_thread_run_sync(lambda: None, limiter=bs)  # type: ignore[call-overload]
+        await to_thread_run_sync(lambda: None, limiter=bs)  # type: ignore[arg-type]
     assert excinfo.value.__context__ is None
     assert record == ["acquire", "release"]
     record = []
@@ -601,7 +600,7 @@ async def test_run_in_worker_thread_limiter_error() -> None:
     # chains with it
     d: dict[str, object] = {}
     with pytest.raises(ValueError, match="^release on behalf$") as excinfo:
-        await to_thread_run_sync(lambda: d["x"], limiter=bs)  # type: ignore[call-overload]
+        await to_thread_run_sync(lambda: d["x"], limiter=bs)  # type: ignore[arg-type]
     assert isinstance(excinfo.value.__context__, KeyError)
     assert record == ["acquire", "release"]
 
@@ -911,7 +910,7 @@ async def test_unsafe_abandon_on_cancel_kwarg() -> None:
             raise NotImplementedError
 
     with pytest.raises(NotImplementedError):
-        await to_thread_run_sync(int, abandon_on_cancel=BadBool())  # type: ignore[call-overload]
+        await to_thread_run_sync(int, abandon_on_cancel=BadBool())  # type: ignore[arg-type]
 
 
 async def test_from_thread_reuses_task() -> None:
@@ -1096,28 +1095,6 @@ async def test_reentry_doesnt_deadlock() -> None:
         async with _core.open_nursery() as nursery:
             for _ in range(4):
                 nursery.start_soon(child)
-
-
-async def test_cancellable_and_abandon_raises() -> None:
-    with pytest.raises(
-        ValueError,
-        match=r"^Cannot set `cancellable` and `abandon_on_cancel` simultaneously\.$",
-    ):
-        await to_thread_run_sync(bool, cancellable=True, abandon_on_cancel=False)  # type: ignore[call-overload]
-
-    with pytest.raises(
-        ValueError,
-        match=r"^Cannot set `cancellable` and `abandon_on_cancel` simultaneously\.$",
-    ):
-        await to_thread_run_sync(bool, cancellable=True, abandon_on_cancel=True)  # type: ignore[call-overload]
-
-
-async def test_cancellable_warns() -> None:
-    with pytest.warns(TrioDeprecationWarning):
-        await to_thread_run_sync(bool, cancellable=False)
-
-    with pytest.warns(TrioDeprecationWarning):
-        await to_thread_run_sync(bool, cancellable=True)
 
 
 async def test_wait_all_threads_completed() -> None:
