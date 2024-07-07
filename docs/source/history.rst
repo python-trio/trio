@@ -5,6 +5,44 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.26.0 (2024-07-05)
+------------------------
+
+Features
+~~~~~~~~
+
+- Added an interactive interpreter ``python -m trio``.
+
+  This makes it easier to try things and experiment with trio in the a Python repl.
+  Use the ``await`` keyword without needing to call ``trio.run()``
+
+  .. code-block:: console
+
+     $ python -m trio
+     Trio 0.21.0+dev, Python 3.10.6
+     Use "await" directly instead of "trio.run()".
+     Type "help", "copyright", "credits" or "license" for more information.
+     >>> import trio
+     >>> await trio.sleep(1); print("hi")  # prints after one second
+     hi
+
+  See :ref:`interactive debugging` for further detail. (`#2972 <https://github.com/python-trio/trio/issues/2972>`__)
+- :class:`trio.testing.RaisesGroup` can now catch an unwrapped exception with ``unwrapped=True``. This means that the behaviour of :ref:`except* <except_star>` can be fully replicated in combination with ``flatten_subgroups=True`` (formerly ``strict=False``). (`#2989 <https://github.com/python-trio/trio/issues/2989>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Fixed a bug where :class:`trio.testing.RaisesGroup(..., strict=False) <trio.testing.RaisesGroup>` would check the number of exceptions in the raised `ExceptionGroup` before flattening subgroups, leading to incorrectly failed matches.
+  It now properly supports end (``$``) regex markers in the ``match`` message, by no longer including " (x sub-exceptions)" in the string it matches against. (`#2989 <https://github.com/python-trio/trio/issues/2989>`__)
+
+
+Deprecations and removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Deprecated ``strict`` parameter from :class:`trio.testing.RaisesGroup`, previous functionality of ``strict=False`` is now in ``flatten_subgroups=True``. (`#2989 <https://github.com/python-trio/trio/issues/2989>`__)
+
+
 Trio 0.25.1 (2024-05-16)
 ------------------------
 

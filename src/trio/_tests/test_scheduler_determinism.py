@@ -15,7 +15,7 @@ async def scheduler_trace() -> tuple[tuple[str, int], ...]:
     async def tracer(name: str) -> None:
         for i in range(50):
             trace.append((name, i))
-            await trio.sleep(0)
+            await trio.lowlevel.checkpoint()
 
     async with trio.open_nursery() as nursery:
         for i in range(5):
