@@ -61,6 +61,10 @@ if [ "${MAKE_VENV-0}" == 1 ]; then
     python -m pip install --upgrade uv
 fi
 
+# Basically, instead of running --system, specifying this as python path
+# means we can support running with virtual environment or system python
+# installation at the same time, including a virtual environment devs
+# have set up.
 if [ "$ON_WINDOWS" = "True" ]; then
     PYTHON_PATH=$(python -c "import os, sys; print(os.path.dirname(sys.executable))")
 else
