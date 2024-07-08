@@ -11,7 +11,9 @@ class BlockingReadTimeoutError(Exception):
     pass
 
 
-async def blocking_read_with_timeout(fd, count, timeout):
+async def blocking_read_with_timeout(
+    fd, count, timeout  # noqa: ASYNC109  # manual timeout
+):
     print("reading from fd", fd)
     cancel_requested = False
 

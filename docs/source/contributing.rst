@@ -350,7 +350,7 @@ Basically, every pull request that has a user
 visible effect should add a short file to the ``newsfragments/``
 directory describing the change, with a name like ``<ISSUE
 NUMBER>.<TYPE>.rst``. See `newsfragments/README.rst
-<https://github.com/python-trio/trio/blob/master/newsfragments/README.rst>`__
+<https://github.com/python-trio/trio/blob/main/newsfragments/README.rst>`__
 for details. This way we can keep a good list of changes as we go,
 which makes the release manager happy, which means we get more
 frequent releases, which means your change gets into users' hands
