@@ -13,9 +13,9 @@ cryptography>=41.0.0  # cryptography<41 segfaults on pypy3.10
 black; implementation_name == "cpython"
 mypy; implementation_name == "cpython"
 types-pyOpenSSL; implementation_name == "cpython" # and annotations
-ruff >= 0.1.5
+ruff >= 0.4.3
 astor          # code generation
-pip-tools >= 6.13.0
+uv >= 0.2.22
 codespell
 
 # https://github.com/python-trio/trio/pull/654#issuecomment-420518745
@@ -33,5 +33,5 @@ sortedcontainers
 idna
 outcome
 sniffio
-# 1.2.0 ships monkeypatching for apport excepthook
-exceptiongroup >= 1.2.0; python_version < "3.11"
+# 1.2.1 fixes types
+exceptiongroup >= 1.2.1; python_version < "3.11"

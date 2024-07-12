@@ -6,7 +6,7 @@ import inspect
 import queue as stdlib_queue
 import threading
 from itertools import count
-from typing import TYPE_CHECKING, Generic, TypeVar, overload
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 import attrs
 import outcome
@@ -23,7 +23,6 @@ from ._core import (
     enable_ki_protection,
     start_thread_soon,
 )
-from ._deprecate import warn_deprecated
 from ._sync import CapacityLimiter, Event
 from ._util import coroutine_or_error
 
@@ -244,33 +243,12 @@ class RunSync(Generic[RetT]):
         token.run_sync_soon(self.run_sync)
 
 
-@overload  # Decorator used on function with Coroutine[Any, Any, RetT]
-async def to_thread_run_sync(  # type: ignore[misc]
-    sync_fn: Callable[..., RetT],
-    *args: object,
-    thread_name: str | None = None,
-    abandon_on_cancel: bool = False,
-    limiter: CapacityLimiter | None = None,
-) -> RetT: ...
-
-
-@overload  # Decorator used on function with Coroutine[Any, Any, RetT]
-async def to_thread_run_sync(  # type: ignore[misc]
-    sync_fn: Callable[..., RetT],
-    *args: object,
-    thread_name: str | None = None,
-    cancellable: bool = False,
-    limiter: CapacityLimiter | None = None,
-) -> RetT: ...
-
-
 @enable_ki_protection  # Decorator used on function with Coroutine[Any, Any, RetT]
 async def to_thread_run_sync(  # type: ignore[misc]
     sync_fn: Callable[..., RetT],
     *args: object,
     thread_name: str | None = None,
-    abandon_on_cancel: bool | None = None,
-    cancellable: bool | None = None,
+    abandon_on_cancel: bool = False,
     limiter: CapacityLimiter | None = None,
 ) -> RetT:
     """Convert a blocking operation into an async operation using a thread.
@@ -357,18 +335,6 @@ async def to_thread_run_sync(  # type: ignore[misc]
 
     """
     await trio.lowlevel.checkpoint_if_cancelled()
-    if cancellable is not None:
-        if abandon_on_cancel is not None:
-            raise ValueError(
-                "Cannot set `cancellable` and `abandon_on_cancel` simultaneously."
-            )
-        warn_deprecated(
-            "The `cancellable=` keyword argument to `trio.to_thread.run_sync`",
-            "0.23.0",
-            issue=2841,
-            instead="`abandon_on_cancel=`",
-        )
-        abandon_on_cancel = cancellable
     # raise early if abandon_on_cancel.__bool__ raises
     # and give a new name to ensure mypy knows it's never None
     abandon_bool = bool(abandon_on_cancel)
@@ -587,7 +553,8 @@ def from_thread_run(
           "foreign" thread, spawned using some other framework, and still want
           to enter Trio, or if you want to use a new system task to call ``afn``,
           maybe to avoid the cancellation context of a corresponding
-          `trio.to_thread.run_sync` task.
+          `trio.to_thread.run_sync` task. You can get this token from
+          :func:`trio.lowlevel.current_trio_token`.
     """
     return _send_message_to_trio(trio_token, Run(afn, args))
 

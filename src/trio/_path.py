@@ -242,6 +242,8 @@ class Path(pathlib.PurePath):
     write_text = _wrap_method(pathlib.Path.write_text)
     if sys.version_info < (3, 12):
         link_to = _wrap_method(pathlib.Path.link_to)
+    if sys.version_info >= (3, 13):
+        full_match = _wrap_method(pathlib.Path.full_match)
 
 
 @final

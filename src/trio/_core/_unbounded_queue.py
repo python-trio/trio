@@ -66,6 +66,7 @@ class UnboundedQueue(Generic[T]):
         issue=497,
         thing="trio.lowlevel.UnboundedQueue",
         instead="trio.open_memory_channel(math.inf)",
+        use_triodeprecationwarning=True,
     )
     def __init__(self) -> None:
         self._lot = _core.ParkingLot()

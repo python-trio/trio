@@ -346,6 +346,11 @@ def test_static_tool_sees_class_members(
             "__deepcopy__",
         }
 
+        if type(class_) is type:
+            # C extension classes don't have these dunders, but Python classes do
+            ignore_names.add("__firstlineno__")
+            ignore_names.add("__static_attributes__")
+
         # pypy seems to have some additional dunders that differ
         if sys.implementation.name == "pypy":
             ignore_names |= {
@@ -493,6 +498,15 @@ def test_static_tool_sees_class_members(
             if tool == "jedi" and sys.platform == "win32":
                 extra -= {"owner", "is_mount", "group"}
 
+        # not sure why jedi in particular ignores this (static?) method in 3.13
+        # (especially given the method is from 3.12....)
+        if (
+            tool == "jedi"
+            and sys.version_info >= (3, 13)
+            and class_ in (trio.Path, trio.WindowsPath, trio.PosixPath)
+        ):
+            missing.remove("with_segments")
+
         if missing or extra:  # pragma: no cover
             errors[f"{module_name}.{class_name}"] = {
                 "missing": missing,
@@ -514,7 +528,7 @@ def test_nopublic_is_final() -> None:
     assert class_is_final(_util.NoPublicConstructor)  # This is itself final.
 
     for module in ALL_MODULES:
-        for _name, class_ in module.__dict__.items():
+        for class_ in module.__dict__.values():
             if isinstance(class_, _util.NoPublicConstructor):
                 assert class_is_final(class_)
 

@@ -76,7 +76,7 @@ def test_basic() -> None:
 
     with pytest.raises(TypeError):
         # Missing an argument
-        _core.run(trivial)
+        _core.run(trivial)  # type: ignore[arg-type]
 
     with pytest.raises(TypeError):
         # Not an async function
@@ -259,7 +259,7 @@ async def test_current_time() -> None:
     t1 = _core.current_time()
     # Windows clock is pretty low-resolution -- appveyor tests fail unless we
     # sleep for a bit here.
-    time.sleep(time.get_clock_info("perf_counter").resolution)  # noqa: ASYNC101
+    time.sleep(time.get_clock_info("perf_counter").resolution)  # noqa: ASYNC251
     t2 = _core.current_time()
     assert t1 < t2
 
@@ -2044,9 +2044,7 @@ async def test_nursery_stop_async_iteration() -> None:
 
             return items
 
-    result: list[list[int]] = []
-    async for vals in async_zip(it(4), it(2)):
-        result.append(vals)
+    result: list[list[int]] = [vals async for vals in async_zip(it(4), it(2))]
     assert result == [[0, 0], [1, 1]]
 
 
