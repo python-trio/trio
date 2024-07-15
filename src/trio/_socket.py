@@ -528,7 +528,7 @@ class SocketType:
         # make sure this __init__ works with multiple inheritance
         super().__init__()
         # and only raises error if it's directly constructed
-        if type(self) == SocketType:
+        if type(self) is SocketType:
             raise TypeError(
                 "SocketType is an abstract class; use trio.socket.socket if you "
                 "want to construct a socket object"

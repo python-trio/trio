@@ -2704,7 +2704,7 @@ def test_trio_run_strict_before_started(
     else:
         # Check attributes, not identity, because should_be_raiser_exc may be a
         # copy of raiser_exc rather than raiser_exc by identity.
-        assert type(should_be_raiser_exc) == type(raiser_exc)
+        assert type(should_be_raiser_exc) is type(raiser_exc)
         assert should_be_raiser_exc.message == raiser_exc.message
         assert should_be_raiser_exc.exceptions == raiser_exc.exceptions
 
