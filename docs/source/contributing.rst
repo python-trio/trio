@@ -176,6 +176,23 @@ This keeps us closer to the desired state where each open issue reflects some
 work that still needs to be done.
 
 
+Environment
+~~~~~~~~~~~
+We strongly suggest using a virtual environment for managing dependencies,
+for example with `venv <https://docs.python.org/3/library/venv.html>`__. So to
+set up your environment and install dependencies, you should run something like:
+
+.. code-block:: shell
+
+   cd path/to/trio/checkout/
+   python -m venv .venv # create virtual env in .venv
+   source .venv/bin/activate # activate it
+   pip install -r test-requirements.txt  install test requirements
+
+you rarely need to recreate the virtual environment, but you need to re-activate it
+in future terminals. You might also need to re-install from test-requirements.txt if
+the versions in it get updated.
+
 .. _pull-request-tests:
 
 Tests
@@ -186,8 +203,7 @@ locally, you should run:
 
 .. code-block:: shell
 
-   cd path/to/trio/checkout/
-   pip install -r test-requirements.txt  # possibly using a virtualenv
+   source .venv/bin/activate # if not already activated
    pytest trio
 
 This doesn't try to be completely exhaustive – it only checks that
@@ -211,8 +227,14 @@ it being merely hard to fix). For example:
 We use Codecov to track coverage, because it makes it easy to combine
 coverage from running in different configurations. Running coverage
 locally can be useful
-(``pytest --cov=PACKAGENAME --cov-report=html``), but don't be
-surprised if you get lower coverage than when looking at Codecov
+
+.. code-block:: shell
+
+   coverage run -m pytest
+   coverage combine
+   coverage report
+
+but don't be surprised if you get lower coverage than when looking at Codecov
 reports, because there are some lines that are only executed on
 Windows, or macOS, or PyPy, or CPython, or... you get the idea. After
 you create a PR, Codecov will automatically report back with the
