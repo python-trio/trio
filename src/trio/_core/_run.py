@@ -1782,6 +1782,7 @@ class Runner:
                 return await orig_coro
 
             coro = python_wrapper(coro)
+        assert coro.cr_frame is not None, "Coroutine frame should exist"
         coro.cr_frame.f_locals.setdefault(LOCALS_KEY_KI_PROTECTION_ENABLED, system_task)
 
         ######

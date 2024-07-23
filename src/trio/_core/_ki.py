@@ -143,6 +143,7 @@ def _ki_protection_decorator(
             def wrapper(*args: ArgsT.args, **kwargs: ArgsT.kwargs) -> RetT:  # type: ignore[misc]
                 # See the comment for regular generators below
                 coro = fn(*args, **kwargs)
+                assert coro.cr_frame is not None, "Coroutine frame should exist"
                 coro.cr_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
                 return coro  # type: ignore[return-value]
 
