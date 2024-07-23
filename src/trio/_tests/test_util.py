@@ -269,7 +269,7 @@ def test_fixup_module_metadata() -> None:
     assert mod.SomeClass.method.__module__ == "trio.somemodule"  # type: ignore[attr-defined]
     assert mod.SomeClass.method.__qualname__ == "SomeClass.method"  # type: ignore[attr-defined]
     # Make coverage happy.
-    non_trio_module.some_func()  # type: ignore[no-untyped-call]
-    mod.some_func()  # type: ignore[no-untyped-call]
-    mod._private()  # type: ignore[no-untyped-call]
+    non_trio_module.some_func()
+    mod.some_func()
+    mod._private()
     mod.SomeClass().method()
