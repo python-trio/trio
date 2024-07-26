@@ -76,6 +76,66 @@ async def test_move_on_after() -> None:
 
 
 @slow
+async def test_move_on_after_shields_from_outer() -> None:
+    duration = 0.1
+
+    async def task() -> None:
+        with _core.CancelScope() as outer, move_on_after(TARGET, shield=True) as inner:
+            outer.cancel()
+            # The outer scope is cancelled, but this task is protected by the
+            # shield, so it manages to get to sleep for 'duration' seconds
+            await trio.sleep(duration)
+            # now when we unshield, it should abort the sleep.
+            inner.shield = False
+
+    # Check that the task takes only about 'duration' seconds
+    await check_takes_about(task, duration)
+
+
+@slow
+async def test_move_on_after_moves_on_even_if_shielded() -> None:
+    async def task() -> None:
+        with _core.CancelScope() as outer, move_on_after(TARGET, shield=True):
+            outer.cancel()
+            # The outer scope is cancelled, but this task is protected by the
+            # shield, so it manages to get to sleep until deadline is met
+            await sleep_forever()
+
+    await check_takes_about(task, TARGET)
+
+
+@slow
+async def test_fail_after_exits_shields_from_outer() -> None:
+    duration = 0.1
+
+    async def task() -> None:
+        with _core.CancelScope() as outer, fail_after(TARGET, shield=True) as inner:
+            outer.cancel()
+            # The outer scope is cancelled, but this task is protected by the
+            # shield, so it manages to get to sleep for 'duration' seconds
+            await trio.sleep(duration)
+            # now when we unshield, it should abort the sleep.
+            inner.shield = False
+
+    # Check that the task takes only about 'duration' seconds
+    await check_takes_about(task, duration)
+
+
+@slow
+async def test_fail_after_fails_even_if_shielded() -> None:
+    async def task() -> None:
+        with pytest.raises(TooSlowError), _core.CancelScope() as outer, fail_after(
+            TARGET, shield=True
+        ):
+            outer.cancel()
+            # The outer scope is cancelled, but this task is protected by the
+            # shield, so it manages to get to sleep until deadline is met
+            await sleep_forever()
+
+    await check_takes_about(task, TARGET)
+
+
+@slow
 async def test_fail() -> None:
     async def sleep_4() -> None:
         with fail_at(_core.current_time() + TARGET):
