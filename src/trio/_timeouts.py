@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import trio
 
 
-def move_on_at(deadline: float, shield: bool = False) -> trio.CancelScope:
+def move_on_at(deadline: float, *, shield: bool = False) -> trio.CancelScope:
     """Use as a context manager to create a cancel scope with the given
     absolute deadline.
 
@@ -24,7 +24,7 @@ def move_on_at(deadline: float, shield: bool = False) -> trio.CancelScope:
     return trio.CancelScope(deadline=deadline, shield=shield)
 
 
-def move_on_after(seconds: float, shield: bool = False) -> trio.CancelScope:
+def move_on_after(seconds: float, *, shield: bool = False) -> trio.CancelScope:
     """Use as a context manager to create a cancel scope whose deadline is
     set to now + *seconds*.
 
@@ -98,7 +98,7 @@ class TooSlowError(Exception):
 
 # workaround for PyCharm not being able to infer return type from @contextmanager
 # see https://youtrack.jetbrains.com/issue/PY-36444/PyCharm-doesnt-infer-types-when-using-contextlib.contextmanager-decorator
-def fail_at(deadline: float, shield: bool = False) -> AbstractContextManager[trio.CancelScope]:  # type: ignore[misc]
+def fail_at(deadline: float, *, shield: bool = False) -> AbstractContextManager[trio.CancelScope]:  # type: ignore[misc]
     """Creates a cancel scope with the given deadline, and raises an error if it
     is actually cancelled.
 
@@ -131,7 +131,7 @@ if not TYPE_CHECKING:
 
 
 def fail_after(
-    seconds: float, shield: bool = False
+    seconds: float, *, shield: bool = False
 ) -> AbstractContextManager[trio.CancelScope]:
     """Creates a cancel scope with the given timeout, and raises an error if
     it is actually cancelled.
