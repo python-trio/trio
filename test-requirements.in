@@ -27,7 +27,7 @@ types-docutils
 sphinx
 
 # Trio's own dependencies
-cffi; os_name == "nt"
+cffi >= 1.17.0rc1; os_name == "nt"
 attrs >= 23.2.0
 sortedcontainers
 idna

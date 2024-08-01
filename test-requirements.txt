@@ -18,7 +18,7 @@ black==24.4.2 ; implementation_name == 'cpython'
     # via -r test-requirements.in
 certifi==2024.7.4
     # via requests
-cffi==1.17.0rc1  ; os_name == 'nt' or platform_python_implementation != 'PyPy'
+cffi==1.17.0rc1 ; os_name == 'nt' or platform_python_implementation != 'PyPy'
     # via
     #   -r test-requirements.in
     #   cryptography
