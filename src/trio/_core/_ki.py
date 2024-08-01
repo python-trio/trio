@@ -177,11 +177,11 @@ def _ki_protection_decorator(
             return wrapper
 
         @wraps(fn)
-        def wrapper(*args: ArgsT.args, **kwargs: ArgsT.kwargs) -> RetT:
+        def wrapper_(*args: ArgsT.args, **kwargs: ArgsT.kwargs) -> RetT:
             sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
             return fn(*args, **kwargs)
 
-        return wrapper
+        return wrapper_
 
     return decorator
 
