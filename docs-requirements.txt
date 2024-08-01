@@ -12,7 +12,7 @@ beautifulsoup4==4.12.3
     # via sphinx-codeautolink
 certifi==2024.7.4
     # via requests
-cffi==1.16.0 ; os_name == 'nt' or platform_python_implementation != 'PyPy'
+cffi==1.17.0rc1 ; os_name == 'nt' or platform_python_implementation != 'PyPy'
     # via
     #   -r docs-requirements.in
     #   cryptography
