@@ -13,7 +13,7 @@ fi
 
 # Test if the generated code is still up to date
 echo "::group::Generate Exports"
-python ./trio/_tools/gen_exports.py --test \
+python ./src/trio/_tools/gen_exports.py --test \
     || EXIT_STATUS=$?
 echo "::endgroup::"
 
@@ -23,10 +23,10 @@ echo "::endgroup::"
 # autoflake --recursive --in-place .
 # pyupgrade --py3-plus $(find . -name "*.py")
 echo "::group::Black"
-if ! black --check setup.py trio; then
+if ! black --check src/trio; then
     echo "* Black found issues" >> "$GITHUB_STEP_SUMMARY"
     EXIT_STATUS=1
-    black --diff setup.py trio
+    black --diff src/trio
     echo "::endgroup::"
     echo "::error:: Black found issues"
 else
@@ -57,16 +57,16 @@ echo "::group::Mypy"
 rm -f mypy_annotate.dat
 # Pipefail makes these pipelines fail if mypy does, even if mypy_annotate.py succeeds.
 set -o pipefail
-mypy trio --show-error-end --platform linux | python ./trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Linux \
+mypy --show-error-end --platform linux | python ./src/trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Linux \
     || { echo "* Mypy (Linux) found type errors." >> "$GITHUB_STEP_SUMMARY"; MYPY=1; }
 # Darwin tests FreeBSD too
-mypy trio --show-error-end --platform darwin | python ./trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Mac \
+mypy --show-error-end --platform darwin | python ./src/trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Mac \
     || { echo "* Mypy (Mac) found type errors." >> "$GITHUB_STEP_SUMMARY"; MYPY=1; }
-mypy trio --show-error-end --platform win32 | python ./trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Windows \
+mypy --show-error-end --platform win32 | python ./src/trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Windows \
     || { echo "* Mypy (Windows) found type errors." >> "$GITHUB_STEP_SUMMARY"; MYPY=1; }
 set +o pipefail
 # Re-display errors using Github's syntax, read out of mypy_annotate.dat
-python ./trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat
+python ./src/trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat
 # Then discard.
 rm -f mypy_annotate.dat
 echo "::endgroup::"
@@ -78,10 +78,10 @@ fi
 
 # Check pip compile is consistent
 echo "::group::Pip Compile - Tests"
-pip-compile test-requirements.in
+uv pip compile --universal --python-version=3.8 test-requirements.in -o test-requirements.txt
 echo "::endgroup::"
 echo "::group::Pip Compile - Docs"
-pip-compile docs-requirements.in
+uv pip compile --universal --python-version=3.8 docs-requirements.in -o docs-requirements.txt
 echo "::endgroup::"
 
 if git status --porcelain | grep -q "requirements.txt"; then
@@ -97,15 +97,10 @@ fi
 codespell || EXIT_STATUS=$?
 
 echo "::group::Pyright interface tests"
-python trio/_tests/check_type_completeness.py --overwrite-file || EXIT_STATUS=$?
-if git status --porcelain trio/_tests/verify_types*.json | grep -q "M"; then
-    echo "* Type completeness changed, please update!" >> "$GITHUB_STEP_SUMMARY"
-    echo "::error::Type completeness changed, please update!"
-    git --no-pager diff --color trio/_tests/verify_types*.json
-    EXIT_STATUS=1
-fi
+python src/trio/_tests/check_type_completeness.py || EXIT_STATUS=$?
 
-pyright trio/_tests/type_tests || EXIT_STATUS=$?
+pyright src/trio/_tests/type_tests || EXIT_STATUS=$?
+pyright src/trio/_core/_tests/type_tests || EXIT_STATUS=$?
 echo "::endgroup::"
 
 # Finally, leave a really clear warning of any issues and exit
@@ -118,8 +113,8 @@ Problems were found by static analysis (listed above).
 To fix formatting and see remaining errors, run
 
     pip install -r test-requirements.txt
-    black setup.py trio
-    isort setup.py trio
+    black src/trio
+    ruff check src/trio
     ./check.sh
 
 in your local checkout.
