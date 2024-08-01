@@ -76,7 +76,7 @@ async def test_basic_interaction(
             # import works
             "import sys",
             "sys.stdout.write('hello stdout\\n')",
-        ]
+        ],
     )
     monkeypatch.setattr(console, "raw_input", raw_input)
     await trio._repl.run_repl(console)
@@ -89,7 +89,7 @@ async def test_system_exits_quit_interpreter(monkeypatch: pytest.MonkeyPatch) ->
     raw_input = build_raw_input(
         [
             "raise SystemExit",
-        ]
+        ],
     )
     monkeypatch.setattr(console, "raw_input", raw_input)
     with pytest.raises(SystemExit):
@@ -115,7 +115,7 @@ async def test_KI_interrupts(
             "",
             "await f()",
             "print('AFTER KeyboardInterrupt')",
-        ]
+        ],
     )
     monkeypatch.setattr(console, "raw_input", raw_input)
     await trio._repl.run_repl(console)
@@ -138,7 +138,7 @@ async def test_system_exits_in_exc_group(
             "",
             "raise BaseExceptionGroup('', [RuntimeError(), SystemExit()])",
             "print('AFTER BaseExceptionGroup')",
-        ]
+        ],
     )
     monkeypatch.setattr(console, "raw_input", raw_input)
     await trio._repl.run_repl(console)
@@ -162,7 +162,7 @@ async def test_system_exits_in_nested_exc_group(
             "raise BaseExceptionGroup(",
             "  '', [BaseExceptionGroup('', [RuntimeError(), SystemExit()])])",
             "print('AFTER BaseExceptionGroup')",
-        ]
+        ],
     )
     monkeypatch.setattr(console, "raw_input", raw_input)
     await trio._repl.run_repl(console)
@@ -182,7 +182,7 @@ async def test_base_exception_captured(
             # The statement after raise should still get executed
             "raise BaseException",
             "print('AFTER BaseException')",
-        ]
+        ],
     )
     monkeypatch.setattr(console, "raw_input", raw_input)
     await trio._repl.run_repl(console)
@@ -202,7 +202,7 @@ async def test_exc_group_captured(
             # The statement after raise should still get executed
             "raise ExceptionGroup('', [KeyError()])",
             "print('AFTER ExceptionGroup')",
-        ]
+        ],
     )
     monkeypatch.setattr(console, "raw_input", raw_input)
     await trio._repl.run_repl(console)
@@ -224,7 +224,7 @@ async def test_base_exception_capture_from_coroutine(
             # be executed
             "await async_func_raises_base_exception()",
             "print('AFTER BaseException')",
-        ]
+        ],
     )
     monkeypatch.setattr(console, "raw_input", raw_input)
     await trio._repl.run_repl(console)

@@ -38,7 +38,9 @@ ca.configure_trust(client_ctx)
 
 
 parametrize_ipv6 = pytest.mark.parametrize(
-    "ipv6", [False, pytest.param(True, marks=binds_ipv6)], ids=["ipv4", "ipv6"]
+    "ipv6",
+    [False, pytest.param(True, marks=binds_ipv6)],
+    ids=["ipv4", "ipv6"],
 )
 
 
@@ -51,7 +53,10 @@ def endpoint(**kwargs: int | bool) -> DTLSEndpoint:
 
 @asynccontextmanager
 async def dtls_echo_server(
-    *, autocancel: bool = True, mtu: int | None = None, ipv6: bool = False
+    *,
+    autocancel: bool = True,
+    mtu: int | None = None,
+    ipv6: bool = False,
 ) -> AsyncGenerator[tuple[DTLSEndpoint, tuple[str, int]], None]:
     with endpoint(ipv6=ipv6) as server:
         localhost = "::1" if ipv6 else "127.0.0.1"
@@ -62,7 +67,7 @@ async def dtls_echo_server(
                 print(
                     "echo handler started: "
                     f"server {dtls_channel.endpoint.socket.getsockname()!r} "
-                    f"client {dtls_channel.peer_address!r}"
+                    f"client {dtls_channel.peer_address!r}",
                 )
                 if mtu is not None:
                     dtls_channel.set_ciphertext_mtu(mtu)
@@ -99,7 +104,8 @@ async def test_smoke(ipv6: bool) -> None:
             assert await client_channel.receive() == b"goodbye"
 
             with pytest.raises(
-                ValueError, match="^openssl doesn't support sending empty DTLS packets$"
+                ValueError,
+                match="^openssl doesn't support sending empty DTLS packets$",
             ):
                 await client_channel.send(b"")
 
@@ -165,7 +171,7 @@ async def test_handshake_over_terrible_network(
                         assert op == "deliver"
                         print(
                             f"{packet.source} -> {packet.destination}: delivered"
-                            f" {packet.payload.hex()}"
+                            f" {packet.payload.hex()}",
                         )
                         fn.deliver_packet(packet)
                         break
@@ -225,7 +231,8 @@ async def test_full_duplex() -> None:
             await server_nursery.start(server_endpoint.serve, server_ctx, handler)
 
             client = client_endpoint.connect(
-                server_endpoint.socket.getsockname(), client_ctx
+                server_endpoint.socket.getsockname(),
+                client_ctx,
             )
             async with trio.open_nursery() as nursery:
                 nursery.start_soon(client.send, b"from client")
@@ -372,9 +379,9 @@ async def test_server_socket_doesnt_crash_on_garbage(
                     frag_offset=0,
                     frag_len=10,
                     frag=bytes(10),
-                )
+                ),
             ),
-        )
+        ),
     )
 
     client_hello_extended = client_hello + b"\x00"
@@ -397,9 +404,9 @@ async def test_server_socket_doesnt_crash_on_garbage(
                     frag_offset=0,
                     frag_len=10,
                     frag=bytes(10),
-                )
+                ),
             ),
-        )
+        ),
     )
 
     client_hello_trailing_data_in_record = encode_record(
@@ -415,10 +422,10 @@ async def test_server_socket_doesnt_crash_on_garbage(
                     frag_offset=0,
                     frag_len=10,
                     frag=bytes(10),
-                )
+                ),
             )
             + b"\x00",
-        )
+        ),
     )
 
     handshake_empty = encode_record(
@@ -427,7 +434,7 @@ async def test_server_socket_doesnt_crash_on_garbage(
             version=ProtocolVersion.DTLS10,
             epoch_seqno=0,
             payload=b"",
-        )
+        ),
     )
 
     client_hello_truncated_in_cookie = encode_record(
@@ -436,7 +443,7 @@ async def test_server_socket_doesnt_crash_on_garbage(
             version=ProtocolVersion.DTLS10,
             epoch_seqno=0,
             payload=bytes(2 + 32 + 1) + b"\xff",
-        )
+        ),
     )
 
     async with dtls_echo_server() as (_, address):
@@ -620,7 +627,8 @@ async def test_openssl_retransmit_doesnt_break_stuff() -> None:
                 # notices the timeout has expired
                 blackholed = False
                 await server_endpoint.socket.sendto(
-                    b"xxx", client_endpoint.socket.getsockname()
+                    b"xxx",
+                    client_endpoint.socket.getsockname(),
                 )
                 # now the client task should finish connecting and exit cleanly
 
@@ -682,7 +690,8 @@ async def test_explicit_tiny_mtu_is_respected() -> None:
 
 @parametrize_ipv6
 async def test_handshake_handles_minimum_network_mtu(
-    ipv6: bool, autojump_clock: trio.abc.Clock
+    ipv6: bool,
+    autojump_clock: trio.abc.Clock,
 ) -> None:
     # Fake network that has the minimum allowable MTU for whatever protocol we're using.
     fn = FakeNet()

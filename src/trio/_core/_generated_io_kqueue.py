@@ -42,7 +42,8 @@ def current_kqueue() -> select.kqueue:
 
 
 def monitor_kevent(
-    ident: int, filter: int
+    ident: int,
+    filter: int,
 ) -> ContextManager[_core.UnboundedQueue[select.kevent]]:
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26
@@ -56,7 +57,9 @@ def monitor_kevent(
 
 
 async def wait_kevent(
-    ident: int, filter: int, abort_func: Callable[[RaiseCancelT], Abort]
+    ident: int,
+    filter: int,
+    abort_func: Callable[[RaiseCancelT], Abort],
 ) -> Abort:
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26
@@ -65,7 +68,9 @@ async def wait_kevent(
     sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_kevent(
-            ident, filter, abort_func
+            ident,
+            filter,
+            abort_func,
         )
     except AttributeError:
         raise RuntimeError("must be called from async context") from None

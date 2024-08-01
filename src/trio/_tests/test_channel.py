@@ -107,7 +107,8 @@ async def test_channel_multiple_consumers() -> None:
 
 async def test_close_basics() -> None:
     async def send_block(
-        s: trio.MemorySendChannel[None], expect: type[BaseException]
+        s: trio.MemorySendChannel[None],
+        expect: type[BaseException],
     ) -> None:
         with pytest.raises(expect):
             await s.send(None)
@@ -164,7 +165,8 @@ async def test_close_basics() -> None:
 
 async def test_close_sync() -> None:
     async def send_block(
-        s: trio.MemorySendChannel[None], expect: type[BaseException]
+        s: trio.MemorySendChannel[None],
+        expect: type[BaseException],
     ) -> None:
         with pytest.raises(expect):
             await s.send(None)

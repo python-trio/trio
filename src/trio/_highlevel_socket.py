@@ -76,7 +76,7 @@ class SocketStream(HalfCloseableStream):
 
         self.socket = socket
         self._send_conflict_detector = ConflictDetector(
-            "another task is currently sending data on this SocketStream"
+            "another task is currently sending data on this SocketStream",
         )
 
         # Socket defaults:
@@ -167,12 +167,12 @@ class SocketStream(HalfCloseableStream):
         if length is None:
             if value is None:
                 raise TypeError(
-                    "invalid value for argument 'value', must not be None when specifying length"
+                    "invalid value for argument 'value', must not be None when specifying length",
                 )
             return self.socket.setsockopt(level, option, value)
         if value is not None:
             raise TypeError(
-                f"invalid value for argument 'value': {value!r}, must be None when specifying optlen"
+                f"invalid value for argument 'value': {value!r}, must be None when specifying optlen",
             )
         return self.socket.setsockopt(level, option, value, length)
 

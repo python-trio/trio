@@ -98,11 +98,14 @@ async def test_div_magic(cls_a: PathOrStrType, cls_b: PathOrStrType) -> None:
 
 
 @pytest.mark.parametrize(
-    ("cls_a", "cls_b"), [(trio.Path, pathlib.Path), (trio.Path, trio.Path)]
+    ("cls_a", "cls_b"),
+    [(trio.Path, pathlib.Path), (trio.Path, trio.Path)],
 )
 @pytest.mark.parametrize("path", ["foo", "foo/bar/baz", "./foo"])
 async def test_hash_magic(
-    cls_a: EitherPathType, cls_b: EitherPathType, path: str
+    cls_a: EitherPathType,
+    cls_b: EitherPathType,
+    path: str,
 ) -> None:
     a, b = cls_a(path), cls_b(path)
     assert hash(a) == hash(b)
@@ -264,7 +267,7 @@ async def test_classmethods() -> None:
     ],
 )
 def test_wrapping_without_docstrings(
-    wrapper: Callable[[Callable[[], None]], Callable[[], None]]
+    wrapper: Callable[[Callable[[], None]], Callable[[], None]],
 ) -> None:
     @wrapper
     def func_without_docstring() -> None: ...  # pragma: no cover

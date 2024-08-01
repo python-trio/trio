@@ -59,13 +59,15 @@ def test_wrap_non_iobase() -> None:
 
 
 def test_wrapped_property(
-    async_file: AsyncIOWrapper[mock.Mock], wrapped: mock.Mock
+    async_file: AsyncIOWrapper[mock.Mock],
+    wrapped: mock.Mock,
 ) -> None:
     assert async_file.wrapped is wrapped
 
 
 def test_dir_matches_wrapped(
-    async_file: AsyncIOWrapper[mock.Mock], wrapped: mock.Mock
+    async_file: AsyncIOWrapper[mock.Mock],
+    wrapped: mock.Mock,
 ) -> None:
     attrs = _FILE_SYNC_ATTRS.union(_FILE_ASYNC_METHODS)
 
@@ -132,7 +134,8 @@ def test_type_stubs_match_lists() -> None:
 
 
 def test_sync_attrs_forwarded(
-    async_file: AsyncIOWrapper[mock.Mock], wrapped: mock.Mock
+    async_file: AsyncIOWrapper[mock.Mock],
+    wrapped: mock.Mock,
 ) -> None:
     for attr_name in _FILE_SYNC_ATTRS:
         if attr_name not in dir(async_file):
@@ -142,7 +145,8 @@ def test_sync_attrs_forwarded(
 
 
 def test_sync_attrs_match_wrapper(
-    async_file: AsyncIOWrapper[mock.Mock], wrapped: mock.Mock
+    async_file: AsyncIOWrapper[mock.Mock],
+    wrapped: mock.Mock,
 ) -> None:
     for attr_name in _FILE_SYNC_ATTRS:
         if attr_name in dir(async_file):
@@ -174,7 +178,8 @@ def test_async_methods_signature(async_file: AsyncIOWrapper[mock.Mock]) -> None:
 
 
 async def test_async_methods_wrap(
-    async_file: AsyncIOWrapper[mock.Mock], wrapped: mock.Mock
+    async_file: AsyncIOWrapper[mock.Mock],
+    wrapped: mock.Mock,
 ) -> None:
     for meth_name in _FILE_ASYNC_METHODS:
         if meth_name not in dir(async_file):
@@ -186,7 +191,8 @@ async def test_async_methods_wrap(
         value = await meth(sentinel.argument, keyword=sentinel.keyword)
 
         wrapped_meth.assert_called_once_with(
-            sentinel.argument, keyword=sentinel.keyword
+            sentinel.argument,
+            keyword=sentinel.keyword,
         )
         assert value == wrapped_meth()
 
@@ -194,7 +200,8 @@ async def test_async_methods_wrap(
 
 
 async def test_async_methods_match_wrapper(
-    async_file: AsyncIOWrapper[mock.Mock], wrapped: mock.Mock
+    async_file: AsyncIOWrapper[mock.Mock],
+    wrapped: mock.Mock,
 ) -> None:
     for meth_name in _FILE_ASYNC_METHODS:
         if meth_name in dir(async_file):

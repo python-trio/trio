@@ -34,14 +34,16 @@ async def test_basic_udp() -> None:
     assert port != 0
 
     with pytest.raises(
-        OSError, match=r"^\[\w+ \d+\] Invalid argument$"
+        OSError,
+        match=r"^\[\w+ \d+\] Invalid argument$",
     ) as exc:  # Cannot rebind.
         await s1.bind(("192.0.2.1", 0))
     assert exc.value.errno == errno.EINVAL
 
     # Cannot bind multiple sockets to the same address
     with pytest.raises(
-        OSError, match=r"^\[\w+ \d+\] (Address (already )?in use|Unknown error)$"
+        OSError,
+        match=r"^\[\w+ \d+\] (Address (already )?in use|Unknown error)$",
     ) as exc:
         await s2.bind(("127.0.0.1", port))
     assert exc.value.errno == errno.EADDRINUSE
@@ -131,7 +133,8 @@ async def test_recv_methods() -> None:
 
 
 @pytest.mark.skipif(
-    sys.platform == "win32", reason="functions not in socket on windows"
+    sys.platform == "win32",
+    reason="functions not in socket on windows",
 )
 async def test_nonwindows_functionality() -> None:
     # mypy doesn't support a good way of aborting typechecking on different platforms
@@ -180,13 +183,15 @@ async def test_nonwindows_functionality() -> None:
         assert addr == s1.getsockname()
 
         with pytest.raises(
-            AttributeError, match="^'FakeSocket' object has no attribute 'share'$"
+            AttributeError,
+            match="^'FakeSocket' object has no attribute 'share'$",
         ):
             await s1.share(0)  # type: ignore[attr-defined]
 
 
 @pytest.mark.skipif(
-    sys.platform != "win32", reason="windows-specific fakesocket testing"
+    sys.platform != "win32",
+    reason="windows-specific fakesocket testing",
 )
 async def test_windows_functionality() -> None:
     # mypy doesn't support a good way of aborting typechecking on different platforms
@@ -196,11 +201,13 @@ async def test_windows_functionality() -> None:
         s2 = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
         await s1.bind(("127.0.0.1", 0))
         with pytest.raises(
-            AttributeError, match="^'FakeSocket' object has no attribute 'sendmsg'$"
+            AttributeError,
+            match="^'FakeSocket' object has no attribute 'sendmsg'$",
         ):
             await s1.sendmsg([b"jkl"], (), 0, s2.getsockname())  # type: ignore[attr-defined]
         with pytest.raises(
-            AttributeError, match="^'FakeSocket' object has no attribute 'recvmsg'$"
+            AttributeError,
+            match="^'FakeSocket' object has no attribute 'recvmsg'$",
         ):
             s2.recvmsg(0)  # type: ignore[attr-defined]
         with pytest.raises(
@@ -224,28 +231,33 @@ async def test_not_implemented_functions() -> None:
 
     # getsockopt
     with pytest.raises(
-        OSError, match=r"^FakeNet doesn't implement getsockopt\(\d, \d\)$"
+        OSError,
+        match=r"^FakeNet doesn't implement getsockopt\(\d, \d\)$",
     ):
         s1.getsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY)
 
     # setsockopt
     with pytest.raises(
-        NotImplementedError, match="^FakeNet always has IPV6_V6ONLY=True$"
+        NotImplementedError,
+        match="^FakeNet always has IPV6_V6ONLY=True$",
     ):
         s1.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
     with pytest.raises(
-        OSError, match=r"^FakeNet doesn't implement setsockopt\(\d+, \d+, \.\.\.\)$"
+        OSError,
+        match=r"^FakeNet doesn't implement setsockopt\(\d+, \d+, \.\.\.\)$",
     ):
         s1.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, True)
     with pytest.raises(
-        OSError, match=r"^FakeNet doesn't implement setsockopt\(\d+, \d+, \.\.\.\)$"
+        OSError,
+        match=r"^FakeNet doesn't implement setsockopt\(\d+, \d+, \.\.\.\)$",
     ):
         s1.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
     # set_inheritable
     s1.set_inheritable(False)
     with pytest.raises(
-        NotImplementedError, match="^FakeNet can't make inheritable sockets$"
+        NotImplementedError,
+        match="^FakeNet can't make inheritable sockets$",
     ):
         s1.set_inheritable(True)
 
@@ -274,7 +286,7 @@ async def test_init() -> None:
     with pytest.raises(
         NotImplementedError,
         match=re.escape(
-            f"FakeNet doesn't (yet) support type={trio.socket.SOCK_STREAM}"
+            f"FakeNet doesn't (yet) support type={trio.socket.SOCK_STREAM}",
         ),
     ):
         s1 = trio.socket.socket()

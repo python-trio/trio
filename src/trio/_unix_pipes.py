@@ -121,10 +121,10 @@ class FdStream(Stream):
     def __init__(self, fd: int) -> None:
         self._fd_holder = _FdHolder(fd)
         self._send_conflict_detector = ConflictDetector(
-            "another task is using this stream for send"
+            "another task is using this stream for send",
         )
         self._receive_conflict_detector = ConflictDetector(
-            "another task is using this stream for receive"
+            "another task is using this stream for receive",
         )
 
     async def send_all(self, data: bytes) -> None:
@@ -147,7 +147,7 @@ class FdStream(Stream):
                         except OSError as e:
                             if e.errno == errno.EBADF:
                                 raise trio.ClosedResourceError(
-                                    "file was already closed"
+                                    "file was already closed",
                                 ) from None
                             else:
                                 raise trio.BrokenResourceError from e
@@ -182,7 +182,7 @@ class FdStream(Stream):
                 except OSError as exc:
                     if exc.errno == errno.EBADF:
                         raise trio.ClosedResourceError(
-                            "file was already closed"
+                            "file was already closed",
                         ) from None
                     else:
                         raise trio.BrokenResourceError from exc

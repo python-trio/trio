@@ -27,7 +27,9 @@ def echo_server_connection():
     client_sock, server_sock = socket.socketpair()
     with client_sock, server_sock:
         t = threading.Thread(
-            target=_ssl_echo_serve_sync, args=(server_sock,), daemon=True
+            target=_ssl_echo_serve_sync,
+            args=(server_sock,),
+            daemon=True,
         )
         t.start()
 
@@ -101,7 +103,9 @@ for wrap_socket in [
     with echo_server_connection() as client_sock:
         client_ctx = ssl.create_default_context(cafile="trio-test-CA.pem")
         wrapped = wrap_socket(
-            client_ctx, client_sock, server_hostname="trio-test-1.example.org"
+            client_ctx,
+            client_sock,
+            server_hostname="trio-test-1.example.org",
         )
         wrapped.do_handshake()
         wrapped.sendall(b"x")
@@ -113,7 +117,9 @@ for wrap_socket in [
     with echo_server_connection() as client_sock:
         client_ctx = ssl.create_default_context(cafile="trio-test-CA.pem")
         wrapped = wrap_socket(
-            client_ctx, client_sock, server_hostname="trio-test-2.example.org"
+            client_ctx,
+            client_sock,
+            server_hostname="trio-test-2.example.org",
         )
         try:
             wrapped.do_handshake()
@@ -126,7 +132,9 @@ for wrap_socket in [
     with echo_server_connection() as client_sock:
         client_ctx = ssl.create_default_context(cafile="trio-test-CA.pem")
         wrapped = wrap_socket(
-            client_ctx, client_sock, server_hostname="trio-test-2.example.org"
+            client_ctx,
+            client_sock,
+            server_hostname="trio-test-2.example.org",
         )
         # We forgot to call do_handshake
         # But the hostname is wrong so something had better error out...

@@ -81,7 +81,9 @@ async def test_WaitForMultipleObjects_sync_slow() -> None:
     t0 = _core.current_time()
     async with _core.open_nursery() as nursery:
         nursery.start_soon(
-            trio.to_thread.run_sync, WaitForMultipleObjects_sync, handle1
+            trio.to_thread.run_sync,
+            WaitForMultipleObjects_sync,
+            handle1,
         )
         await _timeouts.sleep(TIMEOUT)
         # If we would comment the line below, the above thread will be stuck,
@@ -98,7 +100,10 @@ async def test_WaitForMultipleObjects_sync_slow() -> None:
     t0 = _core.current_time()
     async with _core.open_nursery() as nursery:
         nursery.start_soon(
-            trio.to_thread.run_sync, WaitForMultipleObjects_sync, handle1, handle2
+            trio.to_thread.run_sync,
+            WaitForMultipleObjects_sync,
+            handle1,
+            handle2,
         )
         await _timeouts.sleep(TIMEOUT)
         kernel32.SetEvent(handle1)
@@ -114,7 +119,10 @@ async def test_WaitForMultipleObjects_sync_slow() -> None:
     t0 = _core.current_time()
     async with _core.open_nursery() as nursery:
         nursery.start_soon(
-            trio.to_thread.run_sync, WaitForMultipleObjects_sync, handle1, handle2
+            trio.to_thread.run_sync,
+            WaitForMultipleObjects_sync,
+            handle1,
+            handle2,
         )
         await _timeouts.sleep(TIMEOUT)
         kernel32.SetEvent(handle2)

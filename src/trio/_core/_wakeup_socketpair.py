@@ -63,7 +63,7 @@ class WakeupSocketpair:
                     "running Trio in guest mode, then this might mean you "
                     "should set host_uses_signal_set_wakeup_fd=True. "
                     "Otherwise, file a bug on Trio and we'll help you figure "
-                    "out what's going on."
+                    "out what's going on.",
                 ),
                 stacklevel=1,
             )
