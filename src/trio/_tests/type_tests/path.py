@@ -1,4 +1,5 @@
 """Path wrapping is quite complex, ensure all methods are understood as wrapped correctly."""
+
 import io
 import os
 import pathlib
@@ -6,7 +7,7 @@ import sys
 from typing import IO, Any, BinaryIO, List, Tuple
 
 import trio
-from trio._path import _AsyncIOWrapper  # pyright: ignore[reportPrivateUsage]
+from trio._file_io import AsyncIOWrapper
 from typing_extensions import assert_type
 
 
@@ -38,7 +39,7 @@ def sync_attrs(path: trio.Path) -> None:
     assert_type(path.drive, str)
     assert_type(path.root, str)
     assert_type(path.anchor, str)
-    assert_type(path.parents[3], pathlib.Path)
+    assert_type(path.parents[3], trio.Path)
     assert_type(path.parent, trio.Path)
     assert_type(path.name, str)
     assert_type(path.suffix, str)
@@ -118,16 +119,16 @@ async def async_attrs(path: trio.Path) -> None:
 
 async def open_results(path: trio.Path, some_int: int, some_str: str) -> None:
     # Check the overloads.
-    assert_type(await path.open(), _AsyncIOWrapper[io.TextIOWrapper])
-    assert_type(await path.open("r"), _AsyncIOWrapper[io.TextIOWrapper])
-    assert_type(await path.open("r+"), _AsyncIOWrapper[io.TextIOWrapper])
-    assert_type(await path.open("w"), _AsyncIOWrapper[io.TextIOWrapper])
-    assert_type(await path.open("rb", buffering=0), _AsyncIOWrapper[io.FileIO])
-    assert_type(await path.open("rb+"), _AsyncIOWrapper[io.BufferedRandom])
-    assert_type(await path.open("wb"), _AsyncIOWrapper[io.BufferedWriter])
-    assert_type(await path.open("rb"), _AsyncIOWrapper[io.BufferedReader])
-    assert_type(await path.open("rb", buffering=some_int), _AsyncIOWrapper[BinaryIO])
-    assert_type(await path.open(some_str), _AsyncIOWrapper[IO[Any]])
+    assert_type(await path.open(), AsyncIOWrapper[io.TextIOWrapper])
+    assert_type(await path.open("r"), AsyncIOWrapper[io.TextIOWrapper])
+    assert_type(await path.open("r+"), AsyncIOWrapper[io.TextIOWrapper])
+    assert_type(await path.open("w"), AsyncIOWrapper[io.TextIOWrapper])
+    assert_type(await path.open("rb", buffering=0), AsyncIOWrapper[io.FileIO])
+    assert_type(await path.open("rb+"), AsyncIOWrapper[io.BufferedRandom])
+    assert_type(await path.open("wb"), AsyncIOWrapper[io.BufferedWriter])
+    assert_type(await path.open("rb"), AsyncIOWrapper[io.BufferedReader])
+    assert_type(await path.open("rb", buffering=some_int), AsyncIOWrapper[BinaryIO])
+    assert_type(await path.open(some_str), AsyncIOWrapper[IO[Any]])
 
     # Check they produce the right types.
     file_bin = await path.open("rb+")

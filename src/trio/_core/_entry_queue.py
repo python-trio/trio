@@ -4,7 +4,7 @@ import threading
 from collections import deque
 from typing import TYPE_CHECKING, Callable, NoReturn, Tuple
 
-import attr
+import attrs
 
 from .. import _core
 from .._util import NoPublicConstructor, final
@@ -19,7 +19,7 @@ Function = Callable[..., object]
 Job = Tuple[Function, Tuple[object, ...]]
 
 
-@attr.s(slots=True)
+@attrs.define
 class EntryQueue:
     # This used to use a queue.Queue. but that was broken, because Queues are
     # implemented in Python, and not reentrant -- so it was thread-safe, but
@@ -28,11 +28,11 @@ class EntryQueue:
     # atomic WRT signal delivery (signal handlers can run on either side, but
     # not *during* a deque operation). dict makes similar guarantees - and
     # it's even ordered!
-    queue: deque[Job] = attr.ib(factory=deque)
-    idempotent_queue: dict[Job, None] = attr.ib(factory=dict)
+    queue: deque[Job] = attrs.Factory(deque)
+    idempotent_queue: dict[Job, None] = attrs.Factory(dict)
 
-    wakeup: WakeupSocketpair = attr.ib(factory=WakeupSocketpair)
-    done: bool = attr.ib(default=False)
+    wakeup: WakeupSocketpair = attrs.Factory(WakeupSocketpair)
+    done: bool = False
     # Must be a reentrant lock, because it's acquired from signal handlers.
     # RLock is signal-safe as of cpython 3.2. NB that this does mean that the
     # lock is effectively *disabled* when we enter from signal context. The
@@ -41,7 +41,7 @@ class EntryQueue:
     # main thread -- it just might happen at some inconvenient place. But if
     # you look at the one place where the main thread holds the lock, it's
     # just to make 1 assignment, so that's atomic WRT a signal anyway.
-    lock: threading.RLock = attr.ib(factory=threading.RLock)
+    lock: threading.RLock = attrs.Factory(threading.RLock)
 
     async def task(self) -> None:
         assert _core.currently_ki_protected()
@@ -146,7 +146,7 @@ class EntryQueue:
 
 
 @final
-@attr.s(eq=False, hash=False, slots=True)
+@attrs.define(eq=False, hash=False)
 class TrioToken(metaclass=NoPublicConstructor):
     """An opaque object representing a single call to :func:`trio.run`.
 
@@ -166,7 +166,7 @@ class TrioToken(metaclass=NoPublicConstructor):
 
     """
 
-    _reentry_queue: EntryQueue = attr.ib()
+    _reentry_queue: EntryQueue
 
     def run_sync_soon(
         self,

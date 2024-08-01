@@ -6,19 +6,29 @@ import inspect
 import os
 import signal
 import threading
-import typing as t
 from abc import ABCMeta
 from functools import update_wrapper
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Awaitable,
+    Callable,
+    Generic,
+    NoReturn,
+    Sequence,
+    TypeVar,
+    final as std_final,
+)
 
 from sniffio import thread_local as sniffio_loop
 
 import trio
 
-CallT = t.TypeVar("CallT", bound=t.Callable[..., t.Any])
-T = t.TypeVar("T")
-RetT = t.TypeVar("RetT")
+CallT = TypeVar("CallT", bound=Callable[..., Any])
+T = TypeVar("T")
+RetT = TypeVar("RetT")
 
-if t.TYPE_CHECKING:
+if TYPE_CHECKING:
     from types import AsyncGeneratorType, TracebackType
 
     from typing_extensions import ParamSpec, Self, TypeVarTuple, Unpack
@@ -27,10 +37,9 @@ if t.TYPE_CHECKING:
     PosArgsT = TypeVarTuple("PosArgsT")
 
 
-if t.TYPE_CHECKING:
+if TYPE_CHECKING:
     # Don't type check the implementation below, pthread_kill does not exist on Windows.
-    def signal_raise(signum: int) -> None:
-        ...
+    def signal_raise(signum: int) -> None: ...
 
 
 # Equivalent to the C function raise(), which Python doesn't wrap
@@ -104,9 +113,9 @@ def is_main_thread() -> bool:
 # errors for common mistakes. Returns coroutine object.
 ######
 def coroutine_or_error(
-    async_fn: t.Callable[[Unpack[PosArgsT]], t.Awaitable[RetT]],
+    async_fn: Callable[[Unpack[PosArgsT]], Awaitable[RetT]],
     *args: Unpack[PosArgsT],
-) -> collections.abc.Coroutine[object, t.NoReturn, RetT]:
+) -> collections.abc.Coroutine[object, NoReturn, RetT]:
     def _return_value_looks_like_wrong_library(value: object) -> bool:
         # Returned by legacy @asyncio.coroutine functions, which includes
         # a surprising proportion of asyncio builtins.
@@ -118,9 +127,7 @@ def coroutine_or_error(
         # This janky check catches tornado Futures and twisted Deferreds.
         # By the time we're calling this function, we already know
         # something has gone wrong, so a heuristic is pretty safe.
-        if value.__class__.__name__ in ("Future", "Deferred"):
-            return True
-        return False
+        return value.__class__.__name__ in ("Future", "Deferred")
 
     # Make sure a sync-fn-that-returns-coroutine still sees itself as being
     # in trio context
@@ -231,18 +238,14 @@ def async_wraps(
     cls: type[object],
     wrapped_cls: type[object],
     attr_name: str,
-) -> t.Callable[[CallT], CallT]:
+) -> Callable[[CallT], CallT]:
     """Similar to wraps, but for async wrappers of non-async functions."""
 
     def decorator(func: CallT) -> CallT:
         func.__name__ = attr_name
         func.__qualname__ = ".".join((cls.__qualname__, attr_name))
 
-        func.__doc__ = """Like :meth:`~{}.{}.{}`, but async.
-
-        """.format(
-            wrapped_cls.__module__, wrapped_cls.__qualname__, attr_name
-        )
+        func.__doc__ = f"Like :meth:`~{wrapped_cls.__module__}.{wrapped_cls.__qualname__}.{attr_name}`, but async."
 
         return func
 
@@ -283,7 +286,7 @@ def fixup_module_metadata(
 # We need ParamSpec to type this "properly", but that requires a runtime typing_extensions import
 # to use as a class base. This is only used at runtime and isn't correct for type checkers anyway,
 # so don't bother.
-class generic_function(t.Generic[RetT]):
+class generic_function(Generic[RetT]):
     """Decorator that makes a function indexable, to communicate
     non-inferrable generic type parameters to a static type checker.
 
@@ -300,18 +303,18 @@ class generic_function(t.Generic[RetT]):
     but at least it becomes possible to write those.
     """
 
-    def __init__(self, fn: t.Callable[..., RetT]) -> None:
+    def __init__(self, fn: Callable[..., RetT]) -> None:
         update_wrapper(self, fn)
         self._fn = fn
 
-    def __call__(self, *args: t.Any, **kwargs: t.Any) -> RetT:
+    def __call__(self, *args: Any, **kwargs: Any) -> RetT:
         return self._fn(*args, **kwargs)
 
     def __getitem__(self, subscript: object) -> Self:
         return self
 
 
-def _init_final_cls(cls: type[object]) -> t.NoReturn:
+def _init_final_cls(cls: type[object]) -> NoReturn:
     """Raises an exception when a final class is subclassed."""
     raise TypeError(f"{cls.__module__}.{cls.__qualname__} does not support subclassing")
 
@@ -335,10 +338,10 @@ def _final_impl(decorated: type[T]) -> type[T]:
     # matter what the original did (if anything).
     decorated.__init_subclass__ = classmethod(_init_final_cls)  # type: ignore[assignment]
     # Apply the typing decorator, in 3.11+ it adds a __final__ marker attribute.
-    return t.final(decorated)
+    return std_final(decorated)
 
 
-if t.TYPE_CHECKING:
+if TYPE_CHECKING:
     from typing import final
 else:
     final = _final_impl
@@ -374,7 +377,7 @@ class NoPublicConstructor(ABCMeta):
         return super().__call__(*args, **kwargs)  # type: ignore
 
 
-def name_asyncgen(agen: AsyncGeneratorType[object, t.NoReturn]) -> str:
+def name_asyncgen(agen: AsyncGeneratorType[object, NoReturn]) -> str:
     """Return the fully-qualified name of the async generator function
     that produced the async generator iterator *agen*.
     """
@@ -392,15 +395,14 @@ def name_asyncgen(agen: AsyncGeneratorType[object, t.NoReturn]) -> str:
 
 
 # work around a pyright error
-if t.TYPE_CHECKING:
-    Fn = t.TypeVar("Fn", bound=t.Callable[..., object])
+if TYPE_CHECKING:
+    Fn = TypeVar("Fn", bound=Callable[..., object])
 
     def wraps(
-        wrapped: t.Callable[..., object],
-        assigned: t.Sequence[str] = ...,
-        updated: t.Sequence[str] = ...,
-    ) -> t.Callable[[Fn], Fn]:
-        ...
+        wrapped: Callable[..., object],
+        assigned: Sequence[str] = ...,
+        updated: Sequence[str] = ...,
+    ) -> Callable[[Fn], Fn]: ...
 
 else:
     from functools import wraps  # noqa: F401  # this is re-exported

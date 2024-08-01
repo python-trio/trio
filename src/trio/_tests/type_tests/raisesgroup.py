@@ -11,6 +11,7 @@ ExceptionInfo[BaseExceptionGroup[RaisesGroup[ValueError]]]. To get around that w
 RaisesGroup as a subclass of BaseExceptionGroup during type checking - which should mean
 that most static type checking for end users should be mostly correct.
 """
+
 from __future__ import annotations
 
 import sys
@@ -32,13 +33,16 @@ def check_inheritance_and_assignments() -> None:
 
     a: BaseExceptionGroup[BaseExceptionGroup[ValueError]]
     a = RaisesGroup(RaisesGroup(ValueError))
-    # pyright-ignore due to bug in exceptiongroup
-    # https://github.com/agronholm/exceptiongroup/pull/101
-    # once fixed we'll get errors for unnecessary-pyright-ignore and can clean up
-    a = BaseExceptionGroup(
-        "", (BaseExceptionGroup("", (ValueError(),)),)  # pyright: ignore
-    )
+    a = BaseExceptionGroup("", (BaseExceptionGroup("", (ValueError(),)),))
     assert a
+
+
+def check_matcher_typevar_default(e: Matcher) -> object:
+    assert e.exception_type is not None
+    exc: type[BaseException] = e.exception_type
+    # this would previously pass, as the type would be `Any`
+    e.exception_type().blah()  # type: ignore
+    return exc  # Silence Pyright unused var warning
 
 
 def check_basic_contextmanager() -> None:
@@ -70,12 +74,8 @@ def check_matcher_init() -> None:
     def check_exc(exc: BaseException) -> bool:
         return isinstance(exc, ValueError)
 
-    def check_filenotfound(exc: FileNotFoundError) -> bool:
-        return not exc.filename.endswith(".tmp")
-
     # Check various combinations of constructor signatures.
-    # At least 1 arg must be provided. If exception_type is provided, that narrows
-    # check's argument.
+    # At least 1 arg must be provided.
     Matcher()  # type: ignore
     Matcher(ValueError)
     Matcher(ValueError, "regex")
@@ -83,11 +83,78 @@ def check_matcher_init() -> None:
     Matcher(exception_type=ValueError)
     Matcher(match="regex")
     Matcher(check=check_exc)
-    Matcher(check=check_filenotfound)  # type: ignore
     Matcher(ValueError, match="regex")
-    Matcher(FileNotFoundError, check=check_filenotfound)
     Matcher(match="regex", check=check_exc)
+
+    def check_filenotfound(exc: FileNotFoundError) -> bool:
+        return not exc.filename.endswith(".tmp")
+
+    # If exception_type is provided, that narrows the `check` method's argument.
+    Matcher(FileNotFoundError, check=check_filenotfound)
+    Matcher(ValueError, check=check_filenotfound)  # type: ignore
+    Matcher(check=check_filenotfound)  # type: ignore
     Matcher(FileNotFoundError, match="regex", check=check_filenotfound)
+
+
+def raisesgroup_check_type_narrowing() -> None:
+    """Check type narrowing on the `check` argument to `RaisesGroup`.
+    All `type: ignore`s are correctly pointing out type errors, except
+    where otherwise noted.
+
+
+    """
+
+    def handle_exc(e: BaseExceptionGroup[BaseException]) -> bool:
+        return True
+
+    def handle_kbi(e: BaseExceptionGroup[KeyboardInterrupt]) -> bool:
+        return True
+
+    def handle_value(e: BaseExceptionGroup[ValueError]) -> bool:
+        return True
+
+    RaisesGroup(BaseException, check=handle_exc)
+    RaisesGroup(BaseException, check=handle_kbi)  # type: ignore
+
+    RaisesGroup(Exception, check=handle_exc)
+    RaisesGroup(Exception, check=handle_value)  # type: ignore
+
+    RaisesGroup(KeyboardInterrupt, check=handle_exc)
+    RaisesGroup(KeyboardInterrupt, check=handle_kbi)
+    RaisesGroup(KeyboardInterrupt, check=handle_value)  # type: ignore
+
+    RaisesGroup(ValueError, check=handle_exc)
+    RaisesGroup(ValueError, check=handle_kbi)  # type: ignore
+    RaisesGroup(ValueError, check=handle_value)
+
+    RaisesGroup(ValueError, KeyboardInterrupt, check=handle_exc)
+    RaisesGroup(ValueError, KeyboardInterrupt, check=handle_kbi)  # type: ignore
+    RaisesGroup(ValueError, KeyboardInterrupt, check=handle_value)  # type: ignore
+
+
+def raisesgroup_narrow_baseexceptiongroup() -> None:
+    """Check type narrowing specifically for the container exceptiongroup.
+    This is not currently working, and after playing around with it for a bit
+    I think the only way is to introduce a subclass `NonBaseRaisesGroup`, and overload
+    `__new__` in Raisesgroup to return the subclass when exceptions are non-base.
+    (or make current class BaseRaisesGroup and introduce RaisesGroup for non-base)
+    I encountered problems trying to type this though, see
+    https://github.com/python/mypy/issues/17251
+    That is probably possible to work around by entirely using `__new__` instead of
+    `__init__`, but........ ugh.
+    """
+
+    def handle_group(e: ExceptionGroup[Exception]) -> bool:
+        return True
+
+    def handle_group_value(e: ExceptionGroup[ValueError]) -> bool:
+        return True
+
+    # should work, but BaseExceptionGroup does not get narrowed to ExceptionGroup
+    RaisesGroup(ValueError, check=handle_group_value)  # type: ignore
+
+    # should work, but BaseExceptionGroup does not get narrowed to ExceptionGroup
+    RaisesGroup(Exception, check=handle_group)  # type: ignore
 
 
 def check_matcher_transparent() -> None:
@@ -124,12 +191,62 @@ def check_nested_raisesgroups_contextmanager() -> None:
 
 def check_nested_raisesgroups_matches() -> None:
     """Check nested RaisesGroups with .matches"""
-    # pyright-ignore due to bug in exceptiongroup
-    # https://github.com/agronholm/exceptiongroup/pull/101
-    # once fixed we'll get errors for unnecessary-pyright-ignore and can clean up
     exc: ExceptionGroup[ExceptionGroup[ValueError]] = ExceptionGroup(
-        "", (ExceptionGroup("", (ValueError(),)),)  # pyright: ignore
+        "", (ExceptionGroup("", (ValueError(),)),)
     )
     # has the same problems as check_nested_raisesgroups_contextmanager
     if RaisesGroup(RaisesGroup(ValueError)).matches(exc):
         assert_type(exc, BaseExceptionGroup[RaisesGroup[ValueError]])
+
+
+def check_multiple_exceptions_1() -> None:
+    a = RaisesGroup(ValueError, ValueError)
+    b = RaisesGroup(Matcher(ValueError), Matcher(ValueError))
+    c = RaisesGroup(ValueError, Matcher(ValueError))
+
+    d: BaseExceptionGroup[ValueError]
+    d = a
+    d = b
+    d = c
+    assert d
+
+
+def check_multiple_exceptions_2() -> None:
+    # This previously failed due to lack of covariance in the TypeVar
+    a = RaisesGroup(Matcher(ValueError), Matcher(TypeError))
+    b = RaisesGroup(Matcher(ValueError), TypeError)
+    c = RaisesGroup(ValueError, TypeError)
+
+    d: BaseExceptionGroup[Exception]
+    d = a
+    d = b
+    d = c
+    assert d
+
+
+def check_raisesgroup_overloads() -> None:
+    # allow_unwrapped=True does not allow:
+    # multiple exceptions
+    RaisesGroup(ValueError, TypeError, allow_unwrapped=True)  # type: ignore
+    # nested RaisesGroup
+    RaisesGroup(RaisesGroup(ValueError), allow_unwrapped=True)  # type: ignore
+    # specifying match
+    RaisesGroup(ValueError, match="foo", allow_unwrapped=True)  # type: ignore
+    # specifying check
+    RaisesGroup(ValueError, check=bool, allow_unwrapped=True)  # type: ignore
+    # allowed variants
+    RaisesGroup(ValueError, allow_unwrapped=True)
+    RaisesGroup(ValueError, allow_unwrapped=True, flatten_subgroups=True)
+    RaisesGroup(Matcher(ValueError), allow_unwrapped=True)
+
+    # flatten_subgroups=True does not allow nested RaisesGroup
+    RaisesGroup(RaisesGroup(ValueError), flatten_subgroups=True)  # type: ignore
+    # but rest is plenty fine
+    RaisesGroup(ValueError, TypeError, flatten_subgroups=True)
+    RaisesGroup(ValueError, match="foo", flatten_subgroups=True)
+    RaisesGroup(ValueError, check=bool, flatten_subgroups=True)
+    RaisesGroup(ValueError, flatten_subgroups=True)
+    RaisesGroup(Matcher(ValueError), flatten_subgroups=True)
+
+    # if they're both false we can of course specify nested raisesgroup
+    RaisesGroup(RaisesGroup(ValueError))

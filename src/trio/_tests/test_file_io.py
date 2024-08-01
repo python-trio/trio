@@ -226,11 +226,9 @@ async def test_open_context_manager(path: pathlib.Path) -> None:
 async def test_async_iter() -> None:
     async_file = trio.wrap_file(io.StringIO("test\nfoo\nbar"))
     expected = list(async_file.wrapped)
-    result = []
     async_file.wrapped.seek(0)
 
-    async for line in async_file:
-        result.append(line)
+    result = [line async for line in async_file]
 
     assert result == expected
 
@@ -253,7 +251,7 @@ async def test_detach_rewraps_asynciobase(tmp_path: pathlib.Path) -> None:
     tmp_file = tmp_path / "filename"
     tmp_file.touch()
     # flake8-async does not like opening files in async mode
-    with open(tmp_file, mode="rb", buffering=0) as raw:  # noqa: ASYNC101
+    with open(tmp_file, mode="rb", buffering=0) as raw:  # noqa: ASYNC230
         buffered = io.BufferedReader(raw)
 
         async_file = trio.wrap_file(buffered)

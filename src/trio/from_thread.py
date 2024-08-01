@@ -3,7 +3,6 @@ This namespace represents special functions that can call back into Trio from
 an external thread by means of a Trio Token present in Thread Local Storage
 """
 
-
 from ._threads import (
     from_thread_check_cancelled as check_cancelled,
     from_thread_run as run,

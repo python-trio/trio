@@ -6,10 +6,12 @@ sphinx_rtd_theme
 sphinxcontrib-jquery
 sphinxcontrib-trio
 towncrier
+sphinx-hoverxref
+sphinx-codeautolink
 
 # Trio's own dependencies
 cffi; os_name == "nt"
-attrs >= 19.2.0
+attrs >= 23.2.0
 sortedcontainers
 idna
 outcome

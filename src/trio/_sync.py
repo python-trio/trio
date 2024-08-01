@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING, Protocol
 
-import attr
+import attrs
 
 import trio
 
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from ._core._parking_lot import ParkingLotStatistics
 
 
-@attr.s(frozen=True, slots=True)
+@attrs.frozen
 class EventStatistics:
     """An object containing debugging information.
 
@@ -29,11 +29,11 @@ class EventStatistics:
 
     """
 
-    tasks_waiting: int = attr.ib()
+    tasks_waiting: int
 
 
 @final
-@attr.s(repr=False, eq=False, hash=False, slots=True)
+@attrs.define(repr=False, eq=False, hash=False)
 class Event:
     """A waitable boolean value useful for inter-task synchronization,
     inspired by :class:`threading.Event`.
@@ -60,8 +60,8 @@ class Event:
 
     """
 
-    _tasks: set[Task] = attr.ib(factory=set, init=False)
-    _flag: bool = attr.ib(default=False, init=False)
+    _tasks: set[Task] = attrs.field(factory=set, init=False)
+    _flag: bool = attrs.field(default=False, init=False)
 
     def is_set(self) -> bool:
         """Return the current value of the internal flag."""
@@ -109,11 +109,9 @@ class Event:
 class _HasAcquireRelease(Protocol):
     """Only classes with acquire() and release() can use the mixin's implementations."""
 
-    async def acquire(self) -> object:
-        ...
+    async def acquire(self) -> object: ...
 
-    def release(self) -> object:
-        ...
+    def release(self) -> object: ...
 
 
 class AsyncContextManagerMixin:
@@ -131,7 +129,7 @@ class AsyncContextManagerMixin:
         self.release()
 
 
-@attr.s(frozen=True, slots=True)
+@attrs.frozen
 class CapacityLimiterStatistics:
     """An object containing debugging information.
 
@@ -150,10 +148,10 @@ class CapacityLimiterStatistics:
 
     """
 
-    borrowed_tokens: int = attr.ib()
-    total_tokens: int | float = attr.ib()
-    borrowers: list[Task | object] = attr.ib()
-    tasks_waiting: int = attr.ib()
+    borrowed_tokens: int
+    total_tokens: int | float
+    borrowers: list[Task | object]
+    tasks_waiting: int
 
 
 # Can be a generic type with a default of Task if/when PEP 696 is released
@@ -225,9 +223,7 @@ class CapacityLimiter(AsyncContextManagerMixin):
         assert self._total_tokens == total_tokens
 
     def __repr__(self) -> str:
-        return "<trio.CapacityLimiter at {:#x}, {}/{} with {} waiting>".format(
-            id(self), len(self._borrowers), self._total_tokens, len(self._lot)
-        )
+        return f"<trio.CapacityLimiter at {id(self):#x}, {len(self._borrowers)}/{self._total_tokens} with {len(self._lot)} waiting>"
 
     @property
     def total_tokens(self) -> int | float:
@@ -523,7 +519,7 @@ class Semaphore(AsyncContextManagerMixin):
         return self._lot.statistics()
 
 
-@attr.s(frozen=True, slots=True)
+@attrs.frozen
 class LockStatistics:
     """An object containing debugging information for a Lock.
 
@@ -537,15 +533,15 @@ class LockStatistics:
 
     """
 
-    locked: bool = attr.ib()
-    owner: Task | None = attr.ib()
-    tasks_waiting: int = attr.ib()
+    locked: bool
+    owner: Task | None
+    tasks_waiting: int
 
 
-@attr.s(eq=False, hash=False, repr=False)
+@attrs.define(eq=False, hash=False, repr=False, slots=False)
 class _LockImpl(AsyncContextManagerMixin):
-    _lot: ParkingLot = attr.ib(factory=ParkingLot, init=False)
-    _owner: Task | None = attr.ib(default=None, init=False)
+    _lot: ParkingLot = attrs.field(factory=ParkingLot, init=False)
+    _owner: Task | None = attrs.field(default=None, init=False)
 
     def __repr__(self) -> str:
         if self.locked():
@@ -709,7 +705,7 @@ class StrictFIFOLock(_LockImpl):
     """
 
 
-@attr.s(frozen=True, slots=True)
+@attrs.frozen
 class ConditionStatistics:
     r"""An object containing debugging information for a Condition.
 
@@ -721,8 +717,9 @@ class ConditionStatistics:
       :class:`Lock`\s  :meth:`~Lock.statistics` method.
 
     """
-    tasks_waiting: int = attr.ib()
-    lock_statistics: LockStatistics = attr.ib()
+
+    tasks_waiting: int
+    lock_statistics: LockStatistics
 
 
 @final

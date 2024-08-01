@@ -14,7 +14,7 @@ from pathlib import Path
 from textwrap import indent
 from typing import TYPE_CHECKING
 
-import attr
+import attrs
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
@@ -32,11 +32,13 @@ HEADER = """# ***********************************************************
 # *************************************************************
 from __future__ import annotations
 
+import sys
+
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 from ._run import GLOBAL_RUN_CONTEXT
 """
 
-TEMPLATE = """locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+TEMPLATE = """sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
 try:
     return{}GLOBAL_RUN_CONTEXT.{}.{}
 except AttributeError:
@@ -44,21 +46,19 @@ except AttributeError:
 """
 
 
-@attr.define
+@attrs.define
 class File:
     path: Path
     modname: str
-    platform: str = attr.field(default="", kw_only=True)
-    imports: str = attr.field(default="", kw_only=True)
+    platform: str = attrs.field(default="", kw_only=True)
+    imports: str = attrs.field(default="", kw_only=True)
 
 
 def is_function(node: ast.AST) -> TypeGuard[ast.FunctionDef | ast.AsyncFunctionDef]:
     """Check if the AST node is either a function
     or an async function
     """
-    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-        return True
-    return False
+    return isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
 
 
 def is_public(node: ast.AST) -> TypeGuard[ast.FunctionDef | ast.AsyncFunctionDef]:
@@ -91,13 +91,11 @@ def create_passthrough_args(funcdef: ast.FunctionDef | ast.AsyncFunctionDef) -> 
     Example input: ast.parse("def f(a, *, b): ...")
     Example output: "(a, b=b)"
     """
-    call_args = []
-    for arg in funcdef.args.args:
-        call_args.append(arg.arg)
+    call_args = [arg.arg for arg in funcdef.args.args]
     if funcdef.args.vararg:
         call_args.append("*" + funcdef.args.vararg.arg)
     for arg in funcdef.args.kwonlyargs:
-        call_args.append(arg.arg + "=" + arg.arg)
+        call_args.append(arg.arg + "=" + arg.arg)  # noqa: PERF401  # clarity
     if funcdef.args.kwarg:
         call_args.append("**" + funcdef.args.kwarg.arg)
     return "({})".format(", ".join(call_args))
@@ -158,7 +156,6 @@ def run_ruff(file: File, source: str) -> tuple[bool, str]:
             "check",
             "--fix",
             "--unsafe-fixes",
-            "--output-format=text",
             "--stdin-filename",
             file.path,
             "-",

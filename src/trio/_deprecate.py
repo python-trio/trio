@@ -6,7 +6,7 @@ from functools import wraps
 from types import ModuleType
 from typing import TYPE_CHECKING, ClassVar, TypeVar
 
-import attr
+import attrs
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -58,6 +58,7 @@ def warn_deprecated(
     issue: int | None,
     instead: object,
     stacklevel: int = 2,
+    use_triodeprecationwarning: bool = False,
 ) -> None:
     stacklevel += 1
     msg = f"{_stringify(thing)} is deprecated since Trio {version}"
@@ -67,20 +68,35 @@ def warn_deprecated(
         msg += f"; use {_stringify(instead)} instead"
     if issue is not None:
         msg += f" ({_url_for_issue(issue)})"
-    warnings.warn(TrioDeprecationWarning(msg), stacklevel=stacklevel)
+    if use_triodeprecationwarning:
+        warning_class: type[Warning] = TrioDeprecationWarning
+    else:
+        warning_class = DeprecationWarning
+    warnings.warn(warning_class(msg), stacklevel=stacklevel)
 
 
 # @deprecated("0.2.0", issue=..., instead=...)
 # def ...
 def deprecated(
-    version: str, *, thing: object = None, issue: int | None, instead: object
+    version: str,
+    *,
+    thing: object = None,
+    issue: int | None,
+    instead: object,
+    use_triodeprecationwarning: bool = False,
 ) -> Callable[[Callable[ArgsT, RetT]], Callable[ArgsT, RetT]]:
     def do_wrap(fn: Callable[ArgsT, RetT]) -> Callable[ArgsT, RetT]:
         nonlocal thing
 
         @wraps(fn)
         def wrapper(*args: ArgsT.args, **kwargs: ArgsT.kwargs) -> RetT:
-            warn_deprecated(thing, version, instead=instead, issue=issue)
+            warn_deprecated(
+                thing,
+                version,
+                instead=instead,
+                issue=issue,
+                use_triodeprecationwarning=use_triodeprecationwarning,
+            )
             return fn(*args, **kwargs)
 
         # If our __module__ or __qualname__ get modified, we want to pick up
@@ -97,9 +113,7 @@ def deprecated(
             if instead is not None:
                 doc += f"   Use {_stringify(instead)} instead.\n"
             if issue is not None:
-                doc += "   For details, see `issue #{} <{}>`__.\n".format(
-                    issue, _url_for_issue(issue)
-                )
+                doc += f"   For details, see `issue #{issue} <{_url_for_issue(issue)}>`__.\n"
             doc += "\n"
             wrapper.__doc__ = doc
 
@@ -126,14 +140,14 @@ def deprecated_alias(
     return wrapper
 
 
-@attr.s(frozen=True)
+@attrs.frozen(slots=False)
 class DeprecatedAttribute:
     _not_set: ClassVar[object] = object()
 
-    value: object = attr.ib()
-    version: str = attr.ib()
-    issue: int | None = attr.ib()
-    instead: object = attr.ib(default=_not_set)
+    value: object
+    version: str
+    issue: int | None
+    instead: object = _not_set
 
 
 class _ModuleWithDeprecations(ModuleType):

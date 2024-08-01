@@ -74,7 +74,7 @@ import math
 from collections import OrderedDict
 from typing import TYPE_CHECKING
 
-import attr
+import attrs
 
 from .. import _core
 from .._util import final
@@ -85,7 +85,7 @@ if TYPE_CHECKING:
     from ._run import Task
 
 
-@attr.s(frozen=True, slots=True)
+@attrs.frozen
 class ParkingLotStatistics:
     """An object containing debugging information for a ParkingLot.
 
@@ -96,11 +96,11 @@ class ParkingLotStatistics:
 
     """
 
-    tasks_waiting: int = attr.ib()
+    tasks_waiting: int
 
 
 @final
-@attr.s(eq=False, hash=False, slots=True)
+@attrs.define(eq=False, hash=False)
 class ParkingLot:
     """A fair wait queue with cancellation and requeueing.
 
@@ -116,7 +116,7 @@ class ParkingLot:
 
     # {task: None}, we just want a deque where we can quickly delete random
     # items
-    _parked: OrderedDict[Task, None] = attr.ib(factory=OrderedDict, init=False)
+    _parked: OrderedDict[Task, None] = attrs.field(factory=OrderedDict, init=False)
 
     def __len__(self) -> int:
         """Returns the number of parked tasks."""

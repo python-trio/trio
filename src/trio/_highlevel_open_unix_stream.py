@@ -12,8 +12,7 @@ if TYPE_CHECKING:
 
 
 class Closable(Protocol):
-    def close(self) -> None:
-        ...
+    def close(self) -> None: ...
 
 
 CloseT = TypeVar("CloseT", bound=Closable)

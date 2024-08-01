@@ -10,7 +10,7 @@ import json
 import socket as stdlib_socket
 import sys
 import types
-from pathlib import Path
+from pathlib import Path, PurePath
 from types import ModuleType
 from typing import TYPE_CHECKING, Protocol
 
@@ -306,7 +306,8 @@ def test_static_tool_sees_class_members(
                     mod_cache = next_cache / "__init__.data.json"
                 else:
                     mod_cache = mod_cache / (modname[-1] + ".data.json")
-
+            elif mod_cache.is_dir():
+                mod_cache /= "__init__.data.json"
             with mod_cache.open() as f:
                 return json.loads(f.read())["names"][name]  # type: ignore[no-any-return]
 
@@ -344,6 +345,11 @@ def test_static_tool_sees_class_members(
             "__copy__",
             "__deepcopy__",
         }
+
+        if type(class_) is type:
+            # C extension classes don't have these dunders, but Python classes do
+            ignore_names.add("__firstlineno__")
+            ignore_names.add("__static_attributes__")
 
         # pypy seems to have some additional dunders that differ
         if sys.implementation.name == "pypy":
@@ -461,12 +467,6 @@ def test_static_tool_sees_class_members(
             extra -= EXTRAS[class_]
             assert len(extra) == before - len(EXTRAS[class_])
 
-        # probably an issue with mypy....
-        if tool == "mypy" and class_ == trio.Path and sys.platform == "win32":
-            before = len(missing)
-            missing -= {"owner", "group", "is_mount"}
-            assert len(missing) == before - 3
-
         # TODO: why is this? Is it a problem?
         # see https://github.com/python-trio/trio/pull/2631#discussion_r1185615916
         if class_ == trio.StapledStream:
@@ -489,25 +489,23 @@ def test_static_tool_sees_class_members(
                 missing.remove("__aiter__")
                 missing.remove("__anext__")
 
-        # __getattr__ is intentionally hidden behind type guard. That hook then
-        # forwards property accesses to PurePath, meaning these names aren't directly on
-        # the class.
-        if class_ == trio.Path:
-            missing.remove("__getattr__")
-            before = len(extra)
-            extra -= {
-                "anchor",
-                "drive",
-                "name",
-                "parent",
-                "parents",
-                "parts",
-                "root",
-                "stem",
-                "suffix",
-                "suffixes",
-            }
-            assert len(extra) == before - 10
+        if class_ in (trio.Path, trio.WindowsPath, trio.PosixPath):
+            # These are from inherited subclasses.
+            missing -= PurePath.__dict__.keys()
+            # These are unix-only.
+            if tool == "mypy" and sys.platform == "win32":
+                missing -= {"owner", "is_mount", "group"}
+            if tool == "jedi" and sys.platform == "win32":
+                extra -= {"owner", "is_mount", "group"}
+
+        # not sure why jedi in particular ignores this (static?) method in 3.13
+        # (especially given the method is from 3.12....)
+        if (
+            tool == "jedi"
+            and sys.version_info >= (3, 13)
+            and class_ in (trio.Path, trio.WindowsPath, trio.PosixPath)
+        ):
+            missing.remove("with_segments")
 
         if missing or extra:  # pragma: no cover
             errors[f"{module_name}.{class_name}"] = {
@@ -530,7 +528,7 @@ def test_nopublic_is_final() -> None:
     assert class_is_final(_util.NoPublicConstructor)  # This is itself final.
 
     for module in ALL_MODULES:
-        for _name, class_ in module.__dict__.items():
+        for class_ in module.__dict__.values():
             if isinstance(class_, _util.NoPublicConstructor):
                 assert class_is_final(class_)
 
@@ -565,6 +563,9 @@ def test_classes_are_final() -> None:
                 continue
             # ... insert other special cases here ...
 
+            # The `Path` class needs to support inheritance to allow `WindowsPath` and `PosixPath`.
+            if class_ is trio.Path:
+                continue
             # don't care about the *Statistics classes
             if name.endswith("Statistics"):
                 continue

@@ -3,6 +3,7 @@
 # *************************************************************
 from __future__ import annotations
 
+import sys
 from typing import TYPE_CHECKING, Any
 
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
@@ -55,7 +56,7 @@ def current_statistics() -> RunStatistics:
       other attributes vary between backends.
 
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.current_statistics()
     except AttributeError:
@@ -72,7 +73,7 @@ def current_time() -> float:
         RuntimeError: if not inside a call to :func:`trio.run`.
 
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.current_time()
     except AttributeError:
@@ -81,7 +82,7 @@ def current_time() -> float:
 
 def current_clock() -> Clock:
     """Returns the current :class:`~trio.abc.Clock`."""
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.current_clock()
     except AttributeError:
@@ -94,7 +95,7 @@ def current_root_task() -> Task | None:
     This is the task that is the ultimate parent of all other tasks.
 
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.current_root_task()
     except AttributeError:
@@ -119,7 +120,7 @@ def reschedule(task: Task, next_send: Outcome[Any] = _NO_SEND) -> None:
           raise) from :func:`wait_task_rescheduled`.
 
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.reschedule(task, next_send)
     except AttributeError:
@@ -130,7 +131,7 @@ def spawn_system_task(
     async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
     *args: Unpack[PosArgT],
     name: object = None,
-    context: (contextvars.Context | None) = None,
+    context: contextvars.Context | None = None,
 ) -> Task:
     """Spawn a "system" task.
 
@@ -183,7 +184,7 @@ def spawn_system_task(
       Task: the newly spawned task
 
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.spawn_system_task(
             async_fn, *args, name=name, context=context
@@ -197,7 +198,7 @@ def current_trio_token() -> TrioToken:
     :func:`trio.run`.
 
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.current_trio_token()
     except AttributeError:
@@ -262,7 +263,7 @@ async def wait_all_tasks_blocked(cushion: float = 0.0) -> None:
                      print("FAIL")
 
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.wait_all_tasks_blocked(cushion)
     except AttributeError:

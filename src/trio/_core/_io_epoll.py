@@ -6,7 +6,7 @@ import sys
 from collections import defaultdict
 from typing import TYPE_CHECKING, Literal
 
-import attr
+import attrs
 
 from .. import _core
 from ._io_common import wake_all
@@ -20,11 +20,11 @@ if TYPE_CHECKING:
     from .._file_io import _HasFileNo
 
 
-@attr.s(slots=True, eq=False)
+@attrs.define(eq=False)
 class EpollWaiters:
-    read_task: Task | None = attr.ib(default=None)
-    write_task: Task | None = attr.ib(default=None)
-    current_flags: int = attr.ib(default=0)
+    read_task: Task | None = None
+    write_task: Task | None = None
+    current_flags: int = 0
 
 
 assert not TYPE_CHECKING or sys.platform == "linux"
@@ -33,11 +33,11 @@ assert not TYPE_CHECKING or sys.platform == "linux"
 EventResult: TypeAlias = "list[tuple[int, int]]"
 
 
-@attr.s(slots=True, eq=False, frozen=True)
+@attrs.frozen(eq=False)
 class _EpollStatistics:
-    tasks_waiting_read: int = attr.ib()
-    tasks_waiting_write: int = attr.ib()
-    backend: Literal["epoll"] = attr.ib(init=False, default="epoll")
+    tasks_waiting_read: int
+    tasks_waiting_write: int
+    backend: Literal["epoll"] = attrs.field(init=False, default="epoll")
 
 
 # Some facts about epoll
@@ -198,15 +198,17 @@ class _EpollStatistics:
 # wanted to about how epoll works.
 
 
-@attr.s(slots=True, eq=False, hash=False)
+@attrs.define(eq=False, hash=False)
 class EpollIOManager:
-    _epoll: select.epoll = attr.ib(factory=select.epoll)
+    # Using lambda here because otherwise crash on import with gevent monkey patching
+    # See https://github.com/python-trio/trio/issues/2848
+    _epoll: select.epoll = attrs.Factory(lambda: select.epoll())
     # {fd: EpollWaiters}
-    _registered: defaultdict[int, EpollWaiters] = attr.ib(
-        factory=lambda: defaultdict(EpollWaiters)
+    _registered: defaultdict[int, EpollWaiters] = attrs.Factory(
+        lambda: defaultdict(EpollWaiters)
     )
-    _force_wakeup: WakeupSocketpair = attr.ib(factory=WakeupSocketpair)
-    _force_wakeup_fd: int | None = attr.ib(default=None)
+    _force_wakeup: WakeupSocketpair = attrs.Factory(WakeupSocketpair)
+    _force_wakeup_fd: int | None = None
 
     def __attrs_post_init__(self) -> None:
         self._epoll.register(self._force_wakeup.wakeup_sock, select.EPOLLIN)

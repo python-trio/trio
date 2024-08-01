@@ -55,8 +55,7 @@ def _render_subtree(name, rendered_children):
             first_prefix = MID_PREFIX
             rest_prefix = MID_CONTINUE
         lines.append(first_prefix + child_lines[0])
-        for child_line in child_lines[1:]:
-            lines.append(rest_prefix + child_line)
+        lines.extend(rest_prefix + child_line for child_line in child_lines[1:])
     return lines
 
 

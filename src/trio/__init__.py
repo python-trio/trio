@@ -1,5 +1,6 @@
 """Trio - A friendly Python library for async concurrency and I/O
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -72,7 +73,7 @@ from ._highlevel_ssl_helpers import (
     open_ssl_over_tcp_stream as open_ssl_over_tcp_stream,
     serve_ssl_over_tcp as serve_ssl_over_tcp,
 )
-from ._path import Path as Path
+from ._path import Path as Path, PosixPath as PosixPath, WindowsPath as WindowsPath
 from ._signals import open_signal_receiver as open_signal_receiver
 from ._ssl import (
     NeedHandshakeError as NeedHandshakeError,

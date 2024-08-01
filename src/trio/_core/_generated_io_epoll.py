@@ -3,6 +3,7 @@
 # *************************************************************
 from __future__ import annotations
 
+import sys
 from typing import TYPE_CHECKING
 
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
@@ -10,7 +11,6 @@ from ._run import GLOBAL_RUN_CONTEXT
 
 if TYPE_CHECKING:
     from .._file_io import _HasFileNo
-import sys
 
 assert not TYPE_CHECKING or sys.platform == "linux"
 
@@ -18,7 +18,7 @@ assert not TYPE_CHECKING or sys.platform == "linux"
 __all__ = ["notify_closing", "wait_readable", "wait_writable"]
 
 
-async def wait_readable(fd: (int | _HasFileNo)) -> None:
+async def wait_readable(fd: int | _HasFileNo) -> None:
     """Block until the kernel reports that the given object is readable.
 
     On Unix systems, ``fd`` must either be an integer file descriptor,
@@ -40,14 +40,14 @@ async def wait_readable(fd: (int | _HasFileNo)) -> None:
         if another task calls :func:`notify_closing` while this
         function is still working.
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_readable(fd)
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
 
 
-async def wait_writable(fd: (int | _HasFileNo)) -> None:
+async def wait_writable(fd: int | _HasFileNo) -> None:
     """Block until the kernel reports that the given object is writable.
 
     See `wait_readable` for the definition of ``fd``.
@@ -59,14 +59,14 @@ async def wait_writable(fd: (int | _HasFileNo)) -> None:
         if another task calls :func:`notify_closing` while this
         function is still working.
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_writable(fd)
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
 
 
-def notify_closing(fd: (int | _HasFileNo)) -> None:
+def notify_closing(fd: int | _HasFileNo) -> None:
     """Notify waiters of the given object that it will be closed.
 
     Call this before closing a file descriptor (on Unix) or socket (on
@@ -91,7 +91,7 @@ def notify_closing(fd: (int | _HasFileNo)) -> None:
     step, so other tasks won't be able to tell what order they happened
     in anyway.
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.notify_closing(fd)
     except AttributeError:

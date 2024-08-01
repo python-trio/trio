@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import os
 import pathlib
-from typing import TYPE_CHECKING, Any, Type, Union
+from typing import TYPE_CHECKING, Type, Union
 
 import pytest
 
 import trio
 from trio._file_io import AsyncIOWrapper
-from trio._path import AsyncAutoWrapperType as WrapperType
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -26,6 +25,16 @@ def method_pair(
     sync_path = pathlib.Path(path)
     async_path = trio.Path(path)
     return getattr(sync_path, method_name), getattr(async_path, method_name)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="OS is not posix")
+async def test_instantiate_posix() -> None:
+    assert isinstance(trio.Path(), trio.PosixPath)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="OS is not Windows")
+async def test_instantiate_windows() -> None:
+    assert isinstance(trio.Path(), trio.WindowsPath)
 
 
 async def test_open_is_async_context_manager(path: trio.Path) -> None:
@@ -113,7 +122,7 @@ async def test_async_method_signature(path: trio.Path) -> None:
     assert path.resolve.__qualname__ == "Path.resolve"
 
     assert path.resolve.__doc__ is not None
-    assert "pathlib.Path.resolve" in path.resolve.__doc__
+    assert path.resolve.__qualname__ in path.resolve.__doc__
 
 
 @pytest.mark.parametrize("method_name", ["is_dir", "is_file"])
@@ -166,41 +175,6 @@ async def test_repr() -> None:
     path = trio.Path(".")
 
     assert repr(path) == "trio.Path('.')"
-
-
-class MockWrapped:
-    unsupported = "unsupported"
-    _private = "private"
-
-
-class _MockWrapper:
-    _forwards = MockWrapped
-    _wraps = MockWrapped
-
-
-MockWrapper: Any = _MockWrapper  # Disable type checking, it's a mock.
-
-
-async def test_type_forwards_unsupported() -> None:
-    with pytest.raises(TypeError):
-        WrapperType.generate_forwards(MockWrapper, {})
-
-
-async def test_type_wraps_unsupported() -> None:
-    with pytest.raises(TypeError):
-        WrapperType.generate_wraps(MockWrapper, {})
-
-
-async def test_type_forwards_private() -> None:
-    WrapperType.generate_forwards(MockWrapper, {"unsupported": None})
-
-    assert not hasattr(MockWrapper, "_private")
-
-
-async def test_type_wraps_private() -> None:
-    WrapperType.generate_wraps(MockWrapper, {"unsupported": None})
-
-    assert not hasattr(MockWrapper, "_private")
 
 
 @pytest.mark.parametrize("meth", [trio.Path.__init__, trio.Path.joinpath])
@@ -278,3 +252,21 @@ async def test_classmethods() -> None:
 
     # Wrapped method has docstring
     assert trio.Path.home.__doc__
+
+
+@pytest.mark.parametrize(
+    "wrapper",
+    [
+        trio._path._wraps_async,
+        trio._path._wrap_method,
+        trio._path._wrap_method_path,
+        trio._path._wrap_method_path_iterable,
+    ],
+)
+def test_wrapping_without_docstrings(
+    wrapper: Callable[[Callable[[], None]], Callable[[], None]]
+) -> None:
+    @wrapper
+    def func_without_docstring() -> None: ...  # pragma: no cover
+
+    assert func_without_docstring.__doc__ is None

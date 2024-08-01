@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import errno
-import math
 import sys
 from typing import TYPE_CHECKING
 
@@ -9,7 +8,6 @@ import trio
 from trio import TaskStatus
 
 from . import socket as tsocket
-from ._deprecate import warn_deprecated
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -49,14 +47,6 @@ def _compute_backlog(backlog: int | None) -> int:
     # Many systems (Linux, BSDs, ...) store the backlog in a uint16 and are
     # missing overflow protection, so we apply our own overflow protection.
     # https://github.com/golang/go/issues/5030
-    if backlog == math.inf:
-        backlog = None
-        warn_deprecated(
-            thing="math.inf as a backlog",
-            version="0.23.0",
-            instead="None",
-            issue=2842,
-        )
     if not isinstance(backlog, int) and backlog is not None:
         raise TypeError(f"backlog must be an int or None, not {backlog!r}")
     if backlog is None:
@@ -128,9 +118,9 @@ async def open_tcp_listeners(
     listeners = []
     unsupported_address_families = []
     try:
-        for family, type, proto, _, sockaddr in addresses:
+        for family, type_, proto, _, sockaddr in addresses:
             try:
-                sock = tsocket.socket(family, type, proto)
+                sock = tsocket.socket(family, type_, proto)
             except OSError as ex:
                 if ex.errno == errno.EAFNOSUPPORT:
                     # If a system only supports IPv4, or only IPv6, it

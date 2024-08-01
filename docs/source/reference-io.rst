@@ -30,7 +30,9 @@ create complex transport configurations. Here's some examples:
   stdout. If for some reason you wanted to speak SSL to a subprocess,
   you could use a :class:`StapledStream` to combine its stdin/stdout
   into a single bidirectional :class:`~trio.abc.Stream`, and then wrap
-  that in an :class:`~trio.SSLStream`::
+  that in an :class:`~trio.SSLStream`:
+
+  .. code-block:: python
 
      ssl_context = ssl.create_default_context()
      ssl_context.check_hostname = False
@@ -42,7 +44,9 @@ create complex transport configurations. Here's some examples:
   <https://daniel.haxx.se/blog/2016/11/26/https-proxy-with-curl/>`__. In
   Trio this is trivial – just wrap your first
   :class:`~trio.SSLStream` in a second
-  :class:`~trio.SSLStream`::
+  :class:`~trio.SSLStream`:
+
+  .. code-block:: python
 
      # Get a raw SocketStream connection to the proxy:
      s0 = await open_tcp_stream("proxy", 443)
@@ -370,12 +374,16 @@ broken features:
   :func:`~socket.getaddrinfo` and :func:`~socket.getnameinfo` instead.
 
 * :func:`~socket.getservbyport`: obsolete and `buggy
-  <https://bugs.python.org/issue30482>`__; instead, do::
+  <https://bugs.python.org/issue30482>`__; instead, do:
 
-     _, service_name = await getnameinfo((127.0.0.1, port), NI_NUMERICHOST))
+  .. code-block:: python
+
+     _, service_name = await getnameinfo(('127.0.0.1', port), NI_NUMERICHOST)
 
 * :func:`~socket.getservbyname`: obsolete and `buggy
-  <https://bugs.python.org/issue30482>`__; instead, do::
+  <https://bugs.python.org/issue30482>`__; instead, do:
+
+  .. code-block:: python
 
      await getaddrinfo(None, service_name)
 
@@ -631,6 +639,11 @@ Asynchronous path objects
 
 .. autoclass:: Path
    :members:
+   :inherited-members:
+
+.. autoclass:: PosixPath
+
+.. autoclass:: WindowsPath
 
 
 .. _async-file-objects:
@@ -690,7 +703,9 @@ Asynchronous file objects
      <https://docs.python.org/3/library/io.html#multi-threading>`__.
 
    * Async file objects can be used as async iterators to iterate over
-     the lines of the file::
+     the lines of the file:
+
+     .. code-block:: python
 
         async with await trio.open_file(...) as f:
             async for line in f:
@@ -845,19 +860,25 @@ shell doesn't provide any way to write a double quote inside a
 double-quoted string. Outside double quotes, any character (including
 a double quote) can be escaped using a leading ``^``.  But since a
 pipeline is processed by running each command in the pipeline in a
-subshell, multiple layers of escaping can be needed::
+subshell, multiple layers of escaping can be needed:
+
+.. code-block:: sh
 
     echo ^^^&x | find "x" | find "x"          # prints: &x
 
 And if you combine pipelines with () grouping, you can need even more
-levels of escaping::
+levels of escaping:
+
+.. code-block:: sh
 
     (echo ^^^^^^^&x | find "x") | find "x"    # prints: &x
 
 Since process creation takes a single arguments string, ``CMD.EXE``\'s
 quoting does not influence word splitting, and double quotes are not
 removed during CMD.EXE's expansion pass. Double quotes are troublesome
-because CMD.EXE handles them differently from the MSVC runtime rules; in::
+because CMD.EXE handles them differently from the MSVC runtime rules; in:
+
+.. code-block:: sh
 
     prog.exe "foo \"bar\" baz"
 

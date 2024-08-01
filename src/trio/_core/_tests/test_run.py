@@ -76,7 +76,7 @@ def test_basic() -> None:
 
     with pytest.raises(TypeError):
         # Missing an argument
-        _core.run(trivial)
+        _core.run(trivial)  # type: ignore[arg-type]
 
     with pytest.raises(TypeError):
         # Not an async function
@@ -259,7 +259,7 @@ async def test_current_time() -> None:
     t1 = _core.current_time()
     # Windows clock is pretty low-resolution -- appveyor tests fail unless we
     # sleep for a bit here.
-    time.sleep(time.get_clock_info("perf_counter").resolution)  # noqa: ASYNC101
+    time.sleep(time.get_clock_info("perf_counter").resolution)  # noqa: ASYNC251
     t2 = _core.current_time()
     assert t1 < t2
 
@@ -2044,9 +2044,7 @@ async def test_nursery_stop_async_iteration() -> None:
 
             return items
 
-    result: list[list[int]] = []
-    async for vals in async_zip(it(4), it(2)):
-        result.append(vals)
+    result: list[list[int]] = [vals async for vals in async_zip(it(4), it(2))]
     assert result == [[0, 0], [1, 1]]
 
 
@@ -2551,6 +2549,9 @@ def _create_kwargs(strictness: bool | None) -> dict[str, bool]:
     return {"strict_exception_groups": strictness}
 
 
+@pytest.mark.filterwarnings(
+    "ignore:.*strict_exception_groups=False:trio.TrioDeprecationWarning"
+)
 @pytest.mark.parametrize("run_strict", [True, False, None])
 @pytest.mark.parametrize("open_nursery_strict", [True, False, None])
 @pytest.mark.parametrize("multiple_exceptions", [True, False])
@@ -2591,6 +2592,9 @@ def test_setting_strict_exception_groups(
             run_main()
 
 
+@pytest.mark.filterwarnings(
+    "ignore:.*strict_exception_groups=False:trio.TrioDeprecationWarning"
+)
 @pytest.mark.parametrize("strict", [True, False, None])
 async def test_nursery_collapse(strict: bool | None) -> None:
     """
@@ -2630,6 +2634,9 @@ async def test_cancel_scope_no_cancellederror() -> None:
     assert not scope.cancelled_caught
 
 
+@pytest.mark.filterwarnings(
+    "ignore:.*strict_exception_groups=False:trio.TrioDeprecationWarning"
+)
 @pytest.mark.parametrize("run_strict", [False, True])
 @pytest.mark.parametrize("start_raiser_strict", [False, True, None])
 @pytest.mark.parametrize("raise_after_started", [False, True])
@@ -2700,3 +2707,19 @@ def test_trio_run_strict_before_started(
         assert type(should_be_raiser_exc) == type(raiser_exc)
         assert should_be_raiser_exc.message == raiser_exc.message
         assert should_be_raiser_exc.exceptions == raiser_exc.exceptions
+
+
+async def test_internal_error_old_nursery_multiple_tasks() -> None:
+    async def error_func() -> None:
+        raise ValueError
+
+    async def spawn_tasks_in_old_nursery(task_status: _core.TaskStatus[None]) -> None:
+        old_nursery = _core.current_task().parent_nursery
+        assert old_nursery is not None
+        old_nursery.start_soon(error_func)
+        old_nursery.start_soon(error_func)
+
+    async with _core.open_nursery() as nursery:
+        with pytest.raises(_core.TrioInternalError) as excinfo:
+            await nursery.start(spawn_tasks_in_old_nursery)
+    assert RaisesGroup(ValueError, ValueError).matches(excinfo.value.__cause__)

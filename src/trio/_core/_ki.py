@@ -6,7 +6,7 @@ import sys
 from functools import wraps
 from typing import TYPE_CHECKING, Final, Protocol, TypeVar
 
-import attr
+import attrs
 
 from .._util import is_main_thread
 
@@ -132,6 +132,7 @@ def _ki_protection_decorator(
 ) -> Callable[[Callable[ArgsT, RetT]], Callable[ArgsT, RetT]]:
     # The "ignore[return-value]" below is because the inspect functions cast away the
     # original return type of fn, making it just CoroutineType[Any, Any, Any] etc.
+    # ignore[misc] is because @wraps() is passed a callable with Any in the return type.
     def decorator(fn: Callable[ArgsT, RetT]) -> Callable[ArgsT, RetT]:
         # In some version of Python, isgeneratorfunction returns true for
         # coroutine functions, so we have to check for coroutine functions
@@ -139,7 +140,7 @@ def _ki_protection_decorator(
         if inspect.iscoroutinefunction(fn):
 
             @wraps(fn)
-            def wrapper(*args: ArgsT.args, **kwargs: ArgsT.kwargs) -> RetT:
+            def wrapper(*args: ArgsT.args, **kwargs: ArgsT.kwargs) -> RetT:  # type: ignore[misc]
                 # See the comment for regular generators below
                 coro = fn(*args, **kwargs)
                 coro.cr_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
@@ -149,7 +150,7 @@ def _ki_protection_decorator(
         elif inspect.isgeneratorfunction(fn):
 
             @wraps(fn)
-            def wrapper(*args: ArgsT.args, **kwargs: ArgsT.kwargs) -> RetT:
+            def wrapper(*args: ArgsT.args, **kwargs: ArgsT.kwargs) -> RetT:  # type: ignore[misc]
                 # It's important that we inject this directly into the
                 # generator's locals, as opposed to setting it here and then
                 # doing 'yield from'. The reason is, if a generator is
@@ -165,8 +166,8 @@ def _ki_protection_decorator(
             return wrapper
         elif inspect.isasyncgenfunction(fn) or legacy_isasyncgenfunction(fn):
 
-            @wraps(fn)
-            def wrapper(*args: ArgsT.args, **kwargs: ArgsT.kwargs) -> RetT:
+            @wraps(fn)  # type: ignore[arg-type]
+            def wrapper(*args: ArgsT.args, **kwargs: ArgsT.kwargs) -> RetT:  # type: ignore[misc]
                 # See the comment for regular generators above
                 agen = fn(*args, **kwargs)
                 agen.ag_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
@@ -177,7 +178,7 @@ def _ki_protection_decorator(
 
             @wraps(fn)
             def wrapper(*args: ArgsT.args, **kwargs: ArgsT.kwargs) -> RetT:
-                locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
+                sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
                 return fn(*args, **kwargs)
 
             return wrapper
@@ -201,11 +202,9 @@ disable_ki_protection: KIProtectionSignature = _ki_protection_decorator(False)  
 disable_ki_protection.__name__ = "disable_ki_protection"
 
 
-@attr.s
+@attrs.define(slots=False)
 class KIManager:
-    handler: Callable[[int, types.FrameType | None], None] | None = attr.ib(
-        default=None
-    )
+    handler: Callable[[int, types.FrameType | None], None] | None = None
 
     def install(
         self,

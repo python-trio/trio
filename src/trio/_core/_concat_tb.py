@@ -26,14 +26,13 @@ try:
     import tputil
 except ImportError:
     # ctypes it is
-    import ctypes
-
     # How to handle refcounting? I don't want to use ctypes.py_object because
     # I don't understand or trust it, and I don't want to use
     # ctypes.pythonapi.Py_{Inc,Dec}Ref because we might clash with user code
     # that also tries to use them but with different types. So private _ctypes
     # APIs it is!
     import _ctypes
+    import ctypes
 
     class CTraceback(ctypes.Structure):
         _fields_: ClassVar = [
