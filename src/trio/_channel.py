@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 from collections import OrderedDict, deque
-from collections.abc import Iterable
 from math import inf
 from operator import itemgetter
-
 from typing import (
     TYPE_CHECKING,
     Generic,
-    TypeVar,
     Tuple,  # only needed for typechecking on <3.9
+    TypeVar,
 )
 
 import attrs
@@ -22,6 +20,7 @@ from ._core import Abort, RaiseCancelT, Task, enable_ki_protection
 from ._util import NoPublicConstructor, final, generic_function
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from types import TracebackType
 
     from typing_extensions import Self
@@ -92,27 +91,6 @@ def _open_memory_channel(
         MemorySendChannel[T]._create(state),
         MemoryReceiveChannel[T]._create(state),
     )
-
-
-# This workaround requires python3.9+, once older python versions are not supported
-# or there's a better way of achieving type-checking on a generic factory function,
-# it could replace the normal function header
-if TYPE_CHECKING:
-    # written as a class so that you can say open_memory_channel[int](5)
-    # Need to use Tuple instead of tuple due to CI check running on 3.8
-    class open_memory_channel(MemoryChannelPair[T]):
-        def __new__(  # type: ignore[misc]  # "must return a subtype"
-            cls, max_buffer_size: int | float  # noqa: PYI041
-        ) -> MemoryChannelPair[T]:
-            return _open_memory_channel(max_buffer_size)
-
-        def __init__(self, max_buffer_size: int | float):  # noqa: PYI041
-            ...
-
-else:
-    # apply the generic_function decorator to make open_memory_channel indexable
-    # so it's valid to say e.g. ``open_memory_channel[bytes](5)`` at runtime
-    open_memory_channel = generic_function(_open_memory_channel)
 
 
 @attrs.frozen
@@ -522,3 +500,24 @@ class MemoryChannelPair(
     def __getnewargs__(self) -> tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]:
         """Return self as a plain tuple.  Used by copy and pickle."""
         return (self[0], self[1])
+
+
+# This workaround requires python3.9+, once older python versions are not supported
+# or there's a better way of achieving type-checking on a generic factory function,
+# it could replace the normal function header
+if TYPE_CHECKING:
+    # written as a class so that you can say open_memory_channel[int](5)
+    # Need to use Tuple instead of tuple due to CI check running on 3.8
+    class open_memory_channel(MemoryChannelPair[T]):
+        def __new__(  # type: ignore[misc]  # "must return a subtype"
+            cls, max_buffer_size: int | float  # noqa: PYI041
+        ) -> MemoryChannelPair[T]:
+            return _open_memory_channel(max_buffer_size)
+
+        def __init__(self, max_buffer_size: int | float):  # noqa: PYI041
+            ...
+
+else:
+    # apply the generic_function decorator to make open_memory_channel indexable
+    # so it's valid to say e.g. ``open_memory_channel[bytes](5)`` at runtime
+    open_memory_channel = generic_function(_open_memory_channel)
