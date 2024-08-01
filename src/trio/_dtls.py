@@ -53,15 +53,13 @@ MAX_UDP_PACKET_SIZE = 65527
 def packet_header_overhead(sock: SocketType) -> int:
     if sock.family == trio.socket.AF_INET:
         return 28
-    else:
-        return 48
+    return 48
 
 
 def worst_case_mtu(sock: SocketType) -> int:
     if sock.family == trio.socket.AF_INET:
         return 576 - packet_header_overhead(sock)
-    else:
-        return 1280 - packet_header_overhead(sock)
+    return 1280 - packet_header_overhead(sock)
 
 
 def best_guess_mtu(sock: SocketType) -> int:
@@ -600,8 +598,7 @@ def valid_cookie(
         return hmac.compare_digest(cookie, cur_cookie) | hmac.compare_digest(
             cookie, old_cookie
         )
-    else:
-        return False
+    return False
 
 
 def challenge_for(
@@ -640,10 +637,9 @@ def challenge_for(
     )
     payload = encode_handshake_fragment(hs)
 
-    packet = encode_record(
+    return encode_record(
         Record(ContentType.handshake, ProtocolVersion.DTLS10, epoch_seqno, payload)
     )
-    return packet
 
 
 _T = TypeVar("_T")
@@ -737,9 +733,8 @@ async def handle_client_hello_untrusted(
             if old_stream._client_hello == (cookie, bits):
                 # ...This was just a duplicate of the last ClientHello, so never mind.
                 return
-            else:
-                # Ok, this *really is* a new handshake; the old stream should go away.
-                old_stream._set_replaced()
+            # Ok, this *really is* a new handshake; the old stream should go away.
+            old_stream._set_replaced()
         stream._client_hello = (cookie, bits)
         endpoint._streams[address] = stream
         endpoint._incoming_connections_q.s.send_nowait(stream)
@@ -761,8 +756,7 @@ async def dtls_receive_loop(
                     # This is totally useless -- there's nothing we can do with this
                     # information. So we just ignore it and retry the recv.
                     continue
-                else:
-                    raise
+                raise
             endpoint = endpoint_ref()
             try:
                 if endpoint is None:
@@ -798,9 +792,7 @@ async def dtls_receive_loop(
         if exc.errno in (errno.EBADF, errno.ENOTSOCK):
             # socket was closed
             return
-        else:  # pragma: no cover
-            # ??? shouldn't happen
-            raise
+        raise  # ??? shouldn't happen  # pragma: no cover
 
 
 @attrs.frozen
@@ -989,8 +981,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                     # openssl decided to retransmit; discard because we handle
                     # retransmits ourselves
                     return []
-                else:
-                    return new_volley_messages
+                return new_volley_messages
 
             # If we're a client, we send the initial volley. If we're a server, then
             # the initial ClientHello has already been inserted into self._ssl's

@@ -66,8 +66,7 @@ class _UnboundedByteQueue:
             del self._data[:max_bytes]
             assert chunk
             return chunk
-        else:
-            return bytearray()
+        return bytearray()
 
     def get_nowait(self, max_bytes: int | None = None) -> bytearray:
         with self._fetch_lock:
@@ -542,9 +541,8 @@ class _LockstepByteQueue:
                 del self._data[:max_bytes]
                 self._something_happened()
                 return got
-            else:
-                assert self._sender_closed
-                return b""
+            assert self._sender_closed
+            return b""
 
 
 class _LockstepSendStream(SendStream):

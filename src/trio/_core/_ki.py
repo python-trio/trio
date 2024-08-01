@@ -148,7 +148,7 @@ def _ki_protection_decorator(
                 return coro  # type: ignore[return-value]
 
             return wrapper
-        elif inspect.isgeneratorfunction(fn):
+        if inspect.isgeneratorfunction(fn):
 
             @wraps(fn)
             def wrapper(*args: ArgsT.args, **kwargs: ArgsT.kwargs) -> RetT:  # type: ignore[misc]
@@ -165,7 +165,7 @@ def _ki_protection_decorator(
                 return gen  # type: ignore[return-value]
 
             return wrapper
-        elif inspect.isasyncgenfunction(fn) or legacy_isasyncgenfunction(fn):
+        if inspect.isasyncgenfunction(fn) or legacy_isasyncgenfunction(fn):
 
             @wraps(fn)  # type: ignore[arg-type]
             def wrapper(*args: ArgsT.args, **kwargs: ArgsT.kwargs) -> RetT:  # type: ignore[misc]
@@ -175,14 +175,13 @@ def _ki_protection_decorator(
                 return agen  # type: ignore[return-value]
 
             return wrapper
-        else:
 
-            @wraps(fn)
-            def wrapper(*args: ArgsT.args, **kwargs: ArgsT.kwargs) -> RetT:
-                sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
-                return fn(*args, **kwargs)
+        @wraps(fn)
+        def wrapper(*args: ArgsT.args, **kwargs: ArgsT.kwargs) -> RetT:
+            sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
+            return fn(*args, **kwargs)
 
-            return wrapper
+        return wrapper
 
     return decorator
 

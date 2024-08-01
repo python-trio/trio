@@ -64,10 +64,9 @@ class MonkeypatchedGAI:
         self.record.append(bound)
         if bound in self._responses:
             return self._responses[bound]
-        elif bound[-1] & stdlib_socket.AI_NUMERICHOST:
+        if bound[-1] & stdlib_socket.AI_NUMERICHOST:
             return self._orig_getaddrinfo(*args, **kwargs)
-        else:
-            raise RuntimeError(f"gai called with unexpected arguments {bound}")
+        raise RuntimeError(f"gai called with unexpected arguments {bound}")
 
 
 @pytest.fixture

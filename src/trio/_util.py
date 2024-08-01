@@ -222,8 +222,7 @@ class ConflictDetector:
     def __enter__(self) -> None:
         if self._held:
             raise trio.BusyResourceError(self._msg)
-        else:
-            self._held = True
+        self._held = True
 
     def __exit__(
         self,

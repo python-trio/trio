@@ -554,8 +554,7 @@ def test_guest_mode_internal_errors(
             def bad_get_events(*args: Any) -> object:
                 if threading.current_thread() is not t:
                     raise ValueError("oh no!")
-                else:
-                    return old_get_events(*args)
+                return old_get_events(*args)
 
             m.setattr("trio._core._run.TheIOManager.get_events", bad_get_events)
 

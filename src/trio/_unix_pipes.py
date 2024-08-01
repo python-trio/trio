@@ -149,8 +149,7 @@ class FdStream(Stream):
                                 raise trio.ClosedResourceError(
                                     "file was already closed"
                                 ) from None
-                            else:
-                                raise trio.BrokenResourceError from e
+                            raise trio.BrokenResourceError from e
 
     async def wait_send_all_might_not_block(self) -> None:
         with self._send_conflict_detector:
@@ -184,10 +183,8 @@ class FdStream(Stream):
                         raise trio.ClosedResourceError(
                             "file was already closed"
                         ) from None
-                    else:
-                        raise trio.BrokenResourceError from exc
-                else:
-                    break
+                    raise trio.BrokenResourceError from exc
+                break
 
             return data
 

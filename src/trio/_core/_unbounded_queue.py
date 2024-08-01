@@ -143,11 +143,10 @@ class UnboundedQueue(Generic[T]):
         if not self._can_get:
             await self._lot.park()
             return self._get_batch_protected()
-        else:
-            try:
-                return self._get_batch_protected()
-            finally:
-                await _core.cancel_shielded_checkpoint()
+        try:
+            return self._get_batch_protected()
+        finally:
+            await _core.cancel_shielded_checkpoint()
 
     def statistics(self) -> UnboundedQueueStatistics:
         """Return an :class:`UnboundedQueueStatistics` object containing debugging information."""

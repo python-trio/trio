@@ -86,8 +86,7 @@ else:
 def got_signal(proc: Process, sig: SignalType) -> bool:
     if (not TYPE_CHECKING and posix) or sys.platform != "win32":
         return proc.returncode == -sig
-    else:
-        return proc.returncode != 0
+    return proc.returncode != 0
 
 
 @asynccontextmanager  # type: ignore[misc]  # Any in decorator

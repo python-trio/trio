@@ -629,8 +629,7 @@ async def test_trio_to_thread_run_sync_token() -> None:
     # Test that to_thread_run_sync automatically injects the current trio token
     # into a spawned thread
     def thread_fn() -> _core.TrioToken:
-        callee_token = from_thread_run_sync(_core.current_trio_token)
-        return callee_token
+        return from_thread_run_sync(_core.current_trio_token)
 
     caller_token = _core.current_trio_token()
     callee_token = await to_thread_run_sync(thread_fn)
@@ -692,8 +691,7 @@ async def test_trio_from_thread_run_sync() -> None:
     # Test that to_thread_run_sync correctly "hands off" the trio token to
     # trio.from_thread.run_sync()
     def thread_fn_1() -> float:
-        trio_time = from_thread_run_sync(_core.current_time)
-        return trio_time
+        return from_thread_run_sync(_core.current_time)
 
     trio_time = await to_thread_run_sync(thread_fn_1)
     assert isinstance(trio_time, float)
@@ -737,8 +735,7 @@ async def test_trio_from_thread_token() -> None:
     # Test that to_thread_run_sync and spawned trio.from_thread.run_sync()
     # share the same Trio token
     def thread_fn() -> _core.TrioToken:
-        callee_token = from_thread_run_sync(_core.current_trio_token)
-        return callee_token
+        return from_thread_run_sync(_core.current_trio_token)
 
     caller_token = _core.current_trio_token()
     callee_token = await to_thread_run_sync(thread_fn)
@@ -749,8 +746,7 @@ async def test_trio_from_thread_token_kwarg() -> None:
     # Test that to_thread_run_sync and spawned trio.from_thread.run_sync() can
     # use an explicitly defined token
     def thread_fn(token: _core.TrioToken) -> _core.TrioToken:
-        callee_token = from_thread_run_sync(_core.current_trio_token, trio_token=token)
-        return callee_token
+        return from_thread_run_sync(_core.current_trio_token, trio_token=token)
 
     caller_token = _core.current_trio_token()
     callee_token = await to_thread_run_sync(thread_fn, caller_token)

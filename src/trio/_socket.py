@@ -69,8 +69,7 @@ class _try_sync:
     def _is_blocking_io_error(self, exc: BaseException) -> bool:
         if self._blocking_exc_override is None:
             return isinstance(exc, BlockingIOError)
-        else:
-            return self._blocking_exc_override(exc)
+        return self._blocking_exc_override(exc)
 
     async def __aenter__(self) -> None:
         await trio.lowlevel.checkpoint_if_cancelled()
@@ -85,10 +84,9 @@ class _try_sync:
             # Discard the exception and fall through to the code below the
             # block
             return True
-        else:
-            await trio.lowlevel.cancel_shielded_checkpoint()
-            # Let the return or exception propagate
-            return False
+        await trio.lowlevel.cancel_shielded_checkpoint()
+        # Let the return or exception propagate
+        return False
 
 
 ################################################################
@@ -231,17 +229,16 @@ async def getaddrinfo(
     hr = _resolver.get(None)
     if hr is not None:
         return await hr.getaddrinfo(host, port, family, type, proto, flags)
-    else:
-        return await trio.to_thread.run_sync(
-            _stdlib_socket.getaddrinfo,
-            host,
-            port,
-            family,
-            type,
-            proto,
-            flags,
-            abandon_on_cancel=True,
-        )
+    return await trio.to_thread.run_sync(
+        _stdlib_socket.getaddrinfo,
+        host,
+        port,
+        family,
+        type,
+        proto,
+        flags,
+        abandon_on_cancel=True,
+    )
 
 
 async def getnameinfo(
@@ -259,10 +256,9 @@ async def getnameinfo(
     hr = _resolver.get(None)
     if hr is not None:
         return await hr.getnameinfo(sockaddr, flags)
-    else:
-        return await trio.to_thread.run_sync(
-            _stdlib_socket.getnameinfo, sockaddr, flags, abandon_on_cancel=True
-        )
+    return await trio.to_thread.run_sync(
+        _stdlib_socket.getnameinfo, sockaddr, flags, abandon_on_cancel=True
+    )
 
 
 async def getprotobyname(name: str) -> int:
@@ -880,13 +876,12 @@ class _SocketType(SocketType):
             # Use a thread for the filesystem traversal (unless it's an
             # abstract domain socket)
             return await trio.to_thread.run_sync(self._sock.bind, address)
-        else:
-            # POSIX actually says that bind can return EWOULDBLOCK and
-            # complete asynchronously, like connect. But in practice AFAICT
-            # there aren't yet any real systems that do this, so we'll worry
-            # about it when it happens.
-            await trio.lowlevel.checkpoint()
-            return self._sock.bind(address)
+        # POSIX actually says that bind can return EWOULDBLOCK and
+        # complete asynchronously, like connect. But in practice AFAICT
+        # there aren't yet any real systems that do this, so we'll worry
+        # about it when it happens.
+        await trio.lowlevel.checkpoint()
+        return self._sock.bind(address)
 
     def shutdown(self, flag: int) -> None:
         # no need to worry about return value b/c always returns None:
@@ -1058,6 +1053,7 @@ class _SocketType(SocketType):
         err = self._sock.getsockopt(_stdlib_socket.SOL_SOCKET, _stdlib_socket.SO_ERROR)
         if err != 0:
             raise OSError(err, f"Error connecting to {address!r}: {os.strerror(err)}")
+        return None
 
     ################################################################
     # recv
