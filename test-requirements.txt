@@ -46,7 +46,7 @@ dill==0.3.8
     # via pylint
 docutils==0.20.1
     # via sphinx
-exceptiongroup==1.2.1 ; python_version < "3.11"
+exceptiongroup==1.2.1 ; python_version < '3.11'
     # via
     #   -r test-requirements.in
     #   pytest
