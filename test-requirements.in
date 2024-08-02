@@ -34,4 +34,4 @@ idna
 outcome
 sniffio
 # 1.2.1 fixes types
-exceptiongroup >= 1.2.1
+exceptiongroup >= 1.2.1; python_version < "3.11"
