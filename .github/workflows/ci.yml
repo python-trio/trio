@@ -92,7 +92,7 @@ jobs:
         no_test_requirements: ['0']
         extra_name: ['']
         include:
-          - python: '3.8'
+          - python: '3.12'
             check_formatting: '1'
             extra_name: ', check formatting'
           # separate test run that doesn't install test-requirements.txt
