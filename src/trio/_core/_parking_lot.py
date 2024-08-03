@@ -101,7 +101,7 @@ class ParkingLotStatistics:
 
 
 @final
-@attrs.define(eq=False, hash=False)
+@attrs.define(eq=False, unsafe_hash=False)
 class ParkingLot:
     """A fair wait queue with cancellation and requeueing.
 
