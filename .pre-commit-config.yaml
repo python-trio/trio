@@ -33,3 +33,11 @@ repos:
     rev: v2.3.0
     hooks:
       - id: codespell
+  - repo: local
+    hooks:
+      - id: regenerate-files
+        name: regenerate generated files
+        language: system
+        entry: python src/trio/_tools/gen_exports.py
+        pass_filenames: false
+        files: ^src\/trio\/_core\/(_generated)?(_run|(_i(o_(common|epoll|kqueue|windows)|nstrumentation)))\.py$
