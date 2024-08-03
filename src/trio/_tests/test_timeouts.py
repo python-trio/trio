@@ -1,5 +1,5 @@
 import time
-from typing import Awaitable, Callable, TypeVar
+from typing import Awaitable, Callable, TypeVar, Protocol
 
 import outcome
 import pytest
@@ -74,22 +74,27 @@ async def test_move_on_after() -> None:
 
     await check_takes_about(sleep_3, TARGET)
 
+class TimeoutScope(Protocol):
+    def __call__(self, seconds: float, *, shield: bool) -> trio.CancelScope:
+        ...
 
-@slow
-async def test_move_on_after_shields_from_outer() -> None:
-    duration = 0.1
-
-    async def task() -> None:
-        with _core.CancelScope() as outer, move_on_after(TARGET, shield=True) as inner:
-            outer.cancel()
-            # The outer scope is cancelled, but this task is protected by the
-            # shield, so it manages to get to sleep for 'duration' seconds
-            await trio.sleep(duration)
-            # now when we unshield, it should abort the sleep.
-            inner.shield = False
-
-    # Check that the task takes only about 'duration' seconds
-    await check_takes_about(task, duration)
+@pytest.mark.parametrize(
+    "scope", 
+    [
+        move_on_after,
+        fail_after
+    ]
+)
+async def test_context_shields_from_outer(scope: TimeoutScope) -> None:
+    with _core.CancelScope() as outer, scope(TARGET, shield=True) as inner:
+        outer.cancel()
+        try:
+            await trio.lowlevel.checkpoint()
+        except trio.Cancelled:
+            pytest.fail("shield didn't work")
+        inner.shield = False
+        with pytest.raises(trio.Cancelled):
+            await trio.lowlevel.checkpoint()
 
 
 @slow
@@ -102,24 +107,6 @@ async def test_move_on_after_moves_on_even_if_shielded() -> None:
             await sleep_forever()
 
     await check_takes_about(task, TARGET)
-
-
-@slow
-async def test_fail_after_exits_shields_from_outer() -> None:
-    duration = 0.1
-
-    async def task() -> None:
-        with _core.CancelScope() as outer, fail_after(TARGET, shield=True) as inner:
-            outer.cancel()
-            # The outer scope is cancelled, but this task is protected by the
-            # shield, so it manages to get to sleep for 'duration' seconds
-            await trio.sleep(duration)
-            # now when we unshield, it should abort the sleep.
-            inner.shield = False
-
-    # Check that the task takes only about 'duration' seconds
-    await check_takes_about(task, duration)
-
 
 @slow
 async def test_fail_after_fails_even_if_shielded() -> None:

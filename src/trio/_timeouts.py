@@ -13,7 +13,9 @@ def move_on_at(deadline: float, *, shield: bool = False) -> trio.CancelScope:
 
     Args:
       deadline (float): The deadline.
-      shield (bool): Whether the cancel scope created is shielded.
+      shield (bool): Initial value for the `~trio.CancelScope.shield` attribute
+          of the newly created `cancel scope
+          <https://trio.readthedocs.io/en/stable/reference-core.html#trio.CancelScope.shield>`__.
 
     Raises:
       ValueError: if deadline is NaN.
@@ -30,7 +32,9 @@ def move_on_after(seconds: float, *, shield: bool = False) -> trio.CancelScope:
 
     Args:
       seconds (float): The timeout.
-      shield (bool): Whether the cancel scope created is shielded.
+      shield (bool): Initial value for the `~trio.CancelScope.shield` attribute
+          of the newly created `cancel scope
+          <https://trio.readthedocs.io/en/stable/reference-core.html#trio.CancelScope.shield>`__.
 
     Raises:
       ValueError: if timeout is less than zero or NaN.
@@ -112,7 +116,9 @@ def fail_at(deadline: float, *, shield: bool = False) -> AbstractContextManager[
 
     Args:
       deadline (float): The deadline.
-      shield (bool): Whether the cancel scope created is shielded.
+      shield (bool): Initial value for the `~trio.CancelScope.shield` attribute
+          of the newly created `cancel scope
+          <https://trio.readthedocs.io/en/stable/reference-core.html#trio.CancelScope.shield>`__.
 
     Raises:
       TooSlowError: if a :exc:`Cancelled` exception is raised in this scope
@@ -145,7 +151,9 @@ def fail_after(
 
     Args:
       seconds (float): The timeout.
-      shield (bool): Whether the cancel scope created is shielded.
+      shield (bool): Initial value for the `~trio.CancelScope.shield` attribute
+          of the newly created `cancel scope
+          <https://trio.readthedocs.io/en/stable/reference-core.html#trio.CancelScope.shield>`__.
 
     Raises:
       TooSlowError: if a :exc:`Cancelled` exception is raised in this scope
