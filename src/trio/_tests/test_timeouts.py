@@ -1,5 +1,5 @@
 import time
-from typing import Awaitable, Callable, TypeVar, Protocol
+from typing import Awaitable, Callable, Protocol, TypeVar
 
 import outcome
 import pytest
@@ -74,17 +74,12 @@ async def test_move_on_after() -> None:
 
     await check_takes_about(sleep_3, TARGET)
 
-class TimeoutScope(Protocol):
-    def __call__(self, seconds: float, *, shield: bool) -> trio.CancelScope:
-        ...
 
-@pytest.mark.parametrize(
-    "scope", 
-    [
-        move_on_after,
-        fail_after
-    ]
-)
+class TimeoutScope(Protocol):
+    def __call__(self, seconds: float, *, shield: bool) -> trio.CancelScope: ...
+
+
+@pytest.mark.parametrize("scope", [move_on_after, fail_after])
 async def test_context_shields_from_outer(scope: TimeoutScope) -> None:
     with _core.CancelScope() as outer, scope(TARGET, shield=True) as inner:
         outer.cancel()
@@ -107,6 +102,7 @@ async def test_move_on_after_moves_on_even_if_shielded() -> None:
             await sleep_forever()
 
     await check_takes_about(task, TARGET)
+
 
 @slow
 async def test_fail_after_fails_even_if_shielded() -> None:
