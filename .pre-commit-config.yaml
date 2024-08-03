@@ -4,6 +4,7 @@ ci:
   autoupdate_commit_msg: "[pre-commit.ci] pre-commit autoupdate"
   autoupdate_schedule: weekly
   submodules: false
+  skip: [regenerate-files]
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
