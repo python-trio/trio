@@ -78,7 +78,7 @@ async def test_receive_pipe() -> None:
 
 
 async def test_pipes_combined() -> None:
-    write, read = make_pipe()
+    write, read = await make_pipe()
     count = 2**20
 
     async def sender() -> None:
@@ -113,7 +113,7 @@ async def test_pipe_errors() -> None:
 
 
 def test_del() -> None:
-    w, r = make_pipe()
+    w, r = await make_pipe()
     f1, f2 = w.fileno(), r.fileno()
     del w, r
     gc_collect_harder()
@@ -128,7 +128,7 @@ def test_del() -> None:
 
 
 async def test_async_with() -> None:
-    w, r = make_pipe()
+    w, r = await make_pipe()
     async with w, r:
         pass
 
@@ -146,7 +146,7 @@ async def test_async_with() -> None:
 
 async def test_misdirected_aclose_regression() -> None:
     # https://github.com/python-trio/trio/issues/661#issuecomment-456582356
-    w, r = make_pipe()
+    w, r = await make_pipe()
     old_r_fd = r.fileno()
 
     # Close the original objects
@@ -203,7 +203,7 @@ async def test_close_at_bad_time_for_receive_some(
         await r.aclose()
 
     monkeypatch.setattr(_core._run.TheIOManager, "wait_readable", patched_wait_readable)
-    s, r = make_pipe()
+    s, r = await make_pipe()
     async with s, r:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(expect_closedresourceerror)
@@ -267,7 +267,7 @@ async def test_bizarro_OSError_from_receive() -> None:
     # we set up a strange scenario where the pipe fd somehow transmutes into a
     # directory fd, causing os.read to raise IsADirectoryError (yes, that's a
     # real built-in exception type).
-    s, r = make_pipe()
+    s, r = await make_pipe()
     async with s, r:
         dir_fd = os.open("/", os.O_DIRECTORY, 0)
         try:
