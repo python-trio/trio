@@ -112,7 +112,7 @@ async def test_pipe_errors() -> None:
             await s.receive_some(0)
 
 
-def test_del() -> None:
+async def test_del() -> None:
     w, r = await make_pipe()
     f1, f2 = w.fileno(), r.fileno()
     del w, r
