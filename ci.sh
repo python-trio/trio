@@ -2,6 +2,13 @@
 
 set -ex -o pipefail
 
+if [ -n "${GITHUB_STEP_SUMMARY+x}" ]; then
+    # running on Github CI
+    export UV_SYSTEM_PYTHON=true
+    export UV_BREAK_SYSTEM_PACKAGES=true
+fi
+
+
 # disable warnings about pyright being out of date
 # used in test_exports and in check.sh
 export PYRIGHT_PYTHON_IGNORE_WARNINGS=1
@@ -43,42 +50,14 @@ python -m pip install -U pip uv
 python -m pip --version
 uv --version
 
-# expands to 0 != 1 if MAKE_VENV is not set, if set the `-0` has no effect
-# https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_06_02
-if [ "${MAKE_VENV-0}" == 1 ]; then
-    uv venv .venv --seed
-
-    if [ "$ON_WINDOWS" = "True" ]; then
-        source ./.venv/Scripts/activate
-    else
-        source .venv/bin/activate
-    fi
-
-    # Make sure pip is installed (pypy weirdness)
-    python -m ensurepip
-
-    # Install uv in venv
-    python -m pip install --upgrade uv
-fi
-
-# Basically, instead of running --system, specifying this as python path
-# means we can support running with virtual environment or system python
-# installation at the same time, including a virtual environment devs
-# have set up.
-if [ "$ON_WINDOWS" = "True" ]; then
-    PYTHON_PATH=$(python -c "import os, sys; print(os.path.dirname(sys.executable))")
-else
-    PYTHON_PATH=$(which python)
-fi
-
-uv pip install --python="$PYTHON_PATH" build
+uv pip install build
 
 python -m build
 wheel_package=$(ls dist/*.whl)
-uv pip install --python="$PYTHON_PATH" "trio @ $wheel_package"
+uv pip install "trio @ $wheel_package"
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
-    uv pip install --python="$PYTHON_PATH" -r test-requirements.txt exceptiongroup
+    uv pip install -r test-requirements.txt exceptiongroup
     echo "::endgroup::"
     source check.sh
 else
@@ -86,10 +65,10 @@ else
     # expands to 0 != 1 if NO_TEST_REQUIREMENTS is not set, if set the `-0` has no effect
     # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_06_02
     if [ "${NO_TEST_REQUIREMENTS-0}" == 1 ]; then
-        uv pip install --python="$PYTHON_PATH" pytest coverage
+        uv pip install pytest coverage
         flags="--skip-optional-imports"
     else
-        uv pip install --python="$PYTHON_PATH" -r test-requirements.txt
+        uv pip install -r test-requirements.txt
         flags=""
     fi
 
