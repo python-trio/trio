@@ -44,7 +44,7 @@ python -m build
 python -m pip install dist/*.whl
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
-    python -m pip install -r test-requirements.txt
+    python -m pip install -r test-requirements.txt exceptiongroup
     echo "::endgroup::"
     source check.sh
 else

@@ -40,7 +40,7 @@ dependencies = [
     # attrs 19.2.0 adds `eq` option to decorators
     # attrs 20.1.0 adds @frozen
     # attrs 21.1.0 adds a dataclass transform for type-checkers
-    # attrs 21.3.0 adds `import addrs`
+    # attrs 21.3.0 adds `import attrs`
     "attrs >= 23.2.0",
     "sortedcontainers",
     "idna",
