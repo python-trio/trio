@@ -2,18 +2,9 @@
 
 set -ex -o pipefail
 
-if [ -n "${GITHUB_STEP_SUMMARY+x}" ]; then
-    # running on Github CI
-    export UV_SYSTEM_PYTHON=true
-    export UV_BREAK_SYSTEM_PACKAGES=true
-fi
-
-
 # disable warnings about pyright being out of date
 # used in test_exports and in check.sh
 export PYRIGHT_PYTHON_IGNORE_WARNINGS=1
-
-ON_WINDOWS=$(python -c "import sys;print(sys.platform.startswith('win'))")
 
 # Log some general info about the environment
 echo "::group::Environment"
@@ -48,16 +39,16 @@ echo "::endgroup::"
 echo "::group::Install dependencies"
 python -m pip install -U pip uv
 python -m pip --version
-uv --version
+python -m uv --version
 
-uv pip install build
+python -m uv pip install build
 
 python -m build
 wheel_package=$(ls dist/*.whl)
-uv pip install "trio @ $wheel_package"
+python -m uv pip install "trio @ $wheel_package"
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
-    uv pip install -r test-requirements.txt exceptiongroup
+    python -m uv pip install -r test-requirements.txt exceptiongroup
     echo "::endgroup::"
     source check.sh
 else
@@ -65,10 +56,10 @@ else
     # expands to 0 != 1 if NO_TEST_REQUIREMENTS is not set, if set the `-0` has no effect
     # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_06_02
     if [ "${NO_TEST_REQUIREMENTS-0}" == 1 ]; then
-        uv pip install pytest coverage
+        python -m uv pip install pytest coverage
         flags="--skip-optional-imports"
     else
-        uv pip install -r test-requirements.txt
+        python -m uv pip install -r test-requirements.txt
         flags=""
     fi
 
