@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 @_util.final
-@attrs.define(eq=False, hash=False, slots=False)
+@attrs.define(eq=False, slots=False)
 class Sequencer:
     """A convenience class for forcing code in different tasks to run in an
     explicit linear order.
