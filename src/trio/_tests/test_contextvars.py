@@ -13,7 +13,7 @@ async def test_contextvars_default() -> None:
     trio_testing_contextvar.set("main")
     record: list[str] = []
 
-    async def child() -> None:
+    async def child() -> None:  # noqa: RUF029  # async function missing await
         value = trio_testing_contextvar.get()
         record.append(value)
 
@@ -26,7 +26,7 @@ async def test_contextvars_set() -> None:
     trio_testing_contextvar.set("main")
     record: list[str] = []
 
-    async def child() -> None:
+    async def child() -> None:  # noqa: RUF029  # async function missing await
         trio_testing_contextvar.set("child")
         value = trio_testing_contextvar.get()
         record.append(value)
@@ -44,7 +44,7 @@ async def test_contextvars_copy() -> None:
     trio_testing_contextvar.set("second_main")
     record: list[str] = []
 
-    async def child() -> None:
+    async def child() -> None:  # noqa: RUF029  # async function missing await
         value = trio_testing_contextvar.get()
         record.append(value)
 

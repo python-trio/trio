@@ -6,11 +6,13 @@ import trio
 from typing_extensions import assert_type
 
 
-async def sleep_sort(values: Sequence[float]) -> list[float]:
+# async function missing await
+async def sleep_sort(values: Sequence[float]) -> list[float]:  # noqa: RUF029
     return [1]
 
 
-async def has_optional(arg: int | None = None) -> int:
+# async function missing await
+async def has_optional(arg: int | None = None) -> int:  # noqa: RUF029
     return 5
 
 
@@ -22,7 +24,8 @@ async def foo_overloaded(arg: int) -> str: ...
 async def foo_overloaded(arg: str) -> int: ...
 
 
-async def foo_overloaded(arg: int | str) -> int | str:
+# async function missing await
+async def foo_overloaded(arg: int | str) -> int | str:  # noqa: RUF029
     if isinstance(arg, str):
         return 5
     return "hello"

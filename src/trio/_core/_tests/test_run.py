@@ -69,7 +69,7 @@ def not_none(x: T | None) -> T:
 
 
 def test_basic() -> None:
-    async def trivial(x: T) -> T:
+    async def trivial(x: T) -> T:  # noqa: RUF029  # async function missing await
         return x
 
     assert _core.run(trivial, 8) == 8
@@ -90,7 +90,7 @@ def test_basic() -> None:
 
 
 def test_initial_task_error() -> None:
-    async def main(x: object) -> NoReturn:
+    async def main(x: object) -> NoReturn:  # noqa: RUF029  # async fn missing await
         raise ValueError(x)
 
     with pytest.raises(ValueError, match="^17$") as excinfo:
@@ -99,7 +99,7 @@ def test_initial_task_error() -> None:
 
 
 def test_run_nesting() -> None:
-    async def inception() -> None:
+    async def inception() -> None:  # noqa: RUF029  # async function missing await
         async def main() -> None:  # pragma: no cover
             pass
 
@@ -135,7 +135,7 @@ async def test_nursery_main_block_error_basic() -> None:
 async def test_child_crash_basic() -> None:
     my_exc = ValueError("uh oh")
 
-    async def erroring() -> NoReturn:
+    async def erroring() -> NoReturn:  # noqa: RUF029  # async function missing await
         raise my_exc
 
     with RaisesGroup(Matcher(check=lambda e: e is my_exc)):
@@ -171,7 +171,7 @@ def test_task_crash_propagation() -> None:
             print("looper cancelled")
             looper_record.append("cancelled")
 
-    async def crasher() -> NoReturn:
+    async def crasher() -> NoReturn:  # noqa: RUF029  # async function missing await
         raise ValueError("argh")
 
     async def main() -> None:
@@ -188,7 +188,7 @@ def test_task_crash_propagation() -> None:
 def test_main_and_task_both_crash() -> None:
     # If main crashes and there's also a task crash, then we get both in an
     # ExceptionGroup
-    async def crasher() -> NoReturn:
+    async def crasher() -> NoReturn:  # noqa: RUF029  # async function missing await
         raise ValueError
 
     async def main() -> NoReturn:
@@ -201,7 +201,8 @@ def test_main_and_task_both_crash() -> None:
 
 
 def test_two_child_crashes() -> None:
-    async def crasher(etype: type[Exception]) -> NoReturn:
+    # async function missing await
+    async def crasher(etype: type[Exception]) -> NoReturn:  # noqa: RUF029
         raise etype
 
     async def main() -> None:
@@ -214,7 +215,7 @@ def test_two_child_crashes() -> None:
 
 
 async def test_child_crash_wakes_parent() -> None:
-    async def crasher() -> NoReturn:
+    async def crasher() -> NoReturn:  # noqa: RUF029  # async function missing await
         raise ValueError("this is a crash")
 
     with RaisesGroup(Matcher(ValueError, "^this is a crash$")):
@@ -255,7 +256,7 @@ async def test_reschedule() -> None:
         nursery.start_soon(child2)
 
 
-async def test_current_time() -> None:
+async def test_current_time() -> None:  # noqa: RUF029  # async function missing await
     t1 = _core.current_time()
     # Windows clock is pretty low-resolution -- appveyor tests fail unless we
     # sleep for a bit here.
@@ -264,7 +265,10 @@ async def test_current_time() -> None:
     assert t1 < t2
 
 
-async def test_current_time_with_mock_clock(mock_clock: _core.MockClock) -> None:
+# async function missing await
+async def test_current_time_with_mock_clock(  # noqa: RUF029
+    mock_clock: _core.MockClock,
+) -> None:
     start = mock_clock.current_time()
     assert mock_clock.current_time() == _core.current_time()
     assert mock_clock.current_time() == _core.current_time()
@@ -272,21 +276,22 @@ async def test_current_time_with_mock_clock(mock_clock: _core.MockClock) -> None
     assert start + 3.14 == mock_clock.current_time() == _core.current_time()
 
 
-async def test_current_clock(mock_clock: _core.MockClock) -> None:
+# async function missing await
+async def test_current_clock(mock_clock: _core.MockClock) -> None:  # noqa: RUF029
     assert mock_clock is _core.current_clock()
 
 
 async def test_current_task() -> None:
     parent_task = _core.current_task()
 
-    async def child() -> None:
+    async def child() -> None:  # noqa: RUF029  # async function missing await
         assert not_none(_core.current_task().parent_nursery).parent_task is parent_task
 
     async with _core.open_nursery() as nursery:
         nursery.start_soon(child)
 
 
-async def test_root_task() -> None:
+def test_root_task() -> None:
     root = not_none(_core.current_root_task())
     assert root.parent_nursery is root.eventual_parent_nursery is None
 
@@ -421,7 +426,7 @@ async def test_cancel_edge_cases() -> None:
 
 
 async def test_cancel_scope_exceptiongroup_filtering() -> None:
-    async def crasher() -> NoReturn:
+    async def crasher() -> NoReturn:  # noqa: RUF029  # async function missing await
         raise KeyError
 
     # This is outside the outer scope, so all the Cancelled
@@ -911,7 +916,7 @@ async def test_spawn_system_task() -> None:
 
 # intentionally make a system task crash
 def test_system_task_crash() -> None:
-    async def crasher() -> NoReturn:
+    async def crasher() -> NoReturn:  # noqa: RUF029  # async function missing await
         raise KeyError
 
     async def main() -> None:
@@ -923,10 +928,10 @@ def test_system_task_crash() -> None:
 
 
 def test_system_task_crash_ExceptionGroup() -> None:
-    async def crasher1() -> NoReturn:
+    async def crasher1() -> NoReturn:  # noqa: RUF029  # async function missing await
         raise KeyError
 
-    async def crasher2() -> NoReturn:
+    async def crasher2() -> NoReturn:  # noqa: RUF029  # async function missing await
         raise ValueError
 
     async def system_task() -> None:
@@ -967,7 +972,7 @@ def test_system_task_crash_plus_Cancelled() -> None:
             nursery.start_soon(crasher)
             nursery.start_soon(cancelme)
 
-    async def main() -> None:
+    async def main() -> None:  # noqa: RUF029  # async function missing await
         _core.spawn_system_task(system_task)
         # then we exit, triggering a cancellation
 
@@ -981,7 +986,7 @@ def test_system_task_crash_plus_Cancelled() -> None:
 
 
 def test_system_task_crash_KeyboardInterrupt() -> None:
-    async def ki() -> NoReturn:
+    async def ki() -> NoReturn:  # noqa: RUF029  # async function missing await
         raise KeyboardInterrupt
 
     async def main() -> None:
@@ -1206,7 +1211,7 @@ async def test_exception_chaining_after_throw_to_inner() -> None:
 
 
 async def test_nursery_exception_chaining_doesnt_make_context_loops() -> None:
-    async def crasher() -> NoReturn:
+    async def crasher() -> NoReturn:  # noqa: RUF029  # async fn missing await
         raise KeyError
 
     # the ExceptionGroup should not have the KeyError or ValueError as context
@@ -1217,7 +1222,8 @@ async def test_nursery_exception_chaining_doesnt_make_context_loops() -> None:
 
 
 def test_TrioToken_identity() -> None:
-    async def get_and_check_token() -> _core.TrioToken:
+    # async function missing await
+    async def get_and_check_token() -> _core.TrioToken:  # noqa: RUF029
         token = _core.current_trio_token()
         # Two calls in the same run give the same object
         assert token is _core.current_trio_token()
@@ -1246,7 +1252,7 @@ async def test_TrioToken_run_sync_soon_basic() -> None:
 def test_TrioToken_run_sync_soon_too_late() -> None:
     token: _core.TrioToken | None = None
 
-    async def main() -> None:
+    async def main() -> None:  # noqa: RUF029  # async function missing await
         nonlocal token
         token = _core.current_trio_token()
 
@@ -1309,7 +1315,7 @@ def test_TrioToken_run_sync_soon_idempotent_requeue() -> None:
 def test_TrioToken_run_sync_soon_after_main_crash() -> None:
     record: list[str] = []
 
-    async def main() -> None:
+    async def main() -> None:  # noqa: RUF029  # async function missing await
         token = _core.current_trio_token()
         # After main exits but before finally cleaning up, callback processed
         # normally
@@ -1438,7 +1444,8 @@ def test_TrioToken_run_sync_soon_late_crash() -> None:
     record: list[str] = []
     saved: list[AsyncGenerator[int, None]] = []
 
-    async def agen() -> AsyncGenerator[int, None]:
+    # async function missing await
+    async def agen() -> AsyncGenerator[int, None]:  # noqa: RUF029
         token = _core.current_trio_token()
         try:
             yield 1
@@ -1552,7 +1559,7 @@ async def test_task_tree_introspection() -> None:
             t = nursery.parent_task
             nursery = t.parent_nursery
 
-    async def child2() -> None:
+    async def child2() -> None:  # noqa: RUF029  # async function missing await
         tasks["child2"] = _core.current_task()
         assert tasks["parent"].child_nurseries == [nurseries["parent"]]
         assert nurseries["parent"].child_tasks == frozenset({tasks["child1"]})
@@ -1590,7 +1597,8 @@ async def test_task_tree_introspection() -> None:
 
 
 async def test_nursery_closure() -> None:
-    async def child1(nursery: _core.Nursery) -> None:
+    # async function missing await
+    async def child1(nursery: _core.Nursery) -> None:  # noqa: RUF029
         # We can add new tasks to the nursery even after entering __aexit__,
         # so long as there are still tasks running
         nursery.start_soon(child2)
@@ -1607,14 +1615,16 @@ async def test_nursery_closure() -> None:
 
 
 async def test_spawn_name() -> None:
-    async def func1(expected: str) -> None:
+    # async function missing await
+    async def func1(expected: str) -> None:  # noqa: RUF029
         task = _core.current_task()
         assert expected in task.name
 
     async def func2() -> None:  # pragma: no cover
         pass
 
-    async def check(spawn_fn: Callable[..., object]) -> None:
+    # async function missing await
+    async def check(spawn_fn: Callable[..., object]) -> None:  # noqa: RUF029
         spawn_fn(func1, "func1")
         spawn_fn(func1, "func2", name=func2)
         spawn_fn(func1, "func3", name="func3")
@@ -1626,7 +1636,7 @@ async def test_spawn_name() -> None:
     await check(_core.spawn_system_task)
 
 
-async def test_current_effective_deadline(mock_clock: _core.MockClock) -> None:
+def test_current_effective_deadline(mock_clock: _core.MockClock) -> None:
     assert _core.current_effective_deadline() == inf
 
     with _core.CancelScope(deadline=5) as scope1:
@@ -1668,7 +1678,7 @@ def test_nice_error_on_bad_calls_to_run_or_spawn() -> None:
     async def f() -> None:  # pragma: no cover
         pass
 
-    async def async_gen(arg: T) -> AsyncGenerator[T, None]:  # pragma: no cover
+    async def async_gen(arg: T) -> AsyncGenerator[T, None]:  # pragma: no cover  # noqa
         yield arg
 
     # If/when RaisesGroup/Matcher is added to pytest in some form this test can be
@@ -1794,7 +1804,7 @@ async def test_nursery_start(autojump_clock: _core.MockClock) -> None:
     assert _core.current_time() - t0 == 2 * 3
 
     # calling started twice
-    async def double_started(
+    async def double_started(  # noqa: RUF029  # async function missing await
         *,
         task_status: _core.TaskStatus[None] = _core.TASK_STATUS_IGNORED,
     ) -> None:
@@ -1806,7 +1816,7 @@ async def test_nursery_start(autojump_clock: _core.MockClock) -> None:
         await nursery.start(double_started)
 
     # child crashes before calling started -> error comes out of .start()
-    async def raise_keyerror(
+    async def raise_keyerror(  # noqa: RUF029  # async function missing await
         *,
         task_status: _core.TaskStatus[None] = _core.TASK_STATUS_IGNORED,
     ) -> None:
@@ -1817,7 +1827,7 @@ async def test_nursery_start(autojump_clock: _core.MockClock) -> None:
             await nursery.start(raise_keyerror)
 
     # child exiting cleanly before calling started -> triggers a RuntimeError
-    async def nothing(
+    async def nothing(  # noqa: RUF029  # async function missing await
         *,
         task_status: _core.TaskStatus[None] = _core.TASK_STATUS_IGNORED,
     ) -> None:
@@ -1846,7 +1856,7 @@ async def test_nursery_start(autojump_clock: _core.MockClock) -> None:
 
     # but if the task does not execute any checkpoints, and exits, then start()
     # doesn't raise Cancelled, since the task completed successfully.
-    async def started_with_no_checkpoint(
+    async def started_with_no_checkpoint(  # noqa: RUF029  # async fn missing await
         *, task_status: _core.TaskStatus[None] = _core.TASK_STATUS_IGNORED
     ) -> None:
         task_status.started(None)
@@ -1860,7 +1870,7 @@ async def test_nursery_start(autojump_clock: _core.MockClock) -> None:
     # and since starting in a cancelled context makes started() a no-op, if
     # the child crashes after calling started(), the error can *still* come
     # out of start()
-    async def raise_keyerror_after_started(
+    async def raise_keyerror_after_started(  # noqa: RUF029  # async fn missing await
         *, task_status: _core.TaskStatus[None] = _core.TASK_STATUS_IGNORED
     ) -> None:
         task_status.started()
@@ -1986,7 +1996,7 @@ async def test_nursery_explicit_exception() -> None:
 
 
 async def test_nursery_stop_iteration() -> None:
-    async def fail() -> NoReturn:
+    async def fail() -> NoReturn:  # noqa: RUF029  # async fn missing await
         raise ValueError
 
     with RaisesGroup(StopIteration, ValueError):
@@ -2049,7 +2059,7 @@ async def test_nursery_stop_async_iteration() -> None:
 
 
 async def test_traceback_frame_removal() -> None:
-    async def my_child_task() -> NoReturn:
+    async def my_child_task() -> NoReturn:  # noqa: RUF029  # async fn missing await
         raise KeyError()
 
     def check_traceback(exc: KeyError) -> bool:
@@ -2080,7 +2090,7 @@ def test_contextvar_support() -> None:
 
     assert var.get() == "before"
 
-    async def inner() -> None:
+    async def inner() -> None:  # noqa: RUF029  # async fn missing await
         task = _core.current_task()
         assert task.context.get(var) == "before"
         assert var.get() == "before"
@@ -2096,12 +2106,12 @@ def test_contextvar_support() -> None:
 async def test_contextvar_multitask() -> None:
     var = contextvars.ContextVar("test", default="hmmm")
 
-    async def t1() -> None:
+    async def t1() -> None:  # noqa: RUF029  # async fn missing await
         assert var.get() == "hmmm"
         var.set("hmmmm")
         assert var.get() == "hmmmm"
 
-    async def t2() -> None:
+    async def t2() -> None:  # noqa: RUF029  # async fn missing await
         assert var.get() == "hmmmm"
 
     async with _core.open_nursery() as n:
@@ -2117,10 +2127,10 @@ def test_system_task_contexts() -> None:
     cvar: contextvars.ContextVar[str] = contextvars.ContextVar("qwilfish")
     cvar.set("water")
 
-    async def system_task() -> None:
+    async def system_task() -> None:  # noqa: RUF029  # async fn missing await
         assert cvar.get() == "water"
 
-    async def regular_task() -> None:
+    async def regular_task() -> None:  # noqa: RUF029  # async fn missing await
         assert cvar.get() == "poison"
 
     async def inner() -> None:
@@ -2133,7 +2143,7 @@ def test_system_task_contexts() -> None:
     _core.run(inner)
 
 
-async def test_Nursery_init() -> None:
+def test_Nursery_init() -> None:
     """Test that nurseries cannot be constructed directly."""
     # This function is async so that we have access to a task object we can
     # pass in. It should never be accessed though.
@@ -2184,7 +2194,7 @@ def test_sniffio_integration() -> None:
     with pytest.raises(sniffio.AsyncLibraryNotFoundError):
         sniffio.current_async_library()
 
-    async def check_inside_trio() -> None:
+    async def check_inside_trio() -> None:  # noqa: RUF029  # async fn missing await
         assert sniffio.current_async_library() == "trio"
 
     def check_function_returning_coroutine() -> Awaitable[object]:
@@ -2287,7 +2297,7 @@ async def test_detach_and_reattach_coroutine_object() -> None:
     unrelated_task: _core.Task | None = None
     task: _core.Task | None = None
 
-    async def unrelated_coroutine() -> None:
+    async def unrelated_coroutine() -> None:  # noqa: RUF029  # async fn missing await
         nonlocal unrelated_task
         unrelated_task = _core.current_task()
 
@@ -2364,7 +2374,9 @@ def test_async_function_implemented_in_C() -> None:
     # These used to crash because we'd try to mutate the coroutine object's
     # cr_frame, but C functions don't have Python frames.
 
-    async def agen_fn(record: list[str]) -> AsyncIterator[None]:
+    async def agen_fn(  # noqa: RUF029  # async fn missing await
+        record: list[str],
+    ) -> AsyncIterator[None]:
         assert not _core.currently_ki_protected()
         record.append("the generator ran")
         yield
@@ -2384,7 +2396,7 @@ def test_async_function_implemented_in_C() -> None:
     _core.run(main)
 
 
-async def test_very_deep_cancel_scope_nesting() -> None:
+def test_very_deep_cancel_scope_nesting() -> None:
     # This used to crash with a RecursionError in CancelStatus.recalculate
     with ExitStack() as exit_stack:
         outermost_scope = _core.CancelScope()
@@ -2420,7 +2432,7 @@ async def test_simple_cancel_scope_usage_doesnt_create_cyclic_garbage() -> None:
             cscope.cancel()
             await sleep_forever()
 
-    async def crasher() -> NoReturn:
+    async def crasher() -> NoReturn:  # noqa: RUF029  # async fn missing await
         raise ValueError("this is a crash")
 
     old_flags = gc.get_debug()
@@ -2454,7 +2466,7 @@ async def test_cancel_scope_exit_doesnt_create_cyclic_garbage() -> None:
     # https://github.com/python-trio/trio/pull/2063
     gc.collect()
 
-    async def crasher() -> NoReturn:
+    async def crasher() -> NoReturn:  # noqa: RUF029  # async fn missing await
         raise ValueError("this is a crash")
 
     old_flags = gc.get_debug()
@@ -2563,7 +2575,7 @@ def test_setting_strict_exception_groups(
     setting of strict_exception_groups.
     """
 
-    async def raise_error() -> NoReturn:
+    async def raise_error() -> NoReturn:  # noqa: RUF029  # async fn missing await
         raise RuntimeError("test error")
 
     async def main() -> None:
@@ -2602,7 +2614,7 @@ async def test_nursery_collapse(strict: bool | None) -> None:
     depending on strict_exception_groups value when CancelledErrors are stripped from it.
     """
 
-    async def raise_error() -> NoReturn:
+    async def raise_error() -> NoReturn:  # noqa: RUF029  # async fn missing await
         raise RuntimeError("test error")
 
     # mypy requires explicit type for conditional expression
@@ -2620,7 +2632,7 @@ async def test_nursery_collapse(strict: bool | None) -> None:
                 nursery.cancel_scope.cancel()
 
 
-async def test_cancel_scope_no_cancellederror() -> None:
+def test_cancel_scope_no_cancellederror() -> None:
     """
     Test that when a cancel scope encounters an exception group that does NOT contain
     a Cancelled exception, it will NOT set the ``cancelled_caught`` flag.
@@ -2662,7 +2674,10 @@ def test_trio_run_strict_before_started(
     else:
         raiser_exc = ValueError()
 
-    async def raiser(*, task_status: _core.TaskStatus[None]) -> None:
+    async def raiser(  # noqa: RUF029  # async fn missing await
+        *,
+        task_status: _core.TaskStatus[None],
+    ) -> None:
         if raise_after_started:
             task_status.started()
         raise raiser_exc
@@ -2710,10 +2725,12 @@ def test_trio_run_strict_before_started(
 
 
 async def test_internal_error_old_nursery_multiple_tasks() -> None:
-    async def error_func() -> None:
+    async def error_func() -> None:  # noqa: RUF029  # async fn missing await
         raise ValueError
 
-    async def spawn_tasks_in_old_nursery(task_status: _core.TaskStatus[None]) -> None:
+    async def spawn_tasks_in_old_nursery(  # noqa: RUF029  # async fn missing await
+        task_status: _core.TaskStatus[None],
+    ) -> None:
         old_nursery = _core.current_task().parent_nursery
         assert old_nursery is not None
         old_nursery.start_soon(error_func)

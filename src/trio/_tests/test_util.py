@@ -147,7 +147,7 @@ def test_coroutine_or_error() -> None:
 
         assert "appears to be synchronous" in str(excinfo.value)
 
-        async def async_gen(_: object) -> Any:  # pragma: no cover
+        async def async_gen(_: object) -> Any:  # pragma: no cover  # noqa: RUF029
             yield
 
         # does not give arg-type typing error

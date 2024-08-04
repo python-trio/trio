@@ -193,7 +193,7 @@ async def test_async_methods_wrap(
         wrapped.reset_mock()
 
 
-async def test_async_methods_match_wrapper(
+def test_async_methods_match_wrapper(
     async_file: AsyncIOWrapper[mock.Mock], wrapped: mock.Mock
 ) -> None:
     for meth_name in _FILE_ASYNC_METHODS:

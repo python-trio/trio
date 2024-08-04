@@ -113,7 +113,7 @@ async def test_CapacityLimiter() -> None:
     c.release_on_behalf_of("value 1")
 
 
-async def test_CapacityLimiter_inf() -> None:
+def test_CapacityLimiter_inf() -> None:
     from math import inf
 
     c = CapacityLimiter(inf)
@@ -228,7 +228,7 @@ async def test_Semaphore() -> None:
     assert record == ["started", "finished"]
 
 
-async def test_Semaphore_bounded() -> None:
+def test_Semaphore_bounded() -> None:
     with pytest.raises(TypeError):
         Semaphore(1, max_value=1.0)  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="^max_values must be >= initial_value$"):

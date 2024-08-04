@@ -22,13 +22,13 @@ if sys.platform == "win32":
     from .._windows_pipes import PipeReceiveStream, PipeSendStream
 
 
-async def make_pipe() -> tuple[PipeSendStream, PipeReceiveStream]:
+def make_pipe() -> tuple[PipeSendStream, PipeReceiveStream]:
     """Makes a new pair of pipes."""
     (r, w) = pipe()
     return PipeSendStream(w), PipeReceiveStream(r)
 
 
-async def test_pipe_typecheck() -> None:
+def test_pipe_typecheck() -> None:
     with pytest.raises(TypeError):
         PipeSendStream(1.0)  # type: ignore[arg-type]
     with pytest.raises(TypeError):
@@ -52,7 +52,7 @@ async def test_pipe_error_on_close() -> None:
 
 
 async def test_pipes_combined() -> None:
-    write, read = await make_pipe()
+    write, read = make_pipe()
     count = 2**20
     replicas = 3
 
@@ -81,7 +81,7 @@ async def test_pipes_combined() -> None:
 
 
 async def test_async_with() -> None:
-    w, r = await make_pipe()
+    w, r = make_pipe()
     async with w, r:
         pass
 
@@ -92,7 +92,7 @@ async def test_async_with() -> None:
 
 
 async def test_close_during_write() -> None:
-    w, _r = await make_pipe()
+    w, _r = make_pipe()
     async with _core.open_nursery() as nursery:
 
         async def write_forever() -> None:

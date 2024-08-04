@@ -13,7 +13,7 @@ def test_runvar_smoketest() -> None:
 
     assert repr(t1) == "<RunVar name='test1'>"
 
-    async def first_check() -> None:
+    async def first_check() -> None:  # noqa: RUF029  # async function missing await
         with pytest.raises(LookupError):
             t1.get()
 
@@ -26,7 +26,7 @@ def test_runvar_smoketest() -> None:
         assert t2.get() == "goldfish"
         assert t2.get(default="tuna") == "goldfish"
 
-    async def second_check() -> None:
+    async def second_check() -> None:  # noqa: RUF029  # async function missing await
         with pytest.raises(LookupError):
             t1.get()
 
@@ -41,7 +41,7 @@ def test_runvar_resetting() -> None:
     t2 = RunVar[str]("test2", default="dogfish")
     t3 = RunVar[str]("test3")
 
-    async def reset_check() -> None:
+    async def reset_check() -> None:  # noqa: RUF029  # async function missing await
         token = t1.set("moonfish")
         assert t1.get() == "moonfish"
         t1.reset(token)
@@ -73,11 +73,12 @@ def test_runvar_sync() -> None:
     t1 = RunVar[str]("test1")
 
     async def sync_check() -> None:
-        async def task1() -> None:
+        async def task1() -> None:  # noqa: RUF029  # async fn missing await
             t1.set("plaice")
             assert t1.get() == "plaice"
 
-        async def task2(tok: RunVarToken[str]) -> None:
+        # async function missing await
+        async def task2(tok: RunVarToken[str]) -> None:  # noqa: RUF029
             t1.reset(tok)
 
             with pytest.raises(LookupError):
@@ -109,7 +110,7 @@ def test_accessing_runvar_outside_run_call_fails() -> None:
     with pytest.raises(RuntimeError):
         t1.get()
 
-    async def get_token() -> RunVarToken[str]:
+    async def get_token() -> RunVarToken[str]:  # noqa: RUF029  # async fn missing await
         return t1.set("ok")
 
     token = run(get_token)

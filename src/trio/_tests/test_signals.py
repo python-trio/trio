@@ -40,7 +40,7 @@ async def test_open_signal_receiver() -> None:
     assert signal.getsignal(signal.SIGILL) is orig
 
 
-async def test_open_signal_receiver_restore_handler_after_one_bad_signal() -> None:
+def test_open_signal_receiver_restore_handler_after_one_bad_signal() -> None:
     orig = signal.getsignal(signal.SIGILL)
     with pytest.raises(
         ValueError, match="(signal number out of range|invalid signal value)$"
@@ -51,13 +51,13 @@ async def test_open_signal_receiver_restore_handler_after_one_bad_signal() -> No
     assert signal.getsignal(signal.SIGILL) is orig
 
 
-async def test_open_signal_receiver_empty_fail() -> None:
+def test_open_signal_receiver_empty_fail() -> None:
     with pytest.raises(TypeError, match="No signals were provided"):
         with open_signal_receiver():
             pass
 
 
-async def test_open_signal_receiver_restore_handler_after_duplicate_signal() -> None:
+def test_open_signal_receiver_restore_handler_after_duplicate_signal() -> None:
     orig = signal.getsignal(signal.SIGILL)
     with open_signal_receiver(signal.SIGILL, signal.SIGILL):
         pass
@@ -66,7 +66,7 @@ async def test_open_signal_receiver_restore_handler_after_duplicate_signal() -> 
 
 
 async def test_catch_signals_wrong_thread() -> None:
-    async def naughty() -> None:
+    async def naughty() -> None:  # noqa: RUF029  # async fn missing await
         with open_signal_receiver(signal.SIGINT):
             pass  # pragma: no cover
 

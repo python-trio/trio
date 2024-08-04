@@ -425,7 +425,7 @@ async def _open_process(
     return Process._create(popen, trio_stdin, trio_stdout, trio_stderr)
 
 
-async def _windows_deliver_cancel(p: Process) -> None:
+def _windows_deliver_cancel(p: Process) -> None:
     try:
         p.terminate()
     except OSError as exc:

@@ -130,7 +130,10 @@ async def fill_stream(s: SocketStream) -> None:
 
 
 async def test_SocketStream_generic() -> None:
-    async def stream_maker() -> tuple[SocketStream, SocketStream]:
+    async def stream_maker() -> tuple[  # noqa: RUF029  # async fn missing await
+        SocketStream,
+        SocketStream,
+    ]:
         left, right = tsocket.socketpair()
         return SocketStream(left), SocketStream(right)
 

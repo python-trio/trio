@@ -92,7 +92,7 @@ async def test_mock_clock_autojump(mock_clock: MockClock) -> None:
     mock_clock.autojump_threshold = 0
     # if the above line didn't take affect immediately, then this would be
     # bad:
-    await sleep(100000)
+    await sleep(100000)  # noqa: ASYNC116  # not sleep_forever
 
 
 async def test_mock_clock_autojump_interference(mock_clock: MockClock) -> None:
@@ -109,7 +109,7 @@ async def test_mock_clock_autojump_interference(mock_clock: MockClock) -> None:
     await wait_all_tasks_blocked(0.015)
 
     # but the 0.02 limit does apply
-    await sleep(100000)
+    await sleep(100000)  # noqa: ASYNC116  # not sleep_forever
 
 
 def test_mock_clock_autojump_preset() -> None:

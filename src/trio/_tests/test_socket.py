@@ -303,21 +303,21 @@ async def test_fromshare() -> None:
             assert await b.recv(1) == b"x"
 
 
-async def test_socket() -> None:
+def test_socket() -> None:
     with tsocket.socket() as s:
         assert isinstance(s, tsocket.SocketType)
         assert s.family == tsocket.AF_INET
 
 
 @creates_ipv6
-async def test_socket_v6() -> None:
+def test_socket_v6() -> None:
     with tsocket.socket(tsocket.AF_INET6, tsocket.SOCK_DGRAM) as s:
         assert isinstance(s, tsocket.SocketType)
         assert s.family == tsocket.AF_INET6
 
 
 @pytest.mark.skipif(sys.platform != "linux", reason="linux only")
-async def test_sniff_sockopts() -> None:
+def test_sniff_sockopts() -> None:
     from socket import AF_INET, AF_INET6, SOCK_DGRAM, SOCK_STREAM
 
     # generate the combinations of families/types we're testing:
@@ -349,7 +349,7 @@ async def test_sniff_sockopts() -> None:
 ################################################################
 
 
-async def test_SocketType_basics() -> None:
+def test_SocketType_basics() -> None:
     sock = tsocket.socket()
     with sock as cm_enter_value:
         assert cm_enter_value is sock
@@ -400,7 +400,7 @@ async def test_SocketType_basics() -> None:
     sock.close()
 
 
-async def test_SocketType_setsockopt() -> None:
+def test_SocketType_setsockopt() -> None:
     sock = tsocket.socket()
     with sock as _:
         setsockopt_tests(sock)
@@ -1035,7 +1035,7 @@ async def test_custom_hostname_resolver(monkeygai: MonkeypatchedGAI) -> None:
     assert await tsocket.getaddrinfo("host", "port") == "x"
 
 
-async def test_custom_socket_factory() -> None:
+def test_custom_socket_factory() -> None:
     class CustomSocketFactory:
         def socket(
             self,
@@ -1067,7 +1067,7 @@ async def test_custom_socket_factory() -> None:
     assert tsocket.set_custom_socket_factory(None) is csf
 
 
-async def test_SocketType_is_abstract() -> None:
+def test_SocketType_is_abstract() -> None:
     with pytest.raises(TypeError):
         tsocket.SocketType()
 

@@ -246,8 +246,8 @@ class PyOpenSSLEchoStream(Stream):
         )
 
         if sleeper is None:
-
-            async def no_op_sleeper(_: object) -> None:
+            # async function missing await
+            async def no_op_sleeper(_: object) -> None:  # noqa: RUF029
                 return
 
             self.sleeper = no_op_sleeper
@@ -687,7 +687,7 @@ async def test_renegotiation_randomized(
     # Our receive_some() call will get stuck when it hits send_all
     async def sleeper_with_slow_send_all(method: str) -> None:
         if method == "send_all":
-            await trio.sleep(100000)
+            await trio.sleep(100000)  # noqa: ASYNC116  # not sleep forever
 
     # And our wait_send_all_might_not_block call will give it time to get
     # stuck, and then start
@@ -711,7 +711,7 @@ async def test_renegotiation_randomized(
 
     async def sleeper_with_slow_wait_writable_and_expect(method: str) -> None:
         if method == "wait_send_all_might_not_block":
-            await trio.sleep(100000)
+            await trio.sleep(100000)  # noqa: ASYNC116  # not sleep forever
         elif method == "expect":
             await trio.sleep(1000)
 
@@ -837,7 +837,7 @@ async def test_send_all_empty_string(client_ctx: SSLContext) -> None:
 async def test_SSLStream_generic(
     client_ctx: SSLContext, https_compatible: bool
 ) -> None:
-    async def stream_maker() -> tuple[
+    async def stream_maker() -> tuple[  # noqa: RUF029  # missing await
         SSLStream[MemoryStapledStream],
         SSLStream[MemoryStapledStream],
     ]:
@@ -989,7 +989,7 @@ async def test_send_all_fails_in_the_middle(client_ctx: SSLContext) -> None:
         nursery.start_soon(client.do_handshake)
         nursery.start_soon(server.do_handshake)
 
-    async def bad_hook() -> NoReturn:
+    async def bad_hook() -> NoReturn:  # noqa: RUF029  # missing await
         raise KeyError
 
     client.transport_stream.send_stream.send_all_hook = bad_hook
@@ -1163,7 +1163,7 @@ async def test_https_mode_eof_before_handshake(client_ctx: SSLContext) -> None:
 async def test_send_error_during_handshake(client_ctx: SSLContext) -> None:
     client, _server = ssl_memory_stream_pair(client_ctx)
 
-    async def bad_hook() -> NoReturn:
+    async def bad_hook() -> NoReturn:  # noqa: RUF029  # missing await
         raise KeyError
 
     client.transport_stream.send_stream.send_all_hook = bad_hook
@@ -1180,7 +1180,7 @@ async def test_send_error_during_handshake(client_ctx: SSLContext) -> None:
 async def test_receive_error_during_handshake(client_ctx: SSLContext) -> None:
     client, server = ssl_memory_stream_pair(client_ctx)
 
-    async def bad_hook() -> NoReturn:
+    async def bad_hook() -> NoReturn:  # noqa: RUF029  # missing await
         raise KeyError
 
     client.transport_stream.receive_stream.receive_some_hook = bad_hook
@@ -1200,7 +1200,7 @@ async def test_receive_error_during_handshake(client_ctx: SSLContext) -> None:
             await client.do_handshake()
 
 
-async def test_selected_alpn_protocol_before_handshake(client_ctx: SSLContext) -> None:
+def test_selected_alpn_protocol_before_handshake(client_ctx: SSLContext) -> None:
     client, server = ssl_memory_stream_pair(client_ctx)
 
     with pytest.raises(NeedHandshakeError):
@@ -1225,7 +1225,7 @@ async def test_selected_alpn_protocol_when_not_set(client_ctx: SSLContext) -> No
     assert client.selected_alpn_protocol() == server.selected_alpn_protocol()
 
 
-async def test_selected_npn_protocol_before_handshake(client_ctx: SSLContext) -> None:
+def test_selected_npn_protocol_before_handshake(client_ctx: SSLContext) -> None:
     client, server = ssl_memory_stream_pair(client_ctx)
 
     with pytest.raises(NeedHandshakeError):
@@ -1254,7 +1254,7 @@ async def test_selected_npn_protocol_when_not_set(client_ctx: SSLContext) -> Non
     assert client.selected_npn_protocol() == server.selected_npn_protocol()
 
 
-async def test_get_channel_binding_before_handshake(client_ctx: SSLContext) -> None:
+def test_get_channel_binding_before_handshake(client_ctx: SSLContext) -> None:
     client, server = ssl_memory_stream_pair(client_ctx)
 
     with pytest.raises(NeedHandshakeError):

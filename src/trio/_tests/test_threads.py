@@ -116,7 +116,8 @@ async def test_do_in_trio_thread() -> None:
     await check_case(from_thread_run, f4, ("error", KeyError), trio_token=token)
 
 
-async def test_do_in_trio_thread_from_trio_thread() -> None:
+# No await used
+async def test_do_in_trio_thread_from_trio_thread() -> None:  # noqa: RUF029
     with pytest.raises(RuntimeError):
         from_thread_run_sync(lambda: None)  # pragma: no branch
 
@@ -146,7 +147,7 @@ def test_run_in_trio_thread_ki() -> None:
 
                 print("finally", sys.exc_info())
 
-        async def trio_thread_afn() -> None:
+        async def trio_thread_afn() -> None:  # noqa: RUF029  # no await used
             trio_thread_fn()
 
         def external_thread_fn() -> None:
@@ -313,7 +314,7 @@ async def test_named_thread_os() -> None:
     await test_thread_name("💙", expected="?")
 
 
-async def test_has_pthread_setname_np() -> None:
+def test_has_pthread_setname_np() -> None:
     from trio._core._thread_cache import get_os_thread_name_func
 
     k = get_os_thread_name_func()
@@ -714,7 +715,7 @@ async def test_trio_from_thread_run() -> None:
     # trio.from_thread.run()
     record = []
 
-    async def back_in_trio_fn() -> None:
+    async def back_in_trio_fn() -> None:  # noqa: RUF029  # no await
         _core.current_time()  # implicitly checks that we're in trio
         record.append("back in trio")
 
@@ -757,7 +758,7 @@ async def test_trio_from_thread_token_kwarg() -> None:
     assert callee_token == caller_token
 
 
-async def test_from_thread_no_token() -> None:
+async def test_from_thread_no_token() -> None:  # noqa: RUF029  # no await
     # Test that a "raw call" to trio.from_thread.run() fails because no token
     # has been provided
 
@@ -818,7 +819,8 @@ async def test_trio_from_thread_run_contextvars() -> None:
         with pytest.raises(sniffio.AsyncLibraryNotFoundError):
             sniffio.current_async_library()
 
-        async def async_back_in_main() -> tuple[str, str]:
+        # Missing await
+        async def async_back_in_main() -> tuple[str, str]:  # noqa: RUF029
             back_parent_value = trio_test_contextvar.get()
             trio_test_contextvar.set("back_in_main")
             back_current_value = trio_test_contextvar.get()
@@ -859,7 +861,8 @@ def test_run_fn_as_system_task_catched_badly_typed_token() -> None:
         )
 
 
-async def test_from_thread_inside_trio_thread() -> None:
+# Missing await
+async def test_from_thread_inside_trio_thread() -> None:  # noqa: RUF029
     def not_called() -> None:  # pragma: no cover
         raise AssertionError()
 
@@ -895,7 +898,8 @@ def test_from_thread_run_during_shutdown() -> None:
     assert record == ["finished", "clean"]
 
 
-async def test_trio_token_weak_referenceable() -> None:
+# Missing await
+async def test_trio_token_weak_referenceable() -> None:  # noqa: RUF029
     token = _core.current_trio_token()
     assert isinstance(token, _core.TrioToken)
     weak_reference = weakref.ref(token)
@@ -916,7 +920,7 @@ async def test_unsafe_abandon_on_cancel_kwarg() -> None:
 async def test_from_thread_reuses_task() -> None:
     task = _core.current_task()
 
-    async def async_current_task() -> _core.Task:
+    async def async_current_task() -> _core.Task:  # noqa: RUF029  # Missing await
         return _core.current_task()
 
     assert task is await to_thread_run_sync(from_thread_run_sync, _core.current_task)
@@ -959,7 +963,8 @@ async def test_from_thread_host_cancelled() -> None:
     assert cancel_scope.cancelled_caught
     assert not await to_thread_run_sync(partial(queue.get, timeout=1))
 
-    async def no_checkpoint() -> bool:
+    # Missing await
+    async def no_checkpoint() -> bool:  # noqa: RUF029
         return True
 
     def async_check() -> None:
@@ -1072,7 +1077,7 @@ async def test_from_thread_check_cancelled() -> None:
     assert q.get(timeout=1) == "Cancelled"
 
 
-async def test_from_thread_check_cancelled_raises_in_foreign_threads() -> None:
+def test_from_thread_check_cancelled_raises_in_foreign_threads() -> None:
     with pytest.raises(RuntimeError):
         from_thread_check_cancelled()
     q: stdlib_queue.Queue[Outcome[object]] = stdlib_queue.Queue()
