@@ -78,7 +78,7 @@ wheel_package=$(ls dist/*.whl)
 uv pip install --python="$PYTHON_PATH" "trio @ $wheel_package"
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
-    uv pip install --python="$PYTHON_PATH" -r test-requirements.txt
+    uv pip install --python="$PYTHON_PATH" -r test-requirements.txt exceptiongroup
     echo "::endgroup::"
     source check.sh
 else
