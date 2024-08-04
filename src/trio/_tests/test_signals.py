@@ -40,7 +40,10 @@ async def test_open_signal_receiver() -> None:
     assert signal.getsignal(signal.SIGILL) is orig
 
 
-def test_open_signal_receiver_restore_handler_after_one_bad_signal() -> None:
+# async function missing await
+async def test_open_signal_receiver_restore_handler_after_one_bad_signal() -> (  # noqa: RUF029
+    None
+):
     orig = signal.getsignal(signal.SIGILL)
     with pytest.raises(
         ValueError, match="(signal number out of range|invalid signal value)$"
@@ -57,7 +60,10 @@ def test_open_signal_receiver_empty_fail() -> None:
             pass
 
 
-def test_open_signal_receiver_restore_handler_after_duplicate_signal() -> None:
+# async function missing await
+async def test_open_signal_receiver_restore_handler_after_duplicate_signal() -> (  # noqa: RUF029
+    None
+):
     orig = signal.getsignal(signal.SIGILL)
     with open_signal_receiver(signal.SIGILL, signal.SIGILL):
         pass

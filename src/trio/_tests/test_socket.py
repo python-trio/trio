@@ -303,21 +303,21 @@ async def test_fromshare() -> None:
             assert await b.recv(1) == b"x"
 
 
-def test_socket() -> None:
+async def test_socket() -> None:  # noqa: RUF029  # async function missing await
     with tsocket.socket() as s:
         assert isinstance(s, tsocket.SocketType)
         assert s.family == tsocket.AF_INET
 
 
 @creates_ipv6
-def test_socket_v6() -> None:
+async def test_socket_v6() -> None:  # noqa: RUF029  # async function missing await
     with tsocket.socket(tsocket.AF_INET6, tsocket.SOCK_DGRAM) as s:
         assert isinstance(s, tsocket.SocketType)
         assert s.family == tsocket.AF_INET6
 
 
 @pytest.mark.skipif(sys.platform != "linux", reason="linux only")
-def test_sniff_sockopts() -> None:
+async def test_sniff_sockopts() -> None:  # noqa: RUF029  # async fn missing await
     from socket import AF_INET, AF_INET6, SOCK_DGRAM, SOCK_STREAM
 
     # generate the combinations of families/types we're testing:
@@ -349,7 +349,7 @@ def test_sniff_sockopts() -> None:
 ################################################################
 
 
-def test_SocketType_basics() -> None:
+async def test_SocketType_basics() -> None:  # noqa: RUF029  # async fn missing await
     sock = tsocket.socket()
     with sock as cm_enter_value:
         assert cm_enter_value is sock
@@ -400,7 +400,8 @@ def test_SocketType_basics() -> None:
     sock.close()
 
 
-def test_SocketType_setsockopt() -> None:
+# async function missing await
+async def test_SocketType_setsockopt() -> None:  # noqa: RUF029
     sock = tsocket.socket()
     with sock as _:
         setsockopt_tests(sock)

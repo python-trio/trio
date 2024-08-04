@@ -212,13 +212,13 @@ async def test_windows_functionality() -> None:
             s1.share(0)
 
 
-def test_basic_tcp() -> None:
+async def test_basic_tcp() -> None:  # noqa: RUF029  # async function missing await
     fn()
     with pytest.raises(NotImplementedError):
         trio.socket.socket()
 
 
-def test_not_implemented_functions() -> None:
+async def test_not_implemented_functions() -> None:  # noqa: RUF029
     fn()
     s1 = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
 

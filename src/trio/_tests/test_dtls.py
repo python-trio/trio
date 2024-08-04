@@ -288,7 +288,7 @@ async def test_client_multiplex() -> None:
                     await nursery.start(client_endpoint.serve, server_ctx, null_handler)
 
 
-def test_dtls_over_dgram_only() -> None:
+async def test_dtls_over_dgram_only() -> None:  # noqa: RUF029  # no await in async fn
     with trio.socket.socket() as s:
         with pytest.raises(ValueError, match="^DTLS requires a SOCK_DGRAM socket$"):
             DTLSEndpoint(s)

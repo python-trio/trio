@@ -291,7 +291,7 @@ async def test_current_task() -> None:
         nursery.start_soon(child)
 
 
-def test_root_task() -> None:
+async def test_root_task() -> None:  # noqa: RUF029  # async function missing await
     root = not_none(_core.current_root_task())
     assert root.parent_nursery is root.eventual_parent_nursery is None
 
@@ -1636,7 +1636,9 @@ async def test_spawn_name() -> None:
     await check(_core.spawn_system_task)
 
 
-def test_current_effective_deadline(mock_clock: _core.MockClock) -> None:
+async def test_current_effective_deadline(  # noqa: RUF029  # async fn missing await
+    mock_clock: _core.MockClock,
+) -> None:
     assert _core.current_effective_deadline() == inf
 
     with _core.CancelScope(deadline=5) as scope1:
@@ -2143,7 +2145,7 @@ def test_system_task_contexts() -> None:
     _core.run(inner)
 
 
-def test_Nursery_init() -> None:
+async def test_Nursery_init() -> None:  # noqa: RUF029  # async fn missing await
     """Test that nurseries cannot be constructed directly."""
     # This function is async so that we have access to a task object we can
     # pass in. It should never be accessed though.
@@ -2396,7 +2398,8 @@ def test_async_function_implemented_in_C() -> None:
     _core.run(main)
 
 
-def test_very_deep_cancel_scope_nesting() -> None:
+# async fn missing await
+async def test_very_deep_cancel_scope_nesting() -> None:  # noqa: RUF029
     # This used to crash with a RecursionError in CancelStatus.recalculate
     with ExitStack() as exit_stack:
         outermost_scope = _core.CancelScope()
@@ -2632,7 +2635,8 @@ async def test_nursery_collapse(strict: bool | None) -> None:
                 nursery.cancel_scope.cancel()
 
 
-def test_cancel_scope_no_cancellederror() -> None:
+# async function missing await
+async def test_cancel_scope_no_cancellederror() -> None:  # noqa: RUF029
     """
     Test that when a cancel scope encounters an exception group that does NOT contain
     a Cancelled exception, it will NOT set the ``cancelled_caught`` flag.

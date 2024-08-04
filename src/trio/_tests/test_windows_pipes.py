@@ -22,7 +22,8 @@ if sys.platform == "win32":
     from .._windows_pipes import PipeReceiveStream, PipeSendStream
 
 
-def make_pipe() -> tuple[PipeSendStream, PipeReceiveStream]:
+# async function missing await
+async def make_pipe() -> tuple[PipeSendStream, PipeReceiveStream]:  # noqa: RUF029
     """Makes a new pair of pipes."""
     (r, w) = pipe()
     return PipeSendStream(w), PipeReceiveStream(r)
@@ -52,7 +53,7 @@ async def test_pipe_error_on_close() -> None:
 
 
 async def test_pipes_combined() -> None:
-    write, read = make_pipe()
+    write, read = await make_pipe()
     count = 2**20
     replicas = 3
 
@@ -81,7 +82,7 @@ async def test_pipes_combined() -> None:
 
 
 async def test_async_with() -> None:
-    w, r = make_pipe()
+    w, r = await make_pipe()
     async with w, r:
         pass
 
@@ -92,7 +93,7 @@ async def test_async_with() -> None:
 
 
 async def test_close_during_write() -> None:
-    w, _r = make_pipe()
+    w, _r = await make_pipe()
     async with _core.open_nursery() as nursery:
 
         async def write_forever() -> None:
