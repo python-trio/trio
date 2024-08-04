@@ -113,7 +113,7 @@ async def test_CapacityLimiter() -> None:
     c.release_on_behalf_of("value 1")
 
 
-def test_CapacityLimiter_inf() -> None:
+async def test_CapacityLimiter_inf() -> None:  # noqa: RUF029  # async fn without await
     from math import inf
 
     c = CapacityLimiter(inf)

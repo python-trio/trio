@@ -128,7 +128,8 @@ async def test_ki_enabled_after_yield_briefly() -> None:
 
 # This also used to be broken due to
 #   https://bugs.python.org/issue29590
-def test_generator_based_context_manager_throw() -> None:
+# async function missing await
+async def test_generator_based_context_manager_throw() -> None:  # noqa: RUF029
     @contextlib.contextmanager
     @_core.enable_ki_protection
     def protected_manager() -> Iterator[None]:

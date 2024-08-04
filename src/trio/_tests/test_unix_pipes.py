@@ -24,14 +24,15 @@ else:
         from .._unix_pipes import FdStream
 
 
-def make_pipe() -> tuple[FdStream, FdStream]:
+# async function without await
+async def make_pipe() -> tuple[FdStream, FdStream]:  # noqa: RUF029
     """Makes a new pair of pipes."""
     (r, w) = os.pipe()
     return FdStream(w), FdStream(r)
 
 
-def make_clogged_pipe():
-    s, r = make_pipe()
+async def make_clogged_pipe():
+    s, r = await make_pipe()
     try:
         while True:
             # We want to totally fill up the pipe buffer.

@@ -1036,7 +1036,8 @@ async def test_custom_hostname_resolver(monkeygai: MonkeypatchedGAI) -> None:
     assert await tsocket.getaddrinfo("host", "port") == "x"
 
 
-def test_custom_socket_factory() -> None:
+# async function without await
+async def test_custom_socket_factory() -> None:  # noqa: RUF029
     class CustomSocketFactory:
         def socket(
             self,
