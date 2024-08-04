@@ -1161,7 +1161,7 @@ async def test_https_mode_eof_before_handshake(client_ctx: SSLContext) -> None:
 
 
 async def test_send_error_during_handshake(client_ctx: SSLContext) -> None:
-    client, server = ssl_memory_stream_pair(client_ctx)
+    client, _server = ssl_memory_stream_pair(client_ctx)
 
     async def bad_hook() -> NoReturn:
         raise KeyError

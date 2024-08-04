@@ -62,7 +62,7 @@ async def test_msg_trunc() -> None:
     s2 = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
     await s1.bind(("127.0.0.1", 0))
     await s2.sendto(b"xyz", s1.getsockname())
-    data, addr = await s1.recvfrom(10)
+    _data, _addr = await s1.recvfrom(10)
 
 
 async def test_recv_methods() -> None:

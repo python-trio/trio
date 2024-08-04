@@ -134,7 +134,7 @@ async def test_getaddrinfo(monkeygai: MonkeypatchedGAI) -> None:
             tuple[str, int] | tuple[str, int, int] | tuple[str, int, int, int],
         ]:
             # (family, type, proto, canonname, sockaddr)
-            family, type_, proto, canonname, sockaddr = gai_tup
+            family, type_, _proto, _canonname, sockaddr = gai_tup
             return (family, type_, sockaddr)
 
         def filtered(

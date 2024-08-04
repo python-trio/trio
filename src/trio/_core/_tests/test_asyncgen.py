@@ -109,7 +109,7 @@ async def test_asyncgen_throws_during_finalization(
     await _core.wait_all_tasks_blocked()
     assert record == ["crashing"]
     # Following type ignore is because typing for LogCaptureFixture is wrong
-    exc_type, exc_value, exc_traceback = caplog.records[0].exc_info  # type: ignore[misc]
+    exc_type, exc_value, _exc_traceback = caplog.records[0].exc_info  # type: ignore[misc]
     assert exc_type is ValueError
     assert str(exc_value) == "oops"
     assert "during finalization of async generator" in caplog.records[0].message
