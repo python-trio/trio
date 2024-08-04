@@ -1,0 +1,1 @@
+Switched ``attrs`` usage off of ``hash``, which is now deprecated.
