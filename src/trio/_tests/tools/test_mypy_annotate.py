@@ -105,6 +105,8 @@ def test_endtoend(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    import trio._tools.mypy_annotate as mypy_annotate
+
     inp_text = """\
 Mypy begun
 trio/core.py:15: error: Bad types here [misc]
@@ -116,7 +118,9 @@ Found 3 errors in 29 files
     with monkeypatch.context():
         monkeypatch.setattr(sys, "stdin", io.StringIO(inp_text))
 
-        main(["--dumpfile", str(result_file), "--platform", "SomePlatform"])
+        mypy_annotate.main(
+            ["--dumpfile", str(result_file), "--platform", "SomePlatform"]
+        )
 
     std = capsys.readouterr()
     assert std.err == ""
