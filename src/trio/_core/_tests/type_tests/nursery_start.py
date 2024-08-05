@@ -47,7 +47,6 @@ async def task_requires_start(*, task_status: TaskStatus[str]) -> None:
 
 async def task_pos_or_kw(value: str, task_status: TaskStatus[int]) -> None:
     """Check a function which doesn't use the *-syntax works."""
-    ...
 
 
 def check_start_soon(nursery: Nursery) -> None:
