@@ -134,7 +134,7 @@ async def test_handshake_over_terrible_network(
                     print(f"{packet.source} -> {packet.destination}: {op}")
                     if op == "drop":
                         return
-                    elif op == "dupe":
+                    if op == "dupe":
                         fn.send_packet(packet)
                     elif op == "delay":
                         await trio.sleep(r.random() * 3)
@@ -735,8 +735,7 @@ async def test_system_task_cleaned_up_on_gc() -> None:
                 await trio.testing.wait_all_tasks_blocked()
                 nursery.cancel_scope.cancel()
 
-        during_tasks = trio.lowlevel.current_statistics().tasks_living
-        return during_tasks
+        return trio.lowlevel.current_statistics().tasks_living
 
     with pytest.warns(ResourceWarning):
         during_tasks = await start_and_forget_endpoint()

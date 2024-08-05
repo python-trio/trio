@@ -222,10 +222,9 @@ def collapse_exception_group(
             excgroup.__traceback__, exceptions[0].__traceback__
         )
         return exceptions[0]
-    elif modified:
+    if modified:
         return excgroup.derive(exceptions)
-    else:
-        return excgroup
+    return excgroup
 
 
 @attrs.define(eq=False)
@@ -254,9 +253,8 @@ class Deadlines:
             deadline, _, cancel_scope = self._heap[0]
             if deadline == cancel_scope._registered_deadline:
                 return deadline
-            else:
-                # This entry is stale; discard it and try again
-                heappop(self._heap)
+            # This entry is stale; discard it and try again
+            heappop(self._heap)
         return inf
 
     def _prune(self) -> None:
@@ -642,22 +640,21 @@ class CancelScope:
         remaining_error_after_cancel_scope = self._close(exc)
         if remaining_error_after_cancel_scope is None:
             return True
-        elif remaining_error_after_cancel_scope is exc:
+        if remaining_error_after_cancel_scope is exc:
             return False
-        else:
-            # Copied verbatim from the old MultiErrorCatcher.  Python doesn't
-            # allow us to encapsulate this __context__ fixup.
-            old_context = remaining_error_after_cancel_scope.__context__
-            try:
-                raise remaining_error_after_cancel_scope
-            finally:
-                _, value, _ = sys.exc_info()
-                assert value is remaining_error_after_cancel_scope
-                value.__context__ = old_context
-                # delete references from locals to avoid creating cycles
-                # see test_cancel_scope_exit_doesnt_create_cyclic_garbage
-                # Note: still relevant
-                del remaining_error_after_cancel_scope, value, _, exc
+        # Copied verbatim from the old MultiErrorCatcher.  Python doesn't
+        # allow us to encapsulate this __context__ fixup.
+        old_context = remaining_error_after_cancel_scope.__context__
+        try:
+            raise remaining_error_after_cancel_scope
+        finally:
+            _, value, _ = sys.exc_info()
+            assert value is remaining_error_after_cancel_scope
+            value.__context__ = old_context
+            # delete references from locals to avoid creating cycles
+            # see test_cancel_scope_exit_doesnt_create_cyclic_garbage
+            # Note: still relevant
+            del remaining_error_after_cancel_scope, value, _, exc
 
     def __repr__(self) -> str:
         if self._cancel_status is not None:
@@ -949,21 +946,20 @@ class NurseryManager:
         combined_error_from_nursery = self._scope._close(new_exc)
         if combined_error_from_nursery is None:
             return True
-        elif combined_error_from_nursery is exc:
+        if combined_error_from_nursery is exc:
             return False
-        else:
-            # Copied verbatim from the old MultiErrorCatcher.  Python doesn't
-            # allow us to encapsulate this __context__ fixup.
-            old_context = combined_error_from_nursery.__context__
-            try:
-                raise combined_error_from_nursery
-            finally:
-                _, value, _ = sys.exc_info()
-                assert value is combined_error_from_nursery
-                value.__context__ = old_context
-                # delete references from locals to avoid creating cycles
-                # see test_cancel_scope_exit_doesnt_create_cyclic_garbage
-                del _, combined_error_from_nursery, value, new_exc
+        # Copied verbatim from the old MultiErrorCatcher.  Python doesn't
+        # allow us to encapsulate this __context__ fixup.
+        old_context = combined_error_from_nursery.__context__
+        try:
+            raise combined_error_from_nursery
+        finally:
+            _, value, _ = sys.exc_info()
+            assert value is combined_error_from_nursery
+            value.__context__ = old_context
+            # delete references from locals to avoid creating cycles
+            # see test_cancel_scope_exit_doesnt_create_cyclic_garbage
+            del _, combined_error_from_nursery, value, new_exc
 
     # make sure these raise errors in static analysis if called
     if not TYPE_CHECKING:
@@ -2302,10 +2298,9 @@ def run(
     # cluttering every single Trio traceback with an extra frame.
     if isinstance(runner.main_task_outcome, Value):
         return cast(RetT, runner.main_task_outcome.value)
-    elif isinstance(runner.main_task_outcome, Error):
+    if isinstance(runner.main_task_outcome, Error):
         raise runner.main_task_outcome.error
-    else:  # pragma: no cover
-        raise AssertionError(runner.main_task_outcome)
+    raise AssertionError(runner.main_task_outcome)  # pragma: no cover
 
 
 def start_guest_run(

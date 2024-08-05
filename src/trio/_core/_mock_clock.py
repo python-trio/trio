@@ -89,12 +89,11 @@ class MockClock(Clock):
     def rate(self, new_rate: float) -> None:
         if new_rate < 0:
             raise ValueError("rate must be >= 0")
-        else:
-            real = self._real_clock()
-            virtual = self._real_to_virtual(real)
-            self._virtual_base = virtual
-            self._real_base = real
-            self._rate = float(new_rate)
+        real = self._real_clock()
+        virtual = self._real_to_virtual(real)
+        self._virtual_base = virtual
+        self._real_base = real
+        self._rate = float(new_rate)
 
     @property
     def autojump_threshold(self) -> float:
@@ -144,10 +143,9 @@ class MockClock(Clock):
         virtual_timeout = deadline - self.current_time()
         if virtual_timeout <= 0:
             return 0
-        elif self._rate > 0:
+        if self._rate > 0:
             return virtual_timeout / self._rate
-        else:
-            return 999999999
+        return 999999999
 
     def jump(self, seconds: float) -> None:
         """Manually advance the clock by the given number of seconds.

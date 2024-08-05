@@ -131,8 +131,7 @@ async def open_tcp_listeners(
                     # failure to create the other.
                     unsupported_address_families.append(ex)
                     continue
-                else:
-                    raise
+                raise
             try:
                 # See https://github.com/python-trio/trio/issues/39
                 if sys.platform != "win32":

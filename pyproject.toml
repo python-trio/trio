@@ -116,6 +116,7 @@ select = [
     "PERF",  # Perflint
     "PT",    # flake8-pytest-style
     "PYI",   # flake8-pyi
+    "RET",   # flake8-return
     "RUF",   # Ruff-specific rules
     "SIM",   # flake8-simplify
     "TCH",   # flake8-type-checking

@@ -247,8 +247,7 @@ def test_lsp_that_hooks_select_gives_good_error(
             sock = sock.fileno()
         if which == WSAIoctls.SIO_BSP_HANDLE_SELECT:
             return _handle(sock + 1)
-        else:
-            return _handle(sock)
+        return _handle(sock)
 
     monkeypatch.setattr(_io_windows, "_get_underlying_socket", patched_get_underlying)
     with pytest.raises(
@@ -275,8 +274,7 @@ def test_lsp_that_completely_hides_base_socket_gives_good_error(
             sock = sock.fileno()
         if which == WSAIoctls.SIO_BASE_HANDLE:
             raise OSError("nope")
-        else:
-            return _handle(sock)
+        return _handle(sock)
 
     monkeypatch.setattr(_io_windows, "_get_underlying_socket", patched_get_underlying)
     with pytest.raises(

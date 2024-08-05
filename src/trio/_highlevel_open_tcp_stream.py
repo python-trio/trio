@@ -164,8 +164,7 @@ def format_host_port(host: str | bytes, port: int | str) -> str:
     host = host.decode("ascii") if isinstance(host, bytes) else host
     if ":" in host:
         return f"[{host}]:{port}"
-    else:
-        return f"{host}:{port}"
+    return f"{host}:{port}"
 
 
 # Twisted's HostnameEndpoint has a good set of configurables:
@@ -401,7 +400,6 @@ async def open_tcp_stream(
             assert len(oserrors) == len(targets)
             msg = f"all attempts to connect to {format_host_port(host, port)} failed"
             raise OSError(msg) from ExceptionGroup(msg, oserrors)
-        else:
-            stream = trio.SocketStream(winning_socket)
-            open_sockets.remove(winning_socket)
-            return stream
+        stream = trio.SocketStream(winning_socket)
+        open_sockets.remove(winning_socket)
+        return stream

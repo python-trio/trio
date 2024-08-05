@@ -40,19 +40,18 @@ class TrioInteractiveConsole(InteractiveConsole):
             # return to the REPL.
             if isinstance(result.error, SystemExit):
                 raise result.error
-            else:
-                # Inline our own version of self.showtraceback that can use
-                # outcome.Error.error directly to print clean tracebacks.
-                # This also means overriding self.showtraceback does nothing.
-                sys.last_type, sys.last_value = type(result.error), result.error
-                sys.last_traceback = result.error.__traceback__
-                # see https://docs.python.org/3/library/sys.html#sys.last_exc
-                if sys.version_info >= (3, 12):
-                    sys.last_exc = result.error
+            # Inline our own version of self.showtraceback that can use
+            # outcome.Error.error directly to print clean tracebacks.
+            # This also means overriding self.showtraceback does nothing.
+            sys.last_type, sys.last_value = type(result.error), result.error
+            sys.last_traceback = result.error.__traceback__
+            # see https://docs.python.org/3/library/sys.html#sys.last_exc
+            if sys.version_info >= (3, 12):
+                sys.last_exc = result.error
 
-                # We always use sys.excepthook, unlike other implementations.
-                # This means that overriding self.write also does nothing to tbs.
-                sys.excepthook(sys.last_type, sys.last_value, sys.last_traceback)
+            # We always use sys.excepthook, unlike other implementations.
+            # This means that overriding self.write also does nothing to tbs.
+            sys.excepthook(sys.last_type, sys.last_value, sys.last_traceback)
 
 
 async def run_repl(console: TrioInteractiveConsole) -> None:

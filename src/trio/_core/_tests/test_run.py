@@ -2039,8 +2039,9 @@ async def test_nursery_stop_async_iteration() -> None:
                     e.exceptions[0], StopAsyncIteration
                 ):
                     raise e.exceptions[0] from None
-                else:  # pragma: no cover
-                    raise AssertionError("unknown error in _accumulate") from e
+                raise AssertionError(  # pragma: no cover
+                    "unknown error in _accumulate"
+                ) from e
 
             return items
 

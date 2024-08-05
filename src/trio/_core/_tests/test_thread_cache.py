@@ -147,14 +147,13 @@ def test_race_between_idle_exit_and_job_assignment(
             got_it = self._lock.acquire(timeout=timeout)
             if timeout == -1:
                 return True
-            elif got_it:
+            if got_it:
                 if self._counter > 0:
                     self._counter -= 1
                     self._lock.release()
                     return False
                 return True
-            else:
-                return False
+            return False
 
         def release(self) -> None:
             self._lock.release()
