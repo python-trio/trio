@@ -5,6 +5,21 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.26.1 (2024-08-05)
+------------------------
+
+Bugfixes
+~~~~~~~~
+
+- Switched ``attrs`` usage off of ``hash``, which is now deprecated. (`#3053 <https://github.com/python-trio/trio/issues/3053>`__)
+
+
+Miscellaneous internal changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Use PyPI's Trusted Publishers to make releases. (`#2980 <https://github.com/python-trio/trio/issues/2980>`__)
+
+
 Trio 0.26.0 (2024-07-05)
 ------------------------
 
