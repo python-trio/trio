@@ -134,7 +134,7 @@ async def test_getaddrinfo(monkeygai: MonkeypatchedGAI) -> None:
             tuple[str, int] | tuple[str, int, int] | tuple[str, int, int, int],
         ]:
             # (family, type, proto, canonname, sockaddr)
-            family, type_, proto, canonname, sockaddr = gai_tup
+            family, type_, _proto, _canonname, sockaddr = gai_tup
             return (family, type_, sockaddr)
 
         def filtered(
@@ -303,21 +303,21 @@ async def test_fromshare() -> None:
             assert await b.recv(1) == b"x"
 
 
-async def test_socket() -> None:
+async def test_socket() -> None:  # noqa: RUF029  # async function missing await
     with tsocket.socket() as s:
         assert isinstance(s, tsocket.SocketType)
         assert s.family == tsocket.AF_INET
 
 
 @creates_ipv6
-async def test_socket_v6() -> None:
+async def test_socket_v6() -> None:  # noqa: RUF029  # async function missing await
     with tsocket.socket(tsocket.AF_INET6, tsocket.SOCK_DGRAM) as s:
         assert isinstance(s, tsocket.SocketType)
         assert s.family == tsocket.AF_INET6
 
 
 @pytest.mark.skipif(sys.platform != "linux", reason="linux only")
-async def test_sniff_sockopts() -> None:
+async def test_sniff_sockopts() -> None:  # noqa: RUF029  # async fn missing await
     from socket import AF_INET, AF_INET6, SOCK_DGRAM, SOCK_STREAM
 
     # generate the combinations of families/types we're testing:
@@ -349,7 +349,7 @@ async def test_sniff_sockopts() -> None:
 ################################################################
 
 
-async def test_SocketType_basics() -> None:
+async def test_SocketType_basics() -> None:  # noqa: RUF029  # async fn missing await
     sock = tsocket.socket()
     with sock as cm_enter_value:
         assert cm_enter_value is sock
@@ -400,7 +400,8 @@ async def test_SocketType_basics() -> None:
     sock.close()
 
 
-async def test_SocketType_setsockopt() -> None:
+# async function missing await
+async def test_SocketType_setsockopt() -> None:  # noqa: RUF029
     sock = tsocket.socket()
     with sock as _:
         setsockopt_tests(sock)
@@ -1035,7 +1036,8 @@ async def test_custom_hostname_resolver(monkeygai: MonkeypatchedGAI) -> None:
     assert await tsocket.getaddrinfo("host", "port") == "x"
 
 
-async def test_custom_socket_factory() -> None:
+# async function without await
+async def test_custom_socket_factory() -> None:  # noqa: RUF029
     class CustomSocketFactory:
         def socket(
             self,
@@ -1067,7 +1069,7 @@ async def test_custom_socket_factory() -> None:
     assert tsocket.set_custom_socket_factory(None) is csf
 
 
-async def test_SocketType_is_abstract() -> None:
+def test_SocketType_is_abstract() -> None:
     with pytest.raises(TypeError):
         tsocket.SocketType()
 

@@ -1,3 +1,8 @@
+# Module `_socket` is shadowing a Python builtin module
+
+# ruff: noqa: PYI063  # Several cases throughout file where
+# argument names with __ used because of typeshed, see comment for recv in _SocketType
+
 from __future__ import annotations
 
 import os
@@ -652,11 +657,13 @@ class SocketType:
     def recv(__self, __buflen: int, __flags: int = 0) -> Awaitable[bytes]:
         raise NotImplementedError
 
+    # argument names with __ used because of typeshed, see comment for recv in _SocketType
     def recv_into(
         __self, buffer: Buffer, nbytes: int = 0, flags: int = 0
     ) -> Awaitable[int]:
         raise NotImplementedError
 
+    # argument names with __ used because of typeshed, see comment for recv in _SocketType
     # return type of socket.socket.recvfrom in typeshed is tuple[bytes, Any]
     def recvfrom(
         __self, __bufsize: int, __flags: int = 0
@@ -672,7 +679,7 @@ class SocketType:
     if sys.platform != "win32" or (
         not TYPE_CHECKING and hasattr(_stdlib_socket.socket, "recvmsg")
     ):
-
+        # argument names with __ used because of typeshed, see comment for recv in _SocketType
         def recvmsg(
             __self,
             __bufsize: int,
@@ -684,7 +691,7 @@ class SocketType:
     if sys.platform != "win32" or (
         not TYPE_CHECKING and hasattr(_stdlib_socket.socket, "recvmsg_into")
     ):
-
+        # argument names with __ used because of typeshed, see comment for recv in _SocketType
         def recvmsg_into(
             __self,
             __buffers: Iterable[Buffer],
@@ -693,14 +700,17 @@ class SocketType:
         ) -> Awaitable[tuple[int, list[tuple[int, int, bytes]], int, Any]]:
             raise NotImplementedError
 
+    # argument names with __ used because of typeshed, see comment for recv in _SocketType
     def send(__self, __bytes: Buffer, __flags: int = 0) -> Awaitable[int]:
         raise NotImplementedError
 
+    # argument names with __ used because of typeshed, see comment for recv in _SocketType
     @overload
     async def sendto(
         self, __data: Buffer, __address: tuple[object, ...] | str | Buffer
     ) -> int: ...
 
+    # argument names with __ used because of typeshed, see comment for recv in _SocketType
     @overload
     async def sendto(
         self,
@@ -715,7 +725,7 @@ class SocketType:
     if sys.platform != "win32" or (
         not TYPE_CHECKING and hasattr(_stdlib_socket.socket, "sendmsg")
     ):
-
+        # argument names with __ used because of typeshed, see comment for recv in _SocketType
         @_wraps(_stdlib_socket.socket.sendmsg, assigned=(), updated=())
         async def sendmsg(
             self,
@@ -1083,7 +1093,7 @@ class _SocketType(SocketType):
     ################################################################
 
     if TYPE_CHECKING:
-
+        # argument names with __ used because of typeshed, see comment for recv in _SocketType
         def recv_into(
             __self, buffer: Buffer, nbytes: int = 0, flags: int = 0
         ) -> Awaitable[int]: ...
@@ -1097,6 +1107,7 @@ class _SocketType(SocketType):
     ################################################################
 
     if TYPE_CHECKING:
+        # argument names with __ used because of typeshed, see comment for recv in _SocketType
         # return type of socket.socket.recvfrom in typeshed is tuple[bytes, Any]
         def recvfrom(
             __self, __bufsize: int, __flags: int = 0
@@ -1128,7 +1139,7 @@ class _SocketType(SocketType):
         not TYPE_CHECKING and hasattr(_stdlib_socket.socket, "recvmsg")
     ):
         if TYPE_CHECKING:
-
+            # argument names with __ used because of typeshed, see comment for recv in _SocketType
             def recvmsg(
                 __self, __bufsize: int, __ancbufsize: int = 0, __flags: int = 0
             ) -> Awaitable[tuple[bytes, list[tuple[int, int, bytes]], int, Any]]: ...
@@ -1145,7 +1156,7 @@ class _SocketType(SocketType):
         not TYPE_CHECKING and hasattr(_stdlib_socket.socket, "recvmsg_into")
     ):
         if TYPE_CHECKING:
-
+            # argument names with __ used because of typeshed, see comment for recv in _SocketType
             def recvmsg_into(
                 __self,
                 __buffers: Iterable[Buffer],
@@ -1162,7 +1173,7 @@ class _SocketType(SocketType):
     ################################################################
 
     if TYPE_CHECKING:
-
+        # argument names with __ used because of typeshed, see comment for recv in _SocketType
         def send(__self, __bytes: Buffer, __flags: int = 0) -> Awaitable[int]: ...
 
     send = _make_simple_sock_method_wrapper(
@@ -1173,11 +1184,13 @@ class _SocketType(SocketType):
     # sendto
     ################################################################
 
+    # argument names with __ used because of typeshed, see comment for recv in _SocketType
     @overload
     async def sendto(
         self, __data: Buffer, __address: tuple[object, ...] | str | Buffer
     ) -> int: ...
 
+    # argument names with __ used because of typeshed, see comment for recv in _SocketType
     @overload
     async def sendto(
         self, __data: Buffer, __flags: int, __address: tuple[object, ...] | str | Buffer
@@ -1205,7 +1218,7 @@ class _SocketType(SocketType):
     if sys.platform != "win32" or (
         not TYPE_CHECKING and hasattr(_stdlib_socket.socket, "sendmsg")
     ):
-
+        # argument names with __ used because of typeshed, see comment for recv in _SocketType
         @_wraps(_stdlib_socket.socket.sendmsg, assigned=(), updated=())
         async def sendmsg(
             self,

@@ -316,7 +316,7 @@ async def test_open_tcp_listeners_some_address_families_unavailable(
     try_families: set[AddressFamily], fail_families: set[AddressFamily]
 ) -> None:
     fsf = FakeSocketFactory(
-        10, raise_on_family={family: errno.EAFNOSUPPORT for family in fail_families}
+        10, raise_on_family=dict.fromkeys(fail_families, errno.EAFNOSUPPORT)
     )
     tsocket.set_custom_socket_factory(fsf)
     tsocket.set_custom_hostname_resolver(

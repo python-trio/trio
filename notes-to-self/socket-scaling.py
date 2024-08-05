@@ -32,7 +32,7 @@ async def main():
             now = time.perf_counter()
             total_ms = (now - last_time) * 1000
             per_us = total_ms * 1000 / count
-            print(f"{desc}: {total_ms:.2f} ms total, {per_us:.2f} µs/{item}")
+            print(f"{desc}: {total_ms:.2f} ms total, {per_us:.2f} μs/{item}")
             last_time = now
 
         print(f"\n-- {total} sockets --")

@@ -159,7 +159,7 @@ async def test_wait_basic(
 
 @read_socket_test
 async def test_double_read(socketpair: SocketPair, wait_readable: WaitSocket) -> None:
-    a, b = socketpair
+    a, _b = socketpair
 
     # You can't have two tasks trying to read from a socket at the same time
     async with _core.open_nursery() as nursery:
@@ -172,7 +172,7 @@ async def test_double_read(socketpair: SocketPair, wait_readable: WaitSocket) ->
 
 @write_socket_test
 async def test_double_write(socketpair: SocketPair, wait_writable: WaitSocket) -> None:
-    a, b = socketpair
+    a, _b = socketpair
 
     # You can't have two tasks trying to write to a socket at the same time
     fill_socket(a)
@@ -193,7 +193,7 @@ async def test_interrupted_by_close(
     wait_writable: WaitSocket,
     notify_closing: Callable[[stdlib_socket.socket], object],
 ) -> None:
-    a, b = socketpair
+    a, _b = socketpair
 
     async def reader() -> None:
         with pytest.raises(_core.ClosedResourceError):
@@ -295,7 +295,8 @@ async def test_socket_actual_streaming(
     assert results["send_b"] == results["recv_a"]
 
 
-async def test_notify_closing_on_invalid_object() -> None:
+# async function missing await
+async def test_notify_closing_on_invalid_object() -> None:  # noqa: RUF029
     # It should either be a no-op (generally on Unix, where we don't know
     # which fds are valid), or an OSError (on Windows, where we currently only
     # support sockets, so we have to do some validation to figure out whether

@@ -62,7 +62,7 @@ async def test_msg_trunc() -> None:
     s2 = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
     await s1.bind(("127.0.0.1", 0))
     await s2.sendto(b"xyz", s1.getsockname())
-    data, addr = await s1.recvfrom(10)
+    _data, _addr = await s1.recvfrom(10)
 
 
 async def test_recv_methods() -> None:
@@ -212,13 +212,13 @@ async def test_windows_functionality() -> None:
             s1.share(0)
 
 
-async def test_basic_tcp() -> None:
+async def test_basic_tcp() -> None:  # noqa: RUF029  # async function missing await
     fn()
     with pytest.raises(NotImplementedError):
         trio.socket.socket()
 
 
-async def test_not_implemented_functions() -> None:
+async def test_not_implemented_functions() -> None:  # noqa: RUF029
     fn()
     s1 = trio.socket.socket(type=trio.socket.SOCK_DGRAM)
 

@@ -236,7 +236,7 @@ async def test_Sequencer_cancel() -> None:
 
 
 ################################################################
-async def test__assert_raises() -> None:
+def test__assert_raises() -> None:
     with pytest.raises(AssertionError):
         with _assert_raises(RuntimeError):
             1 + 1  # noqa: B018  # "useless expression"
@@ -381,12 +381,13 @@ async def test_MemorySendStream() -> None:
 
     record = []
 
-    async def send_all_hook() -> None:
+    async def send_all_hook() -> None:  # noqa: RUF029  # no await in async
         # hook runs after send_all does its work (can pull data out)
         assert mss2.get_data_nowait() == b"abc"
         record.append("send_all_hook")
 
-    async def wait_send_all_might_not_block_hook() -> None:
+    # no await in async function
+    async def wait_send_all_might_not_block_hook() -> None:  # noqa: RUF029
         record.append("wait_send_all_might_not_block_hook")
 
     def close_hook() -> None:
@@ -444,7 +445,7 @@ async def test_MemoryReceiveStream() -> None:
     with pytest.raises(_core.ClosedResourceError):
         mrs.put_data(b"---")
 
-    async def receive_some_hook() -> None:
+    async def receive_some_hook() -> None:  # noqa: RUF029  # no await
         mrs2.put_data(b"xxx")
 
     record = []
@@ -597,12 +598,15 @@ async def test_memory_stream_pair() -> None:
 
 
 async def test_memory_streams_with_generic_tests() -> None:
-    async def one_way_stream_maker() -> tuple[MemorySendStream, MemoryReceiveStream]:
+    # RUF029 is no await used in async function
+    async def one_way_stream_maker() -> (  # noqa: RUF029
+        tuple[MemorySendStream, MemoryReceiveStream]
+    ):
         return memory_stream_one_way_pair()
 
     await check_one_way_stream(one_way_stream_maker, None)
 
-    async def half_closeable_stream_maker() -> tuple[
+    async def half_closeable_stream_maker() -> tuple[  # noqa: RUF029
         StapledStream[MemorySendStream, MemoryReceiveStream],
         StapledStream[MemorySendStream, MemoryReceiveStream],
     ]:
@@ -612,12 +616,15 @@ async def test_memory_streams_with_generic_tests() -> None:
 
 
 async def test_lockstep_streams_with_generic_tests() -> None:
-    async def one_way_stream_maker() -> tuple[SendStream, ReceiveStream]:
+    # RUF029 is no await used in async function
+    async def one_way_stream_maker() -> (  # noqa: RUF029
+        tuple[SendStream, ReceiveStream]
+    ):
         return lockstep_stream_one_way_pair()
 
     await check_one_way_stream(one_way_stream_maker, one_way_stream_maker)
 
-    async def two_way_stream_maker() -> tuple[
+    async def two_way_stream_maker() -> tuple[  # noqa: RUF029
         StapledStream[SendStream, ReceiveStream],
         StapledStream[SendStream, ReceiveStream],
     ]:
