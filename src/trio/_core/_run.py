@@ -21,7 +21,6 @@ from typing import (
     Final,
     NoReturn,
     Protocol,
-    TypeVar,
     cast,
     overload,
 )
@@ -54,12 +53,6 @@ from ._traps import (
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
 
-FnT = TypeVar("FnT", bound="Callable[..., Any]")
-StatusT = TypeVar("StatusT")
-StatusT_co = TypeVar("StatusT_co", covariant=True)
-StatusT_contra = TypeVar("StatusT_contra", contravariant=True)
-RetT = TypeVar("RetT")
-
 
 if TYPE_CHECKING:
     import contextvars
@@ -77,9 +70,19 @@ if TYPE_CHECKING:
     # for some strange reason Sphinx works with outcome.Outcome, but not Outcome, in
     # start_guest_run. Same with types.FrameType in iter_await_frames
     import outcome
-    from typing_extensions import Self, TypeVarTuple, Unpack
+    from typing_extensions import Self, TypeVar, TypeVarTuple, Unpack
 
     PosArgT = TypeVarTuple("PosArgT")
+    StatusT = TypeVar("StatusT", default=None)
+    StatusT_contra = TypeVar("StatusT_contra", contravariant=True, default=None)
+else:
+    from typing import TypeVar
+
+    StatusT = TypeVar("StatusT")
+    StatusT_contra = TypeVar("StatusT_contra", contravariant=True)
+
+FnT = TypeVar("FnT", bound="Callable[..., Any]")
+RetT = TypeVar("RetT")
 
 
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: Final = 1000
@@ -623,6 +626,7 @@ class CancelScope:
             self._cancel_status = None
         return exc
 
+    @enable_ki_protection
     def __exit__(
         self,
         etype: type[BaseException] | None,
@@ -632,10 +636,6 @@ class CancelScope:
         # NB: NurseryManager calls _close() directly rather than __exit__(),
         # so __exit__() must be just _close() plus this logic for adapting
         # the exception-filtering result to the context manager API.
-
-        # This inlines the enable_ki_protection decorator so we can fix
-        # f_locals *locally* below to avoid reference cycles
-        locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
 
         # Tracebacks show the 'raise' line below out of context, so let's give
         # this variable a name that makes sense out of context.
@@ -658,10 +658,6 @@ class CancelScope:
                 # see test_cancel_scope_exit_doesnt_create_cyclic_garbage
                 # Note: still relevant
                 del remaining_error_after_cancel_scope, value, _, exc
-                # deep magic to remove refs via f_locals
-                locals()
-                # TODO: check if PEP558 changes the need for this call
-                # https://github.com/python/cpython/pull/3640
 
     def __repr__(self) -> str:
         if self._cancel_status is not None:
@@ -849,7 +845,7 @@ class TaskStatus(Protocol[StatusT_contra]):
 
 # This code needs to be read alongside the code from Nursery.start to make
 # sense.
-@attrs.define(eq=False, hash=False, repr=False, slots=False)
+@attrs.define(eq=False, repr=False, slots=False)
 class _TaskStatus(TaskStatus[StatusT]):
     _old_nursery: Nursery
     _new_nursery: Nursery
@@ -993,7 +989,11 @@ def open_nursery(
     new `Nursery`.
 
     It does not block on entry; on exit it blocks until all child tasks
-    have exited.
+    have exited. If no child tasks are running on exit, it will insert a
+    schedule point (but no cancellation point) - equivalent to
+    :func:`trio.lowlevel.cancel_shielded_checkpoint`. This means a nursery
+    is never the source of a cancellation exception, it only propagates it
+    from sub-tasks.
 
     Args:
       strict_exception_groups (bool): Unless set to False, even a single raised exception
@@ -1006,9 +1006,13 @@ def open_nursery(
     if strict_exception_groups is not None and not strict_exception_groups:
         warn_deprecated(
             "open_nursery(strict_exception_groups=False)",
-            version="0.24.1",
+            version="0.25.0",
             issue=2929,
-            instead="the default value of True and rewrite exception handlers to handle ExceptionGroups",
+            instead=(
+                "the default value of True and rewrite exception handlers to handle ExceptionGroups. "
+                "See https://trio.readthedocs.io/en/stable/reference-core.html#designing-for-multiple-errors"
+            ),
+            use_triodeprecationwarning=True,
         )
 
     if strict_exception_groups is None:
@@ -1285,7 +1289,7 @@ class Nursery(metaclass=NoPublicConstructor):
 
 
 @final
-@attrs.define(eq=False, hash=False, repr=False)
+@attrs.define(eq=False, repr=False)
 class Task(metaclass=NoPublicConstructor):
     _parent_nursery: Nursery | None
     coro: Coroutine[Any, Outcome[object], Any]
@@ -1528,7 +1532,7 @@ class RunStatistics:
 # worker thread.
 
 
-@attrs.define(eq=False, hash=False)
+@attrs.define(eq=False)
 class GuestState:
     runner: Runner
     run_sync_soon_threadsafe: Callable[[Callable[[], object]], object]
@@ -1578,7 +1582,7 @@ class GuestState:
             start_thread_soon(get_events, deliver)
 
 
-@attrs.define(eq=False, hash=False)
+@attrs.define(eq=False)
 class Runner:
     clock: Clock
     instruments: Instruments
@@ -1778,6 +1782,7 @@ class Runner:
                 return await orig_coro
 
             coro = python_wrapper(coro)
+        assert coro.cr_frame is not None, "Coroutine frame should exist"
         coro.cr_frame.f_locals.setdefault(LOCALS_KEY_KI_PROTECTION_ENABLED, system_task)
 
         ######
@@ -2180,8 +2185,8 @@ def setup_runner(
 
 
 def run(
-    async_fn: Callable[..., Awaitable[RetT]],
-    *args: object,
+    async_fn: Callable[[Unpack[PosArgT]], Awaitable[RetT]],
+    *args: Unpack[PosArgT],
     clock: Clock | None = None,
     instruments: Sequence[Instrument] = (),
     restrict_keyboard_interrupt_to_checkpoints: bool = False,
@@ -2262,9 +2267,13 @@ def run(
     if strict_exception_groups is not None and not strict_exception_groups:
         warn_deprecated(
             "trio.run(..., strict_exception_groups=False)",
-            version="0.24.1",
+            version="0.25.0",
             issue=2929,
-            instead="the default value of True and rewrite exception handlers to handle ExceptionGroups",
+            instead=(
+                "the default value of True and rewrite exception handlers to handle ExceptionGroups. "
+                "See https://trio.readthedocs.io/en/stable/reference-core.html#designing-for-multiple-errors"
+            ),
+            use_triodeprecationwarning=True,
         )
 
     __tracebackhide__ = True
@@ -2375,9 +2384,13 @@ def start_guest_run(
     if strict_exception_groups is not None and not strict_exception_groups:
         warn_deprecated(
             "trio.start_guest_run(..., strict_exception_groups=False)",
-            version="0.24.1",
+            version="0.25.0",
             issue=2929,
-            instead="the default value of True and rewrite exception handlers to handle ExceptionGroups",
+            instead=(
+                "the default value of True and rewrite exception handlers to handle ExceptionGroups. "
+                "See https://trio.readthedocs.io/en/stable/reference-core.html#designing-for-multiple-errors"
+            ),
+            use_triodeprecationwarning=True,
         )
 
     runner = setup_runner(
@@ -2464,7 +2477,7 @@ def unrolled_run(
     args: tuple[Unpack[PosArgT]],
     host_uses_signal_set_wakeup_fd: bool = False,
 ) -> Generator[float, EventResult, None]:
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
+    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     __tracebackhide__ = True
 
     try:

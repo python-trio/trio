@@ -15,7 +15,7 @@ async def scheduler_trace() -> tuple[tuple[str, int], ...]:
     async def tracer(name: str) -> None:
         for i in range(50):
             trace.append((name, i))
-            await trio.sleep(0)
+            await trio.lowlevel.checkpoint()
 
     async with trio.open_nursery() as nursery:
         for i in range(5):
@@ -26,9 +26,7 @@ async def scheduler_trace() -> tuple[tuple[str, int], ...]:
 
 def test_the_trio_scheduler_is_not_deterministic() -> None:
     # At least, not yet.  See https://github.com/python-trio/trio/issues/32
-    traces = []
-    for _ in range(10):
-        traces.append(trio.run(scheduler_trace))
+    traces = [trio.run(scheduler_trace) for _ in range(10)]
     assert len(set(traces)) == len(traces)
 
 

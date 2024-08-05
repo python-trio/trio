@@ -78,10 +78,10 @@ fi
 
 # Check pip compile is consistent
 echo "::group::Pip Compile - Tests"
-pip-compile test-requirements.in
+uv pip compile --universal --python-version=3.8 test-requirements.in -o test-requirements.txt
 echo "::endgroup::"
 echo "::group::Pip Compile - Docs"
-pip-compile docs-requirements.in
+uv pip compile --universal --python-version=3.8 docs-requirements.in -o docs-requirements.txt
 echo "::endgroup::"
 
 if git status --porcelain | grep -q "requirements.txt"; then

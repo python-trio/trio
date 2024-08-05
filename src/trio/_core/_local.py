@@ -16,7 +16,7 @@ class _NoValue: ...
 
 
 @final
-@attrs.define(eq=False, hash=False)
+@attrs.define(eq=False)
 class RunVarToken(Generic[T], metaclass=NoPublicConstructor):
     _var: RunVar[T]
     previous_value: T | type[_NoValue] = _NoValue
@@ -28,7 +28,7 @@ class RunVarToken(Generic[T], metaclass=NoPublicConstructor):
 
 
 @final
-@attrs.define(eq=False, hash=False, repr=False)
+@attrs.define(eq=False, repr=False)
 class RunVar(Generic[T]):
     """The run-local variant of a context variable.
 

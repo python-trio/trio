@@ -199,8 +199,12 @@ you'll have a chance to see and fix any remaining issues then.
 Every change should have 100% coverage for both code and tests. But,
 you can use ``# pragma: no cover`` to mark lines where
 lack-of-coverage isn't something that we'd want to fix (as opposed to
-it being merely hard to fix). For example::
+it being merely hard to fix). For example:
 
+.. code-block:: python
+
+    if ...:
+        ...
     else:  # pragma: no cover
         raise AssertionError("this can't happen!")
 
@@ -289,7 +293,9 @@ Instead of wasting time arguing about code formatting, we use `black
 <https://github.com/psf/black>`__ as well as other tools to automatically
 format all our code to a standard style. While you're editing code you
 can be as sloppy as you like about whitespace; and then before you commit,
-just run::
+just run:
+
+.. code-block::
 
     pip install -U pre-commit
     pre-commit
@@ -301,12 +307,16 @@ names, writing useful comments, and making sure your docstrings are
 nicely formatted. (black doesn't reformat comments or docstrings.)
 
 If you would like, you can even have pre-commit run before you commit by
-running::
+running:
+
+.. code-block::
 
     pre-commit install
 
 and now pre-commit will run before git commits. You can uninstall the
-pre-commit hook at any time by running::
+pre-commit hook at any time by running:
+
+.. code-block::
 
     pre-commit uninstall
 
@@ -314,7 +324,9 @@ pre-commit hook at any time by running::
 Very occasionally, you'll want to override black formatting. To do so,
 you can can add ``# fmt: off`` and ``# fmt: on`` comments.
 
-If you want to see what changes black will make, you can use::
+If you want to see what changes black will make, you can use:
+
+.. code-block::
 
     black --diff trio
 
@@ -338,7 +350,7 @@ Basically, every pull request that has a user
 visible effect should add a short file to the ``newsfragments/``
 directory describing the change, with a name like ``<ISSUE
 NUMBER>.<TYPE>.rst``. See `newsfragments/README.rst
-<https://github.com/python-trio/trio/blob/master/newsfragments/README.rst>`__
+<https://github.com/python-trio/trio/blob/main/newsfragments/README.rst>`__
 for details. This way we can keep a good list of changes as we go,
 which makes the release manager happy, which means we get more
 frequent releases, which means your change gets into users' hands
@@ -396,7 +408,9 @@ whitelist in ``docs/source/conf.py``.
 To build the docs locally, use our handy ``docs-requirements.txt``
 file to install all of the required packages (possibly using a
 virtualenv). After that, build the docs using ``make html`` in the
-docs directory. The whole process might look something like this::
+docs directory. The whole process might look something like this:
+
+.. code-block::
 
     cd path/to/project/checkout/
     pip install -r docs-requirements.txt

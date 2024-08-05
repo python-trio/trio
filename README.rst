@@ -18,7 +18,7 @@
    :target: https://anaconda.org/conda-forge/trio
    :alt: Latest conda-forge version
 
-.. image:: https://codecov.io/gh/python-trio/trio/branch/master/graph/badge.svg
+.. image:: https://codecov.io/gh/python-trio/trio/branch/main/graph/badge.svg
    :target: https://codecov.io/gh/python-trio/trio
    :alt: Test coverage
 
@@ -31,7 +31,7 @@ Trio – a friendly Python library for async concurrency and I/O
 
 The Trio project aims to produce a production-quality,
 `permissively licensed
-<https://github.com/python-trio/trio/blob/master/LICENSE>`__,
+<https://github.com/python-trio/trio/blob/main/LICENSE>`__,
 async/await-native I/O library for Python. Like all async libraries,
 its main purpose is to help you write programs that do **multiple
 things at the same time** with **parallelized I/O**. A web spider that
@@ -134,7 +134,7 @@ choices
 **I want to make sure my company's lawyers won't get angry at me!** No
 worries, Trio is permissively licensed under your choice of MIT or
 Apache 2. See `LICENSE
-<https://github.com/python-trio/trio/blob/master/LICENSE>`__ for details.
+<https://github.com/python-trio/trio/blob/main/LICENSE>`__ for details.
 
 
 Code of conduct
