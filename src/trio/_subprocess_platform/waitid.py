@@ -40,7 +40,7 @@ typedef struct siginfo_s {
     int pad[26];
 } siginfo_t;
 int waitid(int idtype, int id, siginfo_t* result, int options);
-"""
+""",
     )
     waitid_cffi = waitid_ffi.dlopen(None).waitid  # type: ignore[attr-defined]
 
@@ -79,7 +79,10 @@ async def _waitid_system_task(pid: int, event: Event) -> None:
 
     try:
         await to_thread_run_sync(
-            sync_wait_reapable, pid, abandon_on_cancel=True, limiter=waitid_limiter
+            sync_wait_reapable,
+            pid,
+            abandon_on_cancel=True,
+            limiter=waitid_limiter,
         )
     except OSError:
         # If waitid fails, waitpid will fail too, so it still makes

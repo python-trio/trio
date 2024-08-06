@@ -210,7 +210,7 @@ typedef struct _AFD_POLL_INFO {
 # cribbed from pywincffi
 # programmatically strips out those annotations MSDN likes, like _In_
 REGEX_SAL_ANNOTATION = re.compile(
-    r"\b(_In_|_Inout_|_Out_|_Outptr_|_Reserved_)(opt_)?\b"
+    r"\b(_In_|_Inout_|_Out_|_Outptr_|_Reserved_)(opt_)?\b",
 )
 LIB = REGEX_SAL_ANNOTATION.sub(" ", LIB)
 
@@ -253,7 +253,10 @@ class _Kernel32(Protocol):
     ) -> Handle: ...
 
     def SetFileCompletionNotificationModes(
-        self, handle: Handle, flags: CompletionModes, /
+        self,
+        handle: Handle,
+        flags: CompletionModes,
+        /,
     ) -> int: ...
 
     def PostQueuedCompletionStatus(

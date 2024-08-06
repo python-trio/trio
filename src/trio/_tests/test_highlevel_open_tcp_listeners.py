@@ -160,7 +160,11 @@ class FakeSocket(tsocket.SocketType):
     def getsockopt(self, /, level: int, optname: int, buflen: int) -> bytes: ...
 
     def getsockopt(
-        self, /, level: int, optname: int, buflen: int | None = None
+        self,
+        /,
+        level: int,
+        optname: int,
+        buflen: int | None = None,
     ) -> int | bytes:
         if (level, optname) == (tsocket.SOL_SOCKET, tsocket.SO_ACCEPTCONN):
             return True
@@ -171,7 +175,12 @@ class FakeSocket(tsocket.SocketType):
 
     @overload
     def setsockopt(
-        self, /, level: int, optname: int, value: None, optlen: int
+        self,
+        /,
+        level: int,
+        optname: int,
+        value: None,
+        optlen: int,
     ) -> None: ...
 
     def setsockopt(
@@ -252,7 +261,9 @@ class FakeHostnameResolver(HostnameResolver):
         ]
 
     async def getnameinfo(
-        self, sockaddr: tuple[str, int] | tuple[str, int, int, int], flags: int
+        self,
+        sockaddr: tuple[str, int] | tuple[str, int, int, int],
+        flags: int,
     ) -> tuple[str, str]:
         raise NotImplementedError()
 
@@ -268,8 +279,8 @@ async def test_open_tcp_listeners_multiple_host_cleanup_on_error() -> None:
                 (tsocket.AF_INET, "1.1.1.1"),
                 (tsocket.AF_INET, "2.2.2.2"),
                 (tsocket.AF_INET, "3.3.3.3"),
-            ]
-        )
+            ],
+        ),
     )
 
     with pytest.raises(FakeOSError):
@@ -313,14 +324,16 @@ async def test_serve_tcp() -> None:
     [{tsocket.AF_INET}, {tsocket.AF_INET6}, {tsocket.AF_INET, tsocket.AF_INET6}],
 )
 async def test_open_tcp_listeners_some_address_families_unavailable(
-    try_families: set[AddressFamily], fail_families: set[AddressFamily]
+    try_families: set[AddressFamily],
+    fail_families: set[AddressFamily],
 ) -> None:
     fsf = FakeSocketFactory(
-        10, raise_on_family={family: errno.EAFNOSUPPORT for family in fail_families}
+        10,
+        raise_on_family={family: errno.EAFNOSUPPORT for family in fail_families},
     )
     tsocket.set_custom_socket_factory(fsf)
     tsocket.set_custom_hostname_resolver(
-        FakeHostnameResolver([(family, "foo") for family in try_families])
+        FakeHostnameResolver([(family, "foo") for family in try_families]),
     )
 
     should_succeed = try_families - fail_families
@@ -352,7 +365,7 @@ async def test_open_tcp_listeners_socket_fails_not_afnosupport() -> None:
     )
     tsocket.set_custom_socket_factory(fsf)
     tsocket.set_custom_hostname_resolver(
-        FakeHostnameResolver([(tsocket.AF_INET, "foo"), (tsocket.AF_INET6, "bar")])
+        FakeHostnameResolver([(tsocket.AF_INET, "foo"), (tsocket.AF_INET6, "bar")]),
     )
 
     with pytest.raises(OSError, match="nope") as exc_info:
@@ -391,6 +404,7 @@ async def test_open_tcp_listeners_backlog_float_error() -> None:
     tsocket.set_custom_socket_factory(fsf)
     for should_fail in (0.0, 2.18, 3.14, 9.75):
         with pytest.raises(
-            TypeError, match=f"backlog must be an int or None, not {should_fail!r}"
+            TypeError,
+            match=f"backlog must be an int or None, not {should_fail!r}",
         ):
             await open_tcp_listeners(0, backlog=should_fail)  # type: ignore[arg-type]

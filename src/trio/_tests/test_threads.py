@@ -336,7 +336,8 @@ async def test_run_in_worker_thread() -> None:
         raise ValueError(threading.current_thread())
 
     with pytest.raises(
-        ValueError, match=r"^<Thread\(Trio thread \d+, started daemon \d+\)>$"
+        ValueError,
+        match=r"^<Thread\(Trio thread \d+, started daemon \d+\)>$",
     ) as excinfo:
         await to_thread_run_sync(g)
     print(excinfo.value.args)
@@ -404,7 +405,8 @@ async def test_run_in_worker_thread_cancellation() -> None:
 # handled gracefully. (Requires that the thread result machinery be prepared
 # for call_soon to raise RunFinishedError.)
 def test_run_in_worker_thread_abandoned(
-    capfd: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+    capfd: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(_core._thread_cache, "IDLE_TIMEOUT", 0.01)
 
@@ -444,7 +446,9 @@ def test_run_in_worker_thread_abandoned(
 @pytest.mark.parametrize("cancel", [False, True])
 @pytest.mark.parametrize("use_default_limiter", [False, True])
 async def test_run_in_worker_thread_limiter(
-    MAX: int, cancel: bool, use_default_limiter: bool
+    MAX: int,
+    cancel: bool,
+    use_default_limiter: bool,
 ) -> None:
     # This test is a bit tricky. The goal is to make sure that if we set
     # limiter=CapacityLimiter(MAX), then in fact only MAX threads are ever
@@ -647,7 +651,7 @@ async def test_trio_to_thread_run_sync_expected_error() -> None:
 
 
 trio_test_contextvar: contextvars.ContextVar[str] = contextvars.ContextVar(
-    "trio_test_contextvar"
+    "trio_test_contextvar",
 )
 
 
@@ -879,7 +883,7 @@ def test_from_thread_run_during_shutdown() -> None:
             with _core.CancelScope(shield=True):
                 try:
                     await to_thread_run_sync(
-                        partial(from_thread_run, sleep, 0, trio_token=token)
+                        partial(from_thread_run, sleep, 0, trio_token=token),
                     )
                 except _core.RunFinishedError:
                     record.append("finished")

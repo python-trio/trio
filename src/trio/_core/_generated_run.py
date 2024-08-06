@@ -187,7 +187,10 @@ def spawn_system_task(
     sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.spawn_system_task(
-            async_fn, *args, name=name, context=context
+            async_fn,
+            *args,
+            name=name,
+            context=context,
         )
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
