@@ -409,3 +409,8 @@ async def test_unbuffered() -> None:
             assert await r.receive() == 1
     with pytest.raises(trio.WouldBlock):
         r.receive_nowait()
+
+
+def test_named_tuple():
+    pair = open_memory_channel(0)
+    assert pair.send_channel, pair.receive_channel == pair

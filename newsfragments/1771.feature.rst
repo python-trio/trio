@@ -1,0 +1,5 @@
+open_memory_channel() now returns a named tuple with attributes ``send_channel``
+and ``receive_channel``.  This can be used to avoid indexed access of the
+channel halves in some scenarios such as a collection of channels.  (Note: when
+dealing with a single memory channel, assigning the send and receive halves
+to separate variables via destructuring is still considered more readable.)
