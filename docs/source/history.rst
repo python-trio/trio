@@ -5,6 +5,15 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.26.2 (2024-08-08)
+------------------------
+
+Bugfixes
+~~~~~~~~
+
+- Remove remaining ``hash`` usage and fix test configuration issue that prevented it from being caught. (`#3053 <https://github.com/python-trio/trio/issues/3053>`__)
+
+
 Trio 0.26.1 (2024-08-05)
 ------------------------
 
