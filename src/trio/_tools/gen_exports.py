@@ -297,7 +297,7 @@ def process(files: Iterable[File], *, do_test: bool) -> None:
             print("Generated sources are up to date.")
     else:
         for new_path, new_source in new_files.items():
-            with open(new_path, "w", encoding="utf-8") as f:
+            with open(new_path, "w", encoding="utf-8", newline="\n") as f:
                 f.write(new_source)
         print("Regenerated sources successfully.")
 
@@ -379,9 +379,9 @@ from typing import Callable, ContextManager, TYPE_CHECKING
 if TYPE_CHECKING:
     import select
 
-    from .. import _core
-    from ._traps import Abort, RaiseCancelT
+    from .._channel import MemoryReceiveChannel
     from .._file_io import _HasFileNo
+    from ._traps import Abort, RaiseCancelT
 """
 
 IMPORTS_WINDOWS = """\
@@ -392,7 +392,7 @@ if TYPE_CHECKING:
     from ._windows_cffi import Handle, CData
     from typing_extensions import Buffer
 
-    from ._unbounded_queue import UnboundedQueue
+    from .._channel import MemoryReceiveChannel
 """
 
 
