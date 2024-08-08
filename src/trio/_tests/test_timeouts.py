@@ -1,12 +1,20 @@
 import time
-from typing import Awaitable, Callable, TypeVar
+from typing import Awaitable, Callable, ContextManager, TypeVar
 
 import outcome
 import pytest
 
 from .. import _core
 from .._core._tests.tutil import slow
-from .._timeouts import *
+from .._timeouts import (
+    TooSlowError,
+    fail_after,
+    fail_at,
+    move_on_after,
+    move_on_at,
+    sleep,
+    sleep_until,
+)
 from ..testing import assert_checkpoints
 
 T = TypeVar("T")
@@ -115,7 +123,10 @@ async def test_timeouts_raise_value_error() -> None:
         ):
             await fun(val)
 
-    for cm, val in (
+    cm: Callable[[float], ContextManager[_core.CancelScope]]
+    # mypy resolves the tuple as containing `Callable[[float], object]`, failing to see
+    # that both callables are compatible with returning `Contextmanager[CancelScope]`
+    for cm, val in (  # type: ignore[assignment]
         (fail_after, -1),
         (fail_after, nan),
         (fail_at, nan),
@@ -129,3 +140,40 @@ async def test_timeouts_raise_value_error() -> None:
         ):
             with cm(val):
                 pass  # pragma: no cover
+
+
+async def test_timeout_deadline_on_entry(mock_clock: _core.MockClock) -> None:
+    rcs = move_on_after(5, timeout_from_enter=True)
+    assert rcs.relative_deadline == 5
+    mock_clock.jump(3)
+    start = _core.current_time()
+    with rcs as cs:
+        # This would previously be start+2
+        assert cs.deadline == start + 5
+
+    rcs = fail_after(5, timeout_from_enter=True)
+    mock_clock.jump(3)
+    start = _core.current_time()
+    with rcs as cs:
+        assert cs.deadline == start + 5
+
+        # TODO: not implemented
+        # check that code that does not "re-save" the cancelscope still functions
+        # assert rcs.deadline == start + 5
+        # assert rcs.shield == False
+
+
+async def test_timeout_deadline_not_on_entry(mock_clock: _core.MockClock) -> None:
+    """Test that not setting timeout_from_enter gives a DeprecationWarning and
+    retains old behaviour."""
+    with pytest.warns(DeprecationWarning, match="issues/2512"):
+        rcs = move_on_after(5)
+        mock_clock.jump(3)
+        with rcs as cs:
+            assert cs.deadline - _core.current_time() == 2
+
+    with pytest.warns(DeprecationWarning, match="issues/2512"):
+        cs_gen = fail_after(5)
+        mock_clock.jump(3)
+        with cs_gen as cs:
+            assert cs.deadline - _core.current_time() == 2
