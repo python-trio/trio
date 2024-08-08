@@ -41,7 +41,7 @@ python -m pip install -U pip build
 python -m pip --version
 
 python -m build
-python -m pip install dist/*.whl
+python -m pip install dist/*.whl -c test-requirements.txt
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
     python -m pip install -r test-requirements.txt exceptiongroup
@@ -52,7 +52,7 @@ else
     # expands to 0 != 1 if NO_TEST_REQUIREMENTS is not set, if set the `-0` has no effect
     # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_06_02
     if [ ${NO_TEST_REQUIREMENTS-0} == 1 ]; then
-        python -m pip install pytest coverage
+        python -m pip install pytest coverage -c test-requirements.txt
         flags="--skip-optional-imports"
     else
         python -m pip install -r test-requirements.txt
