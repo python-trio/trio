@@ -7,12 +7,14 @@ from typing import TYPE_CHECKING
 import trio
 
 
-def move_on_at(deadline: float) -> trio.CancelScope:
+def move_on_at(deadline: float, *, shield: bool = False) -> trio.CancelScope:
     """Use as a context manager to create a cancel scope with the given
     absolute deadline.
 
     Args:
       deadline (float): The deadline.
+      shield (bool): Initial value for the `~trio.CancelScope.shield` attribute
+          of the newly created cancel scope.
 
     Raises:
       ValueError: if deadline is NaN.
@@ -20,15 +22,17 @@ def move_on_at(deadline: float) -> trio.CancelScope:
     """
     if math.isnan(deadline):
         raise ValueError("deadline must not be NaN")
-    return trio.CancelScope(deadline=deadline)
+    return trio.CancelScope(deadline=deadline, shield=shield)
 
 
-def move_on_after(seconds: float) -> trio.CancelScope:
+def move_on_after(seconds: float, *, shield: bool = False) -> trio.CancelScope:
     """Use as a context manager to create a cancel scope whose deadline is
     set to now + *seconds*.
 
     Args:
       seconds (float): The timeout.
+      shield (bool): Initial value for the `~trio.CancelScope.shield` attribute
+          of the newly created cancel scope.
 
     Raises:
       ValueError: if timeout is less than zero or NaN.
@@ -36,7 +40,7 @@ def move_on_after(seconds: float) -> trio.CancelScope:
     """
     if seconds < 0:
         raise ValueError("timeout must be non-negative")
-    return move_on_at(trio.current_time() + seconds)
+    return move_on_at(trio.current_time() + seconds, shield=shield)
 
 
 async def sleep_forever() -> None:
@@ -96,7 +100,7 @@ class TooSlowError(Exception):
 
 # workaround for PyCharm not being able to infer return type from @contextmanager
 # see https://youtrack.jetbrains.com/issue/PY-36444/PyCharm-doesnt-infer-types-when-using-contextlib.contextmanager-decorator
-def fail_at(deadline: float) -> AbstractContextManager[trio.CancelScope]:  # type: ignore[misc]
+def fail_at(deadline: float, *, shield: bool = False) -> AbstractContextManager[trio.CancelScope]:  # type: ignore[misc]
     """Creates a cancel scope with the given deadline, and raises an error if it
     is actually cancelled.
 
@@ -110,6 +114,8 @@ def fail_at(deadline: float) -> AbstractContextManager[trio.CancelScope]:  # typ
 
     Args:
       deadline (float): The deadline.
+      shield (bool): Initial value for the `~trio.CancelScope.shield` attribute
+          of the newly created cancel scope.
 
     Raises:
       TooSlowError: if a :exc:`Cancelled` exception is raised in this scope
@@ -117,7 +123,7 @@ def fail_at(deadline: float) -> AbstractContextManager[trio.CancelScope]:  # typ
       ValueError: if deadline is NaN.
 
     """
-    with move_on_at(deadline) as scope:
+    with move_on_at(deadline, shield=shield) as scope:
         yield scope
     if scope.cancelled_caught:
         raise TooSlowError
@@ -127,7 +133,9 @@ if not TYPE_CHECKING:
     fail_at = contextmanager(fail_at)
 
 
-def fail_after(seconds: float) -> AbstractContextManager[trio.CancelScope]:
+def fail_after(
+    seconds: float, *, shield: bool = False
+) -> AbstractContextManager[trio.CancelScope]:
     """Creates a cancel scope with the given timeout, and raises an error if
     it is actually cancelled.
 
@@ -140,6 +148,8 @@ def fail_after(seconds: float) -> AbstractContextManager[trio.CancelScope]:
 
     Args:
       seconds (float): The timeout.
+      shield (bool): Initial value for the `~trio.CancelScope.shield` attribute
+          of the newly created cancel scope.
 
     Raises:
       TooSlowError: if a :exc:`Cancelled` exception is raised in this scope
@@ -149,4 +159,4 @@ def fail_after(seconds: float) -> AbstractContextManager[trio.CancelScope]:
     """
     if seconds < 0:
         raise ValueError("timeout must be non-negative")
-    return fail_at(trio.current_time() + seconds)
+    return fail_at(trio.current_time() + seconds, shield=shield)

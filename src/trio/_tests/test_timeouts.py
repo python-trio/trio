@@ -1,5 +1,5 @@
 import time
-from typing import Awaitable, Callable, TypeVar
+from typing import Awaitable, Callable, Protocol, TypeVar
 
 import outcome
 import pytest
@@ -73,6 +73,49 @@ async def test_move_on_after() -> None:
             await sleep(100)
 
     await check_takes_about(sleep_3, TARGET)
+
+
+class TimeoutScope(Protocol):
+    def __call__(self, seconds: float, *, shield: bool) -> trio.CancelScope: ...
+
+
+@pytest.mark.parametrize("scope", [move_on_after, fail_after])
+async def test_context_shields_from_outer(scope: TimeoutScope) -> None:
+    with _core.CancelScope() as outer, scope(TARGET, shield=True) as inner:
+        outer.cancel()
+        try:
+            await trio.lowlevel.checkpoint()
+        except trio.Cancelled:
+            pytest.fail("shield didn't work")
+        inner.shield = False
+        with pytest.raises(trio.Cancelled):
+            await trio.lowlevel.checkpoint()
+
+
+@slow
+async def test_move_on_after_moves_on_even_if_shielded() -> None:
+    async def task() -> None:
+        with _core.CancelScope() as outer, move_on_after(TARGET, shield=True):
+            outer.cancel()
+            # The outer scope is cancelled, but this task is protected by the
+            # shield, so it manages to get to sleep until deadline is met
+            await sleep_forever()
+
+    await check_takes_about(task, TARGET)
+
+
+@slow
+async def test_fail_after_fails_even_if_shielded() -> None:
+    async def task() -> None:
+        with pytest.raises(TooSlowError), _core.CancelScope() as outer, fail_after(
+            TARGET, shield=True
+        ):
+            outer.cancel()
+            # The outer scope is cancelled, but this task is protected by the
+            # shield, so it manages to get to sleep until deadline is met
+            await sleep_forever()
+
+    await check_takes_about(task, TARGET)
 
 
 @slow
