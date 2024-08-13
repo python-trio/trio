@@ -41,4 +41,4 @@ repos:
         language: system
         entry: python src/trio/_tools/gen_exports.py
         pass_filenames: false
-        files: ^src\/trio\/_core\/(_generated)?(_run|(_i(o_(common|epoll|kqueue|windows)|nstrumentation)))\.py$
+        files: ^src\/trio\/_core\/(_run|(_i(o_(common|epoll|kqueue|windows)|nstrumentation)))\.py$
