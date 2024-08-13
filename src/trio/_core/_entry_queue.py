@@ -146,7 +146,7 @@ class EntryQueue:
 
 
 @final
-@attrs.define(eq=False, hash=False)
+@attrs.define(eq=False)
 class TrioToken(metaclass=NoPublicConstructor):
     """An opaque object representing a single call to :func:`trio.run`.
 
