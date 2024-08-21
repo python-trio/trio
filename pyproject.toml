@@ -110,12 +110,18 @@ select = [
     "B",     # flake8-bugbear
     "C4",    # flake8-comprehensions
     "E",     # Error
+    "EXE",   # flake8-executable
     "F",     # pyflakes
     "FA",    # flake8-future-annotations
+    "FLY",   # flynt
+    "FURB",  # refurb
     "I",     # isort
+    "ICN",   # flake8-import-conventions
     "PERF",  # Perflint
+    "PIE",   # flake8-pie
     "PT",    # flake8-pytest-style
     "PYI",   # flake8-pyi
+    "Q",     # flake8-quotes
     "RUF",   # Ruff-specific rules
     "SIM",   # flake8-simplify
     "TCH",   # flake8-type-checking

@@ -45,7 +45,7 @@ python -m uv pip install build
 
 python -m build
 wheel_package=$(ls dist/*.whl)
-python -m uv pip install "trio @ $wheel_package"
+python -m uv pip install "trio @ $wheel_package" -c test-requirements.txt
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
     python -m uv pip install -r test-requirements.txt exceptiongroup
@@ -56,7 +56,7 @@ else
     # expands to 0 != 1 if NO_TEST_REQUIREMENTS is not set, if set the `-0` has no effect
     # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_06_02
     if [ "${NO_TEST_REQUIREMENTS-0}" == 1 ]; then
-        python -m uv pip install pytest coverage
+        python -m uv pip install pytest coverage -c test-requirements.txt
         flags="--skip-optional-imports"
     else
         python -m uv pip install -r test-requirements.txt
