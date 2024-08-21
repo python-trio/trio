@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 StapledMemoryStream = StapledStream[MemorySendStream, MemoryReceiveStream]
 
 
-@attrs.define(hash=False, eq=False, slots=False)
+@attrs.define(eq=False, slots=False)
 class MemoryListener(trio.abc.Listener[StapledMemoryStream]):
     closed: bool = False
     accepted_streams: list[trio.abc.Stream] = attrs.Factory(list)
