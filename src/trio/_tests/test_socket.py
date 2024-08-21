@@ -6,6 +6,7 @@ import os
 import socket as stdlib_socket
 import sys
 import tempfile
+from pathlib import Path
 from socket import AddressFamily, SocketKind
 from typing import TYPE_CHECKING, Any, Callable, List, Tuple, Union
 
@@ -1076,7 +1077,7 @@ async def test_unix_domain_socket() -> None:
     # Bind has a special branch to use a thread, since it has to do filesystem
     # traversal. Maybe connect should too? Not sure.
 
-    async def check_AF_UNIX(path: str | bytes) -> None:
+    async def check_AF_UNIX(path: str | bytes | os.PathLike[str]) -> None:
         with tsocket.socket(family=tsocket.AF_UNIX) as lsock:
             await lsock.bind(path)
             lsock.listen(10)
@@ -1090,8 +1091,11 @@ async def test_unix_domain_socket() -> None:
     # Can't use tmpdir fixture, because we can exceed the maximum AF_UNIX path
     # length on macOS.
     with tempfile.TemporaryDirectory() as tmpdir:
-        path = f"{tmpdir}/sock"
-        await check_AF_UNIX(path)
+        # Test passing various supported types as path
+        # Must use different filenames to prevent "address already in use"
+        await check_AF_UNIX(f"{tmpdir}/sock")
+        await check_AF_UNIX(Path(f"{tmpdir}/sock1"))
+        await check_AF_UNIX(os.fsencode(f"{tmpdir}/sock2"))
 
     try:
         cookie = os.urandom(20).hex().encode("ascii")

@@ -242,7 +242,7 @@ def async_wraps(
 
     def decorator(func: CallT) -> CallT:
         func.__name__ = attr_name
-        func.__qualname__ = ".".join((cls.__qualname__, attr_name))
+        func.__qualname__ = f"{cls.__qualname__}.{attr_name}"
 
         func.__doc__ = f"Like :meth:`~{wrapped_cls.__module__}.{wrapped_cls.__qualname__}.{attr_name}`, but async."
 

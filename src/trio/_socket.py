@@ -465,7 +465,7 @@ async def _resolve_address_nocp(
             )
     elif hasattr(_stdlib_socket, "AF_UNIX") and family == _stdlib_socket.AF_UNIX:
         # unwrap path-likes
-        assert isinstance(address, (str, bytes))
+        assert isinstance(address, (str, bytes, os.PathLike))
         return os.fspath(address)
     else:
         return address
