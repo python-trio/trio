@@ -6,7 +6,7 @@ attrs==24.2.0
     # via
     #   -r docs-requirements.in
     #   outcome
-babel==2.15.0
+babel==2.16.0
     # via sphinx
 beautifulsoup4==4.12.3
     # via sphinx-codeautolink
@@ -40,11 +40,11 @@ imagesize==1.4.1
     # via sphinx
 immutables==0.20
     # via -r docs-requirements.in
-importlib-metadata==8.2.0 ; python_version < '3.10'
+importlib-metadata==8.4.0 ; python_version < '3.10'
     # via
     #   sphinx
     #   towncrier
-importlib-resources==6.4.0 ; python_version < '3.10'
+importlib-resources==6.4.3 ; python_version < '3.10'
     # via towncrier
 jinja2==3.1.4
     # via
@@ -73,7 +73,7 @@ snowballstemmer==2.2.0
     # via sphinx
 sortedcontainers==2.4.0
     # via -r docs-requirements.in
-soupsieve==2.5
+soupsieve==2.6
     # via beautifulsoup4
 sphinx==7.1.2
     # via
@@ -114,7 +114,7 @@ towncrier==24.7.1
     # via -r docs-requirements.in
 urllib3==2.2.2
     # via requests
-zipp==3.19.2 ; python_version < '3.10'
+zipp==3.20.0 ; python_version < '3.10'
     # via
     #   importlib-metadata
     #   importlib-resources

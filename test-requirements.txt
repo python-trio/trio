@@ -12,7 +12,7 @@ attrs==24.2.0
     # via
     #   -r test-requirements.in
     #   outcome
-babel==2.15.0
+babel==2.16.0
     # via sphinx
 black==24.8.0 ; implementation_name == 'cpython'
     # via -r test-requirements.in
@@ -57,7 +57,7 @@ idna==3.7
     #   trustme
 imagesize==1.4.1
     # via sphinx
-importlib-metadata==8.2.0 ; python_version < '3.10'
+importlib-metadata==8.4.0 ; python_version < '3.10'
     # via sphinx
 iniconfig==2.0.0
     # via pytest
@@ -105,7 +105,7 @@ pylint==3.2.6
     # via -r test-requirements.in
 pyopenssl==24.2.1
     # via -r test-requirements.in
-pyright==1.1.375
+pyright==1.1.376
     # via -r test-requirements.in
 pytest==8.3.2
     # via -r test-requirements.in
@@ -141,7 +141,7 @@ tomli==2.0.1 ; python_version < '3.11'
     #   mypy
     #   pylint
     #   pytest
-tomlkit==0.13.0
+tomlkit==0.13.2
     # via pylint
 trustme==1.1.0
     # via -r test-requirements.in
@@ -153,7 +153,7 @@ types-docutils==0.21.0.20240724
     # via -r test-requirements.in
 types-pyopenssl==24.1.0.20240722 ; implementation_name == 'cpython'
     # via -r test-requirements.in
-types-setuptools==71.1.0.20240806 ; implementation_name == 'cpython'
+types-setuptools==71.1.0.20240818 ; implementation_name == 'cpython'
     # via types-cffi
 typing-extensions==4.12.2
     # via
@@ -164,7 +164,7 @@ typing-extensions==4.12.2
     #   pylint
 urllib3==2.2.2
     # via requests
-uv==0.2.34
+uv==0.3.0
     # via -r test-requirements.in
-zipp==3.19.2 ; python_version < '3.10'
+zipp==3.20.0 ; python_version < '3.10'
     # via importlib-metadata
