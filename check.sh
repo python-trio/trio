@@ -112,7 +112,7 @@ if [ $EXIT_STATUS -ne 0 ]; then
 Problems were found by static analysis (listed above).
 To fix formatting and see remaining errors, run
 
-    pip install -r test-requirements.txt
+    uv pip install -r test-requirements.txt
     black src/trio
     ruff check src/trio
     ./check.sh
