@@ -289,8 +289,9 @@ def process(files: Iterable[File], *, do_test: bool) -> None:
         dirname, basename = os.path.split(file.path)
         new_path = os.path.join(dirname, PREFIX + basename)
         new_files[new_path] = new_source
+    matches_disk = matches_disk_files(new_files)
     if do_test:
-        if not matches_disk_files(new_files):
+        if not matches_disk:
             print("Generated sources are outdated. Please regenerate.")
             sys.exit(1)
         else:
@@ -300,6 +301,9 @@ def process(files: Iterable[File], *, do_test: bool) -> None:
             with open(new_path, "w", encoding="utf-8") as f:
                 f.write(new_source)
         print("Regenerated sources successfully.")
+        if not matches_disk:
+            # With pre-commit integration, show that we edited files.
+            sys.exit(1)
 
 
 # This is in fact run in CI, but only in the formatting check job, which
