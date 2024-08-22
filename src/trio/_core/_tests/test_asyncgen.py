@@ -225,8 +225,8 @@ def test_last_minute_gc_edge_case() -> None:
     # failure as small as we want.
     for _attempt in range(50):
         needs_retry = False
-        del record[:]
-        del saved[:]
+        record.clear()
+        saved.clear()
         _core.run(async_main)
         if needs_retry:  # pragma: no cover
             assert record == ["cleaned up"]
