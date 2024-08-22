@@ -39,7 +39,7 @@ E = TypeVar("E", bound=BaseException, covariant=True)
 # These two typevars are special cased in sphinx config to workaround lookup bugs.
 
 if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup
+    from exceptiongroup import BaseExceptionGroup  # noqa: A004
 
 
 @final

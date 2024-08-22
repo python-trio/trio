@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from trio.testing import MockClock
 
 if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup
+    from exceptiongroup import BaseExceptionGroup  # noqa: A004
 
 
 def test_close_all() -> None:

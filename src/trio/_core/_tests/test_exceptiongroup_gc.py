@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from types import TracebackType
 
 if sys.version_info < (3, 11):
-    from exceptiongroup import ExceptionGroup
+    from exceptiongroup import ExceptionGroup  # noqa: A004
 
 
 def raiser1() -> NoReturn:

@@ -11,7 +11,7 @@ import trio
 from trio.testing import Matcher, RaisesGroup
 
 if sys.version_info < (3, 11):
-    from exceptiongroup import ExceptionGroup
+    from exceptiongroup import ExceptionGroup  # noqa: A004
 
 
 def wrap_escape(s: str) -> str:

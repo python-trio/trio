@@ -21,7 +21,7 @@ from trio.testing import Matcher, RaisesGroup
 from typing_extensions import assert_type
 
 if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup, ExceptionGroup
+    from exceptiongroup import BaseExceptionGroup, ExceptionGroup  # noqa: A004
 
 # split into functions to isolate the different scopes
 

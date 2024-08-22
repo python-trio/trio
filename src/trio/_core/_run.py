@@ -51,7 +51,7 @@ from ._traps import (
 )
 
 if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup
+    from exceptiongroup import BaseExceptionGroup  # noqa: A004
 
 
 if TYPE_CHECKING:

@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from socket import AddressFamily, SocketKind
 
 if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup, ExceptionGroup
+    from exceptiongroup import BaseExceptionGroup, ExceptionGroup  # noqa: A004
 
 
 # Implementation of RFC 6555 "Happy eyeballs"

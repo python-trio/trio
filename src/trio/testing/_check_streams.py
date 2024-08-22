@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     ArgsT = ParamSpec("ArgsT")
 
 if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup
+    from exceptiongroup import BaseExceptionGroup  # noqa: A004
 
 Res1 = TypeVar("Res1", bound=AsyncResource)
 Res2 = TypeVar("Res2", bound=AsyncResource)
