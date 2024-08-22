@@ -557,7 +557,7 @@ def _current_cookie_tick() -> int:
 # Simple deterministic and invertible serializer -- i.e., a useful tool for converting
 # structured data into something we can cryptographically sign.
 def _signable(*fields: bytes) -> bytes:
-    out = []
+    out: list[bytes] = []
     for field in fields:
         out.extend((struct.pack("!Q", len(field)), field))
     return b"".join(out)
