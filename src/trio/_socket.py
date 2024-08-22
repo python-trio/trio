@@ -1,3 +1,4 @@
+# ruff: noqa: A005
 # Module `_socket` is shadowing a Python builtin module
 
 # ruff: noqa: PYI063  # Several cases throughout file where

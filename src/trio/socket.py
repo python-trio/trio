@@ -1,3 +1,6 @@
+# ruff: noqa: A005
+# Module `socket` is shadowing a Python builtin module
+
 from __future__ import annotations
 
 # This is a public namespace, so we don't want to expose any non-underscored
