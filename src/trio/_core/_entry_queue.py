@@ -141,7 +141,7 @@ class EntryQueue:
             # wakeup call might trigger an OSError b/c the IO manager has
             # already been shut down.
             if idempotent:
-                self.idempotent_queue[(sync_fn, args)] = None
+                self.idempotent_queue[sync_fn, args] = None
             else:
                 self.queue.append((sync_fn, args))
             self.wakeup.wakeup_thread_and_signal_safe()
