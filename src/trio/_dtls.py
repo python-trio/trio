@@ -559,8 +559,7 @@ def _current_cookie_tick() -> int:
 def _signable(*fields: bytes) -> bytes:
     out = []
     for field in fields:
-        out.append(struct.pack("!Q", len(field)))
-        out.append(field)
+        out.extend((struct.pack("!Q", len(field)), field))
     return b"".join(out)
 
 
