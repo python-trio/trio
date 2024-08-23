@@ -894,7 +894,7 @@ class SSLStream(Stream, Generic[T_Stream]):
 
 
 # this is necessary for Sphinx, see also `_abc.py`
-SSLStream.__module__ = SSLStream.__module__.replace("_ssl", "ssl")
+SSLStream.__module__ = SSLStream.__module__.replace("._ssl", "")
 
 
 @final
