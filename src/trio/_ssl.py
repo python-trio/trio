@@ -893,6 +893,10 @@ class SSLStream(Stream, Generic[T_Stream]):
                 await self.transport_stream.wait_send_all_might_not_block()
 
 
+# this is necessary for Sphinx, see also `_abc.py`
+SSLStream.__module__ = SSLStream.__module__.replace("_ssl", "ssl")
+
+
 @final
 class SSLListener(Listener[SSLStream[T_Stream]]):
     """A :class:`~trio.abc.Listener` for SSL/TLS-encrypted servers.
