@@ -2,6 +2,7 @@
 # sphinx 5.3 doesn't work with our _NoValue workaround
 sphinx >= 6.0
 jinja2
+# >= is necessary to prevent `uv` from selecting a `Sphinx` version this does not support
 sphinx_rtd_theme >= 2
 sphinxcontrib-jquery
 sphinxcontrib-trio
