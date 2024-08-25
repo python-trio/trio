@@ -187,7 +187,8 @@ set up your environment and install dependencies, you should run something like:
    cd path/to/trio/checkout/
    python -m venv .venv # create virtual env in .venv
    source .venv/bin/activate # activate it
-   pip install -r test-requirements.txt  install test requirements
+   pip install -e .
+   pip install -r test-requirements.txt # install test requirements
 
 you rarely need to recreate the virtual environment, but you need to re-activate it
 in future terminals. You might also need to re-install from test-requirements.txt if
