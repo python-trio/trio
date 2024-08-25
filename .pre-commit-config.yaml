@@ -4,6 +4,7 @@ ci:
   autoupdate_commit_msg: "[pre-commit.ci] pre-commit autoupdate"
   autoupdate_schedule: weekly
   submodules: false
+  skip: [regenerate-files]
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -19,11 +20,11 @@ repos:
       - id: sort-simple-yaml
         files: .pre-commit-config.yaml
   - repo: https://github.com/psf/black-pre-commit-mirror
-    rev: 24.4.2
+    rev: 24.8.0
     hooks:
       - id: black
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.5.2
+    rev: v0.6.1
     hooks:
       - id: ruff
         types: [file]
@@ -33,3 +34,11 @@ repos:
     rev: v2.3.0
     hooks:
       - id: codespell
+  - repo: local
+    hooks:
+      - id: regenerate-files
+        name: regenerate generated files
+        language: system
+        entry: python src/trio/_tools/gen_exports.py
+        pass_filenames: false
+        files: ^src\/trio\/_core\/(_run|(_i(o_(common|epoll|kqueue|windows)|nstrumentation)))\.py$

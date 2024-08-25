@@ -845,7 +845,7 @@ class TaskStatus(Protocol[StatusT_contra]):
 
 # This code needs to be read alongside the code from Nursery.start to make
 # sense.
-@attrs.define(eq=False, hash=False, repr=False, slots=False)
+@attrs.define(eq=False, repr=False, slots=False)
 class _TaskStatus(TaskStatus[StatusT]):
     _old_nursery: Nursery
     _new_nursery: Nursery
@@ -1289,7 +1289,7 @@ class Nursery(metaclass=NoPublicConstructor):
 
 
 @final
-@attrs.define(eq=False, hash=False, repr=False)
+@attrs.define(eq=False, repr=False)
 class Task(metaclass=NoPublicConstructor):
     _parent_nursery: Nursery | None
     coro: Coroutine[Any, Outcome[object], Any]
@@ -1532,7 +1532,7 @@ class RunStatistics:
 # worker thread.
 
 
-@attrs.define(eq=False, hash=False)
+@attrs.define(eq=False)
 class GuestState:
     runner: Runner
     run_sync_soon_threadsafe: Callable[[Callable[[], object]], object]
@@ -1582,7 +1582,7 @@ class GuestState:
             start_thread_soon(get_events, deliver)
 
 
-@attrs.define(eq=False, hash=False)
+@attrs.define(eq=False)
 class Runner:
     clock: Clock
     instruments: Instruments
@@ -1782,6 +1782,7 @@ class Runner:
                 return await orig_coro
 
             coro = python_wrapper(coro)
+        assert coro.cr_frame is not None, "Coroutine frame should exist"
         coro.cr_frame.f_locals.setdefault(LOCALS_KEY_KI_PROTECTION_ENABLED, system_task)
 
         ######

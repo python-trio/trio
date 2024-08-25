@@ -198,7 +198,7 @@ class _EpollStatistics:
 # wanted to about how epoll works.
 
 
-@attrs.define(eq=False, hash=False)
+@attrs.define(eq=False)
 class EpollIOManager:
     # Using lambda here because otherwise crash on import with gevent monkey patching
     # See https://github.com/python-trio/trio/issues/2848
