@@ -187,7 +187,7 @@ set up your environment and install dependencies, you should run something like:
    cd path/to/trio/checkout/
    python -m venv .venv # create virtual env in .venv
    source .venv/bin/activate # activate it
-   pip install -e .
+   pip install -e . # install trio, needed for pytest plugin
    pip install -r test-requirements.txt # install test requirements
 
 you rarely need to recreate the virtual environment, but you need to re-activate it
@@ -205,10 +205,10 @@ locally, you should run:
 .. code-block:: shell
 
    source .venv/bin/activate # if not already activated
-   pytest trio
+   pytest src
 
 This doesn't try to be completely exhaustive – it only checks that
-things work on your machine, and it may skip some slow tests. But it's
+things work on your machine, and it will skip some slow tests. But it's
 a good way to quickly check that things seem to be working, and we'll
 automatically run the full test suite when your PR is submitted, so
 you'll have a chance to see and fix any remaining issues then.
