@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -ex
+set -o pipefail
 
 ON_GITHUB_CI=true
 EXIT_STATUS=0
@@ -55,8 +56,7 @@ MYPY=0
 echo "::group::Mypy"
 # Cleanup previous runs.
 rm -f mypy_annotate.dat
-# Pipefail makes these pipelines fail if mypy does, even if mypy_annotate.py succeeds.
-set -o pipefail
+
 mypy --show-error-end --platform linux | python ./src/trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Linux \
     || { echo "* Mypy (Linux) found type errors." >> "$GITHUB_STEP_SUMMARY"; MYPY=1; }
 # Darwin tests FreeBSD too
@@ -64,7 +64,7 @@ mypy --show-error-end --platform darwin | python ./src/trio/_tools/mypy_annotate
     || { echo "* Mypy (Mac) found type errors." >> "$GITHUB_STEP_SUMMARY"; MYPY=1; }
 mypy --show-error-end --platform win32 | python ./src/trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Windows \
     || { echo "* Mypy (Windows) found type errors." >> "$GITHUB_STEP_SUMMARY"; MYPY=1; }
-set +o pipefail
+
 # Re-display errors using Github's syntax, read out of mypy_annotate.dat
 python ./src/trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat
 # Then discard.

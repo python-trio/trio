@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import errno
+import math
 import select
 import sys
 from contextlib import contextmanager
@@ -16,7 +17,8 @@ from ._wakeup_socketpair import WakeupSocketpair
 if TYPE_CHECKING:
     from typing_extensions import TypeAlias
 
-    from .._core import Abort, RaiseCancelT, Task, UnboundedQueue
+    from .._channel import MemoryReceiveChannel, MemorySendChannel
+    from .._core import Abort, RaiseCancelT, Task
     from .._file_io import _HasFileNo
 
 assert not TYPE_CHECKING or (sys.platform != "linux" and sys.platform != "win32")
@@ -34,8 +36,7 @@ class _KqueueStatistics:
 @attrs.define(eq=False)
 class KqueueIOManager:
     _kqueue: select.kqueue = attrs.Factory(select.kqueue)
-    # {(ident, filter): Task or UnboundedQueue}
-    _registered: dict[tuple[int, int], Task | UnboundedQueue[select.kevent]] = (
+    _registered: dict[tuple[int, int], Task | MemorySendChannel[select.kevent]] = (
         attrs.Factory(dict)
     )
     _force_wakeup: WakeupSocketpair = attrs.Factory(WakeupSocketpair)
@@ -94,7 +95,7 @@ class KqueueIOManager:
             if isinstance(receiver, _core.Task):
                 _core.reschedule(receiver, outcome.Value(event))
             else:
-                receiver.put_nowait(event)
+                receiver.send_nowait(event)
 
     # kevent registration is complicated -- e.g. aio submission can
     # implicitly perform a EV_ADD, and EVFILT_PROC with NOTE_TRACK will
@@ -118,24 +119,25 @@ class KqueueIOManager:
     @contextmanager
     @_public
     def monitor_kevent(
-        self,
-        ident: int,
-        filter: int,
-    ) -> Iterator[_core.UnboundedQueue[select.kevent]]:
+        self, ident: int, filter: int
+    ) -> Iterator[MemoryReceiveChannel[select.kevent]]:
         """TODO: these are implemented, but are currently more of a sketch than
         anything real. See `#26
         <https://github.com/python-trio/trio/issues/26>`__.
         """
+        from .._channel import open_memory_channel
+
         key = (ident, filter)
         if key in self._registered:
             raise _core.BusyResourceError(
                 "attempt to register multiple listeners for same ident/filter pair"
             )
-        q = _core.UnboundedQueue[select.kevent]()
-        self._registered[key] = q
+        send, recv = open_memory_channel[select.kevent](math.inf)
+        self._registered[key] = send
         try:
-            yield q
+            yield recv
         finally:
+            send.close()
             del self._registered[key]
 
     @_public
@@ -283,8 +285,5 @@ class KqueueIOManager:
                 _core.reschedule(receiver, outcome.Error(exc))
                 del self._registered[key]
             else:
-                # XX this is an interesting example of a case where being able
-                # to close a queue would be useful...
-                raise NotImplementedError(
-                    "can't close an fd that monitor_kevent is using"
-                )
+                receiver.close()
+                del self._registered[key]
