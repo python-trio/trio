@@ -449,8 +449,7 @@ attribute to :data:`True`:
        try:
            await conn.send_hello_msg()
        finally:
-           with trio.move_on_after(CLEANUP_TIMEOUT) as cleanup_scope:
-               cleanup_scope.shield = True
+           with trio.move_on_after(CLEANUP_TIMEOUT, shield=True) as cleanup_scope:
                await conn.send_goodbye_msg()
 
 So long as you're inside a scope with ``shield = True`` set, then
