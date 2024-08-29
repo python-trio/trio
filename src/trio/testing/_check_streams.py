@@ -57,7 +57,8 @@ class _ForceCloseBoth(Generic[Res1, Res2]):
 # on pytest, as the check_* functions are publicly exported.
 @contextmanager
 def _assert_raises(
-    expected_exc: type[BaseException], wrapped: bool = False
+    expected_exc: type[BaseException],
+    wrapped: bool = False,
 ) -> Generator[None, None, None]:
     __tracebackhide__ = True
     try:
@@ -174,7 +175,8 @@ async def check_one_way_stream(
 
         async with _core.open_nursery() as nursery:
             nursery.start_soon(
-                simple_check_wait_send_all_might_not_block, nursery.cancel_scope
+                simple_check_wait_send_all_might_not_block,
+                nursery.cancel_scope,
             )
             nursery.start_soon(do_receive_some, 1)
 
@@ -467,7 +469,9 @@ async def check_two_way_stream(
         test_data = i.to_bytes(DUPLEX_TEST_SIZE, "little")
 
         async def sender(
-            s: Stream, data: bytes | bytearray | memoryview, seed: int
+            s: Stream,
+            data: bytes | bytearray | memoryview,
+            seed: int,
         ) -> None:
             r = random.Random(seed)
             m = memoryview(data)

@@ -49,7 +49,7 @@ typedef struct _SYSTEMTIME {
   WORD wSecond;
   WORD wMilliseconds;
 } SYSTEMTIME, *PSYSTEMTIME, *LPSYSTEMTIME;
-"""
+""",
     )
 
 ffi.cdef(

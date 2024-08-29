@@ -77,7 +77,7 @@ class EntryQueue:
                     parent_nursery = _core.current_task().parent_nursery
                     if parent_nursery is None:
                         raise AssertionError(
-                            "Internal error: `parent_nursery` should never be `None`"
+                            "Internal error: `parent_nursery` should never be `None`",
                         ) from exc  # pragma: no cover
                     parent_nursery.start_soon(kill_everything, exc)
 

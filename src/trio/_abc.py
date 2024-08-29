@@ -198,7 +198,9 @@ class HostnameResolver(ABC):
 
     @abstractmethod
     async def getnameinfo(
-        self, sockaddr: tuple[str, int] | tuple[str, int, int, int], flags: int
+        self,
+        sockaddr: tuple[str, int] | tuple[str, int, int, int],
+        flags: int,
     ) -> tuple[str, str]:
         """A custom implementation of :func:`~trio.socket.getnameinfo`.
 
