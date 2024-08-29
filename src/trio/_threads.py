@@ -425,8 +425,7 @@ async def to_thread_run_sync(  # type: ignore[misc]
                 # empty so report_back_in_trio_thread_fn cannot reschedule
                 task_register[0] = None
                 return trio.lowlevel.Abort.SUCCEEDED
-            else:
-                return trio.lowlevel.Abort.FAILED
+            return trio.lowlevel.Abort.FAILED
 
         while True:
             # wait_task_rescheduled return value cannot be typed
@@ -435,7 +434,7 @@ async def to_thread_run_sync(  # type: ignore[misc]
             )
             if isinstance(msg_from_thread, outcome.Outcome):
                 return msg_from_thread.unwrap()
-            elif isinstance(msg_from_thread, Run):
+            if isinstance(msg_from_thread, Run):
                 await msg_from_thread.run()
             elif isinstance(msg_from_thread, RunSync):
                 msg_from_thread.run_sync()
