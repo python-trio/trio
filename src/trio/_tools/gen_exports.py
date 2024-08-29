@@ -191,6 +191,11 @@ def run_linters(file: File, source: str) -> str:
         print(response)
         sys.exit(1)
 
+    success, response = run_black(file, response)
+    if not success:
+        print(response)
+        sys.exit(1)
+
     return response
 
 
