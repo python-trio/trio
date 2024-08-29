@@ -63,7 +63,7 @@ iniconfig==2.0.0
     # via pytest
 isort==5.13.2
     # via pylint
-jedi==0.19.1
+jedi==0.19.1 ; implementation_name == 'cpython'
     # via -r test-requirements.in
 jinja2==3.1.4
     # via sphinx
@@ -71,9 +71,9 @@ markupsafe==2.1.5
     # via jinja2
 mccabe==0.7.0
     # via pylint
-mypy==1.11.1 ; implementation_name == 'cpython'
+mypy==1.11.1
     # via -r test-requirements.in
-mypy-extensions==1.0.0 ; implementation_name == 'cpython'
+mypy-extensions==1.0.0
     # via
     #   -r test-requirements.in
     #   black
@@ -87,7 +87,7 @@ packaging==24.1
     #   black
     #   pytest
     #   sphinx
-parso==0.8.4
+parso==0.8.4 ; implementation_name == 'cpython'
     # via jedi
 pathspec==0.12.1 ; implementation_name == 'cpython'
     # via black
@@ -145,15 +145,15 @@ tomlkit==0.13.2
     # via pylint
 trustme==1.1.0
     # via -r test-requirements.in
-types-cffi==1.16.0.20240331 ; implementation_name == 'cpython'
+types-cffi==1.16.0.20240331
     # via
     #   -r test-requirements.in
     #   types-pyopenssl
 types-docutils==0.21.0.20240724
     # via -r test-requirements.in
-types-pyopenssl==24.1.0.20240722 ; implementation_name == 'cpython'
+types-pyopenssl==24.1.0.20240722
     # via -r test-requirements.in
-types-setuptools==71.1.0.20240818 ; implementation_name == 'cpython'
+types-setuptools==71.1.0.20240818
     # via types-cffi
 typing-extensions==4.12.2
     # via
