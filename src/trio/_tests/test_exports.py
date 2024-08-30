@@ -172,8 +172,6 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
     elif tool == "mypy":
         if not RUN_SLOW:  # pragma: no cover
             pytest.skip("use --run-slow to check against mypy")
-        if sys.implementation.name != "cpython":
-            pytest.skip("mypy not installed in tests on pypy")
 
         cache = Path.cwd() / ".mypy_cache"
 
@@ -266,10 +264,10 @@ def test_static_tool_sees_class_members(
             if (not symbol.startswith("_")) or symbol.startswith("__")
         }
 
-    if tool == "mypy":
-        if sys.implementation.name != "cpython":
-            pytest.skip("mypy not installed in tests on pypy")
+    if tool == "jedi" and sys.implementation.name != "cpython":
+        pytest.skip("jedi does not support pypy")
 
+    if tool == "mypy":
         cache = Path.cwd() / ".mypy_cache"
 
         _ensure_mypy_cache_updated()
