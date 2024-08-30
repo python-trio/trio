@@ -108,7 +108,8 @@ async def test_move_on_after_moves_on_even_if_shielded() -> None:
 async def test_fail_after_fails_even_if_shielded() -> None:
     async def task() -> None:
         with pytest.raises(TooSlowError), _core.CancelScope() as outer, fail_after(
-            TARGET, shield=True
+            TARGET,
+            shield=True,
         ):
             outer.cancel()
             # The outer scope is cancelled, but this task is protected by the

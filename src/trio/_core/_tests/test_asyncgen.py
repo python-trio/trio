@@ -43,7 +43,8 @@ def test_asyncgen_basics() -> None:
     async def async_main() -> None:
         # GC'ed before exhausted
         with pytest.warns(
-            ResourceWarning, match="Async generator.*collected before.*exhausted"
+            ResourceWarning,
+            match="Async generator.*collected before.*exhausted",
         ):
             assert await example("abandoned").asend(None) == 42
             gc_collect_harder()
@@ -153,7 +154,8 @@ def test_interdependent_asyncgen_cleanup_order() -> None:
             record.append("innermost")
 
     async def agen(
-        label: int, inner: AsyncGenerator[int, None]
+        label: int,
+        inner: AsyncGenerator[int, None],
     ) -> AsyncGenerator[int, None]:
         try:
             yield await inner.asend(None)
@@ -197,7 +199,8 @@ def test_last_minute_gc_edge_case() -> None:
         runner = _core._run.GLOBAL_RUN_CONTEXT.runner
         assert runner.system_nursery is not None
         if runner.system_nursery._closed and isinstance(
-            runner.asyncgens.alive, weakref.WeakSet
+            runner.asyncgens.alive,
+            weakref.WeakSet,
         ):
             saved.clear()
             record.append("final collection")
@@ -235,7 +238,7 @@ def test_last_minute_gc_edge_case() -> None:
     else:  # pragma: no cover
         pytest.fail(
             "Didn't manage to hit the trailing_finalizer_asyncgens case "
-            f"despite trying {_attempt} times"
+            f"despite trying {_attempt} times",
         )
 
 

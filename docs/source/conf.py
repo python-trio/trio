@@ -132,7 +132,8 @@ def autodoc_process_signature(
             # and insert the fully-qualified name.
             signature = signature.replace("+E", "~trio.testing._raises_group.E")
             signature = signature.replace(
-                "+MatchE", "~trio.testing._raises_group.MatchE"
+                "+MatchE",
+                "~trio.testing._raises_group.MatchE",
             )
         if "DTLS" in name:
             signature = signature.replace("SSL.Context", "OpenSSL.SSL.Context")

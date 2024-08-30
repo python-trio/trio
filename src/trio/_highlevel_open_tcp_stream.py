@@ -141,7 +141,7 @@ def reorder_for_rfc_6555_section_5_4(
             str,
             Any,
         ]
-    ]
+    ],
 ) -> None:
     # RFC 6555 section 5.4 says that if getaddrinfo returns multiple address
     # families (e.g. IPv4 and IPv6), then you should make sure that your first
@@ -346,14 +346,16 @@ async def open_tcp_stream(
                 # better job of it because it knows the remote IP/port.
                 with suppress(OSError, AttributeError):
                     sock.setsockopt(
-                        trio.socket.IPPROTO_IP, trio.socket.IP_BIND_ADDRESS_NO_PORT, 1
+                        trio.socket.IPPROTO_IP,
+                        trio.socket.IP_BIND_ADDRESS_NO_PORT,
+                        1,
                     )
                 try:
                     await sock.bind((local_address, 0))
                 except OSError:
                     raise OSError(
                         f"local_address={local_address!r} is incompatible "
-                        f"with remote address {sockaddr!r}"
+                        f"with remote address {sockaddr!r}",
                     ) from None
 
             await sock.connect(sockaddr)
@@ -382,7 +384,9 @@ async def open_tcp_stream(
                 # workaround to check types until typing of nursery.start_soon improved
                 if TYPE_CHECKING:
                     await attempt_connect(
-                        (address_family, socket_type, proto), addr, attempt_failed
+                        (address_family, socket_type, proto),
+                        addr,
+                        attempt_failed,
                     )
 
                 nursery.start_soon(

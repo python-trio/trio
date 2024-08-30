@@ -72,7 +72,7 @@ class SignalReceiver:
         self._pending: OrderedDict[int, None] = OrderedDict()
         self._lot = trio.lowlevel.ParkingLot()
         self._conflict_detector = ConflictDetector(
-            "only one task can iterate on a signal receiver at a time"
+            "only one task can iterate on a signal receiver at a time",
         )
         self._closed = False
 
@@ -170,7 +170,7 @@ def open_signal_receiver(
     if not is_main_thread():
         raise RuntimeError(
             "Sorry, open_signal_receiver is only possible when running in "
-            "Python interpreter's main thread"
+            "Python interpreter's main thread",
         )
     token = trio.lowlevel.current_trio_token()
     queue = SignalReceiver()

@@ -191,6 +191,11 @@ def run_linters(file: File, source: str) -> str:
         print(response)
         sys.exit(1)
 
+    success, response = run_black(file, response)
+    if not success:
+        print(response)
+        sys.exit(1)
+
     return response
 
 
@@ -211,7 +216,7 @@ def gen_public_wrappers_source(file: File) -> str:
         if "import sys" not in file.imports:  # pragma: no cover
             header.append("import sys\n")
         header.append(
-            f'\nassert not TYPE_CHECKING or sys.platform=="{file.platform}"\n'
+            f'\nassert not TYPE_CHECKING or sys.platform=="{file.platform}"\n',
         )
 
     generated = ["".join(header)]
@@ -310,10 +315,13 @@ def process(files: Iterable[File], *, do_test: bool) -> None:
 # doesn't collect coverage.
 def main() -> None:  # pragma: no cover
     parser = argparse.ArgumentParser(
-        description="Generate python code for public api wrappers"
+        description="Generate python code for public api wrappers",
     )
     parser.add_argument(
-        "--test", "-t", action="store_true", help="test if code is still up to date"
+        "--test",
+        "-t",
+        action="store_true",
+        help="test if code is still up to date",
     )
     parsed_args = parser.parse_args()
 

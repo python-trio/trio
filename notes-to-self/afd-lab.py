@@ -125,7 +125,7 @@ class AFDLab:
                     ffi.sizeof("AFD_POLL_INFO"),
                     ffi.NULL,
                     lpOverlapped,
-                )
+                ),
             )
         except OSError as exc:
             if exc.winerror != ErrorCodes.ERROR_IO_PENDING:  # pragma: no cover

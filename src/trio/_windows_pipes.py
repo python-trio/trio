@@ -49,7 +49,7 @@ class PipeSendStream(SendStream):
     def __init__(self, handle: int) -> None:
         self._handle_holder = _HandleHolder(handle)
         self._conflict_detector = ConflictDetector(
-            "another task is currently using this pipe"
+            "another task is currently using this pipe",
         )
 
     async def send_all(self, data: bytes) -> None:
@@ -93,7 +93,7 @@ class PipeReceiveStream(ReceiveStream):
     def __init__(self, handle: int) -> None:
         self._handle_holder = _HandleHolder(handle)
         self._conflict_detector = ConflictDetector(
-            "another task is currently using this pipe"
+            "another task is currently using this pipe",
         )
 
     async def receive_some(self, max_bytes: int | None = None) -> bytes:
@@ -112,12 +112,13 @@ class PipeReceiveStream(ReceiveStream):
             buffer = bytearray(max_bytes)
             try:
                 size = await _core.readinto_overlapped(
-                    self._handle_holder.handle, buffer
+                    self._handle_holder.handle,
+                    buffer,
                 )
             except BrokenPipeError:
                 if self._handle_holder.closed:
                     raise _core.ClosedResourceError(
-                        "another task closed this pipe"
+                        "another task closed this pipe",
                     ) from None
 
                 # Windows raises BrokenPipeError on one end of a pipe

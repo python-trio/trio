@@ -134,7 +134,9 @@ if not TYPE_CHECKING:
 
 
 def fail_after(
-    seconds: float, *, shield: bool = False
+    seconds: float,
+    *,
+    shield: bool = False,
 ) -> AbstractContextManager[trio.CancelScope]:
     """Creates a cancel scope with the given timeout, and raises an error if
     it is actually cancelled.

@@ -113,7 +113,8 @@ async def async_attrs(path: trio.Path) -> None:
     assert_type(await path.unlink(missing_ok=True), None)
     assert_type(await path.write_bytes(b"123"), int)
     assert_type(
-        await path.write_text("hello", encoding="utf32le", errors="ignore"), int
+        await path.write_text("hello", encoding="utf32le", errors="ignore"),
+        int,
     )
 
 

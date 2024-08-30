@@ -23,7 +23,9 @@ def _to_os_thread_name(name: str) -> bytes:
 # called once on import
 def get_os_thread_name_func() -> Callable[[int | None, str], None] | None:
     def namefunc(
-        setname: Callable[[int, bytes], int], ident: int | None, name: str
+        setname: Callable[[int, bytes], int],
+        ident: int | None,
+        name: str,
     ) -> None:
         # Thread.ident is None "if it has not been started". Unclear if that can happen
         # with current usage.
@@ -33,7 +35,9 @@ def get_os_thread_name_func() -> Callable[[int | None, str], None] | None:
     # namefunc on Mac also takes an ident, even if pthread_setname_np doesn't/can't use it
     # so the caller don't need to care about platform.
     def darwin_namefunc(
-        setname: Callable[[bytes], int], ident: int | None, name: str
+        setname: Callable[[bytes], int],
+        ident: int | None,
+        name: str,
     ) -> None:
         # I don't know if Mac can rename threads that hasn't been started, but default
         # to no to be on the safe side.
