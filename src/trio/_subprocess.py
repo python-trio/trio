@@ -329,9 +329,9 @@ async def _open_process(
     want.
 
     Args:
-      command (str or byte or sequence of either): The command to run. Typically
-          this is a sequence of strings or bytes such as ``['ls', '-l',
-          'directory with spaces']``, where the first element names the
+      command (str or bytes or Sequence[str] or Sequence[bytes]): The command to
+          run. Typically this is a sequence of strings or bytes such as ``['ls',
+          '-l', 'directory with spaces']``, where the first element names the
           executable to invoke and the other elements specify its arguments.
           With ``shell=True`` in the ``**options``, or on Windows, ``command``
           may alternatively be a string or bytes, which will be parsed following
