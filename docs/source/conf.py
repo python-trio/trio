@@ -132,7 +132,8 @@ def autodoc_process_signature(
             # and insert the fully-qualified name.
             signature = signature.replace("+E", "~trio.testing._raises_group.E")
             signature = signature.replace(
-                "+MatchE", "~trio.testing._raises_group.MatchE"
+                "+MatchE",
+                "~trio.testing._raises_group.MatchE",
             )
         if "DTLS" in name:
             signature = signature.replace("SSL.Context", "OpenSSL.SSL.Context")
@@ -243,12 +244,14 @@ def add_intersphinx(app: Sphinx) -> None:
 
     # This has been removed in Py3.12, so add a link to the 3.11 version with deprecation warnings.
     add_mapping("method", "pathlib", "Path.link_to", "3.11")
+
     # defined in py:data in objects.inv, but sphinx looks for a py:class
+    # see https://github.com/sphinx-doc/sphinx/issues/10974
+    # to dump the objects.inv for the stdlib, you can run
+    # python -m sphinx.ext.intersphinx http://docs.python.org/3/objects.inv
     add_mapping("class", "math", "inf")
-    # `types.FrameType.__module__` is "builtins", so sphinx looks for
-    # builtins.FrameType.
-    # See https://github.com/sphinx-doc/sphinx/issues/11802
     add_mapping("class", "types", "FrameType")
+
     # new in py3.12, and need target because sphinx is unable to look up
     # the module of the object if compiling on <3.12
     if not hasattr(collections.abc, "Buffer"):

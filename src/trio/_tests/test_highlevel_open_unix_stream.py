@@ -12,7 +12,8 @@ from trio._highlevel_open_unix_stream import close_on_error
 assert not TYPE_CHECKING or sys.platform != "win32"
 
 skip_if_not_unix = pytest.mark.skipif(
-    not hasattr(socket, "AF_UNIX"), reason="Needs unix socket support"
+    not hasattr(socket, "AF_UNIX"),
+    reason="Needs unix socket support",
 )
 
 
@@ -79,6 +80,7 @@ async def test_open_unix_socket() -> None:
 @pytest.mark.skipif(hasattr(socket, "AF_UNIX"), reason="Test for non-unix platforms")
 async def test_error_on_no_unix() -> None:
     with pytest.raises(
-        RuntimeError, match="^Unix sockets are not supported on this platform$"
+        RuntimeError,
+        match="^Unix sockets are not supported on this platform$",
     ):
         await open_unix_socket("")

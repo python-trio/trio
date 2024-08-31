@@ -22,8 +22,15 @@ class _RelativeCancelScope:
     are separate, this class will be transparent to end users.
     """
 
-    def __init__(self, relative_deadline: float, *, timeout_from_enter: bool = False):
+    def __init__(
+        self,
+        relative_deadline: float,
+        *,
+        shield: bool = False,
+        timeout_from_enter: bool = False,
+    ):
         self.relative_deadline = relative_deadline
+        self.shield = shield
         self._timeout_from_enter = timeout_from_enter
 
         self._fail: bool = False
@@ -45,7 +52,7 @@ class _RelativeCancelScope:
                     "new behaviour, pass `timeout_from_enter=True`. "
                     "To keep old behaviour, use `move_on_at(trio.current_time() + x)` "
                     "(or `fail_at`), where `x` is the previous timeout length. "
-                    "See https://github.com/python-trio/trio/issues/2512"
+                    "See https://github.com/python-trio/trio/issues/2512",
                 ),
                 stacklevel=2,
             )
@@ -55,7 +62,10 @@ class _RelativeCancelScope:
         else:
             start_time = self._creation_time
 
-        self._scope = trio.CancelScope(deadline=start_time + self.relative_deadline)
+        self._scope = trio.CancelScope(
+            deadline=start_time + self.relative_deadline,
+            shield=self.shield,
+        )
         self._scope.__enter__()
         return self._scope
 
@@ -73,12 +83,14 @@ class _RelativeCancelScope:
         return res
 
 
-def move_on_at(deadline: float) -> trio.CancelScope:
+def move_on_at(deadline: float, *, shield: bool = False) -> trio.CancelScope:
     """Use as a context manager to create a cancel scope with the given
     absolute deadline.
 
     Args:
       deadline (float): The deadline.
+      shield (bool): Initial value for the `~trio.CancelScope.shield` attribute
+          of the newly created cancel scope.
 
     Raises:
       ValueError: if deadline is NaN.
@@ -86,12 +98,13 @@ def move_on_at(deadline: float) -> trio.CancelScope:
     """
     if math.isnan(deadline):
         raise ValueError("deadline must not be NaN")
-    return trio.CancelScope(deadline=deadline)
+    return trio.CancelScope(deadline=deadline, shield=shield)
 
 
 def move_on_after(
     seconds: float,
     *,
+    shield: bool = False,
     timeout_from_enter: bool = False,
 ) -> _RelativeCancelScope:
     """Use as a context manager to create a cancel scope whose deadline is
@@ -99,6 +112,8 @@ def move_on_after(
 
     Args:
       seconds (float): The timeout.
+      shield (bool): Initial value for the `~trio.CancelScope.shield` attribute
+          of the newly created cancel scope.
 
     Raises:
       ValueError: if timeout is less than zero or NaN.
@@ -109,6 +124,7 @@ def move_on_after(
     if math.isnan(seconds):
         raise ValueError("timeout must not be NaN")
     return _RelativeCancelScope(
+        shield=shield,
         relative_deadline=seconds,
         timeout_from_enter=timeout_from_enter,
     )
@@ -170,7 +186,11 @@ class TooSlowError(Exception):
 
 
 @contextmanager
-def fail_at(deadline: float) -> Generator[trio.CancelScope, None, None]:
+def fail_at(
+    deadline: float,
+    *,
+    shield: bool = False,
+) -> Generator[trio.CancelScope, None, None]:
     """Creates a cancel scope with the given deadline, and raises an error if it
     is actually cancelled.
 
@@ -184,6 +204,8 @@ def fail_at(deadline: float) -> Generator[trio.CancelScope, None, None]:
 
     Args:
       deadline (float): The deadline.
+      shield (bool): Initial value for the `~trio.CancelScope.shield` attribute
+          of the newly created cancel scope.
 
     Raises:
       TooSlowError: if a :exc:`Cancelled` exception is raised in this scope
@@ -191,7 +213,7 @@ def fail_at(deadline: float) -> Generator[trio.CancelScope, None, None]:
       ValueError: if deadline is NaN.
 
     """
-    with move_on_at(deadline) as scope:
+    with move_on_at(deadline, shield=shield) as scope:
         yield scope
     if scope.cancelled_caught:
         raise TooSlowError
@@ -200,6 +222,7 @@ def fail_at(deadline: float) -> Generator[trio.CancelScope, None, None]:
 def fail_after(
     seconds: float,
     *,
+    shield: bool = False,
     timeout_from_enter: bool = False,
 ) -> _RelativeCancelScope:
     """Creates a cancel scope with the given timeout, and raises an error if
@@ -219,6 +242,8 @@ def fail_after(
 
     Args:
       seconds (float): The timeout.
+      shield (bool): Initial value for the `~trio.CancelScope.shield` attribute
+          of the newly created cancel scope.
 
     Raises:
       TooSlowError: if a :exc:`Cancelled` exception is raised in this scope
@@ -226,6 +251,6 @@ def fail_after(
       ValueError: if *seconds* is less than zero or NaN.
 
     """
-    rcs = move_on_after(seconds, timeout_from_enter=timeout_from_enter)
+    rcs = move_on_after(seconds, shield=shield, timeout_from_enter=timeout_from_enter)
     rcs._fail = True
     return rcs

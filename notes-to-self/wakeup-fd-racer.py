@@ -91,7 +91,7 @@ def main():
         if duration < 2:
             print(
                 f"Attempt {attempt}: OK, trying again "
-                f"(select_calls = {select_calls}, drained = {drained})"
+                f"(select_calls = {select_calls}, drained = {drained})",
             )
         else:
             print(f"Attempt {attempt}: FAILED, took {duration} seconds")

@@ -62,7 +62,8 @@ def trivial_guest_run(
         nonlocal todo
         if host_thread is threading.current_thread():  # pragma: no cover
             crash = partial(
-                pytest.fail, "run_sync_soon_threadsafe called from host thread"
+                pytest.fail,
+                "run_sync_soon_threadsafe called from host thread",
             )
             todo.put(("run", crash))
         todo.put(("run", fn))
@@ -71,7 +72,8 @@ def trivial_guest_run(
         nonlocal todo
         if host_thread is not threading.current_thread():  # pragma: no cover
             crash = partial(
-                pytest.fail, "run_sync_soon_not_threadsafe called from worker thread"
+                pytest.fail,
+                "run_sync_soon_not_threadsafe called from worker thread",
             )
             todo.put(("run", crash))
         todo.put(("run", fn))
@@ -111,7 +113,7 @@ def trivial_guest_run(
 
 def test_guest_trivial() -> None:
     async def trio_return(in_host: InHost) -> str:
-        await trio.sleep(0)
+        await trio.lowlevel.checkpoint()
         return "ok"
 
     assert trivial_guest_run(trio_return) == "ok"
@@ -149,7 +151,7 @@ def test_guest_is_initialized_when_start_returns() -> None:
 
     async def trio_main(in_host: InHost) -> str:
         record.append("main task ran")
-        await trio.sleep(0)
+        await trio.lowlevel.checkpoint()
         assert trio.lowlevel.current_trio_token() is trio_token
         return "ok"
 
@@ -164,7 +166,7 @@ def test_guest_is_initialized_when_start_returns() -> None:
         @trio.lowlevel.spawn_system_task
         async def early_task() -> None:
             record.append("system task ran")
-            await trio.sleep(0)
+            await trio.lowlevel.checkpoint()
 
     res = trivial_guest_run(trio_main, in_host_after_start=after_start)
     assert res == "ok"
@@ -181,7 +183,9 @@ def test_guest_is_initialized_when_start_returns() -> None:
     # are raised out of start_guest_run, not out of the done_callback
     with pytest.raises(trio.TrioInternalError):
         trivial_guest_run(
-            trio_main, clock=BadClock(), in_host_after_start=after_start_never_runs
+            trio_main,
+            clock=BadClock(),
+            in_host_after_start=after_start_never_runs,
         )
 
 
@@ -331,7 +335,7 @@ def test_host_wakeup_doesnt_trigger_wait_all_tasks_blocked() -> None:
                 await trio.testing.wait_all_tasks_blocked(cushion=9999)
                 raise AssertionError(  # pragma: no cover
                     "wait_all_tasks_blocked should *not* return normally, "
-                    "only by cancellation."
+                    "only by cancellation.",
                 )
             assert watb_cscope.cancelled_caught
 
@@ -396,7 +400,7 @@ def test_guest_warns_if_abandoned() -> None:
         async def abandoned_main(in_host: InHost) -> None:
             in_host(lambda: 1 / 0)
             while True:
-                await trio.sleep(0)
+                await trio.lowlevel.checkpoint()
 
         with pytest.raises(ZeroDivisionError):
             trivial_guest_run(abandoned_main)
@@ -472,7 +476,7 @@ def test_guest_mode_on_asyncio() -> None:
 
         # Make sure we have at least one tick where we don't need to go into
         # the thread
-        await trio.sleep(0)
+        await trio.lowlevel.checkpoint()
 
         from_trio.put_nowait(0)
 
@@ -486,7 +490,8 @@ def test_guest_mode_on_asyncio() -> None:
         raise AssertionError("should never be reached")  # pragma: no cover
 
     async def aio_pingpong(
-        from_trio: asyncio.Queue[int], to_trio: MemorySendChannel[int]
+        from_trio: asyncio.Queue[int],
+        to_trio: MemorySendChannel[int],
     ) -> None:
         print("aio_pingpong!")
 
@@ -525,7 +530,8 @@ def test_guest_mode_on_asyncio() -> None:
 
 
 def test_guest_mode_internal_errors(
-    monkeypatch: pytest.MonkeyPatch, recwarn: pytest.WarningsRecorder
+    monkeypatch: pytest.MonkeyPatch,
+    recwarn: pytest.WarningsRecorder,
 ) -> None:
     with monkeypatch.context() as m:
 
@@ -540,7 +546,7 @@ def test_guest_mode_internal_errors(
 
         async def crash_in_io(in_host: InHost) -> None:
             m.setattr("trio._core._run.TheIOManager.get_events", None)
-            await trio.sleep(0)
+            await trio.lowlevel.checkpoint()
 
         with pytest.raises(trio.TrioInternalError):
             trivial_guest_run(crash_in_io)

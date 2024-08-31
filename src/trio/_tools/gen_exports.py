@@ -58,9 +58,7 @@ def is_function(node: ast.AST) -> TypeGuard[ast.FunctionDef | ast.AsyncFunctionD
     """Check if the AST node is either a function
     or an async function
     """
-    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-        return True
-    return False
+    return isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
 
 
 def is_public(node: ast.AST) -> TypeGuard[ast.FunctionDef | ast.AsyncFunctionDef]:
@@ -158,7 +156,6 @@ def run_ruff(file: File, source: str) -> tuple[bool, str]:
             "check",
             "--fix",
             "--unsafe-fixes",
-            "--output-format=text",
             "--stdin-filename",
             file.path,
             "-",
@@ -194,6 +191,11 @@ def run_linters(file: File, source: str) -> str:
         print(response)
         sys.exit(1)
 
+    success, response = run_black(file, response)
+    if not success:
+        print(response)
+        sys.exit(1)
+
     return response
 
 
@@ -214,7 +216,7 @@ def gen_public_wrappers_source(file: File) -> str:
         if "import sys" not in file.imports:  # pragma: no cover
             header.append("import sys\n")
         header.append(
-            f'\nassert not TYPE_CHECKING or sys.platform=="{file.platform}"\n'
+            f'\nassert not TYPE_CHECKING or sys.platform=="{file.platform}"\n',
         )
 
     generated = ["".join(header)]
@@ -292,8 +294,9 @@ def process(files: Iterable[File], *, do_test: bool) -> None:
         dirname, basename = os.path.split(file.path)
         new_path = os.path.join(dirname, PREFIX + basename)
         new_files[new_path] = new_source
+    matches_disk = matches_disk_files(new_files)
     if do_test:
-        if not matches_disk_files(new_files):
+        if not matches_disk:
             print("Generated sources are outdated. Please regenerate.")
             sys.exit(1)
         else:
@@ -303,16 +306,22 @@ def process(files: Iterable[File], *, do_test: bool) -> None:
             with open(new_path, "w", encoding="utf-8") as f:
                 f.write(new_source)
         print("Regenerated sources successfully.")
+        if not matches_disk:
+            # With pre-commit integration, show that we edited files.
+            sys.exit(1)
 
 
 # This is in fact run in CI, but only in the formatting check job, which
 # doesn't collect coverage.
 def main() -> None:  # pragma: no cover
     parser = argparse.ArgumentParser(
-        description="Generate python code for public api wrappers"
+        description="Generate python code for public api wrappers",
     )
     parser.add_argument(
-        "--test", "-t", action="store_true", help="test if code is still up to date"
+        "--test",
+        "-t",
+        action="store_true",
+        help="test if code is still up to date",
     )
     parsed_args = parser.parse_args()
 

@@ -134,14 +134,17 @@ async def wait_overlapped(handle_: int | CData, lpOverlapped: CData | int) -> ob
     sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_overlapped(
-            handle_, lpOverlapped
+            handle_,
+            lpOverlapped,
         )
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
 
 
 async def write_overlapped(
-    handle: int | CData, data: Buffer, file_offset: int = 0
+    handle: int | CData,
+    data: Buffer,
+    file_offset: int = 0,
 ) -> int:
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26
@@ -151,14 +154,18 @@ async def write_overlapped(
     sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.write_overlapped(
-            handle, data, file_offset
+            handle,
+            data,
+            file_offset,
         )
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
 
 
 async def readinto_overlapped(
-    handle: int | CData, buffer: Buffer, file_offset: int = 0
+    handle: int | CData,
+    buffer: Buffer,
+    file_offset: int = 0,
 ) -> int:
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26
@@ -168,7 +175,9 @@ async def readinto_overlapped(
     sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.readinto_overlapped(
-            handle, buffer, file_offset
+            handle,
+            buffer,
+            file_offset,
         )
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
