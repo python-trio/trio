@@ -101,7 +101,7 @@ class ParkingLotStatistics:
 
 
 @final
-@attrs.define(eq=False, hash=False)
+@attrs.define(eq=False)
 class ParkingLot:
     """A fair wait queue with cancellation and requeueing.
 
@@ -182,7 +182,10 @@ class ParkingLot:
 
     @_core.enable_ki_protection
     def repark(
-        self, new_lot: ParkingLot, *, count: int | float = 1  # noqa: PYI041
+        self,
+        new_lot: ParkingLot,
+        *,
+        count: int | float = 1,  # noqa: PYI041
     ) -> None:
         """Move parked tasks from one :class:`ParkingLot` object to another.
 

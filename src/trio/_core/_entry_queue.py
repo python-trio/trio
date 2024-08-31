@@ -77,7 +77,7 @@ class EntryQueue:
                     parent_nursery = _core.current_task().parent_nursery
                     if parent_nursery is None:
                         raise AssertionError(
-                            "Internal error: `parent_nursery` should never be `None`"
+                            "Internal error: `parent_nursery` should never be `None`",
                         ) from exc  # pragma: no cover
                     parent_nursery.start_soon(kill_everything, exc)
 
@@ -146,7 +146,7 @@ class EntryQueue:
 
 
 @final
-@attrs.define(eq=False, hash=False)
+@attrs.define(eq=False)
 class TrioToken(metaclass=NoPublicConstructor):
     """An opaque object representing a single call to :func:`trio.run`.
 

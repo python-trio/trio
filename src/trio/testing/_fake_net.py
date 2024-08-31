@@ -99,7 +99,8 @@ class UDPEndpoint:
 
     @classmethod
     def from_python_sockaddr(
-        cls: type[T_UDPEndpoint], sockaddr: tuple[str, int] | tuple[str, int, int, int]
+        cls: type[T_UDPEndpoint],
+        sockaddr: tuple[str, int] | tuple[str, int, int, int],
     ) -> T_UDPEndpoint:
         ip, port = sockaddr[:2]
         return cls(ip=ipaddress.ip_address(ip), port=port)
@@ -120,7 +121,9 @@ class UDPPacket:
     # not used/tested anywhere
     def reply(self, payload: bytes) -> UDPPacket:  # pragma: no cover
         return UDPPacket(
-            source=self.destination, destination=self.source, payload=payload
+            source=self.destination,
+            destination=self.source,
+            payload=payload,
         )
 
 
@@ -156,7 +159,9 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
         raise NotImplementedError("FakeNet doesn't do fake DNS yet")
 
     async def getnameinfo(
-        self, sockaddr: tuple[str, int] | tuple[str, int, int, int], flags: int
+        self,
+        sockaddr: tuple[str, int] | tuple[str, int, int, int],
+        flags: int,
     ) -> tuple[str, str]:
         raise NotImplementedError("FakeNet doesn't do fake DNS yet")
 
@@ -256,7 +261,10 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         self._packet_receiver.close()
 
     async def _resolve_address_nocp(
-        self, address: object, *, local: bool
+        self,
+        address: object,
+        *,
+        local: bool,
     ) -> tuple[str, int]:
         return await trio._socket._resolve_address_nocp(  # type: ignore[no-any-return]
             self.type,
@@ -360,7 +368,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
             raise NotImplementedError(
                 "The code will most likely hang if you try to receive on a fakesocket "
                 "without a binding. If that is not the case, or you explicitly want to "
-                "test that, remove this warning."
+                "test that, remove this warning.",
             )
 
         self._check_closed()
@@ -399,11 +407,13 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         self._check_closed()
         if self._binding is not None:
             assert hasattr(
-                self._binding, "remote"
+                self._binding,
+                "remote",
             ), "This method seems to assume that self._binding has a remote UDPEndpoint"
             if self._binding.remote is not None:  # pragma: no cover
                 assert isinstance(
-                    self._binding.remote, UDPEndpoint
+                    self._binding.remote,
+                    UDPEndpoint,
                 ), "Self._binding.remote should be a UDPEndpoint"
                 return self._binding.remote.as_python_sockaddr()
         _fake_err(errno.ENOTCONN)
@@ -415,7 +425,11 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
     def getsockopt(self, /, level: int, optname: int, buflen: int) -> bytes: ...
 
     def getsockopt(
-        self, /, level: int, optname: int, buflen: int | None = None
+        self,
+        /,
+        level: int,
+        optname: int,
+        buflen: int | None = None,
     ) -> int | bytes:
         self._check_closed()
         raise OSError(f"FakeNet doesn't implement getsockopt({level}, {optname})")
@@ -425,7 +439,12 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
 
     @overload
     def setsockopt(
-        self, /, level: int, optname: int, value: None, optlen: int
+        self,
+        /,
+        level: int,
+        optname: int,
+        value: None,
+        optlen: int,
     ) -> None: ...
 
     def setsockopt(
@@ -466,7 +485,9 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
 
     @overload
     async def sendto(
-        self, __data: Buffer, __address: tuple[object, ...] | str | Buffer
+        self,
+        __data: Buffer,
+        __address: tuple[object, ...] | str | Buffer,
     ) -> int: ...
 
     @overload
@@ -503,21 +524,31 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         return data, address
 
     async def recvfrom_into(
-        self, buf: Buffer, nbytes: int = 0, flags: int = 0
+        self,
+        buf: Buffer,
+        nbytes: int = 0,
+        flags: int = 0,
     ) -> tuple[int, Any]:
         if nbytes != 0 and nbytes != memoryview(buf).nbytes:
             raise NotImplementedError("partial recvfrom_into")
         got_nbytes, ancdata, msg_flags, address = await self._recvmsg_into(
-            [buf], 0, flags
+            [buf],
+            0,
+            flags,
         )
         return got_nbytes, address
 
     async def _recvmsg(
-        self, bufsize: int, ancbufsize: int = 0, flags: int = 0
+        self,
+        bufsize: int,
+        ancbufsize: int = 0,
+        flags: int = 0,
     ) -> tuple[bytes, list[tuple[int, int, bytes]], int, Any]:
         buf = bytearray(bufsize)
         got_nbytes, ancdata, msg_flags, address = await self._recvmsg_into(
-            [buf], ancbufsize, flags
+            [buf],
+            ancbufsize,
+            flags,
         )
         return (bytes(buf[:got_nbytes]), ancdata, msg_flags, address)
 

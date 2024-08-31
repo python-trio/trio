@@ -29,7 +29,7 @@ globals().update(
         _name: getattr(_stdlib_socket, _name)
         for _name in _stdlib_socket.__all__  # type: ignore
         if _name.isupper() and _name not in _bad_symbols
-    }
+    },
 )
 
 # import the overwrites

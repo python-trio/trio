@@ -376,10 +376,10 @@ class SSLStream(Stream, Generic[T_Stream]):
         # multiple concurrent calls to send_all/wait_send_all_might_not_block
         # or to receive_some.
         self._outer_send_conflict_detector = ConflictDetector(
-            "another task is currently sending data on this SSLStream"
+            "another task is currently sending data on this SSLStream",
         )
         self._outer_recv_conflict_detector = ConflictDetector(
-            "another task is currently receiving data on this SSLStream"
+            "another task is currently receiving data on this SSLStream",
         )
 
         self._estimated_receive_size = STARTING_RECEIVE_SIZE
@@ -615,7 +615,8 @@ class SSLStream(Stream, Generic[T_Stream]):
                             self._incoming.write_eof()
                         else:
                             self._estimated_receive_size = max(
-                                self._estimated_receive_size, len(data)
+                                self._estimated_receive_size,
+                                len(data),
                             )
                             self._incoming.write(data)
                         self._inner_recv_count += 1
@@ -891,6 +892,10 @@ class SSLStream(Stream, Generic[T_Stream]):
                 # wait_send_all_might_not_block only guarantees that it
                 # doesn't return late.
                 await self.transport_stream.wait_send_all_might_not_block()
+
+
+# this is necessary for Sphinx, see also `_abc.py`
+SSLStream.__module__ = SSLStream.__module__.replace("._ssl", "")
 
 
 @final
