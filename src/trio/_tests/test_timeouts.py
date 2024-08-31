@@ -1,5 +1,5 @@
 import time
-from typing import Awaitable, Callable, ContextManager, Protocol, TypeVar
+from typing import Awaitable, Callable, Protocol, TypeVar
 
 import outcome
 import pytest
@@ -170,10 +170,7 @@ async def test_timeouts_raise_value_error() -> None:
         ):
             await fun(val)
 
-    cm: Callable[[float], ContextManager[_core.CancelScope]]
-    # mypy resolves the tuple as containing `Callable[[float], object]`, failing to see
-    # that both callables are compatible with returning `Contextmanager[CancelScope]`
-    for cm, val in (  # type: ignore[assignment]
+    for cm, val in (
         (fail_after, -1),
         (fail_after, nan),
         (fail_at, nan),
