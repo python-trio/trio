@@ -196,8 +196,7 @@ jobs:
       - name: Run tests
         run: source .venv/bin/activate && ./ci.sh
       - if: always()
-        # Can't update to v4 quite yet, see https://github.com/codecov/codecov-action/issues/1279
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           directory: empty
           token: 87cefb17-c44b-4f2f-8b30-1fff5769ce46
