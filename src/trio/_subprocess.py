@@ -329,13 +329,13 @@ async def _open_process(
     want.
 
     Args:
-      command (str or bytes or Sequence[str] or Sequence[bytes]): The command to
-          run. Typically this is a sequence of strings or bytes such as ``['ls',
-          '-l', 'directory with spaces']``, where the first element names the
-          executable to invoke and the other elements specify its arguments.
-          With ``shell=True`` in the ``**options``, or on Windows, ``command``
-          may alternatively be a string or bytes, which will be parsed following
-          platform-dependent :ref:`quoting rules <subprocess-quoting>`.
+      command: The command to run. Typically this is a sequence of strings or
+          bytes such as ``['ls', '-l', 'directory with spaces']``, where the
+          first element names the executable to invoke and the other elements
+          specify its arguments. With ``shell=True`` in the ``**options``, or on
+          Windows, ``command`` may alternatively be a string or bytes, which
+          will be parsed following platform-dependent :ref:`quoting rules
+          <subprocess-quoting>`.
       stdin: Specifies what the child process's standard input
           stream should connect to: output written by the parent
           (``subprocess.PIPE``), nothing (``subprocess.DEVNULL``),
