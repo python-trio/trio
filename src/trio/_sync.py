@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import math
 from typing import TYPE_CHECKING, Protocol
 
@@ -571,11 +572,19 @@ class _LockImpl(AsyncContextManagerMixin):
         """
 
         task = trio.lowlevel.current_task()
+
         if self._owner is task:
             raise RuntimeError("attempt to re-acquire an already held Lock")
         elif self._owner is None and not self._lot:
             # No-one owns it
             self._owner = task
+        elif (
+            self._owner is not None
+            and inspect.getcoroutinestate(self._owner.coro) is inspect.CORO_CLOSED
+        ):
+            raise trio.BrokenResourceError(
+                "Attempted acquire on Lock which will never be released, owner has exited.",
+            )
         else:
             raise trio.WouldBlock
 

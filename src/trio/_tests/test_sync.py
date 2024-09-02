@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Callable, Union
 import pytest
 
 from .. import _core
+from .._core._tests.tutil import slow
 from .._sync import *
 from .._timeouts import sleep_forever
 from ..testing import assert_checkpoints, wait_all_tasks_blocked
@@ -586,3 +587,31 @@ async def test_generic_lock_acquire_nowait_blocks_acquire(
         await wait_all_tasks_blocked()
         assert record == ["started"]
         lock_like.release()
+
+
+async def test_lock_acquire_unowned_lock() -> None:
+    """Test that trying to acquire a lock whose owner has exited raises an error.
+    Partial fix for https://github.com/python-trio/trio/issues/3035
+    """
+    lock = trio.Lock()
+    async with trio.open_nursery() as nursery:
+        nursery.start_soon(lock.acquire)
+    with pytest.raises(
+        trio.BrokenResourceError,
+        match="^Attempted acquire on Lock which will never be released, owner has exited.$",
+    ):
+        await lock.acquire()
+
+
+@slow
+async def test_lock_multiple_acquire() -> None:
+    """This currently hangs without throwing any error
+    See https://github.com/python-trio/trio/issues/3035
+    """
+    lock = trio.Lock()
+    with pytest.raises(trio.TooSlowError):
+        with trio.fail_after(1):
+            async with trio.open_nursery() as nursery:
+                nursery.start_soon(lock.acquire)
+                # this should probably raise trio.BrokenResourceError
+                nursery.start_soon(lock.acquire)
