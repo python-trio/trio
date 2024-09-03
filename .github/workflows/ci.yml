@@ -64,10 +64,8 @@ jobs:
           # 'PyPy'    -> 'pypy-3.9'
           python-version: ${{ fromJSON(format('["{0}", "{1}"]', format('{0}.0-alpha - {0}.X', matrix.python), matrix.python))[startsWith(matrix.python, 'pypy')] }}
           architecture: '${{ matrix.arch }}'
-          # Caching can lead to issues with constraints on PyPy as in #3076.
-          # This is probably a bug in the cache key, but I'm not sure.
-          # cache: pip
-          # cache-dependency-path: test-requirements.txt
+          cache: pip
+          cache-dependency-path: test-requirements.txt
       - name: Run tests
         run: ./ci.sh
         shell: bash
