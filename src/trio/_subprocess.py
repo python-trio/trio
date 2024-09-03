@@ -333,9 +333,10 @@ async def _open_process(
           bytes such as ``['ls', '-l', 'directory with spaces']``, where the
           first element names the executable to invoke and the other elements
           specify its arguments. With ``shell=True`` in the ``**options``, or on
-          Windows, ``command`` may alternatively be a string or bytes, which
-          will be parsed following platform-dependent :ref:`quoting rules
-          <subprocess-quoting>`.
+          Windows, ``command`` can be a string or bytes, which will be parsed
+          following platform-dependent :ref:`quoting rules
+          <subprocess-quoting>`. In all cases ``command`` can be a path or a
+          sequence of paths.
       stdin: Specifies what the child process's standard input
           stream should connect to: output written by the parent
           (``subprocess.PIPE``), nothing (``subprocess.DEVNULL``),
@@ -369,6 +370,7 @@ async def _open_process(
             )
 
     if os.name == "posix":
+        # TODO: how do paths and sequences thereof play with `shell=True`?
         if isinstance(command, (str, bytes)) and not options.get("shell"):
             raise TypeError(
                 "command must be a sequence (not a string or bytes) if "
