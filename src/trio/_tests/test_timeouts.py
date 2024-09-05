@@ -212,8 +212,12 @@ async def test_timeout_deadline_on_entry(mock_clock: _core.MockClock) -> None:
         assert cs.shield is False
 
     # re-entering a _RelativeCancelScope should probably error, but it doesn't *have* to
-    with rcs as cs:
-        ...
+    with pytest.raises(
+        RuntimeError,
+        match="^Each _RelativeCancelScope may only be used for a single 'with' block$",
+    ):
+        with rcs as cs:
+            ...
 
 
 async def test_timeout_deadline_not_on_entry(mock_clock: _core.MockClock) -> None:
