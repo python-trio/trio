@@ -190,6 +190,9 @@ async def test_timeout_deadline_on_entry(mock_clock: _core.MockClock) -> None:
     rcs = move_on_after(5, timeout_from_enter=True)
     assert rcs.relative_deadline == 5
 
+    rcs.shield = True
+    assert rcs.shield
+
     mock_clock.jump(3)
     start = _core.current_time()
     with rcs as cs:
@@ -203,13 +206,13 @@ async def test_timeout_deadline_on_entry(mock_clock: _core.MockClock) -> None:
         assert cs.deadline == start + 5
 
         # check that their shield values are linked
-        assert rcs.shield is False
+        assert rcs.shield is cs.shield is True
 
-        cs.shield = True
-        assert rcs.shield is True
+        cs.shield = False
+        assert rcs.shield is cs.shield is False
 
-        rcs.shield = False
-        assert cs.shield is False
+        rcs.shield = True
+        assert rcs.shield is cs.shield is True
 
     # re-entering a _RelativeCancelScope should probably error, but it doesn't *have* to
     with pytest.raises(
@@ -289,6 +292,7 @@ async def test_transitional_functions_backwards_compatibility() -> None:
         assert rcs.deadline == cs.deadline
         assert abs(rcs.deadline - trio.current_time() - 7) < 0.1
         rcs.cancel()
-        await trio.lowlevel.checkpoint()
-        assert rcs.cancelled_caught is cs.cancelled_caught is True
-        assert rcs.cancel_called is cs.cancel_called is True
+        await trio.lowlevel.checkpoint()  # let the cs get cancelled
+
+    assert rcs.cancelled_caught is cs.cancelled_caught is True
+    assert rcs.cancel_called is cs.cancel_called is True
