@@ -190,9 +190,6 @@ async def test_timeout_deadline_on_entry(mock_clock: _core.MockClock) -> None:
     rcs = move_on_after(5, timeout_from_enter=True)
     assert rcs.relative_deadline == 5
 
-    rcs.shield = True
-    assert rcs.shield
-
     mock_clock.jump(3)
     start = _core.current_time()
     with rcs as cs:
@@ -200,6 +197,9 @@ async def test_timeout_deadline_on_entry(mock_clock: _core.MockClock) -> None:
         assert cs.deadline == start + 5
 
     rcs = fail_after(5, timeout_from_enter=True)
+    rcs.shield = True
+    assert rcs.shield
+
     mock_clock.jump(3)
     start = _core.current_time()
     with rcs as cs:
