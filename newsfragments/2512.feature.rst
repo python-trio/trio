@@ -1,13 +1,1 @@
-:func:`trio.CancelScope` now has an attribute ``relative_deadline`` that can be used together with, or instead of, ``deadline``. :func:`trio.move_on_after` and :func:`trio.fail_after` now use this functionality in order to resolve the absolute deadline upon entering the context manager.
-
-If setting both ``deadline`` and ``relative_deadline`` before entering the cm, the deadline will be set to ``min(deadline, trio.current_time() + relative_deadline)``.
-Accessing ``relative_deadline`` after entering will return remaining time until deadline (i.e. ``deadline - trio.current_time()``. Setting ``relative_deadline`` after entering will set ``deadline`` to ``trio.current_time() + relative_deadline``
-
-Example:
-
-.. code-block:: python
-
-   my_cs = trio.CancelScope(relative_deadline = 5)
-   ...
-   with my_cs:  # my_cs.deadline will now be 5 seconds into the future
-       ...
+:func:`trio.move_on_after` and :func:`trio.fail_after` now allows setting the deadline to be relative to entering the context manager. This will be the default in the future, and to opt into the new behaviour you can pass ``timeout_from_enter=True``.  This does not matter in the vast majority of cases where initialization and entering of the context manager is in the same place, and those cases will not raise any :class:`DeprecationWarning`. For more information see :ref:`saved_relative_timeouts`.

@@ -561,7 +561,8 @@ situation of just wanting to impose a timeout on some code:
 .. autofunction:: fail_at
    :with: cancel_scope
 
-Cheat sheet:
+Cheat sheet
++++++++++++
 
 * If you want to impose a timeout on a function, but you don't care
   whether it timed out or not:
@@ -597,6 +598,40 @@ which is sometimes useful:
 
 .. autofunction:: current_effective_deadline
 
+
+.. _saved_relative_timeouts:
+
+Separating initialization and entry of a :class:`CancelScope`
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Before v0.26.3 there was no separation of initialization and entry of a :class:`CancelScope`. This meant that trying to initialize :func:`move_on_after` or :func:`fail_after` and entering them at a later point meant that the timeout was relative to initialization, leading to confusing behaviour.
+
+.. code-block:: python
+
+   # THIS WILL NOW GIVE A DEPRECATION ERROR
+   my_cs = trio.move_on_after(5)
+   trio.sleep(1)
+   with my_cs: # this would move on after 4 seconds
+       ...
+
+This is now resolved with the addition of a wrapper class :class:`trio._timeouts._RelativeCancelScope` that is transparent to end users when initializing and entering at the same time. To silence the :class:`DeprecationWarning` and use the new behavior, pass ``timeout_from_enter=True`` to :func:`move_on_after` or :func:`fail_after`.
+
+.. code-block:: python
+
+   my_cs = trio.move_on_after(5, timeout_from_enter = True)
+   trio.sleep(1)
+   with my_cs: # this will now move on after 5 seconds
+       ...
+
+If you want to retain previous behaviour, you should now instead write something like
+
+.. code-block:: python
+
+   my_cs = trio.move_on_at(trio.current_time() + 5)
+   trio.sleep(1)
+   with my_cs: # this will now unambiguously move on after 4 seconds
+       ...
+
+.. autoclass:: trio._timeouts._RelativeCancelScope
 
 .. _tasks:
 

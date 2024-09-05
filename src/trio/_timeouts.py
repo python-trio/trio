@@ -108,7 +108,15 @@ def move_on_after(
     timeout_from_enter: bool = False,
 ) -> _RelativeCancelScope:
     """Use as a context manager to create a cancel scope whose deadline is
-    set to creation time + *seconds*.
+    set to now + *seconds*.
+
+    The deadline of the cancel scope was previously calculated at creation time,
+    not upon entering the context manager. This is still the default, but deprecated.
+    If you pass ``timeout_from_enter=True`` it will instead be calculated relative
+    to entering the cm, and silence the :class:`DeprecationWarning`.
+
+    If you're entering the cancel scope at initialization time, which is the most common
+    use case, you can treat this function as returning a :class:`CancelScope`.
 
     Args:
       seconds (float): The timeout.
@@ -238,7 +246,7 @@ def fail_after(
     The deadline of the cancel scope was previously calculated at creation time,
     not upon entering the context manager. This is still the default, but deprecated.
     If you pass ``timeout_from_enter=True`` it will instead be calculated relative
-    to entering the cm, and silence the deprecationwarning.
+    to entering the cm, and silence the :class:`DeprecationWarning`.
 
     Args:
       seconds (float): The timeout.
