@@ -583,7 +583,11 @@ class _LockImpl(AsyncContextManagerMixin):
 
     @enable_ki_protection
     async def acquire(self) -> None:
-        """Acquire the lock, blocking if necessary."""
+        """Acquire the lock, blocking if necessary.
+
+        Raises:
+          BrokenResourceError: if the owner of the lock exits without releasing.
+        """
         await trio.lowlevel.checkpoint_if_cancelled()
         try:
             self.acquire_nowait()

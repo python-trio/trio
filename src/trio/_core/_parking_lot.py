@@ -91,6 +91,9 @@ GLOBAL_PARKING_LOT_BREAKER: dict[Task, list[ParkingLot]] = {}
 
 
 def add_parking_lot_breaker(task: Task, lot: ParkingLot) -> None:
+    """Register a task as a breaker for a lot. This means that if the task exits without
+    having unparked from the lot, then the lot will break and raise an error for all tasks
+    parked in the lot, as well as any future task that attempt to park in it."""
     if task not in GLOBAL_PARKING_LOT_BREAKER:
         GLOBAL_PARKING_LOT_BREAKER[task] = [lot]
     else:
@@ -98,6 +101,7 @@ def add_parking_lot_breaker(task: Task, lot: ParkingLot) -> None:
 
 
 def remove_parking_lot_breaker(task: Task, lot: ParkingLot) -> None:
+    """Deregister a task as a breaker for a lot. See :func:`add_parking_lot_breaker`."""
     if task not in GLOBAL_PARKING_LOT_BREAKER:
         raise RuntimeError(
             "Attempted to remove parking lot breaker for task that is not registered as a breaker",
@@ -155,6 +159,10 @@ class ParkingLot:
     async def park(self) -> None:
         """Park the current task until woken by a call to :meth:`unpark` or
         :meth:`unpark_all`.
+
+        Raises:
+          BrokenResourceError: if attempting to park in a broken lot, or the lot
+            breaks before we get to unpark.
 
         """
         if self.broken_by is not None:
