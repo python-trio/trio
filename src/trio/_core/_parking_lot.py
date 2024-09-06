@@ -275,8 +275,6 @@ class ParkingLot:
 
         # TODO: is there any reason to use self._pop_several?
         for parked_task in self._parked:
-            if parked_task is task:
-                continue
             # TODO: weird to phrase this one, we maybe should reraise this error in Lock?
             _core.reschedule(
                 parked_task,

@@ -4,6 +4,9 @@ from typing import TypeVar
 
 import pytest
 
+import trio.lowlevel
+from trio.testing import Matcher, RaisesGroup
+
 from ... import _core
 from ...testing import wait_all_tasks_blocked
 from .._parking_lot import ParkingLot
@@ -215,3 +218,70 @@ async def test_parking_lot_repark_with_count() -> None:
             "wake 2",
         ]
         lot1.unpark_all()
+
+
+async def test_parking_lot_breaker_basic() -> None:
+    lot = ParkingLot()
+    task = trio.lowlevel.current_task()
+
+    with pytest.raises(
+        RuntimeError,
+        match="Attempted to remove task as breaker for a lot it is not registered for",
+    ):
+        trio.lowlevel.remove_parking_lot_breaker(task, lot)
+    trio.lowlevel.add_parking_lot_breaker(task, lot)
+    trio.lowlevel.add_parking_lot_breaker(task, lot)
+    trio.lowlevel.remove_parking_lot_breaker(task, lot)
+    trio.lowlevel.remove_parking_lot_breaker(task, lot)
+
+    with pytest.raises(
+        RuntimeError,
+        match="Attempted to remove task as breaker for a lot it is not registered for",
+    ):
+        trio.lowlevel.remove_parking_lot_breaker(task, lot)
+
+
+async def test_parking_lot_breaker() -> None:
+    async def bad_parker(lot: ParkingLot, scope: _core.CancelScope) -> None:
+        trio.lowlevel.add_parking_lot_breaker(trio.lowlevel.current_task(), lot)
+        with scope:
+            await trio.sleep_forever()
+
+    lot = ParkingLot()
+    cs = _core.CancelScope()
+
+    # check that parked task errors
+    with RaisesGroup(
+        Matcher(_core.BrokenResourceError, match="^Parking lot broken by"),
+    ):
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(bad_parker, lot, cs)
+            await wait_all_tasks_blocked()
+
+            nursery.start_soon(lot.park)
+            await wait_all_tasks_blocked()
+
+            cs.cancel()
+
+    # check that trying to park in brokena lot errors
+    with pytest.raises(_core.BrokenResourceError):
+        await lot.park()
+
+
+async def test_parking_lot_weird() -> None:
+    """break a parking lot, where the breakee is parked. Doing this is weird, but should probably be supported??
+    Although the message makes less sense"""
+
+    async def return_me_and_park(
+        lot: ParkingLot,
+        *,
+        task_status: _core.TaskStatus[_core.Task] = trio.TASK_STATUS_IGNORED,
+    ) -> None:
+        task_status.started(_core.current_task())
+        await lot.park()
+
+    lot = ParkingLot()
+    with RaisesGroup(Matcher(_core.BrokenResourceError, match="Parking lot broken by")):
+        async with _core.open_nursery() as nursery:
+            task = await nursery.start(return_me_and_park, lot)
+            lot.break_lot(task)
