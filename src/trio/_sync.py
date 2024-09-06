@@ -6,10 +6,10 @@ from typing import TYPE_CHECKING, Protocol
 import attrs
 
 import trio
-from trio.lowlevel import add_parking_lot_breaker, remove_parking_lot_breaker
 
 from . import _core
 from ._core import Abort, ParkingLot, RaiseCancelT, enable_ki_protection
+from ._core._parking_lot import add_parking_lot_breaker, remove_parking_lot_breaker
 from ._util import final
 
 if TYPE_CHECKING:
