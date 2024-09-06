@@ -102,11 +102,12 @@ def add_parking_lot_breaker(task: Task, lot: ParkingLot) -> None:
 
 def remove_parking_lot_breaker(task: Task, lot: ParkingLot) -> None:
     """Deregister a task as a breaker for a lot. See :func:`add_parking_lot_breaker`."""
-    if task not in GLOBAL_PARKING_LOT_BREAKER:
+    try:
+        GLOBAL_PARKING_LOT_BREAKER[task].remove(lot)
+    except (KeyError, ValueError):
         raise RuntimeError(
-            "Attempted to remove parking lot breaker for task that is not registered as a breaker",
-        )
-    GLOBAL_PARKING_LOT_BREAKER[task].remove(lot)
+            "Attempted to remove task as breaker for a lot it is not registered for",
+        ) from None
 
 
 @attrs.frozen
@@ -271,16 +272,18 @@ class ParkingLot:
         future tasks attempting to park (and unpark? repark?) to error. The error
         contains a reference to the task sent as a parameter."""
         self.broken_by = task
-        # TODO: weird to phrase this one, we probably should reraise this error in Lock
-        error = outcome.Error(
-            _core.BrokenResourceError(f"Parking lot broken by {task}"),
-        )
 
         # TODO: is there any reason to use self._pop_several?
         for parked_task in self._parked:
             if parked_task is task:
                 continue
-            _core.reschedule(parked_task, error)
+            # TODO: weird to phrase this one, we maybe should reraise this error in Lock?
+            _core.reschedule(
+                parked_task,
+                outcome.Error(
+                    _core.BrokenResourceError(f"Parking lot broken by {task}"),
+                ),
+            )
         self._parked.clear()
 
     def statistics(self) -> ParkingLotStatistics:
