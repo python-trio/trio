@@ -610,3 +610,28 @@ async def test_lock_multiple_acquire() -> None:
         async with trio.open_nursery() as nursery:
             nursery.start_soon(lock.acquire)
             nursery.start_soon(lock.acquire)
+
+
+async def test_lock_handover() -> None:
+    lock = trio.Lock()
+    lock.acquire_nowait()
+    child_task: Task | None = None
+    assert _core._parking_lot.GLOBAL_PARKING_LOT_BREAKER[_core.current_task()] == [
+        lock._lot,
+    ]
+
+    async with trio.open_nursery() as nursery:
+        nursery.start_soon(lock.acquire)
+        await wait_all_tasks_blocked()
+
+        lock.release()
+
+        assert len(_core._parking_lot.GLOBAL_PARKING_LOT_BREAKER) == 2
+        for task, lots in _core._parking_lot.GLOBAL_PARKING_LOT_BREAKER.items():
+            if task == _core.current_task():
+                assert lots == []
+            else:
+                child_task = task
+                assert lots == [lock._lot]
+
+    assert lock._lot.broken_by == child_task
