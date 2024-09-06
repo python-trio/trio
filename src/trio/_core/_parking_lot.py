@@ -108,6 +108,8 @@ def remove_parking_lot_breaker(task: Task, lot: ParkingLot) -> None:
         raise RuntimeError(
             "Attempted to remove task as breaker for a lot it is not registered for",
         ) from None
+    if not GLOBAL_PARKING_LOT_BREAKER[task]:
+        del GLOBAL_PARKING_LOT_BREAKER[task]
 
 
 @attrs.frozen

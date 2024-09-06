@@ -8,6 +8,7 @@ import pytest
 from trio.testing import Matcher, RaisesGroup
 
 from .. import _core
+from .._core._parking_lot import GLOBAL_PARKING_LOT_BREAKER
 from .._sync import *
 from .._timeouts import sleep_forever
 from ..testing import assert_checkpoints, wait_all_tasks_blocked
@@ -594,6 +595,7 @@ async def test_lock_acquire_unowned_lock() -> None:
     """Test that trying to acquire a lock whose owner has exited raises an error.
     Partial fix for https://github.com/python-trio/trio/issues/3035
     """
+    assert not GLOBAL_PARKING_LOT_BREAKER
     lock = trio.Lock()
     async with trio.open_nursery() as nursery:
         nursery.start_soon(lock.acquire)
@@ -602,23 +604,29 @@ async def test_lock_acquire_unowned_lock() -> None:
         match="^Attempted to park in parking lot broken by",
     ):
         await lock.acquire()
+    assert not GLOBAL_PARKING_LOT_BREAKER
 
 
 async def test_lock_multiple_acquire() -> None:
+    assert not GLOBAL_PARKING_LOT_BREAKER
     lock = trio.Lock()
     with RaisesGroup(Matcher(trio.BrokenResourceError, match="Parking lot broken by")):
         async with trio.open_nursery() as nursery:
             nursery.start_soon(lock.acquire)
             nursery.start_soon(lock.acquire)
+    assert not GLOBAL_PARKING_LOT_BREAKER
 
 
 async def test_lock_handover() -> None:
+    assert not GLOBAL_PARKING_LOT_BREAKER
     lock = trio.Lock()
     lock.acquire_nowait()
     child_task: Task | None = None
-    assert _core._parking_lot.GLOBAL_PARKING_LOT_BREAKER[_core.current_task()] == [
-        lock._lot,
-    ]
+    assert GLOBAL_PARKING_LOT_BREAKER == {
+        _core.current_task(): [
+            lock._lot,
+        ],
+    }
 
     async with trio.open_nursery() as nursery:
         nursery.start_soon(lock.acquire)
@@ -626,12 +634,9 @@ async def test_lock_handover() -> None:
 
         lock.release()
 
-        assert len(_core._parking_lot.GLOBAL_PARKING_LOT_BREAKER) == 2
-        for task, lots in _core._parking_lot.GLOBAL_PARKING_LOT_BREAKER.items():
-            if task == _core.current_task():
-                assert lots == []
-            else:
-                child_task = task
-                assert lots == [lock._lot]
+        assert len(GLOBAL_PARKING_LOT_BREAKER) == 1
+        child_task = next(iter(GLOBAL_PARKING_LOT_BREAKER))
+        assert GLOBAL_PARKING_LOT_BREAKER[child_task] == [lock._lot]
 
     assert lock._lot.broken_by == child_task
+    assert not GLOBAL_PARKING_LOT_BREAKER
