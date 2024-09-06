@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Protocol
 import attrs
 
 import trio
+from trio.lowlevel import add_parking_lot_breaker, remove_parking_lot_breaker
 
 from . import _core
 from ._core import Abort, ParkingLot, RaiseCancelT, enable_ki_protection
@@ -576,6 +577,7 @@ class _LockImpl(AsyncContextManagerMixin):
         elif self._owner is None and not self._lot:
             # No-one owns it
             self._owner = task
+            add_parking_lot_breaker(task, self._lot)
         else:
             raise trio.WouldBlock
 
@@ -604,8 +606,10 @@ class _LockImpl(AsyncContextManagerMixin):
         task = trio.lowlevel.current_task()
         if task is not self._owner:
             raise RuntimeError("can't release a Lock you don't own")
+        remove_parking_lot_breaker(self._owner, self._lot)
         if self._lot:
             (self._owner,) = self._lot.unpark(count=1)
+            add_parking_lot_breaker(self._owner, self._lot)
         else:
             self._owner = None
 

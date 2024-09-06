@@ -76,6 +76,7 @@ from collections import OrderedDict
 from typing import TYPE_CHECKING
 
 import attrs
+import outcome
 
 from .. import _core
 from .._util import final
@@ -84,6 +85,24 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from ._run import Task
+
+
+GLOBAL_PARKING_LOT_BREAKER: dict[Task, list[ParkingLot]] = {}
+
+
+def add_parking_lot_breaker(task: Task, lot: ParkingLot) -> None:
+    if task not in GLOBAL_PARKING_LOT_BREAKER:
+        GLOBAL_PARKING_LOT_BREAKER[task] = [lot]
+    else:
+        GLOBAL_PARKING_LOT_BREAKER[task].append(lot)
+
+
+def remove_parking_lot_breaker(task: Task, lot: ParkingLot) -> None:
+    if task not in GLOBAL_PARKING_LOT_BREAKER:
+        raise RuntimeError(
+            "Attempted to remove parking lot breaker for task that is not registered as a breaker",
+        )
+    GLOBAL_PARKING_LOT_BREAKER[task].remove(lot)
 
 
 @attrs.frozen
@@ -118,6 +137,7 @@ class ParkingLot:
     # {task: None}, we just want a deque where we can quickly delete random
     # items
     _parked: OrderedDict[Task, None] = attrs.field(factory=OrderedDict, init=False)
+    broken_by: Task | None = None
 
     def __len__(self) -> int:
         """Returns the number of parked tasks."""
@@ -137,6 +157,10 @@ class ParkingLot:
         :meth:`unpark_all`.
 
         """
+        if self.broken_by is not None:
+            raise _core.BrokenResourceError(
+                f"Attempted to park in parking lot broken by {self.broken_by}",
+            )
         task = _core.current_task()
         self._parked[task] = None
         task.custom_sleep_data = self
@@ -233,6 +257,23 @@ class ParkingLot:
 
         """
         return self.repark(new_lot, count=len(self))
+
+    def break_lot(self, task: Task) -> None:
+        """Break this lot, causing all parked tasks to raise an error, and any
+        future tasks attempting to park (and unpark? repark?) to error. The error
+        contains a reference to the task sent as a parameter."""
+        self.broken_by = task
+        # TODO: weird to phrase this one, we probably should reraise this error in Lock
+        error = outcome.Error(
+            _core.BrokenResourceError(f"Parking lot broken by {task}"),
+        )
+
+        # TODO: is there any reason to use self._pop_several?
+        for parked_task in self._parked:
+            if parked_task is task:
+                continue
+            _core.reschedule(parked_task, error)
+        self._parked.clear()
 
     def statistics(self) -> ParkingLotStatistics:
         """Return an object containing debugging information.

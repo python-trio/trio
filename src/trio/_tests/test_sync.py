@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING, Callable, Union
 
 import pytest
 
+from trio.testing import Matcher, RaisesGroup
+
 from .. import _core
 from .._sync import *
 from .._timeouts import sleep_forever
@@ -586,3 +588,25 @@ async def test_generic_lock_acquire_nowait_blocks_acquire(
         await wait_all_tasks_blocked()
         assert record == ["started"]
         lock_like.release()
+
+
+async def test_lock_acquire_unowned_lock() -> None:
+    """Test that trying to acquire a lock whose owner has exited raises an error.
+    Partial fix for https://github.com/python-trio/trio/issues/3035
+    """
+    lock = trio.Lock()
+    async with trio.open_nursery() as nursery:
+        nursery.start_soon(lock.acquire)
+    with pytest.raises(
+        trio.BrokenResourceError,
+        match="^Attempted to park in parking lot broken by",
+    ):
+        await lock.acquire()
+
+
+async def test_lock_multiple_acquire() -> None:
+    lock = trio.Lock()
+    with RaisesGroup(Matcher(trio.BrokenResourceError, match="Parking lot broken by")):
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(lock.acquire)
+            nursery.start_soon(lock.acquire)

@@ -40,6 +40,7 @@ from ._entry_queue import EntryQueue, TrioToken
 from ._exceptions import Cancelled, RunFinishedError, TrioInternalError
 from ._instrumentation import Instruments
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED, KIManager, enable_ki_protection
+from ._parking_lot import GLOBAL_PARKING_LOT_BREAKER
 from ._thread_cache import start_thread_soon
 from ._traps import (
     Abort,
@@ -1858,6 +1859,11 @@ class Runner:
                 outcome = Value(None)
             assert task._parent_nursery is not None, task
             task._parent_nursery._child_finished(task, outcome)
+
+        # before or after the other stuff in this function?
+        if task in GLOBAL_PARKING_LOT_BREAKER:
+            for lot in GLOBAL_PARKING_LOT_BREAKER[task]:
+                lot.break_lot(task)
 
         if "task_exited" in self.instruments:
             self.instruments.call("task_exited", task)
