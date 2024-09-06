@@ -1864,6 +1864,7 @@ class Runner:
         if task in GLOBAL_PARKING_LOT_BREAKER:
             for lot in GLOBAL_PARKING_LOT_BREAKER[task]:
                 lot.break_lot(task)
+            GLOBAL_PARKING_LOT_BREAKER[task]
 
         if "task_exited" in self.instruments:
             self.instruments.call("task_exited", task)
