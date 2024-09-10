@@ -269,11 +269,13 @@ class ParkingLot:
         """
         return self.repark(new_lot, count=len(self))
 
-    def break_lot(self, task: Task | None) -> None:
+    def break_lot(self, task: Task | None = None) -> None:
         """Break this lot, causing all parked tasks to raise an error, and any
         future tasks attempting to park (and unpark? repark?) to error. The error
         contains a reference to the task sent as a parameter.
         """
+        if task is None:
+            task = _core.current_task()
         self.broken_by = task
 
         for parked_task in self._parked:

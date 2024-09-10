@@ -240,6 +240,9 @@ async def test_parking_lot_breaker_basic() -> None:
     ):
         trio.lowlevel.remove_parking_lot_breaker(task, lot)
 
+    lot.break_lot()
+    assert lot.broken_by == task
+
 
 async def test_parking_lot_breaker() -> None:
     async def bad_parker(lot: ParkingLot, scope: _core.CancelScope) -> None:
