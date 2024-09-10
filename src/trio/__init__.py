@@ -91,6 +91,7 @@ from ._sync import (
     Lock as Lock,
     LockStatistics as LockStatistics,
     Semaphore as Semaphore,
+    StalledLockError as StalledLockError,
     StrictFIFOLock as StrictFIFOLock,
 )
 from ._timeouts import (

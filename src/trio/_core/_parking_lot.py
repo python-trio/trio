@@ -269,15 +269,14 @@ class ParkingLot:
         """
         return self.repark(new_lot, count=len(self))
 
-    def break_lot(self, task: Task) -> None:
+    def break_lot(self, task: Task | None) -> None:
         """Break this lot, causing all parked tasks to raise an error, and any
         future tasks attempting to park (and unpark? repark?) to error. The error
-        contains a reference to the task sent as a parameter."""
+        contains a reference to the task sent as a parameter.
+        """
         self.broken_by = task
 
-        # TODO: is there any reason to use self._pop_several?
         for parked_task in self._parked:
-            # TODO: weird to phrase this one, we maybe should reraise this error in Lock?
             _core.reschedule(
                 parked_task,
                 outcome.Error(

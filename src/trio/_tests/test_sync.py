@@ -600,8 +600,8 @@ async def test_lock_acquire_unowned_lock() -> None:
     async with trio.open_nursery() as nursery:
         nursery.start_soon(lock.acquire)
     with pytest.raises(
-        trio.BrokenResourceError,
-        match="^Attempted to park in parking lot broken by",
+        trio.StalledLockError,
+        match="^Owner of this lock exited without releasing",
     ):
         await lock.acquire()
     assert not GLOBAL_PARKING_LOT_BREAKER
@@ -610,7 +610,12 @@ async def test_lock_acquire_unowned_lock() -> None:
 async def test_lock_multiple_acquire() -> None:
     assert not GLOBAL_PARKING_LOT_BREAKER
     lock = trio.Lock()
-    with RaisesGroup(Matcher(trio.BrokenResourceError, match="Parking lot broken by")):
+    with RaisesGroup(
+        Matcher(
+            trio.StalledLockError,
+            match="^Owner of this lock exited without releasing",
+        ),
+    ):
         async with trio.open_nursery() as nursery:
             nursery.start_soon(lock.acquire)
             nursery.start_soon(lock.acquire)

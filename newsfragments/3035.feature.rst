@@ -1,0 +1,1 @@
+:class:`trio.Lock` and :class:`trio.StrictFIFOLock` will now raise :exc:`trio.StalledLockError` when ``acquire()`` would previously stall due to the owner of the lock having exited without releasing the lock.

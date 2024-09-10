@@ -19,6 +19,11 @@ if TYPE_CHECKING:
     from ._core._parking_lot import ParkingLotStatistics
 
 
+class StalledLockError(Exception):
+    """Raised by :meth:`Lock.acquire` and :meth:`StrictFIFOLock.acquire` if the owner
+    exits, or has previously exited, without releasing the lock."""
+
+
 @attrs.frozen
 class EventStatistics:
     """An object containing debugging information.
@@ -586,16 +591,21 @@ class _LockImpl(AsyncContextManagerMixin):
         """Acquire the lock, blocking if necessary.
 
         Raises:
-          BrokenResourceError: if the owner of the lock exits without releasing.
+          StalledLockError: if the owner of the lock exits without releasing.
         """
         await trio.lowlevel.checkpoint_if_cancelled()
         try:
             self.acquire_nowait()
         except trio.WouldBlock:
-            # NOTE: it's important that the contended acquire path is just
-            # "_lot.park()", because that's how Condition.wait() acquires the
-            # lock as well.
-            await self._lot.park()
+            try:
+                # NOTE: it's important that the contended acquire path is just
+                # "_lot.park()", because that's how Condition.wait() acquires the
+                # lock as well.
+                await self._lot.park()
+            except trio.BrokenResourceError:
+                raise StalledLockError(
+                    "Owner of this lock exited without releasing: {self._owner}",
+                ) from None
         else:
             await trio.lowlevel.cancel_shielded_checkpoint()
 
@@ -775,7 +785,11 @@ class Condition(AsyncContextManagerMixin):
         return self._lock.acquire_nowait()
 
     async def acquire(self) -> None:
-        """Acquire the underlying lock, blocking if necessary."""
+        """Acquire the underlying lock, blocking if necessary.
+
+        Raises:
+          StalledLockError: if the owner of the lock exits without releasing.
+        """
         await self._lock.acquire()
 
     def release(self) -> None:
@@ -804,6 +818,7 @@ class Condition(AsyncContextManagerMixin):
 
         Raises:
           RuntimeError: if the calling task does not hold the lock.
+          StalledLockError: if the owner of the lock exits without releasing, when attempting to re-acquire.
 
         """
         if trio.lowlevel.current_task() is not self._lock._owner:
