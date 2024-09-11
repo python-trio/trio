@@ -49,6 +49,15 @@ if glob.glob("../../newsfragments/*.*.rst"):
     history_orig = history_file.read_bytes()
     import subprocess
 
+    # In case changes were staged, preserve indexed version.
+    # This grabs the hash of the current staged version.
+    history_staged = subprocess.run(
+        ["git", "rev-parse", "--verify", ":docs/source/history.rst"],
+        check=True,
+        cwd="../..",
+        stdout=subprocess.PIPE,
+        encoding="ascii",
+    ).stdout.strip()
     try:
         subprocess.run(
             ["towncrier", "--keep", "--date", "not released yet"],
@@ -58,6 +67,19 @@ if glob.glob("../../newsfragments/*.*.rst"):
         history_new = history_file.read_text("utf8")
     finally:
         # Make sure this reverts even if a failure occurred.
+        # Restore whatever was staged.
+        print(f"Restoring history.rst = {history_staged}")
+        subprocess.run(
+            [
+                "git",
+                "update-index",
+                "--cacheinfo",
+                f"100644,{history_staged},docs/source/history.rst",
+            ],
+            cwd="../..",
+            check=False,
+        )
+        # And restore the working copy.
         history_file.write_bytes(history_orig)
     del history_orig  # We don't need this any more.
 else:
