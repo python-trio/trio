@@ -44,6 +44,7 @@ os.environ["SPHINX_AUTODOC_RELOAD_MODULES"] = "1"
 # then substitute when Sphinx wants to read it in.
 history_file = Path("history.rst")
 
+history_new: str | None
 if glob.glob("../../newsfragments/*.*.rst"):
     print("-- Found newsfragments; running towncrier --", flush=True)
     history_orig = history_file.read_bytes()
