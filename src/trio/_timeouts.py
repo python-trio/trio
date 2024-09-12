@@ -1,197 +1,13 @@
 from __future__ import annotations
 
 import math
-import warnings
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 import trio
 
-from ._util import final
-
 if TYPE_CHECKING:
     from collections.abc import Generator
-    from types import TracebackType
-
-
-@final
-class _RelativeCancelScope:
-    """Makes it possible to specify relative deadlines at initialization, that does
-    not start counting until the cm is entered.
-    Upon entering it returns a CancelScope, so unless initialization and entering
-    are separate, this class will be transparent to end users.
-    """
-
-    def __init__(
-        self,
-        relative_deadline: float,
-        *,
-        shield: bool = False,
-        timeout_from_enter: bool = False,
-    ):
-        self.relative_deadline: float = relative_deadline
-        self._shield = shield
-        self._timeout_from_enter = timeout_from_enter
-
-        self._fail: bool = False
-        self._creation_time = trio.current_time()
-        self._scope: trio.CancelScope | None = None
-
-    def __enter__(self) -> trio.CancelScope:
-        if self._scope is not None:
-            # This does not have to be the case, but for now we're mirroring the
-            # behaviour of CancelScope
-            raise RuntimeError(
-                "Each _RelativeCancelScope may only be used for a single 'with' block",
-            )
-        if (
-            abs(self._creation_time - trio.current_time()) > 0.01
-            and not self._timeout_from_enter
-        ):
-            # not using warn_deprecated because the message template is a weird fit
-            # TODO: mention versions in the message?
-            warnings.warn(
-                DeprecationWarning(
-                    "`move_on_after` and `fail_after` will change behaviour to "
-                    "start the deadline relative to entering the cm, instead of "
-                    "at creation time. To silence this warning and opt into the "
-                    "new behaviour, pass `timeout_from_enter=True`. "
-                    "To keep old behaviour, use `move_on_at(trio.current_time() + x)` "
-                    "(or `fail_at`), where `x` is the previous timeout length. "
-                    "See https://github.com/python-trio/trio/issues/2512",
-                ),
-                stacklevel=2,
-            )
-
-        if self._timeout_from_enter:
-            start_time = trio.current_time()
-        else:
-            start_time = self._creation_time
-
-        self._scope = trio.CancelScope(
-            deadline=start_time + self.relative_deadline,
-            shield=self._shield,
-        )
-        self._scope.__enter__()
-        return self._scope
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_value: BaseException | None,
-        traceback: TracebackType | None,
-    ) -> bool | None:
-        if self._scope is None:  # pragma: no cover
-            raise RuntimeError("__exit__ called before __enter__")
-        res = self._scope.__exit__(exc_type, exc_value, traceback)
-        if self._fail and self._scope.cancelled_caught:
-            raise TooSlowError
-        return res
-
-    @property
-    def shield(self) -> bool:
-        # if self._timeout_from_enter and self._scope is not None:
-        # we might want to raise an error to force people to use the re-saved CancelScope
-        # directly, but I'm not sure there is a very strong reason to do that.
-        if self._scope is None:
-            return self._shield
-        return self._scope.shield
-
-    @shield.setter
-    def shield(self, new_value: bool) -> None:
-        if self._scope is None:
-            self._shield = new_value
-        else:
-            self._scope.shield = new_value
-
-    @property
-    def deadline(self) -> float:
-        """Transitional function to maintain backwards compatibility."""
-        if self._timeout_from_enter:
-            if self._scope is None:
-                raise AttributeError(
-                    "_RelativeCancelScope does not have `deadline`. You might want `relative_deadline`.",
-                )
-            else:
-                raise AttributeError(
-                    "_RelativeCancelScope does not have `deadline`. You might want to access the entered `CancelScope`.",
-                )
-        elif self._scope is None:  # has not been entered
-            return self.relative_deadline
-        else:
-            return self._scope.deadline
-
-    @deadline.setter
-    def deadline(self, new_deadline: float) -> None:
-        """Transitional function to maintain backwards compatibility."""
-        if self._timeout_from_enter:
-            if self._scope is None:
-                raise AttributeError(
-                    "_RelativeCancelScope does not have `deadline`. You might want `relative_deadline`.",
-                )
-            else:
-                raise AttributeError(
-                    "_RelativeCancelScope does not have `deadline`. You might want to access the entered `CancelScope`.",
-                )
-        elif self._scope is None:  # has not been entered
-            # we don't raise another deprecationwarning, leaving it for __enter__
-            self.relative_deadline = new_deadline
-        else:
-            self._scope.deadline = new_deadline
-
-    @property
-    def cancelled_caught(self) -> bool:
-        """Transitional function to maintain backwards compatibility."""
-        if self._timeout_from_enter:
-            if self._scope is None:
-                raise AttributeError(
-                    "_RelativeCancelScope does not have `cancelled_caught`, and cannot have been cancelled before entering.",
-                )
-            else:
-                raise AttributeError(
-                    "_RelativeCancelScope does not have `cancelled_caught`. You might want to access the entered `CancelScope`.",
-                )
-        elif self._scope is None:
-            return False
-        else:
-            return self._scope.cancelled_caught
-
-    def cancel(self) -> None:
-        """Transitional function to maintain backwards compatibility."""
-        if self._timeout_from_enter:
-            if self._scope is None:
-                raise AttributeError(
-                    "_RelativeCancelScope does not have `cancel`, and cannot be cancelled before entering.",
-                )
-            else:
-                raise AttributeError(
-                    "_RelativeCancelScope does not have `cancel`. You might want to access the entered `CancelScope`.",
-                )
-        elif self._scope is None:
-            # It may be possible to implement this by immediately canceling the
-            # created scope in __enter__
-            raise RuntimeError(
-                "It is no longer possible to cancel a relative cancel scope before entering it.",
-            )
-        else:
-            self._scope.cancel()
-
-    @property
-    def cancel_called(self) -> bool:
-        """Transitional function to maintain backwards compatibility."""
-        if self._timeout_from_enter:
-            if self._scope is None:
-                raise AttributeError(
-                    "_RelativeCancelScope does not have `cancel_called`, and cannot have been cancelled before entering.",
-                )
-            else:
-                raise AttributeError(
-                    "_RelativeCancelScope does not have `cancel_called`. You might want to access the entered `CancelScope`.",
-                )
-        elif self._scope is None:
-            return False
-        else:
-            return self._scope.cancel_called
 
 
 def move_on_at(deadline: float, *, shield: bool = False) -> trio.CancelScope:
@@ -217,17 +33,11 @@ def move_on_after(
     *,
     shield: bool = False,
     timeout_from_enter: bool = False,
-) -> _RelativeCancelScope:
+) -> trio.CancelScope:
     """Use as a context manager to create a cancel scope whose deadline is
     set to now + *seconds*.
 
-    The deadline of the cancel scope was previously calculated at creation time,
-    not upon entering the context manager. This is still the default, but deprecated.
-    If you pass ``timeout_from_enter=True`` it will instead be calculated relative
-    to entering the cm, and silence the :class:`DeprecationWarning`.
-
-    If you're entering the cancel scope at initialization time, which is the most common
-    use case, you can treat this function as returning a :class:`CancelScope`.
+    The deadline of the cancel scope is calculated upon entering.
 
     Args:
       seconds (float): The timeout.
@@ -242,10 +52,9 @@ def move_on_after(
         raise ValueError("timeout must be non-negative")
     if math.isnan(seconds):
         raise ValueError("timeout must not be NaN")
-    return _RelativeCancelScope(
+    return trio.CancelScope(
         shield=shield,
         relative_deadline=seconds,
-        timeout_from_enter=timeout_from_enter,
     )
 
 
@@ -338,12 +147,12 @@ def fail_at(
         raise TooSlowError
 
 
+@contextmanager
 def fail_after(
     seconds: float,
     *,
     shield: bool = False,
-    timeout_from_enter: bool = False,
-) -> _RelativeCancelScope:
+) -> Generator[trio.CancelScope, None, None]:
     """Creates a cancel scope with the given timeout, and raises an error if
     it is actually cancelled.
 
@@ -354,10 +163,7 @@ def fail_after(
     it's caught and discarded. When it reaches :func:`fail_after`, then it's
     caught and :exc:`TooSlowError` is raised in its place.
 
-    The deadline of the cancel scope was previously calculated at creation time,
-    not upon entering the context manager. This is still the default, but deprecated.
-    If you pass ``timeout_from_enter=True`` it will instead be calculated relative
-    to entering the cm, and silence the :class:`DeprecationWarning`.
+    The deadline of the cancel scope is calculated upon entering.
 
     Args:
       seconds (float): The timeout.
@@ -370,6 +176,7 @@ def fail_after(
       ValueError: if *seconds* is less than zero or NaN.
 
     """
-    rcs = move_on_after(seconds, shield=shield, timeout_from_enter=timeout_from_enter)
-    rcs._fail = True
-    return rcs
+    with move_on_after(seconds, shield=shield) as scope:
+        yield scope
+    if scope.cancelled_caught:
+        raise TooSlowError

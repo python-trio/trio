@@ -540,11 +540,21 @@ class CancelScope:
     _has_been_entered: bool = attrs.field(default=False, init=False)
     _registered_deadline: float = attrs.field(default=inf, init=False)
     _cancel_called: bool = attrs.field(default=False, init=False)
+    _is_relative: bool | None = attrs.field(default=False, init=False)
     cancelled_caught: bool = attrs.field(default=False, init=False)
 
     # Constructor arguments:
-    _deadline: float = attrs.field(default=inf, kw_only=True, alias="deadline")
-    _shield: bool = attrs.field(default=False, kw_only=True, alias="shield")
+    _relative_deadline: float = attrs.field(default=inf, kw_only=True)
+    _deadline: float = attrs.field(default=inf, kw_only=True)
+    _shield: bool = attrs.field(default=False, kw_only=True)
+
+    def __attrs_post_init__(self) -> None:
+        if self._relative_deadline != inf:
+            if self._deadline != inf:
+                raise ValueError(
+                    "Cannot specify both a deadline and a relative deadline",
+                )
+            self._is_relative = True
 
     @enable_ki_protection
     def __enter__(self) -> Self:
@@ -554,6 +564,12 @@ class CancelScope:
                 "Each CancelScope may only be used for a single 'with' block",
             )
         self._has_been_entered = True
+        assert self._is_relative is not None
+
+        if self._is_relative:
+            self._deadline = current_time() + self._relative_deadline
+            self._is_relative = None
+
         if current_time() >= self._deadline:
             self.cancel()
         with self._might_change_registered_deadline():
@@ -734,12 +750,47 @@ class CancelScope:
         this can be overridden by the ``deadline=`` argument to
         the :class:`~trio.CancelScope` constructor.
         """
+        if self._is_relative is True:
+            raise RuntimeError(
+                "unentered relative cancel scope does not have an absolute deadline",
+            )
         return self._deadline
 
     @deadline.setter
     def deadline(self, new_deadline: float) -> None:
+        if self._is_relative is True:
+            raise RuntimeError(
+                "unentered relative cancel scope does not have an absolute deadline",
+            )
         with self._might_change_registered_deadline():
             self._deadline = float(new_deadline)
+
+    @property
+    def relative_deadline(self) -> float:
+        if self._is_relative is False:
+            raise RuntimeError(
+                "unentered non-relative cancel scope does not have a relative deadline",
+            )
+        elif self._is_relative is None:
+            return self._deadline - current_time()
+        return self._relative_deadline
+
+    @relative_deadline.setter
+    def relative_deadline(self, new_relative_deadline: float) -> None:
+        if self._is_relative is False:
+            raise RuntimeError(
+                "unentered non-relative cancel scope does not have a relative deadline",
+            )
+        elif self._is_relative is True:
+            self._relative_deadline = new_relative_deadline
+        else:  # entered
+            with self._might_change_registered_deadline():
+                self._deadline = current_time() + float(new_relative_deadline)
+
+    @property
+    def is_relative(self) -> bool | None:
+        """Returns None after entering"""
+        return self._is_relative
 
     @property
     def shield(self) -> bool:

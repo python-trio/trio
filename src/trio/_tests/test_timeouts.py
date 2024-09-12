@@ -187,7 +187,7 @@ async def test_timeouts_raise_value_error() -> None:
 
 
 async def test_timeout_deadline_on_entry(mock_clock: _core.MockClock) -> None:
-    rcs = move_on_after(5, timeout_from_enter=True)
+    rcs = move_on_after(5)
     assert rcs.relative_deadline == 5
 
     mock_clock.jump(3)
@@ -195,104 +195,52 @@ async def test_timeout_deadline_on_entry(mock_clock: _core.MockClock) -> None:
     with rcs as cs:
         # This would previously be start+2
         assert cs.deadline == start + 5
+        assert cs.relative_deadline == 5
 
-    rcs = fail_after(5, timeout_from_enter=True)
+        cs.deadline = start + 3
+        assert cs.deadline == start + 3
+        assert cs.relative_deadline == 3
+
+        cs.relative_deadline = 4
+        assert cs.deadline == start + 4
+        assert cs.relative_deadline == 4
+
+    rcs = move_on_after(5)
+    assert rcs.shield is False
     rcs.shield = True
-    assert rcs.shield
+    assert rcs.shield is True
 
     mock_clock.jump(3)
     start = _core.current_time()
     with rcs as cs:
         assert cs.deadline == start + 5
 
-        # check that their shield values are linked
-        assert rcs.shield is cs.shield is True
-
-        cs.shield = False
-        assert rcs.shield is cs.shield is False
-
-        rcs.shield = True
-        assert rcs.shield is cs.shield is True
-
-    # re-entering a _RelativeCancelScope should probably error, but it doesn't *have* to
-    with pytest.raises(
-        RuntimeError,
-        match="^Each _RelativeCancelScope may only be used for a single 'with' block$",
-    ):
-        with rcs as cs:
-            ...
+        assert rcs is cs
 
 
-async def test_timeout_deadline_not_on_entry(mock_clock: _core.MockClock) -> None:
-    """Test that not setting timeout_from_enter gives a DeprecationWarning and
-    retains old behaviour."""
-    for cs_gen_fun in (move_on_after, fail_after):
-        with pytest.warns(DeprecationWarning, match="issues/2512"):
-            rcs = cs_gen_fun(5)
-            mock_clock.jump(3)
-            with rcs as cs:
-                assert rcs.deadline == cs.deadline == _core.current_time() + 2
+async def test_invalid_acces_unentered() -> None:
+    cs = move_on_after(5)
 
-                rcs.deadline += 1
-                assert rcs.deadline == cs.deadline == _core.current_time() + 3
+    match_str = "^unentered relative cancel scope does not have an absolute deadline$"
+    with pytest.raises(RuntimeError, match=match_str):
+        assert cs.deadline
+    with pytest.raises(RuntimeError, match=match_str):
+        cs.deadline = 7
 
-                cs.deadline += 1
-                assert rcs.deadline == cs.deadline == _core.current_time() + 4
+    cs = move_on_at(5)
 
-
-async def test_transitional_functions_fail() -> None:
-    rcs = move_on_after(5, timeout_from_enter=True)
-    # these errors are only shown if timeout_from_enter=True
-
-    match_str = "^_RelativeCancelScope does not have `deadline`. You might want `relative_deadline`.$"
-    with pytest.raises(AttributeError, match=match_str):
-        assert rcs.deadline
-    with pytest.raises(AttributeError, match=match_str):
-        rcs.deadline = 7
-
-    for prop in "cancelled_caught", "cancel_called":
-        match_str = f"_RelativeCancelScope does not have `{prop}`, and cannot have been cancelled before entering."
-        with pytest.raises(AttributeError, match=match_str):
-            assert getattr(rcs, prop)
-
-    with pytest.raises(
-        AttributeError,
-        match=match_str[:36] + "cancel`, and cannot be cancelled before entering.",
-    ):
-        rcs.cancel()
-
-    with rcs:
-        match_str = "^_RelativeCancelScope does not have `{}`. You might want to access the entered `CancelScope`.$"
-        with pytest.raises(AttributeError, match=match_str.format("deadline")):
-            assert rcs.deadline
-        with pytest.raises(AttributeError, match=match_str.format("deadline")):
-            rcs.deadline = 5
-        with pytest.raises(AttributeError, match=match_str.format("cancel")):
-            rcs.cancel()
-        with pytest.raises(AttributeError, match=match_str.format("cancelled_caught")):
-            assert rcs.cancelled_caught
-        with pytest.raises(AttributeError, match=match_str.format("cancel_called")):
-            assert rcs.cancel_called
+    match_str = (
+        "^unentered non-relative cancel scope does not have a relative deadline$"
+    )
+    with pytest.raises(RuntimeError, match=match_str):
+        assert cs.relative_deadline
+    with pytest.raises(RuntimeError, match=match_str):
+        cs.relative_deadline = 7
 
 
-async def test_transitional_functions_backwards_compatibility() -> None:
-    rcs = move_on_after(5)
-    assert rcs.deadline == 5
-    rcs.deadline = 7
-    assert rcs.cancelled_caught is False
-    assert rcs.cancel_called is False
-    with pytest.raises(
-        RuntimeError,
-        match="^It is no longer possible to cancel a relative cancel scope before entering it.$",
-    ):
-        rcs.cancel()
-
-    # this does not emit any deprecationwarnings because no time has passed
-    with rcs as cs:
-        assert rcs.deadline == cs.deadline
-        assert abs(rcs.deadline - trio.current_time() - 7) < 0.1
-        rcs.cancel()
-        await trio.lowlevel.checkpoint()  # let the cs get cancelled
-
-    assert rcs.cancelled_caught is cs.cancelled_caught is True
-    assert rcs.cancel_called is cs.cancel_called is True
+@pytest.mark.xfail(reason="not implemented")
+async def test_fail_access_before_entering() -> None:
+    my_fail_at = fail_at(5)
+    assert my_fail_at.deadline  # type: ignore[attr-defined]
+    my_fail_after = fail_after(5)
+    assert my_fail_after.relative_deadline  # type: ignore[attr-defined]
