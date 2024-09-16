@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import sys
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
@@ -32,7 +33,6 @@ def move_on_after(
     seconds: float,
     *,
     shield: bool = False,
-    timeout_from_enter: bool = False,
 ) -> trio.CancelScope:
     """Use as a context manager to create a cancel scope whose deadline is
     set to now + *seconds*.
@@ -180,3 +180,13 @@ def fail_after(
         yield scope
     if scope.cancelled_caught:
         raise TooSlowError
+
+
+# Users don't need to know that fail_at & fail_after wraps move_on_at and move_on_after
+# and there is no functional difference. So we replace the return value when generating
+# documentation.
+if "sphinx" in sys.modules:
+    import inspect
+
+    for c in (fail_at, fail_after):
+        c.__signature__ = inspect.Signature.from_callable(c).replace(return_annotation=trio.CancelScope)  # type: ignore[union-attr]
