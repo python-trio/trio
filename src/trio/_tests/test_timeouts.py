@@ -251,7 +251,7 @@ async def test_invalid_access_unentered(mock_clock: _core.MockClock) -> None:
 
 
 @pytest.mark.xfail(reason="not implemented")
-async def test_fail_access_before_entering() -> None:
+async def test_fail_access_before_entering() -> None:  # pragma: no cover
     my_fail_at = fail_at(5)
     assert my_fail_at.deadline  # type: ignore[attr-defined]
     my_fail_after = fail_after(5)

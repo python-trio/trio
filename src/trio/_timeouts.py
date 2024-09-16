@@ -178,7 +178,7 @@ def fail_after(
 # Users don't need to know that fail_at & fail_after wraps move_on_at and move_on_after
 # and there is no functional difference. So we replace the return value when generating
 # documentation.
-if "sphinx" in sys.modules:
+if "sphinx" in sys.modules:  # pragma: no cover
     import inspect
 
     for c in (fail_at, fail_after):
