@@ -180,7 +180,7 @@ async def test_timeouts_raise_value_error() -> None:
     ):
         with pytest.raises(
             ValueError,
-            match="^(duration|deadline|timeout) must (not )*be (non-negative|NaN)$",
+            match="^(duration|deadline|timeout|relative deadline) must (not )*be (non-negative|NaN)$",
         ):
             with cm(val):
                 pass  # pragma: no cover
@@ -193,6 +193,8 @@ async def test_timeout_deadline_on_entry(mock_clock: _core.MockClock) -> None:
     mock_clock.jump(3)
     start = _core.current_time()
     with rcs as cs:
+        assert cs.is_relative is None
+
         # This would previously be start+2
         assert cs.deadline == start + 5
         assert cs.relative_deadline == 5
@@ -218,14 +220,24 @@ async def test_timeout_deadline_on_entry(mock_clock: _core.MockClock) -> None:
         assert rcs is cs
 
 
-async def test_invalid_acces_unentered() -> None:
+async def test_invalid_access_unentered(mock_clock: _core.MockClock) -> None:
     cs = move_on_after(5)
+    mock_clock.jump(3)
+    start = _core.current_time()
 
-    match_str = "^unentered relative cancel scope does not have an absolute deadline$"
-    with pytest.raises(RuntimeError, match=match_str):
-        assert cs.deadline
-    with pytest.raises(RuntimeError, match=match_str):
+    match_str = "^unentered relative cancel scope does not have an absolute deadline"
+    with pytest.warns(DeprecationWarning, match=match_str):
+        assert cs.deadline == start + 5
+    mock_clock.jump(1)
+    # this is hella sketchy, but they *have* been warned
+    with pytest.warns(DeprecationWarning, match=match_str):
+        assert cs.deadline == start + 6
+
+    with pytest.warns(DeprecationWarning, match=match_str):
         cs.deadline = 7
+    # now transformed into absolute
+    assert cs.deadline == 7
+    assert not cs.is_relative
 
     cs = move_on_at(5)
 

@@ -755,9 +755,13 @@ class CancelScope:
         """
         if self._relative_deadline != inf:
             assert self._deadline == inf
-            raise RuntimeError(
-                "unentered relative cancel scope does not have an absolute deadline",
+            warnings.warn(
+                DeprecationWarning(
+                    "unentered relative cancel scope does not have an absolute deadline. Use `.relative_deadline`",
+                ),
+                stacklevel=2,
             )
+            return current_time() + self._relative_deadline
         return self._deadline
 
     @deadline.setter
@@ -766,9 +770,13 @@ class CancelScope:
             raise ValueError("deadline must not be NaN")
         if self._relative_deadline != inf:
             assert self._deadline == inf
-            raise RuntimeError(
-                "unentered relative cancel scope does not have an absolute deadline",
+            warnings.warn(
+                DeprecationWarning(
+                    "unentered relative cancel scope does not have an absolute deadline. Transforming into an absolute cancel scope. First set `.relative_deadline = math.inf` if you do want an absolute cancel scope.",
+                ),
+                stacklevel=2,
             )
+            self._relative_deadline = inf
         with self._might_change_registered_deadline():
             self._deadline = float(new_deadline)
 
@@ -786,7 +794,9 @@ class CancelScope:
     @relative_deadline.setter
     def relative_deadline(self, new_relative_deadline: float) -> None:
         if isnan(new_relative_deadline):
-            raise ValueError("deadline must not be NaN")
+            raise ValueError("relative deadline must not be NaN")
+        if new_relative_deadline < 0:
+            raise ValueError("relative deadline must be non-negative")
         if self._has_been_entered:
             with self._might_change_registered_deadline():
                 self._deadline = current_time() + float(new_relative_deadline)
@@ -805,7 +815,7 @@ class CancelScope:
         assert not (self._deadline != inf and self._relative_deadline != inf)
         if self._has_been_entered:
             return None
-        return self._deadline != inf
+        return self._relative_deadline != inf
 
     @property
     def shield(self) -> bool:
