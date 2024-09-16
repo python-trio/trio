@@ -13,7 +13,7 @@ from collections import deque
 from contextlib import AbstractAsyncContextManager, contextmanager, suppress
 from contextvars import copy_context
 from heapq import heapify, heappop, heappush
-from math import inf
+from math import inf, isnan
 from time import perf_counter
 from typing import (
     TYPE_CHECKING,
@@ -540,7 +540,6 @@ class CancelScope:
     _has_been_entered: bool = attrs.field(default=False, init=False)
     _registered_deadline: float = attrs.field(default=inf, init=False)
     _cancel_called: bool = attrs.field(default=False, init=False)
-    _is_relative: bool | None = attrs.field(default=False, init=False)
     cancelled_caught: bool = attrs.field(default=False, init=False)
 
     # Constructor arguments:
@@ -549,12 +548,16 @@ class CancelScope:
     _shield: bool = attrs.field(default=False, kw_only=True)
 
     def __attrs_post_init__(self) -> None:
-        if self._relative_deadline != inf:
-            if self._deadline != inf:
-                raise ValueError(
-                    "Cannot specify both a deadline and a relative deadline",
-                )
-            self._is_relative = True
+        if isnan(self._deadline):
+            raise ValueError("deadline must not be NaN")
+        if isnan(self._relative_deadline):
+            raise ValueError("relative deadline must not be NaN")
+        if self._relative_deadline < 0:
+            raise ValueError("timeout must be non-negative")
+        if self._relative_deadline != inf and self._deadline != inf:
+            raise ValueError(
+                "Cannot specify both a deadline and a relative deadline",
+            )
 
     @enable_ki_protection
     def __enter__(self) -> Self:
@@ -564,11 +567,11 @@ class CancelScope:
                 "Each CancelScope may only be used for a single 'with' block",
             )
         self._has_been_entered = True
-        assert self._is_relative is not None
 
-        if self._is_relative:
+        if self._relative_deadline != inf:
+            assert self._deadline == inf
             self._deadline = current_time() + self._relative_deadline
-            self._is_relative = None
+            self._relative_deadline = inf
 
         if current_time() >= self._deadline:
             self.cancel()
@@ -750,7 +753,8 @@ class CancelScope:
         this can be overridden by the ``deadline=`` argument to
         the :class:`~trio.CancelScope` constructor.
         """
-        if self._is_relative is True:
+        if self._relative_deadline != inf:
+            assert self._deadline == inf
             raise RuntimeError(
                 "unentered relative cancel scope does not have an absolute deadline",
             )
@@ -758,7 +762,10 @@ class CancelScope:
 
     @deadline.setter
     def deadline(self, new_deadline: float) -> None:
-        if self._is_relative is True:
+        if isnan(new_deadline):
+            raise ValueError("deadline must not be NaN")
+        if self._relative_deadline != inf:
+            assert self._deadline == inf
             raise RuntimeError(
                 "unentered relative cancel scope does not have an absolute deadline",
             )
@@ -767,30 +774,38 @@ class CancelScope:
 
     @property
     def relative_deadline(self) -> float:
-        if self._is_relative is False:
+        if self._has_been_entered:
+            return self._deadline - current_time()
+        elif self._deadline != inf:
+            assert self._relative_deadline == inf
             raise RuntimeError(
                 "unentered non-relative cancel scope does not have a relative deadline",
             )
-        elif self._is_relative is None:
-            return self._deadline - current_time()
         return self._relative_deadline
 
     @relative_deadline.setter
     def relative_deadline(self, new_relative_deadline: float) -> None:
-        if self._is_relative is False:
+        if isnan(new_relative_deadline):
+            raise ValueError("deadline must not be NaN")
+        if self._has_been_entered:
+            with self._might_change_registered_deadline():
+                self._deadline = current_time() + float(new_relative_deadline)
+        elif self._deadline != inf:
+            assert self._relative_deadline == inf
             raise RuntimeError(
                 "unentered non-relative cancel scope does not have a relative deadline",
             )
-        elif self._is_relative is True:
+        else:
             self._relative_deadline = new_relative_deadline
-        else:  # entered
-            with self._might_change_registered_deadline():
-                self._deadline = current_time() + float(new_relative_deadline)
 
     @property
     def is_relative(self) -> bool | None:
-        """Returns None after entering"""
-        return self._is_relative
+        """Returns None after entering. Returns False if both deadline and
+        relative_deadline are inf."""
+        assert not (self._deadline != inf and self._relative_deadline != inf)
+        if self._has_been_entered:
+            return None
+        return self._deadline != inf
 
     @property
     def shield(self) -> bool:
