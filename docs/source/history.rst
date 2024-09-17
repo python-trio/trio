@@ -141,7 +141,7 @@ Trio 0.23.2 (2023-12-14)
 Features
 ~~~~~~~~
 
-- `TypeVarTuple <https://docs.python.org/3.12/library/typing.html#typing.TypeVarTuple>`_ is now used to fully type :meth:`nursery.start_soon() <trio.Nursery.start_soon>`, :func:`trio.run()`, :func:`trio.to_thread.run_sync()`, and other similar functions accepting ``(func, *args)``. This means type checkers will be able to verify types are used correctly. :meth:`nursery.start() <trio.Nursery.start>` is not fully typed yet however. (`#2881 <https://github.com/python-trio/trio/issues/2881>`__)
+- `TypeVarTuple <https://docs.python.org/3.12/library/typing.html#typing.TypeVarTuple>`_ is now used to fully type :meth:`nursery.start_soon() <trio.Nursery.start_soon>`, :func:`trio.run`, :func:`trio.to_thread.run_sync`, and other similar functions accepting ``(func, *args)``. This means type checkers will be able to verify types are used correctly. :meth:`nursery.start() <trio.Nursery.start>` is not fully typed yet however. (`#2881 <https://github.com/python-trio/trio/issues/2881>`__)
 
 
 Bugfixes
@@ -1000,7 +1000,7 @@ Bugfixes
 - Fixed a race condition on macOS, where Trio's TCP listener would crash if an
   incoming TCP connection was closed before the listener had a chance to accept
   it. (`#609 <https://github.com/python-trio/trio/issues/609>`__)
-- :func:`trio.open_tcp_stream()` has been refactored to clean up unsuccessful
+- :func:`trio.open_tcp_stream` has been refactored to clean up unsuccessful
   connection attempts more reliably. (`#809
   <https://github.com/python-trio/trio/issues/809>`__)
 
