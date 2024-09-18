@@ -1,0 +1,1 @@
+Update ``trio.lowlevel.open_process``'s documentation to allow bytes.
