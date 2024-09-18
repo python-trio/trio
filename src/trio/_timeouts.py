@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import sys
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
@@ -23,6 +24,7 @@ def move_on_at(deadline: float, *, shield: bool = False) -> trio.CancelScope:
       ValueError: if deadline is NaN.
 
     """
+    # CancelScope validates that deadline isn't math.nan
     return trio.CancelScope(deadline=deadline, shield=shield)
 
 
@@ -42,9 +44,14 @@ def move_on_after(
           of the newly created cancel scope.
 
     Raises:
-      ValueError: if timeout is less than zero or NaN.
+      ValueError: if `seconds` is less than zero or NaN.
 
     """
+    # duplicate validation logic to have the correct parameter name
+    if seconds < 0:
+        raise ValueError("`seconds` must be non-negative")
+    if math.isnan(seconds):
+        raise ValueError("`seconds` must not be NaN")
     return trio.CancelScope(
         shield=shield,
         relative_deadline=seconds,
@@ -92,7 +99,7 @@ async def sleep(seconds: float) -> None:
 
     """
     if seconds < 0:
-        raise ValueError("duration must be non-negative")
+        raise ValueError("`seconds` must be non-negative")
     if seconds == 0:
         await trio.lowlevel.checkpoint()
     else:

@@ -166,7 +166,7 @@ async def test_timeouts_raise_value_error() -> None:
     ):
         with pytest.raises(
             ValueError,
-            match="^(duration|deadline|timeout) must (not )*be (non-negative|NaN)$",
+            match="^(deadline|`seconds`) must (not )*be (non-negative|NaN)$",
         ):
             await fun(val)
 
@@ -180,7 +180,7 @@ async def test_timeouts_raise_value_error() -> None:
     ):
         with pytest.raises(
             ValueError,
-            match="^(duration|deadline|timeout|relative deadline) must (not )*be (non-negative|NaN)$",
+            match="^(deadline|`seconds`) must (not )*be (non-negative|NaN)$",
         ):
             with cm(val):
                 pass  # pragma: no cover
