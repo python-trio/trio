@@ -72,6 +72,7 @@
 from __future__ import annotations
 
 import math
+import warnings
 from collections import OrderedDict
 from typing import TYPE_CHECKING
 
@@ -91,9 +92,11 @@ GLOBAL_PARKING_LOT_BREAKER: dict[Task, list[ParkingLot]] = {}
 
 
 def add_parking_lot_breaker(task: Task, lot: ParkingLot) -> None:
-    """Register a task as a breaker for a lot. This means that if the task exits without
-    having unparked from the lot, then the lot will break and raise an error for all tasks
-    parked in the lot, as well as any future task that attempt to park in it."""
+    """Register a task as a breaker for a lot. If this task exits without being removed
+    as a breaker, the lot will break. This will cause an error to be raised for all
+    tasks currently parked in the lot, as well as any future tasks that attempt to
+    park in it.
+    """
     if task not in GLOBAL_PARKING_LOT_BREAKER:
         GLOBAL_PARKING_LOT_BREAKER[task] = [lot]
     else:
@@ -271,11 +274,21 @@ class ParkingLot:
 
     def break_lot(self, task: Task | None = None) -> None:
         """Break this lot, causing all parked tasks to raise an error, and any
-        future tasks attempting to park (and unpark? repark?) to error. The error
-        contains a reference to the task sent as a parameter.
+        future tasks attempting to park to error. Unpark & repark become no-ops as the
+        parking lot is empty.
+        The error raised contains a reference to the task sent as a parameter.
         """
         if task is None:
             task = _core.current_task()
+        if self.broken_by is not None:
+            if self.broken_by != task:
+                warnings.warn(
+                    RuntimeWarning(
+                        f"{task} attempted to break parking lot {self} already broken by {self.broken_by}",
+                    ),
+                    stacklevel=2,
+                )
+            return
         self.broken_by = task
 
         for parked_task in self._parked:

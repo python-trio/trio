@@ -600,7 +600,7 @@ async def test_lock_acquire_unowned_lock() -> None:
     async with trio.open_nursery() as nursery:
         nursery.start_soon(lock.acquire)
     with pytest.raises(
-        trio.StalledLockError,
+        trio.BrokenResourceError,
         match="^Owner of this lock exited without releasing",
     ):
         await lock.acquire()
@@ -612,7 +612,7 @@ async def test_lock_multiple_acquire() -> None:
     lock = trio.Lock()
     with RaisesGroup(
         Matcher(
-            trio.StalledLockError,
+            trio.BrokenResourceError,
             match="^Owner of this lock exited without releasing",
         ),
     ):

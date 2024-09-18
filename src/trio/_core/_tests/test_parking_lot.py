@@ -229,6 +229,8 @@ async def test_parking_lot_breaker_basic() -> None:
         match="Attempted to remove task as breaker for a lot it is not registered for",
     ):
         trio.lowlevel.remove_parking_lot_breaker(task, lot)
+
+    # check that a task can be registered as breaker for the same lot multiple times
     trio.lowlevel.add_parking_lot_breaker(task, lot)
     trio.lowlevel.add_parking_lot_breaker(task, lot)
     trio.lowlevel.remove_parking_lot_breaker(task, lot)
@@ -240,7 +242,31 @@ async def test_parking_lot_breaker_basic() -> None:
     ):
         trio.lowlevel.remove_parking_lot_breaker(task, lot)
 
+    # defaults to current task
     lot.break_lot()
+    assert lot.broken_by == task
+
+    # breaking the lot again with the same task is a no-op
+    lot.break_lot()
+
+    # but with a different task it gives a warning
+    async def dummy_task(
+        task_status: _core.TaskStatus[_core.Task] = trio.TASK_STATUS_IGNORED,
+    ) -> None:
+        task_status.started(_core.current_task())
+
+    # The nursery is only to create a task we can pass to lot.break_lot
+    # and has no effect on the test otherwise.
+    async with trio.open_nursery() as nursery:
+        child_task = await nursery.start(dummy_task)
+        with pytest.warns(
+            RuntimeWarning,
+            match="attempted to break parking .* already broken by .*",
+        ):
+            lot.break_lot(child_task)
+        nursery.cancel_scope.cancel()
+
+    # and doesn't change broken_by
     assert lot.broken_by == task
 
 
@@ -266,7 +292,7 @@ async def test_parking_lot_breaker() -> None:
 
             cs.cancel()
 
-    # check that trying to park in brokena lot errors
+    # check that trying to park in broken lot errors
     with pytest.raises(_core.BrokenResourceError):
         await lot.park()
 

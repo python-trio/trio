@@ -19,11 +19,6 @@ if TYPE_CHECKING:
     from ._core._parking_lot import ParkingLotStatistics
 
 
-class StalledLockError(Exception):
-    """Raised by :meth:`Lock.acquire` and :meth:`StrictFIFOLock.acquire` if the owner
-    exits, or has previously exited, without releasing the lock."""
-
-
 @attrs.frozen
 class EventStatistics:
     """An object containing debugging information.
@@ -591,7 +586,7 @@ class _LockImpl(AsyncContextManagerMixin):
         """Acquire the lock, blocking if necessary.
 
         Raises:
-          StalledLockError: if the owner of the lock exits without releasing.
+          BrokenResourceError: if the owner of the lock exits without releasing.
         """
         await trio.lowlevel.checkpoint_if_cancelled()
         try:
@@ -603,7 +598,7 @@ class _LockImpl(AsyncContextManagerMixin):
                 # lock as well.
                 await self._lot.park()
             except trio.BrokenResourceError:
-                raise StalledLockError(
+                raise trio.BrokenResourceError(
                     "Owner of this lock exited without releasing: {self._owner}",
                 ) from None
         else:
@@ -788,7 +783,7 @@ class Condition(AsyncContextManagerMixin):
         """Acquire the underlying lock, blocking if necessary.
 
         Raises:
-          StalledLockError: if the owner of the lock exits without releasing.
+          BrokenResourceError: if the owner of the lock exits without releasing.
         """
         await self._lock.acquire()
 
@@ -818,7 +813,7 @@ class Condition(AsyncContextManagerMixin):
 
         Raises:
           RuntimeError: if the calling task does not hold the lock.
-          StalledLockError: if the owner of the lock exits without releasing, when attempting to re-acquire.
+          BrokenResourceError: if the owner of the lock exits without releasing, when attempting to re-acquire.
 
         """
         if trio.lowlevel.current_task() is not self._lock._owner:
