@@ -527,7 +527,11 @@ objects.
 
    .. autoattribute:: deadline
 
+   .. autoattribute:: relative_deadline
+
    .. autoattribute:: shield
+
+   .. automethod:: is_relative()
 
    .. automethod:: cancel()
 

@@ -229,6 +229,7 @@ intersphinx_mapping = {
     "pyopenssl": ("https://www.pyopenssl.org/en/stable/", None),
     "sniffio": ("https://sniffio.readthedocs.io/en/latest/", None),
     "trio-util": ("https://trio-util.readthedocs.io/en/latest/", None),
+    "flake8-async": ("https://flake8-async.readthedocs.io/en/latest/", None),
 }
 
 # See https://sphinx-hoverxref.readthedocs.io/en/latest/configuration.html

@@ -44,7 +44,7 @@ def move_on_after(
           of the newly created cancel scope.
 
     Raises:
-      ValueError: if `seconds` is less than zero or NaN.
+      ValueError: if ``seconds`` is less than zero or NaN.
 
     """
     # duplicate validation logic to have the correct parameter name
