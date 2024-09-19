@@ -1821,6 +1821,11 @@ class Runner:
         return task
 
     def task_exited(self, task: Task, outcome: Outcome[Any]) -> None:
+        if task in GLOBAL_PARKING_LOT_BREAKER:
+            for lot in GLOBAL_PARKING_LOT_BREAKER[task]:
+                lot.break_lot(task)
+            del GLOBAL_PARKING_LOT_BREAKER[task]
+
         if (
             task._cancel_status is not None
             and task._cancel_status.abandoned_by_misnesting
@@ -1859,12 +1864,6 @@ class Runner:
                 outcome = Value(None)
             assert task._parent_nursery is not None, task
             task._parent_nursery._child_finished(task, outcome)
-
-        # before or after the other stuff in this function?
-        if task in GLOBAL_PARKING_LOT_BREAKER:
-            for lot in GLOBAL_PARKING_LOT_BREAKER[task]:
-                lot.break_lot(task)
-            del GLOBAL_PARKING_LOT_BREAKER[task]
 
         if "task_exited" in self.instruments:
             self.instruments.call("task_exited", task)

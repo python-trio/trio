@@ -783,7 +783,7 @@ class Condition(AsyncContextManagerMixin):
         """Acquire the underlying lock, blocking if necessary.
 
         Raises:
-          BrokenResourceError: if the owner of the lock exits without releasing.
+          BrokenResourceError: if the owner of the underlying lock exits without releasing.
         """
         await self._lock.acquire()
 
