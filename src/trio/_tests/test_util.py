@@ -147,6 +147,7 @@ def test_coroutine_or_error() -> None:
 
         assert "appears to be synchronous" in str(excinfo.value)
 
+        # Async function missing await
         async def async_gen(_: object) -> Any:  # pragma: no cover  # noqa: RUF029
             yield
 
