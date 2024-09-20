@@ -5,7 +5,7 @@ import contextvars
 from .. import _core
 
 trio_testing_contextvar: contextvars.ContextVar[str] = contextvars.ContextVar(
-    "trio_testing_contextvar"
+    "trio_testing_contextvar",
 )
 
 

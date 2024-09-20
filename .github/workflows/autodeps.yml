@@ -31,7 +31,7 @@ jobs:
           python -m pip install -U pip pre-commit
           python -m pip install -r test-requirements.txt
           uv pip compile --universal --python-version=3.8 --upgrade test-requirements.in -o test-requirements.txt
-          uv pip compile --universal --python-version=3.8 --upgrade docs-requirements.in -o docs-requirements.txt
+          uv pip compile --universal --python-version=3.11 --upgrade docs-requirements.in -o docs-requirements.txt
           pre-commit autoupdate --jobs 0
 
       - name: Install new requirements
@@ -44,7 +44,7 @@ jobs:
       - name: uv
         run: |
           uv pip compile --universal --python-version=3.8 test-requirements.in -o test-requirements.txt
-          uv pip compile --universal --python-version=3.8 docs-requirements.in -o docs-requirements.txt
+          uv pip compile --universal --python-version=3.11 docs-requirements.in -o docs-requirements.txt
 
       - name: Commit changes and create automerge PR
         env:

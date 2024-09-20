@@ -494,7 +494,9 @@ lock_factory_names = [
 ]
 
 generic_lock_test = pytest.mark.parametrize(
-    "lock_factory", lock_factories, ids=lock_factory_names
+    "lock_factory",
+    lock_factories,
+    ids=lock_factory_names,
 )
 
 LockLike: TypeAlias = Union[

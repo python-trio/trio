@@ -92,7 +92,9 @@ skip_lints = pytest.mark.skipif(
 @skip_lints
 @pytest.mark.parametrize("imports", [IMPORT_1, IMPORT_2, IMPORT_3])
 def test_process(
-    tmp_path: Path, imports: str, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path,
+    imports: str,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     try:
         import black  # noqa: F401

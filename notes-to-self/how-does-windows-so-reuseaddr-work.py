@@ -49,7 +49,7 @@ print(
     """
                                                        second bind
                                | """
-    + " | ".join(f"{mode:<19}" for mode in modes)
+    + " | ".join(f"{mode:<19}" for mode in modes),
 )
 
 print("""                              """, end="")
@@ -61,7 +61,7 @@ for _ in modes:
 
 print(
     """
-first bind                     -----------------------------------------------------------------"""
+first bind                     -----------------------------------------------------------------""",
     #            default | wildcard |    INUSE |  Success |   ACCESS |  Success |    INUSE |  Success
 )
 
@@ -75,5 +75,5 @@ for mode1 in modes:
                 # print(mode1, bind_type1, mode2, bind_type2, entry)
         print(
             f"{mode1:>19} | {bind_type1:>8} | "
-            + " | ".join(f"{entry:>8}" % entry for entry in row)
+            + " | ".join(f"{entry:>8}" for entry in row),
         )

@@ -119,7 +119,7 @@ Found 3 errors in 29 files
         monkeypatch.setattr(sys, "stdin", io.StringIO(inp_text))
 
         mypy_annotate.main(
-            ["--dumpfile", str(result_file), "--platform", "SomePlatform"]
+            ["--dumpfile", str(result_file), "--platform", "SomePlatform"],
         )
 
     std = capsys.readouterr()
