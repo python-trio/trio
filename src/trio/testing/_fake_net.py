@@ -491,13 +491,6 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         __address: tuple[object, ...] | str | Buffer,
     ) -> int: ...
 
-    @overload
-    async def sendto(
-        self,
-        __data: Buffer,  # noqa: PYI063
-        __address: tuple[object, ...] | str | Buffer,
-    ) -> int: ...
-
     # __ prefixed arguments because typeshed uses that and typechecker issues
     @overload
     async def sendto(
