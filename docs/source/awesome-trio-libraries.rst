@@ -108,6 +108,7 @@ Tools and Utilities
 * `aiometer <https://github.com/florimondmanca/aiometer>`__ - Execute lots of tasks concurrently while controlling concurrency limits
 * `triotp <https://linkdd.github.io/triotp>`__ - OTP framework for Python Trio
 * `aioresult <https://github.com/arthur-tacca/aioresult>`__ - Get the return value of a background async function in Trio or anyio, along with a simple Future class and wait utilities
+* `aiologic <https://github.com/x42005e1f/aiologic>`__ - Trio-compatible synchronization primitives with support for different threads and different event loops.
 
 
 Trio/Asyncio Interoperability
