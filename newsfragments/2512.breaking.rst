@@ -1,0 +1,2 @@
+:func:`trio.move_on_after` and :func:`trio.fail_after` previously set the deadline relative to initialization time, instead of more intuitively upon entering the context manager. This might change timeouts if a program relied on this behavior. If you want to restore previous behavior you should instead use ``trio.move_on_at(trio.current_time() + ...)``.
+flake8-async has a new rule to catch this, in case you're supporting older trio versions. See :ref:`ASYNC122`.
