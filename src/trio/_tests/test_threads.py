@@ -822,7 +822,6 @@ async def test_trio_from_thread_run_contextvars() -> None:
         with pytest.raises(sniffio.AsyncLibraryNotFoundError):
             sniffio.current_async_library()
 
-        # Missing await
         async def async_back_in_main() -> tuple[str, str]:
             back_parent_value = trio_test_contextvar.get()
             trio_test_contextvar.set("back_in_main")
@@ -864,7 +863,6 @@ def test_run_fn_as_system_task_catched_badly_typed_token() -> None:
         )
 
 
-# Missing await
 async def test_from_thread_inside_trio_thread() -> None:
     def not_called() -> None:  # pragma: no cover
         raise AssertionError()
@@ -901,7 +899,6 @@ def test_from_thread_run_during_shutdown() -> None:
     assert record == ["finished", "clean"]
 
 
-# Missing await
 async def test_trio_token_weak_referenceable() -> None:
     token = _core.current_trio_token()
     assert isinstance(token, _core.TrioToken)

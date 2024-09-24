@@ -348,7 +348,7 @@ def memory_stream_one_way_pair() -> tuple[MemorySendStream, MemoryReceiveStream]
         memory_stream_pump(send_stream, recv_stream)
 
     # await not used
-    async def async_pump_from_send_stream_to_recv_stream() -> None:  # noqa
+    async def async_pump_from_send_stream_to_recv_stream() -> None:  # noqa: RUF029
         pump_from_send_stream_to_recv_stream()
 
     send_stream.send_all_hook = async_pump_from_send_stream_to_recv_stream

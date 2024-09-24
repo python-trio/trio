@@ -732,7 +732,8 @@ async def test_renegotiation_randomized(
 
     async def sleeper_with_slow_wait_writable_and_expect(method: str) -> None:
         if method == "wait_send_all_might_not_block":
-            await trio.sleep(100000)  # noqa: ASYNC116  # not sleep forever
+            # ignore ASYNC116, not sleep_forever, trying to test a large but finite sleep
+            await trio.sleep(100000)  # noqa: ASYNC116
         elif method == "expect":
             await trio.sleep(1000)
 
