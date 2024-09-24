@@ -105,7 +105,7 @@ pylint==3.2.7
     # via -r test-requirements.in
 pyopenssl==24.2.1
     # via -r test-requirements.in
-pyright==1.1.378
+pyright==1.1.381
     # via -r test-requirements.in
 pytest==8.3.2
     # via -r test-requirements.in

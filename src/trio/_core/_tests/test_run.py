@@ -9,7 +9,7 @@ import time
 import types
 import weakref
 from contextlib import ExitStack, contextmanager, suppress
-from math import inf
+from math import inf, nan
 from typing import TYPE_CHECKING, Any, NoReturn, TypeVar, cast
 
 import outcome
@@ -368,6 +368,27 @@ async def test_cancel_scope_repr(mock_clock: _core.MockClock) -> None:
         scope.cancel()
         assert "cancelled" in repr(scope)
     assert "exited" in repr(scope)
+
+
+async def test_cancel_scope_validation() -> None:
+    with pytest.raises(
+        ValueError,
+        match="^Cannot specify both a deadline and a relative deadline$",
+    ):
+        _core.CancelScope(deadline=7, relative_deadline=3)
+    scope = _core.CancelScope()
+
+    with pytest.raises(ValueError, match="^deadline must not be NaN$"):
+        scope.deadline = nan
+    with pytest.raises(ValueError, match="^relative deadline must not be NaN$"):
+        scope.relative_deadline = nan
+
+    with pytest.raises(ValueError, match="^relative deadline must be non-negative$"):
+        scope.relative_deadline = -3
+    scope.relative_deadline = 5
+    assert scope.relative_deadline == 5
+
+    # several related tests of CancelScope are implicitly handled by test_timeouts.py
 
 
 def test_cancel_points() -> None:

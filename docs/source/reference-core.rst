@@ -527,7 +527,11 @@ objects.
 
    .. autoattribute:: deadline
 
+   .. autoattribute:: relative_deadline
+
    .. autoattribute:: shield
+
+   .. automethod:: is_relative()
 
    .. automethod:: cancel()
 
@@ -561,7 +565,8 @@ situation of just wanting to impose a timeout on some code:
 .. autofunction:: fail_at
    :with: cancel_scope
 
-Cheat sheet:
+Cheat sheet
++++++++++++
 
 * If you want to impose a timeout on a function, but you don't care
   whether it timed out or not:
@@ -596,7 +601,6 @@ It's also possible to check what the current effective deadline is,
 which is sometimes useful:
 
 .. autofunction:: current_effective_deadline
-
 
 .. _tasks:
 

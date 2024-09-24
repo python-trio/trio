@@ -1,0 +1,1 @@
+:meth:`CancelScope.relative_deadline` and :meth:`CancelScope.is_relative` added, as well as a ``relative_deadline`` parameter to ``__init__``. This allows initializing scopes ahead of time, but where the specified relative deadline doesn't count down until the scope is entered.
