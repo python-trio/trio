@@ -1,6 +1,3 @@
-# ruff: noqa: A005
-# Module `_abc` is shadowing a Python builtin module
-
 from __future__ import annotations
 
 import socket

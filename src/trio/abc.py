@@ -1,5 +1,3 @@
-# ruff: noqa: A005
-# Module `abc` is shadowing a Python builtin module
 # This is a public namespace, so we don't want to expose any non-underscored
 # attributes that aren't actually part of our public API. But it's very
 # annoying to carefully always use underscored names for module-level
