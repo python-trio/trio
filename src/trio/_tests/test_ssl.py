@@ -252,8 +252,8 @@ class PyOpenSSLEchoStream(Stream):
         )
 
         if sleeper is None:
-            # async function missing await
-            async def no_op_sleeper(_: object) -> None:  # noqa: RUF029
+
+            async def no_op_sleeper(_: object) -> None:
                 return
 
             self.sleeper = no_op_sleeper
@@ -860,7 +860,7 @@ async def test_SSLStream_generic(
     client_ctx: SSLContext,
     https_compatible: bool,
 ) -> None:
-    async def stream_maker() -> tuple[  # noqa: RUF029  # missing await
+    async def stream_maker() -> tuple[
         SSLStream[MemoryStapledStream],
         SSLStream[MemoryStapledStream],
     ]:
@@ -1012,7 +1012,7 @@ async def test_send_all_fails_in_the_middle(client_ctx: SSLContext) -> None:
         nursery.start_soon(client.do_handshake)
         nursery.start_soon(server.do_handshake)
 
-    async def bad_hook() -> NoReturn:  # noqa: RUF029  # missing await
+    async def bad_hook() -> NoReturn:
         raise KeyError
 
     client.transport_stream.send_stream.send_all_hook = bad_hook
@@ -1190,7 +1190,7 @@ async def test_https_mode_eof_before_handshake(client_ctx: SSLContext) -> None:
 async def test_send_error_during_handshake(client_ctx: SSLContext) -> None:
     client, _server = ssl_memory_stream_pair(client_ctx)
 
-    async def bad_hook() -> NoReturn:  # noqa: RUF029  # missing await
+    async def bad_hook() -> NoReturn:
         raise KeyError
 
     client.transport_stream.send_stream.send_all_hook = bad_hook
@@ -1207,7 +1207,7 @@ async def test_send_error_during_handshake(client_ctx: SSLContext) -> None:
 async def test_receive_error_during_handshake(client_ctx: SSLContext) -> None:
     client, server = ssl_memory_stream_pair(client_ctx)
 
-    async def bad_hook() -> NoReturn:  # noqa: RUF029  # missing await
+    async def bad_hook() -> NoReturn:
         raise KeyError
 
     client.transport_stream.receive_stream.receive_some_hook = bad_hook

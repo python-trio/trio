@@ -168,7 +168,7 @@ def test_instrument_task_spawn_exit() -> None:
         def task_exited(self, task: Task) -> None:
             record.append(("exited", task))
 
-    async def main() -> Task:  # noqa: RUF029  # async function missing await
+    async def main() -> Task:
         return _core.current_task()
 
     main_task = _core.run(main, instruments=[SpawnExitRecorder()])
@@ -191,7 +191,7 @@ def test_instruments_crash(caplog: pytest.LogCaptureFixture) -> None:
             # works right.
             record.append("closed")  # pragma: no cover
 
-    async def main() -> Task:  # noqa: RUF029  # async function missing await
+    async def main() -> Task:
         record.append("main ran")
         return _core.current_task()
 
@@ -254,7 +254,7 @@ def test_instrument_that_raises_on_getattr() -> None:
         def after_run(self) -> NoReturn:
             raise ValueError("oops")
 
-    async def main() -> None:  # noqa: RUF029  # async function missing await
+    async def main() -> None:
         with pytest.raises(ValueError, match="^oops$"):
             _core.add_instrument(EvilInstrument())
 

@@ -131,7 +131,7 @@ async def fill_stream(s: SocketStream) -> None:
 
 
 async def test_SocketStream_generic() -> None:
-    async def stream_maker() -> tuple[  # noqa: RUF029  # async fn missing await
+    async def stream_maker() -> tuple[
         SocketStream,
         SocketStream,
     ]:

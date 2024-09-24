@@ -118,7 +118,7 @@ def test_guest_trivial() -> None:
 
     assert trivial_guest_run(trio_return) == "ok"
 
-    async def trio_fail(  # noqa: RUF029  # async function missing await
+    async def trio_fail(
         in_host: InHost,
     ) -> NoReturn:
         raise KeyError("whoopsiedaisy")
@@ -256,7 +256,7 @@ def test_guest_mode_sniffio_integration() -> None:
 def test_warn_set_wakeup_fd_overwrite() -> None:
     assert signal.set_wakeup_fd(-1) == -1
 
-    async def trio_main(  # noqa: RUF029  # async function missing await
+    async def trio_main(
         in_host: InHost,
     ) -> str:
         return "ok"
@@ -299,8 +299,8 @@ def test_warn_set_wakeup_fd_overwrite() -> None:
         # then it's left alone and there's no warning
         signal.set_wakeup_fd(a.fileno())
         try:
-            # async function missing await
-            async def trio_check_wakeup_fd_unaltered(  # noqa: RUF029
+
+            async def trio_check_wakeup_fd_unaltered(
                 in_host: InHost,
             ) -> str:
                 fd = signal.set_wakeup_fd(-1)
@@ -600,8 +600,7 @@ def test_guest_mode_ki() -> None:
     # Also check chaining in the case where KI is injected after main exits
     final_exc = KeyError("whoa")
 
-    # async function missing await
-    async def trio_main_raising(in_host: InHost) -> NoReturn:  # noqa: RUF029
+    async def trio_main_raising(in_host: InHost) -> NoReturn:
         in_host(partial(signal_raise, signal.SIGINT))
         raise final_exc
 

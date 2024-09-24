@@ -301,8 +301,7 @@ async def test_socket_actual_streaming(
     assert results["send_b"] == results["recv_a"]
 
 
-# async function missing await
-async def test_notify_closing_on_invalid_object() -> None:  # noqa: RUF029
+async def test_notify_closing_on_invalid_object() -> None:
     # It should either be a no-op (generally on Unix, where we don't know
     # which fds are valid), or an OSError (on Windows, where we currently only
     # support sockets, so we have to do some validation to figure out whether

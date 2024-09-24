@@ -116,8 +116,7 @@ async def test_do_in_trio_thread() -> None:
     await check_case(from_thread_run, f4, ("error", KeyError), trio_token=token)
 
 
-# No await used
-async def test_do_in_trio_thread_from_trio_thread() -> None:  # noqa: RUF029
+async def test_do_in_trio_thread_from_trio_thread() -> None:
     with pytest.raises(RuntimeError):
         from_thread_run_sync(lambda: None)  # pragma: no branch
 
@@ -147,7 +146,7 @@ def test_run_in_trio_thread_ki() -> None:
 
                 print("finally", sys.exc_info())
 
-        async def trio_thread_afn() -> None:  # noqa: RUF029  # no await used
+        async def trio_thread_afn() -> None:
             trio_thread_fn()
 
         def external_thread_fn() -> None:
@@ -719,7 +718,7 @@ async def test_trio_from_thread_run() -> None:
     # trio.from_thread.run()
     record = []
 
-    async def back_in_trio_fn() -> None:  # noqa: RUF029  # no await
+    async def back_in_trio_fn() -> None:
         _core.current_time()  # implicitly checks that we're in trio
         record.append("back in trio")
 
@@ -762,7 +761,7 @@ async def test_trio_from_thread_token_kwarg() -> None:
     assert callee_token == caller_token
 
 
-async def test_from_thread_no_token() -> None:  # noqa: RUF029  # no await
+async def test_from_thread_no_token() -> None:
     # Test that a "raw call" to trio.from_thread.run() fails because no token
     # has been provided
 
@@ -824,7 +823,7 @@ async def test_trio_from_thread_run_contextvars() -> None:
             sniffio.current_async_library()
 
         # Missing await
-        async def async_back_in_main() -> tuple[str, str]:  # noqa: RUF029
+        async def async_back_in_main() -> tuple[str, str]:
             back_parent_value = trio_test_contextvar.get()
             trio_test_contextvar.set("back_in_main")
             back_current_value = trio_test_contextvar.get()
@@ -866,7 +865,7 @@ def test_run_fn_as_system_task_catched_badly_typed_token() -> None:
 
 
 # Missing await
-async def test_from_thread_inside_trio_thread() -> None:  # noqa: RUF029
+async def test_from_thread_inside_trio_thread() -> None:
     def not_called() -> None:  # pragma: no cover
         raise AssertionError()
 
@@ -903,7 +902,7 @@ def test_from_thread_run_during_shutdown() -> None:
 
 
 # Missing await
-async def test_trio_token_weak_referenceable() -> None:  # noqa: RUF029
+async def test_trio_token_weak_referenceable() -> None:
     token = _core.current_trio_token()
     assert isinstance(token, _core.TrioToken)
     weak_reference = weakref.ref(token)
@@ -924,7 +923,7 @@ async def test_unsafe_abandon_on_cancel_kwarg() -> None:
 async def test_from_thread_reuses_task() -> None:
     task = _core.current_task()
 
-    async def async_current_task() -> _core.Task:  # noqa: RUF029  # Missing await
+    async def async_current_task() -> _core.Task:
         return _core.current_task()
 
     assert task is await to_thread_run_sync(from_thread_run_sync, _core.current_task)
@@ -967,8 +966,7 @@ async def test_from_thread_host_cancelled() -> None:
     assert cancel_scope.cancelled_caught
     assert not await to_thread_run_sync(partial(queue.get, timeout=1))
 
-    # Missing await
-    async def no_checkpoint() -> bool:  # noqa: RUF029
+    async def no_checkpoint() -> bool:
         return True
 
     def async_check() -> None:

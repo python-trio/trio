@@ -24,8 +24,7 @@ else:
         from .._unix_pipes import FdStream
 
 
-# async function without await
-async def make_pipe() -> tuple[FdStream, FdStream]:  # noqa: RUF029
+async def make_pipe() -> tuple[FdStream, FdStream]:
     """Makes a new pair of pipes."""
     (r, w) = os.pipe()
     return FdStream(w), FdStream(r)

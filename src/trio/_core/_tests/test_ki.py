@@ -67,7 +67,7 @@ async def test_ki_enabled() -> None:
         await aunprotected()
 
     @_core.disable_ki_protection
-    async def aunprotected() -> None:  # noqa: RUF029  # async fn missing await
+    async def aunprotected() -> None:
         assert not _core.currently_ki_protected()
 
     await aprotected()
@@ -128,8 +128,7 @@ async def test_ki_enabled_after_yield_briefly() -> None:
 
 # This also used to be broken due to
 #   https://bugs.python.org/issue29590
-# async function missing await
-async def test_generator_based_context_manager_throw() -> None:  # noqa: RUF029
+async def test_generator_based_context_manager_throw() -> None:
     @contextlib.contextmanager
     @_core.enable_ki_protection
     def protected_manager() -> Iterator[None]:
@@ -196,18 +195,16 @@ async def test_async_generator_agen_protection() -> None:
 
 async def test_native_agen_protection() -> None:
     # Native async generators
-    # async function missing await
     @_core.enable_ki_protection
-    async def agen_protected() -> AsyncIterator[None]:  # noqa: RUF029
+    async def agen_protected() -> AsyncIterator[None]:
         assert _core.currently_ki_protected()
         try:
             yield
         finally:
             assert _core.currently_ki_protected()
 
-    # async function missing await
     @_core.disable_ki_protection
-    async def agen_unprotected() -> AsyncIterator[None]:  # noqa: RUF029
+    async def agen_unprotected() -> AsyncIterator[None]:
         assert not _core.currently_ki_protected()
         try:
             yield
@@ -324,9 +321,7 @@ def test_ki_protection_works() -> None:
     # error, then kill)
     print("check 3")
 
-    async def check_kill_during_shutdown() -> (  # noqa: RUF029  # async fn missing await
-        None
-    ):
+    async def check_kill_during_shutdown() -> None:
         token = _core.current_trio_token()
 
         def kill_during_shutdown() -> None:
@@ -431,7 +426,7 @@ def test_ki_protection_works() -> None:
     print("check 9")
 
     @_core.enable_ki_protection
-    async def main_6() -> None:  # noqa: RUF029  # async function missing await
+    async def main_6() -> None:
         ki_self()
 
     with pytest.raises(KeyboardInterrupt):
@@ -490,7 +485,7 @@ def test_ki_is_good_neighbor() -> None:
         def my_handler(signum: object, frame: object) -> None:  # pragma: no cover
             pass
 
-        async def main() -> None:  # noqa: RUF029  # async function missing await
+        async def main() -> None:
             signal.signal(signal.SIGINT, my_handler)
 
         _core.run(main)
@@ -514,7 +509,7 @@ def test_ki_with_broken_threads() -> None:
         del threading._active[thread.ident]  # type: ignore[attr-defined]
 
         @_core.enable_ki_protection
-        async def inner() -> None:  # noqa: RUF029  # async function missing await
+        async def inner() -> None:
             assert signal.getsignal(signal.SIGINT) != signal.default_int_handler
 
         _core.run(inner)

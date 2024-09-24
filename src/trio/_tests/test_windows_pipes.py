@@ -22,8 +22,7 @@ if sys.platform == "win32":
     from .._windows_pipes import PipeReceiveStream, PipeSendStream
 
 
-# async function missing await
-async def make_pipe() -> tuple[PipeSendStream, PipeReceiveStream]:  # noqa: RUF029
+async def make_pipe() -> tuple[PipeSendStream, PipeReceiveStream]:
     """Makes a new pair of pipes."""
     (r, w) = pipe()
     return PipeSendStream(w), PipeReceiveStream(r)

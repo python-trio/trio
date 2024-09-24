@@ -112,7 +112,7 @@ async def test_serve_listeners_accept_unrecognized_error() -> None:
     for error in [KeyError(), OSError(errno.ECONNABORTED, "ECONNABORTED")]:
         listener = MemoryListener()
 
-        async def raise_error() -> NoReturn:  # noqa: RUF029  # missing await
+        async def raise_error() -> NoReturn:
             raise error  # noqa: B023  # Set from loop
 
         def check_error(e: BaseException) -> bool:
@@ -130,7 +130,7 @@ async def test_serve_listeners_accept_capacity_error(
 ) -> None:
     listener = MemoryListener()
 
-    async def raise_EMFILE() -> NoReturn:  # noqa: RUF029  # async without await
+    async def raise_EMFILE() -> NoReturn:
         raise OSError(errno.EMFILE, "out of file descriptors")
 
     listener.accept_hook = raise_EMFILE

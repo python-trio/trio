@@ -295,7 +295,7 @@ async def test_client_multiplex() -> None:
                     await nursery.start(client_endpoint.serve, server_ctx, null_handler)
 
 
-async def test_dtls_over_dgram_only() -> None:  # noqa: RUF029  # no await in async fn
+async def test_dtls_over_dgram_only() -> None:
     with trio.socket.socket() as s:
         with pytest.raises(ValueError, match="^DTLS requires a SOCK_DGRAM socket$"):
             DTLSEndpoint(s)
@@ -793,7 +793,7 @@ async def test_gc_as_packet_received() -> None:
 
 @pytest.mark.filterwarnings("always:unclosed DTLS:ResourceWarning")
 def test_gc_after_trio_exits() -> None:
-    async def main() -> DTLSEndpoint:  # noqa: RUF029  # async fn missing await
+    async def main() -> DTLSEndpoint:
         # We use fakenet just to make sure no real sockets can leak out of the test
         # case - on pypy somehow the socket was outliving the gc_collect_harder call
         # below. Since the test is just making sure DTLSEndpoint.__del__ doesn't explode

@@ -55,7 +55,7 @@ async def test_StapledStream() -> None:
     assert send_stream.record == ["aclose"]
     send_stream.record.clear()
 
-    async def fake_send_eof() -> None:  # noqa: RUF029  # async fn missing await
+    async def fake_send_eof() -> None:
         send_stream.record.append("send_eof")
 
     send_stream.send_eof = fake_send_eof  # type: ignore[attr-defined]

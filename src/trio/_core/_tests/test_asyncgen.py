@@ -189,8 +189,7 @@ def test_last_minute_gc_edge_case() -> None:
     record = []
     needs_retry = True
 
-    # async function missing await
-    async def agen() -> AsyncGenerator[int, None]:  # noqa: RUF029
+    async def agen() -> AsyncGenerator[int, None]:
         try:
             yield 1
         finally:
@@ -271,12 +270,10 @@ async def step_outside_async_context(aiter_: AsyncGenerator[int, None]) -> None:
 async def test_fallback_when_no_hook_claims_it(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    # async function missing await
-    async def well_behaved() -> AsyncGenerator[int, None]:  # noqa: RUF029
+    async def well_behaved() -> AsyncGenerator[int, None]:
         yield 42
 
-    # async function missing await
-    async def yields_after_yield() -> AsyncGenerator[int, None]:  # noqa: RUF029
+    async def yields_after_yield() -> AsyncGenerator[int, None]:
         with pytest.raises(GeneratorExit):
             yield 42
         yield 100
