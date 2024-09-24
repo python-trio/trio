@@ -92,7 +92,8 @@ async def test_mock_clock_autojump(mock_clock: MockClock) -> None:
     mock_clock.autojump_threshold = 0
     # if the above line didn't take affect immediately, then this would be
     # bad:
-    await sleep(100000)  # noqa: ASYNC116  # not sleep_forever
+    # ignore ASYNC116, not sleep_forever, trying to test a large but finite sleep
+    await sleep(100000)  # noqa: ASYNC116
 
 
 async def test_mock_clock_autojump_interference(mock_clock: MockClock) -> None:

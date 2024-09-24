@@ -707,7 +707,8 @@ async def test_renegotiation_randomized(
     # Our receive_some() call will get stuck when it hits send_all
     async def sleeper_with_slow_send_all(method: str) -> None:
         if method == "send_all":
-            await trio.sleep(100000)  # noqa: ASYNC116  # not sleep forever
+            # ignore ASYNC116, not sleep_forever, trying to test a large but finite sleep
+            await trio.sleep(100000)  # noqa: ASYNC116
 
     # And our wait_send_all_might_not_block call will give it time to get
     # stuck, and then start
