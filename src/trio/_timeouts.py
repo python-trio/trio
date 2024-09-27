@@ -58,7 +58,7 @@ def move_on_after(
     )
 
 
-async def sleep_forever() -> NoReturn:
+async def sleep_forever() -> NoReturn:  # type: ignore[misc]
     """Pause execution of the current task forever (or until cancelled).
 
     Equivalent to calling ``await sleep(math.inf)``.
