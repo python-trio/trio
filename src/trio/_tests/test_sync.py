@@ -593,7 +593,7 @@ async def test_generic_lock_acquire_nowait_blocks_acquire(
 
 async def test_lock_acquire_unowned_lock() -> None:
     """Test that trying to acquire a lock whose owner has exited raises an error.
-    Partial fix for https://github.com/python-trio/trio/issues/3035
+    see https://github.com/python-trio/trio/issues/3035
     """
     assert not GLOBAL_PARKING_LOT_BREAKER
     lock = trio.Lock()
@@ -608,6 +608,8 @@ async def test_lock_acquire_unowned_lock() -> None:
 
 
 async def test_lock_multiple_acquire() -> None:
+    """Test for error if awaiting on a lock whose owner exits without releasing.
+    see https://github.com/python-trio/trio/issues/3035"""
     assert not GLOBAL_PARKING_LOT_BREAKER
     lock = trio.Lock()
     with RaisesGroup(

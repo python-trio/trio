@@ -8,8 +8,14 @@ import attrs
 import trio
 
 from . import _core
-from ._core import Abort, ParkingLot, RaiseCancelT, enable_ki_protection
-from ._core._parking_lot import add_parking_lot_breaker, remove_parking_lot_breaker
+from ._core import (
+    Abort,
+    ParkingLot,
+    RaiseCancelT,
+    add_parking_lot_breaker,
+    enable_ki_protection,
+    remove_parking_lot_breaker,
+)
 from ._util import final
 
 if TYPE_CHECKING:
@@ -599,7 +605,7 @@ class _LockImpl(AsyncContextManagerMixin):
                 await self._lot.park()
             except trio.BrokenResourceError:
                 raise trio.BrokenResourceError(
-                    "Owner of this lock exited without releasing: {self._owner}",
+                    f"Owner of this lock exited without releasing: {self._owner}",
                 ) from None
         else:
             await trio.lowlevel.cancel_shielded_checkpoint()

@@ -310,7 +310,9 @@ async def test_parking_lot_weird() -> None:
         await lot.park()
 
     lot = ParkingLot()
-    with RaisesGroup(Matcher(_core.BrokenResourceError, match="Parking lot broken by")):
+    with RaisesGroup(
+        Matcher(_core.BrokenResourceError, match="^Parking lot broken by"),
+    ):
         async with _core.open_nursery() as nursery:
             task = await nursery.start(return_me_and_park, lot)
             lot.break_lot(task)

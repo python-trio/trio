@@ -92,11 +92,7 @@ GLOBAL_PARKING_LOT_BREAKER: dict[Task, list[ParkingLot]] = {}
 
 
 def add_parking_lot_breaker(task: Task, lot: ParkingLot) -> None:
-    """Register a task as a breaker for a lot. If this task exits without being removed
-    as a breaker, the lot will break. This will cause an error to be raised for all
-    tasks currently parked in the lot, as well as any future tasks that attempt to
-    park in it.
-    """
+    """Register a task as a breaker for a lot. See :meth:`ParkingLot.break_lot`"""
     if task not in GLOBAL_PARKING_LOT_BREAKER:
         GLOBAL_PARKING_LOT_BREAKER[task] = [lot]
     else:
@@ -104,7 +100,7 @@ def add_parking_lot_breaker(task: Task, lot: ParkingLot) -> None:
 
 
 def remove_parking_lot_breaker(task: Task, lot: ParkingLot) -> None:
-    """Deregister a task as a breaker for a lot. See :func:`add_parking_lot_breaker`."""
+    """Deregister a task as a breaker for a lot. See :meth:`ParkingLot.break_lot`"""
     try:
         GLOBAL_PARKING_LOT_BREAKER[task].remove(lot)
     except (KeyError, ValueError):
@@ -273,10 +269,14 @@ class ParkingLot:
         return self.repark(new_lot, count=len(self))
 
     def break_lot(self, task: Task | None = None) -> None:
-        """Break this lot, causing all parked tasks to raise an error, and any
+        """Break this lot, with ``task`` noted as the task that broke it.
+
+        This causes all parked tasks to raise an error, and any
         future tasks attempting to park to error. Unpark & repark become no-ops as the
         parking lot is empty.
-        The error raised contains a reference to the task sent as a parameter.
+
+        The error raised contains a reference to the task sent as a parameter. It is also
+        saved in the ``broken_by`` attribute.
         """
         if task is None:
             task = _core.current_task()
