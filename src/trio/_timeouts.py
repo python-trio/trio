@@ -58,13 +58,14 @@ def move_on_after(
     )
 
 
-async def sleep_forever() -> NoReturn:  # type: ignore[misc]
+async def sleep_forever() -> NoReturn:
     """Pause execution of the current task forever (or until cancelled).
 
     Equivalent to calling ``await sleep(math.inf)``.
 
     """
     await trio.lowlevel.wait_task_rescheduled(lambda _: trio.lowlevel.Abort.SUCCEEDED)
+    raise trio.TrioInternalError("Should never have been rescheduled!")
 
 
 async def sleep_until(deadline: float) -> None:
