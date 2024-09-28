@@ -65,7 +65,7 @@ async def sleep_forever() -> NoReturn:
 
     """
     await trio.lowlevel.wait_task_rescheduled(lambda _: trio.lowlevel.Abort.SUCCEEDED)
-    raise trio.TrioInternalError("Should never have been rescheduled!")
+    raise RuntimeError("Should never have been rescheduled!")
 
 
 async def sleep_until(deadline: float) -> None:
