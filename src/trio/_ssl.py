@@ -4,7 +4,7 @@ import contextlib
 import operator as _operator
 import ssl as _stdlib_ssl
 from enum import Enum as _Enum
-from typing import TYPE_CHECKING, ClassVar, Final as TFinal, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Final as TFinal, Generic, TypeVar
 
 import trio
 
@@ -413,7 +413,7 @@ class SSLStream(Stream, Generic[T_Stream]):
         "version",
     }
 
-    def __getattr__(self, name: str) -> object:
+    def __getattr__(self, name: str) -> Any:  # noqa: ANN401  # Any used
         if name in self._forwarded:
             if name in self._after_handshake and not self._handshook.done:
                 raise NeedHandshakeError(f"call do_handshake() before calling {name!r}")
