@@ -313,7 +313,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         buffers: Iterable[Buffer],
         ancdata: Iterable[tuple[int, int, Buffer]] = (),
         flags: int = 0,
-        address: Any | None = None,
+        address: object | None = None,
     ) -> int:
         self._check_closed()
 

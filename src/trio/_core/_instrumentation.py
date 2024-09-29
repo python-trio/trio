@@ -86,7 +86,11 @@ class Instruments(Dict[str, Dict[Instrument, None]]):
                 if not instruments:
                     del self[hookname]
 
-    def call(self, hookname: str, *args: Any) -> None:
+    def call(
+        self,
+        hookname: str,
+        *args: Any,  # noqa: ANN401  # Using Any
+    ) -> None:
         """Call hookname(*args) on each applicable instrument.
 
         You must first check whether there are any instruments installed for

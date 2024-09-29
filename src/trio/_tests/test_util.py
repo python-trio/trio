@@ -1,7 +1,12 @@
+from __future__ import annotations
+
 import signal
 import sys
 import types
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, TypeVar
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator, Coroutine, Generator
 
 import pytest
 
@@ -117,8 +122,10 @@ def test_coroutine_or_error() -> None:
 
         if sys.version_info < (3, 11):
             # not bothering to type this one
-            @asyncio.coroutine  # type: ignore[misc]
-            def generator_based_coro() -> Any:  # pragma: no cover
+            @asyncio.coroutine
+            def generator_based_coro() -> (
+                Generator[Coroutine[None, None, None], None, None]
+            ):  # pragma: no cover
                 yield from asyncio.sleep(1)
 
             with pytest.raises(TypeError) as excinfo:
@@ -147,12 +154,13 @@ def test_coroutine_or_error() -> None:
 
         assert "appears to be synchronous" in str(excinfo.value)
 
-        async def async_gen(_: object) -> Any:  # pragma: no cover
+        async def async_gen(
+            _: object,
+        ) -> AsyncGenerator[None, None]:  # pragma: no cover
             yield
 
-        # does not give arg-type typing error
         with pytest.raises(TypeError) as excinfo:
-            coroutine_or_error(async_gen, [0])  # type: ignore[unused-coroutine]
+            coroutine_or_error(async_gen, [0])  # type: ignore[arg-type,unused-coroutine]
         msg = "expected an async function but got an async generator"
         assert msg in str(excinfo.value)
 

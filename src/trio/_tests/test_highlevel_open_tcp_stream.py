@@ -3,7 +3,7 @@ from __future__ import annotations
 import socket
 import sys
 from socket import AddressFamily, SocketKind
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import TYPE_CHECKING
 
 import attrs
 import pytest
@@ -19,6 +19,8 @@ from trio.socket import AF_INET, AF_INET6, IPPROTO_TCP, SOCK_STREAM, SocketType
 from trio.testing import Matcher, RaisesGroup
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from trio.testing import MockClock
 
 if sys.version_info < (3, 11):
@@ -358,7 +360,7 @@ async def run_scenario(
     # If this is True, we require there to be an exception, and return
     #   (exception, scenario object)
     expect_error: tuple[type[BaseException], ...] | type[BaseException] = (),
-    **kwargs: Any,
+    **kwargs: str | float | None,
 ) -> tuple[SocketType, Scenario] | tuple[BaseException, Scenario]:
     supported_families = set()
     if ipv4_supported:
@@ -370,7 +372,11 @@ async def run_scenario(
     trio.socket.set_custom_socket_factory(scenario)
 
     try:
-        stream = await open_tcp_stream("test.example.com", port, **kwargs)
+        stream = await open_tcp_stream(
+            "test.example.com",
+            port,
+            **kwargs,  # type: ignore[arg-type]
+        )
         assert expect_error == ()
         scenario.check(stream.socket)
         return (stream.socket, scenario)

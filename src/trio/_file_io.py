@@ -32,6 +32,8 @@ if TYPE_CHECKING:
     )
     from typing_extensions import Literal
 
+    from ._sync import CapacityLimiter
+
 # This list is also in the docs, make sure to keep them in sync
 _FILE_SYNC_ATTRS: set[str] = {
     "closed",
@@ -242,7 +244,10 @@ class AsyncIOWrapper(AsyncResource, Generic[FileT_co]):
                 meth = getattr(self._wrapped, name)
 
                 @async_wraps(self.__class__, self._wrapped.__class__, name)
-                async def wrapper(*args, **kwargs):
+                async def wrapper(
+                    *args: Callable[..., T],
+                    **kwargs: object | str | bool | CapacityLimiter | None,
+                ) -> T:
                     func = partial(meth, *args, **kwargs)
                     return await trio.to_thread.run_sync(func)
 

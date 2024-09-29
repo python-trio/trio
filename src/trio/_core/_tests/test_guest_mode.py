@@ -52,7 +52,7 @@ def trivial_guest_run(
     trio_fn: Callable[..., Awaitable[T]],
     *,
     in_host_after_start: Callable[[], None] | None = None,
-    **start_guest_run_kwargs: Any,
+    **start_guest_run_kwargs: Any,  # noqa: ANN401  # Using Any, too diverse
 ) -> T:
     todo: queue.Queue[tuple[str, Outcome[T] | Callable[..., object]]] = queue.Queue()
 
@@ -436,7 +436,7 @@ def aiotrio_run(
     trio_fn: Callable[..., Awaitable[T]],
     *,
     pass_not_threadsafe: bool = True,
-    **start_guest_run_kwargs: Any,
+    **start_guest_run_kwargs: Any,  # noqa: ANN401  # Using Any, too diverse
 ) -> T:
     loop = asyncio.new_event_loop()
 
@@ -557,11 +557,14 @@ def test_guest_mode_internal_errors(
             t = threading.current_thread()
             old_get_events = trio._core._run.TheIOManager.get_events
 
-            def bad_get_events(*args: Any) -> object:
+            def bad_get_events(
+                self: trio._core._run.TheIOManager,
+                timeout: float,
+            ) -> trio._core._run.EventResult:
                 if threading.current_thread() is not t:
                     raise ValueError("oh no!")
                 else:
-                    return old_get_events(*args)
+                    return old_get_events(self, timeout)
 
             m.setattr("trio._core._run.TheIOManager.get_events", bad_get_events)
 

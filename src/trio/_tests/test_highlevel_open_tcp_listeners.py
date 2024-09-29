@@ -4,7 +4,7 @@ import errno
 import socket as stdlib_socket
 import sys
 from socket import AddressFamily, SocketKind
-from typing import TYPE_CHECKING, Any, Sequence, overload
+from typing import TYPE_CHECKING, Sequence, overload
 
 import attrs
 import pytest
@@ -27,6 +27,8 @@ if sys.version_info < (3, 11):
 
 if TYPE_CHECKING:
     from typing_extensions import Buffer
+
+    from .._socket import AddressFormat
 
 
 async def test_open_tcp_listeners_basic() -> None:
@@ -193,7 +195,7 @@ class FakeSocket(tsocket.SocketType):
     ) -> None:
         pass
 
-    async def bind(self, address: Any) -> None:
+    async def bind(self, address: AddressFormat) -> None:
         pass
 
     def listen(self, /, backlog: int = min(stdlib_socket.SOMAXCONN, 128)) -> None:

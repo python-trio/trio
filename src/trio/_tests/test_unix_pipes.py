@@ -30,7 +30,7 @@ async def make_pipe() -> tuple[FdStream, FdStream]:
     return FdStream(w), FdStream(r)
 
 
-async def make_clogged_pipe():
+async def make_clogged_pipe() -> tuple[FdStream, FdStream]:
     s, r = await make_pipe()
     try:
         while True:
@@ -197,7 +197,7 @@ async def test_close_at_bad_time_for_receive_some(
 
     orig_wait_readable = _core._run.TheIOManager.wait_readable
 
-    async def patched_wait_readable(*args, **kwargs) -> None:
+    async def patched_wait_readable(*args: object, **kwargs: object) -> None:
         await orig_wait_readable(*args, **kwargs)
         await r.aclose()
 
@@ -225,7 +225,7 @@ async def test_close_at_bad_time_for_send_all(monkeypatch: pytest.MonkeyPatch) -
 
     orig_wait_writable = _core._run.TheIOManager.wait_writable
 
-    async def patched_wait_writable(*args, **kwargs) -> None:
+    async def patched_wait_writable(*args: object, **kwargs: object) -> None:
         await orig_wait_writable(*args, **kwargs)
         await s.aclose()
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import partial
-from typing import TYPE_CHECKING, Any, NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 import attrs
 import pytest
@@ -66,7 +66,10 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
     ]:
         return [(AF_INET, SOCK_STREAM, IPPROTO_TCP, "", self.sockaddr)]
 
-    async def getnameinfo(self, *args: Any) -> NoReturn:  # pragma: no cover
+    async def getnameinfo(
+        self,
+        *args: tuple[str, int] | tuple[str, int, int, int] | int,
+    ) -> NoReturn:  # pragma: no cover
         raise NotImplementedError
 
 

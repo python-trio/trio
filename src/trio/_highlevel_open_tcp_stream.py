@@ -11,6 +11,8 @@ if TYPE_CHECKING:
     from collections.abc import Generator
     from socket import AddressFamily, SocketKind
 
+    from trio._socket import AddressFormat
+
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup, ExceptionGroup
 
@@ -302,7 +304,7 @@ async def open_tcp_stream(
     # face of crash or cancellation
     async def attempt_connect(
         socket_args: tuple[AddressFamily, SocketKind, int],
-        sockaddr: Any,
+        sockaddr: AddressFormat,
         attempt_failed: trio.Event,
     ) -> None:
         nonlocal winning_socket

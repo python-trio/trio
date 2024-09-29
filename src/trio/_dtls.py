@@ -43,6 +43,7 @@ if TYPE_CHECKING:
     from OpenSSL import SSL  # noqa: TCH004
     from typing_extensions import Self, TypeAlias, TypeVarTuple, Unpack
 
+    from trio._socket import AddressFormat
     from trio.socket import SocketType
 
     PosArgsT = TypeVarTuple("PosArgsT")
@@ -572,7 +573,7 @@ def _make_cookie(
     key: bytes,
     salt: bytes,
     tick: int,
-    address: Any,
+    address: AddressFormat,
     client_hello_bits: bytes,
 ) -> bytes:
     assert len(salt) == SALT_BYTES
@@ -593,7 +594,7 @@ def _make_cookie(
 def valid_cookie(
     key: bytes,
     cookie: bytes,
-    address: Any,
+    address: AddressFormat,
     client_hello_bits: bytes,
 ) -> bool:
     if len(cookie) > SALT_BYTES:
@@ -622,7 +623,7 @@ def valid_cookie(
 
 def challenge_for(
     key: bytes,
-    address: Any,
+    address: AddressFormat,
     epoch_seqno: int,
     client_hello_bits: bytes,
 ) -> bytes:
@@ -686,7 +687,7 @@ def _read_loop(read_fn: Callable[[int], bytes]) -> bytes:
 
 async def handle_client_hello_untrusted(
     endpoint: DTLSEndpoint,
-    address: Any,
+    address: AddressFormat,
     packet: bytes,
 ) -> None:
     # it's trivial to write a simple function that directly calls this to
@@ -864,7 +865,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
     def __init__(
         self,
         endpoint: DTLSEndpoint,
-        peer_address: Any,
+        peer_address: AddressFormat,
         ctx: SSL.Context,
     ) -> None:
         self.endpoint = endpoint

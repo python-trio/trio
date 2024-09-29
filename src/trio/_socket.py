@@ -476,7 +476,7 @@ async def _resolve_address_nocp(
     ipv6_v6only: bool | int,
     address: AddressFormat,
     local: bool,
-) -> Any:
+) -> AddressFormat:
     # Do some pre-checking (or exit early for non-IP sockets)
     if family == _stdlib_socket.AF_INET:
         if not isinstance(address, tuple) or not len(address) == 2:
