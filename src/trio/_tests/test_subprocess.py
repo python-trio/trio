@@ -105,8 +105,8 @@ async def open_process_then_kill(
 
 @asynccontextmanager
 async def run_process_in_nursery(
-    *args: object,
-    **kwargs: object,
+    *args: Any,  # noqa: ANN401  # Any used
+    **kwargs: Any,  # noqa: ANN401
 ) -> AsyncIterator[Process]:
     async with _core.open_nursery() as nursery:
         kwargs.setdefault("check", False)
