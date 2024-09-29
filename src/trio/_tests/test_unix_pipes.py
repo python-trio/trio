@@ -12,6 +12,9 @@ from .. import _core
 from .._core._tests.tutil import gc_collect_harder, skip_if_fbsd_pipes_broken
 from ..testing import check_one_way_stream, wait_all_tasks_blocked
 
+if TYPE_CHECKING:
+    from .._file_io import _HasFileNo
+
 posix = os.name == "posix"
 pytestmark = pytest.mark.skipif(not posix, reason="posix only")
 
@@ -197,8 +200,8 @@ async def test_close_at_bad_time_for_receive_some(
 
     orig_wait_readable = _core._run.TheIOManager.wait_readable
 
-    async def patched_wait_readable(*args: object, **kwargs: object) -> None:
-        await orig_wait_readable(*args, **kwargs)
+    async def patched_wait_readable(fd: int | _HasFileNo) -> None:
+        await orig_wait_readable(fd)
         await r.aclose()
 
     monkeypatch.setattr(_core._run.TheIOManager, "wait_readable", patched_wait_readable)
@@ -225,8 +228,8 @@ async def test_close_at_bad_time_for_send_all(monkeypatch: pytest.MonkeyPatch) -
 
     orig_wait_writable = _core._run.TheIOManager.wait_writable
 
-    async def patched_wait_writable(*args: object, **kwargs: object) -> None:
-        await orig_wait_writable(*args, **kwargs)
+    async def patched_wait_writable(fd: int | _HasFileNo) -> None:
+        await orig_wait_writable(fd)
         await s.aclose()
 
     monkeypatch.setattr(_core._run.TheIOManager, "wait_writable", patched_wait_writable)

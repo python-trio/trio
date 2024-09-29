@@ -36,6 +36,8 @@ if TYPE_CHECKING:
 
     from typing_extensions import Buffer, Self, TypeAlias
 
+    from trio._socket import AddressFormat
+
 IPAddress: TypeAlias = Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
 
 
@@ -313,7 +315,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         buffers: Iterable[Buffer],
         ancdata: Iterable[tuple[int, int, Buffer]] = (),
         flags: int = 0,
-        address: object | None = None,
+        address: AddressFormat | None = None,
     ) -> int:
         self._check_closed()
 

@@ -10,7 +10,6 @@ from functools import partial
 from ssl import SSLContext
 from typing import (
     TYPE_CHECKING,
-    Any,
     NoReturn,
 )
 
@@ -407,8 +406,8 @@ def ssl_wrap_pair(
     client_transport: T_Stream,
     server_transport: T_Stream,
     *,
-    client_kwargs: dict[str, Any] | None = None,
-    server_kwargs: dict[str, Any] | None = None,
+    client_kwargs: dict[str, str | bytes | bool | None] | None = None,
+    server_kwargs: dict[str, str | bytes | bool | None] | None = None,
 ) -> tuple[SSLStream[T_Stream], SSLStream[T_Stream]]:
     if server_kwargs is None:
         server_kwargs = {}
@@ -418,13 +417,13 @@ def ssl_wrap_pair(
         client_transport,
         client_ctx,
         server_hostname="trio-test-1.example.org",
-        **client_kwargs,
+        **client_kwargs,  # type: ignore[arg-type]
     )
     server_ssl = SSLStream(
         server_transport,
         SERVER_CTX,
         server_side=True,
-        **server_kwargs,
+        **server_kwargs,  # type: ignore[arg-type]
     )
     return client_ssl, server_ssl
 
@@ -434,7 +433,7 @@ MemoryStapledStream: TypeAlias = StapledStream[MemorySendStream, MemoryReceiveSt
 
 def ssl_memory_stream_pair(
     client_ctx: SSLContext,
-    **kwargs: dict[str, Any] | None,
+    **kwargs: dict[str, str | bytes | bool | None] | None,
 ) -> tuple[
     SSLStream[MemoryStapledStream],
     SSLStream[MemoryStapledStream],
@@ -448,7 +447,7 @@ MyStapledStream: TypeAlias = StapledStream[SendStream, ReceiveStream]
 
 def ssl_lockstep_stream_pair(
     client_ctx: SSLContext,
-    **kwargs: dict[str, Any] | None,
+    **kwargs: dict[str, str | bytes | bool | None] | None,
 ) -> tuple[
     SSLStream[MyStapledStream],
     SSLStream[MyStapledStream],
