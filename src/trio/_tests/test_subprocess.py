@@ -90,7 +90,7 @@ def got_signal(proc: Process, sig: SignalType) -> bool:
         return proc.returncode != 0
 
 
-@asynccontextmanager  # type: ignore[misc]  # Any in decorator
+@asynccontextmanager  # type: ignore[misc]  # Any in decorated
 async def open_process_then_kill(
     *args: Any,  # noqa: ANN401  # Any used
     **kwargs: Any,  # noqa: ANN401
@@ -103,7 +103,7 @@ async def open_process_then_kill(
         await proc.wait()
 
 
-@asynccontextmanager
+@asynccontextmanager  # type: ignore[misc]  # Any in decorated
 async def run_process_in_nursery(
     *args: Any,  # noqa: ANN401  # Any used
     **kwargs: Any,  # noqa: ANN401
