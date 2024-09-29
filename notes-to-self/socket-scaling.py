@@ -24,10 +24,10 @@ import trio
 import trio.testing
 
 
-async def main():
+async def main() -> None:
     for total in [10, 100, 500, 1_000, 10_000, 20_000, 30_000]:
 
-        def pt(desc, *, count=total, item="socket"):
+        def pt(desc, *, count=total, item="socket") -> None:
             nonlocal last_time
             now = time.perf_counter()
             total_ms = (now - last_time) * 1000

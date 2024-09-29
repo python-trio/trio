@@ -78,7 +78,7 @@ def task_tree_lines(task=None):
     return _render_subtree(task.name, rendered_children)
 
 
-def print_task_tree(task=None):
+def print_task_tree(task=None) -> None:
     for line in task_tree_lines(task):
         print(line)
 
@@ -86,20 +86,20 @@ def print_task_tree(task=None):
 ################################################################
 
 
-async def child2():
+async def child2() -> None:
     async with trio.open_nursery() as nursery:
         nursery.start_soon(trio.sleep_forever)
         nursery.start_soon(trio.sleep_forever)
 
 
-async def child1():
+async def child1() -> None:
     async with trio.open_nursery() as nursery:
         nursery.start_soon(child2)
         nursery.start_soon(child2)
         nursery.start_soon(trio.sleep_forever)
 
 
-async def main():
+async def main() -> None:
     async with trio.open_nursery() as nursery0:
         nursery0.start_soon(child1)
         async with trio.open_nursery() as nursery1:

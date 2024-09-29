@@ -99,7 +99,7 @@ from trio._core._windows_cffi import (
 
 
 class AFDLab:
-    def __init__(self):
+    def __init__(self) -> None:
         self._afd = _afd_helper_handle()
         trio.lowlevel.register_with_iocp(self._afd)
 
@@ -141,7 +141,7 @@ class AFDLab:
         return out_flags
 
 
-def fill_socket(sock):
+def fill_socket(sock) -> None:
     try:
         while True:
             sock.send(b"x" * 65536)
@@ -149,7 +149,7 @@ def fill_socket(sock):
         pass
 
 
-async def main():
+async def main() -> None:
     afdlab = AFDLab()
 
     a, b = socket.socketpair()

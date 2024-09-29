@@ -5,11 +5,11 @@ import trio
 
 
 class GracefulShutdownManager:
-    def __init__(self):
+    def __init__(self) -> None:
         self._shutting_down = False
         self._cancel_scopes = set()
 
-    def start_shutdown(self):
+    def start_shutdown(self) -> None:
         self._shutting_down = True
         for cancel_scope in self._cancel_scopes:
             cancel_scope.cancel()
@@ -32,7 +32,7 @@ class GracefulShutdownManager:
 # When doing operations that might block for an indefinite about of time and
 # that should be aborted when a graceful shutdown starts, wrap them in 'with
 # gsm.cancel_on_graceful_shutdown()'.
-async def stream_handler(stream):
+async def stream_handler(stream) -> None:
     while True:
         with gsm.cancel_on_graceful_shutdown():
             data = await stream.receive_some()
@@ -42,7 +42,7 @@ async def stream_handler(stream):
 
 
 # To trigger the shutdown:
-async def listen_for_shutdown_signals():
+async def listen_for_shutdown_signals() -> None:
     with trio.open_signal_receiver(signal.SIGINT, signal.SIGTERM) as signal_aiter:
         async for _sig in signal_aiter:
             gsm.start_shutdown()

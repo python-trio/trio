@@ -11,13 +11,13 @@ from queue import Queue
 COUNT = 10000
 
 
-def worker(in_q, out_q):
+def worker(in_q, out_q) -> None:
     while True:
         job = in_q.get()
         out_q.put(job())
 
 
-def main():
+def main() -> None:
     in_q = Queue()
     out_q = Queue()
 

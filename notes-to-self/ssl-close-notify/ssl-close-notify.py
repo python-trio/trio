@@ -23,7 +23,7 @@ client_sock, server_sock = socket.socketpair()
 client_done = threading.Event()
 
 
-def server_thread_fn():
+def server_thread_fn() -> None:
     server_ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
     server_ctx.load_cert_chain("trio-test-1.pem")
     server = server_ctx.wrap_socket(

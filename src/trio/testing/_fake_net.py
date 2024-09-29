@@ -210,7 +210,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         family: AddressFamily,
         type: SocketKind,
         proto: int,
-    ):
+    ) -> None:
         self._fake_net = fake_net
 
         if not family:  # pragma: no cover

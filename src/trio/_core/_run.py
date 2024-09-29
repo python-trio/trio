@@ -1128,7 +1128,7 @@ class Nursery(metaclass=NoPublicConstructor):
         parent_task: Task,
         cancel_scope: CancelScope,
         strict_exception_groups: bool,
-    ):
+    ) -> None:
         self._parent_task = parent_task
         self._strict_exception_groups = strict_exception_groups
         parent_task._child_nurseries.append(self)

@@ -9,7 +9,7 @@ server_ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
 server_ctx.load_cert_chain("trio-test-1.pem")
 
 
-def _ssl_echo_serve_sync(sock):
+def _ssl_echo_serve_sync(sock) -> None:
     try:
         wrapped = server_ctx.wrap_socket(sock, server_side=True)
         while True:
@@ -37,7 +37,7 @@ def echo_server_connection():
 
 
 class ManuallyWrappedSocket:
-    def __init__(self, ctx, sock, **kwargs):
+    def __init__(self, ctx, sock, **kwargs) -> None:
         self.incoming = ssl.MemoryBIO()
         self.outgoing = ssl.MemoryBIO()
         self.obj = ctx.wrap_bio(self.incoming, self.outgoing, **kwargs)
@@ -71,13 +71,13 @@ class ManuallyWrappedSocket:
             # then retry if necessary
         return ret
 
-    def do_handshake(self):
+    def do_handshake(self) -> None:
         self._retry(self.obj.do_handshake)
 
     def recv(self, bufsize):
         return self._retry(self.obj.read, bufsize)
 
-    def sendall(self, data):
+    def sendall(self, data) -> None:
         self._retry(self.obj.write, data)
 
     def unwrap(self):

@@ -314,7 +314,7 @@ async def check_one_way_stream(
     # receive stream causes it to wake up.
     async with _ForceCloseBoth(await stream_maker()) as (s, r):
 
-        async def receive_expecting_closed():
+        async def receive_expecting_closed() -> None:
             with _assert_raises(_core.ClosedResourceError):
                 await r.receive_some(10)
 

@@ -4,7 +4,7 @@ import threading
 import time
 
 
-def check_reopen(r1, w):
+def check_reopen(r1, w) -> None:
     try:
         print("Reopening read end")
         r2 = os.open(f"/proc/self/fd/{r1}", os.O_RDONLY)
@@ -34,7 +34,7 @@ def check_reopen(r1, w):
             print("r2 definitely seems to be in non-blocking mode")
 
         # Check that r1 is really truly still in blocking mode
-        def sleep_then_write():
+        def sleep_then_write() -> None:
             time.sleep(1)
             os.write(w, b"c")
 
