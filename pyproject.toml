@@ -155,7 +155,7 @@ extend-ignore = [
 'src/trio/socket.py' = ['F401']
 'src/trio/testing/__init__.py' = ['F401']
 # Don't check annotations in notes-to-self
-'notes-to-self/*.py' = ['ANN']
+'notes-to-self/*.py' = ['ANN001', 'ANN002', 'ANN003', 'ANN201', 'ANN202', 'ANN204']
 
 [tool.ruff.lint.isort]
 combine-as-imports = true

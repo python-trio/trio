@@ -121,7 +121,7 @@ def test_coroutine_or_error() -> None:
         import asyncio
 
         if sys.version_info < (3, 11):
-            # not bothering to type this one
+
             @asyncio.coroutine
             def generator_based_coro() -> (
                 Generator[Coroutine[None, None, None], None, None]
