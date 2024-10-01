@@ -12,7 +12,7 @@ beautifulsoup4==4.12.3
     # via sphinx-codeautolink
 certifi==2024.8.30
     # via requests
-cffi==1.17.0 ; platform_python_implementation != 'PyPy' or os_name == 'nt'
+cffi==1.17.1 ; platform_python_implementation != 'PyPy' or os_name == 'nt'
     # via
     #   -r docs-requirements.in
     #   cryptography
@@ -24,7 +24,7 @@ colorama==0.4.6 ; sys_platform == 'win32' or platform_system == 'Windows'
     # via
     #   click
     #   sphinx
-cryptography==43.0.0
+cryptography==43.0.1
     # via pyopenssl
 docutils==0.20.1
     # via
@@ -32,7 +32,7 @@ docutils==0.20.1
     #   sphinx-rtd-theme
 exceptiongroup==1.2.2
     # via -r docs-requirements.in
-idna==3.8
+idna==3.10
     # via
     #   -r docs-requirements.in
     #   requests
@@ -77,7 +77,7 @@ sphinx==7.4.7
     #   sphinxcontrib-trio
 sphinx-codeautolink==0.15.2
     # via -r docs-requirements.in
-sphinx-hoverxref==1.4.0
+sphinx-hoverxref==1.4.1
     # via -r docs-requirements.in
 sphinx-rtd-theme==2.0.0
     # via -r docs-requirements.in
@@ -102,5 +102,5 @@ sphinxcontrib-trio==1.1.2
     # via -r docs-requirements.in
 towncrier==24.8.0
     # via -r docs-requirements.in
-urllib3==2.2.2
+urllib3==2.2.3
     # via requests
