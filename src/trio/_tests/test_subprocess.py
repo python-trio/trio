@@ -659,10 +659,7 @@ async def test_for_leaking_fds() -> None:
 async def test_run_process_internal_error(monkeypatch: pytest.MonkeyPatch) -> None:
     # There's probably less extreme ways of triggering errors inside the nursery
     # in run_process.
-    async def very_broken_open(
-        *args: object,
-        **kwargs: object,
-    ) -> str:
+    async def very_broken_open(*args: object, **kwargs: object) -> str:
         return "oops"
 
     monkeypatch.setattr(trio._subprocess, "open_process", very_broken_open)

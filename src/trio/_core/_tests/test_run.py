@@ -1658,9 +1658,7 @@ async def test_spawn_name() -> None:
     await check(_core.spawn_system_task)
 
 
-async def test_current_effective_deadline(
-    mock_clock: _core.MockClock,
-) -> None:
+async def test_current_effective_deadline(mock_clock: _core.MockClock) -> None:
     assert _core.current_effective_deadline() == inf
 
     with _core.CancelScope(deadline=5) as scope1:

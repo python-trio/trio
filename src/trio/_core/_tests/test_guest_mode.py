@@ -118,9 +118,7 @@ def test_guest_trivial() -> None:
 
     assert trivial_guest_run(trio_return) == "ok"
 
-    async def trio_fail(
-        in_host: InHost,
-    ) -> NoReturn:
+    async def trio_fail(in_host: InHost) -> NoReturn:
         raise KeyError("whoopsiedaisy")
 
     with pytest.raises(KeyError, match="whoopsiedaisy"):
