@@ -2800,6 +2800,8 @@ def unrolled_run(
             ),
             stacklevel=1,
         )
+    except RuntimeWarning:
+        raise
     except TrioInternalError:
         raise
     except BaseException as exc:

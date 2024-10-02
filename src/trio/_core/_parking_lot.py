@@ -71,6 +71,7 @@
 # See: https://github.com/python-trio/trio/issues/53
 from __future__ import annotations
 
+import inspect
 import math
 import warnings
 from collections import OrderedDict
@@ -92,7 +93,15 @@ GLOBAL_PARKING_LOT_BREAKER: dict[Task, list[ParkingLot]] = {}
 
 
 def add_parking_lot_breaker(task: Task, lot: ParkingLot) -> None:
-    """Register a task as a breaker for a lot. See :meth:`ParkingLot.break_lot`"""
+    """Register a task as a breaker for a lot. See :meth:`ParkingLot.break_lot`.
+
+    raises:
+      trio.BrokenResourceError: if the task has already exited.
+    """
+    if inspect.getcoroutinestate(task.coro) == inspect.CORO_CLOSED:
+        raise _core._exceptions.BrokenResourceError(
+            "Attempted to add already exited task as lot breaker.",
+        )
     if task not in GLOBAL_PARKING_LOT_BREAKER:
         GLOBAL_PARKING_LOT_BREAKER[task] = [lot]
     else:
@@ -275,8 +284,8 @@ class ParkingLot:
         future tasks attempting to park to error. Unpark & repark become no-ops as the
         parking lot is empty.
 
-        The error raised contains a reference to the task sent as a parameter. It is also
-        saved in the ``broken_by`` attribute.
+        The error raised contains a reference to the task sent as a parameter. The task
+        is also saved in the parking lot in the ``broken_by`` attribute.
         """
         if task is None:
             task = _core.current_task()

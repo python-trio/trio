@@ -4,7 +4,12 @@ from typing import TypeVar
 
 import pytest
 
-import trio.lowlevel
+import trio
+from trio.lowlevel import (
+    add_parking_lot_breaker,
+    current_task,
+    remove_parking_lot_breaker,
+)
 from trio.testing import Matcher, RaisesGroup
 
 from ... import _core
@@ -220,27 +225,34 @@ async def test_parking_lot_repark_with_count() -> None:
         lot1.unpark_all()
 
 
+async def dummy_task(
+    task_status: _core.TaskStatus[_core.Task] = trio.TASK_STATUS_IGNORED,
+) -> None:
+    task_status.started(_core.current_task())
+    await trio.sleep_forever()
+
+
 async def test_parking_lot_breaker_basic() -> None:
     lot = ParkingLot()
-    task = trio.lowlevel.current_task()
+    task = current_task()
 
     with pytest.raises(
         RuntimeError,
         match="Attempted to remove task as breaker for a lot it is not registered for",
     ):
-        trio.lowlevel.remove_parking_lot_breaker(task, lot)
+        remove_parking_lot_breaker(task, lot)
 
     # check that a task can be registered as breaker for the same lot multiple times
-    trio.lowlevel.add_parking_lot_breaker(task, lot)
-    trio.lowlevel.add_parking_lot_breaker(task, lot)
-    trio.lowlevel.remove_parking_lot_breaker(task, lot)
-    trio.lowlevel.remove_parking_lot_breaker(task, lot)
+    add_parking_lot_breaker(task, lot)
+    add_parking_lot_breaker(task, lot)
+    remove_parking_lot_breaker(task, lot)
+    remove_parking_lot_breaker(task, lot)
 
     with pytest.raises(
         RuntimeError,
         match="Attempted to remove task as breaker for a lot it is not registered for",
     ):
-        trio.lowlevel.remove_parking_lot_breaker(task, lot)
+        remove_parking_lot_breaker(task, lot)
 
     # defaults to current task
     lot.break_lot()
@@ -249,30 +261,81 @@ async def test_parking_lot_breaker_basic() -> None:
     # breaking the lot again with the same task is a no-op
     lot.break_lot()
 
-    # but with a different task it gives a warning
-    async def dummy_task(
-        task_status: _core.TaskStatus[_core.Task] = trio.TASK_STATUS_IGNORED,
-    ) -> None:
-        task_status.started(_core.current_task())
+    child_task = None
+    with pytest.warns(RuntimeWarning):
+        async with trio.open_nursery() as nursery:
+            child_task = await nursery.start(dummy_task)
+            # registering a task as breaker on an already broken lot is fine... though it
+            # maybe shouldn't be as it will always cause a RuntimeWarning???
+            # Or is this a sign that we shouldn't raise a warning?
+            add_parking_lot_breaker(child_task, lot)
+            nursery.cancel_scope.cancel()
 
+    # manually breaking a lot with an already exited task is fine
+    lot = ParkingLot()
+    lot.break_lot(child_task)
+
+
+async def test_parking_lot_breaker_warnings() -> None:
+    lot = ParkingLot()
+    task = current_task()
+    lot.break_lot()
+
+    warn_str = "attempted to break parking .* already broken by .*"
+    # breaking an already broken lot with a different task gives a warning
     # The nursery is only to create a task we can pass to lot.break_lot
-    # and has no effect on the test otherwise.
     async with trio.open_nursery() as nursery:
         child_task = await nursery.start(dummy_task)
         with pytest.warns(
             RuntimeWarning,
-            match="attempted to break parking .* already broken by .*",
+            match=warn_str,
         ):
             lot.break_lot(child_task)
         nursery.cancel_scope.cancel()
 
+    # note that this get put into an exceptiongroup if inside a nursery, making any
+    # stacklevel arguments irrelevant
+    with RaisesGroup(Matcher(RuntimeWarning, match=warn_str)):
+        async with trio.open_nursery() as nursery:
+            child_task = await nursery.start(dummy_task)
+            lot.break_lot(child_task)
+            nursery.cancel_scope.cancel()
+
     # and doesn't change broken_by
     assert lot.broken_by == task
+
+    # register multiple tasks as lot breakers, then have them all exit
+    lot = ParkingLot()
+    child_task = None
+    # This does not give an exception group, as the warning is raised by the nursery
+    # exiting, and not any of the tasks inside the nursery.
+    # And we only get a single warning because... of the default warning filter? and the
+    # location being the same? (because I haven't figured out why stacklevel makes no
+    # difference)
+    with pytest.warns(
+        RuntimeWarning,
+        match=warn_str,
+    ):
+        async with trio.open_nursery() as nursery:
+            child_task = await nursery.start(dummy_task)
+            child_task2 = await nursery.start(dummy_task)
+            child_task3 = await nursery.start(dummy_task)
+            add_parking_lot_breaker(child_task, lot)
+            add_parking_lot_breaker(child_task2, lot)
+            add_parking_lot_breaker(child_task3, lot)
+            nursery.cancel_scope.cancel()
+
+    # trying to register an exited task as lot breaker errors
+    with pytest.raises(
+        trio.BrokenResourceError,
+        match="^Attempted to add already exited task as lot breaker.$",
+    ):
+        add_parking_lot_breaker(child_task, lot)
 
 
 async def test_parking_lot_breaker() -> None:
     async def bad_parker(lot: ParkingLot, scope: _core.CancelScope) -> None:
-        trio.lowlevel.add_parking_lot_breaker(trio.lowlevel.current_task(), lot)
+        add_parking_lot_breaker(current_task(), lot)
         with scope:
             await trio.sleep_forever()
 
@@ -298,8 +361,9 @@ async def test_parking_lot_breaker() -> None:
 
 
 async def test_parking_lot_weird() -> None:
-    """break a parking lot, where the breakee is parked. Doing this is weird, but should probably be supported??
-    Although the message makes less sense"""
+    """Break a parking lot, where the breakee is parked.
+    Doing this is weird, but should probably be supported.
+    """
 
     async def return_me_and_park(
         lot: ParkingLot,
