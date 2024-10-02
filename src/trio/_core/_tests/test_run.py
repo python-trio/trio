@@ -2408,9 +2408,7 @@ def test_async_function_implemented_in_C() -> None:
     # These used to crash because we'd try to mutate the coroutine object's
     # cr_frame, but C functions don't have Python frames.
 
-    async def agen_fn(
-        record: list[str],
-    ) -> AsyncIterator[None]:
+    async def agen_fn(record: list[str]) -> AsyncIterator[None]:
         assert not _core.currently_ki_protected()
         record.append("the generator ran")
         yield
@@ -2714,10 +2712,7 @@ def test_trio_run_strict_before_started(
     else:
         raiser_exc = ValueError()
 
-    async def raiser(
-        *,
-        task_status: _core.TaskStatus[None],
-    ) -> None:
+    async def raiser(*, task_status: _core.TaskStatus[None]) -> None:
         if raise_after_started:
             task_status.started()
         raise raiser_exc
@@ -2769,9 +2764,7 @@ async def test_internal_error_old_nursery_multiple_tasks() -> None:
     async def error_func() -> None:
         raise ValueError
 
-    async def spawn_tasks_in_old_nursery(
-        task_status: _core.TaskStatus[None],
-    ) -> None:
+    async def spawn_tasks_in_old_nursery(task_status: _core.TaskStatus[None]) -> None:
         old_nursery = _core.current_task().parent_nursery
         assert old_nursery is not None
         old_nursery.start_soon(error_func)

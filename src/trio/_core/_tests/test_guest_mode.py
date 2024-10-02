@@ -254,9 +254,7 @@ def test_guest_mode_sniffio_integration() -> None:
 def test_warn_set_wakeup_fd_overwrite() -> None:
     assert signal.set_wakeup_fd(-1) == -1
 
-    async def trio_main(
-        in_host: InHost,
-    ) -> str:
+    async def trio_main(in_host: InHost) -> str:
         return "ok"
 
     a, b = socket.socketpair()
@@ -298,9 +296,7 @@ def test_warn_set_wakeup_fd_overwrite() -> None:
         signal.set_wakeup_fd(a.fileno())
         try:
 
-            async def trio_check_wakeup_fd_unaltered(
-                in_host: InHost,
-            ) -> str:
+            async def trio_check_wakeup_fd_unaltered(in_host: InHost) -> str:
                 fd = signal.set_wakeup_fd(-1)
                 assert fd == a.fileno()
                 signal.set_wakeup_fd(fd)
