@@ -86,6 +86,20 @@ async def test_move_on_after() -> None:
     await check_takes_about(sleep_3, TARGET)
 
 
+async def test_cannot_wake_sleep_forever() -> None:
+    # Test an error occurs if you manually wake sleep_forever().
+    task = trio.lowlevel.current_task()
+
+    async def wake_task() -> None:
+        await trio.lowlevel.checkpoint()
+        trio.lowlevel.reschedule(task, outcome.Value(None))
+
+    async with trio.open_nursery() as nursery:
+        nursery.start_soon(wake_task)
+        with pytest.raises(RuntimeError):
+            await trio.sleep_forever()
+
+
 class TimeoutScope(Protocol):
     def __call__(self, seconds: float, *, shield: bool) -> trio.CancelScope: ...
 
