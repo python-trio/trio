@@ -111,7 +111,7 @@ else:
 
 
 @attrs.frozen
-class MemoryChannelStats:
+class MemoryChannelStatistics:
     current_buffer_used: int
     max_buffer_size: int | float
     open_send_channels: int
@@ -132,8 +132,8 @@ class MemoryChannelState(Generic[T]):
     # {task: None}
     receive_tasks: OrderedDict[Task, None] = attrs.Factory(OrderedDict)
 
-    def statistics(self) -> MemoryChannelStats:
-        return MemoryChannelStats(
+    def statistics(self) -> MemoryChannelStatistics:
+        return MemoryChannelStatistics(
             current_buffer_used=len(self.data),
             max_buffer_size=self.max_buffer_size,
             open_send_channels=self.open_send_channels,
@@ -159,7 +159,9 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
     def __repr__(self) -> str:
         return f"<send channel at {id(self):#x}, using buffer at {id(self._state):#x}>"
 
-    def statistics(self) -> MemoryChannelStats:
+    def statistics(self) -> MemoryChannelStatistics:
+        """Returns a `MemoryChannelStatistics` for the memory channel this is
+        associated with."""
         # XX should we also report statistics specific to this object?
         return self._state.statistics()
 
@@ -282,6 +284,9 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
 
     @enable_ki_protection
     async def aclose(self) -> None:
+        """Close this receive channel object asynchronously.
+
+        See `MemoryReceiveChannel.close`."""
         self.close()
         await trio.lowlevel.checkpoint()
 
@@ -296,7 +301,9 @@ class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstr
     def __attrs_post_init__(self) -> None:
         self._state.open_receive_channels += 1
 
-    def statistics(self) -> MemoryChannelStats:
+    def statistics(self) -> MemoryChannelStatistics:
+        """Returns a `MemoryChannelStatistics` for the memory channel this is
+        associated with."""
         return self._state.statistics()
 
     def __repr__(self) -> str:
@@ -430,5 +437,8 @@ class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstr
 
     @enable_ki_protection
     async def aclose(self) -> None:
+        """Close this receive channel object asynchronously.
+
+        See `MemoryReceiveChannel.close`."""
         self.close()
         await trio.lowlevel.checkpoint()
