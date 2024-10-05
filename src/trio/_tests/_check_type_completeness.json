@@ -20,6 +20,7 @@
     "all": [
         "No docstring found for class \"trio.MemoryReceiveChannel\"",
         "No docstring found for class \"trio._channel.MemoryReceiveChannel\"",
+        "No docstring found for class \"trio.MemoryChannelStatistics\"",
         "No docstring found for class \"trio._channel.MemoryChannelStatistics\"",
         "No docstring found for class \"trio.MemorySendChannel\"",
         "No docstring found for class \"trio._channel.MemorySendChannel\"",
