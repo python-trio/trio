@@ -284,9 +284,9 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
 
     @enable_ki_protection
     async def aclose(self) -> None:
-        """Close this receive channel object asynchronously.
+        """Close this send channel object asynchronously.
 
-        See `MemoryReceiveChannel.close`."""
+        See `MemorySendChannel.close`."""
         self.close()
         await trio.lowlevel.checkpoint()
 
