@@ -25,6 +25,7 @@ from ._core import TASK_STATUS_IGNORED as TASK_STATUS_IGNORED  # isort: split
 # Submodules imported by default
 from . import abc, from_thread, lowlevel, socket, to_thread
 from ._channel import (
+    MemoryChannelStatistics as MemoryChannelStatistics,
     MemoryReceiveChannel as MemoryReceiveChannel,
     MemorySendChannel as MemorySendChannel,
     open_memory_channel as open_memory_channel,
