@@ -1900,7 +1900,8 @@ class Runner:
         # break parking lots associated with the task exiting
         if task in GLOBAL_PARKING_LOT_BREAKER:
             for lot in GLOBAL_PARKING_LOT_BREAKER[task]:
-                lot.break_lot(task)
+                if lot.broken_by is None:
+                    lot.break_lot(task)
             del GLOBAL_PARKING_LOT_BREAKER[task]
 
         if (
@@ -2800,8 +2801,6 @@ def unrolled_run(
             ),
             stacklevel=1,
         )
-    except RuntimeWarning:
-        raise
     except TrioInternalError:
         raise
     except BaseException as exc:

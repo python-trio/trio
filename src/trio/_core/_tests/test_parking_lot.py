@@ -261,15 +261,12 @@ async def test_parking_lot_breaker_basic() -> None:
     # breaking the lot again with the same task is a no-op
     lot.break_lot()
 
+    # registering a task as a breaker on an already broken lot is a no-op.
     child_task = None
-    with pytest.warns(RuntimeWarning):
-        async with trio.open_nursery() as nursery:
-            child_task = await nursery.start(dummy_task)
-            # registering a task as breaker on an already broken lot is fine... though it
-            # maybe shouldn't be as it will always cause a RuntimeWarning???
-            # Or is this a sign that we shouldn't raise a warning?
-            add_parking_lot_breaker(child_task, lot)
-            nursery.cancel_scope.cancel()
+    async with trio.open_nursery() as nursery:
+        child_task = await nursery.start(dummy_task)
+        add_parking_lot_breaker(child_task, lot)
+        nursery.cancel_scope.cancel()
 
     # manually breaking a lot with an already exited task is fine
     lot = ParkingLot()
@@ -293,37 +290,21 @@ async def test_parking_lot_breaker_warnings() -> None:
             lot.break_lot(child_task)
         nursery.cancel_scope.cancel()
 
-    # note that this get put into an exceptiongroup if inside a nursery, making any
-    # stacklevel arguments irrelevant
-    with RaisesGroup(Matcher(RuntimeWarning, match=warn_str)):
-        async with trio.open_nursery() as nursery:
-            child_task = await nursery.start(dummy_task)
-            lot.break_lot(child_task)
-            nursery.cancel_scope.cancel()
-
     # and doesn't change broken_by
     assert lot.broken_by == task
 
     # register multiple tasks as lot breakers, then have them all exit
+    # No warning is given on task exit, even if the lot is already broken.
     lot = ParkingLot()
     child_task = None
-    # This does not give an exception group, as the warning is raised by the nursery
-    # exiting, and not any of the tasks inside the nursery.
-    # And we only get a single warning because... of the default warning filter? and the
-    # location being the same? (because I haven't figured out why stacklevel makes no
-    # difference)
-    with pytest.warns(
-        RuntimeWarning,
-        match=warn_str,
-    ):
-        async with trio.open_nursery() as nursery:
-            child_task = await nursery.start(dummy_task)
-            child_task2 = await nursery.start(dummy_task)
-            child_task3 = await nursery.start(dummy_task)
-            add_parking_lot_breaker(child_task, lot)
-            add_parking_lot_breaker(child_task2, lot)
-            add_parking_lot_breaker(child_task3, lot)
-            nursery.cancel_scope.cancel()
+    async with trio.open_nursery() as nursery:
+        child_task = await nursery.start(dummy_task)
+        child_task2 = await nursery.start(dummy_task)
+        child_task3 = await nursery.start(dummy_task)
+        add_parking_lot_breaker(child_task, lot)
+        add_parking_lot_breaker(child_task2, lot)
+        add_parking_lot_breaker(child_task3, lot)
+        nursery.cancel_scope.cancel()
 
     # trying to register an exited task as lot breaker errors
     with pytest.raises(
@@ -333,7 +314,7 @@ async def test_parking_lot_breaker_warnings() -> None:
         add_parking_lot_breaker(child_task, lot)
 
 
-async def test_parking_lot_breaker() -> None:
+async def test_parking_lot_breaker_bad_parker() -> None:
     async def bad_parker(lot: ParkingLot, scope: _core.CancelScope) -> None:
         add_parking_lot_breaker(current_task(), lot)
         with scope:
