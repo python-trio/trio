@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import TypeVar
 
 import pytest
@@ -233,88 +234,30 @@ async def dummy_task(
 
 
 async def test_parking_lot_breaker_basic() -> None:
+    """Test basic functionality for breaking lots."""
     lot = ParkingLot()
     task = current_task()
-
-    with pytest.raises(
-        RuntimeError,
-        match="Attempted to remove task as breaker for a lot it is not registered for",
-    ):
-        remove_parking_lot_breaker(task, lot)
-
-    # check that a task can be registered as breaker for the same lot multiple times
-    add_parking_lot_breaker(task, lot)
-    add_parking_lot_breaker(task, lot)
-    remove_parking_lot_breaker(task, lot)
-    remove_parking_lot_breaker(task, lot)
-
-    with pytest.raises(
-        RuntimeError,
-        match="Attempted to remove task as breaker for a lot it is not registered for",
-    ):
-        remove_parking_lot_breaker(task, lot)
 
     # defaults to current task
     lot.break_lot()
-    assert lot.broken_by == task
+    assert lot.broken_by == [task]
 
-    # breaking the lot again with the same task is a no-op
+    # breaking the lot again with the same task appends another copy in `broken_by`
     lot.break_lot()
+    assert lot.broken_by == [task, task]
 
-    # registering a task as a breaker on an already broken lot is a no-op.
-    child_task = None
-    async with trio.open_nursery() as nursery:
-        child_task = await nursery.start(dummy_task)
-        add_parking_lot_breaker(child_task, lot)
-        nursery.cancel_scope.cancel()
-
-    # manually breaking a lot with an already exited task is fine
-    lot = ParkingLot()
-    lot.break_lot(child_task)
-
-
-async def test_parking_lot_breaker_warnings() -> None:
-    lot = ParkingLot()
-    task = current_task()
-    lot.break_lot()
-
-    warn_str = "attempted to break parking .* already broken by .*"
-    # breaking an already broken lot with a different task gives a warning
-    # The nursery is only to create a task we can pass to lot.break_lot
-    async with trio.open_nursery() as nursery:
-        child_task = await nursery.start(dummy_task)
-        with pytest.warns(
-            RuntimeWarning,
-            match=warn_str,
-        ):
-            lot.break_lot(child_task)
-        nursery.cancel_scope.cancel()
-
-    # and doesn't change broken_by
-    assert lot.broken_by == task
-
-    # register multiple tasks as lot breakers, then have them all exit
-    # No warning is given on task exit, even if the lot is already broken.
-    lot = ParkingLot()
-    child_task = None
-    async with trio.open_nursery() as nursery:
-        child_task = await nursery.start(dummy_task)
-        child_task2 = await nursery.start(dummy_task)
-        child_task3 = await nursery.start(dummy_task)
-        add_parking_lot_breaker(child_task, lot)
-        add_parking_lot_breaker(child_task2, lot)
-        add_parking_lot_breaker(child_task3, lot)
-        nursery.cancel_scope.cancel()
-
-    # trying to register an exited task as lot breaker errors
+    # trying to park in broken lot errors
+    broken_by_str = re.escape(str([task, task]))
     with pytest.raises(
-        trio.BrokenResourceError,
-        match="^Attempted to add already exited task as lot breaker.$",
+        _core.BrokenResourceError,
+        match=f"^Attempted to park in parking lot broken by {broken_by_str}$",
     ):
-        add_parking_lot_breaker(child_task, lot)
+        await lot.park()
 
 
-async def test_parking_lot_breaker_bad_parker() -> None:
+async def test_parking_lot_break_parking_tasks() -> None:
+    """Checks that tasks currently waiting to park raise an error when the breaker exits."""
+
     async def bad_parker(lot: ParkingLot, scope: _core.CancelScope) -> None:
         add_parking_lot_breaker(current_task(), lot)
         with scope:
@@ -336,12 +279,92 @@ async def test_parking_lot_breaker_bad_parker() -> None:
 
             cs.cancel()
 
-    # check that trying to park in broken lot errors
-    with pytest.raises(_core.BrokenResourceError):
-        await lot.park()
+
+async def test_parking_lot_breaker_registration() -> None:
+    lot = ParkingLot()
+    task = current_task()
+
+    with pytest.raises(
+        RuntimeError,
+        match="Attempted to remove task as breaker for a lot it is not registered for",
+    ):
+        remove_parking_lot_breaker(task, lot)
+
+    # check that a task can be registered as breaker for the same lot multiple times
+    add_parking_lot_breaker(task, lot)
+    add_parking_lot_breaker(task, lot)
+    remove_parking_lot_breaker(task, lot)
+    remove_parking_lot_breaker(task, lot)
+
+    with pytest.raises(
+        RuntimeError,
+        match="Attempted to remove task as breaker for a lot it is not registered for",
+    ):
+        remove_parking_lot_breaker(task, lot)
+
+    # registering a task as breaker on an already broken lot is fine
+    lot.break_lot()
+    child_task = None
+    async with trio.open_nursery() as nursery:
+        child_task = await nursery.start(dummy_task)
+        add_parking_lot_breaker(child_task, lot)
+        nursery.cancel_scope.cancel()
+    assert lot.broken_by == [task, child_task]
+
+    # manually breaking a lot with an already exited task is fine
+    lot = ParkingLot()
+    lot.break_lot(child_task)
+    assert lot.broken_by == [child_task]
 
 
-async def test_parking_lot_weird() -> None:
+async def test_parking_lot_breaker_rebreak() -> None:
+    lot = ParkingLot()
+    task = current_task()
+    lot.break_lot()
+
+    # breaking an already broken lot with a different task is allowed
+    # The nursery is only to create a task we can pass to lot.break_lot
+    async with trio.open_nursery() as nursery:
+        child_task = await nursery.start(dummy_task)
+        lot.break_lot(child_task)
+        nursery.cancel_scope.cancel()
+
+    # and appends the task
+    assert lot.broken_by == [task, child_task]
+
+
+async def test_parking_lot_multiple_breakers_exit() -> None:
+    # register multiple tasks as lot breakers, then have them all exit
+    # No warning is given on task exit, even if the lot is already broken.
+    lot = ParkingLot()
+    async with trio.open_nursery() as nursery:
+        child_task1 = await nursery.start(dummy_task)
+        child_task2 = await nursery.start(dummy_task)
+        child_task3 = await nursery.start(dummy_task)
+        add_parking_lot_breaker(child_task1, lot)
+        add_parking_lot_breaker(child_task2, lot)
+        add_parking_lot_breaker(child_task3, lot)
+        nursery.cancel_scope.cancel()
+
+    # I think the order is guaranteed currently, but doesn't hurt to be safe.
+    assert set(lot.broken_by) == {child_task1, child_task2, child_task3}
+
+
+async def test_parking_lot_breaker_register_exited_task() -> None:
+    lot = ParkingLot()
+    child_task = None
+    async with trio.open_nursery() as nursery:
+        child_task = await nursery.start(dummy_task)
+        nursery.cancel_scope.cancel()
+    # trying to register an exited task as lot breaker errors
+    with pytest.raises(
+        trio.BrokenResourceError,
+        match="^Attempted to add already exited task as lot breaker.$",
+    ):
+        add_parking_lot_breaker(child_task, lot)
+
+
+async def test_parking_lot_break_itself() -> None:
     """Break a parking lot, where the breakee is parked.
     Doing this is weird, but should probably be supported.
     """
@@ -359,5 +382,5 @@ async def test_parking_lot_weird() -> None:
         Matcher(_core.BrokenResourceError, match="^Parking lot broken by"),
     ):
         async with _core.open_nursery() as nursery:
-            task = await nursery.start(return_me_and_park, lot)
-            lot.break_lot(task)
+            child_task = await nursery.start(return_me_and_park, lot)
+            lot.break_lot(child_task)

@@ -1900,8 +1900,7 @@ class Runner:
         # break parking lots associated with the task exiting
         if task in GLOBAL_PARKING_LOT_BREAKER:
             for lot in GLOBAL_PARKING_LOT_BREAKER[task]:
-                if lot.broken_by is None:
-                    lot.break_lot(task)
+                lot.break_lot(task)
             del GLOBAL_PARKING_LOT_BREAKER[task]
 
         if (

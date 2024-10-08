@@ -73,7 +73,6 @@ from __future__ import annotations
 
 import inspect
 import math
-import warnings
 from collections import OrderedDict
 from typing import TYPE_CHECKING
 
@@ -152,7 +151,7 @@ class ParkingLot:
     # {task: None}, we just want a deque where we can quickly delete random
     # items
     _parked: OrderedDict[Task, None] = attrs.field(factory=OrderedDict, init=False)
-    broken_by: Task | None = None
+    broken_by: list[Task] = attrs.field(factory=list, init=False)
 
     def __len__(self) -> int:
         """Returns the number of parked tasks."""
@@ -176,7 +175,7 @@ class ParkingLot:
             breaks before we get to unpark.
 
         """
-        if self.broken_by is not None:
+        if self.broken_by:
             raise _core.BrokenResourceError(
                 f"Attempted to park in parking lot broken by {self.broken_by}",
             )
@@ -289,16 +288,13 @@ class ParkingLot:
         """
         if task is None:
             task = _core.current_task()
-        if self.broken_by is not None:
-            if self.broken_by != task:
-                warnings.warn(
-                    RuntimeWarning(
-                        f"{task} attempted to break parking lot {self} already broken by {self.broken_by}",
-                    ),
-                    stacklevel=2,
-                )
+
+        # if lot is already broken, just mark this as another breaker and return
+        if self.broken_by:
+            self.broken_by.append(task)
             return
-        self.broken_by = task
+
+        self.broken_by.append(task)
 
         for parked_task in self._parked:
             _core.reschedule(
