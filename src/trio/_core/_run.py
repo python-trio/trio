@@ -1897,7 +1897,7 @@ class Runner:
         return task
 
     def task_exited(self, task: Task, outcome: Outcome[Any]) -> None:
-        # break parking lots associated with the task exiting
+        # break parking lots associated with the exiting task
         if task in GLOBAL_PARKING_LOT_BREAKER:
             for lot in GLOBAL_PARKING_LOT_BREAKER[task]:
                 lot.break_lot(task)

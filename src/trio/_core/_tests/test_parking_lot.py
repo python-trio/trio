@@ -329,13 +329,11 @@ async def test_parking_lot_breaker_rebreak() -> None:
         lot.break_lot(child_task)
         nursery.cancel_scope.cancel()
 
-    # and appends the task
     assert lot.broken_by == [task, child_task]
 
 
 async def test_parking_lot_multiple_breakers_exit() -> None:
     # register multiple tasks as lot breakers, then have them all exit
-    # No warning is given on task exit, even if the lot is already broken.
     lot = ParkingLot()
     async with trio.open_nursery() as nursery:
         child_task1 = await nursery.start(dummy_task)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import weakref
 from typing import TYPE_CHECKING, Callable, Union
 
@@ -599,9 +600,10 @@ async def test_lock_acquire_unowned_lock() -> None:
     lock = trio.Lock()
     async with trio.open_nursery() as nursery:
         nursery.start_soon(lock.acquire)
+    owner_str = re.escape(str(lock._lot.broken_by[0]))
     with pytest.raises(
         trio.BrokenResourceError,
-        match="^Owner of this lock exited without releasing",
+        match=f"^Owner of this lock exited without releasing: {owner_str}$",
     ):
         await lock.acquire()
     assert not GLOBAL_PARKING_LOT_BREAKER
@@ -615,7 +617,7 @@ async def test_lock_multiple_acquire() -> None:
     with RaisesGroup(
         Matcher(
             trio.BrokenResourceError,
-            match="^Owner of this lock exited without releasing",
+            match="^Owner of this lock exited without releasing: ",
         ),
     ):
         async with trio.open_nursery() as nursery:
@@ -626,9 +628,11 @@ async def test_lock_multiple_acquire() -> None:
 
 async def test_lock_handover() -> None:
     assert not GLOBAL_PARKING_LOT_BREAKER
-    lock = trio.Lock()
-    lock.acquire_nowait()
     child_task: Task | None = None
+    lock = trio.Lock()
+
+    # this task acquires the lock
+    lock.acquire_nowait()
     assert GLOBAL_PARKING_LOT_BREAKER == {
         _core.current_task(): [
             lock._lot,
@@ -639,11 +643,13 @@ async def test_lock_handover() -> None:
         nursery.start_soon(lock.acquire)
         await wait_all_tasks_blocked()
 
+        # hand over the lock to the child task
         lock.release()
 
+        # check values, and get the identifier out of the dict for later check
         assert len(GLOBAL_PARKING_LOT_BREAKER) == 1
         child_task = next(iter(GLOBAL_PARKING_LOT_BREAKER))
         assert GLOBAL_PARKING_LOT_BREAKER[child_task] == [lock._lot]
 
-    assert lock._lot.broken_by == child_task
+    assert lock._lot.broken_by == [child_task]
     assert not GLOBAL_PARKING_LOT_BREAKER
