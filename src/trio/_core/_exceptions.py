@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+import copy
+
 from trio._util import NoPublicConstructor, final
 
 
@@ -62,6 +66,31 @@ class Cancelled(BaseException, metaclass=NoPublicConstructor):
 
     def __str__(self) -> str:
         return "Cancelled"
+
+    def __copy__(self) -> Cancelled:
+        result = Cancelled.__new__(Cancelled)
+        result.__context__ = self.__context__
+        result.__cause__ = self.__cause__
+        result.__suppress_context__ = self.__suppress_context__
+        result.__traceback__ = self.__traceback__
+        if hasattr(self, "__notes__"):
+            result.__notes__ = self.__notes__  # type: ignore[attr-defined]
+        return result
+
+    def __deepcopy__(self, memo: dict[int, object]) -> Cancelled:
+        result = Cancelled.__new__(Cancelled)
+        memo[id(self)] = result
+        keys = (
+            "__context__",
+            "__cause__",
+            "__suppress_context__",
+            "__traceback__",
+            "__notes__",
+        )
+        for key in keys:
+            if hasattr(self, key):
+                setattr(result, key, copy.deepcopy(getattr(self, key), memo))
+        return result
 
 
 class BusyResourceError(Exception):
