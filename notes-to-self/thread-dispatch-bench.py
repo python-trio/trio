@@ -30,7 +30,7 @@ def main():
             in_q.put(lambda: None)
             out_q.get()
         end = time.monotonic()
-        print(f"{(end - start) / COUNT * 1e6:.2f} µs/job")
+        print(f"{(end - start) / COUNT * 1e6:.2f} μs/job")
 
 
 main()

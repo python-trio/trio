@@ -278,8 +278,7 @@ def matches_disk_files(new_files: dict[str, str]) -> bool:
     for new_path, new_source in new_files.items():
         if not os.path.exists(new_path):
             return False
-        with open(new_path, encoding="utf-8") as old_file:
-            old_source = old_file.read()
+        old_source = Path(new_path).read_text(encoding="utf-8")
         if old_source != new_source:
             return False
     return True
@@ -303,8 +302,8 @@ def process(files: Iterable[File], *, do_test: bool) -> None:
             print("Generated sources are up to date.")
     else:
         for new_path, new_source in new_files.items():
-            with open(new_path, "w", encoding="utf-8", newline="\n") as f:
-                f.write(new_source)
+            with open(new_path, "w", encoding="utf-8", newline="\n") as fp:
+                fp.write(new_source)
         print("Regenerated sources successfully.")
         if not matches_disk:
             # With pre-commit integration, show that we edited files.

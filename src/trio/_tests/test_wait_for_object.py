@@ -16,7 +16,7 @@ if on_windows:
     from .._wait_for_object import WaitForMultipleObjects_sync, WaitForSingleObject
 
 
-async def test_WaitForMultipleObjects_sync() -> None:
+def test_WaitForMultipleObjects_sync() -> None:
     # This does a series of tests where we set/close the handle before
     # initiating the waiting for it.
     #

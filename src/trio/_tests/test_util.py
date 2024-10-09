@@ -198,13 +198,13 @@ def test_no_public_constructor_metaclass() -> None:
         def __init__(self, a: int, b: float) -> None:
             """Check arguments can be passed to __init__."""
             assert a == 8
-            assert b == 3.14
+            assert b == 3.15
 
     with pytest.raises(TypeError):
-        SpecialClass(8, 3.14)
+        SpecialClass(8, 3.15)
 
     # Private constructor should not raise, and passes args to __init__.
-    assert isinstance(SpecialClass._create(8, b=3.14), SpecialClass)
+    assert isinstance(SpecialClass._create(8, b=3.15), SpecialClass)
 
 
 def test_fixup_module_metadata() -> None:
