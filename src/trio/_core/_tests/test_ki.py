@@ -4,7 +4,8 @@ import contextlib
 import inspect
 import signal
 import threading
-from typing import TYPE_CHECKING, AsyncIterator, Callable, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
+from typing import TYPE_CHECKING
 
 import outcome
 import pytest

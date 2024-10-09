@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Sequence, overload
+from collections.abc import Sequence
+from typing import overload
 
 import trio
 from typing_extensions import assert_type

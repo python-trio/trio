@@ -3,8 +3,9 @@ from __future__ import annotations
 import errno
 import select
 import sys
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Callable, Iterator, Literal
+from typing import TYPE_CHECKING, Literal
 
 import attrs
 import outcome

@@ -3,7 +3,7 @@ from __future__ import annotations
 import errno
 import socket as stdlib_socket
 import sys
-from typing import Sequence
+from collections.abc import Sequence
 
 import pytest
 

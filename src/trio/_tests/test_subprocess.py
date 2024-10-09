@@ -6,6 +6,7 @@ import random
 import signal
 import subprocess
 import sys
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from functools import partial
 from pathlib import Path as SyncPath
@@ -14,8 +15,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     AsyncContextManager,
-    AsyncIterator,
-    Callable,
     NoReturn,
 )
 

@@ -14,10 +14,10 @@ import ipaddress
 import os
 import socket
 import sys
+from collections.abc import Iterable
 from typing import (
     TYPE_CHECKING,
     Any,
-    Iterable,
     NoReturn,
     TypeVar,
     Union,

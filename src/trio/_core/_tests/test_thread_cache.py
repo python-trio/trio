@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import threading
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
 from queue import Queue
-from typing import TYPE_CHECKING, Iterator, NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 import pytest
 

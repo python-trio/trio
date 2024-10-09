@@ -16,15 +16,12 @@ import os
 import struct
 import warnings
 import weakref
+from collections.abc import Awaitable, Callable, Iterable, Iterator
 from itertools import count
 from typing import (
     TYPE_CHECKING,
     Any,
-    Awaitable,
-    Callable,
     Generic,
-    Iterable,
-    Iterator,
     TypeVar,
     Union,
 )

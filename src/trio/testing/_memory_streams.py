@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import operator
-from typing import TYPE_CHECKING, Awaitable, Callable, TypeVar
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, TypeVar
 
 from .. import _core, _util
 from .._highlevel_generic import StapledStream

@@ -4,12 +4,11 @@ import enum
 import itertools
 import socket
 import sys
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    Iterator,
     Literal,
     TypeVar,
     cast,

@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import random
 import socket as stdlib_socket
+from collections.abc import Awaitable, Callable
 from contextlib import suppress
-from typing import TYPE_CHECKING, Awaitable, Callable, Tuple, TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 import pytest
 
@@ -39,7 +40,7 @@ def drain_socket(sock: stdlib_socket.socket) -> None:
 
 
 WaitSocket = Callable[[stdlib_socket.socket], Awaitable[object]]
-SocketPair = Tuple[stdlib_socket.socket, stdlib_socket.socket]
+SocketPair = tuple[stdlib_socket.socket, stdlib_socket.socket]
 RetT = TypeVar("RetT")
 
 

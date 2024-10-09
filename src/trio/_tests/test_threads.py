@@ -7,16 +7,11 @@ import sys
 import threading
 import time
 import weakref
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from functools import partial
 from typing import (
     TYPE_CHECKING,
-    AsyncGenerator,
-    Awaitable,
-    Callable,
-    List,
     NoReturn,
-    Tuple,
-    Type,
     TypeVar,
     Union,
 )
@@ -52,7 +47,7 @@ if TYPE_CHECKING:
 
     from ..lowlevel import Task
 
-RecordType = List[Tuple[str, Union[threading.Thread, Type[BaseException]]]]
+RecordType = list[tuple[str, Union[threading.Thread, type[BaseException]]]]
 T = TypeVar("T")
 
 

@@ -5,16 +5,13 @@ import socket as stdlib_socket
 import ssl
 import sys
 import threading
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import asynccontextmanager, contextmanager, suppress
 from functools import partial
 from ssl import SSLContext
 from typing import (
     TYPE_CHECKING,
     Any,
-    AsyncIterator,
-    Awaitable,
-    Callable,
-    Iterator,
     NoReturn,
 )
 

@@ -3,8 +3,9 @@ from __future__ import annotations
 import errno
 import socket as stdlib_socket
 import sys
+from collections.abc import Sequence
 from socket import AddressFamily, SocketKind
-from typing import TYPE_CHECKING, Any, Sequence, overload
+from typing import TYPE_CHECKING, Any, overload
 
 import attrs
 import pytest

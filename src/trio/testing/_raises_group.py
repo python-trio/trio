@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import re
 import sys
+from collections.abc import Callable, Sequence
+from re import Pattern
 from typing import (
     TYPE_CHECKING,
-    Callable,
     ContextManager,
     Generic,
     Literal,
-    Pattern,
-    Sequence,
     cast,
     overload,
 )

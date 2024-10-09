@@ -4,13 +4,12 @@ import os
 import select
 import socket as _stdlib_socket
 import sys
+from collections.abc import Awaitable, Callable
 from operator import index
 from socket import AddressFamily, SocketKind
 from typing import (
     TYPE_CHECKING,
     Any,
-    Awaitable,
-    Callable,
     Literal,
     SupportsIndex,
     TypeVar,

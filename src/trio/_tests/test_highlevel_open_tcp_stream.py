@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import socket
 import sys
+from collections.abc import Sequence
 from socket import AddressFamily, SocketKind
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import TYPE_CHECKING, Any
 
 import attrs
 import pytest

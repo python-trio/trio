@@ -1,6 +1,6 @@
 """Test variadic generic typing for Nursery.start[_soon]()."""
 
-from typing import Awaitable, Callable
+from collections.abc import Awaitable, Callable
 
 from trio import TASK_STATUS_IGNORED, Nursery, TaskStatus
 
