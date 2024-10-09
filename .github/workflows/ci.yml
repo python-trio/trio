@@ -18,23 +18,23 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.10', '3.8', '3.9', '3.10', '3.11', '3.12']
+        python: ['pypy-3.10', '3.9', '3.10', '3.11', '3.12', '3.13']
         arch: ['x86', 'x64']
         lsp: ['']
         lsp_extract_file: ['']
         extra_name: ['']
         include:
-          - python: '3.8'
+          - python: '3.9'
             arch: 'x64'
             lsp: 'https://raw.githubusercontent.com/python-trio/trio-ci-assets/master/komodia-based-vpn-setup.zip'
             lsp_extract_file: 'komodia-based-vpn-setup.exe'
             extra_name: ', with Komodia LSP'
-          - python: '3.8'
+          - python: '3.9'
             arch: 'x64'
             lsp: 'https://www.proxifier.com/download/legacy/ProxifierSetup342.exe'
             lsp_extract_file: ''
             extra_name: ', with IFS LSP'
-          #- python: '3.8'
+          #- python: '3.9'
           #  arch: 'x64'
           #  lsp: 'http://download.pctools.com/mirror/updates/9.0.0.2308-SDavfree-lite_en.exe'
           #  lsp_extract_file: ''
@@ -87,7 +87,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.10', '3.8', '3.9', '3.10', '3.11', '3.12', '3.13']
+        python: ['pypy-3.10', '3.9', '3.10', '3.11', '3.12', '3.13']
         check_formatting: ['0']
         no_test_requirements: ['0']
         extra_name: ['']
@@ -96,7 +96,7 @@ jobs:
             check_formatting: '1'
             extra_name: ', check formatting'
           # separate test run that doesn't install test-requirements.txt
-          - python: '3.8'
+          - python: '3.9'
             no_test_requirements: '1'
             extra_name: ', no test-requirements'
     continue-on-error: >-
@@ -143,7 +143,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.10', '3.8', '3.9', '3.10', '3.11', '3.12']
+        python: ['pypy-3.10', '3.9', '3.10', '3.11', '3.12', '3.13']
     continue-on-error: >-
       ${{
         (
@@ -203,7 +203,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.8', '3.12']
+        python: ['3.9', '3.12']
     steps:
       - name: Checkout
         uses: actions/checkout@v4

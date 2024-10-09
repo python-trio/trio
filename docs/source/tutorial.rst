@@ -88,7 +88,7 @@ Okay, ready? Let's get started.
 Before you begin
 ----------------
 
-1. Make sure you're using Python 3.8 or newer.
+1. Make sure you're using Python 3.9 or newer.
 
 2. ``python3 -m pip install --upgrade trio`` (or on Windows, maybe
    ``py -3 -m pip install --upgrade trio`` – `details
