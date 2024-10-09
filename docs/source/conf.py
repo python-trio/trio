@@ -201,6 +201,13 @@ def setup(app: Sphinx) -> None:
     app.connect("source-read", on_read_source)
 
 
+# Our docs use the READTHEDOCS variable, so copied from:
+# https://about.readthedocs.com/blog/2024/07/addons-by-default/
+if os.environ.get("READTHEDOCS", "") == "True":
+    if "html_context" not in globals():
+        html_context = {}
+    html_context["READTHEDOCS"] = True
+
 # -- General configuration ------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
