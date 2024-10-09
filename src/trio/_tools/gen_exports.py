@@ -386,15 +386,16 @@ if TYPE_CHECKING:
 """
 
 IMPORTS_KQUEUE = """\
-from typing import Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from contextlib import AbstractContextManager
     import select
+    from collections.abc import Callable
+    from contextlib import AbstractContextManager
 
     from .. import _core
-    from ._traps import Abort, RaiseCancelT
     from .._file_io import _HasFileNo
+    from ._traps import Abort, RaiseCancelT
 """
 
 IMPORTS_WINDOWS = """\
@@ -402,11 +403,12 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from contextlib import AbstractContextManager
-    from .._file_io import _HasFileNo
-    from ._windows_cffi import Handle, CData
+
     from typing_extensions import Buffer
 
+    from .._file_io import _HasFileNo
     from ._unbounded_queue import UnboundedQueue
+    from ._windows_cffi import Handle, CData
 """
 
 

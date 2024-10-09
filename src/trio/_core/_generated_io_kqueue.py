@@ -4,13 +4,14 @@
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 from ._run import GLOBAL_RUN_CONTEXT
 
 if TYPE_CHECKING:
     import select
+    from collections.abc import Callable
     from contextlib import AbstractContextManager
 
     from .. import _core
