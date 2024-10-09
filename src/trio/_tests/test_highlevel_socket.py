@@ -3,7 +3,7 @@ from __future__ import annotations
 import errno
 import socket as stdlib_socket
 import sys
-from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -15,6 +15,9 @@ from ..testing import (
     wait_all_tasks_blocked,
 )
 from .test_socket import setsockopt_tests
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 async def test_SocketStream_basics() -> None:

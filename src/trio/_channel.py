@@ -92,7 +92,7 @@ def _open_memory_channel(
 # it could replace the normal function header
 if TYPE_CHECKING:
     # written as a class so you can say open_memory_channel[int](5)
-    class open_memory_channel(tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]):
+    class open_memory_channel(tuple["MemorySendChannel[T]", "MemoryReceiveChannel[T]"]):
         def __new__(  # type: ignore[misc]  # "must return a subtype"
             cls,
             max_buffer_size: int | float,  # noqa: PYI041

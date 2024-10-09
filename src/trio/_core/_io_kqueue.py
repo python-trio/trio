@@ -3,7 +3,6 @@ from __future__ import annotations
 import errno
 import select
 import sys
-from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Literal
 
@@ -15,6 +14,8 @@ from ._run import _public
 from ._wakeup_socketpair import WakeupSocketpair
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
+
     from typing_extensions import TypeAlias
 
     from .._core import Abort, RaiseCancelT, Task, UnboundedQueue

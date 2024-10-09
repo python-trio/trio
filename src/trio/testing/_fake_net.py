@@ -14,7 +14,6 @@ import ipaddress
 import os
 import socket
 import sys
-from collections.abc import Iterable
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -31,6 +30,7 @@ from trio._util import NoPublicConstructor, final
 
 if TYPE_CHECKING:
     import builtins
+    from collections.abc import Iterable
     from socket import AddressFamily, SocketKind
     from types import TracebackType
 

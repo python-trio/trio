@@ -8,7 +8,7 @@ import sys
 import tempfile
 from pathlib import Path
 from socket import AddressFamily, SocketKind
-from typing import TYPE_CHECKING, Any, Callable, List, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Union
 
 import attrs
 import pytest
@@ -23,14 +23,14 @@ if TYPE_CHECKING:
 
     from .._highlevel_socket import SocketStream
 
-    GaiTuple: TypeAlias = Tuple[
+    GaiTuple: TypeAlias = tuple[
         AddressFamily,
         SocketKind,
         int,
         str,
-        Union[Tuple[str, int], Tuple[str, int, int, int]],
+        Union[tuple[str, int], tuple[str, int, int, int]],
     ]
-    GetAddrInfoResponse: TypeAlias = List[GaiTuple]
+    GetAddrInfoResponse: TypeAlias = list[GaiTuple]
 else:
     GaiTuple: object
     GetAddrInfoResponse = object

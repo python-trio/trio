@@ -7,7 +7,6 @@ import sys
 import threading
 import time
 import weakref
-from collections.abc import AsyncGenerator, Awaitable, Callable
 from functools import partial
 from typing import (
     TYPE_CHECKING,
@@ -43,6 +42,8 @@ from .._threads import (
 from ..testing import wait_all_tasks_blocked
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator, Awaitable, Callable
+
     from outcome import Outcome
 
     from ..lowlevel import Task

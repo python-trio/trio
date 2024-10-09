@@ -4,7 +4,6 @@ import contextlib
 import inspect
 import signal
 import threading
-from collections.abc import AsyncIterator, Callable, Iterator
 from typing import TYPE_CHECKING
 
 import outcome
@@ -24,6 +23,8 @@ from ..._util import signal_raise
 from ...testing import wait_all_tasks_blocked
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Callable, Iterator
+
     from ..._core import Abort, RaiseCancelT
 
 

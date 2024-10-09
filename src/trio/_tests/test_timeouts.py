@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Awaitable, Callable
-from typing import Protocol, TypeVar
+from typing import TYPE_CHECKING, Protocol, TypeVar
 
 import outcome
 import pytest
@@ -22,6 +21,9 @@ from .._timeouts import (
     sleep_until,
 )
 from ..testing import assert_checkpoints
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 T = TypeVar("T")
 

@@ -16,7 +16,6 @@ import os
 import struct
 import warnings
 import weakref
-from collections.abc import Awaitable, Callable, Iterable, Iterator
 from itertools import count
 from typing import (
     TYPE_CHECKING,
@@ -34,6 +33,7 @@ import trio
 from ._util import NoPublicConstructor, final
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable, Iterable, Iterator
     from types import TracebackType
 
     # See DTLSEndpoint.__init__ for why this is imported here

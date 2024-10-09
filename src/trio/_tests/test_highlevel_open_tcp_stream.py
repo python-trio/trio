@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import socket
 import sys
-from collections.abc import Sequence
 from socket import AddressFamily, SocketKind
 from typing import TYPE_CHECKING, Any
 
@@ -20,6 +19,8 @@ from trio.socket import AF_INET, AF_INET6, IPPROTO_TCP, SOCK_STREAM, SocketType
 from trio.testing import Matcher, RaisesGroup
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from trio.testing import MockClock
 
 if sys.version_info < (3, 11):

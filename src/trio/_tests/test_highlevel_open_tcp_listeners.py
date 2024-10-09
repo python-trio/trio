@@ -3,7 +3,6 @@ from __future__ import annotations
 import errno
 import socket as stdlib_socket
 import sys
-from collections.abc import Sequence
 from socket import AddressFamily, SocketKind
 from typing import TYPE_CHECKING, Any, overload
 
@@ -27,6 +26,8 @@ if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from typing_extensions import Buffer
 
 

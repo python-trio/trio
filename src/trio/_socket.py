@@ -4,7 +4,6 @@ import os
 import select
 import socket as _stdlib_socket
 import sys
-from collections.abc import Awaitable, Callable
 from operator import index
 from socket import AddressFamily, SocketKind
 from typing import (
@@ -25,7 +24,7 @@ from trio._util import wraps as _wraps
 from . import _core
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Awaitable, Callable, Iterable
     from types import TracebackType
 
     from typing_extensions import Buffer, Concatenate, ParamSpec, Self, TypeAlias

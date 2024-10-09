@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Container, Iterable
 from typing import TYPE_CHECKING, NoReturn
 
 import attrs
@@ -10,6 +9,8 @@ from ... import _abc, _core
 from .tutil import check_sequence_matches
 
 if TYPE_CHECKING:
+    from collections.abc import Container, Iterable
+
     from ...lowlevel import Task
 
 
