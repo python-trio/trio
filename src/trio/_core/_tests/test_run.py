@@ -2222,10 +2222,14 @@ def test_Cancelled_copy() -> None:
     cancelled = _core.Cancelled._create()
     cancelled.__context__ = cancelled
     cancelled.__cause__ = BaseException()
+    if sys.version_info > (3, 11):
+        cancelled.add_note("hello")
     my_copy = copy.copy(cancelled)
     assert my_copy is not cancelled
     assert my_copy.__context__ is cancelled.__context__
     assert my_copy.__cause__ is cancelled.__cause__
+    if sys.version_info > (3, 11):
+        assert my_copy.__notes__ == ["hello"]
 
     my_copy = copy.deepcopy(cancelled)
     assert my_copy is not cancelled

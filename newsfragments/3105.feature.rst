@@ -1,0 +1,1 @@
+:exc:`trio.Cancelled` now defines `__copy__` and `__deep_copy__` to support :func:`copy.copy` and :func:`copy.deepcopy`.
