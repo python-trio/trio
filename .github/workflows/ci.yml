@@ -92,7 +92,7 @@ jobs:
         no_test_requirements: ['0']
         extra_name: ['']
         include:
-          - python: '3.12'
+          - python: '3.13'
             check_formatting: '1'
             extra_name: ', check formatting'
           # separate test run that doesn't install test-requirements.txt
@@ -203,7 +203,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.9', '3.12']
+        python: ['3.9', '3.13']
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -212,7 +212,7 @@ jobs:
         with:
             python-version: '${{ matrix.python }}'
             cache: pip
-        # setuptools is needed to get distutils on 3.12, which cythonize requires
+        # setuptools is needed to get distutils on 3.13, which cythonize requires
       - name: install trio and setuptools
         run: python -m pip install --upgrade pip . setuptools
 
