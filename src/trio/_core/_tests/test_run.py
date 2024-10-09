@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextvars
+import copy
 import functools
 import gc
 import sys
@@ -2215,6 +2216,21 @@ def test_Cancelled_str() -> None:
 def test_Cancelled_subclass() -> None:
     with pytest.raises(TypeError):
         type("Subclass", (_core.Cancelled,), {})
+
+
+def test_Cancelled_copy() -> None:
+    cancelled = _core.Cancelled._create()
+    cancelled.__context__ = cancelled
+    cancelled.__cause__ = BaseException()
+    my_copy = copy.copy(cancelled)
+    assert my_copy is not cancelled
+    assert my_copy.__context__ is cancelled.__context__
+    assert my_copy.__cause__ is cancelled.__cause__
+
+    my_copy = copy.deepcopy(cancelled)
+    assert my_copy is not cancelled
+    assert my_copy.__context__ is not cancelled.__context__
+    assert my_copy.__cause__ is not cancelled.__cause__
 
 
 def test_CancelScope_subclass() -> None:
