@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import re
 import weakref
 from typing import TYPE_CHECKING, Callable, Union
 
 import pytest
 
+from trio.testing import Matcher, RaisesGroup
+
 from .. import _core
+from .._core._parking_lot import GLOBAL_PARKING_LOT_BREAKER
 from .._sync import *
 from .._timeouts import sleep_forever
 from ..testing import assert_checkpoints, wait_all_tasks_blocked
@@ -586,3 +590,66 @@ async def test_generic_lock_acquire_nowait_blocks_acquire(
         await wait_all_tasks_blocked()
         assert record == ["started"]
         lock_like.release()
+
+
+async def test_lock_acquire_unowned_lock() -> None:
+    """Test that trying to acquire a lock whose owner has exited raises an error.
+    see https://github.com/python-trio/trio/issues/3035
+    """
+    assert not GLOBAL_PARKING_LOT_BREAKER
+    lock = trio.Lock()
+    async with trio.open_nursery() as nursery:
+        nursery.start_soon(lock.acquire)
+    owner_str = re.escape(str(lock._lot.broken_by[0]))
+    with pytest.raises(
+        trio.BrokenResourceError,
+        match=f"^Owner of this lock exited without releasing: {owner_str}$",
+    ):
+        await lock.acquire()
+    assert not GLOBAL_PARKING_LOT_BREAKER
+
+
+async def test_lock_multiple_acquire() -> None:
+    """Test for error if awaiting on a lock whose owner exits without releasing.
+    see https://github.com/python-trio/trio/issues/3035"""
+    assert not GLOBAL_PARKING_LOT_BREAKER
+    lock = trio.Lock()
+    with RaisesGroup(
+        Matcher(
+            trio.BrokenResourceError,
+            match="^Owner of this lock exited without releasing: ",
+        ),
+    ):
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(lock.acquire)
+            nursery.start_soon(lock.acquire)
+    assert not GLOBAL_PARKING_LOT_BREAKER
+
+
+async def test_lock_handover() -> None:
+    assert not GLOBAL_PARKING_LOT_BREAKER
+    child_task: Task | None = None
+    lock = trio.Lock()
+
+    # this task acquires the lock
+    lock.acquire_nowait()
+    assert GLOBAL_PARKING_LOT_BREAKER == {
+        _core.current_task(): [
+            lock._lot,
+        ],
+    }
+
+    async with trio.open_nursery() as nursery:
+        nursery.start_soon(lock.acquire)
+        await wait_all_tasks_blocked()
+
+        # hand over the lock to the child task
+        lock.release()
+
+        # check values, and get the identifier out of the dict for later check
+        assert len(GLOBAL_PARKING_LOT_BREAKER) == 1
+        child_task = next(iter(GLOBAL_PARKING_LOT_BREAKER))
+        assert GLOBAL_PARKING_LOT_BREAKER[child_task] == [lock._lot]
+
+    assert lock._lot.broken_by == [child_task]
+    assert not GLOBAL_PARKING_LOT_BREAKER
