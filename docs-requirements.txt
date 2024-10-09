@@ -79,7 +79,7 @@ sphinx-codeautolink==0.15.2
     # via -r docs-requirements.in
 sphinx-hoverxref==1.4.1
     # via -r docs-requirements.in
-sphinx-rtd-theme==2.0.0
+sphinx-rtd-theme==3.0.0
     # via -r docs-requirements.in
 sphinxcontrib-applehelp==2.0.0
     # via sphinx
