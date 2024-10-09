@@ -76,12 +76,14 @@ async def test_cmp_magic(cls_a: EitherPathType, cls_b: EitherPathType) -> None:
     assert not b == None  # noqa
 
 
+# upstream python3.8 bug: we should also test (pathlib.Path, trio.Path), but
+# __*div__ does not properly raise NotImplementedError like the other comparison
+# magic, so trio.Path's implementation does not get dispatched
 cls_pairs_str: list[tuple[PathOrStrType, PathOrStrType]] = [
     (trio.Path, pathlib.Path),
     (trio.Path, trio.Path),
     (trio.Path, str),
     (str, trio.Path),
-    (pathlib.Path, trio.Path),
 ]
 
 
