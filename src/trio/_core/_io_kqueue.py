@@ -4,7 +4,7 @@ import errno
 import select
 import sys
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Callable, Iterator, Literal
+from typing import TYPE_CHECKING, Literal
 
 import attrs
 import outcome
@@ -14,6 +14,8 @@ from ._run import _public
 from ._wakeup_socketpair import WakeupSocketpair
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
+
     from typing_extensions import TypeAlias
 
     from .._core import Abort, RaiseCancelT, Task, UnboundedQueue

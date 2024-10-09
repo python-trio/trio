@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-from typing import Sequence, overload
+from typing import TYPE_CHECKING, overload
 
 import trio
 from typing_extensions import assert_type
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 async def sleep_sort(values: Sequence[float]) -> list[float]:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import errno
 from functools import partial
-from typing import TYPE_CHECKING, Awaitable, Callable, NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 import attrs
 
@@ -19,6 +19,8 @@ from trio.testing import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
     import pytest
 
     from trio._channel import MemoryReceiveChannel, MemorySendChannel

@@ -7,15 +7,13 @@ import os
 import signal
 import threading
 from abc import ABCMeta
+from collections.abc import Awaitable, Callable, Sequence
 from functools import update_wrapper
 from typing import (
     TYPE_CHECKING,
     Any,
-    Awaitable,
-    Callable,
     Generic,
     NoReturn,
-    Sequence,
     TypeVar,
     final as std_final,
 )

@@ -17,7 +17,6 @@ import sys
 from typing import (
     TYPE_CHECKING,
     Any,
-    Iterable,
     NoReturn,
     TypeVar,
     Union,
@@ -31,6 +30,7 @@ from trio._util import NoPublicConstructor, final
 
 if TYPE_CHECKING:
     import builtins
+    from collections.abc import Iterable
     from socket import AddressFamily, SocketKind
     from types import TracebackType
 

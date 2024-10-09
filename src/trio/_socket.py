@@ -9,8 +9,6 @@ from socket import AddressFamily, SocketKind
 from typing import (
     TYPE_CHECKING,
     Any,
-    Awaitable,
-    Callable,
     Literal,
     SupportsIndex,
     TypeVar,
@@ -26,7 +24,7 @@ from trio._util import wraps as _wraps
 from . import _core
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Awaitable, Callable, Iterable
     from types import TracebackType
 
     from typing_extensions import Buffer, Concatenate, ParamSpec, Self, TypeAlias

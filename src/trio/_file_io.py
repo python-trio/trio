@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+from collections.abc import Callable, Iterable
 from functools import partial
 from typing import (
     IO,
@@ -8,9 +9,7 @@ from typing import (
     Any,
     AnyStr,
     BinaryIO,
-    Callable,
     Generic,
-    Iterable,
     TypeVar,
     Union,
     overload,

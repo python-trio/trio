@@ -1,0 +1,1 @@
+Drop support for Python 3.8. (`#3104 <https://github.com/python-trio/trio/issues/3104>`__)

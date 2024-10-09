@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import logging
 import types
-from typing import Any, Callable, Dict, Sequence, TypeVar
+from collections.abc import Callable, Sequence
+from typing import Any, TypeVar
 
 from .._abc import Instrument
 
@@ -17,7 +20,7 @@ def _public(fn: F) -> F:
     return fn
 
 
-class Instruments(Dict[str, Dict[Instrument, None]]):
+class Instruments(dict[str, dict[Instrument, None]]):
     """A collection of `trio.abc.Instrument` organized by hook.
 
     Instrumentation calls are rather expensive, and we don't want a
