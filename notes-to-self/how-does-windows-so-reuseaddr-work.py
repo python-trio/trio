@@ -20,7 +20,7 @@ def sock(mode):
     return s
 
 
-def bind(sock, bind_type):
+def bind(sock, bind_type) -> None:
     if bind_type == "wildcard":
         sock.bind(("0.0.0.0", 12345))
     elif bind_type == "specific":
@@ -29,7 +29,7 @@ def bind(sock, bind_type):
         raise AssertionError()
 
 
-def table_entry(mode1, bind_type1, mode2, bind_type2):
+def table_entry(mode1, bind_type1, mode2, bind_type2) -> str:
     with sock(mode1) as sock1:
         bind(sock1, bind_type1)
         try:

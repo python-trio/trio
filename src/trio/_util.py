@@ -308,7 +308,7 @@ class generic_function(Generic[RetT]):
         update_wrapper(self, fn)
         self._fn = fn
 
-    def __call__(self, *args: Any, **kwargs: Any) -> RetT:
+    def __call__(self, *args: object, **kwargs: object) -> RetT:
         return self._fn(*args, **kwargs)
 
     def __getitem__(self, subscript: object) -> Self:

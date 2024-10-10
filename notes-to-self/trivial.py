@@ -1,7 +1,7 @@
 import trio
 
 
-async def foo():
+async def foo() -> int:
     print("in foo!")
     return 3
 

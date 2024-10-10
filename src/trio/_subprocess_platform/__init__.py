@@ -85,11 +85,11 @@ try:
 
     elif os.name == "posix":
 
-        def create_pipe_to_child_stdin():
+        def create_pipe_to_child_stdin() -> tuple[trio.lowlevel.FdStream, int]:
             rfd, wfd = os.pipe()
             return trio.lowlevel.FdStream(wfd), rfd
 
-        def create_pipe_from_child_output():
+        def create_pipe_from_child_output() -> tuple[trio.lowlevel.FdStream, int]:
             rfd, wfd = os.pipe()
             return trio.lowlevel.FdStream(rfd), wfd
 
@@ -106,12 +106,12 @@ try:
 
         from .._windows_pipes import PipeReceiveStream, PipeSendStream
 
-        def create_pipe_to_child_stdin():
+        def create_pipe_to_child_stdin() -> tuple[PipeSendStream, int]:
             # for stdin, we want the write end (our end) to use overlapped I/O
             rh, wh = windows_pipe(overlapped=(False, True))
             return PipeSendStream(wh), msvcrt.open_osfhandle(rh, os.O_RDONLY)
 
-        def create_pipe_from_child_output():
+        def create_pipe_from_child_output() -> tuple[PipeReceiveStream, int]:
             # for stdout/err, it's the read end that's overlapped
             rh, wh = windows_pipe(overlapped=(True, False))
             return PipeReceiveStream(rh), msvcrt.open_osfhandle(wh, 0)

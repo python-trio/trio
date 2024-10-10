@@ -9,7 +9,7 @@ LOW = 1000
 HIGH = 10000
 
 
-async def tinytask():
+async def tinytask() -> None:
     await trio.sleep_forever()
 
 
@@ -22,7 +22,7 @@ async def measure(count):
         return resource.getrusage(resource.RUSAGE_SELF)
 
 
-async def main():
+async def main() -> None:
     low_usage = await measure(LOW)
     high_usage = await measure(HIGH + LOW)
 

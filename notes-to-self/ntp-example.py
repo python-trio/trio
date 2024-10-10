@@ -53,7 +53,7 @@ def extract_transmit_timestamp(ntp_packet):
     return base_time + offset
 
 
-async def main():
+async def main() -> None:
     print("Our clock currently reads (in UTC):", datetime.datetime.utcnow())
 
     # Look up some random NTP servers.
