@@ -2219,22 +2219,22 @@ def test_Cancelled_subclass() -> None:
 
 
 def test_Cancelled_copy() -> None:
+    # the only notable thing in __dict__ is __notes__
+    # on py<3.11 we only check for ability to create new instances
     cancelled = _core.Cancelled._create()
-    cancelled.__context__ = cancelled
-    cancelled.__cause__ = BaseException()
     if sys.version_info > (3, 11):
         cancelled.add_note("hello")
+
     my_copy = copy.copy(cancelled)
     assert my_copy is not cancelled
-    assert my_copy.__context__ is cancelled.__context__
-    assert my_copy.__cause__ is cancelled.__cause__
     if sys.version_info > (3, 11):
-        assert my_copy.__notes__ == ["hello"]
+        assert my_copy.__notes__ is cancelled.__notes__
 
-    my_copy = copy.deepcopy(cancelled)
-    assert my_copy is not cancelled
-    assert my_copy.__context__ is not cancelled.__context__
-    assert my_copy.__cause__ is not cancelled.__cause__
+    deep_copy = copy.deepcopy(cancelled)
+    assert deep_copy is not cancelled
+    if sys.version_info > (3, 11):
+        assert deep_copy.__notes__ == ["hello"]
+        assert deep_copy.__notes__ is not cancelled.__notes__
 
 
 def test_CancelScope_subclass() -> None:

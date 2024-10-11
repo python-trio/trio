@@ -68,28 +68,25 @@ class Cancelled(BaseException, metaclass=NoPublicConstructor):
         return "Cancelled"
 
     def __copy__(self) -> Cancelled:
+        """Enables creating new instances through `copy.copy`.
+
+        This does not copy exception metadata like __cause__, __traceback__, etc
+        in line with the effect of copying built-in exceptions.
+        """
         result = Cancelled.__new__(Cancelled)
-        result.__context__ = self.__context__
-        result.__cause__ = self.__cause__
-        result.__suppress_context__ = self.__suppress_context__
-        result.__traceback__ = self.__traceback__
-        if hasattr(self, "__notes__"):
-            result.__notes__ = self.__notes__  # type: ignore[attr-defined]
+        result.__dict__ = copy.copy(self.__dict__)
         return result
 
     def __deepcopy__(self, memo: dict[int, object]) -> Cancelled:
+        """Enables creating new instances through `copy.deepcopy`.
+
+        This does not copy exception metadata like __cause__, __traceback__, etc
+        in line with the effect of copying built-in exceptions.
+        """
         result = Cancelled.__new__(Cancelled)
+        # copy.deepcopy handles memo logic
         memo[id(self)] = result
-        keys = (
-            "__context__",
-            "__cause__",
-            "__suppress_context__",
-            "__traceback__",
-            "__notes__",
-        )
-        for key in keys:
-            if hasattr(self, key):
-                setattr(result, key, copy.deepcopy(getattr(self, key), memo))
+        result.__dict__ = copy.deepcopy(self.__dict__, memo)
         return result
 
 
