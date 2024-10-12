@@ -1023,6 +1023,7 @@ class NurseryManager:
         exc: BaseException | None,
         tb: TracebackType | None,
     ) -> bool:
+        del tb
         new_exc = await self._nursery._nested_child_finished(exc)
         # Tracebacks show the 'raise' line below out of context, so let's give
         # this variable a name that makes sense out of context.
@@ -1043,7 +1044,7 @@ class NurseryManager:
                 value.__context__ = old_context
                 # delete references from locals to avoid creating cycles
                 # see test_cancel_scope_exit_doesnt_create_cyclic_garbage
-                del _, combined_error_from_nursery, value, new_exc
+                del _, combined_error_from_nursery, value, new_exc, exc
 
     # make sure these raise errors in static analysis if called
     if not TYPE_CHECKING:
