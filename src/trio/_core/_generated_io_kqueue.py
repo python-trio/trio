@@ -6,7 +6,7 @@ from __future__ import annotations
 import sys
 from typing import TYPE_CHECKING, Callable, ContextManager
 
-from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
+from ._ki import enable_ki_protection
 from ._run import GLOBAL_RUN_CONTEXT
 
 if TYPE_CHECKING:
@@ -29,18 +29,19 @@ __all__ = [
 ]
 
 
+@enable_ki_protection
 def current_kqueue() -> select.kqueue:
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26
     <https://github.com/python-trio/trio/issues/26>`__.
     """
-    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.current_kqueue()
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
 
 
+@enable_ki_protection
 def monitor_kevent(
     ident: int,
     filter: int,
@@ -49,13 +50,13 @@ def monitor_kevent(
     anything real. See `#26
     <https://github.com/python-trio/trio/issues/26>`__.
     """
-    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.monitor_kevent(ident, filter)
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
 
 
+@enable_ki_protection
 async def wait_kevent(
     ident: int,
     filter: int,
@@ -65,7 +66,6 @@ async def wait_kevent(
     anything real. See `#26
     <https://github.com/python-trio/trio/issues/26>`__.
     """
-    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_kevent(
             ident,
@@ -76,6 +76,7 @@ async def wait_kevent(
         raise RuntimeError("must be called from async context") from None
 
 
+@enable_ki_protection
 async def wait_readable(fd: int | _HasFileNo) -> None:
     """Block until the kernel reports that the given object is readable.
 
@@ -98,13 +99,13 @@ async def wait_readable(fd: int | _HasFileNo) -> None:
         if another task calls :func:`notify_closing` while this
         function is still working.
     """
-    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_readable(fd)
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
 
 
+@enable_ki_protection
 async def wait_writable(fd: int | _HasFileNo) -> None:
     """Block until the kernel reports that the given object is writable.
 
@@ -117,13 +118,13 @@ async def wait_writable(fd: int | _HasFileNo) -> None:
         if another task calls :func:`notify_closing` while this
         function is still working.
     """
-    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_writable(fd)
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
 
 
+@enable_ki_protection
 def notify_closing(fd: int | _HasFileNo) -> None:
     """Notify waiters of the given object that it will be closed.
 
@@ -149,7 +150,6 @@ def notify_closing(fd: int | _HasFileNo) -> None:
     step, so other tasks won't be able to tell what order they happened
     in anyway.
     """
-    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.notify_closing(fd)
     except AttributeError:

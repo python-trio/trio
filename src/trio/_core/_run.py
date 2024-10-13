@@ -39,7 +39,7 @@ from ._concat_tb import concat_tb
 from ._entry_queue import EntryQueue, TrioToken
 from ._exceptions import Cancelled, RunFinishedError, TrioInternalError
 from ._instrumentation import Instruments
-from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED, KIManager, enable_ki_protection
+from ._ki import KIManager, disable_ki_protection, enable_ki_protection
 from ._parking_lot import GLOBAL_PARKING_LOT_BREAKER
 from ._thread_cache import start_thread_soon
 from ._traps import (
@@ -1668,6 +1668,16 @@ class GuestState:
             start_thread_soon(get_events, deliver)
 
 
+@enable_ki_protection
+async def run_coro_with_ki_protection_enabled(orig_coro: Awaitable[RetT]) -> RetT:
+    return await orig_coro
+
+
+@disable_ki_protection
+async def run_coro_with_ki_protection_disabled(orig_coro: Awaitable[RetT]) -> RetT:
+    return await orig_coro
+
+
 @attrs.define(eq=False)
 class Runner:
     clock: Clock
@@ -1863,15 +1873,12 @@ class Runner:
             except AttributeError:
                 name = repr(name)
 
-        # very old Cython versions (<0.29.24) has the attribute, but with a value of None
-        if getattr(coro, "cr_frame", None) is None:
-            # This async function is implemented in C or Cython
-            async def python_wrapper(orig_coro: Awaitable[RetT]) -> RetT:
-                return await orig_coro
-
-            coro = python_wrapper(coro)
-        assert coro.cr_frame is not None, "Coroutine frame should exist"
-        coro.cr_frame.f_locals.setdefault(LOCALS_KEY_KI_PROTECTION_ENABLED, system_task)
+        python_wrapper = (
+            run_coro_with_ki_protection_enabled
+            if system_task
+            else run_coro_with_ki_protection_disabled
+        )
+        coro = python_wrapper(coro)
 
         ######
         # Set up the Task object
@@ -2573,13 +2580,13 @@ _MAX_TIMEOUT: Final = 24 * 60 * 60
 # mode", where our core event loop gets unrolled into a series of callbacks on
 # the host loop. If you're doing a regular trio.run then this gets run
 # straight through.
+@enable_ki_protection
 def unrolled_run(
     runner: Runner,
     async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
     args: tuple[Unpack[PosArgT]],
     host_uses_signal_set_wakeup_fd: bool = False,
 ) -> Generator[float, EventResult, None]:
-    sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     __tracebackhide__ = True
 
     try:
