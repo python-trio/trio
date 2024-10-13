@@ -83,6 +83,7 @@ else:
     StatusT_contra = TypeVar("StatusT_contra", contravariant=True)
 
 FnT = TypeVar("FnT", bound="Callable[..., Any]")
+T = TypeVar("T")
 RetT = TypeVar("RetT")
 
 
@@ -1382,6 +1383,7 @@ class Task(metaclass=NoPublicConstructor):
     name: str
     context: contextvars.Context
     _counter: int = attrs.field(init=False, factory=itertools.count().__next__)
+    _ki_protected: bool
 
     # Invariant:
     # - for unscheduled tasks, _next_send_fn and _next_send are both None
@@ -1669,13 +1671,13 @@ class GuestState:
 
 
 @enable_ki_protection
-async def run_coro_with_ki_protection_enabled(orig_coro: Awaitable[RetT]) -> RetT:
-    return await orig_coro
+def run_with_ki_protection_enabled(f: Callable[[T], RetT], v: T) -> RetT:
+    return f(v)
 
 
 @disable_ki_protection
-async def run_coro_with_ki_protection_disabled(orig_coro: Awaitable[RetT]) -> RetT:
-    return await orig_coro
+def run_with_ki_protection_disabled(f: Callable[[T], RetT], v: T) -> RetT:
+    return f(v)
 
 
 @attrs.define(eq=False)
@@ -1873,12 +1875,14 @@ class Runner:
             except AttributeError:
                 name = repr(name)
 
-        python_wrapper = (
-            run_coro_with_ki_protection_enabled
-            if system_task
-            else run_coro_with_ki_protection_disabled
-        )
-        coro = python_wrapper(coro)
+        # very old Cython versions (<0.29.24) has the attribute, but with a value of None
+        if getattr(coro, "cr_frame", None) is None:
+            # This async function is implemented in C or Cython
+            async def python_wrapper(orig_coro: Awaitable[RetT]) -> RetT:
+                return await orig_coro
+
+            coro = python_wrapper(coro)
+        assert coro.cr_frame is not None, "Coroutine frame should exist"
 
         ######
         # Set up the Task object
@@ -1889,6 +1893,7 @@ class Runner:
             runner=self,
             name=name,
             context=context,
+            ki_protected=system_task,
         )
 
         self.tasks.add(task)
@@ -2719,6 +2724,11 @@ def unrolled_run(
 
                 next_send_fn = task._next_send_fn
                 next_send = task._next_send
+                run_with = (
+                    run_with_ki_protection_enabled
+                    if task._ki_protected
+                    else run_with_ki_protection_disabled
+                )
                 task._next_send_fn = task._next_send = None
                 final_outcome: Outcome[Any] | None = None
                 try:
@@ -2731,16 +2741,17 @@ def unrolled_run(
                     #   https://github.com/python/cpython/issues/108668
                     # So now we send in the Outcome object and unwrap it on the
                     # other side.
-                    msg = task.context.run(next_send_fn, next_send)
+                    msg = task.context.run(run_with, next_send_fn, next_send)
                 except StopIteration as stop_iteration:
                     final_outcome = Value(stop_iteration.value)
                 except BaseException as task_exc:
                     # Store for later, removing uninteresting top frames: 1
                     # frame we always remove, because it's this function
+                    # another is the run_with
                     # catching it, and then in addition we remove however many
                     # more Context.run adds.
                     tb = task_exc.__traceback__
-                    for _ in range(1 + CONTEXT_RUN_TB_FRAMES):
+                    for _ in range(2 + CONTEXT_RUN_TB_FRAMES):
                         if tb is not None:  # pragma: no branch
                             tb = tb.tb_next
                     final_outcome = Error(task_exc.with_traceback(tb))
