@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     import types
     from collections.abc import Callable
 
+    from typing_extensions import TypeGuard
 # In ordinary single-threaded Python code, when you hit control-C, it raises
 # an exception and automatically does all the regular unwinding stuff.
 #
@@ -82,6 +83,16 @@ _CODE_KI_PROTECTION_STATUS_WMAP: weakref.WeakKeyDictionary[
 ] = weakref.WeakKeyDictionary()
 
 
+# This is to support the async_generator package necessary for aclosing on <3.10
+# functions decorated @async_generator are given this magic property that's a
+# reference to the object itself
+# see python-trio/async_generator/async_generator/_impl.py
+def legacy_isasyncgenfunction(
+    obj: object,
+) -> TypeGuard[Callable[..., types.AsyncGeneratorType[object, object]]]:
+    return getattr(obj, "_async_gen_function", None) == id(obj)
+
+
 # NB: according to the signal.signal docs, 'frame' can be None on entry to
 # this function:
 def ki_protection_enabled(frame: types.FrameType | None) -> bool:
@@ -123,6 +134,10 @@ _T_supports_code = TypeVar("_T_supports_code", bound=_SupportsCode)
 
 def enable_ki_protection(f: _T_supports_code, /) -> _T_supports_code:
     """Decorator to enable KI protection."""
+
+    if legacy_isasyncgenfunction(f):
+        f = f.__wrapped__  # type: ignore
+
     code = f.__code__.replace()
     _CODE_KI_PROTECTION_STATUS_WMAP[code] = True
     f.__code__ = code
@@ -131,6 +146,10 @@ def enable_ki_protection(f: _T_supports_code, /) -> _T_supports_code:
 
 def disable_ki_protection(f: _T_supports_code, /) -> _T_supports_code:
     """Dectorator to disable KI protection."""
+
+    if legacy_isasyncgenfunction(f):
+        f = f.__wrapped__  # type: ignore
+
     code = f.__code__.replace()
     _CODE_KI_PROTECTION_STATUS_WMAP[code] = False
     f.__code__ = code
