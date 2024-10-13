@@ -1672,12 +1672,18 @@ class GuestState:
 
 @enable_ki_protection
 def run_with_ki_protection_enabled(f: Callable[[T], RetT], v: T) -> RetT:
-    return f(v)
+    try:
+        return f(v)
+    finally:
+        del v  # for the case where f is coro.throw() and v is a (Base)Exception
 
 
 @disable_ki_protection
 def run_with_ki_protection_disabled(f: Callable[[T], RetT], v: T) -> RetT:
-    return f(v)
+    try:
+        return f(v)
+    finally:
+        del v  # for the case where f is coro.throw() and v is a (Base)Exception
 
 
 @attrs.define(eq=False)
