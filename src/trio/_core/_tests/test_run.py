@@ -2774,3 +2774,47 @@ async def test_internal_error_old_nursery_multiple_tasks() -> None:
         with pytest.raises(_core.TrioInternalError) as excinfo:
             await nursery.start(spawn_tasks_in_old_nursery)
     assert RaisesGroup(ValueError, ValueError).matches(excinfo.value.__cause__)
+
+
+if sys.version_info <= (3, 11):
+
+    def no_other_refs() -> list[object]:
+        return [sys._getframe(1)]
+
+else:
+
+    def no_other_refs() -> list[object]:
+        return []
+
+
+@pytest.mark.skipif(
+    sys.implementation.name != "cpython",
+    reason="Only makes sense with refcounting GC",
+)
+async def test_ki_protection_doesnt_leave_cyclic_garbage() -> None:
+    class MyException(Exception):
+        pass
+
+    async def demo() -> None:
+        async def handle_error() -> None:
+            try:
+                raise MyException
+            except MyException as e:
+                exceptions.append(e)
+
+        exceptions: list[MyException] = []
+        try:
+            async with _core.open_nursery() as n:
+                n.start_soon(handle_error)
+            raise ExceptionGroup("errors", exceptions)
+        finally:
+            exceptions = []
+
+    exc: MyException | None = None
+    try:
+        await demo()
+    except ExceptionGroup as excs:
+        exc = excs.exceptions[0]
+
+    assert isinstance(exc, MyException)
+    assert gc.get_referrers(exc) == no_other_refs()
