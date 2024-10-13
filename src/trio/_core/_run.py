@@ -1799,10 +1799,10 @@ class Runner:
     ################
 
     @_public  # Type-ignore due to use of Any here.
-    def reschedule(  # type: ignore[misc]
+    def reschedule(
         self,
         task: Task,
-        next_send: Outcome[Any] = _NO_SEND,
+        next_send: Outcome[object] = _NO_SEND,
     ) -> None:
         """Reschedule the given task with the given
         :class:`outcome.Outcome`.
