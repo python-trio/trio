@@ -134,6 +134,7 @@ _T_supports_code = TypeVar("_T_supports_code", bound=_SupportsCode)
 
 def enable_ki_protection(f: _T_supports_code, /) -> _T_supports_code:
     """Decorator to enable KI protection."""
+    orig = f
 
     if legacy_isasyncgenfunction(f):
         f = f.__wrapped__  # type: ignore
@@ -141,11 +142,12 @@ def enable_ki_protection(f: _T_supports_code, /) -> _T_supports_code:
     code = f.__code__.replace()
     _CODE_KI_PROTECTION_STATUS_WMAP[code] = True
     f.__code__ = code
-    return f
+    return orig
 
 
 def disable_ki_protection(f: _T_supports_code, /) -> _T_supports_code:
     """Dectorator to disable KI protection."""
+    orig = f
 
     if legacy_isasyncgenfunction(f):
         f = f.__wrapped__  # type: ignore
@@ -153,7 +155,7 @@ def disable_ki_protection(f: _T_supports_code, /) -> _T_supports_code:
     code = f.__code__.replace()
     _CODE_KI_PROTECTION_STATUS_WMAP[code] = False
     f.__code__ = code
-    return f
+    return orig
 
 
 @attrs.define(slots=False)
