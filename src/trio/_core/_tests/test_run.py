@@ -2810,7 +2810,7 @@ async def test_ki_protection_doesnt_leave_cyclic_garbage() -> None:
         finally:
             exceptions = []
 
-    exc: MyException | None = None
+    exc: Exception | None = None
     try:
         await demo()
     except ExceptionGroup as excs:
