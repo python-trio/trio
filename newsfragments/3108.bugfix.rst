@@ -1,2 +1,1 @@
 avoid materializing frame.f_locals in KI protection code, this causes locals to persist in the frame.f_locals snapshot even if they are deleted on 3.12 and below
-
