@@ -22,6 +22,7 @@ except ImportError:  # pragma: no cover
 
 from ... import _core
 from ..._abc import Instrument
+from ..._core import _ki
 from ..._timeouts import sleep
 from ..._util import signal_raise
 from ...testing import wait_all_tasks_blocked
@@ -555,3 +556,37 @@ async def test_ki_protection_check_does_not_freeze_locals() -> None:
     if sys.implementation.name == "pypy":
         gc_collect_harder()
     assert wr_a() is None
+
+
+def test_identity_weakref_internals() -> None:
+    """To cover the parts WeakKeyIdentityDictionary won't ever reach."""
+
+    class A:
+        def __eq__(self, other: object) -> bool:
+            return False
+
+    a = A()
+    wr = _ki._IdRef(a)
+    wr_other_is_self = wr
+
+    # dict always checks identity before equality so we need to do it here
+    # to cover `if self is other`
+    assert wr == wr_other_is_self
+
+    # we want to cover __ne__ and `return NotImplemented`
+    assert wr != object()
+
+
+def test_weak_key_identity_dict_delitem() -> None:
+    """We never delitem in KI, but we need to cover the KeyError in self._remove."""
+
+    class A:
+        def __eq__(self, other: object) -> bool:
+            return False
+
+    a = A()
+    d: _ki.WeakKeyIdentityDictionary[A, bool] = _ki.WeakKeyIdentityDictionary()
+    d[a] = True
+    del d[a]
+    del a
+    gc_collect_harder()  # would call sys.unraisablehook if there's a problem

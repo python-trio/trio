@@ -112,6 +112,10 @@ class _IdRef(_Ref[_T]):
         finally:
             del my_obj, other_obj
 
+    # we're overriding a builtin so we do need this
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+
     def __hash__(self) -> int:
         return self._hash
 
@@ -147,6 +151,10 @@ class WeakKeyIdentityDictionary(Generic[_KT, _VT]):
 
     def __setitem__(self, k: _KT, v: _VT) -> None:
         self._data[_IdRef(k, self._remove)] = v
+
+    # unused by ki.py but needed for coverage
+    def __delitem__(self, k: _KT) -> None:
+        del self._data[_IdRef(k)]
 
 
 _CODE_KI_PROTECTION_STATUS_WMAP: WeakKeyIdentityDictionary[
