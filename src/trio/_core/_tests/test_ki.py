@@ -577,8 +577,8 @@ def test_identity_weakref_internals() -> None:
     assert wr != object()
 
 
-def test_weak_key_identity_dict_delitem() -> None:
-    """We never delitem in KI, but we need to cover the KeyError in self._remove."""
+def test_weak_key_identity_dict_remove_callback_keyerror() -> None:
+    """We need to cover the KeyError in self._remove."""
 
     class A:
         def __eq__(self, other: object) -> bool:
@@ -586,7 +586,12 @@ def test_weak_key_identity_dict_delitem() -> None:
 
     a = A()
     d: _ki.WeakKeyIdentityDictionary[A, bool] = _ki.WeakKeyIdentityDictionary()
+
     d[a] = True
-    del d[a]
+
+    data_copy = d._data.copy()
+    d._data.clear()
     del a
+
     gc_collect_harder()  # would call sys.unraisablehook if there's a problem
+    assert data_copy

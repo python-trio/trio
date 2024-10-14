@@ -152,10 +152,6 @@ class WeakKeyIdentityDictionary(Generic[_KT, _VT]):
     def __setitem__(self, k: _KT, v: _VT) -> None:
         self._data[_IdRef(k, self._remove)] = v
 
-    # unused by ki.py but needed for coverage
-    def __delitem__(self, k: _KT) -> None:
-        del self._data[_IdRef(k)]
-
 
 _CODE_KI_PROTECTION_STATUS_WMAP: WeakKeyIdentityDictionary[
     types.CodeType,
