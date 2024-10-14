@@ -104,13 +104,11 @@ class _IdRef(_Ref[_T]):
             return NotImplemented
 
         my_obj = None
-        other_obj: Any = None
         try:
             my_obj = self()
-            other_obj = other()
-            return my_obj is not None and my_obj is other_obj
+            return my_obj is not None and my_obj is other()
         finally:
-            del my_obj, other_obj
+            del my_obj
 
     # we're overriding a builtin so we do need this
     def __ne__(self, other: object) -> bool:
