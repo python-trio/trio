@@ -79,9 +79,16 @@ if TYPE_CHECKING:
 
 _T = TypeVar("_T")
 
+if TYPE_CHECKING or sys.version_info >= (3, 9):
+    _Ref = weakref.ref[_T]
+else:
 
-class _IdRef(weakref.ref[_T]):
-    __slots__ = ("_hash", )
+    class _Ref(Generic[_T], weakref.ref):
+        __slots__ = ()
+
+
+class _IdRef(_Ref[_T]):
+    __slots__ = ("_hash",)
     _hash: int
 
     def __new__(cls, ob: _T, callback: Callable[[Self], Any] | None = None, /) -> Self:
