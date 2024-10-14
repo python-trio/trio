@@ -4,7 +4,7 @@ import contextlib
 import inspect
 import signal
 import threading
-from typing import TYPE_CHECKING, AsyncIterator, Callable, Iterator
+from typing import TYPE_CHECKING, AsyncIterator, Callable, Iterator, TypeVar
 
 import outcome
 import pytest
@@ -515,3 +515,26 @@ def test_ki_with_broken_threads() -> None:
         _core.run(inner)
     finally:
         threading._active[thread.ident] = original  # type: ignore[attr-defined]
+
+
+_T = TypeVar("_T")
+
+
+def _identity(v: _T) -> _T:
+    return v
+
+
+async def test_ki_does_not_leak_accross_different_calls_to_inner_functions() -> None:
+    assert not _core.currently_ki_protected()
+
+    def factory(enabled: bool) -> Callable[[], bool]:
+        @_identity(_core.enable_ki_protection if enabled else _identity)
+        def decorated() -> bool:
+            return _core.currently_ki_protected()
+
+        return decorated
+
+    decorated_enabled = factory(True)
+    decorated_disabled = factory(False)
+    assert decorated_enabled()
+    assert not decorated_disabled()
