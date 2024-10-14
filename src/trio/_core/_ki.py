@@ -108,7 +108,7 @@ class _IdRef(_Ref[_T]):
         try:
             my_obj = self()
             other_obj = other()
-            return my_obj is not None and other_obj is not None and my_obj is other_obj
+            return my_obj is not None and my_obj is other_obj
         finally:
             del my_obj, other_obj
 
