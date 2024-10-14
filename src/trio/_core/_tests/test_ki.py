@@ -597,3 +597,26 @@ def test_weak_key_identity_dict_remove_callback_keyerror() -> None:
 
     gc_collect_harder()  # would call sys.unraisablehook if there's a problem
     assert data_copy
+
+
+def test_weak_key_identity_dict_remove_callback_selfref_expired() -> None:
+    """We need to cover the KeyError in self._remove."""
+
+    class A:
+        def __eq__(self, other: object) -> bool:
+            return False
+
+    a = A()
+    assert a != a
+    d: _ki.WeakKeyIdentityDictionary[A, bool] = _ki.WeakKeyIdentityDictionary()
+
+    d[a] = True
+
+    data_copy = d._data.copy()
+    wr_d = weakref.ref(d)
+    del d
+    gc_collect_harder()  # would call sys.unraisablehook if there's a problem
+    assert wr_d() is None
+    del a
+    gc_collect_harder()
+    assert data_copy
