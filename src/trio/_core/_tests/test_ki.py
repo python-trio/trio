@@ -566,6 +566,7 @@ def test_identity_weakref_internals() -> None:
             return False
 
     a = A()
+    assert a != a
     wr = _ki._IdRef(a)
     wr_other_is_self = wr
 
@@ -585,6 +586,7 @@ def test_weak_key_identity_dict_remove_callback_keyerror() -> None:
             return False
 
     a = A()
+    assert a != a
     d: _ki.WeakKeyIdentityDictionary[A, bool] = _ki.WeakKeyIdentityDictionary()
 
     d[a] = True
