@@ -81,7 +81,7 @@ _T = TypeVar("_T")
 
 
 class _IdRef(weakref.ref[_T]):
-    slots = "_hash"
+    __slots__ = ("_hash", )
     _hash: int
 
     def __new__(cls, ob: _T, callback: Callable[[Self], Any] | None = None, /) -> Self:
