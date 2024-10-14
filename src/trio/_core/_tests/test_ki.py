@@ -3,13 +3,17 @@ from __future__ import annotations
 import contextlib
 import inspect
 import signal
+import sys
 import threading
+import weakref
 from typing import TYPE_CHECKING, AsyncIterator, Callable, Iterator, TypeVar
 
 import outcome
 import pytest
 
 from trio.testing import RaisesGroup
+
+from .tutil import gc_collect_harder
 
 try:
     from async_generator import async_generator, yield_
@@ -538,3 +542,16 @@ async def test_ki_does_not_leak_accross_different_calls_to_inner_functions() -> 
     decorated_disabled = factory(False)
     assert decorated_enabled()
     assert not decorated_disabled()
+
+
+async def test_ki_protection_check_does_not_freeze_locals() -> None:
+    class A:
+        pass
+
+    a = A()
+    wr_a = weakref.ref(a)
+    assert not _core.currently_ki_protected()
+    del a
+    if sys.implementation.name == "pypy":
+        gc_collect_harder()
+    assert wr_a() is None
