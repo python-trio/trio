@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar
 import attrs
 
 from .._util import is_main_thread
+from ._run_context import GLOBAL_RUN_CONTEXT
 
 if TYPE_CHECKING:
     import types
@@ -170,6 +171,16 @@ def legacy_isasyncgenfunction(
 # NB: according to the signal.signal docs, 'frame' can be None on entry to
 # this function:
 def ki_protection_enabled(frame: types.FrameType | None) -> bool:
+    try:
+        task = GLOBAL_RUN_CONTEXT.task
+    except AttributeError:
+        task_ki_protected = False
+        task_frame = None
+    else:
+        task_ki_protected = task._ki_protected
+        task_frame = task.coro.cr_frame
+        del task
+
     while frame is not None:
         try:
             v = _CODE_KI_PROTECTION_STATUS_WMAP[frame.f_code]
@@ -179,6 +190,8 @@ def ki_protection_enabled(frame: types.FrameType | None) -> bool:
             return bool(v)
         if frame.f_code.co_name == "__del__":
             return True
+        if frame is task_frame:
+            return task_ki_protected
         frame = frame.f_back
     return True
 

@@ -7,7 +7,6 @@ import itertools
 import random
 import select
 import sys
-import threading
 import warnings
 from collections import deque
 from contextlib import AbstractAsyncContextManager, contextmanager, suppress
@@ -39,8 +38,9 @@ from ._concat_tb import concat_tb
 from ._entry_queue import EntryQueue, TrioToken
 from ._exceptions import Cancelled, RunFinishedError, TrioInternalError
 from ._instrumentation import Instruments
-from ._ki import KIManager, disable_ki_protection, enable_ki_protection
+from ._ki import KIManager, enable_ki_protection
 from ._parking_lot import GLOBAL_PARKING_LOT_BREAKER
+from ._run_context import GLOBAL_RUN_CONTEXT as GLOBAL_RUN_CONTEXT
 from ._thread_cache import start_thread_soon
 from ._traps import (
     Abort,
@@ -83,7 +83,6 @@ else:
     StatusT_contra = TypeVar("StatusT_contra", contravariant=True)
 
 FnT = TypeVar("FnT", bound="Callable[..., Any]")
-T = TypeVar("T")
 RetT = TypeVar("RetT")
 
 
@@ -1559,14 +1558,6 @@ class Task(metaclass=NoPublicConstructor):
 ################################################################
 
 
-class RunContext(threading.local):
-    runner: Runner
-    task: Task
-
-
-GLOBAL_RUN_CONTEXT: Final = RunContext()
-
-
 @attrs.frozen
 class RunStatistics:
     """An object containing run-loop-level debugging information.
@@ -1668,22 +1659,6 @@ class GuestState:
                 self.run_sync_soon_threadsafe(in_main_thread)
 
             start_thread_soon(get_events, deliver)
-
-
-@enable_ki_protection
-def run_with_ki_protection_enabled(f: Callable[[T], RetT], v: T) -> RetT:
-    try:
-        return f(v)
-    finally:
-        del v  # for the case where f is coro.throw() and v is a (Base)Exception
-
-
-@disable_ki_protection
-def run_with_ki_protection_disabled(f: Callable[[T], RetT], v: T) -> RetT:
-    try:
-        return f(v)
-    finally:
-        del v  # for the case where f is coro.throw() and v is a (Base)Exception
 
 
 @attrs.define(eq=False)
@@ -2730,11 +2705,6 @@ def unrolled_run(
 
                 next_send_fn = task._next_send_fn
                 next_send = task._next_send
-                run_with = (
-                    run_with_ki_protection_enabled
-                    if task._ki_protected
-                    else run_with_ki_protection_disabled
-                )
                 task._next_send_fn = task._next_send = None
                 final_outcome: Outcome[Any] | None = None
                 try:
@@ -2747,17 +2717,16 @@ def unrolled_run(
                     #   https://github.com/python/cpython/issues/108668
                     # So now we send in the Outcome object and unwrap it on the
                     # other side.
-                    msg = task.context.run(run_with, next_send_fn, next_send)
+                    msg = task.context.run(next_send_fn, next_send)
                 except StopIteration as stop_iteration:
                     final_outcome = Value(stop_iteration.value)
                 except BaseException as task_exc:
                     # Store for later, removing uninteresting top frames: 1
                     # frame we always remove, because it's this function
-                    # another is the run_with
                     # catching it, and then in addition we remove however many
                     # more Context.run adds.
                     tb = task_exc.__traceback__
-                    for _ in range(2 + CONTEXT_RUN_TB_FRAMES):
+                    for _ in range(1 + CONTEXT_RUN_TB_FRAMES):
                         if tb is not None:  # pragma: no branch
                             tb = tb.tb_next
                     final_outcome = Error(task_exc.with_traceback(tb))
