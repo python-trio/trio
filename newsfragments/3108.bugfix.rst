@@ -1,1 +1,5 @@
-avoid materializing frame.f_locals in KI protection code, this causes locals to persist in the frame.f_locals snapshot even if they are deleted on 3.12 and below
+Rework KeyboardInterrupt protection to track code objects, rather than frames,
+as protected or not. This should substantially reduce its overhead, and also fixes
+an issue with the previous implementation: locals' lifetimes will no longer be
+extended by materialization in the ``frame.f_locals`` dictionary that the previous
+KI protection logic needed to access to do its work.
