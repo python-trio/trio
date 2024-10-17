@@ -1,0 +1,1 @@
+Remove workaround for OpenSSL 1.1.1 DTLS ClientHello bug.
