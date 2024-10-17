@@ -10,6 +10,7 @@ from functools import partial
 from ssl import SSLContext
 from typing import (
     TYPE_CHECKING,
+    Any,
     NoReturn,
 )
 
@@ -259,7 +260,7 @@ class PyOpenSSLEchoStream(Stream):
         self.sleeper: Callable[[str], Awaitable[None]]
         if sleeper is None:
 
-            async def no_op_sleeper(_: str) -> None:
+            async def no_op_sleeper(_: object) -> None:
                 return
 
             self.sleeper = no_op_sleeper
@@ -406,8 +407,8 @@ def ssl_wrap_pair(
     client_transport: T_Stream,
     server_transport: T_Stream,
     *,
-    client_kwargs: dict[str, str | bytes | bool | None] | None = None,
-    server_kwargs: dict[str, str | bytes | bool | None] | None = None,
+    client_kwargs: dict[str, Any] | None = None,
+    server_kwargs: dict[str, Any] | None = None,
 ) -> tuple[SSLStream[T_Stream], SSLStream[T_Stream]]:
     if server_kwargs is None:
         server_kwargs = {}
@@ -417,13 +418,13 @@ def ssl_wrap_pair(
         client_transport,
         client_ctx,
         server_hostname="trio-test-1.example.org",
-        **client_kwargs,  # type: ignore[arg-type]
+        **client_kwargs,
     )
     server_ssl = SSLStream(
         server_transport,
         SERVER_CTX,
         server_side=True,
-        **server_kwargs,  # type: ignore[arg-type]
+        **server_kwargs,
     )
     return client_ssl, server_ssl
 
