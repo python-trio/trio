@@ -5,7 +5,7 @@ import trio
 sys.stderr = sys.stdout
 
 
-async def child1():
+async def child1():  # noqa: RUF029  # async not required
     raise ValueError
 
 
@@ -15,11 +15,11 @@ async def child2():
         nursery.start_soon(grandchild2)
 
 
-async def grandchild1():
+async def grandchild1():  # noqa: RUF029  # async not required
     raise KeyError
 
 
-async def grandchild2():
+async def grandchild2():  # noqa: RUF029  # async not required
     raise NameError("Bob")
 
 

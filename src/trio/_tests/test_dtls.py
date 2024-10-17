@@ -91,7 +91,7 @@ async def dtls_echo_server(
 
 @parametrize_ipv6
 async def test_smoke(ipv6: bool) -> None:
-    async with dtls_echo_server(ipv6=ipv6) as (server_endpoint, address):
+    async with dtls_echo_server(ipv6=ipv6) as (_server_endpoint, address):
         with endpoint(ipv6=ipv6) as client_endpoint:
             client_channel = client_endpoint.connect(address, client_ctx)
             with pytest.raises(trio.NeedHandshakeError):
@@ -260,7 +260,7 @@ async def test_channel_closing() -> None:
 
 
 async def test_serve_exits_cleanly_on_close() -> None:
-    async with dtls_echo_server(autocancel=False) as (server_endpoint, address):
+    async with dtls_echo_server(autocancel=False) as (server_endpoint, _address):
         server_endpoint.close()
         # Testing that the nursery exits even without being cancelled
     # close is idempotent
@@ -679,7 +679,7 @@ async def test_explicit_tiny_mtu_is_respected() -> None:
 
     fn.route_packet = route_packet  # type: ignore[assignment]  # TODO add type annotations for FakeNet
 
-    async with dtls_echo_server(mtu=MTU) as (server, address):
+    async with dtls_echo_server(mtu=MTU) as (_server, address):
         with endpoint() as client:
             channel = client.connect(address, client_ctx)
             channel.set_ciphertext_mtu(MTU)
