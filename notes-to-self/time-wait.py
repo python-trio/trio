@@ -40,7 +40,7 @@ class Options:
     server = None
     listen2 = None
 
-    def set(self, which, sock):
+    def set(self, which, sock) -> None:
         value = getattr(self, which)
         if value is not None:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, value)
@@ -54,7 +54,7 @@ class Options:
         return "Set/unset: {}".format(", ".join(info))
 
 
-def time_wait(options):
+def time_wait(options) -> None:
     print(options.describe())
 
     # Find a pristine port (one we can definitely bind to without

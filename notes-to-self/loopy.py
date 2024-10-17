@@ -3,7 +3,7 @@ import time
 import trio
 
 
-async def loopy():
+async def loopy() -> None:
     try:
         while True:
             # synchronous sleep to avoid maxing out CPU
@@ -13,7 +13,7 @@ async def loopy():
         print("KI!")
 
 
-async def main():
+async def main() -> None:
     async with trio.open_nursery() as nursery:
         nursery.start_soon(loopy)
         nursery.start_soon(loopy)
