@@ -6,16 +6,14 @@ import random
 import signal
 import subprocess
 import sys
-from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator, Callable
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from functools import partial
 from pathlib import Path as SyncPath
 from signal import Signals
 from typing import (
     TYPE_CHECKING,
     Any,
-    AsyncContextManager,
-    AsyncIterator,
-    Callable,
     NoReturn,
 )
 
@@ -115,7 +113,7 @@ background_process_param = pytest.mark.parametrize(
     ids=["open_process", "run_process in nursery"],
 )
 
-BackgroundProcessType: TypeAlias = Callable[..., AsyncContextManager[Process]]
+BackgroundProcessType: TypeAlias = Callable[..., AbstractAsyncContextManager[Process]]
 
 
 @background_process_param

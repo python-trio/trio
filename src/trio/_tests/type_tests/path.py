@@ -4,7 +4,7 @@ import io
 import os
 import pathlib
 import sys
-from typing import IO, Any, BinaryIO, List, Tuple
+from typing import IO, Any, BinaryIO
 
 import trio
 from trio._file_io import AsyncIOWrapper
@@ -35,7 +35,7 @@ def operator_checks(text: str, tpath: trio.Path, ppath: pathlib.Path) -> None:
 
 
 def sync_attrs(path: trio.Path) -> None:
-    assert_type(path.parts, Tuple[str, ...])
+    assert_type(path.parts, tuple[str, ...])
     assert_type(path.drive, str)
     assert_type(path.root, str)
     assert_type(path.anchor, str)
@@ -43,7 +43,7 @@ def sync_attrs(path: trio.Path) -> None:
     assert_type(path.parent, trio.Path)
     assert_type(path.name, str)
     assert_type(path.suffix, str)
-    assert_type(path.suffixes, List[str])
+    assert_type(path.suffixes, list[str])
     assert_type(path.stem, str)
     assert_type(path.as_posix(), str)
     assert_type(path.as_uri(), str)
@@ -141,4 +141,4 @@ async def open_results(path: trio.Path, some_int: int, some_str: str) -> None:
     assert_type(await file_text.read(), str)
     assert_type(await file_text.write("test"), int)
     # TODO: report mypy bug: equiv to https://github.com/microsoft/pyright/issues/6833
-    assert_type(await file_text.readlines(), List[str])
+    assert_type(await file_text.readlines(), list[str])

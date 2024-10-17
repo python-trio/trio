@@ -17,10 +17,9 @@ ASYNCGEN_LOGGER = logging.getLogger("trio.async_generator_errors")
 
 if TYPE_CHECKING:
     from types import AsyncGeneratorType
-    from typing import Set
 
     _WEAK_ASYNC_GEN_SET = weakref.WeakSet[AsyncGeneratorType[object, NoReturn]]
-    _ASYNC_GEN_SET = Set[AsyncGeneratorType[object, NoReturn]]
+    _ASYNC_GEN_SET = set[AsyncGeneratorType[object, NoReturn]]
 else:
     _WEAK_ASYNC_GEN_SET = weakref.WeakSet
     _ASYNC_GEN_SET = set

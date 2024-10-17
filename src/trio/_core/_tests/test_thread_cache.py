@@ -4,7 +4,7 @@ import threading
 import time
 from contextlib import contextmanager
 from queue import Queue
-from typing import TYPE_CHECKING, Iterator, NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 import pytest
 
@@ -13,6 +13,8 @@ from .._thread_cache import ThreadCache, start_thread_soon
 from .tutil import gc_collect_harder, slow
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from outcome import Outcome
 
 

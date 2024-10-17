@@ -32,7 +32,7 @@ def run_pyright(platform: str) -> subprocess.CompletedProcess[bytes]:
             "pyright",
             # Specify a platform and version to keep imported modules consistent.
             f"--pythonplatform={platform}",
-            "--pythonversion=3.8",
+            "--pythonversion=3.9",
             "--verifytypes=trio",
             "--outputjson",
             "--ignoreexternal",
