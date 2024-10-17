@@ -83,9 +83,10 @@ class AsyncGenerators:
             agen_name = name_asyncgen(agen)
             try:
                 self.foreign.remove(id(agen))
-                is_ours = False
             except KeyError:
                 is_ours = True
+            else:
+                is_ours = False
 
             if is_ours:
                 runner.entry_queue.run_sync_soon(
