@@ -381,7 +381,6 @@ suppress_warnings = ["epub.unknown_project_files"]
 # We have to set this ourselves, not only because it's useful for local
 # testing, but also because if we don't then RTD will throw away our
 # html_theme_options.
-
 html_theme = "sphinx_rtd_theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
