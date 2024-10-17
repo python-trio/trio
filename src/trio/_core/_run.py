@@ -40,6 +40,7 @@ from ._entry_queue import EntryQueue, TrioToken
 from ._exceptions import Cancelled, RunFinishedError, TrioInternalError
 from ._instrumentation import Instruments
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED, KIManager, enable_ki_protection
+from ._parking_lot import GLOBAL_PARKING_LOT_BREAKER
 from ._thread_cache import start_thread_soon
 from ._traps import (
     Abort,
@@ -1896,6 +1897,12 @@ class Runner:
         return task
 
     def task_exited(self, task: Task, outcome: Outcome[Any]) -> None:
+        # break parking lots associated with the exiting task
+        if task in GLOBAL_PARKING_LOT_BREAKER:
+            for lot in GLOBAL_PARKING_LOT_BREAKER[task]:
+                lot.break_lot(task)
+            del GLOBAL_PARKING_LOT_BREAKER[task]
+
         if (
             task._cancel_status is not None
             and task._cancel_status.abandoned_by_misnesting

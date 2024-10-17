@@ -14,7 +14,6 @@ from typing import (
     overload,
 )
 
-from trio._deprecate import warn_deprecated
 from trio._util import final
 
 if TYPE_CHECKING:
@@ -384,7 +383,6 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
         flatten_subgroups: bool = False,
         match: str | Pattern[str] | None = None,
         check: Callable[[BaseExceptionGroup[E]], bool] | None = None,
-        strict: None = None,
     ):
         self.expected_exceptions: tuple[type[E] | Matcher[E] | E, ...] = (
             exception,
@@ -395,15 +393,6 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
         self.match_expr = match
         self.check = check
         self.is_baseexceptiongroup = False
-
-        if strict is not None:
-            warn_deprecated(
-                "The `strict` parameter",
-                "0.25.1",
-                issue=2989,
-                instead="flatten_subgroups=True (for strict=False}",
-            )
-            self.flatten_subgroups = not strict
 
         if allow_unwrapped and other_exceptions:
             raise ValueError(
