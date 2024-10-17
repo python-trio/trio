@@ -74,7 +74,6 @@ include-package-data = true
 version = {attr = "trio._version.__version__"}
 
 [tool.black]
-target-version = ['py39']
 force-exclude = '''
 (
   ^/docs/source/reference-.*

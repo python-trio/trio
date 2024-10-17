@@ -139,7 +139,7 @@ async def test_fail_after_fails_even_if_shielded() -> None:
     async def task() -> None:
         # fmt: off
         # Remove after 3.9 unsupported, black formats in a way that breaks if
-        # you do `-X oldparser
+        # you do `-X oldparser`
         with pytest.raises(TooSlowError), _core.CancelScope() as outer, fail_after(
             TARGET,
             shield=True,
