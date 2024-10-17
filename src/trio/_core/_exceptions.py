@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+import copy
+
 from trio._util import NoPublicConstructor, final
 
 
@@ -62,6 +66,28 @@ class Cancelled(BaseException, metaclass=NoPublicConstructor):
 
     def __str__(self) -> str:
         return "Cancelled"
+
+    def __copy__(self) -> Cancelled:
+        """Enables creating new instances through `copy.copy`.
+
+        This does not copy exception metadata like __cause__, __traceback__, etc
+        in line with the effect of copying built-in exceptions.
+        """
+        result = Cancelled.__new__(Cancelled)
+        result.__dict__ = copy.copy(self.__dict__)
+        return result
+
+    def __deepcopy__(self, memo: dict[int, object]) -> Cancelled:
+        """Enables creating new instances through `copy.deepcopy`.
+
+        This does not copy exception metadata like __cause__, __traceback__, etc
+        in line with the effect of copying built-in exceptions.
+        """
+        result = Cancelled.__new__(Cancelled)
+        # copy.deepcopy handles memo logic
+        memo[id(self)] = result
+        result.__dict__ = copy.deepcopy(self.__dict__, memo)
+        return result
 
 
 class BusyResourceError(Exception):

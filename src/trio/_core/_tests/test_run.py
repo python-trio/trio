@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextvars
+import copy
 import functools
 import gc
 import sys
@@ -2215,6 +2216,25 @@ def test_Cancelled_str() -> None:
 def test_Cancelled_subclass() -> None:
     with pytest.raises(TypeError):
         type("Subclass", (_core.Cancelled,), {})
+
+
+def test_Cancelled_copy() -> None:
+    # the only notable thing in __dict__ is __notes__
+    # on py<3.11 we only check for ability to create new instances
+    cancelled = _core.Cancelled._create()
+    if sys.version_info > (3, 11):
+        cancelled.add_note("hello")
+
+    my_copy = copy.copy(cancelled)
+    assert my_copy is not cancelled
+    if sys.version_info > (3, 11):
+        assert my_copy.__notes__ is cancelled.__notes__
+
+    deep_copy = copy.deepcopy(cancelled)
+    assert deep_copy is not cancelled
+    if sys.version_info > (3, 11):
+        assert deep_copy.__notes__ == ["hello"]
+        assert deep_copy.__notes__ is not cancelled.__notes__
 
 
 def test_CancelScope_subclass() -> None:
