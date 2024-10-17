@@ -3,13 +3,17 @@ from __future__ import annotations
 import contextlib
 import inspect
 import signal
+import sys
 import threading
-from typing import TYPE_CHECKING, AsyncIterator, Callable, Iterator
+import weakref
+from typing import TYPE_CHECKING, AsyncIterator, Callable, Iterator, TypeVar
 
 import outcome
 import pytest
 
 from trio.testing import RaisesGroup
+
+from .tutil import gc_collect_harder
 
 try:
     from async_generator import async_generator, yield_
@@ -18,6 +22,7 @@ except ImportError:  # pragma: no cover
 
 from ... import _core
 from ..._abc import Instrument
+from ..._core import _ki
 from ..._timeouts import sleep
 from ..._util import signal_raise
 from ...testing import wait_all_tasks_blocked
@@ -515,3 +520,103 @@ def test_ki_with_broken_threads() -> None:
         _core.run(inner)
     finally:
         threading._active[thread.ident] = original  # type: ignore[attr-defined]
+
+
+_T = TypeVar("_T")
+
+
+def _identity(v: _T) -> _T:
+    return v
+
+
+async def test_ki_does_not_leak_accross_different_calls_to_inner_functions() -> None:
+    assert not _core.currently_ki_protected()
+
+    def factory(enabled: bool) -> Callable[[], bool]:
+        @_identity(_core.enable_ki_protection if enabled else _identity)
+        def decorated() -> bool:
+            return _core.currently_ki_protected()
+
+        return decorated
+
+    decorated_enabled = factory(True)
+    decorated_disabled = factory(False)
+    assert decorated_enabled()
+    assert not decorated_disabled()
+
+
+async def test_ki_protection_check_does_not_freeze_locals() -> None:
+    class A:
+        pass
+
+    a = A()
+    wr_a = weakref.ref(a)
+    assert not _core.currently_ki_protected()
+    del a
+    if sys.implementation.name == "pypy":
+        gc_collect_harder()
+    assert wr_a() is None
+
+
+def test_identity_weakref_internals() -> None:
+    """To cover the parts WeakKeyIdentityDictionary won't ever reach."""
+
+    class A:
+        def __eq__(self, other: object) -> bool:
+            return False
+
+    a = A()
+    assert a != a
+    wr = _ki._IdRef(a)
+    wr_other_is_self = wr
+
+    # dict always checks identity before equality so we need to do it here
+    # to cover `if self is other`
+    assert wr == wr_other_is_self
+
+    # we want to cover __ne__ and `return NotImplemented`
+    assert wr != object()
+
+
+def test_weak_key_identity_dict_remove_callback_keyerror() -> None:
+    """We need to cover the KeyError in self._remove."""
+
+    class A:
+        def __eq__(self, other: object) -> bool:
+            return False
+
+    a = A()
+    assert a != a
+    d: _ki.WeakKeyIdentityDictionary[A, bool] = _ki.WeakKeyIdentityDictionary()
+
+    d[a] = True
+
+    data_copy = d._data.copy()
+    d._data.clear()
+    del a
+
+    gc_collect_harder()  # would call sys.unraisablehook if there's a problem
+    assert data_copy
+
+
+def test_weak_key_identity_dict_remove_callback_selfref_expired() -> None:
+    """We need to cover the KeyError in self._remove."""
+
+    class A:
+        def __eq__(self, other: object) -> bool:
+            return False
+
+    a = A()
+    assert a != a
+    d: _ki.WeakKeyIdentityDictionary[A, bool] = _ki.WeakKeyIdentityDictionary()
+
+    d[a] = True
+
+    data_copy = d._data.copy()
+    wr_d = weakref.ref(d)
+    del d
+    gc_collect_harder()  # would call sys.unraisablehook if there's a problem
+    assert wr_d() is None
+    del a
+    gc_collect_harder()
+    assert data_copy

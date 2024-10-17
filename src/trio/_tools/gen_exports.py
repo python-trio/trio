@@ -34,12 +34,11 @@ from __future__ import annotations
 
 import sys
 
-from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
+from ._ki import enable_ki_protection
 from ._run import GLOBAL_RUN_CONTEXT
 """
 
-TEMPLATE = """sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
-try:
+TEMPLATE = """try:
     return{}GLOBAL_RUN_CONTEXT.{}.{}
 except AttributeError:
     raise RuntimeError("must be called from async context") from None
@@ -237,7 +236,7 @@ def gen_public_wrappers_source(file: File) -> str:
             is_cm = False
 
         # Remove decorators
-        method.decorator_list = []
+        method.decorator_list = [ast.Name("enable_ki_protection")]
 
         # Create pass through arguments
         new_args = create_passthrough_args(method)
