@@ -36,6 +36,11 @@ class AsyncGenerators:
     # regular set so we don't have to deal with GC firing at
     # unexpected times.
     alive: _WEAK_ASYNC_GEN_SET | _ASYNC_GEN_SET = attrs.Factory(_WEAK_ASYNC_GEN_SET)
+    # The ids of foreign async generators are added to this set when first
+    # iterated. Usually it is not safe to refer to ids like this, but because
+    # we're using a finalizer we can ensure ids in this set do not outlive
+    # their async generator.
+    foreign: set[int] = attrs.Factory(set)
 
     # This collects async generators that get garbage collected during
     # the one-tick window between the system nursery closing and the
@@ -52,10 +57,7 @@ class AsyncGenerators:
                 # An async generator first iterated outside of a Trio
                 # task doesn't belong to Trio. Probably we're in guest
                 # mode and the async generator belongs to our host.
-                # The locals dictionary is the only good place to
-                # remember this fact, at least until
-                # https://bugs.python.org/issue40916 is implemented.
-                agen.ag_frame.f_locals["@trio_foreign_asyncgen"] = True
+                self.foreign.add(id(agen))
                 if self.prev_hooks.firstiter is not None:
                     self.prev_hooks.firstiter(agen)
 
@@ -80,8 +82,9 @@ class AsyncGenerators:
         def finalizer(agen: AsyncGeneratorType[object, NoReturn]) -> None:
             agen_name = name_asyncgen(agen)
             try:
-                is_ours = not agen.ag_frame.f_locals.get("@trio_foreign_asyncgen")
-            except AttributeError:  # pragma: no cover
+                self.foreign.remove(id(agen))
+                is_ours = False
+            except KeyError:
                 is_ours = True
 
             if is_ours:
