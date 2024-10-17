@@ -80,7 +80,6 @@ class AsyncGenerators:
                 self.trailing_needs_finalize.add(agen)
 
         def finalizer(agen: AsyncGeneratorType[object, NoReturn]) -> None:
-            agen_name = name_asyncgen(agen)
             try:
                 self.foreign.remove(id(agen))
             except KeyError:
@@ -88,6 +87,7 @@ class AsyncGenerators:
             else:
                 is_ours = False
 
+            agen_name = name_asyncgen(agen)
             if is_ours:
                 runner.entry_queue.run_sync_soon(
                     finalize_in_trio_context,
