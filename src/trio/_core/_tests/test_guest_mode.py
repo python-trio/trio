@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import contextvars
 import queue
 import signal
 import socket
@@ -439,12 +438,11 @@ def aiotrio_run(
     pass_not_threadsafe: bool = True,
     **start_guest_run_kwargs: Any,
 ) -> T:
-    loop = asyncio.new_event_loop()
-
     async def aio_main() -> T:
-        trio_done_fut = loop.create_future()
+        loop = asyncio.get_running_loop()
+        trio_done_fut: asyncio.Future[Outcome[T]] = loop.create_future()
 
-        def trio_done_callback(main_outcome: Outcome[object]) -> None:
+        def trio_done_callback(main_outcome: Outcome[T]) -> None:
             print(f"trio_fn finished: {main_outcome!r}")
             trio_done_fut.set_result(main_outcome)
 
@@ -458,12 +456,9 @@ def aiotrio_run(
             **start_guest_run_kwargs,
         )
 
-        return (await trio_done_fut).unwrap()  # type: ignore[no-any-return]
+        return (await trio_done_fut).unwrap()
 
-    try:
-        return loop.run_until_complete(aio_main())
-    finally:
-        loop.close()
+    return asyncio.run(aio_main())
 
 
 def test_guest_mode_on_asyncio() -> None:
@@ -659,10 +654,7 @@ def test_guest_mode_asyncgens() -> None:
 
         gc_collect_harder()
 
-    # Ensure we don't pollute the thread-level context if run under
-    # an asyncio without contextvars support (3.6)
-    context = contextvars.copy_context()
-    context.run(aiotrio_run, trio_main, host_uses_signal_set_wakeup_fd=True)
+    aiotrio_run(trio_main, host_uses_signal_set_wakeup_fd=True)
 
     assert record == {("asyncio", "asyncio"), ("trio", "trio")}
 
@@ -707,9 +699,6 @@ def test_guest_mode_asyncgens_garbage_collection() -> None:
 
         gc_collect_harder()
 
-    # Ensure we don't pollute the thread-level context if run under
-    # an asyncio without contextvars support (3.6)
-    context = contextvars.copy_context()
-    context.run(aiotrio_run, trio_main, host_uses_signal_set_wakeup_fd=True)
+    aiotrio_run(trio_main, host_uses_signal_set_wakeup_fd=True)
 
     assert record == {("asyncio", "asyncio", True), ("trio", "trio", True)}
