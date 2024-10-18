@@ -226,9 +226,7 @@ def enable_ki_protection(f: _T_supports_code, /) -> _T_supports_code:
     if legacy_isasyncgenfunction(f):
         f = f.__wrapped__  # type: ignore
 
-    code = f.__code__.replace()
-    _CODE_KI_PROTECTION_STATUS_WMAP[code] = True
-    f.__code__ = code
+    _CODE_KI_PROTECTION_STATUS_WMAP[f.__code__] = True
     return orig
 
 
@@ -239,9 +237,7 @@ def disable_ki_protection(f: _T_supports_code, /) -> _T_supports_code:
     if legacy_isasyncgenfunction(f):
         f = f.__wrapped__  # type: ignore
 
-    code = f.__code__.replace()
-    _CODE_KI_PROTECTION_STATUS_WMAP[code] = False
-    f.__code__ = code
+    _CODE_KI_PROTECTION_STATUS_WMAP[f.__code__] = False
     return orig
 
 

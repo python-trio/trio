@@ -529,6 +529,14 @@ def _identity(v: _T) -> _T:
     return v
 
 
+@pytest.mark.xfail(
+    strict=True,
+    raises=AssertionError,
+    reason=(
+        "it was decided not to protect against this case, see discussion in: "
+        "https://github.com/python-trio/trio/pull/3110#discussion_r1802123644"
+    ),
+)
 async def test_ki_does_not_leak_accross_different_calls_to_inner_functions() -> None:
     assert not _core.currently_ki_protected()
 
