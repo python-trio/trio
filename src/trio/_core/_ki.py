@@ -230,7 +230,7 @@ def enable_ki_protection(f: _T_supports_code, /) -> _T_supports_code:
 
 
 def disable_ki_protection(f: _T_supports_code, /) -> _T_supports_code:
-    """Dectorator to disable KI protection."""
+    """Decorator to disable KI protection."""
     orig = f
 
     if legacy_isasyncgenfunction(f):
