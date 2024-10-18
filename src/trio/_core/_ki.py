@@ -179,7 +179,6 @@ def ki_protection_enabled(frame: types.FrameType | None) -> bool:
     else:
         task_ki_protected = task._ki_protected
         task_frame = task.coro.cr_frame
-        del task
 
     while frame is not None:
         try:
