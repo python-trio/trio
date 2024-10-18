@@ -24,6 +24,7 @@ from typing import (
 )
 
 import pytest
+import sniffio
 from outcome import Outcome
 
 import trio
@@ -223,7 +224,8 @@ def test_host_altering_deadlines_wakes_trio_up() -> None:
 
 
 def test_guest_mode_sniffio_integration() -> None:
-    from sniffio import current_async_library, thread_local as sniffio_library
+    current_async_library = sniffio.current_async_library
+    sniffio_library = sniffio.thread_local
 
     async def trio_main(in_host: InHost) -> str:
         async def synchronize() -> None:
@@ -626,8 +628,6 @@ def test_guest_mode_autojump_clock_threshold_changing() -> None:
 
 @restore_unraisablehook()
 def test_guest_mode_asyncgens() -> None:
-    import sniffio
-
     record = set()
 
     async def agen(label: str) -> AsyncGenerator[int, None]:
@@ -661,8 +661,6 @@ def test_guest_mode_asyncgens() -> None:
 
 @restore_unraisablehook()
 def test_guest_mode_asyncgens_garbage_collection() -> None:
-    import sniffio
-
     record: set[tuple[str, str, bool]] = set()
 
     async def agen(label: str) -> AsyncGenerator[int, None]:
