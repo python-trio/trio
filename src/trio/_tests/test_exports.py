@@ -612,6 +612,7 @@ def test_pyright_recognizes_init_attributes() -> None:
                         last_was_class = False
 
             assert file is not None, f"{name}: {class_!r}"
+            assert start is not None
 
             count = -1
             # linters don't like my not using the index, go figure.
