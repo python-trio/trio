@@ -626,7 +626,7 @@ def test_pyright_recognizes_init_attributes() -> None:
             assert token.type == tokenize.DEDENT
             class_source = (
                 tokenize.untokenize(file[start : start + end_offset])
-                .replace("\\", "")
+                .replace("\\\n", "")
                 .strip()
             )
 
