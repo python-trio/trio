@@ -1,0 +1,1 @@
+Document that :func:`trio.sleep_forever` is guaranteed to raise an exception now.
