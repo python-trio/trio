@@ -61,8 +61,8 @@ def move_on_after(
 async def sleep_forever() -> NoReturn:
     """Pause execution of the current task forever (or until cancelled).
 
-    Equivalent to calling ``await sleep(math.inf)``, except that instead of
-    returning this will raise a `RuntimeError`.
+    Equivalent to calling ``await sleep(math.inf)``, except that if manually
+    rescheduled this will raise a `RuntimeError`.
 
     Raises:
       RuntimeError: if rescheduled
