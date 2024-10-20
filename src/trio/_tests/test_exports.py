@@ -638,7 +638,7 @@ def test_pyright_recognizes_init_attributes() -> None:
             count = -1
             end_offset = 0
             for end_offset, token in enumerate(  # noqa: B007
-                file[start:]
+                file[start:],
             ):  # pragma: no branch
                 if token.type == tokenize.INDENT:
                     count += 1
