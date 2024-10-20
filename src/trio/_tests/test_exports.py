@@ -576,9 +576,26 @@ def test_classes_are_final() -> None:
 
 
 def test_pyright_recognizes_init_attributes() -> None:
-    # Obviously, this isn't completely accurate.
-    # It should still be good enough. Hopefully.
-    # (attrs updates fields before we can access them)
+    """Check whether we provide `alias` for all underscore prefixed attributes
+    
+    We cannot check this at runtime, as attrs sets the `alias` attribute on
+    fields, but instead we can reconstruct the source code of the class and
+    check that. Unfortunately, `inspect.getsourcelines` does not work so we
+    need to build up this source code ourself.
+    
+    The approach taken here is:
+     1. read every file that could contain the classes in question
+     2. tokenize them, for a couple reasons:
+        - tokenization unlike ast parsing can be 1-1 undone
+        - tokenization allows us to get the whole class block
+        - tokenization allows us to find ``class {name}`` without prefix
+          matches
+     3. for every exported class:
+        1. find the file
+        2. isolate the class block
+        3. undo tokenization
+        4. find the string ``alias="{what it should be}"``
+    """
     files = []
 
     parent = (Path(inspect.getfile(trio)) / "..").resolve()
@@ -619,8 +636,8 @@ def test_pyright_recognizes_init_attributes() -> None:
             assert start is not None
 
             count = -1
-            # linters don't like my not using the index, go figure.
-            for end_offset, token in enumerate(file[start:]):  # noqa: B007
+            end_offset = 0
+            for end_offset, token in enumerate(file[start:]):  # pragma: no branch
                 if token.type == tokenize.INDENT:
                     count += 1
                 if token.type == tokenize.DEDENT and count:
