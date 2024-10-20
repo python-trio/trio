@@ -583,7 +583,7 @@ def test_pyright_recognizes_init_attributes() -> None:
 
     parent = (Path(inspect.getfile(trio)) / "..").resolve()
     for path in parent.glob("**/*.py"):
-        if "_tests" in path[len(parent) :]:
+        if "_tests" in str(path)[len(str(parent)) :]:
             continue
 
         with open(path, "rb") as f:
