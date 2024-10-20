@@ -1,7 +1,7 @@
 import trio
 
 
-async def foo():
+async def foo():  # noqa: RUF029  # await not used
     print("in foo!")
     return 3
 

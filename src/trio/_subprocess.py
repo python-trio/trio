@@ -430,7 +430,8 @@ async def _open_process(
     return Process._create(popen, trio_stdin, trio_stdout, trio_stderr)
 
 
-async def _windows_deliver_cancel(p: Process) -> None:
+# async function missing await
+async def _windows_deliver_cancel(p: Process) -> None:  # noqa: RUF029
     try:
         p.terminate()
     except OSError as exc:

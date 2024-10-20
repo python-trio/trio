@@ -313,7 +313,7 @@ async def test_named_thread_os() -> None:
     await test_thread_name("💙", expected="?")
 
 
-async def test_has_pthread_setname_np() -> None:
+def test_has_pthread_setname_np() -> None:
     from trio._core._thread_cache import get_os_thread_name_func
 
     k = get_os_thread_name_func()
@@ -1076,7 +1076,7 @@ async def test_from_thread_check_cancelled() -> None:
     assert q.get(timeout=1) == "Cancelled"
 
 
-async def test_from_thread_check_cancelled_raises_in_foreign_threads() -> None:
+def test_from_thread_check_cancelled_raises_in_foreign_threads() -> None:
     with pytest.raises(RuntimeError):
         from_thread_check_cancelled()
     q: stdlib_queue.Queue[Outcome[object]] = stdlib_queue.Queue()

@@ -150,7 +150,7 @@ async def test_close_basics() -> None:
         with pytest.raises(trio.ClosedResourceError):
             await r.receive()
 
-    s2, r2 = open_memory_channel[int](0)
+    _s2, r2 = open_memory_channel[int](0)
     async with trio.open_nursery() as nursery:
         nursery.start_soon(receive_block, r2)
         await wait_all_tasks_blocked()

@@ -4,7 +4,7 @@ from trio import TaskStatus
 from typing_extensions import assert_type
 
 
-async def check_status(
+def check_status(
     none_status_explicit: TaskStatus[None],
     none_status_implicit: TaskStatus,
     int_status: TaskStatus[int],

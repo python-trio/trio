@@ -204,7 +204,7 @@ def test_instruments_crash(caplog: pytest.LogCaptureFixture) -> None:
     assert ("after_run", None) in r.record
     # And we got a log message
     assert caplog.records[0].exc_info is not None
-    exc_type, exc_value, exc_traceback = caplog.records[0].exc_info
+    exc_type, exc_value, _exc_traceback = caplog.records[0].exc_info
     assert exc_type is ValueError
     assert str(exc_value) == "oops"
     assert "Instrument has been disabled" in caplog.records[0].message
