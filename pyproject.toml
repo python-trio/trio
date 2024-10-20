@@ -92,7 +92,7 @@ fix = true
 
 # The directories to consider when resolving first vs. third-party imports.
 # Does not control what files to include/exclude!
-src = ["src/trio", "notes-to-self"]
+src = ["src/trio"]
 
 include = ["*.py", "*.pyi", "**/pyproject.toml"]
 
