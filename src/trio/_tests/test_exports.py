@@ -581,7 +581,11 @@ def test_pyright_recognizes_init_attributes() -> None:
     # (attrs updates fields before we can access them)
     files = []
 
-    for path in (Path(inspect.getfile(trio)) / "..").resolve().glob("**/*.py"):
+    parent = (Path(inspect.getfile(trio)) / "..").resolve()
+    for path in parent.glob("**/*.py"):
+        if "_tests" in path[len(parent) :]:
+            continue
+
         with open(path, "rb") as f:
             files.append(list(tokenize.tokenize(f.readline)))
 
