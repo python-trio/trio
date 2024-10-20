@@ -201,6 +201,13 @@ def setup(app: Sphinx) -> None:
     app.connect("source-read", on_read_source)
 
 
+# Our docs use the READTHEDOCS variable, so copied from:
+# https://about.readthedocs.com/blog/2024/07/addons-by-default/
+if os.environ.get("READTHEDOCS", "") == "True":
+    if "html_context" not in globals():
+        html_context = {}
+    html_context["READTHEDOCS"] = True
+
 # -- General configuration ------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
@@ -374,10 +381,7 @@ suppress_warnings = ["epub.unknown_project_files"]
 # We have to set this ourselves, not only because it's useful for local
 # testing, but also because if we don't then RTD will throw away our
 # html_theme_options.
-import sphinx_rtd_theme
-
 html_theme = "sphinx_rtd_theme"
-html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
