@@ -577,12 +577,12 @@ def test_classes_are_final() -> None:
 
 def test_pyright_recognizes_init_attributes() -> None:
     """Check whether we provide `alias` for all underscore prefixed attributes
-    
+
     We cannot check this at runtime, as attrs sets the `alias` attribute on
     fields, but instead we can reconstruct the source code of the class and
     check that. Unfortunately, `inspect.getsourcelines` does not work so we
     need to build up this source code ourself.
-    
+
     The approach taken here is:
      1. read every file that could contain the classes in question
      2. tokenize them, for a couple reasons:
@@ -637,7 +637,7 @@ def test_pyright_recognizes_init_attributes() -> None:
 
             count = -1
             end_offset = 0
-            for end_offset, token in enumerate(file[start:]):  # pragma: no branch
+            for end_offset, token in enumerate(file[start:]):  # pragma: no branch # noqa: B007
                 if token.type == tokenize.INDENT:
                     count += 1
                 if token.type == tokenize.DEDENT and count:
