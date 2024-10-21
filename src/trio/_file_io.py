@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+from collections.abc import Callable, Iterable
 from functools import partial
 from typing import (
     IO,
@@ -8,9 +9,7 @@ from typing import (
     Any,
     AnyStr,
     BinaryIO,
-    Callable,
     Generic,
-    Iterable,
     TypeVar,
     Union,
     overload,
@@ -464,8 +463,16 @@ async def open_file(
     """
     return wrap_file(
         await trio.to_thread.run_sync(
-            io.open, file, mode, buffering, encoding, errors, newline, closefd, opener
-        )
+            io.open,
+            file,
+            mode,
+            buffering,
+            encoding,
+            errors,
+            newline,
+            closefd,
+            opener,
+        ),
     )
 
 
@@ -493,7 +500,7 @@ def wrap_file(file: FileT) -> AsyncIOWrapper[FileT]:
     if not (has("close") and (has("read") or has("write"))):
         raise TypeError(
             f"{file} does not implement required duck-file methods: "
-            "close and (read or write)"
+            "close and (read or write)",
         )
 
     return AsyncIOWrapper(file)

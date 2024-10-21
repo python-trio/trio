@@ -3,7 +3,8 @@ from __future__ import annotations
 import errno
 import logging
 import os
-from typing import Any, Awaitable, Callable, NoReturn, TypeVar
+from collections.abc import Awaitable, Callable
+from typing import Any, NoReturn, TypeVar
 
 import trio
 
@@ -143,5 +144,5 @@ async def serve_listeners(
         task_status.started(listeners)
 
     raise AssertionError(
-        "_serve_one_listener should never complete"
+        "_serve_one_listener should never complete",
     )  # pragma: no cover

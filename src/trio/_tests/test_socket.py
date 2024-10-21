@@ -8,7 +8,7 @@ import sys
 import tempfile
 from pathlib import Path
 from socket import AddressFamily, SocketKind
-from typing import TYPE_CHECKING, Any, Callable, List, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Union
 
 import attrs
 import pytest
@@ -23,14 +23,14 @@ if TYPE_CHECKING:
 
     from .._highlevel_socket import SocketStream
 
-    GaiTuple: TypeAlias = Tuple[
+    GaiTuple: TypeAlias = tuple[
         AddressFamily,
         SocketKind,
         int,
         str,
-        Union[Tuple[str, int], Tuple[str, int, int, int]],
+        Union[tuple[str, int], tuple[str, int, int, int]],
     ]
-    GetAddrInfoResponse: TypeAlias = List[GaiTuple]
+    GetAddrInfoResponse: TypeAlias = list[GaiTuple]
 else:
     GaiTuple: object
     GetAddrInfoResponse = object
@@ -56,7 +56,10 @@ class MonkeypatchedGAI:
         return frozenbound
 
     def set(
-        self, response: GetAddrInfoResponse | str, *args: Any, **kwargs: Any
+        self,
+        response: GetAddrInfoResponse | str,
+        *args: Any,
+        **kwargs: Any,
     ) -> None:
         self._responses[self._frozenbind(*args, **kwargs)] = response
 
@@ -134,7 +137,7 @@ async def test_getaddrinfo(monkeygai: MonkeypatchedGAI) -> None:
             tuple[str, int] | tuple[str, int, int] | tuple[str, int, int, int],
         ]:
             # (family, type, proto, canonname, sockaddr)
-            family, type_, proto, canonname, sockaddr = gai_tup
+            family, type_, _proto, _canonname, sockaddr = gai_tup
             return (family, type_, sockaddr)
 
         def filtered(
@@ -472,7 +475,8 @@ async def test_SocketType_shutdown() -> None:
     ],
 )
 async def test_SocketType_simple_server(
-    address: str, socket_type: AddressFamily
+    address: str,
+    socket_type: AddressFamily,
 ) -> None:
     # listen, bind, accept, connect, getpeername, getsockname
     listener = tsocket.socket(socket_type)
@@ -556,7 +560,8 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
         return addr
 
     def assert_eq(
-        actual: tuple[str | int, ...], expected: tuple[str | int, ...]
+        actual: tuple[str | int, ...],
+        expected: tuple[str | int, ...],
     ) -> None:
         assert pad(expected) == pad(actual)
 
@@ -588,7 +593,7 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
                     | tuple[str, str]
                     | tuple[str, str, int]
                     | tuple[str, str, int, int]
-                )
+                ),
             ) -> Any:
                 return await sock._resolve_address_nocp(
                     args,
@@ -639,7 +644,8 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
             # smoke test the basic functionality...
             try:
                 netlink_sock = tsocket.socket(
-                    family=tsocket.AF_NETLINK, type=tsocket.SOCK_DGRAM
+                    family=tsocket.AF_NETLINK,
+                    type=tsocket.SOCK_DGRAM,
                 )
             except (AttributeError, OSError):
                 pass
@@ -793,7 +799,9 @@ async def test_SocketType_connect_paths() -> None:
 
                     cancel_scope.cancel()
                     sock._sock = stdlib_socket.fromfd(
-                        self.detach(), self.family, self.type
+                        self.detach(),
+                        self.family,
+                        self.type,
                     )
                     sock._sock.connect(*args, **kwargs)
                     # If connect *doesn't* raise, then pretend it did
@@ -842,7 +850,9 @@ async def test_resolve_address_exception_in_connect_closes_socket() -> None:
         with tsocket.socket() as sock:
 
             async def _resolve_address_nocp(
-                self: Any, *args: Any, **kwargs: Any
+                self: Any,
+                *args: Any,
+                **kwargs: Any,
             ) -> None:
                 cancel_scope.cancel()
                 await _core.checkpoint()
@@ -991,7 +1001,9 @@ async def test_custom_hostname_resolver(monkeygai: MonkeypatchedGAI) -> None:
             return ("custom_gai", host, port, family, type, proto, flags)
 
         async def getnameinfo(
-            self, sockaddr: tuple[str, int] | tuple[str, int, int, int], flags: int
+            self,
+            sockaddr: tuple[str, int] | tuple[str, int, int, int],
+            flags: int,
         ) -> tuple[str, tuple[str, int] | tuple[str, int, int, int], int]:
             return ("custom_gni", sockaddr, flags)
 
@@ -1067,7 +1079,7 @@ async def test_custom_socket_factory() -> None:
     assert tsocket.set_custom_socket_factory(None) is csf
 
 
-async def test_SocketType_is_abstract() -> None:
+def test_SocketType_is_abstract() -> None:
     with pytest.raises(TypeError):
         tsocket.SocketType()
 

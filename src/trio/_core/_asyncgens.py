@@ -17,10 +17,9 @@ ASYNCGEN_LOGGER = logging.getLogger("trio.async_generator_errors")
 
 if TYPE_CHECKING:
     from types import AsyncGeneratorType
-    from typing import Set
 
     _WEAK_ASYNC_GEN_SET = weakref.WeakSet[AsyncGeneratorType[object, NoReturn]]
-    _ASYNC_GEN_SET = Set[AsyncGeneratorType[object, NoReturn]]
+    _ASYNC_GEN_SET = set[AsyncGeneratorType[object, NoReturn]]
 else:
     _WEAK_ASYNC_GEN_SET = weakref.WeakSet
     _ASYNC_GEN_SET = set
@@ -60,7 +59,8 @@ class AsyncGenerators:
                     self.prev_hooks.firstiter(agen)
 
         def finalize_in_trio_context(
-            agen: AsyncGeneratorType[object, NoReturn], agen_name: str
+            agen: AsyncGeneratorType[object, NoReturn],
+            agen_name: str,
         ) -> None:
             try:
                 runner.spawn_system_task(
@@ -85,7 +85,9 @@ class AsyncGenerators:
 
             if is_ours:
                 runner.entry_queue.run_sync_soon(
-                    finalize_in_trio_context, agen, agen_name
+                    finalize_in_trio_context,
+                    agen,
+                    agen_name,
                 )
 
                 # Do this last, because it might raise an exception
@@ -123,7 +125,7 @@ class AsyncGenerators:
                         raise RuntimeError(
                             f"Non-Trio async generator {agen_name!r} awaited something "
                             "during finalization; install a finalization hook to "
-                            "support this, or wrap it in 'async with aclosing(...):'"
+                            "support this, or wrap it in 'async with aclosing(...):'",
                         )
 
         self.prev_hooks = sys.get_asyncgen_hooks()
@@ -146,7 +148,7 @@ class AsyncGenerators:
         # them was an asyncgen finalizer that snuck in under the wire.
         runner.entry_queue.run_sync_soon(runner.reschedule, runner.init_task)
         await _core.wait_task_rescheduled(
-            lambda _: _core.Abort.FAILED  # pragma: no cover
+            lambda _: _core.Abort.FAILED,  # pragma: no cover
         )
         self.alive.update(self.trailing_needs_finalize)
         self.trailing_needs_finalize.clear()
@@ -193,7 +195,9 @@ class AsyncGenerators:
         sys.set_asyncgen_hooks(*self.prev_hooks)
 
     async def _finalize_one(
-        self, agen: AsyncGeneratorType[object, NoReturn], name: object
+        self,
+        agen: AsyncGeneratorType[object, NoReturn],
+        name: object,
     ) -> None:
         try:
             # This shield ensures that finalize_asyncgen never exits

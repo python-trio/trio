@@ -2,19 +2,16 @@ from __future__ import annotations
 
 import re
 import sys
+from contextlib import AbstractContextManager
+from re import Pattern
 from typing import (
     TYPE_CHECKING,
-    Callable,
-    ContextManager,
     Generic,
     Literal,
-    Pattern,
-    Sequence,
     cast,
     overload,
 )
 
-from trio._deprecate import warn_deprecated
 from trio._util import final
 
 if TYPE_CHECKING:
@@ -23,12 +20,16 @@ if TYPE_CHECKING:
     # sphinx will *only* work if we use types.TracebackType, and import
     # *inside* TYPE_CHECKING. No other combination works.....
     import types
+    from collections.abc import Callable, Sequence
 
     from _pytest._code.code import ExceptionChainRepr, ReprExceptionInfo, Traceback
     from typing_extensions import TypeGuard, TypeVar
 
     MatchE = TypeVar(
-        "MatchE", bound=BaseException, default=BaseException, covariant=True
+        "MatchE",
+        bound=BaseException,
+        default=BaseException,
+        covariant=True,
     )
 else:
     from typing import TypeVar
@@ -49,12 +50,14 @@ class _ExceptionInfo(Generic[MatchE]):
     _excinfo: tuple[type[MatchE], MatchE, types.TracebackType] | None
 
     def __init__(
-        self, excinfo: tuple[type[MatchE], MatchE, types.TracebackType] | None
+        self,
+        excinfo: tuple[type[MatchE], MatchE, types.TracebackType] | None,
     ):
         self._excinfo = excinfo
 
     def fill_unfilled(
-        self, exc_info: tuple[type[MatchE], MatchE, types.TracebackType]
+        self,
+        exc_info: tuple[type[MatchE], MatchE, types.TracebackType],
     ) -> None:
         """Fill an unfilled ExceptionInfo created with ``for_later()``."""
         assert self._excinfo is None, "ExceptionInfo was already filled"
@@ -92,7 +95,7 @@ class _ExceptionInfo(Generic[MatchE]):
 
     def exconly(self, tryshort: bool = False) -> str:
         raise NotImplementedError(
-            "This is a helper method only available if you use RaisesGroup with the pytest package installed"
+            "This is a helper method only available if you use RaisesGroup with the pytest package installed",
         )
 
     def errisinstance(
@@ -100,7 +103,7 @@ class _ExceptionInfo(Generic[MatchE]):
         exc: builtins.type[BaseException] | tuple[builtins.type[BaseException], ...],
     ) -> bool:
         raise NotImplementedError(
-            "This is a helper method only available if you use RaisesGroup with the pytest package installed"
+            "This is a helper method only available if you use RaisesGroup with the pytest package installed",
         )
 
     def getrepr(
@@ -114,7 +117,7 @@ class _ExceptionInfo(Generic[MatchE]):
         chain: bool = True,
     ) -> ReprExceptionInfo | ExceptionChainRepr:
         raise NotImplementedError(
-            "This is a helper method only available if you use RaisesGroup with the pytest package installed"
+            "This is a helper method only available if you use RaisesGroup with the pytest package installed",
         )
 
 
@@ -139,7 +142,7 @@ def _stringify_exception(exc: BaseException) -> str:
         [
             getattr(exc, "message", str(exc)),
             *getattr(exc, "__notes__", []),
-        ]
+        ],
     )
 
 
@@ -195,7 +198,7 @@ class Matcher(Generic[MatchE]):
             raise ValueError("You must specify at least one parameter to match on.")
         if exception_type is not None and not issubclass(exception_type, BaseException):
             raise ValueError(
-                f"exception_type {exception_type} must be a subclass of BaseException"
+                f"exception_type {exception_type} must be a subclass of BaseException",
             )
         self.exception_type = exception_type
         self.match: Pattern[str] | None
@@ -224,11 +227,13 @@ class Matcher(Generic[MatchE]):
 
         """
         if self.exception_type is not None and not isinstance(
-            exception, self.exception_type
+            exception,
+            self.exception_type,
         ):
             return False
         if self.match is not None and not re.search(
-            self.match, _stringify_exception(exception)
+            self.match,
+            _stringify_exception(exception),
         ):
             return False
         # If exception_type is None check() accepts BaseException.
@@ -242,7 +247,7 @@ class Matcher(Generic[MatchE]):
         if (match := self.match) is not None:
             # If no flags were specified, discard the redundant re.compile() here.
             reqs.append(
-                f"match={match.pattern if match.flags == _regex_no_flags else match!r}"
+                f"match={match.pattern if match.flags == _regex_no_flags else match!r}",
             )
         if self.check is not None:
             reqs.append(f"check={self.check!r}")
@@ -271,7 +276,10 @@ else:
 
 
 @final
-class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperClass[E]):
+class RaisesGroup(
+    AbstractContextManager[ExceptionInfo[BaseExceptionGroup[E]]],
+    SuperClass[E],
+):
     """Contextmanager for checking for an expected `ExceptionGroup`.
     This works similar to ``pytest.raises``, and a version of it will hopefully be added upstream, after which this can be deprecated and removed. See https://github.com/pytest-dev/pytest/issues/11538
 
@@ -377,7 +385,6 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
         flatten_subgroups: bool = False,
         match: str | Pattern[str] | None = None,
         check: Callable[[BaseExceptionGroup[E]], bool] | None = None,
-        strict: None = None,
     ):
         self.expected_exceptions: tuple[type[E] | Matcher[E] | E, ...] = (
             exception,
@@ -389,27 +396,18 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
         self.check = check
         self.is_baseexceptiongroup = False
 
-        if strict is not None:
-            warn_deprecated(
-                "The `strict` parameter",
-                "0.25.1",
-                issue=2989,
-                instead="flatten_subgroups=True (for strict=False}",
-            )
-            self.flatten_subgroups = not strict
-
         if allow_unwrapped and other_exceptions:
             raise ValueError(
                 "You cannot specify multiple exceptions with `allow_unwrapped=True.`"
                 " If you want to match one of multiple possible exceptions you should"
                 " use a `Matcher`."
-                " E.g. `Matcher(check=lambda e: isinstance(e, (...)))`"
+                " E.g. `Matcher(check=lambda e: isinstance(e, (...)))`",
             )
         if allow_unwrapped and isinstance(exception, RaisesGroup):
             raise ValueError(
                 "`allow_unwrapped=True` has no effect when expecting a `RaisesGroup`."
                 " You might want it in the expected `RaisesGroup`, or"
-                " `flatten_subgroups=True` if you don't care about the structure."
+                " `flatten_subgroups=True` if you don't care about the structure.",
             )
         if allow_unwrapped and (match is not None or check is not None):
             raise ValueError(
@@ -418,7 +416,7 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
                 " exception you should use a `Matcher` object. If you want to match/check"
                 " the exceptiongroup when the exception *is* wrapped you need to"
                 " do e.g. `if isinstance(exc.value, ExceptionGroup):"
-                " assert RaisesGroup(...).matches(exc.value)` afterwards."
+                " assert RaisesGroup(...).matches(exc.value)` afterwards.",
             )
 
         # verify `expected_exceptions` and set `self.is_baseexceptiongroup`
@@ -429,7 +427,7 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
                         "You cannot specify a nested structure inside a RaisesGroup with"
                         " `flatten_subgroups=True`. The parameter will flatten subgroups"
                         " in the raised exceptiongroup before matching, which would never"
-                        " match a nested structure."
+                        " match a nested structure.",
                     )
                 self.is_baseexceptiongroup |= exc.is_baseexceptiongroup
             elif isinstance(exc, Matcher):
@@ -439,14 +437,15 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
                     continue
                 # Matcher __init__ assures it's a subclass of BaseException
                 self.is_baseexceptiongroup |= not issubclass(
-                    exc.exception_type, Exception
+                    exc.exception_type,
+                    Exception,
                 )
             elif isinstance(exc, type) and issubclass(exc, BaseException):
                 self.is_baseexceptiongroup |= not issubclass(exc, Exception)
             else:
                 raise ValueError(
                     f'Invalid argument "{exc!r}" must be exception type, Matcher, or'
-                    " RaisesGroup."
+                    " RaisesGroup.",
                 )
 
     def __enter__(self) -> ExceptionInfo[BaseExceptionGroup[E]]:
@@ -454,7 +453,8 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
         return self.excinfo
 
     def _unroll_exceptions(
-        self, exceptions: Sequence[BaseException]
+        self,
+        exceptions: Sequence[BaseException],
     ) -> Sequence[BaseException]:
         """Used if `flatten_subgroups=True`."""
         res: list[BaseException] = []
@@ -498,7 +498,8 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
             return False
 
         if self.match_expr is not None and not re.search(
-            self.match_expr, _stringify_exception(exc_val)
+            self.match_expr,
+            _stringify_exception(exc_val),
         ):
             return False
         if self.check is not None and not self.check(exc_val):

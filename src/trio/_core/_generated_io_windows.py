@@ -4,12 +4,14 @@
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING, ContextManager
+from typing import TYPE_CHECKING
 
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 from ._run import GLOBAL_RUN_CONTEXT
 
 if TYPE_CHECKING:
+    from contextlib import AbstractContextManager
+
     from typing_extensions import Buffer
 
     from .._file_io import _HasFileNo
@@ -134,14 +136,17 @@ async def wait_overlapped(handle_: int | CData, lpOverlapped: CData | int) -> ob
     sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_overlapped(
-            handle_, lpOverlapped
+            handle_,
+            lpOverlapped,
         )
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
 
 
 async def write_overlapped(
-    handle: int | CData, data: Buffer, file_offset: int = 0
+    handle: int | CData,
+    data: Buffer,
+    file_offset: int = 0,
 ) -> int:
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26
@@ -151,14 +156,18 @@ async def write_overlapped(
     sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.write_overlapped(
-            handle, data, file_offset
+            handle,
+            data,
+            file_offset,
         )
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
 
 
 async def readinto_overlapped(
-    handle: int | CData, buffer: Buffer, file_offset: int = 0
+    handle: int | CData,
+    buffer: Buffer,
+    file_offset: int = 0,
 ) -> int:
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26
@@ -168,7 +177,9 @@ async def readinto_overlapped(
     sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.readinto_overlapped(
-            handle, buffer, file_offset
+            handle,
+            buffer,
+            file_offset,
         )
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
@@ -187,7 +198,9 @@ def current_iocp() -> int:
         raise RuntimeError("must be called from async context") from None
 
 
-def monitor_completion_key() -> ContextManager[tuple[int, UnboundedQueue[object]]]:
+def monitor_completion_key() -> (
+    AbstractContextManager[tuple[int, UnboundedQueue[object]]]
+):
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26
     <https://github.com/python-trio/trio/issues/26>`__ and `#52

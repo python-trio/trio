@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import errno
 from functools import partial
-from typing import TYPE_CHECKING, Awaitable, Callable, NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 import attrs
 
@@ -19,6 +19,8 @@ from trio.testing import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
     import pytest
 
     from trio._channel import MemoryReceiveChannel, MemorySendChannel
@@ -95,7 +97,9 @@ async def test_serve_listeners_basic() -> None:
 
     async with trio.open_nursery() as nursery:
         l2: list[MemoryListener] = await nursery.start(
-            trio.serve_listeners, handler, listeners
+            trio.serve_listeners,
+            handler,
+            listeners,
         )
         assert l2 == listeners
         # This is just split into another function because gh-136 isn't
@@ -123,7 +127,8 @@ async def test_serve_listeners_accept_unrecognized_error() -> None:
 
 
 async def test_serve_listeners_accept_capacity_error(
-    autojump_clock: MockClock, caplog: pytest.LogCaptureFixture
+    autojump_clock: MockClock,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     listener = MemoryListener()
 
@@ -155,7 +160,8 @@ async def test_serve_listeners_connection_nursery(autojump_clock: MockClock) -> 
         pass
 
     async def connection_watcher(
-        *, task_status: TaskStatus[Nursery] = trio.TASK_STATUS_IGNORED
+        *,
+        task_status: TaskStatus[Nursery] = trio.TASK_STATUS_IGNORED,
     ) -> NoReturn:
         async with trio.open_nursery() as nursery:
             task_status.started(nursery)
@@ -173,7 +179,7 @@ async def test_serve_listeners_connection_nursery(autojump_clock: MockClock) -> 
                     handler,
                     [listener],
                     handler_nursery=handler_nursery,
-                )
+                ),
             )
             for _ in range(10):
                 nursery.start_soon(listener.connect)

@@ -10,13 +10,7 @@ import weakref
 from functools import partial
 from typing import (
     TYPE_CHECKING,
-    AsyncGenerator,
-    Awaitable,
-    Callable,
-    List,
     NoReturn,
-    Tuple,
-    Type,
     TypeVar,
     Union,
 )
@@ -48,11 +42,13 @@ from .._threads import (
 from ..testing import wait_all_tasks_blocked
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator, Awaitable, Callable
+
     from outcome import Outcome
 
     from ..lowlevel import Task
 
-RecordType = List[Tuple[str, Union[threading.Thread, Type[BaseException]]]]
+RecordType = list[tuple[str, Union[threading.Thread, type[BaseException]]]]
 T = TypeVar("T")
 
 
@@ -313,7 +309,7 @@ async def test_named_thread_os() -> None:
     await test_thread_name("💙", expected="?")
 
 
-async def test_has_pthread_setname_np() -> None:
+def test_has_pthread_setname_np() -> None:
     from trio._core._thread_cache import get_os_thread_name_func
 
     k = get_os_thread_name_func()
@@ -336,7 +332,8 @@ async def test_run_in_worker_thread() -> None:
         raise ValueError(threading.current_thread())
 
     with pytest.raises(
-        ValueError, match=r"^<Thread\(Trio thread \d+, started daemon \d+\)>$"
+        ValueError,
+        match=r"^<Thread\(Trio thread \d+, started daemon \d+\)>$",
     ) as excinfo:
         await to_thread_run_sync(g)
     print(excinfo.value.args)
@@ -404,7 +401,8 @@ async def test_run_in_worker_thread_cancellation() -> None:
 # handled gracefully. (Requires that the thread result machinery be prepared
 # for call_soon to raise RunFinishedError.)
 def test_run_in_worker_thread_abandoned(
-    capfd: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+    capfd: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(_core._thread_cache, "IDLE_TIMEOUT", 0.01)
 
@@ -444,7 +442,9 @@ def test_run_in_worker_thread_abandoned(
 @pytest.mark.parametrize("cancel", [False, True])
 @pytest.mark.parametrize("use_default_limiter", [False, True])
 async def test_run_in_worker_thread_limiter(
-    MAX: int, cancel: bool, use_default_limiter: bool
+    MAX: int,
+    cancel: bool,
+    use_default_limiter: bool,
 ) -> None:
     # This test is a bit tricky. The goal is to make sure that if we set
     # limiter=CapacityLimiter(MAX), then in fact only MAX threads are ever
@@ -646,7 +646,7 @@ async def test_trio_to_thread_run_sync_expected_error() -> None:
 
 
 trio_test_contextvar: contextvars.ContextVar[str] = contextvars.ContextVar(
-    "trio_test_contextvar"
+    "trio_test_contextvar",
 )
 
 
@@ -875,7 +875,7 @@ def test_from_thread_run_during_shutdown() -> None:
             with _core.CancelScope(shield=True):
                 try:
                     await to_thread_run_sync(
-                        partial(from_thread_run, sleep, 0, trio_token=token)
+                        partial(from_thread_run, sleep, 0, trio_token=token),
                     )
                 except _core.RunFinishedError:
                     record.append("finished")
@@ -1068,7 +1068,7 @@ async def test_from_thread_check_cancelled() -> None:
     assert q.get(timeout=1) == "Cancelled"
 
 
-async def test_from_thread_check_cancelled_raises_in_foreign_threads() -> None:
+def test_from_thread_check_cancelled_raises_in_foreign_threads() -> None:
     with pytest.raises(RuntimeError):
         from_thread_check_cancelled()
     q: stdlib_queue.Queue[Outcome[object]] = stdlib_queue.Queue()

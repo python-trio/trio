@@ -4,13 +4,15 @@
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING, Callable, ContextManager
+from typing import TYPE_CHECKING
 
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 from ._run import GLOBAL_RUN_CONTEXT
 
 if TYPE_CHECKING:
     import select
+    from collections.abc import Callable
+    from contextlib import AbstractContextManager
 
     from .. import _core
     from .._file_io import _HasFileNo
@@ -42,8 +44,9 @@ def current_kqueue() -> select.kqueue:
 
 
 def monitor_kevent(
-    ident: int, filter: int
-) -> ContextManager[_core.UnboundedQueue[select.kevent]]:
+    ident: int,
+    filter: int,
+) -> AbstractContextManager[_core.UnboundedQueue[select.kevent]]:
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26
     <https://github.com/python-trio/trio/issues/26>`__.
@@ -56,7 +59,9 @@ def monitor_kevent(
 
 
 async def wait_kevent(
-    ident: int, filter: int, abort_func: Callable[[RaiseCancelT], Abort]
+    ident: int,
+    filter: int,
+    abort_func: Callable[[RaiseCancelT], Abort],
 ) -> Abort:
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26
@@ -65,7 +70,9 @@ async def wait_kevent(
     sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_kevent(
-            ident, filter, abort_func
+            ident,
+            filter,
+            abort_func,
         )
     except AttributeError:
         raise RuntimeError("must be called from async context") from None

@@ -1,1 +1,0 @@
-Allow sockets to bind any ``os.PathLike`` object.

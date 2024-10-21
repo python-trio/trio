@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import random
 import socket as stdlib_socket
+from collections.abc import Awaitable, Callable
 from contextlib import suppress
-from typing import TYPE_CHECKING, Awaitable, Callable, Tuple, TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 import pytest
 
@@ -39,7 +40,7 @@ def drain_socket(sock: stdlib_socket.socket) -> None:
 
 
 WaitSocket = Callable[[stdlib_socket.socket], Awaitable[object]]
-SocketPair = Tuple[stdlib_socket.socket, stdlib_socket.socket]
+SocketPair = tuple[stdlib_socket.socket, stdlib_socket.socket]
 RetT = TypeVar("RetT")
 
 
@@ -91,7 +92,9 @@ notify_closing_test = pytest.mark.parametrize(
 @read_socket_test
 @write_socket_test
 async def test_wait_basic(
-    socketpair: SocketPair, wait_readable: WaitSocket, wait_writable: WaitSocket
+    socketpair: SocketPair,
+    wait_readable: WaitSocket,
+    wait_writable: WaitSocket,
 ) -> None:
     a, b = socketpair
 
@@ -159,7 +162,7 @@ async def test_wait_basic(
 
 @read_socket_test
 async def test_double_read(socketpair: SocketPair, wait_readable: WaitSocket) -> None:
-    a, b = socketpair
+    a, _b = socketpair
 
     # You can't have two tasks trying to read from a socket at the same time
     async with _core.open_nursery() as nursery:
@@ -172,7 +175,7 @@ async def test_double_read(socketpair: SocketPair, wait_readable: WaitSocket) ->
 
 @write_socket_test
 async def test_double_write(socketpair: SocketPair, wait_writable: WaitSocket) -> None:
-    a, b = socketpair
+    a, _b = socketpair
 
     # You can't have two tasks trying to write to a socket at the same time
     fill_socket(a)
@@ -193,7 +196,7 @@ async def test_interrupted_by_close(
     wait_writable: WaitSocket,
     notify_closing: Callable[[stdlib_socket.socket], object],
 ) -> None:
-    a, b = socketpair
+    a, _b = socketpair
 
     async def reader() -> None:
         with pytest.raises(_core.ClosedResourceError):
@@ -215,7 +218,9 @@ async def test_interrupted_by_close(
 @read_socket_test
 @write_socket_test
 async def test_socket_simultaneous_read_write(
-    socketpair: SocketPair, wait_readable: WaitSocket, wait_writable: WaitSocket
+    socketpair: SocketPair,
+    wait_readable: WaitSocket,
+    wait_writable: WaitSocket,
 ) -> None:
     record: list[str] = []
 
@@ -245,7 +250,9 @@ async def test_socket_simultaneous_read_write(
 @read_socket_test
 @write_socket_test
 async def test_socket_actual_streaming(
-    socketpair: SocketPair, wait_readable: WaitSocket, wait_writable: WaitSocket
+    socketpair: SocketPair,
+    wait_readable: WaitSocket,
+    wait_writable: WaitSocket,
 ) -> None:
     a, b = socketpair
 

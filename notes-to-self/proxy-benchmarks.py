@@ -54,7 +54,7 @@ def add_wrapper(cls, method):
         f"""
         def wrapper(self, *args, **kwargs):
             return self._wrapped.{method}(*args, **kwargs)
-    """
+    """,
     )
     ns = {}
     exec(code, ns)
@@ -113,7 +113,7 @@ def add_wrapper(cls, attr):
 
         def deleter(self):
             del self._wrapped.{attr}
-    """
+    """,
     )
     ns = {}
     exec(code, ns)

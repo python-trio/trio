@@ -6,16 +6,14 @@ import random
 import signal
 import subprocess
 import sys
-from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator, Callable
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from functools import partial
 from pathlib import Path as SyncPath
 from signal import Signals
 from typing import (
     TYPE_CHECKING,
     Any,
-    AsyncContextManager,
-    AsyncIterator,
-    Callable,
     NoReturn,
 )
 
@@ -114,7 +112,7 @@ background_process_param = pytest.mark.parametrize(
     ids=["open_process", "run_process in nursery"],
 )
 
-BackgroundProcessType: TypeAlias = Callable[..., AsyncContextManager[Process]]
+BackgroundProcessType: TypeAlias = Callable[..., AbstractAsyncContextManager[Process]]
 
 
 @background_process_param
@@ -130,7 +128,8 @@ async def test_basic(background_process: BackgroundProcessType) -> None:
         await proc.wait()
     assert proc.returncode == 1
     assert repr(proc) == "<trio.Process {!r}: {}>".format(
-        EXIT_FALSE, "exited with status 1"
+        EXIT_FALSE,
+        "exited with status 1",
     )
 
 
@@ -172,7 +171,7 @@ async def test_multi_wait(background_process: BackgroundProcessType) -> None:
 COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR = python(
     "data = sys.stdin.buffer.read(); "
     "sys.stdout.buffer.write(data); "
-    "sys.stderr.buffer.write(data[::-1])"
+    "sys.stderr.buffer.write(data[::-1])",
 )
 
 
@@ -233,7 +232,7 @@ async def test_interactive(background_process: BackgroundProcessType) -> None:
             "    request = int(line.strip())\n"
             "    print(str(idx * 2) * request)\n"
             "    print(str(idx * 2 + 1) * request * 2, file=sys.stderr)\n"
-            "    idx += 1\n"
+            "    idx += 1\n",
         ),
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
@@ -245,7 +244,9 @@ async def test_interactive(background_process: BackgroundProcessType) -> None:
             async with _core.open_nursery() as nursery:
 
                 async def drain_one(
-                    stream: ReceiveStream, count: int, digit: int
+                    stream: ReceiveStream,
+                    count: int,
+                    digit: int,
                 ) -> None:
                     while count > 0:
                         result = await stream.receive_some(count)
@@ -290,7 +291,10 @@ async def test_run() -> None:
     data = bytes(random.randint(0, 255) for _ in range(2**18))
 
     result = await run_process(
-        CAT, stdin=data, capture_stdout=True, capture_stderr=True
+        CAT,
+        stdin=data,
+        capture_stdout=True,
+        capture_stderr=True,
     )
     assert result.args == CAT
     assert result.returncode == 0
@@ -324,7 +328,8 @@ async def test_run() -> None:
     with pytest.raises(ValueError, match=pipe_stdout_error):
         await run_process(CAT, stdout=subprocess.PIPE)
     with pytest.raises(
-        ValueError, match=pipe_stdout_error.replace("stdout", "stderr", 1)
+        ValueError,
+        match=pipe_stdout_error.replace("stdout", "stderr", 1),
     ):
         await run_process(CAT, stderr=subprocess.PIPE)
     with pytest.raises(
@@ -349,7 +354,10 @@ async def test_run_check() -> None:
     assert excinfo.value.stdout is None
 
     result = await run_process(
-        cmd, capture_stdout=True, capture_stderr=True, check=False
+        cmd,
+        capture_stdout=True,
+        capture_stderr=True,
+        check=False,
     )
     assert result.args == cmd
     assert result.stdout == b""
@@ -360,7 +368,8 @@ async def test_run_check() -> None:
 @skip_if_fbsd_pipes_broken
 async def test_run_with_broken_pipe() -> None:
     result = await run_process(
-        [sys.executable, "-c", "import sys; sys.stdin.close()"], stdin=b"x" * 131072
+        [sys.executable, "-c", "import sys; sys.stdin.close()"],
+        stdin=b"x" * 131072,
     )
     assert result.returncode == 0
     assert result.stdout is result.stderr is None
@@ -403,7 +412,9 @@ async def test_stderr_stdout(background_process: BackgroundProcessType) -> None:
     # this one hits the branch where stderr=STDOUT but stdout
     # is not redirected
     async with background_process(
-        CAT, stdin=subprocess.PIPE, stderr=subprocess.STDOUT
+        CAT,
+        stdin=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
     ) as proc:
         assert proc.stdout is None
         assert proc.stderr is None
@@ -451,7 +462,8 @@ async def test_errors() -> None:
 @background_process_param
 async def test_signals(background_process: BackgroundProcessType) -> None:
     async def test_one_signal(
-        send_it: Callable[[Process], None], signum: signal.Signals | None
+        send_it: Callable[[Process], None],
+        signum: signal.Signals | None,
     ) -> None:
         with move_on_after(1.0) as scope:
             async with background_process(SLEEP(3600)) as proc:
@@ -556,7 +568,7 @@ async def test_custom_deliver_cancel() -> None:
 
     async with _core.open_nursery() as nursery:
         nursery.start_soon(
-            partial(run_process, SLEEP(9999), deliver_cancel=custom_deliver_cancel)
+            partial(run_process, SLEEP(9999), deliver_cancel=custom_deliver_cancel),
         )
         await wait_all_tasks_blocked()
         nursery.cancel_scope.cancel()
@@ -572,7 +584,7 @@ def test_bad_deliver_cancel() -> None:
     async def do_stuff() -> None:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(
-                partial(run_process, SLEEP(9999), deliver_cancel=custom_deliver_cancel)
+                partial(run_process, SLEEP(9999), deliver_cancel=custom_deliver_cancel),
             )
             await wait_all_tasks_blocked()
             nursery.cancel_scope.cancel()
@@ -600,7 +612,8 @@ async def test_warn_on_failed_cancel_terminate(monkeypatch: pytest.MonkeyPatch) 
 
 @pytest.mark.skipif(not posix, reason="posix only")
 async def test_warn_on_cancel_SIGKILL_escalation(
-    autojump_clock: MockClock, monkeypatch: pytest.MonkeyPatch
+    autojump_clock: MockClock,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(Process, "terminate", lambda *args: None)
 

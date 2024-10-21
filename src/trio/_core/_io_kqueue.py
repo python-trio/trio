@@ -4,7 +4,7 @@ import errno
 import select
 import sys
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Callable, Iterator, Literal
+from typing import TYPE_CHECKING, Literal
 
 import attrs
 import outcome
@@ -14,6 +14,8 @@ from ._run import _public
 from ._wakeup_socketpair import WakeupSocketpair
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
+
     from typing_extensions import TypeAlias
 
     from .._core import Abort, RaiseCancelT, Task, UnboundedQueue
@@ -43,7 +45,9 @@ class KqueueIOManager:
 
     def __attrs_post_init__(self) -> None:
         force_wakeup_event = select.kevent(
-            self._force_wakeup.wakeup_sock, select.KQ_FILTER_READ, select.KQ_EV_ADD
+            self._force_wakeup.wakeup_sock,
+            select.KQ_FILTER_READ,
+            select.KQ_EV_ADD,
         )
         self._kqueue.control([force_wakeup_event], 0)
         self._force_wakeup_fd = self._force_wakeup.wakeup_sock.fileno()
@@ -128,7 +132,7 @@ class KqueueIOManager:
         key = (ident, filter)
         if key in self._registered:
             raise _core.BusyResourceError(
-                "attempt to register multiple listeners for same ident/filter pair"
+                "attempt to register multiple listeners for same ident/filter pair",
             )
         q = _core.UnboundedQueue[select.kevent]()
         self._registered[key] = q
@@ -151,7 +155,7 @@ class KqueueIOManager:
         key = (ident, filter)
         if key in self._registered:
             raise _core.BusyResourceError(
-                "attempt to register multiple listeners for same ident/filter pair"
+                "attempt to register multiple listeners for same ident/filter pair",
             )
         self._registered[key] = _core.current_task()
 
@@ -285,5 +289,5 @@ class KqueueIOManager:
                 # XX this is an interesting example of a case where being able
                 # to close a queue would be useful...
                 raise NotImplementedError(
-                    "can't close an fd that monitor_kevent is using"
+                    "can't close an fd that monitor_kevent is using",
                 )
