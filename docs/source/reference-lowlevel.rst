@@ -393,6 +393,10 @@ Wait queue abstraction
 .. autoclass:: ParkingLotStatistics
    :members:
 
+.. autofunction:: add_parking_lot_breaker
+
+.. autofunction:: remove_parking_lot_breaker
+
 Low-level checkpoint functions
 ------------------------------
 

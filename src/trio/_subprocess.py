@@ -32,15 +32,7 @@ if TYPE_CHECKING:
 
 
 # Sphinx cannot parse the stringified version
-if sys.version_info >= (3, 9):
-    StrOrBytesPath: TypeAlias = Union[str, bytes, os.PathLike[str], os.PathLike[bytes]]
-else:
-    StrOrBytesPath: TypeAlias = Union[
-        str,
-        bytes,
-        "os.PathLike[str]",
-        "os.PathLike[bytes]",
-    ]
+StrOrBytesPath: TypeAlias = Union[str, bytes, os.PathLike[str], os.PathLike[bytes]]
 
 
 # Linux-specific, but has complex lifetime management stuff so we hard-code it
@@ -304,7 +296,7 @@ class Process(metaclass=NoPublicConstructor):
 
 
 async def _open_process(
-    command: list[str] | str,
+    command: StrOrBytesPath | Sequence[StrOrBytesPath],
     *,
     stdin: int | HasFileno | None = None,
     stdout: int | HasFileno | None = None,
@@ -329,13 +321,14 @@ async def _open_process(
     want.
 
     Args:
-      command (list or str): The command to run. Typically this is a
-          sequence of strings such as ``['ls', '-l', 'directory with spaces']``,
-          where the first element names the executable to invoke and the other
-          elements specify its arguments. With ``shell=True`` in the
-          ``**options``, or on Windows, ``command`` may alternatively
-          be a string, which will be parsed following platform-dependent
-          :ref:`quoting rules <subprocess-quoting>`.
+      command: The command to run. Typically this is a sequence of strings or
+          bytes such as ``['ls', '-l', 'directory with spaces']``, where the
+          first element names the executable to invoke and the other elements
+          specify its arguments. With ``shell=True`` in the ``**options``, or on
+          Windows, ``command`` can be a string or bytes, which will be parsed
+          following platform-dependent :ref:`quoting rules
+          <subprocess-quoting>`. In all cases ``command`` can be a path or a
+          sequence of paths.
       stdin: Specifies what the child process's standard input
           stream should connect to: output written by the parent
           (``subprocess.PIPE``), nothing (``subprocess.DEVNULL``),
@@ -369,15 +362,16 @@ async def _open_process(
             )
 
     if os.name == "posix":
-        if isinstance(command, str) and not options.get("shell"):
+        # TODO: how do paths and sequences thereof play with `shell=True`?
+        if isinstance(command, (str, bytes)) and not options.get("shell"):
             raise TypeError(
-                "command must be a sequence (not a string) if shell=False "
-                "on UNIX systems",
+                "command must be a sequence (not a string or bytes) if "
+                "shell=False on UNIX systems",
             )
-        if not isinstance(command, str) and options.get("shell"):
+        if not isinstance(command, (str, bytes)) and options.get("shell"):
             raise TypeError(
-                "command must be a string (not a sequence) if shell=True "
-                "on UNIX systems",
+                "command must be a string or bytes (not a sequence) if "
+                "shell=True on UNIX systems",
             )
 
     trio_stdin: ClosableSendStream | None = None
@@ -428,7 +422,8 @@ async def _open_process(
     return Process._create(popen, trio_stdin, trio_stdout, trio_stderr)
 
 
-async def _windows_deliver_cancel(p: Process) -> None:
+# async function missing await
+async def _windows_deliver_cancel(p: Process) -> None:  # noqa: RUF029
     try:
         p.terminate()
     except OSError as exc:

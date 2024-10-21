@@ -52,7 +52,7 @@ async def test_open_signal_receiver_restore_handler_after_one_bad_signal() -> No
     assert signal.getsignal(signal.SIGILL) is orig
 
 
-async def test_open_signal_receiver_empty_fail() -> None:
+def test_open_signal_receiver_empty_fail() -> None:
     with pytest.raises(TypeError, match="No signals were provided"):
         with open_signal_receiver():
             pass

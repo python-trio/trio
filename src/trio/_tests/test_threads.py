@@ -10,13 +10,7 @@ import weakref
 from functools import partial
 from typing import (
     TYPE_CHECKING,
-    AsyncGenerator,
-    Awaitable,
-    Callable,
-    List,
     NoReturn,
-    Tuple,
-    Type,
     TypeVar,
     Union,
 )
@@ -48,11 +42,13 @@ from .._threads import (
 from ..testing import wait_all_tasks_blocked
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator, Awaitable, Callable
+
     from outcome import Outcome
 
     from ..lowlevel import Task
 
-RecordType = List[Tuple[str, Union[threading.Thread, Type[BaseException]]]]
+RecordType = list[tuple[str, Union[threading.Thread, type[BaseException]]]]
 T = TypeVar("T")
 
 
@@ -313,7 +309,7 @@ async def test_named_thread_os() -> None:
     await test_thread_name("💙", expected="?")
 
 
-async def test_has_pthread_setname_np() -> None:
+def test_has_pthread_setname_np() -> None:
     from trio._core._thread_cache import get_os_thread_name_func
 
     k = get_os_thread_name_func()
@@ -1076,7 +1072,7 @@ async def test_from_thread_check_cancelled() -> None:
     assert q.get(timeout=1) == "Cancelled"
 
 
-async def test_from_thread_check_cancelled_raises_in_foreign_threads() -> None:
+def test_from_thread_check_cancelled_raises_in_foreign_threads() -> None:
     with pytest.raises(RuntimeError):
         from_thread_check_cancelled()
     q: stdlib_queue.Queue[Outcome[object]] = stdlib_queue.Queue()

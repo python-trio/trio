@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import operator
-from typing import TYPE_CHECKING, Awaitable, Callable, TypeVar
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, TypeVar
 
 from .. import _core, _util
 from .._highlevel_generic import StapledStream
@@ -347,7 +348,8 @@ def memory_stream_one_way_pair() -> tuple[MemorySendStream, MemoryReceiveStream]
     def pump_from_send_stream_to_recv_stream() -> None:
         memory_stream_pump(send_stream, recv_stream)
 
-    async def async_pump_from_send_stream_to_recv_stream() -> None:
+    # await not used
+    async def async_pump_from_send_stream_to_recv_stream() -> None:  # noqa: RUF029
         pump_from_send_stream_to_recv_stream()
 
     send_stream.send_all_hook = async_pump_from_send_stream_to_recv_stream

@@ -253,7 +253,7 @@ def gen_public_wrappers_source(file: File) -> str:
         func = astor.to_source(method, indent_with=" " * 4)
 
         if is_cm:  # pragma: no cover
-            func = func.replace("->Iterator", "->ContextManager")
+            func = func.replace("->Iterator", "->AbstractContextManager")
 
         # Create export function body
         template = TEMPLATE.format(
@@ -278,8 +278,7 @@ def matches_disk_files(new_files: dict[str, str]) -> bool:
     for new_path, new_source in new_files.items():
         if not os.path.exists(new_path):
             return False
-        with open(new_path, encoding="utf-8") as old_file:
-            old_source = old_file.read()
+        old_source = Path(new_path).read_text(encoding="utf-8")
         if old_source != new_source:
             return False
     return True
@@ -303,8 +302,8 @@ def process(files: Iterable[File], *, do_test: bool) -> None:
             print("Generated sources are up to date.")
     else:
         for new_path, new_source in new_files.items():
-            with open(new_path, "w", encoding="utf-8") as f:
-                f.write(new_source)
+            with open(new_path, "w", encoding="utf-8", newline="\n") as fp:
+                fp.write(new_source)
         print("Regenerated sources successfully.")
         if not matches_disk:
             # With pre-commit integration, show that we edited files.
@@ -386,25 +385,29 @@ if TYPE_CHECKING:
 """
 
 IMPORTS_KQUEUE = """\
-from typing import Callable, ContextManager, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import select
+    from collections.abc import Callable
+    from contextlib import AbstractContextManager
 
     from .. import _core
-    from ._traps import Abort, RaiseCancelT
     from .._file_io import _HasFileNo
+    from ._traps import Abort, RaiseCancelT
 """
 
 IMPORTS_WINDOWS = """\
-from typing import TYPE_CHECKING, ContextManager
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .._file_io import _HasFileNo
-    from ._windows_cffi import Handle, CData
+    from contextlib import AbstractContextManager
+
     from typing_extensions import Buffer
 
+    from .._file_io import _HasFileNo
     from ._unbounded_queue import UnboundedQueue
+    from ._windows_cffi import Handle, CData
 """
 
 

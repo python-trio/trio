@@ -9,7 +9,7 @@ import time
 import types
 import weakref
 from contextlib import ExitStack, contextmanager, suppress
-from math import inf
+from math import inf, nan
 from typing import TYPE_CHECKING, Any, NoReturn, TypeVar, cast
 
 import outcome
@@ -269,8 +269,8 @@ async def test_current_time_with_mock_clock(mock_clock: _core.MockClock) -> None
     start = mock_clock.current_time()
     assert mock_clock.current_time() == _core.current_time()
     assert mock_clock.current_time() == _core.current_time()
-    mock_clock.jump(3.14)
-    assert start + 3.14 == mock_clock.current_time() == _core.current_time()
+    mock_clock.jump(3.15)
+    assert start + 3.15 == mock_clock.current_time() == _core.current_time()
 
 
 async def test_current_clock(mock_clock: _core.MockClock) -> None:
@@ -363,6 +363,27 @@ async def test_cancel_scope_repr(mock_clock: _core.MockClock) -> None:
         scope.cancel()
         assert "cancelled" in repr(scope)
     assert "exited" in repr(scope)
+
+
+async def test_cancel_scope_validation() -> None:
+    with pytest.raises(
+        ValueError,
+        match="^Cannot specify both a deadline and a relative deadline$",
+    ):
+        _core.CancelScope(deadline=7, relative_deadline=3)
+    scope = _core.CancelScope()
+
+    with pytest.raises(ValueError, match="^deadline must not be NaN$"):
+        scope.deadline = nan
+    with pytest.raises(ValueError, match="^relative deadline must not be NaN$"):
+        scope.relative_deadline = nan
+
+    with pytest.raises(ValueError, match="^relative deadline must be non-negative$"):
+        scope.relative_deadline = -3
+    scope.relative_deadline = 5
+    assert scope.relative_deadline == 5
+
+    # several related tests of CancelScope are implicitly handled by test_timeouts.py
 
 
 def test_cancel_points() -> None:
@@ -2484,9 +2505,13 @@ async def test_cancel_scope_exit_doesnt_create_cyclic_garbage() -> None:
 
     old_flags = gc.get_debug()
     try:
+        # fmt: off
+        # Remove after 3.9 unsupported, black formats in a way that breaks if
+        # you do `-X oldparser`
         with RaisesGroup(
             Matcher(ValueError, "^this is a crash$"),
         ), _core.CancelScope() as outer:
+            # fmt: on
             async with _core.open_nursery() as nursery:
                 gc.collect()
                 gc.set_debug(gc.DEBUG_SAVEALL)

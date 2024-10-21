@@ -19,9 +19,11 @@
 from __future__ import annotations
 
 import collections.abc
+import glob
 import os
 import sys
 import types
+from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
@@ -36,19 +38,62 @@ sys.path.insert(0, os.path.abspath("../../src"))
 # Enable reloading with `typing.TYPE_CHECKING` being True
 os.environ["SPHINX_AUTODOC_RELOAD_MODULES"] = "1"
 
-# https://docs.readthedocs.io/en/stable/builds.html#build-environment
-if "READTHEDOCS" in os.environ:
-    import glob
+# Handle writing newsfragments into the history file.
+# We want to keep files unchanged when testing locally.
+# So immediately revert the contents after running towncrier,
+# then substitute when Sphinx wants to read it in.
+history_file = Path("history.rst")
 
-    if glob.glob("../../newsfragments/*.*.rst"):
-        print("-- Found newsfragments; running towncrier --", flush=True)
-        import subprocess
+history_new: str | None
+if glob.glob("../../newsfragments/*.*.rst"):
+    print("-- Found newsfragments; running towncrier --", flush=True)
+    history_orig = history_file.read_bytes()
+    import subprocess
 
+    # In case changes were staged, preserve indexed version.
+    # This grabs the hash of the current staged version.
+    history_staged = subprocess.run(
+        ["git", "rev-parse", "--verify", ":docs/source/history.rst"],
+        check=True,
+        cwd="../..",
+        stdout=subprocess.PIPE,
+        encoding="ascii",
+    ).stdout.strip()
+    try:
         subprocess.run(
-            ["towncrier", "--yes", "--date", "not released yet"],
+            ["towncrier", "--keep", "--date", "not released yet"],
             cwd="../..",
             check=True,
         )
+        history_new = history_file.read_text("utf8")
+    finally:
+        # Make sure this reverts even if a failure occurred.
+        # Restore whatever was staged.
+        print(f"Restoring history.rst = {history_staged}")
+        subprocess.run(
+            [
+                "git",
+                "update-index",
+                "--cacheinfo",
+                f"100644,{history_staged},docs/source/history.rst",
+            ],
+            cwd="../..",
+            check=False,
+        )
+        # And restore the working copy.
+        history_file.write_bytes(history_orig)
+    del history_orig  # We don't need this any more.
+else:
+    # Leave it as is.
+    history_new = None
+
+
+def on_read_source(app: Sphinx, docname: str, content: list[str]) -> None:
+    """Substitute the modified history file."""
+    if docname == "history" and history_new is not None:
+        # This is a 1-item list with the file contents.
+        content[0] = history_new
+
 
 # Sphinx is very finicky, and somewhat buggy, so we have several different
 # methods to help it resolve links.
@@ -153,7 +198,15 @@ def setup(app: Sphinx) -> None:
     app.connect("autodoc-process-signature", autodoc_process_signature)
     # After Intersphinx runs, add additional mappings.
     app.connect("builder-inited", add_intersphinx, priority=1000)
+    app.connect("source-read", on_read_source)
 
+
+# Our docs use the READTHEDOCS variable, so copied from:
+# https://about.readthedocs.com/blog/2024/07/addons-by-default/
+if os.environ.get("READTHEDOCS", "") == "True":
+    if "html_context" not in globals():
+        html_context = {}
+    html_context["READTHEDOCS"] = True
 
 # -- General configuration ------------------------------------------------
 
@@ -183,6 +236,7 @@ intersphinx_mapping = {
     "pyopenssl": ("https://www.pyopenssl.org/en/stable/", None),
     "sniffio": ("https://sniffio.readthedocs.io/en/latest/", None),
     "trio-util": ("https://trio-util.readthedocs.io/en/latest/", None),
+    "flake8-async": ("https://flake8-async.readthedocs.io/en/latest/", None),
 }
 
 # See https://sphinx-hoverxref.readthedocs.io/en/latest/configuration.html
@@ -327,10 +381,7 @@ suppress_warnings = ["epub.unknown_project_files"]
 # We have to set this ourselves, not only because it's useful for local
 # testing, but also because if we don't then RTD will throw away our
 # html_theme_options.
-import sphinx_rtd_theme
-
 html_theme = "sphinx_rtd_theme"
-html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
