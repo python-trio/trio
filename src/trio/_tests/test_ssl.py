@@ -105,11 +105,10 @@ def client_ctx(request: pytest.FixtureRequest) -> ssl.SSLContext:
     TRIO_TEST_CA.configure_trust(ctx)
     if request.param in ["default", "tls13"]:
         return ctx
-    elif request.param == "tls12":
+    if request.param == "tls12":
         ctx.maximum_version = ssl.TLSVersion.TLSv1_2
         return ctx
-    else:  # pragma: no cover
-        raise AssertionError()
+    raise AssertionError()  # pragma: no cover
 
 
 # The blocking socket server.

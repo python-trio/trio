@@ -264,8 +264,7 @@ class AsyncIOWrapper(AsyncResource, Generic[FileT_co]):
         line = await self.readline()
         if line:
             return line
-        else:
-            raise StopAsyncIteration
+        raise StopAsyncIteration
 
     async def detach(self: AsyncIOWrapper[_CanDetach[T]]) -> AsyncIOWrapper[T]:
         """Like :meth:`io.BufferedIOBase.detach`, but async.
@@ -462,7 +461,7 @@ async def open_file(
       :func:`trio.Path.open`
 
     """
-    _file = wrap_file(
+    return wrap_file(
         await trio.to_thread.run_sync(
             io.open,
             file,
@@ -475,7 +474,6 @@ async def open_file(
             opener,
         ),
     )
-    return _file
 
 
 def wrap_file(file: FileT) -> AsyncIOWrapper[FileT]:

@@ -38,11 +38,10 @@ def table_entry(mode1, bind_type1, mode2, bind_type2):
         except OSError as exc:
             if exc.winerror == errno.WSAEADDRINUSE:
                 return "INUSE"
-            elif exc.winerror == errno.WSAEACCES:
+            if exc.winerror == errno.WSAEACCES:
                 return "ACCESS"
             raise
-        else:
-            return "Success"
+        return "Success"
 
 
 print(

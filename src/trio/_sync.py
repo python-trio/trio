@@ -580,7 +580,7 @@ class _LockImpl(AsyncContextManagerMixin):
         task = trio.lowlevel.current_task()
         if self._owner is task:
             raise RuntimeError("attempt to re-acquire an already held Lock")
-        elif self._owner is None and not self._lot:
+        if self._owner is None and not self._lot:
             # No-one owns it
             self._owner = task
             add_parking_lot_breaker(task, self._lot)

@@ -113,8 +113,7 @@ class StapledStream(
         stream = self.send_stream
         if _is_halfclosable(stream):
             return await stream.send_eof()
-        else:
-            return await stream.aclose()
+        return await stream.aclose()
 
     # we intentionally accept more types from the caller than we support returning
     async def receive_some(self, max_bytes: int | None = None) -> bytes:
