@@ -1,0 +1,1 @@
+Ensure that Pyright recognizes our underscore prefixed attributes for attrs classes.

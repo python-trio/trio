@@ -38,8 +38,8 @@ class RunVar(Generic[T]):
 
     """
 
-    _name: str
-    _default: T | type[_NoValue] = _NoValue
+    _name: str = attrs.field(alias="name")
+    _default: T | type[_NoValue] = attrs.field(default=_NoValue, alias="default")
 
     def get(self, default: T | type[_NoValue] = _NoValue) -> T:
         """Gets the value of this :class:`RunVar` for the current run call."""

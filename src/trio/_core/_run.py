@@ -544,9 +544,13 @@ class CancelScope:
     cancelled_caught: bool = attrs.field(default=False, init=False)
 
     # Constructor arguments:
-    _relative_deadline: float = attrs.field(default=inf, kw_only=True)
-    _deadline: float = attrs.field(default=inf, kw_only=True)
-    _shield: bool = attrs.field(default=False, kw_only=True)
+    _relative_deadline: float = attrs.field(
+        default=inf,
+        kw_only=True,
+        alias="relative_deadline",
+    )
+    _deadline: float = attrs.field(default=inf, kw_only=True, alias="deadline")
+    _shield: bool = attrs.field(default=False, kw_only=True, alias="shield")
 
     def __attrs_post_init__(self) -> None:
         if isnan(self._deadline):
