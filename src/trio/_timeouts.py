@@ -61,7 +61,11 @@ def move_on_after(
 async def sleep_forever() -> NoReturn:
     """Pause execution of the current task forever (or until cancelled).
 
-    Equivalent to calling ``await sleep(math.inf)``.
+    Equivalent to calling ``await sleep(math.inf)``, except that if manually
+    rescheduled this will raise a `RuntimeError`.
+
+    Raises:
+      RuntimeError: if rescheduled
 
     """
     await trio.lowlevel.wait_task_rescheduled(lambda _: trio.lowlevel.Abort.SUCCEEDED)
