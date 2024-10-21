@@ -253,7 +253,7 @@ def gen_public_wrappers_source(file: File) -> str:
         func = astor.to_source(method, indent_with=" " * 4)
 
         if is_cm:  # pragma: no cover
-            func = func.replace("->Iterator", "->ContextManager")
+            func = func.replace("->Iterator", "->AbstractContextManager")
 
         # Create export function body
         template = TEMPLATE.format(
@@ -385,25 +385,29 @@ if TYPE_CHECKING:
 """
 
 IMPORTS_KQUEUE = """\
-from typing import Callable, ContextManager, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import select
+    from collections.abc import Callable
+    from contextlib import AbstractContextManager
 
     from .. import _core
-    from ._traps import Abort, RaiseCancelT
     from .._file_io import _HasFileNo
+    from ._traps import Abort, RaiseCancelT
 """
 
 IMPORTS_WINDOWS = """\
-from typing import TYPE_CHECKING, ContextManager
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .._file_io import _HasFileNo
-    from ._windows_cffi import Handle, CData
+    from contextlib import AbstractContextManager
+
     from typing_extensions import Buffer
 
+    from .._file_io import _HasFileNo
     from ._unbounded_queue import UnboundedQueue
+    from ._windows_cffi import Handle, CData
 """
 
 

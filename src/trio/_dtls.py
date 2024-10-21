@@ -20,11 +20,7 @@ from itertools import count
 from typing import (
     TYPE_CHECKING,
     Any,
-    Awaitable,
-    Callable,
     Generic,
-    Iterable,
-    Iterator,
     TypeVar,
     Union,
 )
@@ -37,6 +33,7 @@ import trio
 from ._util import NoPublicConstructor, final
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable, Iterable, Iterator
     from types import TracebackType
 
     # See DTLSEndpoint.__init__ for why this is imported here

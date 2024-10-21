@@ -26,7 +26,6 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -35,7 +34,7 @@ classifiers = [
     "Topic :: System :: Networking",
     "Typing :: Typed",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
     # attrs 19.2.0 adds `eq` option to decorators
     # attrs 20.1.0 adds @frozen
@@ -75,7 +74,6 @@ include-package-data = true
 version = {attr = "trio._version.__version__"}
 
 [tool.black]
-target-version = ['py38']
 force-exclude = '''
 (
   ^/docs/source/reference-.*
@@ -170,7 +168,7 @@ combine-as-imports = true
 fixture-parentheses = false
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.9"
 files = ["src/trio/", "docs/source/*.py"]
 
 # Be flexible about dependencies that don't have stubs yet (like pytest)
@@ -195,7 +193,7 @@ disallow_untyped_defs = true
 check_untyped_defs = true
 
 [tool.pyright]
-pythonVersion = "3.8"
+pythonVersion = "3.9"
 reportUnnecessaryTypeIgnoreComment = true
 typeCheckingMode = "strict"
 

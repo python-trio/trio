@@ -11,10 +11,6 @@ from ssl import SSLContext
 from typing import (
     TYPE_CHECKING,
     Any,
-    AsyncIterator,
-    Awaitable,
-    Callable,
-    Iterator,
     NoReturn,
 )
 
@@ -56,6 +52,8 @@ from ..testing import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
+
     from typing_extensions import TypeAlias
 
     from trio._core import MockClock

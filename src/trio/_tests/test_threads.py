@@ -10,13 +10,7 @@ import weakref
 from functools import partial
 from typing import (
     TYPE_CHECKING,
-    AsyncGenerator,
-    Awaitable,
-    Callable,
-    List,
     NoReturn,
-    Tuple,
-    Type,
     TypeVar,
     Union,
 )
@@ -48,11 +42,13 @@ from .._threads import (
 from ..testing import wait_all_tasks_blocked
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator, Awaitable, Callable
+
     from outcome import Outcome
 
     from ..lowlevel import Task
 
-RecordType = List[Tuple[str, Union[threading.Thread, Type[BaseException]]]]
+RecordType = list[tuple[str, Union[threading.Thread, type[BaseException]]]]
 T = TypeVar("T")
 
 

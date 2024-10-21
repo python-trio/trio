@@ -42,7 +42,7 @@ def test_build_raw_input() -> None:
 
 # In 3.10 or later, types.FunctionType (used internally) will automatically
 # attach __builtins__ to the function objects. However we need to explicitly
-# include it for 3.8 & 3.9
+# include it for 3.9 support
 def build_locals() -> dict[str, object]:
     return {"__builtins__": __builtins__}
 

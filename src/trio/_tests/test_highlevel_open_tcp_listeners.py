@@ -4,7 +4,7 @@ import errno
 import socket as stdlib_socket
 import sys
 from socket import AddressFamily, SocketKind
-from typing import TYPE_CHECKING, Any, Sequence, overload
+from typing import TYPE_CHECKING, Any, overload
 
 import attrs
 import pytest
@@ -26,6 +26,8 @@ if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from typing_extensions import Buffer
 
 
