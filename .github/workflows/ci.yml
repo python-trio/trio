@@ -204,13 +204,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - python: '3.9'
+          - python: '3.9'  # We support running on cython 2 and 3 for 3.9
             cython: '2'
           - python: '3.9'
             cython: '3'
-          - python: '3.11'
+          - python: '3.11'  # 3.11 is the last version Cy2 supports
             cython: '2'
-          - python: '3.13'
+          - python: '3.13'  # We support running cython3 on 3.13
             cython: '3'
     steps:
       - name: Checkout
