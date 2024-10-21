@@ -1,3 +1,6 @@
+# ruff: noqa: PYI063  # Several cases throughout file where
+# argument names with __ used because of typeshed, see comment for recv in _SocketType
+
 from __future__ import annotations
 
 import os
@@ -9,8 +12,6 @@ from socket import AddressFamily, SocketKind
 from typing import (
     TYPE_CHECKING,
     Any,
-    Awaitable,
-    Callable,
     Literal,
     SupportsIndex,
     TypeVar,
@@ -26,7 +27,7 @@ from trio._util import wraps as _wraps
 from . import _core
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Awaitable, Callable, Iterable
     from types import TracebackType
 
     from typing_extensions import Buffer, Concatenate, ParamSpec, Self, TypeAlias
@@ -676,7 +677,6 @@ class SocketType:
     async def connect(self, address: AddressFormat) -> None:
         raise NotImplementedError
 
-    # argument names with __ used because of typeshed, see comment for recv in _SocketType
     def recv(__self, __buflen: int, __flags: int = 0) -> Awaitable[bytes]:
         raise NotImplementedError
 

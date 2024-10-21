@@ -1241,6 +1241,8 @@ more features beyond the core channel interface:
 .. autoclass:: MemoryReceiveChannel
    :members:
 
+.. autoclass:: MemoryChannelStatistics
+   :members:
 
 A simple channel example
 ++++++++++++++++++++++++

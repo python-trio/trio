@@ -8,7 +8,14 @@ import attrs
 import trio
 
 from . import _core
-from ._core import Abort, ParkingLot, RaiseCancelT, enable_ki_protection
+from ._core import (
+    Abort,
+    ParkingLot,
+    RaiseCancelT,
+    add_parking_lot_breaker,
+    enable_ki_protection,
+    remove_parking_lot_breaker,
+)
 from ._util import final
 
 if TYPE_CHECKING:
@@ -576,20 +583,30 @@ class _LockImpl(AsyncContextManagerMixin):
         elif self._owner is None and not self._lot:
             # No-one owns it
             self._owner = task
+            add_parking_lot_breaker(task, self._lot)
         else:
             raise trio.WouldBlock
 
     @enable_ki_protection
     async def acquire(self) -> None:
-        """Acquire the lock, blocking if necessary."""
+        """Acquire the lock, blocking if necessary.
+
+        Raises:
+          BrokenResourceError: if the owner of the lock exits without releasing.
+        """
         await trio.lowlevel.checkpoint_if_cancelled()
         try:
             self.acquire_nowait()
         except trio.WouldBlock:
-            # NOTE: it's important that the contended acquire path is just
-            # "_lot.park()", because that's how Condition.wait() acquires the
-            # lock as well.
-            await self._lot.park()
+            try:
+                # NOTE: it's important that the contended acquire path is just
+                # "_lot.park()", because that's how Condition.wait() acquires the
+                # lock as well.
+                await self._lot.park()
+            except trio.BrokenResourceError:
+                raise trio.BrokenResourceError(
+                    f"Owner of this lock exited without releasing: {self._owner}",
+                ) from None
         else:
             await trio.lowlevel.cancel_shielded_checkpoint()
 
@@ -604,8 +621,10 @@ class _LockImpl(AsyncContextManagerMixin):
         task = trio.lowlevel.current_task()
         if task is not self._owner:
             raise RuntimeError("can't release a Lock you don't own")
+        remove_parking_lot_breaker(self._owner, self._lot)
         if self._lot:
             (self._owner,) = self._lot.unpark(count=1)
+            add_parking_lot_breaker(self._owner, self._lot)
         else:
             self._owner = None
 
@@ -767,7 +786,11 @@ class Condition(AsyncContextManagerMixin):
         return self._lock.acquire_nowait()
 
     async def acquire(self) -> None:
-        """Acquire the underlying lock, blocking if necessary."""
+        """Acquire the underlying lock, blocking if necessary.
+
+        Raises:
+          BrokenResourceError: if the owner of the underlying lock exits without releasing.
+        """
         await self._lock.acquire()
 
     def release(self) -> None:
@@ -796,6 +819,7 @@ class Condition(AsyncContextManagerMixin):
 
         Raises:
           RuntimeError: if the calling task does not hold the lock.
+          BrokenResourceError: if the owner of the lock exits without releasing, when attempting to re-acquire.
 
         """
         if trio.lowlevel.current_task() is not self._lock._owner:
