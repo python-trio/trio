@@ -205,13 +205,13 @@ jobs:
       matrix:
         include:
           - python: '3.9'  # We support running on cython 2 and 3 for 3.9
-            cython: '2'
+            cython: '<3'   # cython 2
           - python: '3.9'
-            cython: '3'
-          - python: '3.11'  # 3.11 is the last version Cy2 supports
-            cython: '2'
-          - python: '3.13'  # We support running cython3 on 3.13
-            cython: '3'
+            cython: '>=3'  # cython 3 (or greater)
+          - python: '3.11' # 3.11 is the last version Cy2 supports
+            cython: '<3'   # cython 2
+          - python: '3.13' # We support running cython3 on 3.13
+            cython: '>=3'  # cython 3 (or greater)
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -226,13 +226,8 @@ jobs:
 
       - name: install cython & compile pyx file
         run: |
-          if [ "${{ matrix.cython }}" == "2" ]; then
-            python -m pip install "cython<3"
-            cythonize -i tests/cython/test_cython.pyx
-          elif [ "${{ matrix.cython }}" == "3" ]; then
-            python -m pip install "cython>=3"
-            cythonize --inplace tests/cython/test_cython.pyx
-          fi
+          python -m pip install "cython${{ matrix.cython }}"
+          cythonize --inplace tests/cython/test_cython.pyx
 
       - name: import & run module
         run: python -c 'import tests.cython.test_cython'
