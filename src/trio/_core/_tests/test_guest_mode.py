@@ -52,7 +52,7 @@ def trivial_guest_run(
     trio_fn: Callable[..., Awaitable[T]],
     *,
     in_host_after_start: Callable[[], None] | None = None,
-    **start_guest_run_kwargs: Any,  # noqa: ANN401  # Using Any, too diverse
+    **start_guest_run_kwargs: Any,
 ) -> T:
     todo: queue.Queue[tuple[str, Outcome[T] | Callable[..., object]]] = queue.Queue()
 
@@ -436,7 +436,7 @@ def aiotrio_run(
     trio_fn: Callable[..., Awaitable[T]],
     *,
     pass_not_threadsafe: bool = True,
-    **start_guest_run_kwargs: Any,  # noqa: ANN401  # Using Any, too diverse
+    **start_guest_run_kwargs: Any,
 ) -> T:
     loop = asyncio.new_event_loop()
 

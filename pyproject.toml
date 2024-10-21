@@ -142,6 +142,7 @@ extend-ignore = [
     'PERF203', # try-except-in-loop (not always possible to refactor)
     'PT012',   # multiple statements in pytest.raises block
     'SIM117',  # multiple-with-statements (messes up lots of context-based stuff and looks bad)
+    'ANN401',  # any-type (mypy's `disallow_any_explicit` is better)
 ]
 
 [tool.ruff.lint.per-file-ignores]

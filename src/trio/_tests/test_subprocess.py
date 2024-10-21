@@ -92,8 +92,8 @@ def got_signal(proc: Process, sig: SignalType) -> bool:
 
 @asynccontextmanager  # type: ignore[misc]  # Any in decorated
 async def open_process_then_kill(
-    *args: Any,  # noqa: ANN401  # Any used, different OS -> different args
-    **kwargs: Any,  # noqa: ANN401
+    *args: Any,
+    **kwargs: Any,
 ) -> AsyncIterator[Process]:
     proc = await open_process(*args, **kwargs)
     try:
@@ -105,8 +105,8 @@ async def open_process_then_kill(
 
 @asynccontextmanager  # type: ignore[misc]  # Any in decorated
 async def run_process_in_nursery(
-    *args: Any,  # noqa: ANN401  # Any used, different OS -> different args
-    **kwargs: Any,  # noqa: ANN401
+    *args: Any,
+    **kwargs: Any,
 ) -> AsyncIterator[Process]:
     async with _core.open_nursery() as nursery:
         kwargs.setdefault("check", False)

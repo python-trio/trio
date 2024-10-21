@@ -413,7 +413,7 @@ class SSLStream(Stream, Generic[T_Stream]):
         "version",
     }
 
-    def __getattr__(self, name: str) -> Any:  # noqa: ANN401  # Any used
+    def __getattr__(self, name: str) -> Any:
         if name in self._forwarded:
             if name in self._after_handshake and not self._handshook.done:
                 raise NeedHandshakeError(f"call do_handshake() before calling {name!r}")

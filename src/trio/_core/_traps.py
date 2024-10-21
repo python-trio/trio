@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 # tracking machinery. Since our traps are public APIs, we make them real async
 # functions, and then this helper takes care of the actual yield:
 @types.coroutine
-def _async_yield(obj: Any) -> Any:  # type: ignore[misc]  # noqa: ANN401
+def _async_yield(obj: Any) -> Any:  # type: ignore[misc]
     return (yield obj)
 
 
@@ -79,7 +79,7 @@ RaiseCancelT: TypeAlias = Callable[[], NoReturn]
 # with a bad value.
 async def wait_task_rescheduled(
     abort_func: Callable[[RaiseCancelT], Abort],
-) -> Any:  # noqa: ANN401  # Any used
+) -> Any:
     """Put the current task to sleep, with cancellation support.
 
     This is the lowest-level API for blocking in Trio. Every time a
@@ -189,7 +189,7 @@ class PermanentlyDetachCoroutineObject:
 
 async def permanently_detach_coroutine_object(
     final_outcome: outcome.Outcome[Any],
-) -> Any:  # noqa: ANN401  # Any used
+) -> Any:
     """Permanently detach the current task from the Trio scheduler.
 
     Normally, a Trio task doesn't exit until its coroutine object exits. When
@@ -222,7 +222,7 @@ async def permanently_detach_coroutine_object(
 
 async def temporarily_detach_coroutine_object(
     abort_func: Callable[[RaiseCancelT], Abort],
-) -> Any:  # noqa: ANN401  # Any used
+) -> Any:
     """Temporarily detach the current coroutine object from the Trio
     scheduler.
 

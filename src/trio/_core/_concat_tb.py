@@ -88,7 +88,7 @@ else:
         # cpython/pypy in current type checkers.
         def controller(  # type: ignore[no-any-unimported]
             operation: tputil.ProxyOperation,
-        ) -> Any | None:  # noqa: ANN401  # Using Any
+        ) -> Any | None:
             # Rationale for pragma: I looked fairly carefully and tried a few
             # things, and AFAICT it's not actually possible to get any
             # 'opname' that isn't __getattr__ or __getattribute__. So there's

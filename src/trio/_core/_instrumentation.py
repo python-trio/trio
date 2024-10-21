@@ -89,7 +89,7 @@ class Instruments(Dict[str, Dict[Instrument, None]]):
     def call(
         self,
         hookname: str,
-        *args: Any,  # noqa: ANN401  # Using Any
+        *args: Any,
     ) -> None:
         """Call hookname(*args) on each applicable instrument.
 

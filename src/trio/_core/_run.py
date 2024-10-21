@@ -1283,7 +1283,7 @@ class Nursery(metaclass=NoPublicConstructor):
         async_fn: Callable[..., Awaitable[object]],
         *args: object,
         name: object = None,
-    ) -> Any:  # noqa: ANN401  # Using Any
+    ) -> Any:
         r"""Creates and initializes a child task.
 
         Like :meth:`start_soon`, but blocks until the new task has
@@ -2826,7 +2826,7 @@ class _TaskStatusIgnored(TaskStatus[Any]):
     def __repr__(self) -> str:
         return "TASK_STATUS_IGNORED"
 
-    def started(self, value: Any = None) -> None:  # noqa: ANN401  # Using Any
+    def started(self, value: Any = None) -> None:
         pass
 
 
