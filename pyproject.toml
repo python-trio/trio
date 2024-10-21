@@ -100,6 +100,7 @@ extend-exclude = [
 ]
 
 [tool.ruff.lint]
+preview = true
 allowed-confusables = ["–"]
 
 select = [
@@ -145,10 +146,20 @@ extend-ignore = [
 # to export for public use.
 'src/trio/__init__.py' = ['F401']
 'src/trio/_core/__init__.py' = ['F401']
-'src/trio/abc.py' = ['F401']
+'src/trio/abc.py' = ['F401', 'A005']
 'src/trio/lowlevel.py' = ['F401']
-'src/trio/socket.py' = ['F401']
+'src/trio/socket.py' = ['F401', 'A005']
 'src/trio/testing/__init__.py' = ['F401']
+# RUF029 is ignoring tests that are marked as async functions but
+# do not use an await in their function bodies. There are several
+# places where internal trio synchronous code relies on being
+# called from an async function, where current task is set up.
+'src/trio/_tests/*.py' = ['RUF029']
+'src/trio/_core/_tests/*.py' = ['RUF029']
+# A005 is ignoring modules that shadow stdlib modules.
+'src/trio/_abc.py' = ['A005']
+'src/trio/_socket.py' = ['A005']
+'src/trio/_ssl.py' = ['A005']
 
 [tool.ruff.lint.isort]
 combine-as-imports = true

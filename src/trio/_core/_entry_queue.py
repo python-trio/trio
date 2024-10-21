@@ -65,7 +65,9 @@ class EntryQueue:
                 sync_fn(*args)
             except BaseException as exc:
 
-                async def kill_everything(exc: BaseException) -> NoReturn:
+                async def kill_everything(  # noqa: RUF029  # await not used
+                    exc: BaseException,
+                ) -> NoReturn:
                     raise exc
 
                 try:
@@ -140,7 +142,7 @@ class EntryQueue:
             # wakeup call might trigger an OSError b/c the IO manager has
             # already been shut down.
             if idempotent:
-                self.idempotent_queue[(sync_fn, args)] = None
+                self.idempotent_queue[sync_fn, args] = None
             else:
                 self.queue.append((sync_fn, args))
             self.wakeup.wakeup_thread_and_signal_safe()

@@ -232,7 +232,7 @@ async def test_Semaphore() -> None:
     assert record == ["started", "finished"]
 
 
-async def test_Semaphore_bounded() -> None:
+def test_Semaphore_bounded() -> None:
     with pytest.raises(TypeError):
         Semaphore(1, max_value=1.0)  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="^max_values must be >= initial_value$"):

@@ -269,8 +269,8 @@ async def test_current_time_with_mock_clock(mock_clock: _core.MockClock) -> None
     start = mock_clock.current_time()
     assert mock_clock.current_time() == _core.current_time()
     assert mock_clock.current_time() == _core.current_time()
-    mock_clock.jump(3.14)
-    assert start + 3.14 == mock_clock.current_time() == _core.current_time()
+    mock_clock.jump(3.15)
+    assert start + 3.15 == mock_clock.current_time() == _core.current_time()
 
 
 async def test_current_clock(mock_clock: _core.MockClock) -> None:

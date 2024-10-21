@@ -3,7 +3,7 @@
 sphinx >= 6.0
 jinja2
 # >= is necessary to prevent `uv` from selecting a `Sphinx` version this does not support
-sphinx_rtd_theme >= 2
+sphinx_rtd_theme >= 3
 sphinxcontrib-jquery
 sphinxcontrib-trio
 towncrier

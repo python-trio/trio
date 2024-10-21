@@ -236,7 +236,7 @@ async def test_Sequencer_cancel() -> None:
 
 
 ################################################################
-async def test__assert_raises() -> None:
+def test__assert_raises() -> None:
     with pytest.raises(AssertionError):
         with _assert_raises(RuntimeError):
             1 + 1  # noqa: B018  # "useless expression"

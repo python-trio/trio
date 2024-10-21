@@ -1,3 +1,6 @@
+# ruff: noqa: PYI063  # Several cases throughout file where
+# argument names with __ used because of typeshed, see comment for recv in _SocketType
+
 from __future__ import annotations
 
 import os
@@ -674,7 +677,6 @@ class SocketType:
     async def connect(self, address: AddressFormat) -> None:
         raise NotImplementedError
 
-    # argument names with __ used because of typeshed, see comment for recv in _SocketType
     def recv(__self, __buflen: int, __flags: int = 0) -> Awaitable[bytes]:
         raise NotImplementedError
 

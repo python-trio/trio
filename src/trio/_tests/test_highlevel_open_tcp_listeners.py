@@ -331,7 +331,7 @@ async def test_open_tcp_listeners_some_address_families_unavailable(
 ) -> None:
     fsf = FakeSocketFactory(
         10,
-        raise_on_family={family: errno.EAFNOSUPPORT for family in fail_families},
+        raise_on_family=dict.fromkeys(fail_families, errno.EAFNOSUPPORT),
     )
     tsocket.set_custom_socket_factory(fsf)
     tsocket.set_custom_hostname_resolver(
@@ -404,7 +404,7 @@ async def test_open_tcp_listeners_backlog() -> None:
 async def test_open_tcp_listeners_backlog_float_error() -> None:
     fsf = FakeSocketFactory(99)
     tsocket.set_custom_socket_factory(fsf)
-    for should_fail in (0.0, 2.18, 3.14, 9.75):
+    for should_fail in (0.0, 2.18, 3.15, 9.75):
         with pytest.raises(
             TypeError,
             match=f"backlog must be an int or None, not {should_fail!r}",
