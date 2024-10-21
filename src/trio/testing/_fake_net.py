@@ -17,7 +17,6 @@ import sys
 from typing import (
     TYPE_CHECKING,
     Any,
-    Iterable,
     NoReturn,
     TypeVar,
     Union,
@@ -31,6 +30,7 @@ from trio._util import NoPublicConstructor, final
 
 if TYPE_CHECKING:
     import builtins
+    from collections.abc import Iterable
     from socket import AddressFamily, SocketKind
     from types import TracebackType
 
@@ -485,17 +485,19 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
     async def send(self, data: Buffer, flags: int = 0) -> int:
         return await self.sendto(data, flags, None)
 
+    # __ prefixed arguments because typeshed uses that and typechecker issues
     @overload
     async def sendto(
         self,
-        __data: Buffer,
+        __data: Buffer,  # noqa: PYI063
         __address: tuple[object, ...] | str | Buffer,
     ) -> int: ...
 
+    # __ prefixed arguments because typeshed uses that and typechecker issues
     @overload
     async def sendto(
         self,
-        __data: Buffer,
+        __data: Buffer,  # noqa: PYI063
         __flags: int,
         __address: tuple[object, ...] | str | None | Buffer,
     ) -> int: ...
@@ -514,15 +516,15 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         return await self._sendmsg([data], [], flags, address)
 
     async def recv(self, bufsize: int, flags: int = 0) -> bytes:
-        data, address = await self.recvfrom(bufsize, flags)
+        data, _address = await self.recvfrom(bufsize, flags)
         return data
 
     async def recv_into(self, buf: Buffer, nbytes: int = 0, flags: int = 0) -> int:
-        got_bytes, address = await self.recvfrom_into(buf, nbytes, flags)
+        got_bytes, _address = await self.recvfrom_into(buf, nbytes, flags)
         return got_bytes
 
     async def recvfrom(self, bufsize: int, flags: int = 0) -> tuple[bytes, Any]:
-        data, ancdata, msg_flags, address = await self._recvmsg(bufsize, flags)
+        data, _ancdata, _msg_flags, address = await self._recvmsg(bufsize, flags)
         return data, address
 
     async def recvfrom_into(
@@ -533,7 +535,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
     ) -> tuple[int, Any]:
         if nbytes != 0 and nbytes != memoryview(buf).nbytes:
             raise NotImplementedError("partial recvfrom_into")
-        got_nbytes, ancdata, msg_flags, address = await self._recvmsg_into(
+        got_nbytes, _ancdata, _msg_flags, address = await self._recvmsg_into(
             [buf],
             0,
             flags,

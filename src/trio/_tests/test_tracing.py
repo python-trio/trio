@@ -1,6 +1,11 @@
-from typing import AsyncGenerator
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import trio
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
 
 
 async def coro1(event: trio.Event) -> None:

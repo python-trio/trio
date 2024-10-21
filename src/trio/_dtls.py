@@ -20,11 +20,7 @@ from itertools import count
 from typing import (
     TYPE_CHECKING,
     Any,
-    Awaitable,
-    Callable,
     Generic,
-    Iterable,
-    Iterator,
     TypeVar,
     Union,
 )
@@ -37,6 +33,7 @@ import trio
 from ._util import NoPublicConstructor, final
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable, Iterable, Iterator
     from types import TracebackType
 
     # See DTLSEndpoint.__init__ for why this is imported here
@@ -562,10 +559,9 @@ def _current_cookie_tick() -> int:
 # Simple deterministic and invertible serializer -- i.e., a useful tool for converting
 # structured data into something we can cryptographically sign.
 def _signable(*fields: bytes) -> bytes:
-    out = []
+    out: list[bytes] = []
     for field in fields:
-        out.append(struct.pack("!Q", len(field)))
-        out.append(field)
+        out.extend((struct.pack("!Q", len(field)), field))
     return b"".join(out)
 
 

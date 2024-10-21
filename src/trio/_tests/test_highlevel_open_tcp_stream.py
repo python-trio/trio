@@ -393,21 +393,21 @@ async def run_scenario(
 
 
 async def test_one_host_quick_success(autojump_clock: MockClock) -> None:
-    sock, scenario = await run_scenario(80, [("1.2.3.4", 0.123, "success")])
+    sock, _scenario = await run_scenario(80, [("1.2.3.4", 0.123, "success")])
     assert isinstance(sock, FakeSocket)
     assert sock.ip == "1.2.3.4"
     assert trio.current_time() == 0.123
 
 
 async def test_one_host_slow_success(autojump_clock: MockClock) -> None:
-    sock, scenario = await run_scenario(81, [("1.2.3.4", 100, "success")])
+    sock, _scenario = await run_scenario(81, [("1.2.3.4", 100, "success")])
     assert isinstance(sock, FakeSocket)
     assert sock.ip == "1.2.3.4"
     assert trio.current_time() == 100
 
 
 async def test_one_host_quick_fail(autojump_clock: MockClock) -> None:
-    exc, scenario = await run_scenario(
+    exc, _scenario = await run_scenario(
         82,
         [("1.2.3.4", 0.123, "error")],
         expect_error=OSError,
@@ -417,7 +417,7 @@ async def test_one_host_quick_fail(autojump_clock: MockClock) -> None:
 
 
 async def test_one_host_slow_fail(autojump_clock: MockClock) -> None:
-    exc, scenario = await run_scenario(
+    exc, _scenario = await run_scenario(
         83,
         [("1.2.3.4", 100, "error")],
         expect_error=OSError,
@@ -427,7 +427,7 @@ async def test_one_host_slow_fail(autojump_clock: MockClock) -> None:
 
 
 async def test_one_host_failed_after_connect(autojump_clock: MockClock) -> None:
-    exc, scenario = await run_scenario(
+    exc, _scenario = await run_scenario(
         83,
         [("1.2.3.4", 1, "postconnect_fail")],
         expect_error=KeyboardInterrupt,
@@ -667,7 +667,7 @@ async def test_handles_no_ipv6(autojump_clock: MockClock) -> None:
 
 
 async def test_no_hosts(autojump_clock: MockClock) -> None:
-    exc, scenario = await run_scenario(80, [], expect_error=OSError)
+    exc, _scenario = await run_scenario(80, [], expect_error=OSError)
     assert "no results found" in str(exc)
 
 

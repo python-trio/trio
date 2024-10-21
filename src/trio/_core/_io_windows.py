@@ -8,8 +8,6 @@ from contextlib import contextmanager
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    Iterator,
     Literal,
     TypeVar,
     cast,
@@ -41,6 +39,8 @@ from ._windows_cffi import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
+
     from typing_extensions import Buffer, TypeAlias
 
     from .._file_io import _HasFileNo

@@ -11,14 +11,12 @@ import threading
 import time
 import traceback
 import warnings
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from functools import partial
 from math import inf
 from typing import (
     TYPE_CHECKING,
     Any,
-    AsyncGenerator,
-    Awaitable,
-    Callable,
     NoReturn,
     TypeVar,
 )
