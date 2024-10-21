@@ -114,7 +114,7 @@ class MemorySendStream(SendStream):
         send_all_hook: AsyncHook | None = None,
         wait_send_all_might_not_block_hook: AsyncHook | None = None,
         close_hook: SyncHook | None = None,
-    ):
+    ) -> None:
         self._conflict_detector = _util.ConflictDetector(
             "another task is using this stream",
         )
@@ -224,7 +224,7 @@ class MemoryReceiveStream(ReceiveStream):
         self,
         receive_some_hook: AsyncHook | None = None,
         close_hook: SyncHook | None = None,
-    ):
+    ) -> None:
         self._conflict_detector = _util.ConflictDetector(
             "another task is using this stream",
         )
@@ -550,7 +550,7 @@ class _LockstepByteQueue:
 
 
 class _LockstepSendStream(SendStream):
-    def __init__(self, lbq: _LockstepByteQueue):
+    def __init__(self, lbq: _LockstepByteQueue) -> None:
         self._lbq = lbq
 
     def close(self) -> None:
@@ -568,7 +568,7 @@ class _LockstepSendStream(SendStream):
 
 
 class _LockstepReceiveStream(ReceiveStream):
-    def __init__(self, lbq: _LockstepByteQueue):
+    def __init__(self, lbq: _LockstepByteQueue) -> None:
         self._lbq = lbq
 
     def close(self) -> None:

@@ -99,7 +99,7 @@ if TYPE_CHECKING:
         ) -> tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]:
             return _open_memory_channel(max_buffer_size)
 
-        def __init__(self, max_buffer_size: int | float):  # noqa: PYI041
+        def __init__(self, max_buffer_size: int | float) -> None:  # noqa: PYI041
             ...
 
 else:

@@ -77,7 +77,9 @@ RaiseCancelT: TypeAlias = Callable[[], NoReturn]
 
 # Should always return the type a Task "expects", unless you willfully reschedule it
 # with a bad value.
-async def wait_task_rescheduled(abort_func: Callable[[RaiseCancelT], Abort]) -> Any:
+async def wait_task_rescheduled(
+    abort_func: Callable[[RaiseCancelT], Abort],
+) -> Any:
     """Put the current task to sleep, with cancellation support.
 
     This is the lowest-level API for blocking in Trio. Every time a

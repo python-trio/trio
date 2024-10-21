@@ -32,7 +32,7 @@ class Instruments(dict[str, dict[Instrument, None]]):
 
     __slots__ = ()
 
-    def __init__(self, incoming: Sequence[Instrument]):
+    def __init__(self, incoming: Sequence[Instrument]) -> None:
         self["_all"] = {}
         for instrument in incoming:
             self.add_instrument(instrument)
@@ -89,7 +89,11 @@ class Instruments(dict[str, dict[Instrument, None]]):
                 if not instruments:
                     del self[hookname]
 
-    def call(self, hookname: str, *args: Any) -> None:
+    def call(
+        self,
+        hookname: str,
+        *args: Any,
+    ) -> None:
         """Call hookname(*args) on each applicable instrument.
 
         You must first check whether there are any instruments installed for

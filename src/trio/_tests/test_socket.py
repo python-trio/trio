@@ -8,17 +8,19 @@ import sys
 import tempfile
 from pathlib import Path
 from socket import AddressFamily, SocketKind
-from typing import TYPE_CHECKING, Any, Callable, Union
+from typing import TYPE_CHECKING, Any, Union
 
 import attrs
 import pytest
 
 from .. import _core, socket as tsocket
 from .._core._tests.tutil import binds_ipv6, creates_ipv6
-from .._socket import _NUMERIC_ONLY, SocketType, _SocketType, _try_sync
+from .._socket import _NUMERIC_ONLY, AddressFormat, SocketType, _SocketType, _try_sync
 from ..testing import assert_checkpoints, wait_all_tasks_blocked
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from typing_extensions import TypeAlias
 
     from .._highlevel_socket import SocketStream
@@ -47,9 +49,17 @@ class MonkeypatchedGAI:
         self.record: list[tuple[Any, ...]] = []
 
     # get a normalized getaddrinfo argument tuple
-    def _frozenbind(self, *args: Any, **kwargs: Any) -> tuple[Any, ...]:
+    def _frozenbind(
+        self,
+        host: bytes | str | None,
+        port: bytes | str | int | None,
+        family: int = 0,
+        type: int = 0,
+        proto: int = 0,
+        flags: int = 0,
+    ) -> tuple[Any, ...]:
         sig = inspect.signature(self._orig_getaddrinfo)
-        bound = sig.bind(*args, **kwargs)
+        bound = sig.bind(host, port, family=family, type=type, proto=proto, flags=flags)
         bound.apply_defaults()
         frozenbound = bound.args
         assert not bound.kwargs
@@ -58,18 +68,53 @@ class MonkeypatchedGAI:
     def set(
         self,
         response: GetAddrInfoResponse | str,
-        *args: Any,
-        **kwargs: Any,
+        host: bytes | str | None,
+        port: bytes | str | int | None,
+        family: int = 0,
+        type: int = 0,
+        proto: int = 0,
+        flags: int = 0,
     ) -> None:
-        self._responses[self._frozenbind(*args, **kwargs)] = response
+        self._responses[
+            self._frozenbind(
+                host,
+                port,
+                family=family,
+                type=type,
+                proto=proto,
+                flags=flags,
+            )
+        ] = response
 
-    def getaddrinfo(self, *args: Any, **kwargs: Any) -> GetAddrInfoResponse | str:
-        bound = self._frozenbind(*args, **kwargs)
+    def getaddrinfo(
+        self,
+        host: bytes | str | None,
+        port: bytes | str | int | None,
+        family: int = 0,
+        type: int = 0,
+        proto: int = 0,
+        flags: int = 0,
+    ) -> GetAddrInfoResponse | str:
+        bound = self._frozenbind(
+            host,
+            port,
+            family=family,
+            type=type,
+            proto=proto,
+            flags=flags,
+        )
         self.record.append(bound)
         if bound in self._responses:
             return self._responses[bound]
         elif bound[-1] & stdlib_socket.AI_NUMERICHOST:
-            return self._orig_getaddrinfo(*args, **kwargs)
+            return self._orig_getaddrinfo(
+                host,
+                port,
+                family=family,
+                type=type,
+                proto=proto,
+                flags=flags,
+            )
         else:
             raise RuntimeError(f"gai called with unexpected arguments {bound}")
 
@@ -595,7 +640,7 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
                     | tuple[str, str, int]
                     | tuple[str, str, int, int]
                 ),
-            ) -> Any:
+            ) -> AddressFormat:
                 return await sock._resolve_address_nocp(
                     args,
                     local=local,  # noqa: B023  # local is not bound in function definition
@@ -794,7 +839,7 @@ async def test_SocketType_connect_paths() -> None:
             # nose -- and then swap it back out again before we hit
             # wait_socket_writable, which insists on a real socket.
             class CancelSocket(stdlib_socket.socket):
-                def connect(self, *args: Any, **kwargs: Any) -> None:
+                def connect(self, *args: AddressFormat) -> None:
                     # accessing private method only available in _SocketType
                     assert isinstance(sock, _SocketType)
 
@@ -804,7 +849,7 @@ async def test_SocketType_connect_paths() -> None:
                         self.family,
                         self.type,
                     )
-                    sock._sock.connect(*args, **kwargs)
+                    sock._sock.connect(*args)
                     # If connect *doesn't* raise, then pretend it did
                     raise BlockingIOError  # pragma: no cover
 
@@ -851,9 +896,9 @@ async def test_resolve_address_exception_in_connect_closes_socket() -> None:
         with tsocket.socket() as sock:
 
             async def _resolve_address_nocp(
-                self: Any,
-                *args: Any,
-                **kwargs: Any,
+                self: _SocketType,
+                *args: AddressFormat,
+                **kwargs: bool,
             ) -> None:
                 cancel_scope.cancel()
                 await _core.checkpoint()

@@ -220,7 +220,7 @@ class CapacityLimiter(AsyncContextManagerMixin):
     """
 
     # total_tokens would ideally be int|Literal[math.inf] - but that's not valid typing
-    def __init__(self, total_tokens: int | float):  # noqa: PYI041
+    def __init__(self, total_tokens: int | float) -> None:  # noqa: PYI041
         self._lot = ParkingLot()
         self._borrowers: set[Task | object] = set()
         # Maps tasks attempting to acquire -> borrower, to handle on-behalf-of
@@ -433,7 +433,7 @@ class Semaphore(AsyncContextManagerMixin):
 
     """
 
-    def __init__(self, initial_value: int, *, max_value: int | None = None):
+    def __init__(self, initial_value: int, *, max_value: int | None = None) -> None:
         if not isinstance(initial_value, int):
             raise TypeError("initial_value must be an int")
         if initial_value < 0:
@@ -759,7 +759,7 @@ class Condition(AsyncContextManagerMixin):
 
     """
 
-    def __init__(self, lock: Lock | None = None):
+    def __init__(self, lock: Lock | None = None) -> None:
         if lock is None:
             lock = Lock()
         if type(lock) is not Lock:

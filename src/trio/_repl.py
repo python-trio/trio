@@ -22,7 +22,7 @@ class TrioInteractiveConsole(InteractiveConsole):
     # we make the type more specific on our subclass
     locals: dict[str, object]
 
-    def __init__(self, repl_locals: dict[str, object] | None = None):
+    def __init__(self, repl_locals: dict[str, object] | None = None) -> None:
         super().__init__(locals=repl_locals)
         self.compile.compiler.flags |= ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
 
