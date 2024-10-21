@@ -360,7 +360,8 @@ async def run_scenario(
     # If this is True, we require there to be an exception, and return
     #   (exception, scenario object)
     expect_error: tuple[type[BaseException], ...] | type[BaseException] = (),
-    **kwargs: str | float | None,
+    happy_eyeballs_delay: float | None = 0.25,
+    local_address: str | None = None,
 ) -> tuple[SocketType, Scenario] | tuple[BaseException, Scenario]:
     supported_families = set()
     if ipv4_supported:
@@ -378,7 +379,8 @@ async def run_scenario(
         stream = await open_tcp_stream(
             "test.example.com",
             port,
-            **kwargs,  # type: ignore[arg-type]
+            happy_eyeballs_delay=happy_eyeballs_delay,
+            local_address=local_address,
         )
         assert expect_error == ()
         scenario.check(stream.socket)

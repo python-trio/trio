@@ -51,11 +51,15 @@ class MonkeypatchedGAI:
     # get a normalized getaddrinfo argument tuple
     def _frozenbind(
         self,
-        *args: bytes | str | int | None,
-        **kwargs: bytes | str | int | None,
+        host: bytes | str | None,
+        port: bytes | str | int | None,
+        family: int = 0,
+        type: int = 0,
+        proto: int = 0,
+        flags: int = 0,
     ) -> tuple[Any, ...]:
         sig = inspect.signature(self._orig_getaddrinfo)
-        bound = sig.bind(*args, **kwargs)
+        bound = sig.bind(host, port, family=family, type=type, proto=proto, flags=flags)
         bound.apply_defaults()
         frozenbound = bound.args
         assert not bound.kwargs
@@ -64,22 +68,53 @@ class MonkeypatchedGAI:
     def set(
         self,
         response: GetAddrInfoResponse | str,
-        *args: bytes | str | int | None,
-        **kwargs: bytes | str | int | None,
+        host: bytes | str | None,
+        port: bytes | str | int | None,
+        family: int = 0,
+        type: int = 0,
+        proto: int = 0,
+        flags: int = 0,
     ) -> None:
-        self._responses[self._frozenbind(*args, **kwargs)] = response
+        self._responses[
+            self._frozenbind(
+                host,
+                port,
+                family=family,
+                type=type,
+                proto=proto,
+                flags=flags,
+            )
+        ] = response
 
     def getaddrinfo(
         self,
-        *args: bytes | str | int | None,
-        **kwargs: bytes | str | int | None,
+        host: bytes | str | None,
+        port: bytes | str | int | None,
+        family: int = 0,
+        type: int = 0,
+        proto: int = 0,
+        flags: int = 0,
     ) -> GetAddrInfoResponse | str:
-        bound = self._frozenbind(*args, **kwargs)
+        bound = self._frozenbind(
+            host,
+            port,
+            family=family,
+            type=type,
+            proto=proto,
+            flags=flags,
+        )
         self.record.append(bound)
         if bound in self._responses:
             return self._responses[bound]
         elif bound[-1] & stdlib_socket.AI_NUMERICHOST:
-            return self._orig_getaddrinfo(*args, **kwargs)
+            return self._orig_getaddrinfo(
+                host,
+                port,
+                family=family,
+                type=type,
+                proto=proto,
+                flags=flags,
+            )
         else:
             raise RuntimeError(f"gai called with unexpected arguments {bound}")
 
