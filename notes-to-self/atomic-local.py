@@ -4,7 +4,7 @@ from types import CodeType
 sentinel = "_unique_name"
 
 
-def f() -> None:
+def f():
     print(locals())
 
 

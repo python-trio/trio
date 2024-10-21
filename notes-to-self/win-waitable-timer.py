@@ -96,7 +96,7 @@ ProcessLeapSecondInfo = 8
 PROCESS_LEAP_SECOND_INFO_FLAG_ENABLE_SIXTY_SECOND = 1
 
 
-def set_leap_seconds_enabled(enabled) -> None:
+def set_leap_seconds_enabled(enabled):
     plsi = ffi.new("PROCESS_LEAP_SECOND_INFO*")
     if enabled:
         plsi.Flags = PROCESS_LEAP_SECOND_INFO_FLAG_ENABLE_SIXTY_SECOND
@@ -160,7 +160,7 @@ def py_datetime_to_win_filetime(dt):
     return round((dt - FILETIME_EPOCH).total_seconds() * FILETIME_TICKS_PER_SECOND)
 
 
-async def main() -> None:
+async def main():
     h = kernel32.CreateWaitableTimerW(ffi.NULL, True, ffi.NULL)
     if not h:
         raise_winerror()

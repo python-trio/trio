@@ -32,20 +32,20 @@ import trio
 
 
 class Trace(trio.abc.Instrument):
-    def __init__(self, out) -> None:
+    def __init__(self, out):
         self.out = out
         self.out.write("[\n")
         self.ids = count()
         self._task_metadata(-1, "I/O manager")
 
-    def _write(self, **ev) -> None:
+    def _write(self, **ev):
         ev.setdefault("pid", os.getpid())
         if ev["ph"] != "M":
             ev.setdefault("ts", trio.current_time() * 1e6)
         self.out.write(json.dumps(ev))
         self.out.write(",\n")
 
-    def _task_metadata(self, tid, name) -> None:
+    def _task_metadata(self, tid, name):
         self._write(
             name="thread_name",
             ph="M",
@@ -59,7 +59,7 @@ class Trace(trio.abc.Instrument):
             args={"sort_index": tid},
         )
 
-    def task_spawned(self, task) -> None:
+    def task_spawned(self, task):
         self._task_metadata(task._counter, task.name)
         self._write(
             name="task lifetime",
@@ -67,28 +67,28 @@ class Trace(trio.abc.Instrument):
             tid=task._counter,
         )
 
-    def task_exited(self, task) -> None:
+    def task_exited(self, task):
         self._write(
             name="task lifetime",
             ph="E",
             tid=task._counter,
         )
 
-    def before_task_step(self, task) -> None:
+    def before_task_step(self, task):
         self._write(
             name="running",
             ph="B",
             tid=task._counter,
         )
 
-    def after_task_step(self, task) -> None:
+    def after_task_step(self, task):
         self._write(
             name="running",
             ph="E",
             tid=task._counter,
         )
 
-    def task_scheduled(self, task) -> None:
+    def task_scheduled(self, task):
         try:
             waker = trio.lowlevel.current_task()
         except RuntimeError:
@@ -108,14 +108,14 @@ class Trace(trio.abc.Instrument):
                 tid=task._counter,
             )
 
-    def before_io_wait(self, timeout) -> None:
+    def before_io_wait(self, timeout):
         self._write(
             name="I/O wait",
             ph="B",
             tid=-1,
         )
 
-    def after_io_wait(self, timeout) -> None:
+    def after_io_wait(self, timeout):
         self._write(
             name="I/O wait",
             ph="E",
@@ -123,19 +123,19 @@ class Trace(trio.abc.Instrument):
         )
 
 
-async def child1() -> None:
+async def child1():
     print("  child1: started! sleeping now...")
     await trio.sleep(1)
     print("  child1: exiting!")
 
 
-async def child2() -> None:
+async def child2():
     print("  child2: started! sleeping now...")
     await trio.sleep(1)
     print("  child2: exiting!")
 
 
-async def parent() -> None:
+async def parent():
     print("parent: started!")
     async with trio.open_nursery() as nursery:
         print("parent: spawning child1...")

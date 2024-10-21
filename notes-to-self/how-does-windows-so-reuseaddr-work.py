@@ -20,7 +20,7 @@ def sock(mode):
     return s
 
 
-def bind(sock, bind_type) -> None:
+def bind(sock, bind_type):
     if bind_type == "wildcard":
         sock.bind(("0.0.0.0", 12345))
     elif bind_type == "specific":
@@ -29,7 +29,7 @@ def bind(sock, bind_type) -> None:
         raise AssertionError()
 
 
-def table_entry(mode1, bind_type1, mode2, bind_type2) -> str:
+def table_entry(mode1, bind_type1, mode2, bind_type2):
     with sock(mode1) as sock1:
         bind(sock1, bind_type1)
         try:
@@ -49,12 +49,15 @@ print(
     """
                                                        second bind
                                | """
-    + " | ".join(["%-19s" % mode for mode in modes]),
+    + " | ".join(f"{mode:<19}" for mode in modes),
 )
 
 print("""                              """, end="")
 for _ in modes:
-    print(" | " + " | ".join(["%8s" % bind_type for bind_type in bind_types]), end="")
+    print(
+        " | " + " | ".join(f"{bind_type:>8}" for bind_type in bind_types),
+        end="",
+    )
 
 print(
     """
@@ -72,5 +75,5 @@ for mode1 in modes:
                 # print(mode1, bind_type1, mode2, bind_type2, entry)
         print(
             f"{mode1:>19} | {bind_type1:>8} | "
-            + " | ".join(["%8s" % entry for entry in row]),
+            + " | ".join(f"{entry:>8}" for entry in row),
         )

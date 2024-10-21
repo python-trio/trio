@@ -19,7 +19,7 @@ async def blocking_read_with_timeout(
     print("reading from fd", fd)
     cancel_requested = False
 
-    async def kill_it_after_timeout(new_fd) -> None:
+    async def kill_it_after_timeout(new_fd):
         print("sleeping")
         await trio.sleep(timeout)
         print("breaking the fd")

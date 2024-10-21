@@ -6,7 +6,7 @@ LOOPS = 0
 RUNNING = True
 
 
-async def reschedule_loop(depth) -> None:
+async def reschedule_loop(depth):
     if depth == 0:
         global LOOPS
         while RUNNING:
@@ -17,7 +17,7 @@ async def reschedule_loop(depth) -> None:
         await reschedule_loop(depth - 1)
 
 
-async def report_loop() -> None:
+async def report_loop():
     global RUNNING
     try:
         while True:
@@ -33,7 +33,7 @@ async def report_loop() -> None:
         RUNNING = False
 
 
-async def main() -> None:
+async def main():
     async with trio.open_nursery() as nursery:
         nursery.start_soon(reschedule_loop, 10)
         nursery.start_soon(report_loop)

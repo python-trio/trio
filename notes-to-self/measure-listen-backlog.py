@@ -1,7 +1,7 @@
 import trio
 
 
-async def run_test(nominal_backlog) -> None:
+async def run_test(nominal_backlog):
     print("--\nnominal:", nominal_backlog)
 
     listen_sock = trio.socket.socket()

@@ -8,7 +8,7 @@ class Proxy1:
     strategy = "__getattr__"
     works_for = "any attr"
 
-    def __init__(self, wrapped) -> None:
+    def __init__(self, wrapped):
         self._wrapped = wrapped
 
     def __getattr__(self, name):
@@ -24,11 +24,11 @@ class Proxy2:
     strategy = "generated methods (getattr + closure)"
     works_for = "methods"
 
-    def __init__(self, wrapped) -> None:
+    def __init__(self, wrapped):
         self._wrapped = wrapped
 
 
-def add_wrapper(cls, method) -> None:
+def add_wrapper(cls, method):
     def wrapper(self, *args, **kwargs):
         return getattr(self._wrapped, method)(*args, **kwargs)
 
@@ -45,11 +45,11 @@ class Proxy3:
     strategy = "generated methods (exec)"
     works_for = "methods"
 
-    def __init__(self, wrapped) -> None:
+    def __init__(self, wrapped):
         self._wrapped = wrapped
 
 
-def add_wrapper(cls, method) -> None:
+def add_wrapper(cls, method):
     code = textwrap.dedent(
         f"""
         def wrapper(self, *args, **kwargs):
@@ -71,18 +71,18 @@ class Proxy4:
     strategy = "generated properties (getattr + closure)"
     works_for = "any attr"
 
-    def __init__(self, wrapped) -> None:
+    def __init__(self, wrapped):
         self._wrapped = wrapped
 
 
-def add_wrapper(cls, attr) -> None:
+def add_wrapper(cls, attr):
     def getter(self):
         return getattr(self._wrapped, attr)
 
-    def setter(self, newval) -> None:
+    def setter(self, newval):
         setattr(self._wrapped, attr, newval)
 
-    def deleter(self) -> None:
+    def deleter(self):
         delattr(self._wrapped, attr)
 
     setattr(cls, attr, property(getter, setter, deleter))
@@ -98,11 +98,11 @@ class Proxy5:
     strategy = "generated properties (exec)"
     works_for = "any attr"
 
-    def __init__(self, wrapped) -> None:
+    def __init__(self, wrapped):
         self._wrapped = wrapped
 
 
-def add_wrapper(cls, attr) -> None:
+def add_wrapper(cls, attr):
     code = textwrap.dedent(
         f"""
         def getter(self):
@@ -131,7 +131,7 @@ class Proxy6:
     strategy = "copy attrs from wrappee to wrapper"
     works_for = "methods + constant attrs"
 
-    def __init__(self, wrapper) -> None:
+    def __init__(self, wrapper):
         self._wrapper = wrapper
 
         for method in methods:
@@ -143,7 +143,7 @@ class Proxy6:
 classes = [Proxy1, Proxy2, Proxy3, Proxy4, Proxy5, Proxy6]
 
 
-def check(cls) -> None:
+def check(cls):
     with open("/etc/passwd") as f:
         p = cls(f)
         assert p.fileno() == f.fileno()

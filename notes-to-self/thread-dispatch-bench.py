@@ -11,13 +11,13 @@ from queue import Queue
 COUNT = 10000
 
 
-def worker(in_q, out_q) -> None:
+def worker(in_q, out_q):
     while True:
         job = in_q.get()
         out_q.put(job())
 
 
-def main() -> None:
+def main():
     in_q = Queue()
     out_q = Queue()
 
@@ -30,7 +30,7 @@ def main() -> None:
             in_q.put(lambda: None)
             out_q.get()
         end = time.monotonic()
-        print(f"{(end - start) / COUNT * 1e6:.2f} µs/job")
+        print(f"{(end - start) / COUNT * 1e6:.2f} μs/job")
 
 
 main()

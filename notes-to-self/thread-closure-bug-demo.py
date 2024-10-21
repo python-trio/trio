@@ -23,7 +23,7 @@ def run_with_slow_tracefunc(fn):
     return fn()
 
 
-def outer() -> None:
+def outer():
     x = 0
     # We hide the done variable inside a list, because we want to use it to
     # communicate between the main thread and the looper thread, and the bug

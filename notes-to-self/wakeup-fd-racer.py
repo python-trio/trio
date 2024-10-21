@@ -16,13 +16,13 @@ if os.name == "nt":
     signal_raise = getattr(_lib, "raise")
 else:
 
-    def signal_raise(signum) -> None:
+    def signal_raise(signum):
         # Use pthread_kill to make sure we're actually using the wakeup fd on
         # Unix
         signal.pthread_kill(threading.get_ident(), signum)
 
 
-def raise_SIGINT_soon() -> None:
+def raise_SIGINT_soon():
     time.sleep(1)
     signal_raise(signal.SIGINT)
     # Sending 2 signals becomes reliable, as we'd expect (because we need
@@ -41,7 +41,7 @@ def drain(sock):
     return total
 
 
-def main() -> None:
+def main():
     writer, reader = socket.socketpair()
     writer.setblocking(False)
     reader.setblocking(False)

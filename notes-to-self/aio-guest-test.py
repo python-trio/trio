@@ -3,12 +3,12 @@ import asyncio
 import trio
 
 
-async def aio_main() -> None:
+async def aio_main():
     loop = asyncio.get_running_loop()
 
     trio_done_fut = loop.create_future()
 
-    def trio_done_callback(main_outcome) -> None:
+    def trio_done_callback(main_outcome):
         print(f"trio_main finished: {main_outcome!r}")
         trio_done_fut.set_result(main_outcome)
 
@@ -21,7 +21,7 @@ async def aio_main() -> None:
     (await trio_done_fut).unwrap()
 
 
-async def trio_main() -> None:
+async def trio_main():
     print("trio_main!")
 
     to_trio, from_aio = trio.open_memory_channel(float("inf"))
@@ -40,7 +40,7 @@ async def trio_main() -> None:
     del _task_ref
 
 
-async def aio_pingpong(from_trio, to_trio) -> None:
+async def aio_pingpong(from_trio, to_trio):
     print("aio_pingpong!")
 
     while True:
