@@ -37,8 +37,7 @@ python -c "import sys, struct, ssl; print('python:', sys.version); print('versio
 echo "::endgroup::"
 
 echo "::group::Install dependencies"
-uv_version=$(cat test-requirements.txt | grep 'uv==')
-python -m pip install -U pip "$uv_version"
+python -m pip -v -v -v install -U pip uv -c test-requirements.txt
 python -m pip --version
 python -m uv --version
 
