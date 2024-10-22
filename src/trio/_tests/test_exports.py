@@ -9,7 +9,6 @@ import inspect
 import json
 import socket as stdlib_socket
 import sys
-import tokenize
 import types
 from pathlib import Path, PurePath
 from types import ModuleType
@@ -576,93 +575,26 @@ def test_classes_are_final() -> None:
 
 
 def test_pyright_recognizes_init_attributes() -> None:
-    """Check whether we provide `alias` for all underscore prefixed attributes
+    """Check whether we provide `alias` for all underscore prefixed attributes.
 
-    We cannot check this at runtime, as attrs sets the `alias` attribute on
-    fields, but instead we can reconstruct the source code of the class and
-    check that. Unfortunately, `inspect.getsourcelines` does not work so we
-    need to build up this source code ourself.
-
-    The approach taken here is:
-     1. read every file that could contain the classes in question
-     2. tokenize them, for a couple reasons:
-        - tokenization unlike ast parsing can be 1-1 undone
-        - tokenization allows us to get the whole class block
-        - tokenization allows us to find ``class {name}`` without prefix
-          matches
-     3. for every exported class:
-        1. find the file
-        2. isolate the class block
-        3. undo tokenization
-        4. find the string ``alias="{what it should be}"``
+    Attrs always sets the `alias` attribute on fields, so a pytest plugin is used
+    to monkeypatch `field()` to record whether an alias was defined in the metadata.
+    See `_trio_check_attrs_aliases`.
     """
-    files = []
-
-    parent = (Path(inspect.getfile(trio)) / "..").resolve()
-    for path in parent.glob("**/*.py"):
-        if "_tests" in str(path)[len(str(parent)) :]:
-            continue
-
-        with open(path, "rb") as f:
-            files.append(list(tokenize.tokenize(f.readline)))
-
+    assert hasattr(attrs.field, "trio_modded")
     for module in PUBLIC_MODULES:
-        for name, class_ in module.__dict__.items():
+        for class_ in module.__dict__.values():
             if not attrs.has(class_):
                 continue
             if isinstance(class_, _util.NoPublicConstructor):
                 continue
 
-            file = None
-            start = None
-            for contents in files:
-                last_was_class = False
-                for i, token in enumerate(contents):
-                    if (
-                        token.type == tokenize.NAME
-                        and token.string == name
-                        and last_was_class
-                    ):
-                        assert file is None
-                        file = contents
-                        start = i - 1
-
-                    if token.type == tokenize.NAME and token.string == "class":
-                        last_was_class = True
-                    else:
-                        last_was_class = False
-
-            assert file is not None, f"{name}: {class_!r}"
-            assert start is not None
-
-            count = -1
-            end_offset = 0
-            for end_offset, token in enumerate(  # noqa: B007
-                file[start:],
-            ):  # pragma: no branch
-                if token.type == tokenize.INDENT:
-                    count += 1
-                if token.type == tokenize.DEDENT and count:
-                    count -= 1
-                elif token.type == tokenize.DEDENT:
-                    break
-
-            assert token.type == tokenize.DEDENT
-            class_source = (
-                tokenize.untokenize(file[start : start + end_offset])
-                .replace("\\\n", "")
-                .strip()
-            )
-
-            attributes = list(attrs.fields(class_))
-            attributes = [attr for attr in attributes if attr.name.startswith("_")]
-            attributes = [attr for attr in attributes if attr.init]
-
             attributes = [
-                # could this be improved by parsing AST? yes. this is simpler though.
                 attr
-                for attr in attributes
-                if f'alias="{attr.alias}"' not in class_source
+                for attr in attrs.fields(class_)
+                if attr.name.startswith("_")
+                if attr.init
+                if "trio_test_has_alias" not in attr.metadata
             ]
 
             assert attributes == [], class_
