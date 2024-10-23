@@ -389,9 +389,12 @@ These transitions are accomplished using two function decorators:
                inner = trio.lowlevel.enable_ki_protection(inner)
            return inner()
 
-       assert example(False) == False
-       assert example(True) == True  # once protected ...
-       assert example(False) == True  # ... always protected
+       async def amain():
+           assert example(False) == False
+           assert example(True) == True  # once protected ...
+           assert example(False) == True  # ... always protected
+
+       trio.run(amain)
 
    If you really need conditional protection, you can achieve it by giving each
    KI-protected instance of the closure its own code object::
@@ -404,9 +407,12 @@ These transitions are accomplished using two function decorators:
                inner = trio.lowlevel.enable_ki_protection(inner)
            return inner()
 
-       assert example(False) == False
-       assert example(True) == True
-       assert example(False) == False
+       async def amain():
+           assert example(False) == False
+           assert example(True) == True
+           assert example(False) == False
+
+       trio.run(amain)
 
    (This isn't done by default because it carries some memory overhead and reduces
    the potential for specializing optimizations in recent versions of CPython.)
