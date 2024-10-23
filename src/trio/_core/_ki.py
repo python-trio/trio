@@ -80,15 +80,8 @@ if TYPE_CHECKING:
 
 _T = TypeVar("_T")
 
-if TYPE_CHECKING or sys.version_info >= (3, 9):
-    _Ref = weakref.ref[_T]
-else:
 
-    class _Ref(weakref.ref, Generic[_T]):
-        __slots__ = ()
-
-
-class _IdRef(_Ref[_T]):
+class _IdRef(weakref.ref[_T]):
     __slots__ = ("_hash",)
     _hash: int
 
