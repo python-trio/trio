@@ -8,7 +8,7 @@ import sys
 import tempfile
 from pathlib import Path
 from socket import AddressFamily, SocketKind
-from typing import TYPE_CHECKING, Any, Callable, List, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Union
 
 import attrs
 import pytest
@@ -23,14 +23,14 @@ if TYPE_CHECKING:
 
     from .._highlevel_socket import SocketStream
 
-    GaiTuple: TypeAlias = Tuple[
+    GaiTuple: TypeAlias = tuple[
         AddressFamily,
         SocketKind,
         int,
         str,
-        Union[Tuple[str, int], Tuple[str, int, int, int]],
+        Union[tuple[str, int], tuple[str, int, int, int]],
     ]
-    GetAddrInfoResponse: TypeAlias = List[GaiTuple]
+    GetAddrInfoResponse: TypeAlias = list[GaiTuple]
 else:
     GaiTuple: object
     GetAddrInfoResponse = object
@@ -138,7 +138,7 @@ async def test_getaddrinfo(monkeygai: MonkeypatchedGAI) -> None:
             tuple[str, int] | tuple[str, int, int] | tuple[str, int, int, int],
         ]:
             # (family, type, proto, canonname, sockaddr)
-            family, type_, proto, canonname, sockaddr = gai_tup
+            family, type_, _proto, _canonname, sockaddr = gai_tup
             return (family, type_, sockaddr)
 
         def filtered(
@@ -1080,7 +1080,7 @@ async def test_custom_socket_factory() -> None:
     assert tsocket.set_custom_socket_factory(None) is csf
 
 
-async def test_SocketType_is_abstract() -> None:
+def test_SocketType_is_abstract() -> None:
     with pytest.raises(TypeError):
         tsocket.SocketType()
 

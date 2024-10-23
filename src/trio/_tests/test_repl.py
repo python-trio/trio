@@ -42,7 +42,7 @@ def test_build_raw_input() -> None:
 
 # In 3.10 or later, types.FunctionType (used internally) will automatically
 # attach __builtins__ to the function objects. However we need to explicitly
-# include it for 3.8 & 3.9
+# include it for 3.9 support
 def build_locals() -> dict[str, object]:
     return {"__builtins__": __builtins__}
 
@@ -80,7 +80,7 @@ async def test_basic_interaction(
     )
     monkeypatch.setattr(console, "raw_input", raw_input)
     await trio._repl.run_repl(console)
-    out, err = capsys.readouterr()
+    out, _err = capsys.readouterr()
     assert out.splitlines() == ["x=1", "'hello'", "2", "4", "hello stdout", "13"]
 
 
@@ -142,7 +142,7 @@ async def test_system_exits_in_exc_group(
     )
     monkeypatch.setattr(console, "raw_input", raw_input)
     await trio._repl.run_repl(console)
-    out, err = capsys.readouterr()
+    out, _err = capsys.readouterr()
     # assert that raise SystemExit in an exception group
     # doesn't quit
     assert "AFTER BaseExceptionGroup" in out
@@ -166,7 +166,7 @@ async def test_system_exits_in_nested_exc_group(
     )
     monkeypatch.setattr(console, "raw_input", raw_input)
     await trio._repl.run_repl(console)
-    out, err = capsys.readouterr()
+    out, _err = capsys.readouterr()
     # assert that raise SystemExit in an exception group
     # doesn't quit
     assert "AFTER BaseExceptionGroup" in out
@@ -206,7 +206,7 @@ async def test_exc_group_captured(
     )
     monkeypatch.setattr(console, "raw_input", raw_input)
     await trio._repl.run_repl(console)
-    out, err = capsys.readouterr()
+    out, _err = capsys.readouterr()
     assert "AFTER ExceptionGroup" in out
 
 

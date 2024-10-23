@@ -11,10 +11,6 @@ from ssl import SSLContext
 from typing import (
     TYPE_CHECKING,
     Any,
-    AsyncIterator,
-    Awaitable,
-    Callable,
-    Iterator,
     NoReturn,
 )
 
@@ -56,6 +52,8 @@ from ..testing import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
+
     from typing_extensions import TypeAlias
 
     from trio._core import MockClock
@@ -707,7 +705,8 @@ async def test_renegotiation_randomized(
     # Our receive_some() call will get stuck when it hits send_all
     async def sleeper_with_slow_send_all(method: str) -> None:
         if method == "send_all":
-            await trio.sleep(100000)
+            # ignore ASYNC116, not sleep_forever, trying to test a large but finite sleep
+            await trio.sleep(100000)  # noqa: ASYNC116
 
     # And our wait_send_all_might_not_block call will give it time to get
     # stuck, and then start
@@ -731,7 +730,8 @@ async def test_renegotiation_randomized(
 
     async def sleeper_with_slow_wait_writable_and_expect(method: str) -> None:
         if method == "wait_send_all_might_not_block":
-            await trio.sleep(100000)
+            # ignore ASYNC116, not sleep_forever, trying to test a large but finite sleep
+            await trio.sleep(100000)  # noqa: ASYNC116
         elif method == "expect":
             await trio.sleep(1000)
 
@@ -1188,7 +1188,7 @@ async def test_https_mode_eof_before_handshake(client_ctx: SSLContext) -> None:
 
 
 async def test_send_error_during_handshake(client_ctx: SSLContext) -> None:
-    client, server = ssl_memory_stream_pair(client_ctx)
+    client, _server = ssl_memory_stream_pair(client_ctx)
 
     async def bad_hook() -> NoReturn:
         raise KeyError
@@ -1227,7 +1227,7 @@ async def test_receive_error_during_handshake(client_ctx: SSLContext) -> None:
             await client.do_handshake()
 
 
-async def test_selected_alpn_protocol_before_handshake(client_ctx: SSLContext) -> None:
+def test_selected_alpn_protocol_before_handshake(client_ctx: SSLContext) -> None:
     client, server = ssl_memory_stream_pair(client_ctx)
 
     with pytest.raises(NeedHandshakeError):
@@ -1252,7 +1252,7 @@ async def test_selected_alpn_protocol_when_not_set(client_ctx: SSLContext) -> No
     assert client.selected_alpn_protocol() == server.selected_alpn_protocol()
 
 
-async def test_selected_npn_protocol_before_handshake(client_ctx: SSLContext) -> None:
+def test_selected_npn_protocol_before_handshake(client_ctx: SSLContext) -> None:
     client, server = ssl_memory_stream_pair(client_ctx)
 
     with pytest.raises(NeedHandshakeError):
@@ -1281,7 +1281,7 @@ async def test_selected_npn_protocol_when_not_set(client_ctx: SSLContext) -> Non
     assert client.selected_npn_protocol() == server.selected_npn_protocol()
 
 
-async def test_get_channel_binding_before_handshake(client_ctx: SSLContext) -> None:
+def test_get_channel_binding_before_handshake(client_ctx: SSLContext) -> None:
     client, server = ssl_memory_stream_pair(client_ctx)
 
     with pytest.raises(NeedHandshakeError):

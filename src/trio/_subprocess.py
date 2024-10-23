@@ -32,15 +32,7 @@ if TYPE_CHECKING:
 
 
 # Sphinx cannot parse the stringified version
-if sys.version_info >= (3, 9):
-    StrOrBytesPath: TypeAlias = Union[str, bytes, os.PathLike[str], os.PathLike[bytes]]
-else:
-    StrOrBytesPath: TypeAlias = Union[
-        str,
-        bytes,
-        "os.PathLike[str]",
-        "os.PathLike[bytes]",
-    ]
+StrOrBytesPath: TypeAlias = Union[str, bytes, os.PathLike[str], os.PathLike[bytes]]
 
 
 # Linux-specific, but has complex lifetime management stuff so we hard-code it
@@ -430,7 +422,8 @@ async def _open_process(
     return Process._create(popen, trio_stdin, trio_stdout, trio_stderr)
 
 
-async def _windows_deliver_cancel(p: Process) -> None:
+# async function missing await
+async def _windows_deliver_cancel(p: Process) -> None:  # noqa: RUF029
     try:
         p.terminate()
     except OSError as exc:

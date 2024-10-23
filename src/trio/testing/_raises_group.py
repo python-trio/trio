@@ -2,14 +2,12 @@ from __future__ import annotations
 
 import re
 import sys
+from contextlib import AbstractContextManager
+from re import Pattern
 from typing import (
     TYPE_CHECKING,
-    Callable,
-    ContextManager,
     Generic,
     Literal,
-    Pattern,
-    Sequence,
     cast,
     overload,
 )
@@ -22,6 +20,7 @@ if TYPE_CHECKING:
     # sphinx will *only* work if we use types.TracebackType, and import
     # *inside* TYPE_CHECKING. No other combination works.....
     import types
+    from collections.abc import Callable, Sequence
 
     from _pytest._code.code import ExceptionChainRepr, ReprExceptionInfo, Traceback
     from typing_extensions import TypeGuard, TypeVar
@@ -277,7 +276,10 @@ else:
 
 
 @final
-class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperClass[E]):
+class RaisesGroup(
+    AbstractContextManager[ExceptionInfo[BaseExceptionGroup[E]]],
+    SuperClass[E],
+):
     """Contextmanager for checking for an expected `ExceptionGroup`.
     This works similar to ``pytest.raises``, and a version of it will hopefully be added upstream, after which this can be deprecated and removed. See https://github.com/pytest-dev/pytest/issues/11538
 
