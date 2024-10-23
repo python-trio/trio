@@ -2,19 +2,16 @@ from __future__ import annotations
 
 import re
 import sys
+from contextlib import AbstractContextManager
+from re import Pattern
 from typing import (
     TYPE_CHECKING,
-    Callable,
-    ContextManager,
     Generic,
     Literal,
-    Pattern,
-    Sequence,
     cast,
     overload,
 )
 
-from trio._deprecate import warn_deprecated
 from trio._util import final
 
 if TYPE_CHECKING:
@@ -23,6 +20,7 @@ if TYPE_CHECKING:
     # sphinx will *only* work if we use types.TracebackType, and import
     # *inside* TYPE_CHECKING. No other combination works.....
     import types
+    from collections.abc import Callable, Sequence
 
     from _pytest._code.code import ExceptionChainRepr, ReprExceptionInfo, Traceback
     from typing_extensions import TypeGuard, TypeVar
@@ -278,7 +276,10 @@ else:
 
 
 @final
-class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperClass[E]):
+class RaisesGroup(
+    AbstractContextManager[ExceptionInfo[BaseExceptionGroup[E]]],
+    SuperClass[E],
+):
     """Contextmanager for checking for an expected `ExceptionGroup`.
     This works similar to ``pytest.raises``, and a version of it will hopefully be added upstream, after which this can be deprecated and removed. See https://github.com/pytest-dev/pytest/issues/11538
 
@@ -384,7 +385,6 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
         flatten_subgroups: bool = False,
         match: str | Pattern[str] | None = None,
         check: Callable[[BaseExceptionGroup[E]], bool] | None = None,
-        strict: None = None,
     ):
         self.expected_exceptions: tuple[type[E] | Matcher[E] | E, ...] = (
             exception,
@@ -395,15 +395,6 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
         self.match_expr = match
         self.check = check
         self.is_baseexceptiongroup = False
-
-        if strict is not None:
-            warn_deprecated(
-                "The `strict` parameter",
-                "0.25.1",
-                issue=2989,
-                instead="flatten_subgroups=True (for strict=False}",
-            )
-            self.flatten_subgroups = not strict
 
         if allow_unwrapped and other_exceptions:
             raise ValueError(

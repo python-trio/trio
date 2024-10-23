@@ -84,7 +84,7 @@ if TYPE_CHECKING or sys.version_info >= (3, 9):
     _Ref = weakref.ref[_T]
 else:
 
-    class _Ref(Generic[_T], weakref.ref):
+    class _Ref(weakref.ref, Generic[_T]):
         __slots__ = ()
 
 

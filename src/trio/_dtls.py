@@ -20,11 +20,7 @@ from itertools import count
 from typing import (
     TYPE_CHECKING,
     Any,
-    Awaitable,
-    Callable,
     Generic,
-    Iterable,
-    Iterator,
     TypeVar,
     Union,
 )
@@ -37,6 +33,7 @@ import trio
 from ._util import NoPublicConstructor, final
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable, Iterable, Iterator
     from types import TracebackType
 
     # See DTLSEndpoint.__init__ for why this is imported here
@@ -561,10 +558,9 @@ def _current_cookie_tick() -> int:
 # Simple deterministic and invertible serializer -- i.e., a useful tool for converting
 # structured data into something we can cryptographically sign.
 def _signable(*fields: bytes) -> bytes:
-    out = []
+    out: list[bytes] = []
     for field in fields:
-        out.append(struct.pack("!Q", len(field)))
-        out.append(field)
+        out.extend((struct.pack("!Q", len(field)), field))
     return b"".join(out)
 
 
@@ -737,23 +733,6 @@ async def handle_client_hello_untrusted(
             # ...OpenSSL didn't like it, so I guess we didn't have a valid ClientHello
             # after all.
             return
-
-        # Some old versions of OpenSSL have a bug with memory BIOs, where DTLSv1_listen
-        # consumes the ClientHello out of the BIO, but then do_handshake expects the
-        # ClientHello to still be in there (but not the one that ships with Ubuntu
-        # 20.04). In particular, this is known to affect the OpenSSL v1.1.1 that ships
-        # with Ubuntu 18.04. To work around this, we deliver a second copy of the
-        # ClientHello after DTLSv1_listen has completed. This is safe to do
-        # unconditionally, because on newer versions of OpenSSL, the second ClientHello
-        # is treated as a duplicate packet, which is a normal thing that can happen over
-        # UDP. For more details, see:
-        #
-        #     https://github.com/pyca/pyopenssl/blob/e84e7b57d1838de70ab7a27089fbee78ce0d2106/tests/test_ssl.py#L4226-L4293
-        #
-        # This was fixed in v1.1.1a, and all later versions. So maybe in 2024 or so we
-        # can delete this. The fix landed in OpenSSL master as 079ef6bd534d2, and then
-        # was backported to the 1.1.1 branch as d1bfd8076e28.
-        stream._ssl.bio_write(packet)
 
         # Check if we have an existing association
         old_stream = endpoint._streams.get(address)

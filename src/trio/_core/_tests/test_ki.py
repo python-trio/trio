@@ -6,7 +6,8 @@ import signal
 import sys
 import threading
 import weakref
-from typing import TYPE_CHECKING, AsyncIterator, Callable, Iterator, TypeVar
+from collections.abc import AsyncIterator, Iterator
+from typing import TYPE_CHECKING, Callable, TypeVar
 
 import outcome
 import pytest
@@ -28,6 +29,8 @@ from ..._util import signal_raise
 from ...testing import wait_all_tasks_blocked
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Callable, Iterator
+
     from ..._core import Abort, RaiseCancelT
 
 

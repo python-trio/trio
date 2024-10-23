@@ -4,12 +4,14 @@
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING, ContextManager
+from typing import TYPE_CHECKING
 
 from ._ki import enable_ki_protection
 from ._run import GLOBAL_RUN_CONTEXT
 
 if TYPE_CHECKING:
+    from contextlib import AbstractContextManager
+
     from typing_extensions import Buffer
 
     from .._file_io import _HasFileNo
@@ -197,7 +199,9 @@ def current_iocp() -> int:
 
 
 @enable_ki_protection
-def monitor_completion_key() -> ContextManager[tuple[int, UnboundedQueue[object]]]:
+def monitor_completion_key() -> (
+    AbstractContextManager[tuple[int, UnboundedQueue[object]]]
+):
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26
     <https://github.com/python-trio/trio/issues/26>`__ and `#52

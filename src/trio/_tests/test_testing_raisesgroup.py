@@ -372,12 +372,3 @@ def test__ExceptionInfo(monkeypatch: pytest.MonkeyPatch) -> None:
     assert excinfo.type is ExceptionGroup
     assert excinfo.value.exceptions[0].args == ("hello",)
     assert isinstance(excinfo.tb, TracebackType)
-
-
-def test_deprecated_strict() -> None:
-    """`strict` has been replaced with `flatten_subgroups`"""
-    # parameter is not included in overloaded signatures at all
-    with pytest.deprecated_call():
-        RaisesGroup(ValueError, strict=False)  # type: ignore[call-overload]
-    with pytest.deprecated_call():
-        RaisesGroup(ValueError, strict=True)  # type: ignore[call-overload]

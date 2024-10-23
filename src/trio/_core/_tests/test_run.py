@@ -269,8 +269,8 @@ async def test_current_time_with_mock_clock(mock_clock: _core.MockClock) -> None
     start = mock_clock.current_time()
     assert mock_clock.current_time() == _core.current_time()
     assert mock_clock.current_time() == _core.current_time()
-    mock_clock.jump(3.14)
-    assert start + 3.14 == mock_clock.current_time() == _core.current_time()
+    mock_clock.jump(3.15)
+    assert start + 3.15 == mock_clock.current_time() == _core.current_time()
 
 
 async def test_current_clock(mock_clock: _core.MockClock) -> None:
@@ -2505,9 +2505,13 @@ async def test_cancel_scope_exit_doesnt_create_cyclic_garbage() -> None:
 
     old_flags = gc.get_debug()
     try:
+        # fmt: off
+        # Remove after 3.9 unsupported, black formats in a way that breaks if
+        # you do `-X oldparser`
         with RaisesGroup(
             Matcher(ValueError, "^this is a crash$"),
         ), _core.CancelScope() as outer:
+            # fmt: on
             async with _core.open_nursery() as nursery:
                 gc.collect()
                 gc.set_debug(gc.DEBUG_SAVEALL)
