@@ -1773,7 +1773,7 @@ class Runner:
     # Core task handling primitives
     ################
 
-    @_public  # Type-ignore due to use of Any here.
+    @_public
     def reschedule(
         self,
         task: Task,
