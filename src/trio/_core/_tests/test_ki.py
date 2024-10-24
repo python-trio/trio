@@ -544,7 +544,7 @@ async def test_ki_does_not_leak_across_different_calls_to_inner_functions() -> N
     assert not _core.currently_ki_protected()
 
     def factory(enabled: bool) -> Callable[[], bool]:
-        @_identity(_core.enable_ki_protection if enabled else _identity)
+        @_core.enable_ki_protection if enabled else _identity
         def decorated() -> bool:
             return _core.currently_ki_protected()
 
