@@ -641,7 +641,6 @@ def test_weak_key_identity_dict_remove_callback_selfref_expired() -> None:
 
 @_core.enable_ki_protection
 async def _protected_async_gen_fn() -> AsyncGenerator[None, None]:
-    return
     yield
 
 
@@ -652,13 +651,11 @@ async def _protected_async_fn() -> None:
 
 @_core.enable_ki_protection
 def _protected_gen_fn() -> Generator[None, None, None]:
-    return
     yield
 
 
 @_core.disable_ki_protection
 async def _unprotected_async_gen_fn() -> AsyncGenerator[None, None]:
-    return
     yield
 
 
@@ -669,20 +666,27 @@ async def _unprotected_async_fn() -> None:
 
 @_core.disable_ki_protection
 def _unprotected_gen_fn() -> Generator[None, None, None]:
-    return
     yield
+
+
+async def _consume_async_generator(agen: AsyncGenerator[None, None]) -> None:
+    try:
+        with pytest.raises(StopAsyncIteration):
+            while True:
+                await agen.asend(None)
+    finally:
+        await agen.aclose()
 
 
 def _consume_function_for_coverage(fn: Callable[..., object]) -> None:
     result = fn()
     if inspect.isasyncgen(result):
-        with pytest.raises(StopAsyncIteration):
-            result.asend(None).send(None)
-        return
+        result = _consume_async_generator(result)
 
     assert inspect.isgenerator(result) or inspect.iscoroutine(result)
     with pytest.raises(StopIteration):
-        result.send(None)
+        while True:
+            result.send(None)
 
 
 def test_enable_disable_ki_protection_passes_on_inspect_flags() -> None:
