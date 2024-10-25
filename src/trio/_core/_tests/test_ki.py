@@ -29,7 +29,13 @@ from ..._util import signal_raise
 from ...testing import wait_all_tasks_blocked
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Callable, Iterator
+    from collections.abc import (
+        AsyncGenerator,
+        AsyncIterator,
+        Callable,
+        Generator,
+        Iterator,
+    )
 
     from ..._core import Abort, RaiseCancelT
 
@@ -631,3 +637,64 @@ def test_weak_key_identity_dict_remove_callback_selfref_expired() -> None:
     del a
     gc_collect_harder()
     assert data_copy
+
+
+@_core.enable_ki_protection
+async def _protected_async_gen_fn() -> AsyncGenerator[None, None]:
+    return
+    yield
+
+
+@_core.enable_ki_protection
+async def _protected_async_fn() -> None:
+    pass
+
+
+@_core.enable_ki_protection
+def _protected_gen_fn() -> Generator[None, None, None]:
+    return
+    yield
+
+
+@_core.disable_ki_protection
+async def _unprotected_async_gen_fn() -> AsyncGenerator[None, None]:
+    return
+    yield
+
+
+@_core.disable_ki_protection
+async def _unprotected_async_fn() -> None:
+    pass
+
+
+@_core.disable_ki_protection
+def _unprotected_gen_fn() -> Generator[None, None, None]:
+    return
+    yield
+
+
+def _consume_function_for_coverage(fn: Callable[..., object]) -> None:
+    result = fn()
+    if inspect.isasyncgen(result):
+        with pytest.raises(StopAsyncIteration):
+            result.asend(None).send(None)
+        return
+
+    assert inspect.isgenerator(result) or inspect.iscoroutine(result)
+    with pytest.raises(StopIteration):
+        result.send(None)
+
+
+def test_enable_disable_ki_protection_passes_on_inspect_flags() -> None:
+    assert inspect.isasyncgenfunction(_protected_async_gen_fn)
+    _consume_function_for_coverage(_protected_async_gen_fn)
+    assert inspect.iscoroutinefunction(_protected_async_fn)
+    _consume_function_for_coverage(_protected_async_fn)
+    assert inspect.isgeneratorfunction(_protected_gen_fn)
+    _consume_function_for_coverage(_protected_gen_fn)
+    assert inspect.isasyncgenfunction(_unprotected_async_gen_fn)
+    _consume_function_for_coverage(_unprotected_async_gen_fn)
+    assert inspect.iscoroutinefunction(_unprotected_async_fn)
+    _consume_function_for_coverage(_unprotected_async_fn)
+    assert inspect.isgeneratorfunction(_unprotected_gen_fn)
+    _consume_function_for_coverage(_unprotected_gen_fn)
