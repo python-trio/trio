@@ -17,7 +17,10 @@ The lack of a call-time wrapper has some other benefits as well:
   window in which KeyboardInterrupt could be raised before the protection was
   established.
 
-One minor drawback of the new approach is that it is no longer possible to apply
-different KI protection rules to different instances of the same closure. See the
+One minor drawback of the new approach is that multiple instances of the same
+closure share a single KeyboardInterrupt protection state (because they share a
+single code object). That means that if you apply 
+`@enable_ki_protection <trio.lowlevel.enable_ki_protection>` to some of them
+and not others, you won't get the protection semantics you asked for. See the
 documentation of `@enable_ki_protection <trio.lowlevel.enable_ki_protection>`
 for more details and a workaround.
