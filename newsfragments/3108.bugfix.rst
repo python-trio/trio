@@ -19,7 +19,7 @@ The lack of a call-time wrapper has some other benefits as well:
 
 One minor drawback of the new approach is that multiple instances of the same
 closure share a single KeyboardInterrupt protection state (because they share a
-single code object). That means that if you apply 
+single code object). That means that if you apply
 `@enable_ki_protection <trio.lowlevel.enable_ki_protection>` to some of them
 and not others, you won't get the protection semantics you asked for. See the
 documentation of `@enable_ki_protection <trio.lowlevel.enable_ki_protection>`
