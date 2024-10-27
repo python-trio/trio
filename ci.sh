@@ -37,8 +37,7 @@ python -c "import sys, struct, ssl; print('python:', sys.version); print('versio
 echo "::endgroup::"
 
 echo "::group::Install dependencies"
-python -c "import gzip, sys; print(gzip.open(sys.argv[2]).read())" -- "$(python -m pip cache dir)/http-v2/a/d/e/e/f/adeef5b9611702687bbddade5f7c0af65110caf98ba1a0070c9d116e.body"
-python -m pip -v -v -v install -U pip uv -c test-requirements.txt
+python -m pip install -U pip uv -c test-requirements.txt
 python -m pip --version
 python -m uv --version
 
