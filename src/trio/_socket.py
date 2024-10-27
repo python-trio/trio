@@ -50,7 +50,8 @@ T = TypeVar("T")
 # most users, so currently we just specify it as `Any`. Otherwise we would write:
 # `AddressFormat = TypeVar("AddressFormat")`
 # but instead we simply do:
-AddressFormat: TypeAlias = Any
+# Explicit "Any" is not allowed
+AddressFormat: TypeAlias = Any  # type: ignore[misc]
 
 
 # Usage:
@@ -477,7 +478,7 @@ async def _resolve_address_nocp(
     ipv6_v6only: bool | int,
     address: AddressFormat,
     local: bool,
-) -> Any:
+) -> AddressFormat:
     # Do some pre-checking (or exit early for non-IP sockets)
     if family == _stdlib_socket.AF_INET:
         if not isinstance(address, tuple) or not len(address) == 2:
@@ -709,7 +710,8 @@ class SocketType:
         not TYPE_CHECKING and hasattr(_stdlib_socket.socket, "recvmsg")
     ):
 
-        def recvmsg(
+        # Explicit "Any" is not allowed
+        def recvmsg(  # type: ignore[misc]
             __self,
             __bufsize: int,
             __ancbufsize: int = 0,
@@ -721,7 +723,8 @@ class SocketType:
         not TYPE_CHECKING and hasattr(_stdlib_socket.socket, "recvmsg_into")
     ):
 
-        def recvmsg_into(
+        # Explicit "Any" is not allowed
+        def recvmsg_into(  # type: ignore[misc]
             __self,
             __buffers: Iterable[Buffer],
             __ancbufsize: int = 0,
@@ -747,7 +750,8 @@ class SocketType:
         __address: tuple[object, ...] | str | Buffer,
     ) -> int: ...
 
-    async def sendto(self, *args: Any) -> int:
+    # Explicit "Any" is not allowed
+    async def sendto(self, *args: Any) -> int:  # type: ignore[misc]
         raise NotImplementedError
 
     if sys.platform != "win32" or (
@@ -1190,7 +1194,8 @@ class _SocketType(SocketType):
     ):
         if TYPE_CHECKING:
 
-            def recvmsg(
+            #  Explicit "Any" is not allowed
+            def recvmsg(  # type: ignore[misc]
                 __self,
                 __bufsize: int,
                 __ancbufsize: int = 0,
@@ -1212,7 +1217,8 @@ class _SocketType(SocketType):
     ):
         if TYPE_CHECKING:
 
-            def recvmsg_into(
+            # Explicit "Any" is not allowed
+            def recvmsg_into(  # type: ignore[misc]
                 __self,
                 __buffers: Iterable[Buffer],
                 __ancbufsize: int = 0,

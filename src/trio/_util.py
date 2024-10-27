@@ -22,7 +22,8 @@ from sniffio import thread_local as sniffio_loop
 
 import trio
 
-CallT = TypeVar("CallT", bound=Callable[..., Any])
+# Explicit "Any" is not allowed
+CallT = TypeVar("CallT", bound=Callable[..., Any])  # type: ignore[misc]
 T = TypeVar("T")
 RetT = TypeVar("RetT")
 
@@ -232,14 +233,16 @@ class ConflictDetector:
         self._held = False
 
 
-def async_wraps(
+# Explicit "Any" is not allowed
+def async_wraps(  # type: ignore[misc]
     cls: type[object],
     wrapped_cls: type[object],
     attr_name: str,
 ) -> Callable[[CallT], CallT]:
     """Similar to wraps, but for async wrappers of non-async functions."""
 
-    def decorator(func: CallT) -> CallT:
+    # Explicit "Any" is not allowed
+    def decorator(func: CallT) -> CallT:  # type: ignore[misc]
         func.__name__ = attr_name
         func.__qualname__ = f"{cls.__qualname__}.{attr_name}"
 
@@ -302,11 +305,15 @@ class generic_function(Generic[RetT]):
     but at least it becomes possible to write those.
     """
 
-    def __init__(self, fn: Callable[..., RetT]) -> None:
+    # Explicit "Any" is not allowed
+    def __init__(  # type: ignore[misc]
+        self,
+        fn: Callable[..., RetT],
+    ) -> None:
         update_wrapper(self, fn)
         self._fn = fn
 
-    def __call__(self, *args: Any, **kwargs: Any) -> RetT:
+    def __call__(self, *args: object, **kwargs: object) -> RetT:
         return self._fn(*args, **kwargs)
 
     def __getitem__(self, subscript: object) -> Self:
@@ -395,9 +402,11 @@ def name_asyncgen(agen: AsyncGeneratorType[object, NoReturn]) -> str:
 
 # work around a pyright error
 if TYPE_CHECKING:
-    Fn = TypeVar("Fn", bound=Callable[..., object])
+    # Explicit "Any" is not allowed
+    Fn = TypeVar("Fn", bound=Callable[..., object])  # type: ignore[misc]
 
-    def wraps(
+    # Explicit "Any" is not allowed
+    def wraps(  # type: ignore[misc]
         wrapped: Callable[..., object],
         assigned: Sequence[str] = ...,
         updated: Sequence[str] = ...,

@@ -66,7 +66,11 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
     ]:
         return [(AF_INET, SOCK_STREAM, IPPROTO_TCP, "", self.sockaddr)]
 
-    async def getnameinfo(self, *args: Any) -> NoReturn:  # pragma: no cover
+    # Explicit "Any" is not allowed
+    async def getnameinfo(  # type: ignore[misc]
+        self,
+        *args: Any,
+    ) -> NoReturn:  # pragma: no cover
         raise NotImplementedError
 
 

@@ -77,7 +77,10 @@ RaiseCancelT: TypeAlias = Callable[[], NoReturn]
 
 # Should always return the type a Task "expects", unless you willfully reschedule it
 # with a bad value.
-async def wait_task_rescheduled(abort_func: Callable[[RaiseCancelT], Abort]) -> Any:
+# Explicit "Any" is not allowed
+async def wait_task_rescheduled(  # type: ignore[misc]
+    abort_func: Callable[[RaiseCancelT], Abort],
+) -> Any:
     """Put the current task to sleep, with cancellation support.
 
     This is the lowest-level API for blocking in Trio. Every time a
@@ -182,11 +185,12 @@ async def wait_task_rescheduled(abort_func: Callable[[RaiseCancelT], Abort]) -> 
 # Not exported in the trio._core namespace, but imported directly by _run.
 @attrs.frozen(slots=False)
 class PermanentlyDetachCoroutineObject:
-    final_outcome: outcome.Outcome[Any]
+    final_outcome: outcome.Outcome[object]
 
 
-async def permanently_detach_coroutine_object(
-    final_outcome: outcome.Outcome[Any],
+# Explicit "Any" is not allowed
+async def permanently_detach_coroutine_object(  # type: ignore[misc]
+    final_outcome: outcome.Outcome[object],
 ) -> Any:
     """Permanently detach the current task from the Trio scheduler.
 
@@ -220,7 +224,7 @@ async def permanently_detach_coroutine_object(
 
 async def temporarily_detach_coroutine_object(
     abort_func: Callable[[RaiseCancelT], Abort],
-) -> Any:
+) -> object:
     """Temporarily detach the current coroutine object from the Trio
     scheduler.
 

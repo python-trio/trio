@@ -10,7 +10,8 @@ import attrs
 
 from .._util import is_main_thread
 
-CallableT = TypeVar("CallableT", bound="Callable[..., object]")
+# Explicit "Any" is not allowed
+CallableT = TypeVar("CallableT", bound="Callable[..., object]")  # type: ignore[misc]
 RetT = TypeVar("RetT")
 
 if TYPE_CHECKING:
@@ -191,7 +192,8 @@ def _ki_protection_decorator(
 class KIProtectionSignature(Protocol):
     __name__: str
 
-    def __call__(self, f: CallableT, /) -> CallableT:
+    # Explicit "Any" is not allowed
+    def __call__(self, f: CallableT, /) -> CallableT:  # type: ignore[misc]
         pass
 
 

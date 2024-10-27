@@ -1646,7 +1646,10 @@ async def test_spawn_name() -> None:
     async def func2() -> None:  # pragma: no cover
         pass
 
-    async def check(spawn_fn: Callable[..., object]) -> None:
+    # Explicit "Any" is not allowed
+    async def check(  # type: ignore[misc]
+        spawn_fn: Callable[..., object],
+    ) -> None:
         spawn_fn(func1, "func1")
         spawn_fn(func1, "func2", name=func2)
         spawn_fn(func1, "func3", name="func3")
@@ -1681,13 +1684,14 @@ async def test_current_effective_deadline(mock_clock: _core.MockClock) -> None:
 
 
 def test_nice_error_on_bad_calls_to_run_or_spawn() -> None:
-    def bad_call_run(
+    # Explicit "Any" is not allowed
+    def bad_call_run(  # type: ignore[misc]
         func: Callable[..., Awaitable[object]],
         *args: tuple[object, ...],
     ) -> None:
         _core.run(func, *args)
 
-    def bad_call_spawn(
+    def bad_call_spawn(  # type: ignore[misc]
         func: Callable[..., Awaitable[object]],
         *args: tuple[object, ...],
     ) -> None:
@@ -2298,10 +2302,18 @@ async def test_permanently_detach_coroutine_object() -> None:
     # is still iterable. At that point anything can be sent into the coroutine, so the .coro type
     # is wrong.
     assert pdco_outcome is None
-    assert not_none(task).coro.send(cast(Any, "be free!")) == "I'm free!"
+    # Explicit "Any" is not allowed
+    assert (
+        not_none(task).coro.send(
+            cast(Any, "be free!"),  # type: ignore[misc]
+        )
+        == "I'm free!"
+    )
     assert pdco_outcome == outcome.Value("be free!")
     with pytest.raises(StopIteration):
-        not_none(task).coro.send(cast(Any, None))
+        not_none(task).coro.send(
+            cast(Any, None),  # type: ignore[misc]
+        )
 
     # Check the exception paths too
     task = None
@@ -2366,9 +2378,25 @@ async def test_detach_and_reattach_coroutine_object() -> None:
         await wait_all_tasks_blocked()
 
         # Okay, it's detached. Here's our coroutine runner:
-        assert not_none(task).coro.send(cast(Any, "not trio!")) == 1
-        assert not_none(task).coro.send(cast(Any, None)) == 2
-        assert not_none(task).coro.send(cast(Any, None)) == "byebye"
+        # Explicit "Any" is not allowed
+        assert (
+            not_none(task).coro.send(
+                cast(Any, "not trio!"),  # type: ignore[misc]
+            )
+            == 1
+        )
+        assert (
+            not_none(task).coro.send(
+                cast(Any, None),  # type: ignore[misc]
+            )
+            == 2
+        )
+        assert (
+            not_none(task).coro.send(
+                cast(Any, None),  # type: ignore[misc]
+            )
+            == "byebye"
+        )
 
         # Now it's been reattached, and we can leave the nursery
 
@@ -2398,7 +2426,9 @@ async def test_detached_coroutine_cancellation() -> None:
         await wait_all_tasks_blocked()
         assert task is not None
         nursery.cancel_scope.cancel()
-        task.coro.send(cast(Any, None))
+        task.coro.send(
+            cast(Any, None),  # type: ignore[misc]
+        )
 
     assert abort_fn_called
 

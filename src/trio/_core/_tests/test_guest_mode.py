@@ -46,13 +46,14 @@ InHost: TypeAlias = Callable[[object], None]
 #   our main
 # - final result is returned
 # - any unhandled exceptions cause an immediate crash
-def trivial_guest_run(
+# type ignore is for `Explicit "Any" is not allowed`
+def trivial_guest_run(  # type: ignore[misc]
     trio_fn: Callable[..., Awaitable[T]],
     *,
     in_host_after_start: Callable[[], None] | None = None,
     **start_guest_run_kwargs: Any,
 ) -> T:
-    todo: queue.Queue[tuple[str, Outcome[T] | Callable[..., object]]] = queue.Queue()
+    todo: queue.Queue[tuple[str, Outcome[T] | Callable[[], object]]] = queue.Queue()
 
     host_thread = threading.current_thread()
 
@@ -430,7 +431,8 @@ def test_guest_warns_if_abandoned() -> None:
             trio.current_time()
 
 
-def aiotrio_run(
+# Explicit "Any" is not allowed
+def aiotrio_run(  # type: ignore[misc]
     trio_fn: Callable[..., Awaitable[T]],
     *,
     pass_not_threadsafe: bool = True,
@@ -555,7 +557,8 @@ def test_guest_mode_internal_errors(
             t = threading.current_thread()
             old_get_events = trio._core._run.TheIOManager.get_events
 
-            def bad_get_events(*args: Any) -> object:
+            # Not allowed to use Any
+            def bad_get_events(*args: Any) -> object:  # type: ignore[misc]
                 if threading.current_thread() is not t:
                     raise ValueError("oh no!")
                 else:

@@ -435,7 +435,8 @@ async def open_file(  # type: ignore[misc]  # Any usage matches builtins.open().
 ) -> AsyncIOWrapper[IO[Any]]: ...
 
 
-async def open_file(
+# Explicit "Any" is not allowed
+async def open_file(  # type: ignore[misc]
     file: _OpenFile,
     mode: str = "r",
     buffering: int = -1,

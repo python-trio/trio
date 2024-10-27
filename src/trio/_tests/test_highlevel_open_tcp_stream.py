@@ -3,7 +3,7 @@ from __future__ import annotations
 import socket
 import sys
 from socket import AddressFamily, SocketKind
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import attrs
 import pytest
@@ -360,7 +360,8 @@ async def run_scenario(
     # If this is True, we require there to be an exception, and return
     #   (exception, scenario object)
     expect_error: tuple[type[BaseException], ...] | type[BaseException] = (),
-    **kwargs: Any,
+    happy_eyeballs_delay: float | None = 0.25,
+    local_address: str | None = None,
 ) -> tuple[SocketType, Scenario] | tuple[BaseException, Scenario]:
     supported_families = set()
     if ipv4_supported:
@@ -372,7 +373,12 @@ async def run_scenario(
     trio.socket.set_custom_socket_factory(scenario)
 
     try:
-        stream = await open_tcp_stream("test.example.com", port, **kwargs)
+        stream = await open_tcp_stream(
+            "test.example.com",
+            port,
+            happy_eyeballs_delay=happy_eyeballs_delay,
+            local_address=local_address,
+        )
         assert expect_error == ()
         scenario.check(stream.socket)
         return (stream.socket, scenario)

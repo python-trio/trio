@@ -253,9 +253,10 @@ class AFDWaiters:
 # object, because we need to keep all these objects alive until the operation
 # finishes, even if we're throwing it away.
 @attrs.frozen(eq=False)
-class AFDPollOp:
+# Explicit "Any" is not allowed
+class AFDPollOp:  # type: ignore[misc]
     lpOverlapped: CData
-    poll_info: Any
+    poll_info: Any  # type: ignore[misc]
     waiters: AFDWaiters
     afd_group: AFDGroup
 
@@ -684,7 +685,8 @@ class WindowsIOManager:
 
             lpOverlapped = ffi.new("LPOVERLAPPED")
 
-            poll_info: Any = ffi.new("AFD_POLL_INFO *")
+            # Explicit "Any" is not allowed
+            poll_info: Any = ffi.new("AFD_POLL_INFO *")  # type: ignore[misc]
             poll_info.Timeout = 2**63 - 1  # INT64_MAX
             poll_info.NumberOfHandles = 1
             poll_info.Exclusive = 0

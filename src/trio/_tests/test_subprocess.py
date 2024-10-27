@@ -113,7 +113,11 @@ background_process_param = pytest.mark.parametrize(
     ids=["open_process", "run_process in nursery"],
 )
 
-BackgroundProcessType: TypeAlias = Callable[..., AbstractAsyncContextManager[Process]]
+# Explicit "Any" is not allowed
+BackgroundProcessType: TypeAlias = Callable[  # type: ignore[misc]
+    ...,
+    AbstractAsyncContextManager[Process],
+]
 
 
 @background_process_param

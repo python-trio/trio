@@ -74,7 +74,7 @@ def export(results: dict[Result, list[str]]) -> None:
             print(f"col={res.start_col},", end="")
             if res.end_col is not None and res.end_line is not None:
                 print(f"endLine={res.end_line},endColumn={res.end_col},", end="")
-                message = f"({res.start_line}:{res.start_col} - {res.end_line}:{res.end_col}):{res.message}"
+                message = f"({res.start_line}:{res.start_col}:{res.end_line}:{res.end_col}):{res.message}"
             else:
                 message = f"({res.start_line}:{res.start_col}):{res.message}"
         else:

@@ -41,13 +41,22 @@ else:
 
 
 class MonkeypatchedGAI:
-    def __init__(self, orig_getaddrinfo: Callable[..., GetAddrInfoResponse]) -> None:
+    # Explicit "Any" is not allowed
+    def __init__(  # type: ignore[misc]
+        self,
+        orig_getaddrinfo: Callable[..., GetAddrInfoResponse],
+    ) -> None:
         self._orig_getaddrinfo = orig_getaddrinfo
-        self._responses: dict[tuple[Any, ...], GetAddrInfoResponse | str] = {}
-        self.record: list[tuple[Any, ...]] = []
+        self._responses: dict[tuple[Any, ...], GetAddrInfoResponse | str] = {}  # type: ignore[misc]
+        self.record: list[tuple[Any, ...]] = []  # type: ignore[misc]
 
     # get a normalized getaddrinfo argument tuple
-    def _frozenbind(self, *args: Any, **kwargs: Any) -> tuple[Any, ...]:
+    # Explicit "Any" is not allowed
+    def _frozenbind(  # type: ignore[misc]
+        self,
+        *args: Any,
+        **kwargs: Any,
+    ) -> tuple[Any, ...]:
         sig = inspect.signature(self._orig_getaddrinfo)
         bound = sig.bind(*args, **kwargs)
         bound.apply_defaults()
@@ -55,7 +64,8 @@ class MonkeypatchedGAI:
         assert not bound.kwargs
         return frozenbound
 
-    def set(
+    # Explicit "Any" is not allowed
+    def set(  # type: ignore[misc]
         self,
         response: GetAddrInfoResponse | str,
         *args: Any,
@@ -63,7 +73,12 @@ class MonkeypatchedGAI:
     ) -> None:
         self._responses[self._frozenbind(*args, **kwargs)] = response
 
-    def getaddrinfo(self, *args: Any, **kwargs: Any) -> GetAddrInfoResponse | str:
+    # Explicit "Any" is not allowed
+    def getaddrinfo(  # type: ignore[misc]
+        self,
+        *args: Any,
+        **kwargs: Any,
+    ) -> GetAddrInfoResponse | str:
         bound = self._frozenbind(*args, **kwargs)
         self.record.append(bound)
         if bound in self._responses:
@@ -586,7 +601,8 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
         # local=True/local=False should work the same:
         for local in [False, True]:
 
-            async def res(
+            # Explicit "Any" is not allowed
+            async def res(  # type: ignore[misc]
                 args: (
                     tuple[str, int]
                     | tuple[str, int, int]
@@ -794,7 +810,12 @@ async def test_SocketType_connect_paths() -> None:
             # nose -- and then swap it back out again before we hit
             # wait_socket_writable, which insists on a real socket.
             class CancelSocket(stdlib_socket.socket):
-                def connect(self, *args: Any, **kwargs: Any) -> None:
+                # Explicit "Any" is not allowed
+                def connect(  # type: ignore[misc]
+                    self,
+                    *args: Any,
+                    **kwargs: Any,
+                ) -> None:
                     # accessing private method only available in _SocketType
                     assert isinstance(sock, _SocketType)
 
@@ -850,8 +871,9 @@ async def test_resolve_address_exception_in_connect_closes_socket() -> None:
     with _core.CancelScope() as cancel_scope:
         with tsocket.socket() as sock:
 
-            async def _resolve_address_nocp(
-                self: Any,
+            # Explicit "Any" is not allowed
+            async def _resolve_address_nocp(  # type: ignore[misc]
+                self: _SocketType,
                 *args: Any,
                 **kwargs: Any,
             ) -> None:
@@ -918,6 +940,7 @@ async def test_send_recv_variants() -> None:
         # recvfrom_into
         assert await a.sendto(b"xxx", b.getsockname()) == 3
         buf = bytearray(10)
+        nbytes: int
         (nbytes, addr) = await b.recvfrom_into(buf)
         assert nbytes == 3
         assert buf == b"xxx" + b"\x00" * 7

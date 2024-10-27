@@ -11,12 +11,14 @@ from .._abc import Instrument
 INSTRUMENT_LOGGER = logging.getLogger("trio.abc.Instrument")
 
 
-F = TypeVar("F", bound=Callable[..., Any])
+# Explicit "Any" is not allowed
+F = TypeVar("F", bound=Callable[..., Any])  # type: ignore[misc]
 
 
 # Decorator to mark methods public. This does nothing by itself, but
 # trio/_tools/gen_exports.py looks for it.
-def _public(fn: F) -> F:
+# Explicit "Any" is not allowed
+def _public(fn: F) -> F:  # type: ignore[misc]
     return fn
 
 
@@ -89,7 +91,11 @@ class Instruments(dict[str, dict[Instrument, None]]):
                 if not instruments:
                     del self[hookname]
 
-    def call(self, hookname: str, *args: Any) -> None:
+    def call(
+        self,
+        hookname: str,
+        *args: object,
+    ) -> None:
         """Call hookname(*args) on each applicable instrument.
 
         You must first check whether there are any instruments installed for

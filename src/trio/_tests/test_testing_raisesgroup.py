@@ -235,7 +235,11 @@ def test_RaisesGroup_matches() -> None:
 
 
 def test_message() -> None:
-    def check_message(message: str, body: RaisesGroup[Any]) -> None:
+    # Explicit "Any" is not allowed
+    def check_message(  # type: ignore[misc]
+        message: str,
+        body: RaisesGroup[Any],
+    ) -> None:
         with pytest.raises(
             AssertionError,
             match=f"^DID NOT RAISE any exception, expected {re.escape(message)}$",

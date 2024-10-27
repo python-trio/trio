@@ -86,7 +86,10 @@ else:
     def copy_tb(base_tb: TracebackType, tb_next: TracebackType | None) -> TracebackType:
         # tputil.ProxyOperation is PyPy-only, and there's no way to specify
         # cpython/pypy in current type checkers.
-        def controller(operation: tputil.ProxyOperation) -> Any | None:  # type: ignore[no-any-unimported]
+        # Explicit "Any" is not allowed
+        def controller(  # type: ignore[no-any-unimported,misc]
+            operation: tputil.ProxyOperation,
+        ) -> Any | None:
             # Rationale for pragma: I looked fairly carefully and tried a few
             # things, and AFAICT it's not actually possible to get any
             # 'opname' that isn't __getattr__ or __getattribute__. So there's

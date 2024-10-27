@@ -219,7 +219,12 @@ class NeedHandshakeError(Exception):
 
 
 class _Once:
-    def __init__(self, afn: Callable[..., Awaitable[object]], *args: object) -> None:
+    # Explicit "Any" is not allowed
+    def __init__(  # type: ignore[misc]
+        self,
+        afn: Callable[..., Awaitable[object]],
+        *args: object,
+    ) -> None:
         self._afn = afn
         self._args = args
         self.started = False
@@ -413,7 +418,11 @@ class SSLStream(Stream, Generic[T_Stream]):
         "version",
     }
 
-    def __getattr__(self, name: str) -> Any:
+    # Explicit "Any" is not allowed
+    def __getattr__(  # type: ignore[misc]
+        self,
+        name: str,
+    ) -> Any:
         if name in self._forwarded:
             if name in self._after_handshake and not self._handshook.done:
                 raise NeedHandshakeError(f"call do_handshake() before calling {name!r}")
@@ -445,7 +454,8 @@ class SSLStream(Stream, Generic[T_Stream]):
     # comments, though, just make sure to think carefully if you ever have to
     # touch it. The big comment at the top of this file will help explain
     # too.
-    async def _retry(
+    # Explicit "Any" is not allowed
+    async def _retry(  # type: ignore[misc]
         self,
         fn: Callable[..., T],
         *args: object,

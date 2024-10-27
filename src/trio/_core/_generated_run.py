@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
 from ._run import _NO_SEND, GLOBAL_RUN_CONTEXT, RunStatistics, Task
@@ -102,7 +102,7 @@ def current_root_task() -> Task | None:
         raise RuntimeError("must be called from async context") from None
 
 
-def reschedule(task: Task, next_send: Outcome[Any] = _NO_SEND) -> None:
+def reschedule(task: Task, next_send: Outcome[object] = _NO_SEND) -> None:
     """Reschedule the given task with the given
     :class:`outcome.Outcome`.
 
