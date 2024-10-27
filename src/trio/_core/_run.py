@@ -71,19 +71,19 @@ if TYPE_CHECKING:
     # for some strange reason Sphinx works with outcome.Outcome, but not Outcome, in
     # start_guest_run. Same with types.FrameType in iter_await_frames
     import outcome
-    from typing_extensions import Self, TypeVar, TypeVarTuple, Unpack
+    from typing_extensions import ParamSpec, Self, TypeVar, TypeVarTuple, Unpack
 
     PosArgT = TypeVarTuple("PosArgT")
     StatusT = TypeVar("StatusT", default=None)
     StatusT_contra = TypeVar("StatusT_contra", contravariant=True, default=None)
+    PS = ParamSpec("PS")
 else:
     from typing import TypeVar
 
     StatusT = TypeVar("StatusT")
     StatusT_contra = TypeVar("StatusT_contra", contravariant=True)
+    PS = TypeVar("PS")
 
-# Explicit "Any" is not allowed
-FnT = TypeVar("FnT", bound="Callable[..., Any]")  # type: ignore[misc]
 RetT = TypeVar("RetT")
 
 
@@ -103,8 +103,7 @@ class _NoStatus(metaclass=NoPublicConstructor):
 
 # Decorator to mark methods public. This does nothing by itself, but
 # trio/_tools/gen_exports.py looks for it.
-# Explicit "Any" is not allowed
-def _public(fn: FnT) -> FnT:  # type: ignore[misc]
+def _public(fn: Callable[PS, RetT]) -> Callable[PS, RetT]:
     return fn
 
 
@@ -1290,7 +1289,7 @@ class Nursery(metaclass=NoPublicConstructor):
         async_fn: Callable[..., Awaitable[object]],
         *args: object,
         name: object = None,
-    ) -> Any:
+    ) -> Any | None:
         r"""Creates and initializes a child task.
 
         Like :meth:`start_soon`, but blocks until the new task has
@@ -1341,8 +1340,10 @@ class Nursery(metaclass=NoPublicConstructor):
                 # set strict_exception_groups = True to make sure we always unwrap
                 # *this* nursery's exceptiongroup
                 async with open_nursery(strict_exception_groups=True) as old_nursery:
-                    # Explicit "Any" is not allowed
-                    task_status: _TaskStatus[Any] = _TaskStatus(old_nursery, self)  # type: ignore[misc]
+                    task_status: _TaskStatus[object | None] = _TaskStatus(
+                        old_nursery,
+                        self,
+                    )
                     thunk = functools.partial(async_fn, task_status=task_status)
                     task = GLOBAL_RUN_CONTEXT.runner.spawn_impl(
                         thunk,

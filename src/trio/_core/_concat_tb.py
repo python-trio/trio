@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from types import TracebackType
-from typing import Any, ClassVar, cast
+from typing import ClassVar, cast
 
 ################################################################
 # concat_tb
@@ -86,10 +86,9 @@ else:
     def copy_tb(base_tb: TracebackType, tb_next: TracebackType | None) -> TracebackType:
         # tputil.ProxyOperation is PyPy-only, and there's no way to specify
         # cpython/pypy in current type checkers.
-        # Explicit "Any" is not allowed
-        def controller(  # type: ignore[no-any-unimported,misc]
+        def controller(  # type: ignore[no-any-unimported]
             operation: tputil.ProxyOperation,
-        ) -> Any | None:
+        ) -> object | None:
             # Rationale for pragma: I looked fairly carefully and tried a few
             # things, and AFAICT it's not actually possible to get any
             # 'opname' that isn't __getattr__ or __getattribute__. So there's
