@@ -208,6 +208,7 @@ class WorkerThread(Generic[RetT]):
 
 class ThreadCache:
     def __init__(self) -> None:
+        # Explicit "Any" is not allowed
         self._idle_workers: dict[WorkerThread[Any], None] = {}  # type: ignore[misc]
 
     def start_thread_soon(

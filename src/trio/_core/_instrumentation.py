@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import types
 from collections.abc import Callable, Sequence
-from typing import Any, TypeVar
+from typing import TypeVar
 
 from .._abc import Instrument
 
@@ -12,7 +12,7 @@ INSTRUMENT_LOGGER = logging.getLogger("trio.abc.Instrument")
 
 
 # Explicit "Any" is not allowed
-F = TypeVar("F", bound=Callable[..., Any])  # type: ignore[misc]
+F = TypeVar("F", bound=Callable[..., object])  # type: ignore[misc]
 
 
 # Decorator to mark methods public. This does nothing by itself, but

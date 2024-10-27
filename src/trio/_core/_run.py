@@ -90,8 +90,7 @@ RetT = TypeVar("RetT")
 DEADLINE_HEAP_MIN_PRUNE_THRESHOLD: Final = 1000
 
 # Passed as a sentinel
-# Explicit "Any" is not allowed
-_NO_SEND: Final[Outcome[Any]] = cast("Outcome[Any]", object())  # type: ignore[misc]
+_NO_SEND: Final[Outcome[object]] = cast("Outcome[object]", object())
 
 # Used to track if an exceptiongroup can be collapsed
 NONSTRICT_EXCEPTIONGROUP_NOTE = 'This is a "loose" ExceptionGroup, and may be collapsed by Trio if it only contains one exception - typically after `Cancelled` has been stripped from it. Note this has consequences for exception handling, and strict_exception_groups=True is recommended.'
@@ -1175,11 +1174,10 @@ class Nursery(metaclass=NoPublicConstructor):
                 self._parent_waiting_in_aexit = False
                 GLOBAL_RUN_CONTEXT.runner.reschedule(self._parent_task)
 
-    # Explicit "Any" is not allowed
-    def _child_finished(  # type: ignore[misc]
+    def _child_finished(
         self,
         task: Task,
-        outcome: Outcome[Any],
+        outcome: Outcome[object],
     ) -> None:
         self._children.remove(task)
         if isinstance(outcome, Error):

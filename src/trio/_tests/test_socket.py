@@ -940,7 +940,6 @@ async def test_send_recv_variants() -> None:
         # recvfrom_into
         assert await a.sendto(b"xxx", b.getsockname()) == 3
         buf = bytearray(10)
-        nbytes: int
         (nbytes, addr) = await b.recvfrom_into(buf)
         assert nbytes == 3
         assert buf == b"xxx" + b"\x00" * 7

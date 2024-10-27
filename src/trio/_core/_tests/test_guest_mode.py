@@ -46,7 +46,7 @@ InHost: TypeAlias = Callable[[object], None]
 #   our main
 # - final result is returned
 # - any unhandled exceptions cause an immediate crash
-# type ignore is for `Explicit "Any" is not allowed`
+# Explicit "Any" is not allowed
 def trivial_guest_run(  # type: ignore[misc]
     trio_fn: Callable[..., Awaitable[T]],
     *,
@@ -557,7 +557,7 @@ def test_guest_mode_internal_errors(
             t = threading.current_thread()
             old_get_events = trio._core._run.TheIOManager.get_events
 
-            # Not allowed to use Any
+            # Explicit "Any" is not allowed
             def bad_get_events(*args: Any) -> object:  # type: ignore[misc]
                 if threading.current_thread() is not t:
                     raise ValueError("oh no!")
