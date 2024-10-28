@@ -51,6 +51,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - run: sha256sum ./test-requirements.txt
       - name: Setup python
         uses: actions/setup-python@v5
         with:
