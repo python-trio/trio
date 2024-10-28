@@ -103,9 +103,8 @@ else:
                 and operation.args[0] == "tb_next"
             ) or TYPE_CHECKING:  # pragma: no cover
                 return tb_next
-            if TYPE_CHECKING:
-                raise RuntimeError("Should not be possible")
-            return operation.delegate()  # Delegate is reverting to original behaviour
+            # Delegate is reverting to original behaviour
+            return operation.delegate()  # type: ignore[no-any-return]
 
         return cast(
             TracebackType,
