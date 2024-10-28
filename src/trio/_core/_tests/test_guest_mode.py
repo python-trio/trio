@@ -438,9 +438,9 @@ def aiotrio_run(
     pass_not_threadsafe: bool = True,
     **start_guest_run_kwargs: Any,
 ) -> T:
+    loop = asyncio.new_event_loop()
 
     async def aio_main() -> T:
-        loop = asyncio.get_running_loop()
         trio_done_fut: asyncio.Future[Outcome[T]] = loop.create_future()
 
         def trio_done_callback(main_outcome: Outcome[T]) -> None:
@@ -459,7 +459,12 @@ def aiotrio_run(
 
         return (await trio_done_fut).unwrap()
 
-    return asyncio.run(aio_main())
+    try:
+        # can't use asyncio.run because that fails on Windows (3.8, x64, with
+        # Komodia LSP)
+        return loop.run_until_complete(aio_main())
+    finally:
+        loop.close()
 
 
 def test_guest_mode_on_asyncio() -> None:
