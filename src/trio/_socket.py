@@ -750,8 +750,7 @@ class SocketType:
         __address: tuple[object, ...] | str | Buffer,
     ) -> int: ...
 
-    # Explicit "Any" is not allowed
-    async def sendto(self, *args: Any) -> int:  # type: ignore[misc]
+    async def sendto(self, *args: object) -> int:
         raise NotImplementedError
 
     if sys.platform != "win32" or (

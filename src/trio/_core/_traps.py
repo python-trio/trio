@@ -210,10 +210,9 @@ async def wait_task_rescheduled(  # type: ignore[misc]
     return (await _async_yield(WaitTaskRescheduled(abort_func))).unwrap()
 
 
-# Explicit "Any" is not allowed
-async def permanently_detach_coroutine_object(  # type: ignore[misc]
+async def permanently_detach_coroutine_object(
     final_outcome: outcome.Outcome[object],
-) -> Any:
+) -> object:
     """Permanently detach the current task from the Trio scheduler.
 
     Normally, a Trio task doesn't exit until its coroutine object exits. When

@@ -1475,7 +1475,6 @@ class Task(metaclass=NoPublicConstructor):  # type: ignore[misc]
 
         """
         # Ignore static typing as we're doing lots of dynamic introspection
-        # Explicit "Any" is not allowed
         coro: Any = self.coro  # type: ignore[misc]
         while coro is not None:
             if hasattr(coro, "cr_frame"):
