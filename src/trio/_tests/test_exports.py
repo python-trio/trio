@@ -390,11 +390,13 @@ def test_static_tool_sees_class_members(
 
             assert "node" in cached_type_info
             node = cached_type_info["node"]
-            static_names = no_hidden(k for k in node["names"] if not k.startswith("."))
+            static_names = no_hidden(
+                k for k in node.get("names", ()) if not k.startswith(".")
+            )
             for symbol in node["mro"][1:]:
                 node = lookup_symbol(symbol)["node"]
                 static_names |= no_hidden(
-                    k for k in node["names"] if not k.startswith(".")
+                    k for k in node.get("names", ()) if not k.startswith(".")
                 )
             static_names -= ignore_names
 
