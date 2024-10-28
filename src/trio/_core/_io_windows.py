@@ -697,13 +697,14 @@ class WindowsIOManager:
 
             lpOverlapped = ffi.new("LPOVERLAPPED")
 
-            poll_info: AFDPollInfo = ffi.new("AFD_POLL_INFO *")
-            poll_info.Timeout = 2**63 - 1  # INT64_MAX
-            poll_info.NumberOfHandles = 1
-            poll_info.Exclusive = 0
-            poll_info.Handles[0].Handle = base_handle
-            poll_info.Handles[0].Status = 0
-            poll_info.Handles[0].Events = flags
+            poll_info = ffi.new("AFD_POLL_INFO *")
+            poll_info_proto = cast(AFDPollInfo, poll_info)
+            poll_info_proto.Timeout = 2**63 - 1  # INT64_MAX
+            poll_info_proto.NumberOfHandles = 1
+            poll_info_proto.Exclusive = 0
+            poll_info_proto.Handles[0].Handle = base_handle
+            poll_info_proto.Handles[0].Status = 0
+            poll_info_proto.Handles[0].Events = flags
 
             try:
                 _check(
@@ -728,7 +729,9 @@ class WindowsIOManager:
                     # Do this last, because it could raise.
                     wake_all(waiters, exc)
                     return
-            op = AFDPollOp(lpOverlapped, poll_info, waiters, afd_group)
+            # get rid of duplicate reference, will use poll_info_proto moving on
+            del poll_info
+            op = AFDPollOp(lpOverlapped, poll_info_proto, waiters, afd_group)
             waiters.current_op = op
             self._afd_ops[lpOverlapped] = op
             afd_group.size += 1
