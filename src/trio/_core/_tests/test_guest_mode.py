@@ -457,6 +457,7 @@ def aiotrio_run(
     loop = asyncio.new_event_loop()
 
     async def aio_main() -> T:
+        nonlocal run_sync_soon_not_threadsafe
         trio_done_fut = loop.create_future()
 
         def trio_done_callback(main_outcome: Outcome[object]) -> None:
