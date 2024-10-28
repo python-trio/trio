@@ -227,8 +227,8 @@ class _Once:
 
     def __init__(
         self,
-        afn: Callable[[], Awaitable[object]],
-        *args: object,
+        afn: Callable[[*Ts], Awaitable[object]],
+        *args: Unpack[Ts],
     ) -> None:
         self._afn = afn
         self._args = args
