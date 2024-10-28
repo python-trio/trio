@@ -102,7 +102,9 @@ async def open_process_then_kill(*args: Any, **kwargs: Any) -> AsyncIterator[Pro
 async def run_process_in_nursery(*args: Any, **kwargs: Any) -> AsyncIterator[Process]:
     async with _core.open_nursery() as nursery:
         kwargs.setdefault("check", False)
-        proc: Process = await nursery.start(partial(run_process, *args, **kwargs))
+        value = await nursery.start(partial(run_process, *args, **kwargs))
+        assert isinstance(value, Process)
+        proc: Process = value
         yield proc
         nursery.cancel_scope.cancel()
 
@@ -634,7 +636,9 @@ async def test_warn_on_cancel_SIGKILL_escalation(
 async def test_run_process_background_fail() -> None:
     with RaisesGroup(subprocess.CalledProcessError):
         async with _core.open_nursery() as nursery:
-            proc: Process = await nursery.start(run_process, EXIT_FALSE)
+            value = await nursery.start(run_process, EXIT_FALSE)
+            assert isinstance(value, Process)
+            proc: Process = value
     assert proc.returncode == 1
 
 

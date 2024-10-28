@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from types import TracebackType
-from typing import ClassVar, cast
+from typing import TYPE_CHECKING, ClassVar, cast
 
 ################################################################
 # concat_tb
@@ -88,7 +88,7 @@ else:
         # cpython/pypy in current type checkers.
         def controller(  # type: ignore[no-any-unimported]
             operation: tputil.ProxyOperation,
-        ) -> object | None:
+        ) -> TracebackType | None:
             # Rationale for pragma: I looked fairly carefully and tried a few
             # things, and AFAICT it's not actually possible to get any
             # 'opname' that isn't __getattr__ or __getattribute__. So there's
@@ -101,8 +101,10 @@ else:
                     "__getattr__",
                 }
                 and operation.args[0] == "tb_next"
-            ):  # pragma: no cover
+            ) or TYPE_CHECKING:  # pragma: no cover
                 return tb_next
+            if TYPE_CHECKING:
+                raise RuntimeError("Should not be possible")
             return operation.delegate()  # Delegate is reverting to original behaviour
 
         return cast(

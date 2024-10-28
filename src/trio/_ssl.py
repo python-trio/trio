@@ -16,6 +16,10 @@ from .abc import Listener, Stream
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
+    from typing_extensions import TypeVarTuple, Unpack
+
+    Ts = TypeVarTuple("Ts")
+
 # General theory of operation:
 #
 # We implement an API that closely mirrors the stdlib ssl module's blocking
@@ -219,10 +223,11 @@ class NeedHandshakeError(Exception):
 
 
 class _Once:
-    # Explicit "Any" is not allowed
-    def __init__(  # type: ignore[misc]
+    __slots__ = ("_afn", "_args", "_done", "started")
+
+    def __init__(
         self,
-        afn: Callable[..., Awaitable[object]],
+        afn: Callable[[], Awaitable[object]],
         *args: object,
     ) -> None:
         self._afn = afn
@@ -454,11 +459,10 @@ class SSLStream(Stream, Generic[T_Stream]):
     # comments, though, just make sure to think carefully if you ever have to
     # touch it. The big comment at the top of this file will help explain
     # too.
-    # Explicit "Any" is not allowed
-    async def _retry(  # type: ignore[misc]
+    async def _retry(
         self,
-        fn: Callable[..., T],
-        *args: object,
+        fn: Callable[[*Ts], T],
+        *args: Unpack[Ts],
         ignore_want_read: bool = False,
         is_handshake: bool = False,
     ) -> T | None:

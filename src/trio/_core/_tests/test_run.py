@@ -823,7 +823,9 @@ async def test_cancel_scope_misnesting() -> None:
             await sleep_forever()
 
     async with _core.open_nursery() as nursery:
-        scope: _core.CancelScope = await nursery.start(task3)
+        value = await nursery.start(task3)
+        assert isinstance(value, _core.CancelScope)
+        scope: _core.CancelScope = value
         with pytest.raises(RuntimeError, match="from unrelated"):
             scope.__exit__(None, None, None)
         scope.cancel()
@@ -1963,7 +1965,9 @@ async def test_nursery_start_with_cancelled_nursery() -> None:
 
     # Cancelling the setup_nursery just *before* calling started()
     async with _core.open_nursery() as nursery:
-        target_nursery: _core.Nursery = await nursery.start(setup_nursery)
+        value = await nursery.start(setup_nursery)
+        assert isinstance(value, _core.Nursery)
+        target_nursery: _core.Nursery = value
         await target_nursery.start(
             sleeping_children,
             target_nursery.cancel_scope.cancel,
@@ -1971,7 +1975,9 @@ async def test_nursery_start_with_cancelled_nursery() -> None:
 
     # Cancelling the setup_nursery just *after* calling started()
     async with _core.open_nursery() as nursery:
-        target_nursery = await nursery.start(setup_nursery)
+        value = await nursery.start(setup_nursery)
+        assert isinstance(value, _core.Nursery)
+        target_nursery = value
         await target_nursery.start(sleeping_children, lambda: None)
         target_nursery.cancel_scope.cancel()
 

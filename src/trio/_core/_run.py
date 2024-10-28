@@ -71,18 +71,16 @@ if TYPE_CHECKING:
     # for some strange reason Sphinx works with outcome.Outcome, but not Outcome, in
     # start_guest_run. Same with types.FrameType in iter_await_frames
     import outcome
-    from typing_extensions import ParamSpec, Self, TypeVar, TypeVarTuple, Unpack
+    from typing_extensions import Self, TypeVar, TypeVarTuple, Unpack
 
     PosArgT = TypeVarTuple("PosArgT")
     StatusT = TypeVar("StatusT", default=None)
     StatusT_contra = TypeVar("StatusT_contra", contravariant=True, default=None)
-    PS = ParamSpec("PS")
 else:
     from typing import TypeVar
 
     StatusT = TypeVar("StatusT")
     StatusT_contra = TypeVar("StatusT_contra", contravariant=True)
-    PS = TypeVar("PS")
 
 RetT = TypeVar("RetT")
 
@@ -103,7 +101,7 @@ class _NoStatus(metaclass=NoPublicConstructor):
 
 # Decorator to mark methods public. This does nothing by itself, but
 # trio/_tools/gen_exports.py looks for it.
-def _public(fn: Callable[PS, RetT]) -> Callable[PS, RetT]:
+def _public(fn: RetT) -> RetT:
     return fn
 
 

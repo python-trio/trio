@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import enum
 import types
-from typing import TYPE_CHECKING, Any, Callable, NoReturn
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, Any, NoReturn, Union, cast
 
 import attrs
 import outcome
@@ -12,9 +13,39 @@ import outcome
 from . import _run
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
+
     from typing_extensions import TypeAlias
 
     from ._run import Task
+
+RaiseCancelT: TypeAlias = Callable[[], NoReturn]
+
+
+# This class object is used as a singleton.
+# Not exported in the trio._core namespace, but imported directly by _run.
+class CancelShieldedCheckpoint:
+    __slots__ = ()
+
+
+# Not exported in the trio._core namespace, but imported directly by _run.
+@attrs.frozen(slots=False)
+class WaitTaskRescheduled:
+    abort_func: Callable[[RaiseCancelT], Abort]
+
+
+# Not exported in the trio._core namespace, but imported directly by _run.
+@attrs.frozen(slots=False)
+class PermanentlyDetachCoroutineObject:
+    final_outcome: outcome.Outcome[object]
+
+
+MessageType: TypeAlias = Union[
+    type[CancelShieldedCheckpoint],
+    WaitTaskRescheduled,
+    PermanentlyDetachCoroutineObject,
+    object,
+]
 
 
 # Helper for the bottommost 'yield'. You can't use 'yield' inside an async
@@ -25,14 +56,18 @@ if TYPE_CHECKING:
 # tracking machinery. Since our traps are public APIs, we make them real async
 # functions, and then this helper takes care of the actual yield:
 @types.coroutine
-def _async_yield(obj: Any) -> Any:  # type: ignore[misc]
+def _real_async_yield(
+    obj: MessageType,
+) -> Generator[MessageType, None, None]:
     return (yield obj)
 
 
-# This class object is used as a singleton.
-# Not exported in the trio._core namespace, but imported directly by _run.
-class CancelShieldedCheckpoint:
-    pass
+# Real yield value is from trio's main loop, but type checkers can't
+# understand that, so we cast it to make type checkers understand.
+_async_yield = cast(
+    Callable[[MessageType], Awaitable[outcome.Outcome[object]]],
+    _real_async_yield,
+)
 
 
 async def cancel_shielded_checkpoint() -> None:
@@ -64,15 +99,6 @@ class Abort(enum.Enum):
 
     SUCCEEDED = 1
     FAILED = 2
-
-
-# Not exported in the trio._core namespace, but imported directly by _run.
-@attrs.frozen(slots=False)
-class WaitTaskRescheduled:
-    abort_func: Callable[[RaiseCancelT], Abort]
-
-
-RaiseCancelT: TypeAlias = Callable[[], NoReturn]
 
 
 # Should always return the type a Task "expects", unless you willfully reschedule it
@@ -180,12 +206,6 @@ async def wait_task_rescheduled(  # type: ignore[misc]
 
     """
     return (await _async_yield(WaitTaskRescheduled(abort_func))).unwrap()
-
-
-# Not exported in the trio._core namespace, but imported directly by _run.
-@attrs.frozen(slots=False)
-class PermanentlyDetachCoroutineObject:
-    final_outcome: outcome.Outcome[object]
 
 
 # Explicit "Any" is not allowed

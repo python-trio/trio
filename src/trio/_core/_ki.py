@@ -85,7 +85,13 @@ class _IdRef(weakref.ref[_T]):
     __slots__ = ("_hash",)
     _hash: int
 
-    def __new__(cls, ob: _T, callback: Callable[[Self], Any] | None = None, /) -> Self:
+    # Explicit "Any" is not allowed
+    def __new__(  # type: ignore[misc]
+        cls,
+        ob: _T,
+        callback: Callable[[Self], Any] | None = None,
+        /,
+    ) -> Self:
         self: Self = weakref.ref.__new__(cls, ob, callback)
         self._hash = object.__hash__(ob)
         return self

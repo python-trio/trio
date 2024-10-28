@@ -435,8 +435,7 @@ async def open_file(  # type: ignore[misc]  # Any usage matches builtins.open().
 ) -> AsyncIOWrapper[IO[Any]]: ...
 
 
-# Explicit "Any" is not allowed
-async def open_file(  # type: ignore[misc]
+async def open_file(
     file: _OpenFile,
     mode: str = "r",
     buffering: int = -1,
@@ -445,7 +444,7 @@ async def open_file(  # type: ignore[misc]
     newline: str | None = None,
     closefd: bool = True,
     opener: _Opener | None = None,
-) -> AsyncIOWrapper[Any]:
+) -> AsyncIOWrapper[object]:
     """Asynchronous version of :func:`open`.
 
     Returns:
