@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import enum
 import types
-from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING, Any, NoReturn, Union, cast
+from collections.abc import Awaitable
+
+# Jedi gets mad in test_static_tool_sees_class_members if we use collections Callable
+from typing import TYPE_CHECKING, Any, Callable, NoReturn, Union, cast
 
 import attrs
 import outcome
