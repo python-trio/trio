@@ -18,6 +18,7 @@ from typing import (
     TYPE_CHECKING,
     NoReturn,
     TypeVar,
+    cast,
 )
 
 import pytest
@@ -465,7 +466,7 @@ def aiotrio_run(
             trio_done_fut.set_result(main_outcome)
 
         if pass_not_threadsafe:
-            run_sync_soon_not_threadsafe = loop.call_soon
+            run_sync_soon_not_threadsafe = cast(InHost, loop.call_soon)
 
         trio.lowlevel.start_guest_run(
             trio_fn,
