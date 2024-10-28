@@ -461,7 +461,7 @@ def aiotrio_run(
 
     try:
         # can't use asyncio.run because that fails on Windows (3.8, x64, with
-        # Komodia LSP)
+        # Komodia LSP) and segfaults on Windows (3.9, x64, with Komodia LSP)
         return loop.run_until_complete(aio_main())
     finally:
         loop.close()
