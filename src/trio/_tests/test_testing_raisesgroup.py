@@ -236,7 +236,7 @@ def test_RaisesGroup_matches() -> None:
 def test_message() -> None:
     def check_message(
         message: str,
-        body: RaisesGroup[object],
+        body: RaisesGroup[BaseException],
     ) -> None:
         with pytest.raises(
             AssertionError,

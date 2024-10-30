@@ -66,7 +66,7 @@ class MonkeypatchedGAI:
         flags: int = 0,
     ) -> tuple[str | int | bytes | None, ...]:
         sig = inspect.signature(self._orig_getaddrinfo)
-        bound = sig.bind(host, port, family, proto, flags)
+        bound = sig.bind(host, port, family, type, proto, flags)
         bound.apply_defaults()
         frozenbound = bound.args
         assert not bound.kwargs
@@ -82,7 +82,9 @@ class MonkeypatchedGAI:
         proto: int = 0,
         flags: int = 0,
     ) -> None:
-        self._responses[self._frozenbind(host, port, family, proto, flags)] = response
+        self._responses[self._frozenbind(host, port, family, type, proto, flags)] = (
+            response
+        )
 
     def getaddrinfo(
         self,
@@ -93,12 +95,12 @@ class MonkeypatchedGAI:
         proto: int = 0,
         flags: int = 0,
     ) -> GetAddrInfoResponse | str:
-        bound = self._frozenbind(host, port, family, proto, flags)
+        bound = self._frozenbind(host, port, family, type, proto, flags)
         self.record.append(bound)
         if bound in self._responses:
             return self._responses[bound]
         elif flags & stdlib_socket.AI_NUMERICHOST:
-            return self._orig_getaddrinfo(host, port, family, proto, flags)
+            return self._orig_getaddrinfo(host, port, family, type, proto, flags)
         else:
             raise RuntimeError(f"gai called with unexpected arguments {bound}")
 
@@ -885,19 +887,17 @@ async def test_resolve_address_exception_in_connect_closes_socket() -> None:
         with tsocket.socket() as sock:
 
             async def _resolve_address_nocp(
-                self: _SocketType,
-                host: str | bytes | None,
-                port: str | bytes | int | None,
-                family: int = 0,
-                type: int = 0,
-                proto: int = 0,
-                flags: int = 0,
+                address: AddressFormat,
+                *,
+                local: bool,
             ) -> None:
+                assert address == ""
+                assert not local
                 cancel_scope.cancel()
                 await _core.checkpoint()
 
             assert isinstance(sock, _SocketType)
-            sock._resolve_address_nocp = _resolve_address_nocp  # type: ignore[method-assign, assignment]
+            sock._resolve_address_nocp = _resolve_address_nocp  # type: ignore[method-assign]
             with assert_checkpoints():
                 with pytest.raises(_core.Cancelled):
                     await sock.connect("")
