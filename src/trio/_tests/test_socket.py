@@ -34,8 +34,8 @@ if TYPE_CHECKING:
     ]
     GetAddrInfoResponse: TypeAlias = list[GaiTuple]
     GetAddrInfoArgs: TypeAlias = tuple[
-        str | bytes | None,
-        str | bytes | int | None,
+        Union[str, bytes, None],
+        Union[str, bytes, int, None],
         int,
         int,
         int,
@@ -77,7 +77,7 @@ class MonkeypatchedGAI:
         type: int = 0,
         proto: int = 0,
         flags: int = 0,
-    ) -> tuple[str | int | bytes | None, ...]:
+    ) -> GetAddrInfoArgs:
         sig = inspect.signature(self._orig_getaddrinfo)
         bound = sig.bind(host, port, family, type, proto, flags)
         bound.apply_defaults()
