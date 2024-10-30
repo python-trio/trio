@@ -4,7 +4,7 @@ import signal
 import sys
 import types
 import weakref
-from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar
+from typing import TYPE_CHECKING, Generic, Protocol, TypeVar
 
 import attrs
 
@@ -85,11 +85,10 @@ class _IdRef(weakref.ref[_T]):
     __slots__ = ("_hash",)
     _hash: int
 
-    # Explicit "Any" is not allowed
-    def __new__(  # type: ignore[misc]
+    def __new__(
         cls,
         ob: _T,
-        callback: Callable[[Self], Any] | None = None,
+        callback: Callable[[Self], object] | None = None,
         /,
     ) -> Self:
         self: Self = weakref.ref.__new__(cls, ob, callback)

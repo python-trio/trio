@@ -1281,6 +1281,7 @@ class Nursery(metaclass=NoPublicConstructor):
         """
         GLOBAL_RUN_CONTEXT.runner.spawn_impl(async_fn, args, self, name)
 
+    # Typing changes blocked by https://github.com/python/mypy/pull/17512
     # Explicit "Any" is not allowed
     async def start(  # type: ignore[misc]
         self,
@@ -2413,6 +2414,7 @@ def run(
         raise AssertionError(runner.main_task_outcome)
 
 
+# Explicit .../"Any" not allowed
 def start_guest_run(  # type: ignore[misc]
     async_fn: Callable[..., Awaitable[RetT]],
     *args: object,

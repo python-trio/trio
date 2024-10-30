@@ -250,17 +250,19 @@ class AFDWaiters:
     current_op: AFDPollOp | None = None
 
 
-class AFDHandle(Protocol):
+# Just used for internal type checking.
+class _AFDHandle(Protocol):
     Handle: Handle
     Status: int
     Events: int
 
 
-class AFDPollInfo(Protocol):
+# Just used for internal type checking.
+class _AFDPollInfo(Protocol):
     Timeout: int
     NumberOfHandles: int
     Exclusive: int
-    Handles: list[AFDHandle]
+    Handles: list[_AFDHandle]
 
 
 # We also need to bundle up all the info for a single op into a standalone
@@ -269,7 +271,7 @@ class AFDPollInfo(Protocol):
 @attrs.frozen(eq=False)
 class AFDPollOp:
     lpOverlapped: CData
-    poll_info: AFDPollInfo
+    poll_info: _AFDPollInfo
     waiters: AFDWaiters
     afd_group: AFDGroup
 
@@ -698,7 +700,7 @@ class WindowsIOManager:
 
             lpOverlapped = ffi.new("LPOVERLAPPED")
 
-            poll_info = cast(AFDPollInfo, ffi.new("AFD_POLL_INFO *"))
+            poll_info = cast(_AFDPollInfo, ffi.new("AFD_POLL_INFO *"))
             poll_info.Timeout = 2**63 - 1  # INT64_MAX
             poll_info.NumberOfHandles = 1
             poll_info.Exclusive = 0

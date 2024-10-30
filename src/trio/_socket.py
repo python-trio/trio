@@ -710,26 +710,24 @@ class SocketType:
         not TYPE_CHECKING and hasattr(_stdlib_socket.socket, "recvmsg")
     ):
 
-        # Explicit "Any" is not allowed
-        def recvmsg(  # type: ignore[misc]
+        def recvmsg(
             __self,
             __bufsize: int,
             __ancbufsize: int = 0,
             __flags: int = 0,
-        ) -> Awaitable[tuple[bytes, list[tuple[int, int, bytes]], int, Any]]:
+        ) -> Awaitable[tuple[bytes, list[tuple[int, int, bytes]], int, object]]:
             raise NotImplementedError
 
     if sys.platform != "win32" or (
         not TYPE_CHECKING and hasattr(_stdlib_socket.socket, "recvmsg_into")
     ):
 
-        # Explicit "Any" is not allowed
-        def recvmsg_into(  # type: ignore[misc]
+        def recvmsg_into(
             __self,
             __buffers: Iterable[Buffer],
             __ancbufsize: int = 0,
             __flags: int = 0,
-        ) -> Awaitable[tuple[int, list[tuple[int, int, bytes]], int, Any]]:
+        ) -> Awaitable[tuple[int, list[tuple[int, int, bytes]], int, object]]:
             raise NotImplementedError
 
     def send(__self, __bytes: Buffer, __flags: int = 0) -> Awaitable[int]:
@@ -1193,13 +1191,12 @@ class _SocketType(SocketType):
     ):
         if TYPE_CHECKING:
 
-            #  Explicit "Any" is not allowed
-            def recvmsg(  # type: ignore[misc]
+            def recvmsg(
                 __self,
                 __bufsize: int,
                 __ancbufsize: int = 0,
                 __flags: int = 0,
-            ) -> Awaitable[tuple[bytes, list[tuple[int, int, bytes]], int, Any]]: ...
+            ) -> Awaitable[tuple[bytes, list[tuple[int, int, bytes]], int, object]]: ...
 
         recvmsg = _make_simple_sock_method_wrapper(
             _stdlib_socket.socket.recvmsg,
@@ -1216,13 +1213,12 @@ class _SocketType(SocketType):
     ):
         if TYPE_CHECKING:
 
-            # Explicit "Any" is not allowed
-            def recvmsg_into(  # type: ignore[misc]
+            def recvmsg_into(
                 __self,
                 __buffers: Iterable[Buffer],
                 __ancbufsize: int = 0,
                 __flags: int = 0,
-            ) -> Awaitable[tuple[int, list[tuple[int, int, bytes]], int, Any]]: ...
+            ) -> Awaitable[tuple[int, list[tuple[int, int, bytes]], int, object]]: ...
 
         recvmsg_into = _make_simple_sock_method_wrapper(
             _stdlib_socket.socket.recvmsg_into,
@@ -1262,8 +1258,8 @@ class _SocketType(SocketType):
         __address: tuple[object, ...] | str | Buffer,
     ) -> int: ...
 
-    @_wraps(_stdlib_socket.socket.sendto, assigned=(), updated=())  # type: ignore[misc]
-    async def sendto(self, *args: Any) -> int:
+    @_wraps(_stdlib_socket.socket.sendto, assigned=(), updated=())
+    async def sendto(self, *args: object) -> int:
         """Similar to :meth:`socket.socket.sendto`, but async."""
         # args is: data[, flags], address
         # and kwargs are not accepted

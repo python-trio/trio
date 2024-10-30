@@ -1648,7 +1648,7 @@ async def test_spawn_name() -> None:
     async def func2() -> None:  # pragma: no cover
         pass
 
-    # Explicit "Any" is not allowed
+    # Explicit .../"Any" is not allowed
     async def check(  # type: ignore[misc]
         spawn_fn: Callable[..., object],
     ) -> None:
@@ -1686,7 +1686,7 @@ async def test_current_effective_deadline(mock_clock: _core.MockClock) -> None:
 
 
 def test_nice_error_on_bad_calls_to_run_or_spawn() -> None:
-    # Explicit "Any" is not allowed
+    # Explicit .../"Any" is not allowed
     def bad_call_run(  # type: ignore[misc]
         func: Callable[..., Awaitable[object]],
         *args: tuple[object, ...],

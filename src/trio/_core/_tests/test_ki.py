@@ -678,7 +678,7 @@ async def _consume_async_generator(agen: AsyncGenerator[None, None]) -> None:
         await agen.aclose()
 
 
-# Explicit "Any" is not allowed
+# Explicit .../"Any" is not allowed
 def _consume_function_for_coverage(  # type: ignore[misc]
     fn: Callable[..., object],
 ) -> None:
