@@ -305,7 +305,7 @@ class generic_function(Generic[RetT]):
     but at least it becomes possible to write those.
     """
 
-    # Explicit "Any" is not allowed
+    # Explicit .../"Any" is not allowed
     def __init__(  # type: ignore[misc]
         self,
         fn: Callable[..., RetT],
@@ -402,10 +402,10 @@ def name_asyncgen(agen: AsyncGeneratorType[object, NoReturn]) -> str:
 
 # work around a pyright error
 if TYPE_CHECKING:
-    # Explicit "Any" is not allowed
+    # Explicit .../"Any" is not allowed
     Fn = TypeVar("Fn", bound=Callable[..., object])  # type: ignore[misc]
 
-    # Explicit "Any" is not allowed
+    # Explicit .../"Any" is not allowed
     def wraps(  # type: ignore[misc]
         wrapped: Callable[..., object],
         assigned: Sequence[str] = ...,
