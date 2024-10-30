@@ -41,7 +41,7 @@ else:
 
 
 class MonkeypatchedGAI:
-    # Explicit "Any" is not allowed
+    # Explicit .../"Any" is not allowed
     def __init__(  # type: ignore[misc]
         self,
         orig_getaddrinfo: Callable[..., GetAddrInfoResponse],
