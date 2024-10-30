@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 import sys
 from types import TracebackType
-from typing import Any
 
 import pytest
 
@@ -235,10 +234,9 @@ def test_RaisesGroup_matches() -> None:
 
 
 def test_message() -> None:
-    # Explicit "Any" is not allowed
-    def check_message(  # type: ignore[misc]
+    def check_message(
         message: str,
-        body: RaisesGroup[Any],
+        body: RaisesGroup[object],
     ) -> None:
         with pytest.raises(
             AssertionError,

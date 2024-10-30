@@ -8,14 +8,14 @@ import sys
 import tempfile
 from pathlib import Path
 from socket import AddressFamily, SocketKind
-from typing import TYPE_CHECKING, Any, Callable, Union
+from typing import TYPE_CHECKING, Callable, Union, cast
 
 import attrs
 import pytest
 
 from .. import _core, socket as tsocket
 from .._core._tests.tutil import binds_ipv6, creates_ipv6
-from .._socket import _NUMERIC_ONLY, SocketType, _SocketType, _try_sync
+from .._socket import _NUMERIC_ONLY, AddressFormat, SocketType, _SocketType, _try_sync
 from ..testing import assert_checkpoints, wait_all_tasks_blocked
 
 if TYPE_CHECKING:
@@ -41,50 +41,64 @@ else:
 
 
 class MonkeypatchedGAI:
+    __slots__ = ("_orig_getaddrinfo", "_responses", "record")
+
     # Explicit .../"Any" is not allowed
     def __init__(  # type: ignore[misc]
         self,
         orig_getaddrinfo: Callable[..., GetAddrInfoResponse],
     ) -> None:
         self._orig_getaddrinfo = orig_getaddrinfo
-        self._responses: dict[tuple[Any, ...], GetAddrInfoResponse | str] = {}  # type: ignore[misc]
-        self.record: list[tuple[Any, ...]] = []  # type: ignore[misc]
+        self._responses: dict[
+            tuple[str | int | bytes | None, ...],
+            GetAddrInfoResponse | str,
+        ] = {}
+        self.record: list[tuple[str | int | bytes | None, ...]] = []
 
     # get a normalized getaddrinfo argument tuple
-    # Explicit "Any" is not allowed
-    def _frozenbind(  # type: ignore[misc]
+    def _frozenbind(
         self,
-        *args: Any,
-        **kwargs: Any,
-    ) -> tuple[Any, ...]:
+        host: str | bytes | None,
+        port: str | bytes | int | None,
+        family: int = 0,
+        type: int = 0,
+        proto: int = 0,
+        flags: int = 0,
+    ) -> tuple[str | int | bytes | None, ...]:
         sig = inspect.signature(self._orig_getaddrinfo)
-        bound = sig.bind(*args, **kwargs)
+        bound = sig.bind(host, port, family, proto, flags)
         bound.apply_defaults()
         frozenbound = bound.args
         assert not bound.kwargs
         return frozenbound
 
-    # Explicit "Any" is not allowed
-    def set(  # type: ignore[misc]
+    def set(
         self,
         response: GetAddrInfoResponse | str,
-        *args: Any,
-        **kwargs: Any,
+        host: str | bytes | None,
+        port: str | bytes | int | None,
+        family: int = 0,
+        type: int = 0,
+        proto: int = 0,
+        flags: int = 0,
     ) -> None:
-        self._responses[self._frozenbind(*args, **kwargs)] = response
+        self._responses[self._frozenbind(host, port, family, proto, flags)] = response
 
-    # Explicit "Any" is not allowed
-    def getaddrinfo(  # type: ignore[misc]
+    def getaddrinfo(
         self,
-        *args: Any,
-        **kwargs: Any,
+        host: str | bytes | None,
+        port: str | bytes | int | None,
+        family: int = 0,
+        type: int = 0,
+        proto: int = 0,
+        flags: int = 0,
     ) -> GetAddrInfoResponse | str:
-        bound = self._frozenbind(*args, **kwargs)
+        bound = self._frozenbind(host, port, family, proto, flags)
         self.record.append(bound)
         if bound in self._responses:
             return self._responses[bound]
-        elif bound[-1] & stdlib_socket.AI_NUMERICHOST:
-            return self._orig_getaddrinfo(*args, **kwargs)
+        elif flags & stdlib_socket.AI_NUMERICHOST:
+            return self._orig_getaddrinfo(host, port, family, proto, flags)
         else:
             raise RuntimeError(f"gai called with unexpected arguments {bound}")
 
@@ -601,8 +615,7 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
         # local=True/local=False should work the same:
         for local in [False, True]:
 
-            # Explicit "Any" is not allowed
-            async def res(  # type: ignore[misc]
+            async def res(
                 args: (
                     tuple[str, int]
                     | tuple[str, int, int]
@@ -611,11 +624,13 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
                     | tuple[str, str, int]
                     | tuple[str, str, int, int]
                 ),
-            ) -> Any:
-                return await sock._resolve_address_nocp(
+            ) -> tuple[str | int, ...]:
+                value = await sock._resolve_address_nocp(
                     args,
                     local=local,  # noqa: B023  # local is not bound in function definition
                 )
+                assert isinstance(value, tuple)
+                return cast(tuple[Union[str, int], ...], value)
 
             assert_eq(await res((addrs.arbitrary, "http")), (addrs.arbitrary, 80))
             if v6:
@@ -810,11 +825,9 @@ async def test_SocketType_connect_paths() -> None:
             # nose -- and then swap it back out again before we hit
             # wait_socket_writable, which insists on a real socket.
             class CancelSocket(stdlib_socket.socket):
-                # Explicit "Any" is not allowed
-                def connect(  # type: ignore[misc]
+                def connect(
                     self,
-                    *args: Any,
-                    **kwargs: Any,
+                    address: AddressFormat,
                 ) -> None:
                     # accessing private method only available in _SocketType
                     assert isinstance(sock, _SocketType)
@@ -825,7 +838,7 @@ async def test_SocketType_connect_paths() -> None:
                         self.family,
                         self.type,
                     )
-                    sock._sock.connect(*args, **kwargs)
+                    sock._sock.connect(address)
                     # If connect *doesn't* raise, then pretend it did
                     raise BlockingIOError  # pragma: no cover
 
@@ -871,11 +884,14 @@ async def test_resolve_address_exception_in_connect_closes_socket() -> None:
     with _core.CancelScope() as cancel_scope:
         with tsocket.socket() as sock:
 
-            # Explicit "Any" is not allowed
-            async def _resolve_address_nocp(  # type: ignore[misc]
+            async def _resolve_address_nocp(
                 self: _SocketType,
-                *args: Any,
-                **kwargs: Any,
+                host: str | bytes | None,
+                port: str | bytes | int | None,
+                family: int = 0,
+                type: int = 0,
+                proto: int = 0,
+                flags: int = 0,
             ) -> None:
                 cancel_scope.cancel()
                 await _core.checkpoint()
