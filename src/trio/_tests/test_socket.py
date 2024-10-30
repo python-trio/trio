@@ -33,9 +33,18 @@ if TYPE_CHECKING:
         Union[tuple[str, int], tuple[str, int, int, int]],
     ]
     GetAddrInfoResponse: TypeAlias = list[GaiTuple]
+    GetAddrInfoArgs: TypeAlias = tuple[
+        str | bytes | None,
+        str | bytes | int | None,
+        int,
+        int,
+        int,
+        int,
+    ]
 else:
     GaiTuple: object
     GetAddrInfoResponse = object
+    GetAddrInfoArgs = object
 
 ################################################################
 # utils
@@ -54,10 +63,10 @@ class MonkeypatchedGAI:
     ) -> None:
         self._orig_getaddrinfo = orig_getaddrinfo
         self._responses: dict[
-            tuple[str | int | bytes | None, ...],
+            GetAddrInfoArgs,
             GetAddrInfoResponse | str,
         ] = {}
-        self.record: list[tuple[str | int | bytes | None, ...]] = []
+        self.record: list[GetAddrInfoArgs] = []
 
     # get a normalized getaddrinfo argument tuple
     def _frozenbind(
