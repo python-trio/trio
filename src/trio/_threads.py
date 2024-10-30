@@ -207,9 +207,8 @@ class Run(Generic[RetT]):  # type: ignore[misc]
 
 
 @attrs.frozen(eq=False, slots=False)
-# Explicit "Any" is not allowed
+# Explicit .../"Any" is not allowed
 class RunSync(Generic[RetT]):  # type: ignore[misc]
-    # Explicit "Any" is not allowed
     fn: Callable[..., RetT]  # type: ignore[misc]
     args: tuple[object, ...]
     context: contextvars.Context = attrs.field(

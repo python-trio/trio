@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     T = TypeVar("T")
 
 
-# Explicit "Any" is not allowed
+# Explicit .../"Any" is not allowed
 def _wraps_async(  # type: ignore[misc]
     wrapped: Callable[..., object],
 ) -> Callable[[Callable[P, T]], Callable[P, Awaitable[T]]]:
