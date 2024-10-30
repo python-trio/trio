@@ -8,7 +8,7 @@ import sys
 import tempfile
 from pathlib import Path
 from socket import AddressFamily, SocketKind
-from typing import TYPE_CHECKING, Callable, Union, cast
+from typing import TYPE_CHECKING, Union, cast
 
 import attrs
 import pytest
@@ -19,6 +19,8 @@ from .._socket import _NUMERIC_ONLY, AddressFormat, SocketType, _SocketType, _tr
 from ..testing import assert_checkpoints, wait_all_tasks_blocked
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from typing_extensions import TypeAlias
 
     from .._highlevel_socket import SocketStream
@@ -43,10 +45,12 @@ else:
 class MonkeypatchedGAI:
     __slots__ = ("_orig_getaddrinfo", "_responses", "record")
 
-    # Explicit .../"Any" is not allowed
-    def __init__(  # type: ignore[misc]
+    def __init__(
         self,
-        orig_getaddrinfo: Callable[..., GetAddrInfoResponse],
+        orig_getaddrinfo: Callable[
+            [str | bytes | None, str | bytes | int | None, int, int, int, int],
+            GetAddrInfoResponse,
+        ],
     ) -> None:
         self._orig_getaddrinfo = orig_getaddrinfo
         self._responses: dict[
