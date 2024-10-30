@@ -146,9 +146,8 @@ class ThreadPlaceholder:
 
 # Types for the to_thread_run_sync message loop
 @attrs.frozen(eq=False, slots=False)
-# Explicit "Any" is not allowed
+# Explicit .../"Any" is not allowed
 class Run(Generic[RetT]):  # type: ignore[misc]
-    # Explicit "Any" is not allowed
     afn: Callable[..., Awaitable[RetT]]  # type: ignore[misc]
     args: tuple[object, ...]
     context: contextvars.Context = attrs.field(
