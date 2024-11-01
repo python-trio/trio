@@ -35,6 +35,7 @@ _R = TypeVar("_R")
 @_core.disable_ki_protection
 def _call_without_ki_protection(
     f: Callable[_P, _R],
+    /,
     *args: _P.args,
     **kwargs: _P.kwargs,
 ) -> _R:
