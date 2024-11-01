@@ -73,6 +73,9 @@ class AsyncGenerators:
                 # An async generator first iterated outside of a Trio
                 # task doesn't belong to Trio. Probably we're in guest
                 # mode and the async generator belongs to our host.
+                # A strong set of ids is one of the only good places to
+                # remember this fact, at least until
+                # https://github.com/python/cpython/issues/85093 is implemented.
                 self.foreign.add(id(agen))
                 if self.prev_hooks.firstiter is not None:
                     self.prev_hooks.firstiter(agen)
