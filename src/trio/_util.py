@@ -3,9 +3,7 @@ from __future__ import annotations
 
 import collections.abc
 import inspect
-import os
 import signal
-import threading
 from abc import ABCMeta
 from collections.abc import Awaitable, Callable, Sequence
 from functools import update_wrapper
