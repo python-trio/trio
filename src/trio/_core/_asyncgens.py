@@ -4,7 +4,7 @@ import logging
 import sys
 import warnings
 import weakref
-from typing import TYPE_CHECKING, NoReturn
+from typing import TYPE_CHECKING, NoReturn, TypeVar
 
 import attrs
 
@@ -16,7 +16,12 @@ from . import _run
 ASYNCGEN_LOGGER = logging.getLogger("trio.async_generator_errors")
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from types import AsyncGeneratorType
+
+    from typing_extensions import ParamSpec
+
+    _P = ParamSpec("_P")
 
     _WEAK_ASYNC_GEN_SET = weakref.WeakSet[AsyncGeneratorType[object, NoReturn]]
     _ASYNC_GEN_SET = set[AsyncGeneratorType[object, NoReturn]]
@@ -24,31 +29,16 @@ else:
     _WEAK_ASYNC_GEN_SET = weakref.WeakSet
     _ASYNC_GEN_SET = set
 
+_R = TypeVar("_R")
+
 
 @_core.disable_ki_protection
-def _finalize_without_ki_protection(
-    agen_name: str,
-    agen: AsyncGeneratorType[object, NoReturn],
-) -> None:
-    # Host has no finalizer.  Reimplement the default
-    # Python behavior with no hooks installed: throw in
-    # GeneratorExit, step once, raise RuntimeError if
-    # it doesn't exit.
-    closer = agen.aclose()
-    try:
-        # If the next thing is a yield, this will raise RuntimeError
-        # which we allow to propagate
-        closer.send(None)
-    except StopIteration:
-        pass
-    else:
-        # If the next thing is an await, we get here. Give a nicer
-        # error than the default "async generator ignored GeneratorExit"
-        raise RuntimeError(
-            f"Non-Trio async generator {agen_name!r} awaited something "
-            "during finalization; install a finalization hook to "
-            "support this, or wrap it in 'async with aclosing(...):'",
-        )
+def _call_without_ki_protection(
+    f: Callable[_P, _R],
+    *args: _P.args,
+    **kwargs: _P.kwargs,
+) -> _R:
+    return f(*args, **kwargs)
 
 
 @attrs.define(eq=False)
@@ -136,10 +126,29 @@ class AsyncGenerators:
                 )
             else:
                 # Not ours -> forward to the host loop's async generator finalizer
-                if self.prev_hooks.finalizer is not None:
-                    self.prev_hooks.finalizer(agen)
+                finalizer = self.prev_hooks.finalizer
+                if finalizer is not None:
+                    _call_without_ki_protection(finalizer, agen)
                 else:
-                    _finalize_without_ki_protection(agen_name, agen)
+                    # Host has no finalizer.  Reimplement the default
+                    # Python behavior with no hooks installed: throw in
+                    # GeneratorExit, step once, raise RuntimeError if
+                    # it doesn't exit.
+                    closer = agen.aclose()
+                    try:
+                        # If the next thing is a yield, this will raise RuntimeError
+                        # which we allow to propagate
+                        _call_without_ki_protection(closer.send, None)
+                    except StopIteration:
+                        pass
+                    else:
+                        # If the next thing is an await, we get here. Give a nicer
+                        # error than the default "async generator ignored GeneratorExit"
+                        raise RuntimeError(
+                            f"Non-Trio async generator {agen_name!r} awaited something "
+                            "during finalization; install a finalization hook to "
+                            "support this, or wrap it in 'async with aclosing(...):'",
+                        )
 
         self.prev_hooks = sys.get_asyncgen_hooks()
         sys.set_asyncgen_hooks(firstiter=firstiter, finalizer=finalizer)  # type: ignore[arg-type]  # Finalizer doesn't use AsyncGeneratorType
