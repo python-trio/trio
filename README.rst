@@ -22,6 +22,10 @@
    :target: https://codecov.io/gh/python-trio/trio
    :alt: Test coverage
 
+.. image:: https://img.shields.io/badge/Gurubase-Ask%20Trio%20Guru-006BFF.svg
+   :target: https://gurubase.io/g/trio
+   :alt: Ask Trio Guru
+
 Trio – a friendly Python library for async concurrency and I/O
 ==============================================================
 
