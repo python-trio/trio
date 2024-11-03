@@ -38,7 +38,7 @@ echo "::endgroup::"
 
 echo "::group::Install dependencies"
 python -m pip install -vvv -U pip -c test-requirements.txt
-python -m pip install -U uv -c test-requirements.txt
+python -m pip install -vvv -U uv -c test-requirements.txt
 python -m pip --version
 python -m uv --version
 
