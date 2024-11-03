@@ -97,6 +97,8 @@ parso==0.8.4 ; implementation_name == 'cpython'
     # via jedi
 pathspec==0.12.1 ; implementation_name == 'cpython'
     # via black
+pip==24.3.1
+    # via -r test-requirements.in
 platformdirs==4.3.6
     # via
     #   black
