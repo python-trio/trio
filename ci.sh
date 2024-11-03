@@ -38,6 +38,7 @@ python -c "import platform, sys, struct, ssl; print('python:', sys.version); pri
 echo "::endgroup::"
 
 echo "::group::Install dependencies"
+python -m pip debug --verbose
 python -m pip install -vvv -U pip -c test-requirements.txt
 python -m pip install -vvv -U uv -c test-requirements.txt
 python -m pip --version
