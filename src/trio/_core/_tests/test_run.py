@@ -10,7 +10,7 @@ import types
 import weakref
 from contextlib import ExitStack, contextmanager, suppress
 from math import inf, nan
-from typing import TYPE_CHECKING, Any, NoReturn, TypeVar, cast
+from typing import TYPE_CHECKING, NoReturn, TypeVar
 
 import outcome
 import pytest
@@ -823,7 +823,9 @@ async def test_cancel_scope_misnesting() -> None:
             await sleep_forever()
 
     async with _core.open_nursery() as nursery:
-        scope: _core.CancelScope = await nursery.start(task3)
+        value = await nursery.start(task3)
+        assert isinstance(value, _core.CancelScope)
+        scope: _core.CancelScope = value
         with pytest.raises(RuntimeError, match="from unrelated"):
             scope.__exit__(None, None, None)
         scope.cancel()
@@ -1646,7 +1648,10 @@ async def test_spawn_name() -> None:
     async def func2() -> None:  # pragma: no cover
         pass
 
-    async def check(spawn_fn: Callable[..., object]) -> None:
+    # Explicit .../"Any" is not allowed
+    async def check(  # type: ignore[misc]
+        spawn_fn: Callable[..., object],
+    ) -> None:
         spawn_fn(func1, "func1")
         spawn_fn(func1, "func2", name=func2)
         spawn_fn(func1, "func3", name="func3")
@@ -1681,13 +1686,14 @@ async def test_current_effective_deadline(mock_clock: _core.MockClock) -> None:
 
 
 def test_nice_error_on_bad_calls_to_run_or_spawn() -> None:
-    def bad_call_run(
+    # Explicit .../"Any" is not allowed
+    def bad_call_run(  # type: ignore[misc]
         func: Callable[..., Awaitable[object]],
         *args: tuple[object, ...],
     ) -> None:
         _core.run(func, *args)
 
-    def bad_call_spawn(
+    def bad_call_spawn(  # type: ignore[misc]
         func: Callable[..., Awaitable[object]],
         *args: tuple[object, ...],
     ) -> None:
@@ -1959,7 +1965,9 @@ async def test_nursery_start_with_cancelled_nursery() -> None:
 
     # Cancelling the setup_nursery just *before* calling started()
     async with _core.open_nursery() as nursery:
-        target_nursery: _core.Nursery = await nursery.start(setup_nursery)
+        value = await nursery.start(setup_nursery)
+        assert isinstance(value, _core.Nursery)
+        target_nursery: _core.Nursery = value
         await target_nursery.start(
             sleeping_children,
             target_nursery.cancel_scope.cancel,
@@ -1967,7 +1975,9 @@ async def test_nursery_start_with_cancelled_nursery() -> None:
 
     # Cancelling the setup_nursery just *after* calling started()
     async with _core.open_nursery() as nursery:
-        target_nursery = await nursery.start(setup_nursery)
+        value = await nursery.start(setup_nursery)
+        assert isinstance(value, _core.Nursery)
+        target_nursery = value
         await target_nursery.start(sleeping_children, lambda: None)
         target_nursery.cancel_scope.cancel()
 
@@ -2285,7 +2295,8 @@ async def test_permanently_detach_coroutine_object() -> None:
         await sleep(0)
         nonlocal task, pdco_outcome
         task = _core.current_task()
-        pdco_outcome = await outcome.acapture(
+        # `No overload variant of "acapture" matches argument types "Callable[[Outcome[object]], Coroutine[Any, Any, object]]", "Outcome[None]"`
+        pdco_outcome = await outcome.acapture(  # type: ignore[call-overload]
             _core.permanently_detach_coroutine_object,
             task_outcome,
         )
@@ -2298,10 +2309,11 @@ async def test_permanently_detach_coroutine_object() -> None:
     # is still iterable. At that point anything can be sent into the coroutine, so the .coro type
     # is wrong.
     assert pdco_outcome is None
-    assert not_none(task).coro.send(cast(Any, "be free!")) == "I'm free!"
+    # `Argument 1 to "send" of "Coroutine" has incompatible type "str"; expected "Outcome[object]"`
+    assert not_none(task).coro.send("be free!") == "I'm free!"  # type: ignore[arg-type]
     assert pdco_outcome == outcome.Value("be free!")
     with pytest.raises(StopIteration):
-        not_none(task).coro.send(cast(Any, None))
+        not_none(task).coro.send(None)  # type: ignore[arg-type]
 
     # Check the exception paths too
     task = None
@@ -2314,7 +2326,7 @@ async def test_permanently_detach_coroutine_object() -> None:
     assert not_none(task).coro.throw(throw_in) == "uh oh"
     assert pdco_outcome == outcome.Error(throw_in)
     with pytest.raises(StopIteration):
-        task.coro.send(cast(Any, None))
+        task.coro.send(None)
 
     async def bad_detach() -> None:
         async with _core.open_nursery():
@@ -2366,9 +2378,10 @@ async def test_detach_and_reattach_coroutine_object() -> None:
         await wait_all_tasks_blocked()
 
         # Okay, it's detached. Here's our coroutine runner:
-        assert not_none(task).coro.send(cast(Any, "not trio!")) == 1
-        assert not_none(task).coro.send(cast(Any, None)) == 2
-        assert not_none(task).coro.send(cast(Any, None)) == "byebye"
+        # `Argument 1 to "send" of "Coroutine" has incompatible type "str"; expected "Outcome[object]"`
+        assert not_none(task).coro.send("not trio!") == 1  # type: ignore[arg-type]
+        assert not_none(task).coro.send(None) == 2  # type: ignore[arg-type]
+        assert not_none(task).coro.send(None) == "byebye"  # type: ignore[arg-type]
 
         # Now it's been reattached, and we can leave the nursery
 
@@ -2398,7 +2411,8 @@ async def test_detached_coroutine_cancellation() -> None:
         await wait_all_tasks_blocked()
         assert task is not None
         nursery.cancel_scope.cancel()
-        task.coro.send(cast(Any, None))
+        # `Argument 1 to "send" of "Coroutine" has incompatible type "None"; expected "Outcome[object]"`
+        task.coro.send(None)  # type: ignore[arg-type]
 
     assert abort_fn_called
 

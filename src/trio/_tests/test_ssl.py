@@ -393,7 +393,8 @@ def virtual_ssl_echo_server(
     yield SSLStream(fakesock, client_ctx, server_hostname="trio-test-1.example.org")
 
 
-def ssl_wrap_pair(
+# Explicit "Any" is not allowed
+def ssl_wrap_pair(  # type: ignore[misc]
     client_ctx: SSLContext,
     client_transport: T_Stream,
     server_transport: T_Stream,
@@ -423,7 +424,11 @@ def ssl_wrap_pair(
 MemoryStapledStream: TypeAlias = StapledStream[MemorySendStream, MemoryReceiveStream]
 
 
-def ssl_memory_stream_pair(client_ctx: SSLContext, **kwargs: Any) -> tuple[
+# Explicit "Any" is not allowed
+def ssl_memory_stream_pair(  # type: ignore[misc]
+    client_ctx: SSLContext,
+    **kwargs: Any,
+) -> tuple[
     SSLStream[MemoryStapledStream],
     SSLStream[MemoryStapledStream],
 ]:
@@ -434,7 +439,11 @@ def ssl_memory_stream_pair(client_ctx: SSLContext, **kwargs: Any) -> tuple[
 MyStapledStream: TypeAlias = StapledStream[SendStream, ReceiveStream]
 
 
-def ssl_lockstep_stream_pair(client_ctx: SSLContext, **kwargs: Any) -> tuple[
+# Explicit "Any" is not allowed
+def ssl_lockstep_stream_pair(  # type: ignore[misc]
+    client_ctx: SSLContext,
+    **kwargs: Any,
+) -> tuple[
     SSLStream[MyStapledStream],
     SSLStream[MyStapledStream],
 ]:
@@ -1318,7 +1327,8 @@ async def test_getpeercert(client_ctx: SSLContext) -> None:
 
 
 async def test_SSLListener(client_ctx: SSLContext) -> None:
-    async def setup(
+    # Explicit "Any" is not allowed
+    async def setup(  # type: ignore[misc]
         **kwargs: Any,
     ) -> tuple[tsocket.SocketType, SSLListener[SocketStream], SSLStream[SocketStream]]:
         listen_sock = tsocket.socket()
