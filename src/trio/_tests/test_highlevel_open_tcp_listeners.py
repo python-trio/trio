@@ -4,7 +4,7 @@ import errno
 import socket as stdlib_socket
 import sys
 from socket import AddressFamily, SocketKind
-from typing import TYPE_CHECKING, Any, overload
+from typing import TYPE_CHECKING, cast, overload
 
 import attrs
 import pytest
@@ -29,6 +29,8 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from typing_extensions import Buffer
+
+    from trio._socket import AddressFormat
 
 
 async def test_open_tcp_listeners_basic() -> None:
@@ -195,7 +197,10 @@ class FakeSocket(tsocket.SocketType):
     ) -> None:
         pass
 
-    async def bind(self, address: Any) -> None:
+    async def bind(
+        self,
+        address: AddressFormat,
+    ) -> None:
         pass
 
     def listen(self, /, backlog: int = min(stdlib_socket.SOMAXCONN, 128)) -> None:
@@ -310,7 +315,9 @@ async def test_serve_tcp() -> None:
 
     async with trio.open_nursery() as nursery:
         # nursery.start is incorrectly typed, awaiting #2773
-        listeners: list[SocketListener] = await nursery.start(serve_tcp, handler, 0)
+        value = await nursery.start(serve_tcp, handler, 0)
+        assert isinstance(value, list)
+        listeners = cast(list[SocketListener], value)
         stream = await open_stream_to_socket_listener(listeners[0])
         async with stream:
             assert await stream.receive_some(1) == b"x"

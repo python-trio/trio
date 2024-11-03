@@ -55,7 +55,8 @@ T = TypeVar("T")
 async def test_do_in_trio_thread() -> None:
     trio_thread = threading.current_thread()
 
-    async def check_case(
+    # Explicit "Any" is not allowed
+    async def check_case(  # type: ignore[misc]
         do_in_trio_thread: Callable[..., threading.Thread],
         fn: Callable[..., T | Awaitable[T]],
         expected: tuple[str, T],

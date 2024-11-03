@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import sys
 import types
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import pytest
 
@@ -22,6 +24,9 @@ from .._util import (
     is_main_thread,
 )
 from ..testing import wait_all_tasks_blocked
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
 
 T = TypeVar("T")
 
@@ -131,12 +136,13 @@ def test_coroutine_or_error() -> None:
 
         assert "appears to be synchronous" in str(excinfo.value)
 
-        async def async_gen(_: object) -> Any:  # pragma: no cover
+        async def async_gen(
+            _: object,
+        ) -> AsyncGenerator[None, None]:  # pragma: no cover
             yield
 
-        # does not give arg-type typing error
         with pytest.raises(TypeError) as excinfo:
-            coroutine_or_error(async_gen, [0])  # type: ignore[unused-coroutine]
+            coroutine_or_error(async_gen, [0])  # type: ignore[arg-type,unused-coroutine]
         msg = "expected an async function but got an async generator"
         assert msg in str(excinfo.value)
 

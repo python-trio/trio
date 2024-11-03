@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 import sys
 from types import TracebackType
-from typing import Any
 
 import pytest
 
@@ -235,7 +234,10 @@ def test_RaisesGroup_matches() -> None:
 
 
 def test_message() -> None:
-    def check_message(message: str, body: RaisesGroup[Any]) -> None:
+    def check_message(
+        message: str,
+        body: RaisesGroup[BaseException],
+    ) -> None:
         with pytest.raises(
             AssertionError,
             match=f"^DID NOT RAISE any exception, expected {re.escape(message)}$",
