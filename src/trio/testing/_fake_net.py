@@ -359,7 +359,12 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         buffers: Iterable[Buffer],
         ancbufsize: int = 0,
         flags: int = 0,
-    ) -> tuple[int, list[tuple[int, int, bytes]], int, Any]:
+    ) -> tuple[
+        int,
+        list[tuple[int, int, bytes]],
+        int,
+        tuple[str, int] | tuple[str, int, int, int],
+    ]:
         if ancbufsize != 0:
             raise NotImplementedError("FakeNet doesn't support ancillary data")
         if flags != 0:
@@ -502,7 +507,11 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         __address: tuple[object, ...] | str | None | Buffer,
     ) -> int: ...
 
-    async def sendto(self, *args: Any) -> int:
+    # Explicit "Any" is not allowed
+    async def sendto(  # type: ignore[misc]
+        self,
+        *args: Any,
+    ) -> int:
         data: Buffer
         flags: int
         address: tuple[object, ...] | str | Buffer
@@ -523,7 +532,11 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         got_bytes, _address = await self.recvfrom_into(buf, nbytes, flags)
         return got_bytes
 
-    async def recvfrom(self, bufsize: int, flags: int = 0) -> tuple[bytes, Any]:
+    async def recvfrom(
+        self,
+        bufsize: int,
+        flags: int = 0,
+    ) -> tuple[bytes, AddressFormat]:
         data, _ancdata, _msg_flags, address = await self._recvmsg(bufsize, flags)
         return data, address
 
@@ -532,7 +545,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         buf: Buffer,
         nbytes: int = 0,
         flags: int = 0,
-    ) -> tuple[int, Any]:
+    ) -> tuple[int, AddressFormat]:
         if nbytes != 0 and nbytes != memoryview(buf).nbytes:
             raise NotImplementedError("partial recvfrom_into")
         got_nbytes, _ancdata, _msg_flags, address = await self._recvmsg_into(
@@ -547,7 +560,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         bufsize: int,
         ancbufsize: int = 0,
         flags: int = 0,
-    ) -> tuple[bytes, list[tuple[int, int, bytes]], int, Any]:
+    ) -> tuple[bytes, list[tuple[int, int, bytes]], int, AddressFormat]:
         buf = bytearray(bufsize)
         got_nbytes, ancdata, msg_flags, address = await self._recvmsg_into(
             [buf],

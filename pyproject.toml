@@ -189,6 +189,7 @@ warn_return_any = true
 
 # Avoid subtle backsliding
 disallow_any_decorated = true
+disallow_any_explicit = true
 disallow_any_generics = true
 disallow_any_unimported = true
 disallow_incomplete_defs = true

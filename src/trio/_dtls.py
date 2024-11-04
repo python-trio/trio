@@ -19,7 +19,6 @@ import weakref
 from itertools import count
 from typing import (
     TYPE_CHECKING,
-    Any,
     Generic,
     TypeVar,
     Union,
@@ -1220,7 +1219,9 @@ class DTLSEndpoint:
         # as a peer provides a valid cookie, we can immediately tear down the
         # old connection.
         # {remote address: DTLSChannel}
-        self._streams: WeakValueDictionary[Any, DTLSChannel] = WeakValueDictionary()
+        self._streams: WeakValueDictionary[AddressFormat, DTLSChannel] = (
+            WeakValueDictionary()
+        )
         self._listening_context: SSL.Context | None = None
         self._listening_key: bytes | None = None
         self._incoming_connections_q = _Queue[DTLSChannel](float("inf"))

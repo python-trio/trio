@@ -397,7 +397,8 @@ def virtual_ssl_echo_server(
     yield SSLStream(fakesock, client_ctx, server_hostname="trio-test-1.example.org")
 
 
-def ssl_wrap_pair(
+# Explicit "Any" is not allowed
+def ssl_wrap_pair(  # type: ignore[misc]
     client_ctx: SSLContext,
     client_transport: T_Stream,
     server_transport: T_Stream,

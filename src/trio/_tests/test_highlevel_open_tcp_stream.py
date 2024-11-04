@@ -373,9 +373,6 @@ async def run_scenario(
     trio.socket.set_custom_socket_factory(scenario)
 
     try:
-        # Type ignore is for the fact that there are multiple
-        # keyword arguments that accept separate types, but
-        # str | float | None is not the same as str | None and float | None
         stream = await open_tcp_stream(
             "test.example.com",
             port,

@@ -449,7 +449,7 @@ async def open_file(
     newline: str | None = None,
     closefd: bool = True,
     opener: _Opener | None = None,
-) -> AsyncIOWrapper[Any]:
+) -> AsyncIOWrapper[object]:
     """Asynchronous version of :func:`open`.
 
     Returns:

@@ -134,16 +134,9 @@ def close_all() -> Generator[set[SocketType], None, None]:
             raise BaseExceptionGroup("", errs)
 
 
-def reorder_for_rfc_6555_section_5_4(
-    targets: list[
-        tuple[
-            AddressFamily,
-            SocketKind,
-            int,
-            str,
-            Any,
-        ]
-    ],
+# Explicit "Any" is not allowed
+def reorder_for_rfc_6555_section_5_4(  # type: ignore[misc]
+    targets: list[tuple[AddressFamily, SocketKind, int, str, Any]],
 ) -> None:
     # RFC 6555 section 5.4 says that if getaddrinfo returns multiple address
     # families (e.g. IPv4 and IPv6), then you should make sure that your first

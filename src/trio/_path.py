@@ -30,8 +30,9 @@ if TYPE_CHECKING:
     T = TypeVar("T")
 
 
-def _wraps_async(
-    wrapped: Callable[..., Any],
+# Explicit .../"Any" is not allowed
+def _wraps_async(  # type: ignore[misc]
+    wrapped: Callable[..., object],
 ) -> Callable[[Callable[P, T]], Callable[P, Awaitable[T]]]:
     def decorator(fn: Callable[P, T]) -> Callable[P, Awaitable[T]]:
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:

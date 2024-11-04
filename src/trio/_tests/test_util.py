@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Coroutine, Generator
-
 import pytest
 
 import trio
@@ -29,6 +28,9 @@ from .._util import (
     signal_raise,
 )
 from ..testing import wait_all_tasks_blocked
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
 
 T = TypeVar("T")
 
