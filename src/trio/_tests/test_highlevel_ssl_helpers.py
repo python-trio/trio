@@ -69,7 +69,7 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
         self,
         sockaddr: tuple[str, int] | tuple[str, int, int, int],
         flags: int,
-    ) -> NoReturn:
+    ) -> NoReturn:  # pragma: no cover
         raise NotImplementedError
 
 
