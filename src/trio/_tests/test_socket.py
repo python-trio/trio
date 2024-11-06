@@ -79,7 +79,7 @@ class MonkeypatchedGAI:
         flags: int = 0,
     ) -> GetAddrInfoArgs:
         sig = inspect.signature(self._orig_getaddrinfo)
-        bound = sig.bind(host, port, family, type, proto, flags)
+        bound = sig.bind(host, port, family=family, type=type, proto=proto, flags=flags)
         bound.apply_defaults()
         frozenbound = bound.args
         assert not bound.kwargs
@@ -95,9 +95,16 @@ class MonkeypatchedGAI:
         proto: int = 0,
         flags: int = 0,
     ) -> None:
-        self._responses[self._frozenbind(host, port, family, type, proto, flags)] = (
-            response
-        )
+        self._responses[
+            self._frozenbind(
+                host,
+                port,
+                family=family,
+                type=type,
+                proto=proto,
+                flags=flags,
+            )
+        ] = response
 
     def getaddrinfo(
         self,

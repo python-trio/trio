@@ -52,7 +52,7 @@ class _ExceptionInfo(Generic[MatchE]):
     def __init__(
         self,
         excinfo: tuple[type[MatchE], MatchE, types.TracebackType] | None,
-    ):
+    ) -> None:
         self._excinfo = excinfo
 
     def fill_unfilled(
@@ -174,7 +174,7 @@ class Matcher(Generic[MatchE]):
         exception_type: type[MatchE],
         match: str | Pattern[str] = ...,
         check: Callable[[MatchE], bool] = ...,
-    ): ...
+    ) -> None: ...
 
     @overload
     def __init__(
@@ -183,10 +183,10 @@ class Matcher(Generic[MatchE]):
         match: str | Pattern[str],
         # If exception_type is not provided, check() must do any typechecks itself.
         check: Callable[[BaseException], bool] = ...,
-    ): ...
+    ) -> None: ...
 
     @overload
-    def __init__(self, *, check: Callable[[BaseException], bool]): ...
+    def __init__(self, *, check: Callable[[BaseException], bool]) -> None: ...
 
     def __init__(
         self,
@@ -352,7 +352,7 @@ class RaisesGroup(
         flatten_subgroups: bool = False,
         match: None = None,
         check: None = None,
-    ): ...
+    ) -> None: ...
 
     # flatten_subgroups = True also requires no nested RaisesGroup
     @overload
@@ -364,7 +364,7 @@ class RaisesGroup(
         flatten_subgroups: Literal[True],
         match: str | Pattern[str] | None = None,
         check: Callable[[BaseExceptionGroup[E]], bool] | None = None,
-    ): ...
+    ) -> None: ...
 
     @overload
     def __init__(
@@ -375,7 +375,7 @@ class RaisesGroup(
         flatten_subgroups: Literal[False] = False,
         match: str | Pattern[str] | None = None,
         check: Callable[[BaseExceptionGroup[E]], bool] | None = None,
-    ): ...
+    ) -> None: ...
 
     def __init__(
         self,

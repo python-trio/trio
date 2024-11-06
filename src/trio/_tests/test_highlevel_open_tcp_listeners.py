@@ -197,10 +197,7 @@ class FakeSocket(tsocket.SocketType):
     ) -> None:
         pass
 
-    async def bind(
-        self,
-        address: AddressFormat,
-    ) -> None:
+    async def bind(self, address: AddressFormat) -> None:
         pass
 
     def listen(self, /, backlog: int = min(stdlib_socket.SOMAXCONN, 128)) -> None:

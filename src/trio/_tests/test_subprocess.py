@@ -88,8 +88,11 @@ def got_signal(proc: Process, sig: SignalType) -> bool:
         return proc.returncode != 0
 
 
-@asynccontextmanager  # type: ignore[misc]  # Any in decorator
-async def open_process_then_kill(*args: Any, **kwargs: Any) -> AsyncIterator[Process]:
+@asynccontextmanager  # type: ignore[misc]  # Any in decorated
+async def open_process_then_kill(
+    *args: Any,
+    **kwargs: Any,
+) -> AsyncIterator[Process]:
     proc = await open_process(*args, **kwargs)
     try:
         yield proc
@@ -98,8 +101,11 @@ async def open_process_then_kill(*args: Any, **kwargs: Any) -> AsyncIterator[Pro
         await proc.wait()
 
 
-@asynccontextmanager  # type: ignore[misc]  # Any in decorator
-async def run_process_in_nursery(*args: Any, **kwargs: Any) -> AsyncIterator[Process]:
+@asynccontextmanager  # type: ignore[misc]  # Any in decorated
+async def run_process_in_nursery(
+    *args: Any,
+    **kwargs: Any,
+) -> AsyncIterator[Process]:
     async with _core.open_nursery() as nursery:
         kwargs.setdefault("check", False)
         value = await nursery.start(partial(run_process, *args, **kwargs))

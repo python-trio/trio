@@ -3,8 +3,10 @@ from __future__ import annotations
 import signal
 import sys
 import types
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator, Coroutine, Generator
 import pytest
 
 import trio
@@ -121,9 +123,11 @@ def test_coroutine_or_error() -> None:
         import asyncio
 
         if sys.version_info < (3, 11):
-            # not bothering to type this one
-            @asyncio.coroutine  # type: ignore[misc]
-            def generator_based_coro() -> Any:  # pragma: no cover
+
+            @asyncio.coroutine
+            def generator_based_coro() -> (
+                Generator[Coroutine[None, None, None], None, None]
+            ):  # pragma: no cover
                 yield from asyncio.sleep(1)
 
             with pytest.raises(TypeError) as excinfo:

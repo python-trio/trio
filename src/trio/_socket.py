@@ -66,7 +66,7 @@ class _try_sync:
     def __init__(
         self,
         blocking_exc_override: Callable[[BaseException], bool] | None = None,
-    ):
+    ) -> None:
         self._blocking_exc_override = blocking_exc_override
 
     def _is_blocking_io_error(self, exc: BaseException) -> bool:
@@ -782,7 +782,7 @@ for name, obj in SocketType.__dict__.items():
 
 
 class _SocketType(SocketType):
-    def __init__(self, sock: _stdlib_socket.socket):
+    def __init__(self, sock: _stdlib_socket.socket) -> None:
         if type(sock) is not _stdlib_socket.socket:
             # For example, ssl.SSLSocket subclasses socket.socket, but we
             # certainly don't want to blindly wrap one of those.
