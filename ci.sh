@@ -39,8 +39,9 @@ echo "::endgroup::"
 echo "::group::Install dependencies"
 curl-harder https://astral.sh/uv/0.4.30/install.sh -o uv-install.sh
 UV_UNMANAGED_INSTALL="./.uv-bin" sh uv-install.sh
+./.uv-bin/uv venv .venv
+source .venv/bin/activate
 ./.uv-bin/uv pip install uv -c test-requirements.txt
-python -m uv pip uninstall pip
 python -m uv pip install 'build[uv]' -c test-requirements.txt
 python -m uv --version
 
