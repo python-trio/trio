@@ -37,13 +37,14 @@ python -c "import sys, struct, ssl; print('python:', sys.version); print('versio
 echo "::endgroup::"
 
 echo "::group::Install dependencies"
-python -m pip install -U pip uv -c test-requirements.txt
-python -m pip --version
+curl-harder https://astral.sh/uv/0.4.30/install.sh -o uv-install.sh
+UV_UNMANAGED_INSTALL="./.uv-bin" sh uv-install.sh
+./.uv-bin/uv pip install uv -c test-requirements.txt
+python -m uv pip uninstall pip
+python -m uv pip install 'build[uv]' -c test-requirements.txt
 python -m uv --version
 
-python -m uv pip install build
-
-python -m build
+python -m build --installer=uv
 wheel_package=$(ls dist/*.whl)
 python -m uv pip install "trio @ $wheel_package" -c test-requirements.txt
 

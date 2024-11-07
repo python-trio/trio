@@ -16,6 +16,8 @@ babel==2.16.0
     # via sphinx
 black==24.10.0 ; implementation_name == 'cpython'
     # via -r test-requirements.in
+build==1.2.2.post1
+    # via -r test-requirements.in
 certifi==2024.8.30
     # via requests
 cffi==1.17.1 ; platform_python_implementation != 'PyPy' or os_name == 'nt'
@@ -28,8 +30,9 @@ click==8.1.7 ; implementation_name == 'cpython'
     # via black
 codespell==2.3.0
     # via -r test-requirements.in
-colorama==0.4.6 ; (implementation_name != 'cpython' and sys_platform == 'win32') or (platform_system != 'Windows' and sys_platform == 'win32') or (implementation_name == 'cpython' and platform_system == 'Windows')
+colorama==0.4.6 ; (implementation_name != 'cpython' and sys_platform == 'win32') or (platform_system != 'Windows' and sys_platform == 'win32') or (implementation_name == 'cpython' and platform_system == 'Windows') or os_name == 'nt'
     # via
+    #   build
     #   click
     #   pylint
     #   pytest
@@ -57,8 +60,10 @@ idna==3.10
     #   trustme
 imagesize==1.4.1
     # via sphinx
-importlib-metadata==8.5.0 ; python_full_version < '3.10'
-    # via sphinx
+importlib-metadata==8.5.0 ; python_full_version < '3.10.2'
+    # via
+    #   build
+    #   sphinx
 iniconfig==2.0.0
     # via pytest
 isort==5.13.2
@@ -87,6 +92,7 @@ outcome==1.3.0.post0
 packaging==24.1
     # via
     #   black
+    #   build
     #   pytest
     #   sphinx
 parso==0.8.4 ; implementation_name == 'cpython'
@@ -107,6 +113,8 @@ pylint==3.3.1
     # via -r test-requirements.in
 pyopenssl==24.2.1
     # via -r test-requirements.in
+pyproject-hooks==1.2.0
+    # via build
 pyright==1.1.387
     # via -r test-requirements.in
 pytest==8.3.3
@@ -138,6 +146,7 @@ sphinxcontrib-serializinghtml==2.0.0
 tomli==2.0.2 ; python_full_version < '3.11'
     # via
     #   black
+    #   build
     #   mypy
     #   pylint
     #   pytest
@@ -166,7 +175,9 @@ typing-extensions==4.12.2
     #   pyright
 urllib3==2.2.3
     # via requests
-uv==0.4.29
-    # via -r test-requirements.in
-zipp==3.20.2 ; python_full_version < '3.10'
+uv==0.4.30
+    # via
+    #   -r test-requirements.in
+    #   build
+zipp==3.20.2 ; python_full_version < '3.10.2'
     # via importlib-metadata

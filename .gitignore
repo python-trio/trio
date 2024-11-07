@@ -72,3 +72,5 @@ doc/_build/
 
 # PyCharm
 .idea/
+
+uv-install.sh
