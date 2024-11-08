@@ -184,11 +184,9 @@ jobs:
         # can't use setup-python because that python doesn't seem to work;
         # `python3-dev` (rather than `python:alpine`) for some ctypes reason,
         # `nodejs` for pyright (`node-env` pulls in nodejs but that takes a while and can time out the test).
-        run: apk update && apk add python3-dev bash nodejs
-      - name: Enter virtual environment
-        run: python -m venv .venv
+        run: apk update && apk add python3-dev bash nodejs curl
       - name: Run tests
-        run: source .venv/bin/activate && ./ci.sh
+        run: ./ci.sh
       - if: always()
         uses: codecov/codecov-action@v3
         with:
