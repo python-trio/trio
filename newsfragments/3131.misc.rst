@@ -1,1 +1,1 @@
-Bootstrap uv using uv install script instead of pip
+Bootstrap uv using uv install script instead of pip, this works around an issue where pip refused to install uv on PyPy on windows
