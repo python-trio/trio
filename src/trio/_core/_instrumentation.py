@@ -34,7 +34,7 @@ class Instruments(dict[str, dict[Instrument, None]]):
 
     __slots__ = ()
 
-    def __init__(self, incoming: Sequence[Instrument]):
+    def __init__(self, incoming: Sequence[Instrument]) -> None:
         self["_all"] = {}
         for instrument in incoming:
             self.add_instrument(instrument)

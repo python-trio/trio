@@ -105,6 +105,7 @@ allowed-confusables = ["–"]
 
 select = [
     "A",     # flake8-builtins
+    "ANN",   # flake8-annotations
     "ASYNC", # flake8-async
     "B",     # flake8-bugbear
     "C4",    # flake8-comprehensions
@@ -131,6 +132,9 @@ select = [
 ]
 extend-ignore = [
     'A002',    # builtin-argument-shadowing
+    'ANN101',  # missing-type-self
+    'ANN102',  # missing-type-cls
+    'ANN401',  # any-type (mypy's `disallow_any_explicit` is better)
     'E402',    # module-import-not-at-top-of-file (usually OS-specific)
     'E501',    # line-too-long
     'F403',    # undefined-local-with-import-star
@@ -160,6 +164,8 @@ extend-ignore = [
 'src/trio/_abc.py' = ['A005']
 'src/trio/_socket.py' = ['A005']
 'src/trio/_ssl.py' = ['A005']
+# Don't check annotations in notes-to-self
+'notes-to-self/*.py' = ['ANN001', 'ANN002', 'ANN003', 'ANN201', 'ANN202', 'ANN204']
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
