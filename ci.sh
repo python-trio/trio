@@ -37,7 +37,7 @@ python -c "import sys, struct, ssl; print('python:', sys.version); print('versio
 echo "::endgroup::"
 
 echo "::group::Install dependencies"
-curl-harder https://astral.sh/uv/0.4.30/install.sh -o uv-install.sh
+curl-harder $(python ./src/trio/_tools/find_uv_script_url.py test-requirements.txt) -o uv-install.sh
 UV_UNMANAGED_INSTALL="./.uv-bin" sh uv-install.sh
 ./.uv-bin/uv venv .venv
 source $(python ./src/trio/_tools/find_activate_script.py .venv)
