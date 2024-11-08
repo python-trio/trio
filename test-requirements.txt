@@ -175,7 +175,7 @@ typing-extensions==4.12.2
     #   pyright
 urllib3==2.2.3
     # via requests
-uv==0.4.30
+uv==0.5.0
     # via
     #   -r test-requirements.in
     #   build

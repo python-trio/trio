@@ -16,7 +16,7 @@ mypy  # Would use mypy[faster-cache], but orjson has build issues on pypy
 orjson; implementation_name == "cpython"
 ruff >= 0.6.6
 astor          # code generation
-uv >= 0.2.24
+uv >= 0.5.0
 codespell
 
 # https://github.com/python-trio/trio/pull/654#issuecomment-420518745
