@@ -20,7 +20,7 @@ def _parse(v: pathlib.Path) -> str:
         for line in f:
             before, found, version = line.partition(b"uv==")
             if not before and found:
-                return _url(version.removesuffix(b"\n").decode("ascii"))
+                return _url(version.rstrip().decode("ascii"))
     raise RuntimeError("no version found")
 
 

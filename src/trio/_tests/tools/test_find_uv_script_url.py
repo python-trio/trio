@@ -11,7 +11,7 @@ def test_find_uv_script_url(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     requirements = tmp_path / "requirements.txt"
-    requirements.write_bytes(b"# uv==2.0\nuv==1.0\n")
+    requirements.write_bytes(b"# uv==2.0\nuv==1.0\r\n")
     find_uv_script_url.main([os.fsdecode(requirements)])
     captured = capsys.readouterr()
     assert captured.err == ""
