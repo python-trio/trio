@@ -34,7 +34,7 @@ jobs:
       #- run: |
       #    sed -i 's/return new_headers/del resp; return new_headers/' C:/hostedtoolcache/windows/PyPy/3.10.14/x86/Lib/site-packages/pip/_vendor/cachecontrol/controller.py
       - run: |
-          sed -i 's/request.headers.update(self.controller.conditional_headers(request))/import gc; request.headers.update(self.controller.conditional_headers(request)); gc.collect()/' C:/hostedtoolcache/windows/PyPy/3.10.14/x86/Lib/site-packages/pip/_vendor/cachecontrol/adapter.py
+          sed -i 's/request.headers.update(self.controller.conditional_headers(request))/import gc; gc.collect(); request.headers.update(self.controller.conditional_headers(request))/' C:/hostedtoolcache/windows/PyPy/3.10.14/x86/Lib/site-packages/pip/_vendor/cachecontrol/adapter.py
       #- run: cat C:/hostedtoolcache/windows/PyPy/3.10.14/x86/Lib/site-packages/pip/_vendor/cachecontrol/controller.py
       - run: rm c:/users/runneradmin/appdata/local/pip/cache/http-v2/a/d/e/e/f/adeef5b9611702687bbddade5f7c0af65110caf98ba1a0070c9d116e.body*.tmp
         shell: bash
