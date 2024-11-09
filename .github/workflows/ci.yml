@@ -30,7 +30,7 @@ jobs:
           cache: pip
           cache-dependency-path: test-requirements.txt
       - run: |
-          sed -i 's/pass/print(f"ls -l \/proc\/{os.getpid()}\/fd"); os.system(f"ls -l \/proc\/{os.getpid()}\/fd"); raise/' C:/hostedtoolcache/windows/PyPy/3.10.14/x86/Lib/site-packages/pip/_internal/network/cache.py
+          sed -i 's/pass/import gc; print("\n".join(map(repr, gc.get_objects()))); raise/' C:/hostedtoolcache/windows/PyPy/3.10.14/x86/Lib/site-packages/pip/_internal/network/cache.py
       - run: rm c:/users/runneradmin/appdata/local/pip/cache/http-v2/a/d/e/e/f/adeef5b9611702687bbddade5f7c0af65110caf98ba1a0070c9d116e.body*.tmp
         shell: bash
       - run: sed -i 's/kYwoFX7YWfM04Y8vMizwCw/PCaLiMeCwLhKktEGy\/zhWg/' c:/users/runneradmin/appdata/local/pip/cache/http-v2/a/d/e/e/f/adeef5b9611702687bbddade5f7c0af65110caf98ba1a0070c9d116e
