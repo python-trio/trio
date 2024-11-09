@@ -34,10 +34,10 @@ jobs:
       - run: sed -i 's/ETag¸"[^"]+"­/ETag¸"PCaLiMeCwLhKktEGy\/zhWg"­/' c:/users/runneradmin/appdata/local/pip/cache/http-v2/a/d/e/e/f/adeef5b9611702687bbddade5f7c0af65110caf98ba1a0070c9d116e
         shell: bash
       - name: Run tests
-        run: pip install uv -c test-requirements.txt
+        run: pip install -vvv uv -c test-requirements.txt
         shell: bash
       - name: Run tests 2
-        run: pip install uv -c test-requirements.txt
+        run: pip install -vvv uv -c test-requirements.txt
         shell: bash
       - run: ls -la c:/users/runneradmin/appdata/local/pip/cache/http-v2/a/d/e/e/f/adeef5b9611702687bbddade5f7c0af65110caf98ba1a0070c9d116e*
         shell: bash
