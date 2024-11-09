@@ -30,6 +30,7 @@ jobs:
           cache: pip
           cache-dependency-path: test-requirements.txt
       - run: python -m sysconfig
+      - run: "sed -i 's/except OSError:/except OSError: raise/' C:/hostedtoolcache/windows/PyPy/3.10.14/x86/Lib/site-packages/pip/_internal/network/cache.py"
       - run: ls -la c:/users/runneradmin/appdata/local/pip/cache/http-v2/a/d/e/e/f/adeef5b9611702687bbddade5f7c0af65110caf98ba1a0070c9d116e*
         shell: bash
       - run: sed -i 's/kYwoFX7YWfM04Y8vMizwCw/PCaLiMeCwLhKktEGy\/zhWg/' c:/users/runneradmin/appdata/local/pip/cache/http-v2/a/d/e/e/f/adeef5b9611702687bbddade5f7c0af65110caf98ba1a0070c9d116e
@@ -38,7 +39,7 @@ jobs:
       - name: Run tests
         run: pip install -vvv uv -c test-requirements.txt
         shell: bash
-      - run: pip uninstall uv
+      - run: pip uninstall uv -y
       - name: Run tests 2
         run: pip install -vvv uv -c test-requirements.txt
         shell: bash
