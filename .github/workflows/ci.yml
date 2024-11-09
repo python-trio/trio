@@ -29,16 +29,18 @@ jobs:
           python-version: ${{ fromJSON(format('["{0}", "{1}"]', format('{0}.0-alpha - {0}.X', matrix.python), matrix.python))[startsWith(matrix.python, 'pypy')] }}
           cache: pip
           cache-dependency-path: test-requirements.txt
-      - run: chmod +w -R $(pip cache dir)
       - run: |
           sed -i 's/pass/raise/' C:/hostedtoolcache/windows/PyPy/3.10.14/x86/Lib/site-packages/pip/_internal/network/cache.py
-      - run: ls -la c:/users/runneradmin/appdata/local/pip/cache/http-v2/a/d/e/e/f/adeef5b9611702687bbddade5f7c0af65110caf98ba1a0070c9d116e*
+      - run: rm c:/users/runneradmin/appdata/local/pip/cache/http-v2/a/d/e/e/f/adeef5b9611702687bbddade5f7c0af65110caf98ba1a0070c9d116e.body*.tmp
         shell: bash
       - run: sed -i 's/kYwoFX7YWfM04Y8vMizwCw/PCaLiMeCwLhKktEGy\/zhWg/' c:/users/runneradmin/appdata/local/pip/cache/http-v2/a/d/e/e/f/adeef5b9611702687bbddade5f7c0af65110caf98ba1a0070c9d116e
         shell: bash
       - run: cat c:/users/runneradmin/appdata/local/pip/cache/http-v2/a/d/e/e/f/adeef5b9611702687bbddade5f7c0af65110caf98ba1a0070c9d116e
       - name: Run tests
-        run: pip install -vvv uv -c test-requirements.txt
+        run: pip install -vvv uv -c test-requirements.txt || true
+        shell: bash
+      - name: rename file
+        run: mv c:/users/runneradmin/appdata/local/pip/cache/http-v2/a/d/e/e/f/adeef5b9611702687bbddade5f7c0af65110caf98ba1a0070c9d116e.body*.tmp c:/users/runneradmin/appdata/local/pip/cache/http-v2/a/d/e/e/f/adeef5b9611702687bbddade5f7c0af65110caf98ba1a0070c9d116e.body
         shell: bash
       - run: pip uninstall uv -y
       - name: Run tests 2
