@@ -31,13 +31,15 @@ jobs:
           cache-dependency-path: test-requirements.txt
       - run: ls -la c:/users/runneradmin/appdata/local/pip/cache/http-v2/a/d/e/e/f/adeef5b9611702687bbddade5f7c0af65110caf98ba1a0070c9d116e*
         shell: bash
-      - run: cp c:/users/runneradmin/appdata/local/pip/cache/http-v2/a/d/e/e/f/adeef5b9611702687bbddade5f7c0af65110caf98ba1a0070c9d116e.body oldbody
-      - run: python -c "import os; os.replace('c:/users/runneradmin/appdata/local/pip/cache/http-v2/a/d/e/e/f/adeef5b9611702687bbddade5f7c0af65110caf98ba1a0070c9d116e.bodyd4lemxfj.tmp', 'c:/users/runneradmin/appdata/local/pip/cache/http-v2/a/d/e/e/f/adeef5b9611702687bbddade5f7c0af65110caf98ba1a0070c9d116e.body')"
-      - run: mv c:/users/runneradmin/appdata/local/pip/cache/http-v2/a/d/e/e/f/adeef5b9611702687bbddade5f7c0af65110caf98ba1a0070c9d116e.bodyd4lemxfj.tmp c:/users/runneradmin/appdata/local/pip/cache/http-v2/a/d/e/e/f/adeef5b9611702687bbddade5f7c0af65110caf98ba1a0070c9d116e.body
-      - run: mv oldbody c:/users/runneradmin/appdata/local/pip/cache/http-v2/a/d/e/e/f/adeef5b9611702687bbddade5f7c0af65110caf98ba1a0070c9d116e.body
-      # that is the issue, correct?
-      #- run: mv c:\users\runneradmin\appdata\local\pip\cache/http-v2/a/d/e/e/f/adeef5b9611702687bbddade5f7c0af65110caf98ba1a0070c9d116e /tmp/a
-      #- run: mv c:\users\runneradmin\appdata\local\pip\cache/http-v2/a/d/e/e/f/adeef5b9611702687bbddade5f7c0af65110caf98ba1a0070c9d116e.body /tmp/a.body
+      - run: rm c:/users/runneradmin/appdata/local/pip/cache/http-v2/a/d/e/e/f/adeef5b9611702687bbddade5f7c0af65110caf98ba1a0070c9d116e
+        shell: bash
       - name: Run tests
         run: pip install uv -c test-requirements.txt
         shell: bash
+      - name: Run tests 2
+        run: pip install uv -c test-requirements.txt
+        shell: bash
+      - run: ls -la c:/users/runneradmin/appdata/local/pip/cache/http-v2/a/d/e/e/f/adeef5b9611702687bbddade5f7c0af65110caf98ba1a0070c9d116e*
+        shell: bash
+      - name: prevent setup-python caching
+        run: exit 1
