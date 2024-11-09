@@ -28,7 +28,6 @@ import trio
 import trio.testing
 from trio.abc import Clock, Instrument
 
-from ..._util import signal_raise
 from .tutil import gc_collect_harder, restore_unraisablehook
 
 if TYPE_CHECKING:
@@ -605,10 +604,10 @@ def test_guest_mode_ki() -> None:
     # Check SIGINT in Trio func and in host func
     async def trio_main(in_host: InHost) -> None:
         with pytest.raises(KeyboardInterrupt):
-            signal_raise(signal.SIGINT)
+            signal.raise_signal(signal.SIGINT)
 
         # Host SIGINT should get injected into Trio
-        in_host(partial(signal_raise, signal.SIGINT))
+        in_host(partial(signal.raise_signal, signal.SIGINT))
         await trio.sleep(10)
 
     with pytest.raises(KeyboardInterrupt) as excinfo:
@@ -621,7 +620,7 @@ def test_guest_mode_ki() -> None:
     final_exc = KeyError("whoa")
 
     async def trio_main_raising(in_host: InHost) -> NoReturn:
-        in_host(partial(signal_raise, signal.SIGINT))
+        in_host(partial(signal.raise_signal, signal.SIGINT))
         raise final_exc
 
     with pytest.raises(KeyboardInterrupt) as excinfo:
