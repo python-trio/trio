@@ -32,7 +32,7 @@ jobs:
       - run: |
           sed -i 's/pass/raise/' C:/hostedtoolcache/windows/PyPy/3.10.14/x86/Lib/site-packages/pip/_internal/network/cache.py
       - run: |
-          sed -i 's/return new_headers/resp._body.close(); return new_headers/' C:/hostedtoolcache/windows/PyPy/3.10.14/x86/Lib/site-packages/pip/_vendor/cachecontrol/controller.py
+          sed -i 's/return new_headers/resp._fp.close(); return new_headers/' C:/hostedtoolcache/windows/PyPy/3.10.14/x86/Lib/site-packages/pip/_vendor/cachecontrol/controller.py
       #- run: |
       #    sed -i 's/request.headers.update(self.controller.conditional_headers(request))/import gc; request.headers.update(self.controller.conditional_headers(request)); gc.collect()/' C:/hostedtoolcache/windows/PyPy/3.10.14/x86/Lib/site-packages/pip/_vendor/cachecontrol/adapter.py
       #- run: cat C:/hostedtoolcache/windows/PyPy/3.10.14/x86/Lib/site-packages/pip/_vendor/cachecontrol/controller.py
