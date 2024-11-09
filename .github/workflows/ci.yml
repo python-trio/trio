@@ -2,23 +2,16 @@ name: CI
 
 on:
   push:
-    branches-ignore:
-      - "dependabot/**"
-  pull_request:
 
 jobs:
   Windows:
-    name: 'Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})'
+    name: 'Windows (${{ matrix.python }})'
     timeout-minutes: 20
     runs-on: 'windows-latest'
     strategy:
       fail-fast: false
       matrix:
         python: ['pypy-3.10']
-        arch: ['x86', 'x64']
-        lsp: ['']
-        lsp_extract_file: ['']
-        extra_name: ['']
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,12 +27,8 @@ jobs:
           # 'CPython' -> '3.9.0-alpha - 3.9.X'
           # 'PyPy'    -> 'pypy-3.9'
           python-version: ${{ fromJSON(format('["{0}", "{1}"]', format('{0}.0-alpha - {0}.X', matrix.python), matrix.python))[startsWith(matrix.python, 'pypy')] }}
-          architecture: '${{ matrix.arch }}'
           cache: pip
           cache-dependency-path: test-requirements.txt
       - name: Run tests
         run: ./ci.sh
         shell: bash
-        env:
-          LSP: '${{ matrix.lsp }}'
-          LSP_EXTRACT_FILE: '${{ matrix.lsp_extract_file }}'
