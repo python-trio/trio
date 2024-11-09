@@ -1,0 +1,14 @@
+274c274,275
+<         new_headers = {}
+---
+>         if not resp:
+>             return {}
+276c277,278
+<         if resp:
+---
+>         with resp:
+>             new_headers = {}
+285c287
+<         return new_headers
+---
+>             return new_headers
