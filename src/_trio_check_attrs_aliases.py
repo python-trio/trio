@@ -11,9 +11,9 @@ orig_field = attrs.field
 
 
 def field(**kwargs: Any) -> Any:
-    if "alias" in kwargs:
-        metadata = kwargs.setdefault("metadata", {})
-        metadata["trio_test_has_alias"] = True
+    original_args = kwargs.copy()
+    metadata = kwargs.setdefault("metadata", {})
+    metadata["original_args"] = original_args
     return orig_field(**kwargs)
 
 

@@ -596,9 +596,8 @@ def test_pyright_recognizes_init_attributes() -> None:
             attributes = [
                 attr
                 for attr in attrs.fields(class_)
-                if attr.name.startswith("_")
                 if attr.init
-                if "trio_test_has_alias" not in attr.metadata
+                if attr.alias not in (attr.name, attr.metadata["original_args"].get("alias"))
             ]
 
             assert attributes == [], class_
