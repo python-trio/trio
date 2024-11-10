@@ -600,8 +600,8 @@ def test_pyright_recognizes_init_attributes() -> None:
                 if attr.alias
                 not in (
                     attr.name,
-                    # original_args may not be present in autoattribs
-                    attr.metadata.get("original_args", {}).get("alias"),
+                    # trio_original_args may not be present in autoattribs
+                    attr.metadata.get("trio_original_args", {}).get("alias"),
                 )
             ]
 
