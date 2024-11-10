@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import signal
 import sys
 import types
 from typing import TYPE_CHECKING, TypeVar
@@ -25,7 +24,6 @@ from .._util import (
     fixup_module_metadata,
     generic_function,
     is_main_thread,
-    signal_raise,
 )
 from ..testing import wait_all_tasks_blocked
 
@@ -33,20 +31,6 @@ if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
 
 T = TypeVar("T")
-
-
-def test_signal_raise() -> None:
-    record = []
-
-    def handler(signum: int, _: object) -> None:
-        record.append(signum)
-
-    old = signal.signal(signal.SIGFPE, handler)
-    try:
-        signal_raise(signal.SIGFPE)
-    finally:
-        signal.signal(signal.SIGFPE, old)
-    assert record == [signal.SIGFPE]
 
 
 async def test_ConflictDetector() -> None:
