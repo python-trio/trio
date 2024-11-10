@@ -598,7 +598,11 @@ def test_pyright_recognizes_init_attributes() -> None:
                 for attr in attrs.fields(class_)
                 if attr.init
                 if attr.alias
-                not in (attr.name, attr.metadata["original_args"].get("alias"))
+                not in (
+                    attr.name,
+                    # original_args may not be present in autoattribs
+                    attr.metadata.get("original_args", {}).get("alias"),
+                )
             ]
 
             assert attributes == [], class_
