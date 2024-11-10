@@ -13,7 +13,7 @@ orig_field = attrs.field
 def field(**kwargs: Any) -> Any:
     original_args = kwargs.copy()
     metadata = kwargs.setdefault("metadata", {})
-    metadata["original_args"] = original_args
+    metadata["trio_original_args"] = original_args
     return orig_field(**kwargs)
 
 
