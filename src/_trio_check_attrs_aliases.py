@@ -17,5 +17,6 @@ def field(**kwargs: Any) -> Any:
     return orig_field(**kwargs)
 
 
+# Mark it as being ours, so the test knows it can actually run.
 field.trio_modded = True  # type: ignore
 attrs.field = field

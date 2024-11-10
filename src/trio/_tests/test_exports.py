@@ -574,6 +574,11 @@ def test_classes_are_final() -> None:
             assert class_is_final(class_)
 
 
+# Plugin might not be running, especially if running from an installed version.
+@pytest.mark.skipif(
+    not hasattr(attrs.field, "trio_modded"),
+    reason="Pytest plugin not installed.",
+)
 def test_pyright_recognizes_init_attributes() -> None:
     """Check whether we provide `alias` for all underscore prefixed attributes.
 
@@ -581,7 +586,6 @@ def test_pyright_recognizes_init_attributes() -> None:
     to monkeypatch `field()` to record whether an alias was defined in the metadata.
     See `_trio_check_attrs_aliases`.
     """
-    assert hasattr(attrs.field, "trio_modded")
     for module in PUBLIC_MODULES:
         for class_ in module.__dict__.values():
             if not attrs.has(class_):
