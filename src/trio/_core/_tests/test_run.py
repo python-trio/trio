@@ -2795,9 +2795,12 @@ async def test_internal_error_old_nursery_multiple_tasks() -> None:
 
 
 if sys.version_info >= (3, 11):
+
     def no_other_refs() -> list[object]:
         return []
+
 else:
+
     def no_other_refs() -> list[object]:
         return [sys._getframe(1)]
 
