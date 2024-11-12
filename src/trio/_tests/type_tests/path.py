@@ -48,16 +48,16 @@ def sync_attrs(path: trio.Path) -> None:
     assert_type(path.as_posix(), str)
     assert_type(path.as_uri(), str)
     assert_type(path.is_absolute(), bool)
-    if sys.version_info > (3, 9):
+    if sys.version_info >= (3, 9):
         assert_type(path.is_relative_to(path), bool)
     assert_type(path.is_reserved(), bool)
     assert_type(path.joinpath(path, "folder"), trio.Path)
     assert_type(path.match("*.py"), bool)
     assert_type(path.relative_to("/usr"), trio.Path)
-    if sys.version_info > (3, 12):
+    if sys.version_info >= (3, 12):
         assert_type(path.relative_to("/", walk_up=True), bool)
     assert_type(path.with_name("filename.txt"), trio.Path)
-    if sys.version_info > (3, 9):
+    if sys.version_info >= (3, 9):
         assert_type(path.with_stem("readme"), trio.Path)
     assert_type(path.with_suffix(".log"), trio.Path)
 
@@ -75,7 +75,7 @@ async def async_attrs(path: trio.Path) -> None:
         assert_type(await path.group(), str)
     assert_type(await path.is_dir(), bool)
     assert_type(await path.is_file(), bool)
-    if sys.version_info > (3, 12):
+    if sys.version_info >= (3, 12):
         assert_type(await path.is_junction(), bool)
     if sys.platform != "win32":
         assert_type(await path.is_mount(), bool)
@@ -95,7 +95,7 @@ async def async_attrs(path: trio.Path) -> None:
         assert_type(await path.owner(), str)
     assert_type(await path.read_bytes(), bytes)
     assert_type(await path.read_text(encoding="utf16", errors="replace"), str)
-    if sys.version_info > (3, 9):
+    if sys.version_info >= (3, 9):
         assert_type(await path.readlink(), trio.Path)
     assert_type(await path.rename("another"), trio.Path)
     assert_type(await path.replace(path), trio.Path)
@@ -107,7 +107,7 @@ async def async_attrs(path: trio.Path) -> None:
     assert_type(await path.rmdir(), None)
     assert_type(await path.samefile("something_else"), bool)
     assert_type(await path.symlink_to("somewhere"), None)
-    if sys.version_info > (3, 10):
+    if sys.version_info >= (3, 10):
         assert_type(await path.hardlink_to("elsewhere"), None)
     assert_type(await path.touch(), None)
     assert_type(await path.unlink(missing_ok=True), None)
