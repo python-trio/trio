@@ -14,7 +14,7 @@ import attrs
 import pytest
 
 from .. import _core, socket as tsocket
-from .._core._tests.tutil import binds_ipv6, creates_ipv6
+from .._core._tests.tutil import binds_ipv6, can_create_ipv6, creates_ipv6
 from .._socket import _NUMERIC_ONLY, AddressFormat, SocketType, _SocketType, _try_sync
 from ..testing import assert_checkpoints, wait_all_tasks_blocked
 
@@ -376,9 +376,12 @@ async def test_sniff_sockopts() -> None:
     from socket import AF_INET, AF_INET6, SOCK_DGRAM, SOCK_STREAM
 
     # generate the combinations of families/types we're testing:
+    families = [AF_INET]
+    if can_create_ipv6:
+        families.append(AF_INET6)
     sockets = [
         stdlib_socket.socket(family, type_)
-        for family in [AF_INET, AF_INET6]
+        for family in families
         for type_ in [SOCK_DGRAM, SOCK_STREAM]
     ]
     for socket in sockets:
