@@ -147,7 +147,7 @@ def _stringify_exception(exc: BaseException) -> str:
 
 
 # String patterns default to including the unicode flag.
-_regex_no_flags = re.compile("").flags
+_REGEX_NO_FLAGS = re.compile("").flags
 
 
 @final
@@ -247,7 +247,7 @@ class Matcher(Generic[MatchE]):
         if (match := self.match) is not None:
             # If no flags were specified, discard the redundant re.compile() here.
             reqs.append(
-                f"match={match.pattern if match.flags == _regex_no_flags else match!r}",
+                f"match={match.pattern if match.flags == _REGEX_NO_FLAGS else match!r}",
             )
         if self.check is not None:
             reqs.append(f"check={self.check!r}")
@@ -267,18 +267,11 @@ class Matcher(Generic[MatchE]):
 # Current solution settles on the above giving BaseExceptionGroup[RaisesGroup[ValueError]], and it not
 # being a type error to do `with RaisesGroup(ValueError()): ...` - but that will error on runtime.
 
-# We lie to type checkers that we inherit, so excinfo.value and sub-exceptiongroups can be treated as ExceptionGroups
-if TYPE_CHECKING:
-    SuperClass = BaseExceptionGroup
-else:
-    # At runtime, use a redundant Generic base class which effectively gets ignored.
-    SuperClass = Generic
-
 
 @final
 class RaisesGroup(
     AbstractContextManager[ExceptionInfo[BaseExceptionGroup[E]]],
-    SuperClass[E],
+    Generic[E],
 ):
     """Contextmanager for checking for an expected `ExceptionGroup`.
     This works similar to ``pytest.raises``, and a version of it will hopefully be added upstream, after which this can be deprecated and removed. See https://github.com/pytest-dev/pytest/issues/11538
@@ -332,17 +325,8 @@ class RaisesGroup(
 
     even though it generally does not care about the order of the exceptions in the group.
     To avoid the above you should specify the first ValueError with a Matcher as well.
-
-    It is also not typechecked perfectly, and that's likely not possible with the current approach. Most common usage should work without issue though.
     """
 
-    # needed for pyright, since BaseExceptionGroup.__new__ takes two arguments
-    if TYPE_CHECKING:
-
-        def __new__(cls, *args: object, **kwargs: object) -> RaisesGroup[E]: ...
-
-    # allow_unwrapped=True requires: singular exception, exception not being
-    # RaisesGroup instance, match is None, check is None
     @overload
     def __init__(
         self,
@@ -350,17 +334,13 @@ class RaisesGroup(
         *,
         allow_unwrapped: Literal[True],
         flatten_subgroups: bool = False,
-        match: None = None,
-        check: None = None,
     ) -> None: ...
 
-    # flatten_subgroups = True also requires no nested RaisesGroup
     @overload
     def __init__(
         self,
         exception: type[E] | Matcher[E],
         *other_exceptions: type[E] | Matcher[E],
-        allow_unwrapped: Literal[False] = False,
         flatten_subgroups: Literal[True],
         match: str | Pattern[str] | None = None,
         check: Callable[[BaseExceptionGroup[E]], bool] | None = None,
@@ -371,8 +351,6 @@ class RaisesGroup(
         self,
         exception: type[E] | Matcher[E] | E,
         *other_exceptions: type[E] | Matcher[E] | E,
-        allow_unwrapped: Literal[False] = False,
-        flatten_subgroups: Literal[False] = False,
         match: str | Pattern[str] | None = None,
         check: Callable[[BaseExceptionGroup[E]], bool] | None = None,
     ) -> None: ...

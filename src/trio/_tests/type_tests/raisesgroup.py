@@ -23,19 +23,6 @@ from typing_extensions import assert_type
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup, ExceptionGroup
 
-# split into functions to isolate the different scopes
-
-
-def check_inheritance_and_assignments() -> None:
-    # Check inheritance
-    _: BaseExceptionGroup[ValueError] = RaisesGroup(ValueError)
-    _ = RaisesGroup(RaisesGroup(ValueError))  # type: ignore
-
-    a: BaseExceptionGroup[BaseExceptionGroup[ValueError]]
-    a = RaisesGroup(RaisesGroup(ValueError))
-    a = BaseExceptionGroup("", (BaseExceptionGroup("", (ValueError(),)),))
-    assert a
-
 
 def check_matcher_typevar_default(e: Matcher) -> object:
     assert e.exception_type is not None
