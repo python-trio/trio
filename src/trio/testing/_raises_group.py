@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 import sys
-from contextlib import AbstractContextManager
 from re import Pattern
 from typing import (
     TYPE_CHECKING,
@@ -35,9 +34,12 @@ else:
     from typing import TypeVar
 
     MatchE = TypeVar("MatchE", bound=BaseException, covariant=True)
+
 # RaisesGroup doesn't work with a default.
 E = TypeVar("E", bound=BaseException, covariant=True)
-# These two typevars are special cased in sphinx config to workaround lookup bugs.
+E2 = TypeVar("E2", bound=BaseException)
+
+# These typevars are special cased in sphinx config to workaround lookup bugs.
 
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
@@ -254,23 +256,8 @@ class Matcher(Generic[MatchE]):
         return f'Matcher({", ".join(reqs)})'
 
 
-# typing this has been somewhat of a nightmare, with the primary difficulty making
-# the return type of __enter__ correct. Ideally it would function like this
-# with RaisesGroup(RaisesGroup(ValueError)) as excinfo:
-#   ...
-# assert_type(excinfo.value, ExceptionGroup[ExceptionGroup[ValueError]])
-# in addition to all the simple cases, but getting all the way to the above seems maybe
-# impossible. The type being RaisesGroup[RaisesGroup[ValueError]] is probably also fine,
-# as long as I add fake properties corresponding to the properties of exceptiongroup. But
-# I had trouble with it handling recursive cases properly.
-
-# Current solution settles on the above giving BaseExceptionGroup[RaisesGroup[ValueError]], and it not
-# being a type error to do `with RaisesGroup(ValueError()): ...` - but that will error on runtime.
-
-
 @final
 class RaisesGroup(
-    AbstractContextManager[ExceptionInfo[BaseExceptionGroup[E]]],
     Generic[E],
 ):
     """Contextmanager for checking for an expected `ExceptionGroup`.
@@ -351,6 +338,15 @@ class RaisesGroup(
         self,
         exception: type[E] | Matcher[E] | E,
         *other_exceptions: type[E] | Matcher[E] | E,
+        match: str | Pattern[str] | None = None,
+        check: Callable[[BaseExceptionGroup[E]], bool] | None = None,
+    ) -> None: ...
+
+    # TODO: does multiple RaisesGroups make sense as parameters?
+    @overload
+    def __init__(
+        self: RaisesGroup[BaseExceptionGroup[E2]],
+        exception: RaisesGroup[E2],
         match: str | Pattern[str] | None = None,
         check: Callable[[BaseExceptionGroup[E]], bool] | None = None,
     ) -> None: ...

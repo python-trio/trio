@@ -156,24 +156,22 @@ def check_nested_raisesgroups_contextmanager() -> None:
     with RaisesGroup(RaisesGroup(ValueError)) as excinfo:
         raise ExceptionGroup("foo", (ValueError(),))
 
-    # thanks to inheritance this assignment works
     _: BaseExceptionGroup[BaseExceptionGroup[ValueError]] = excinfo.value
-    # and it can mostly be treated like an exceptiongroup
     print(excinfo.value.exceptions[0].exceptions[0])
 
-    # but assert_type reveals the lies
     print(type(excinfo.value))  # would print "ExceptionGroup"
-    # typing says it's a BaseExceptionGroup
     assert_type(
         excinfo.value,
-        BaseExceptionGroup[RaisesGroup[ValueError]],
+        BaseExceptionGroup[BaseExceptionGroup[ValueError]],
     )
 
     print(type(excinfo.value.exceptions[0]))  # would print "ExceptionGroup"
-    # but type checkers are utterly confused
     assert_type(
         excinfo.value.exceptions[0],
-        Union[RaisesGroup[ValueError], BaseExceptionGroup[RaisesGroup[ValueError]]],
+        Union[
+            BaseExceptionGroup[ValueError],
+            BaseExceptionGroup[BaseExceptionGroup[ValueError]],
+        ],
     )
 
 
@@ -183,9 +181,9 @@ def check_nested_raisesgroups_matches() -> None:
         "",
         (ExceptionGroup("", (ValueError(),)),),
     )
-    # has the same problems as check_nested_raisesgroups_contextmanager
+
     if RaisesGroup(RaisesGroup(ValueError)).matches(exc):
-        assert_type(exc, BaseExceptionGroup[RaisesGroup[ValueError]])
+        assert_type(exc, BaseExceptionGroup[BaseExceptionGroup[ValueError]])
 
 
 def check_multiple_exceptions_1() -> None:
@@ -193,7 +191,7 @@ def check_multiple_exceptions_1() -> None:
     b = RaisesGroup(Matcher(ValueError), Matcher(ValueError))
     c = RaisesGroup(ValueError, Matcher(ValueError))
 
-    d: BaseExceptionGroup[ValueError]
+    d: RaisesGroup[ValueError]
     d = a
     d = b
     d = c
@@ -206,7 +204,7 @@ def check_multiple_exceptions_2() -> None:
     b = RaisesGroup(Matcher(ValueError), TypeError)
     c = RaisesGroup(ValueError, TypeError)
 
-    d: BaseExceptionGroup[Exception]
+    d: RaisesGroup[Exception]
     d = a
     d = b
     d = c
