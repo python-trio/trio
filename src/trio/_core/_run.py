@@ -2953,7 +2953,12 @@ elif TYPE_CHECKING or hasattr(select, "kqueue"):
         _KqueueStatistics as IOStatistics,
     )
 else:  # pragma: no cover
-    raise NotImplementedError("unsupported platform")
+    if "eventlet" in sys.modules or "gevent" in sys.modules:
+        raise NotImplementedError(
+            "unsupported platform or primitives trio depends on are monkey-patched out",
+        )
+    else:
+        raise NotImplementedError("unsupported platform")
 
 from ._generated_instrumentation import *
 from ._generated_run import *
