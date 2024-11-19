@@ -42,8 +42,6 @@ E3 = TypeVar("E3", bound=BaseException)
 Ec2 = TypeVar("Ec2", bound=Exception)
 Ec3 = TypeVar("Ec3", bound=Exception)
 
-# These typevars are special cased in sphinx config to workaround lookup bugs.
-
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup, ExceptionGroup
 
