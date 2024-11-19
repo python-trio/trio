@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from _pytest._code.code import ExceptionChainRepr, ReprExceptionInfo, Traceback
     from typing_extensions import TypeGuard, TypeVar
 
+    # this conditional definition is because we want to allow a TypeVar default
     MatchE = TypeVar(
         "MatchE",
         bound=BaseException,
@@ -36,11 +37,11 @@ else:
     MatchE = TypeVar("MatchE", bound=BaseException, covariant=True)
 
 # RaisesGroup doesn't work with a default.
-E = TypeVar("E", bound=BaseException, covariant=True)
-E2 = TypeVar("E2", bound=BaseException)
-E3 = TypeVar("E3", bound=BaseException)
-Ec2 = TypeVar("Ec2", bound=Exception)
-Ec3 = TypeVar("Ec3", bound=Exception)
+BaseExcT_co = TypeVar("BaseExcT_co", bound=BaseException, covariant=True)
+BaseExcT_1 = TypeVar("BaseExcT_1", bound=BaseException)
+BaseExcT_2 = TypeVar("BaseExcT_2", bound=BaseException)
+ExcT_1 = TypeVar("ExcT_1", bound=Exception)
+ExcT_2 = TypeVar("ExcT_2", bound=Exception)
 
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup, ExceptionGroup
@@ -259,7 +260,7 @@ class Matcher(Generic[MatchE]):
 
 @final
 class RaisesGroup(
-    Generic[E],
+    Generic[BaseExcT_co],
 ):
     """Contextmanager for checking for an expected `ExceptionGroup`.
     This works similar to ``pytest.raises``, and a version of it will hopefully be added upstream, after which this can be deprecated and removed. See https://github.com/pytest-dev/pytest/issues/11538
@@ -315,103 +316,118 @@ class RaisesGroup(
     To avoid the above you should specify the first ValueError with a Matcher as well.
     """
 
+    # allow_unwrapped=True requires: singular exception, exception not being
+    # RaisesGroup instance, match is None, check is None
     @overload
     def __init__(
         self,
-        exception: type[E] | Matcher[E],
+        exception: type[BaseExcT_co] | Matcher[BaseExcT_co],
         *,
         allow_unwrapped: Literal[True],
         flatten_subgroups: bool = False,
     ) -> None: ...
 
+    # flatten_subgroups = True also requires no nested RaisesGroup
     @overload
     def __init__(
         self,
-        exception: type[E] | Matcher[E],
-        *other_exceptions: type[E] | Matcher[E],
+        exception: type[BaseExcT_co] | Matcher[BaseExcT_co],
+        *other_exceptions: type[BaseExcT_co] | Matcher[BaseExcT_co],
         flatten_subgroups: Literal[True],
         match: str | Pattern[str] | None = None,
-        check: Callable[[BaseExceptionGroup[E]], bool] | None = None,
+        check: Callable[[BaseExceptionGroup[BaseExcT_co]], bool] | None = None,
     ) -> None: ...
 
     # simplify the typevars if possible (the following 3 are equivalent but go simpler->complicated)
+    # ... the first handles RaisesGroup[ValueError], the second RaisesGroup[ExceptionGroup[ValueError]],
+    #     the third RaisesGroup[ValueError | ExceptionGroup[ValueError]].
+    # ... otherwise, we will get results like RaisesGroup[ValueError | ExceptionGroup[Never]] (I think)
+    #     (technically correct but misleading)
     @overload
     def __init__(
-        self: RaisesGroup[Ec2],
-        exception: type[Ec2] | Matcher[Ec2],
-        *other_exceptions: type[Ec2] | Matcher[Ec2],
+        self: RaisesGroup[ExcT_1],
+        exception: type[ExcT_1] | Matcher[ExcT_1],
+        *other_exceptions: type[ExcT_1] | Matcher[ExcT_1],
         match: str | Pattern[str] | None = None,
-        check: Callable[[ExceptionGroup[Ec2]], bool] | None = None,
+        check: Callable[[ExceptionGroup[ExcT_1]], bool] | None = None,
     ) -> None: ...
 
     @overload
     def __init__(
-        self: RaisesGroup[ExceptionGroup[Ec3]],
-        exception: RaisesGroup[Ec3],
-        *other_exceptions: RaisesGroup[Ec3],
+        self: RaisesGroup[ExceptionGroup[ExcT_2]],
+        exception: RaisesGroup[ExcT_2],
+        *other_exceptions: RaisesGroup[ExcT_2],
         match: str | Pattern[str] | None = None,
-        check: Callable[[ExceptionGroup[ExceptionGroup[Ec3]]], bool] | None = None,
+        check: Callable[[ExceptionGroup[ExceptionGroup[ExcT_2]]], bool] | None = None,
     ) -> None: ...
 
     @overload
     def __init__(
-        self: RaisesGroup[Ec2 | ExceptionGroup[Ec3]],
-        exception: type[Ec2] | Matcher[Ec2] | RaisesGroup[Ec3],
-        *other_exceptions: type[Ec2] | Matcher[Ec2] | RaisesGroup[Ec3],
+        self: RaisesGroup[ExcT_1 | ExceptionGroup[ExcT_2]],
+        exception: type[ExcT_1] | Matcher[ExcT_1] | RaisesGroup[ExcT_2],
+        *other_exceptions: type[ExcT_1] | Matcher[ExcT_1] | RaisesGroup[ExcT_2],
         match: str | Pattern[str] | None = None,
         check: (
-            Callable[[ExceptionGroup[Ec2 | ExceptionGroup[Ec3]]], bool] | None
+            Callable[[ExceptionGroup[ExcT_1 | ExceptionGroup[ExcT_2]]], bool] | None
         ) = None,
     ) -> None: ...
 
     # same as the above 3 but handling BaseException
     @overload
     def __init__(
-        self: RaisesGroup[E2],
-        exception: type[E2] | Matcher[E2],
-        *other_exceptions: type[E2] | Matcher[E2],
+        self: RaisesGroup[BaseExcT_1],
+        exception: type[BaseExcT_1] | Matcher[BaseExcT_1],
+        *other_exceptions: type[BaseExcT_1] | Matcher[BaseExcT_1],
         match: str | Pattern[str] | None = None,
-        check: Callable[[BaseExceptionGroup[E2]], bool] | None = None,
+        check: Callable[[BaseExceptionGroup[BaseExcT_1]], bool] | None = None,
     ) -> None: ...
 
     @overload
     def __init__(
-        self: RaisesGroup[BaseExceptionGroup[E3]],
-        exception: RaisesGroup[E3],
-        *other_exceptions: RaisesGroup[E3],
+        self: RaisesGroup[BaseExceptionGroup[BaseExcT_2]],
+        exception: RaisesGroup[BaseExcT_2],
+        *other_exceptions: RaisesGroup[BaseExcT_2],
         match: str | Pattern[str] | None = None,
         check: (
-            Callable[[BaseExceptionGroup[BaseExceptionGroup[E3]]], bool] | None
+            Callable[[BaseExceptionGroup[BaseExceptionGroup[BaseExcT_2]]], bool] | None
         ) = None,
     ) -> None: ...
 
     @overload
     def __init__(
-        self: RaisesGroup[E2 | BaseExceptionGroup[E3]],
-        exception: type[E2] | Matcher[E2] | RaisesGroup[E3],
-        *other_exceptions: type[E2] | Matcher[E2] | RaisesGroup[E3],
+        self: RaisesGroup[BaseExcT_1 | BaseExceptionGroup[BaseExcT_2]],
+        exception: type[BaseExcT_1] | Matcher[BaseExcT_1] | RaisesGroup[BaseExcT_2],
+        *other_exceptions: type[BaseExcT_1]
+        | Matcher[BaseExcT_1]
+        | RaisesGroup[BaseExcT_2],
         match: str | Pattern[str] | None = None,
         check: (
-            Callable[[BaseExceptionGroup[E2 | BaseExceptionGroup[E3]]], bool] | None
+            Callable[
+                [BaseExceptionGroup[BaseExcT_1 | BaseExceptionGroup[BaseExcT_2]]],
+                bool,
+            ]
+            | None
         ) = None,
     ) -> None: ...
 
     def __init__(
-        self: RaisesGroup[Ec2 | E2 | BaseExceptionGroup[E3]],
-        exception: type[E2] | Matcher[E2] | RaisesGroup[E3],
-        *other_exceptions: type[E2] | Matcher[E2] | RaisesGroup[E3],
+        self: RaisesGroup[ExcT_1 | BaseExcT_1 | BaseExceptionGroup[BaseExcT_2]],
+        exception: type[BaseExcT_1] | Matcher[BaseExcT_1] | RaisesGroup[BaseExcT_2],
+        *other_exceptions: type[BaseExcT_1]
+        | Matcher[BaseExcT_1]
+        | RaisesGroup[BaseExcT_2],
         allow_unwrapped: bool = False,
         flatten_subgroups: bool = False,
         match: str | Pattern[str] | None = None,
         # NOTE: I don't think the following argument type *should* work. But it does!
         check: (
-            Callable[[BaseExceptionGroup[E2]], bool]
-            | Callable[[ExceptionGroup[Ec2]], bool]
+            Callable[[BaseExceptionGroup[BaseExcT_1]], bool]
+            | Callable[[ExceptionGroup[ExcT_1]], bool]
             | None
         ) = None,
     ):
         self.expected_exceptions: tuple[
-            type[E] | Matcher[E] | RaisesGroup[BaseException],
+            type[BaseExcT_co] | Matcher[BaseExcT_co] | RaisesGroup[BaseException],
             ...,
         ] = (
             exception,
@@ -476,14 +492,18 @@ class RaisesGroup(
                 )
 
     @overload
-    def __enter__(self: RaisesGroup[Ec2]) -> ExceptionInfo[ExceptionGroup[Ec2]]: ...
+    def __enter__(
+        self: RaisesGroup[ExcT_1],
+    ) -> ExceptionInfo[ExceptionGroup[ExcT_1]]: ...
     @overload
     def __enter__(
-        self: RaisesGroup[BaseException],
-    ) -> ExceptionInfo[BaseExceptionGroup[E]]: ...
+        self: RaisesGroup[BaseExcT_1],
+    ) -> ExceptionInfo[BaseExceptionGroup[BaseExcT_1]]: ...
 
     def __enter__(self) -> ExceptionInfo[BaseExceptionGroup[BaseException]]:
-        self.excinfo: ExceptionInfo[BaseExceptionGroup[E]] = ExceptionInfo.for_later()
+        self.excinfo: ExceptionInfo[BaseExceptionGroup[BaseExcT_co]] = (
+            ExceptionInfo.for_later()
+        )
         return self.excinfo
 
     def _unroll_exceptions(
@@ -502,19 +522,19 @@ class RaisesGroup(
 
     @overload
     def matches(
-        self: RaisesGroup[Ec2],
+        self: RaisesGroup[ExcT_1],
         exc_val: BaseException | None,
-    ) -> TypeGuard[ExceptionGroup[Ec2]]: ...
+    ) -> TypeGuard[ExceptionGroup[ExcT_1]]: ...
     @overload
     def matches(
-        self: RaisesGroup[E2],
+        self: RaisesGroup[BaseExcT_1],
         exc_val: BaseException | None,
-    ) -> TypeGuard[BaseExceptionGroup[E2]]: ...
+    ) -> TypeGuard[BaseExceptionGroup[BaseExcT_1]]: ...
 
     def matches(
         self,
         exc_val: BaseException | None,
-    ) -> TypeGuard[BaseExceptionGroup[E]]:
+    ) -> TypeGuard[BaseExceptionGroup[BaseExcT_co]]:
         """Check if an exception matches the requirements of this RaisesGroup.
 
         Example::
@@ -570,7 +590,7 @@ class RaisesGroup(
                 return False
 
         # only run `self.check` once we know `exc_val` is correct. (see the types)
-        # unfortunately mypy isn't smart enough to recognize the above fors as narrowing.
+        # unfortunately mypy isn't smart enough to recognize the above `for`s as narrowing.
         return self.check is None or self.check(exc_val)  # type: ignore[arg-type]
 
     def __exit__(
@@ -592,7 +612,7 @@ class RaisesGroup(
 
         # Cast to narrow the exception type now that it's verified.
         exc_info = cast(
-            "tuple[type[BaseExceptionGroup[E]], BaseExceptionGroup[E], types.TracebackType]",
+            "tuple[type[BaseExceptionGroup[BaseExcT_co]], BaseExceptionGroup[BaseExcT_co], types.TracebackType]",
             (exc_type, exc_val, exc_tb),
         )
         self.excinfo.fill_unfilled(exc_info)

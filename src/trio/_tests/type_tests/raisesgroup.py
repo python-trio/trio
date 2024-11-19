@@ -9,6 +9,8 @@ from typing_extensions import assert_type
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup, ExceptionGroup
 
+# split into functions to isolate the different scopes
+
 
 def check_matcher_typevar_default(e: Matcher) -> object:
     assert e.exception_type is not None
@@ -19,7 +21,6 @@ def check_matcher_typevar_default(e: Matcher) -> object:
 
 
 def check_basic_contextmanager() -> None:
-
     with RaisesGroup(ValueError) as e:
         raise ExceptionGroup("foo", (ValueError(),))
     assert_type(e.value, ExceptionGroup[ValueError])
@@ -137,17 +138,15 @@ def check_nested_raisesgroups_contextmanager() -> None:
         raise ExceptionGroup("foo", (ValueError(),))
 
     _: BaseExceptionGroup[BaseExceptionGroup[ValueError]] = excinfo.value
-    print(excinfo.value.exceptions[0].exceptions[0])
 
-    print(type(excinfo.value))  # would print "ExceptionGroup"
     assert_type(
         excinfo.value,
         ExceptionGroup[ExceptionGroup[ValueError]],
     )
 
-    print(type(excinfo.value.exceptions[0]))  # would print "ExceptionGroup"
     assert_type(
         excinfo.value.exceptions[0],
+        # this union is because of how typeshed defines .exceptions
         Union[
             ExceptionGroup[ValueError],
             ExceptionGroup[ExceptionGroup[ValueError]],
@@ -217,3 +216,8 @@ def check_raisesgroup_overloads() -> None:
 
     # if they're both false we can of course specify nested raisesgroup
     RaisesGroup(RaisesGroup(ValueError))
+
+
+def check_triple_nested_raisesgroup() -> None:
+    with RaisesGroup(RaisesGroup(RaisesGroup(ValueError))) as e:
+        assert_type(e.value, ExceptionGroup[ExceptionGroup[ExceptionGroup[ValueError]]])
