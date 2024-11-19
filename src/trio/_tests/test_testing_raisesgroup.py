@@ -24,7 +24,7 @@ def test_raises_group() -> None:
             f'Invalid argument "{TypeError()!r}" must be exception type, Matcher, or RaisesGroup.',
         ),
     ):
-        RaisesGroup(TypeError())
+        RaisesGroup(TypeError())  # type: ignore
 
     with RaisesGroup(ValueError):
         raise ExceptionGroup("foo", (ValueError(),))

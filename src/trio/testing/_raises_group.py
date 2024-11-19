@@ -38,6 +38,7 @@ else:
 # RaisesGroup doesn't work with a default.
 E = TypeVar("E", bound=BaseException, covariant=True)
 E2 = TypeVar("E2", bound=BaseException)
+E3 = TypeVar("E3", bound=BaseException)
 
 # These typevars are special cased in sphinx config to workaround lookup bugs.
 
@@ -333,34 +334,53 @@ class RaisesGroup(
         check: Callable[[BaseExceptionGroup[E]], bool] | None = None,
     ) -> None: ...
 
+    # simplify the typevars if possible (the following 3 are equivalent but go simpler->complicated)
     @overload
     def __init__(
-        self,
-        exception: type[E] | Matcher[E] | E,
-        *other_exceptions: type[E] | Matcher[E] | E,
+        self: RaisesGroup[E2],
+        exception: type[E2] | Matcher[E2],
+        *other_exceptions: type[E2] | Matcher[E2],
         match: str | Pattern[str] | None = None,
-        check: Callable[[BaseExceptionGroup[E]], bool] | None = None,
+        check: Callable[[BaseExceptionGroup[E2]], bool] | None = None,
     ) -> None: ...
 
-    # TODO: does multiple RaisesGroups make sense as parameters?
     @overload
     def __init__(
-        self: RaisesGroup[BaseExceptionGroup[E2]],
-        exception: RaisesGroup[E2],
+        self: RaisesGroup[BaseExceptionGroup[E3]],
+        exception: RaisesGroup[E3],
+        *other_exceptions: RaisesGroup[E3],
         match: str | Pattern[str] | None = None,
-        check: Callable[[BaseExceptionGroup[E]], bool] | None = None,
+        check: (
+            Callable[[BaseExceptionGroup[BaseExceptionGroup[E3]]], bool] | None
+        ) = None,
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: RaisesGroup[E2 | BaseExceptionGroup[E3]],
+        exception: type[E2] | Matcher[E2] | RaisesGroup[E3],
+        *other_exceptions: type[E2] | Matcher[E2] | RaisesGroup[E3],
+        match: str | Pattern[str] | None = None,
+        check: (
+            Callable[[BaseExceptionGroup[E2 | BaseExceptionGroup[E3]]], bool] | None
+        ) = None,
     ) -> None: ...
 
     def __init__(
-        self,
-        exception: type[E] | Matcher[E] | E,
-        *other_exceptions: type[E] | Matcher[E] | E,
+        self: RaisesGroup[E2 | BaseExceptionGroup[E3]],
+        exception: type[E2] | Matcher[E2] | RaisesGroup[E3],
+        *other_exceptions: type[E2] | Matcher[E2] | RaisesGroup[E3],
         allow_unwrapped: bool = False,
         flatten_subgroups: bool = False,
         match: str | Pattern[str] | None = None,
-        check: Callable[[BaseExceptionGroup[E]], bool] | None = None,
+        # NOTE: I don't think the following argument *should* work. But it does!
+        check: Callable[[BaseExceptionGroup[E2]], bool] | None = None,
     ):
-        self.expected_exceptions: tuple[type[E] | Matcher[E] | E, ...] = (
+        check = None
+        self.expected_exceptions: tuple[
+            type[E] | Matcher[E] | RaisesGroup[BaseException],
+            ...,
+        ] = (
             exception,
             *other_exceptions,
         )
@@ -498,7 +518,7 @@ class RaisesGroup(
                     or (isinstance(rem_e, RaisesGroup) and rem_e.matches(e))
                     or (isinstance(rem_e, Matcher) and rem_e.matches(e))
                 ):
-                    remaining_exceptions.remove(rem_e)  # type: ignore[arg-type]
+                    remaining_exceptions.remove(rem_e)
                     break
             else:
                 return False
