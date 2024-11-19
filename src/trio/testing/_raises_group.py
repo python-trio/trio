@@ -509,9 +509,9 @@ class RaisesGroup(
     ) -> TypeGuard[ExceptionGroup[Ec2]]: ...
     @overload
     def matches(
-        self: RaisesGroup[BaseException],
+        self: RaisesGroup[E2],
         exc_val: BaseException | None,
-    ) -> TypeGuard[BaseExceptionGroup[E]]: ...
+    ) -> TypeGuard[BaseExceptionGroup[E2]]: ...
 
     def matches(
         self,
@@ -549,8 +549,6 @@ class RaisesGroup(
             _stringify_exception(exc_val),
         ):
             return False
-        if self.check is not None and not self.check(exc_val):
-            return False
 
         remaining_exceptions = list(self.expected_exceptions)
         actual_exceptions: Sequence[BaseException] = exc_val.exceptions
@@ -561,9 +559,6 @@ class RaisesGroup(
         if len(actual_exceptions) != len(self.expected_exceptions):
             return False
 
-        # it should be possible to get RaisesGroup.matches typed so as not to
-        # need type: ignore, but I'm not sure that's possible while also having it
-        # transparent for the end user.
         for e in actual_exceptions:
             for rem_e in remaining_exceptions:
                 if (
@@ -575,7 +570,10 @@ class RaisesGroup(
                     break
             else:
                 return False
-        return True
+
+        # only run `self.check` once we know `exc_val` is correct. (see the types)
+        # unfortunately mypy isn't smart enough to recognize the above fors as narrowing.
+        return self.check is None or self.check(exc_val)  # type: ignore[arg-type]
 
     def __exit__(
         self,
