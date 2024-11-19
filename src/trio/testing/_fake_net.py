@@ -504,7 +504,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         self,
         __data: Buffer,  # noqa: PYI063
         __flags: int,
-        __address: tuple[object, ...] | str | None | Buffer,
+        __address: tuple[object, ...] | str | Buffer | None,
     ) -> int: ...
 
     # Explicit "Any" is not allowed
