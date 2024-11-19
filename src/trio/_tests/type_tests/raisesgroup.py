@@ -38,12 +38,14 @@ def check_basic_matches() -> None:
 
 
 def check_matches_with_different_exception_type() -> None:
-    # TODO: This should probably raise some type error somewhere, since
-    # ValueError != KeyboardInterrupt
     e: BaseExceptionGroup[KeyboardInterrupt] = BaseExceptionGroup(
         "",
         (KeyboardInterrupt(),),
     )
+
+    # note: it might be tempting to have this warn.
+    # however, note that we should not warn if e: BaseException
+    # .... therefore this needs to pass as there is no distinction
     if RaisesGroup(ValueError).matches(e):
         assert_type(e, ExceptionGroup[ValueError])
 

@@ -39,7 +39,6 @@ else:
 E = TypeVar("E", bound=BaseException, covariant=True)
 E2 = TypeVar("E2", bound=BaseException)
 E3 = TypeVar("E3", bound=BaseException)
-Ec = TypeVar("Ec", bound=Exception)
 Ec2 = TypeVar("Ec2", bound=Exception)
 Ec3 = TypeVar("Ec3", bound=Exception)
 
@@ -480,7 +479,7 @@ class RaisesGroup(
                 )
 
     @overload
-    def __enter__(self: RaisesGroup[Ec]) -> ExceptionInfo[ExceptionGroup[Ec]]: ...
+    def __enter__(self: RaisesGroup[Ec2]) -> ExceptionInfo[ExceptionGroup[Ec2]]: ...
     @overload
     def __enter__(
         self: RaisesGroup[BaseException],
@@ -506,9 +505,9 @@ class RaisesGroup(
 
     @overload
     def matches(
-        self: RaisesGroup[Ec],
+        self: RaisesGroup[Ec2],
         exc_val: BaseException | None,
-    ) -> TypeGuard[ExceptionGroup[Ec]]: ...
+    ) -> TypeGuard[ExceptionGroup[Ec2]]: ...
     @overload
     def matches(
         self: RaisesGroup[BaseException],
