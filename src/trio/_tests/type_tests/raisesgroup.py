@@ -19,8 +19,7 @@ def check_matcher_typevar_default(e: Matcher) -> object:
 
 
 def check_basic_contextmanager() -> None:
-    # One level of Group is correctly translated - except it's a BaseExceptionGroup
-    # instead of an ExceptionGroup.
+
     with RaisesGroup(ValueError) as e:
         raise ExceptionGroup("foo", (ValueError(),))
     assert_type(e.value, ExceptionGroup[ValueError])

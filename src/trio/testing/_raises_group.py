@@ -412,7 +412,6 @@ class RaisesGroup(
             | None
         ) = None,
     ):
-        check = None
         self.expected_exceptions: tuple[
             type[E] | Matcher[E] | RaisesGroup[BaseException],
             ...,
