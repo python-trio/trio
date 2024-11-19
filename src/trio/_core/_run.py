@@ -1406,7 +1406,7 @@ class Task(metaclass=NoPublicConstructor):  # type: ignore[misc]
     # Tasks start out unscheduled.
     # Explicit "Any" is not allowed
     _next_send_fn: Callable[[Any], object] | None = None  # type: ignore[misc]
-    _next_send: Outcome[Any] | None | BaseException = None  # type: ignore[misc]
+    _next_send: Outcome[Any] | BaseException | None = None  # type: ignore[misc]
     _abort_func: Callable[[_core.RaiseCancelT], Abort] | None = None
     custom_sleep_data: Any = None  # type: ignore[misc]
 
