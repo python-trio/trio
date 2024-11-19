@@ -1,17 +1,3 @@
-"""The typing of RaisesGroup involves a lot of deception and lies, since AFAIK what we
-actually want to achieve is ~impossible. This is because we specify what we expect with
-instances of RaisesGroup and exception classes, but excinfo.value will be instances of
-[Base]ExceptionGroup and instances of exceptions. So we need to "translate" from
-RaisesGroup to ExceptionGroup.
-
-The way it currently works is that RaisesGroup[E] corresponds to
-ExceptionInfo[BaseExceptionGroup[E]], so the top-level group will be correct. But
-RaisesGroup[RaisesGroup[ValueError]] will become
-ExceptionInfo[BaseExceptionGroup[RaisesGroup[ValueError]]]. To get around that we specify
-RaisesGroup as a subclass of BaseExceptionGroup during type checking - which should mean
-that most static type checking for end users should be mostly correct.
-"""
-
 from __future__ import annotations
 
 import sys
@@ -37,25 +23,29 @@ def check_basic_contextmanager() -> None:
     # instead of an ExceptionGroup.
     with RaisesGroup(ValueError) as e:
         raise ExceptionGroup("foo", (ValueError(),))
-    assert_type(e.value, BaseExceptionGroup[ValueError])
+    assert_type(e.value, ExceptionGroup[ValueError])
 
 
 def check_basic_matches() -> None:
     # check that matches gets rid of the naked ValueError in the union
     exc: ExceptionGroup[ValueError] | ValueError = ExceptionGroup("", (ValueError(),))
     if RaisesGroup(ValueError).matches(exc):
-        assert_type(exc, BaseExceptionGroup[ValueError])
+        assert_type(exc, ExceptionGroup[ValueError])
+
+    # also check that BaseExceptionGroup shows up for BaseExceptions
+    if RaisesGroup(KeyboardInterrupt).matches(exc):
+        assert_type(exc, BaseExceptionGroup[KeyboardInterrupt])
 
 
 def check_matches_with_different_exception_type() -> None:
-    # This should probably raise some type error somewhere, since
+    # TODO: This should probably raise some type error somewhere, since
     # ValueError != KeyboardInterrupt
     e: BaseExceptionGroup[KeyboardInterrupt] = BaseExceptionGroup(
         "",
         (KeyboardInterrupt(),),
     )
     if RaisesGroup(ValueError).matches(e):
-        assert_type(e, BaseExceptionGroup[ValueError])
+        assert_type(e, ExceptionGroup[ValueError])
 
 
 def check_matcher_init() -> None:
@@ -121,16 +111,7 @@ def raisesgroup_check_type_narrowing() -> None:
 
 
 def raisesgroup_narrow_baseexceptiongroup() -> None:
-    """Check type narrowing specifically for the container exceptiongroup.
-    This is not currently working, and after playing around with it for a bit
-    I think the only way is to introduce a subclass `NonBaseRaisesGroup`, and overload
-    `__new__` in Raisesgroup to return the subclass when exceptions are non-base.
-    (or make current class BaseRaisesGroup and introduce RaisesGroup for non-base)
-    I encountered problems trying to type this though, see
-    https://github.com/python/mypy/issues/17251
-    That is probably possible to work around by entirely using `__new__` instead of
-    `__init__`, but........ ugh.
-    """
+    """Check type narrowing specifically for the container exceptiongroup."""
 
     def handle_group(e: ExceptionGroup[Exception]) -> bool:
         return True
@@ -138,18 +119,16 @@ def raisesgroup_narrow_baseexceptiongroup() -> None:
     def handle_group_value(e: ExceptionGroup[ValueError]) -> bool:
         return True
 
-    # should work, but BaseExceptionGroup does not get narrowed to ExceptionGroup
-    RaisesGroup(ValueError, check=handle_group_value)  # type: ignore
+    RaisesGroup(ValueError, check=handle_group_value)
 
-    # should work, but BaseExceptionGroup does not get narrowed to ExceptionGroup
-    RaisesGroup(Exception, check=handle_group)  # type: ignore
+    RaisesGroup(Exception, check=handle_group)
 
 
 def check_matcher_transparent() -> None:
     with RaisesGroup(Matcher(ValueError)) as e:
         ...
     _: BaseExceptionGroup[ValueError] = e.value
-    assert_type(e.value, BaseExceptionGroup[ValueError])
+    assert_type(e.value, ExceptionGroup[ValueError])
 
 
 def check_nested_raisesgroups_contextmanager() -> None:
@@ -162,15 +141,15 @@ def check_nested_raisesgroups_contextmanager() -> None:
     print(type(excinfo.value))  # would print "ExceptionGroup"
     assert_type(
         excinfo.value,
-        BaseExceptionGroup[BaseExceptionGroup[ValueError]],
+        ExceptionGroup[ExceptionGroup[ValueError]],
     )
 
     print(type(excinfo.value.exceptions[0]))  # would print "ExceptionGroup"
     assert_type(
         excinfo.value.exceptions[0],
         Union[
-            BaseExceptionGroup[ValueError],
-            BaseExceptionGroup[BaseExceptionGroup[ValueError]],
+            ExceptionGroup[ValueError],
+            ExceptionGroup[ExceptionGroup[ValueError]],
         ],
     )
 
@@ -183,7 +162,7 @@ def check_nested_raisesgroups_matches() -> None:
     )
 
     if RaisesGroup(RaisesGroup(ValueError)).matches(exc):
-        assert_type(exc, BaseExceptionGroup[BaseExceptionGroup[ValueError]])
+        assert_type(exc, ExceptionGroup[ExceptionGroup[ValueError]])
 
 
 def check_multiple_exceptions_1() -> None:

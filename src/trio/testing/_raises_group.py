@@ -39,11 +39,14 @@ else:
 E = TypeVar("E", bound=BaseException, covariant=True)
 E2 = TypeVar("E2", bound=BaseException)
 E3 = TypeVar("E3", bound=BaseException)
+Ec = TypeVar("Ec", bound=Exception)
+Ec2 = TypeVar("Ec2", bound=Exception)
+Ec3 = TypeVar("Ec3", bound=Exception)
 
 # These typevars are special cased in sphinx config to workaround lookup bugs.
 
 if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup
+    from exceptiongroup import BaseExceptionGroup, ExceptionGroup
 
 
 @final
@@ -337,6 +340,36 @@ class RaisesGroup(
     # simplify the typevars if possible (the following 3 are equivalent but go simpler->complicated)
     @overload
     def __init__(
+        self: RaisesGroup[Ec2],
+        exception: type[Ec2] | Matcher[Ec2],
+        *other_exceptions: type[Ec2] | Matcher[Ec2],
+        match: str | Pattern[str] | None = None,
+        check: Callable[[ExceptionGroup[Ec2]], bool] | None = None,
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: RaisesGroup[ExceptionGroup[Ec3]],
+        exception: RaisesGroup[Ec3],
+        *other_exceptions: RaisesGroup[Ec3],
+        match: str | Pattern[str] | None = None,
+        check: Callable[[ExceptionGroup[ExceptionGroup[Ec3]]], bool] | None = None,
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: RaisesGroup[Ec2 | ExceptionGroup[Ec3]],
+        exception: type[Ec2] | Matcher[Ec2] | RaisesGroup[Ec3],
+        *other_exceptions: type[Ec2] | Matcher[Ec2] | RaisesGroup[Ec3],
+        match: str | Pattern[str] | None = None,
+        check: (
+            Callable[[ExceptionGroup[Ec2 | ExceptionGroup[Ec3]]], bool] | None
+        ) = None,
+    ) -> None: ...
+
+    # same as the above 3 but handling BaseException
+    @overload
+    def __init__(
         self: RaisesGroup[E2],
         exception: type[E2] | Matcher[E2],
         *other_exceptions: type[E2] | Matcher[E2],
@@ -367,14 +400,18 @@ class RaisesGroup(
     ) -> None: ...
 
     def __init__(
-        self: RaisesGroup[E2 | BaseExceptionGroup[E3]],
+        self: RaisesGroup[Ec2 | E2 | BaseExceptionGroup[E3]],
         exception: type[E2] | Matcher[E2] | RaisesGroup[E3],
         *other_exceptions: type[E2] | Matcher[E2] | RaisesGroup[E3],
         allow_unwrapped: bool = False,
         flatten_subgroups: bool = False,
         match: str | Pattern[str] | None = None,
-        # NOTE: I don't think the following argument *should* work. But it does!
-        check: Callable[[BaseExceptionGroup[E2]], bool] | None = None,
+        # NOTE: I don't think the following argument type *should* work. But it does!
+        check: (
+            Callable[[BaseExceptionGroup[E2]], bool]
+            | Callable[[ExceptionGroup[Ec2]], bool]
+            | None
+        ) = None,
     ):
         check = None
         self.expected_exceptions: tuple[
@@ -442,7 +479,14 @@ class RaisesGroup(
                     " RaisesGroup.",
                 )
 
-    def __enter__(self) -> ExceptionInfo[BaseExceptionGroup[E]]:
+    @overload
+    def __enter__(self: RaisesGroup[Ec]) -> ExceptionInfo[ExceptionGroup[Ec]]: ...
+    @overload
+    def __enter__(
+        self: RaisesGroup[BaseException],
+    ) -> ExceptionInfo[BaseExceptionGroup[E]]: ...
+
+    def __enter__(self) -> ExceptionInfo[BaseExceptionGroup[BaseException]]:
         self.excinfo: ExceptionInfo[BaseExceptionGroup[E]] = ExceptionInfo.for_later()
         return self.excinfo
 
@@ -459,6 +503,17 @@ class RaisesGroup(
             else:
                 res.append(exc)
         return res
+
+    @overload
+    def matches(
+        self: RaisesGroup[Ec],
+        exc_val: BaseException | None,
+    ) -> TypeGuard[ExceptionGroup[Ec]]: ...
+    @overload
+    def matches(
+        self: RaisesGroup[BaseException],
+        exc_val: BaseException | None,
+    ) -> TypeGuard[BaseExceptionGroup[E]]: ...
 
     def matches(
         self,
