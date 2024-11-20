@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from collections import OrderedDict, deque
+from collections.abc import AsyncGenerator, Callable
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from functools import wraps
 from math import inf
 from typing import (
     TYPE_CHECKING,
@@ -19,7 +22,23 @@ from ._util import NoPublicConstructor, final, generic_function
 if TYPE_CHECKING:
     from types import TracebackType
 
-    from typing_extensions import Self
+    from typing_extensions import ParamSpec, Self
+
+    P = ParamSpec("P")
+
+try:
+    from contextlib import aclosing  # new in Python 3.10
+except ImportError:
+
+    class aclosing:
+        def __init__(self, aiter):
+            self._aiter = aiter
+
+        async def __aenter__(self):
+            return self._aiter
+
+        async def __aexit__(self, *args):
+            await self._aiter.aclose()
 
 
 def _open_memory_channel(
@@ -440,3 +459,99 @@ class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstr
         See `MemoryReceiveChannel.close`."""
         self.close()
         await trio.lowlevel.checkpoint()
+
+
+def background_with_channel(max_buffer_size: float = 0) -> Callable[
+    [
+        Callable[P, AsyncGenerator[T, None]],
+    ],
+    Callable[P, AbstractAsyncContextManager[trio.MemoryReceiveChannel[T]]],
+]:
+    """Decorate an async generator function to make it cancellation-safe.
+
+    The `yield` keyword offers a very convenient way to write iterators...
+    which makes it really unfortunate that async generators are so difficult
+    to call correctly.  Yielding from the inside of a cancel scope or a nursery 
+    to the outside `violates structured concurrency <https://xkcd.com/292/>`_
+    with consequences explainined in :pep:`789`.  Even then, resource cleanup 
+    errors remain common (:pep:`533`) unless you wrap every call in
+    :func:`~contextlib.aclosing`.
+
+    This decorator gives you the best of both worlds: with careful exception
+    handling and a background task we preserve structured concurrency by 
+    offering only the safe interface, and you can still write your iterables
+    with the convenience of `yield`.  For example:
+
+        @background_with_channel()
+        async def my_async_iterable(arg, *, kwarg=True):
+            while ...:
+                item = await ...
+                yield item
+
+        async with my_async_iterable(...) as recv_chan:
+            async for item in recv_chan:
+                ...
+
+    While the combined async-with-async-for can be inconvenient at first,
+    the context manager is indispensible for both correctness and for prompt
+    cleanup of resources.
+    """
+    # Perhaps a future PEP will adopt `async with for` syntax, like
+    # https://coconut.readthedocs.io/en/master/DOCS.html#async-with-for
+
+    def decorator(
+        fn: Callable[P, AsyncGenerator[T, None]],
+    ) -> Callable[P, AbstractAsyncContextManager[trio.MemoryReceiveChannel[T]]]:
+        @asynccontextmanager
+        @wraps(fn)
+        async def context_manager(
+            *args: P.args, **kwargs: P.kwargs
+        ) -> AsyncGenerator[trio.MemoryReceiveChannel[T], None]:
+            send_chan, recv_chan = trio.open_memory_channel[T](max_buffer_size)
+            async with trio.open_nursery() as nursery:
+                ait = fn(*args, **kwargs)
+                nursery.start_soon(_move_elems_to_channel, ait, send_chan)
+                async with recv_chan:
+                    yield recv_chan
+                # Return promptly, without waiting for `await anext(ait)`
+                nursery.cancel_scope.cancel()
+
+        return context_manager
+
+    async def _move_elems_to_channel(
+        aiterable: AsyncGenerator[T, None],
+        send_chan: trio.MemorySendChannel[T],
+    ) -> None:
+        async with send_chan, aclosing(aiterable) as agen:
+            # Outer loop manually advances the aiterable; we can't use async-for because
+            # we're going to use `.asend(err)` to forward errors back to the generator.
+            while True:
+                # Get the next value from `agen`; return if exhausted
+                try:
+                    value: T = await agen.__anext__()
+                except StopAsyncIteration:
+                    return
+                # Inner loop ensures that we send values which are yielded after
+                # catching an exception which we sent back to the generator.
+                while True:
+                    try:
+                        # Send the value to the channel
+                        await send_chan.send(value)
+                        break
+                    except trio.BrokenResourceError:
+                        # Closing the corresponding receive channel should cause
+                        # a clean shutdown of the generator.
+                        return
+                    except trio.Cancelled:
+                        raise
+                    except BaseException as error_from_send:
+                        # Forward any other errors to the generator.  Exit cleanly
+                        # if exhausted; otherwise it was handled in there and we
+                        # can continue the inner loop with this value.
+                        try:
+                            value = await agen.athrow(error_from_send)
+                        except StopAsyncIteration:
+                            return
+        # Phew.  Context managers all cleaned up, we're done here.
+
+    return decorator
