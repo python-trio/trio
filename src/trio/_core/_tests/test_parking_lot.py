@@ -304,9 +304,10 @@ async def test_parking_lot_breaker_registration() -> None:
 
     # registering a task as breaker on an already broken lot is fine
     lot.break_lot()
-    child_task = None
+    child_task: _core.Task | None = None
     async with trio.open_nursery() as nursery:
         child_task = await nursery.start(dummy_task)
+        assert isinstance(child_task, _core.Task)
         add_parking_lot_breaker(child_task, lot)
         nursery.cancel_scope.cancel()
     assert lot.broken_by == [task, child_task]
@@ -339,6 +340,9 @@ async def test_parking_lot_multiple_breakers_exit() -> None:
         child_task1 = await nursery.start(dummy_task)
         child_task2 = await nursery.start(dummy_task)
         child_task3 = await nursery.start(dummy_task)
+        assert isinstance(child_task1, _core.Task)
+        assert isinstance(child_task2, _core.Task)
+        assert isinstance(child_task3, _core.Task)
         add_parking_lot_breaker(child_task1, lot)
         add_parking_lot_breaker(child_task2, lot)
         add_parking_lot_breaker(child_task3, lot)
@@ -350,9 +354,11 @@ async def test_parking_lot_multiple_breakers_exit() -> None:
 
 async def test_parking_lot_breaker_register_exited_task() -> None:
     lot = ParkingLot()
-    child_task = None
+    child_task: _core.Task | None = None
     async with trio.open_nursery() as nursery:
-        child_task = await nursery.start(dummy_task)
+        value = await nursery.start(dummy_task)
+        assert isinstance(value, _core.Task)
+        child_task = value
         nursery.cancel_scope.cancel()
     # trying to register an exited task as lot breaker errors
     with pytest.raises(
