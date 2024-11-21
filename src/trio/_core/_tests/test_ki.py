@@ -25,7 +25,6 @@ from ... import _core
 from ..._abc import Instrument
 from ..._core import _ki
 from ..._timeouts import sleep
-from ..._util import signal_raise
 from ...testing import wait_all_tasks_blocked
 
 if TYPE_CHECKING:
@@ -41,7 +40,7 @@ if TYPE_CHECKING:
 
 
 def ki_self() -> None:
-    signal_raise(signal.SIGINT)
+    signal.raise_signal(signal.SIGINT)
 
 
 def test_ki_self() -> None:
@@ -678,7 +677,10 @@ async def _consume_async_generator(agen: AsyncGenerator[None, None]) -> None:
         await agen.aclose()
 
 
-def _consume_function_for_coverage(fn: Callable[..., object]) -> None:
+# Explicit .../"Any" is not allowed
+def _consume_function_for_coverage(  # type: ignore[misc]
+    fn: Callable[..., object],
+) -> None:
     result = fn()
     if inspect.isasyncgen(result):
         result = _consume_async_generator(result)

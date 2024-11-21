@@ -103,12 +103,11 @@ async def test_KI_interrupts(
     console = trio._repl.TrioInteractiveConsole(repl_locals=build_locals())
     raw_input = build_raw_input(
         [
-            "from trio._util import signal_raise",
             "import signal, trio, trio.lowlevel",
             "async def f():",
             "  trio.lowlevel.spawn_system_task("
             "    trio.to_thread.run_sync,"
-            "    signal_raise,signal.SIGINT,"
+            "    signal.raise_signal, signal.SIGINT,"
             "  )",  # just awaiting this kills the test runner?!
             "  await trio.sleep_forever()",
             "  print('should not see this')",

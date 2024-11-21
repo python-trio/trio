@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.10', '3.9', '3.10', '3.11', '3.12', '3.13']
+        python: ['3.9', '3.10', '3.11', '3.12', '3.13']
         arch: ['x86', 'x64']
         lsp: ['']
         lsp_extract_file: ['']
@@ -34,6 +34,11 @@ jobs:
             lsp: 'https://www.proxifier.com/download/legacy/ProxifierSetup342.exe'
             lsp_extract_file: ''
             extra_name: ', with IFS LSP'
+          - python: 'pypy-3.10'
+            arch: 'x64'
+            lsp: ''
+            lsp_extract_file: ''
+            extra_name: ''
           #- python: '3.9'
           #  arch: 'x64'
           #  lsp: 'http://download.pctools.com/mirror/updates/9.0.0.2308-SDavfree-lite_en.exe'

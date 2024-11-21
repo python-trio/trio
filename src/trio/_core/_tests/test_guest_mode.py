@@ -11,14 +11,14 @@ import time
 import traceback
 import warnings
 import weakref
-from collections.abc import AsyncGenerator, Awaitable, Callable
+from collections.abc import AsyncGenerator, Awaitable, Callable, Sequence
 from functools import partial
 from math import inf
 from typing import (
     TYPE_CHECKING,
-    Any,
     NoReturn,
     TypeVar,
+    cast,
 )
 
 import pytest
@@ -27,9 +27,8 @@ from outcome import Outcome
 
 import trio
 import trio.testing
-from trio.abc import Instrument
+from trio.abc import Clock, Instrument
 
-from ..._util import signal_raise
 from .tutil import gc_collect_harder, restore_unraisablehook
 
 if TYPE_CHECKING:
@@ -38,7 +37,7 @@ if TYPE_CHECKING:
     from trio._channel import MemorySendChannel
 
 T = TypeVar("T")
-InHost: TypeAlias = Callable[[object], None]
+InHost: TypeAlias = Callable[[Callable[[], object]], None]
 
 
 # The simplest possible "host" loop.
@@ -48,12 +47,16 @@ InHost: TypeAlias = Callable[[object], None]
 # - final result is returned
 # - any unhandled exceptions cause an immediate crash
 def trivial_guest_run(
-    trio_fn: Callable[..., Awaitable[T]],
+    trio_fn: Callable[[InHost], Awaitable[T]],
     *,
     in_host_after_start: Callable[[], None] | None = None,
-    **start_guest_run_kwargs: Any,
+    host_uses_signal_set_wakeup_fd: bool = False,
+    clock: Clock | None = None,
+    instruments: Sequence[Instrument] = (),
+    restrict_keyboard_interrupt_to_checkpoints: bool = False,
+    strict_exception_groups: bool = True,
 ) -> T:
-    todo: queue.Queue[tuple[str, Outcome[T] | Callable[..., object]]] = queue.Queue()
+    todo: queue.Queue[tuple[str, Outcome[T] | Callable[[], object]]] = queue.Queue()
 
     host_thread = threading.current_thread()
 
@@ -87,7 +90,11 @@ def trivial_guest_run(
         run_sync_soon_threadsafe=run_sync_soon_threadsafe,
         run_sync_soon_not_threadsafe=run_sync_soon_not_threadsafe,
         done_callback=done_callback,
-        **start_guest_run_kwargs,
+        host_uses_signal_set_wakeup_fd=host_uses_signal_set_wakeup_fd,
+        clock=clock,
+        instruments=instruments,
+        restrict_keyboard_interrupt_to_checkpoints=restrict_keyboard_interrupt_to_checkpoints,
+        strict_exception_groups=strict_exception_groups,
     )
     if in_host_after_start is not None:
         in_host_after_start()
@@ -171,9 +178,15 @@ def test_guest_is_initialized_when_start_returns() -> None:
     assert res == "ok"
     assert set(record) == {"system task ran", "main task ran", "run_sync_soon cb ran"}
 
-    class BadClock:
+    class BadClock(Clock):
         def start_clock(self) -> NoReturn:
             raise ValueError("whoops")
+
+        def current_time(self) -> float:
+            raise NotImplementedError()
+
+        def deadline_to_sleep_time(self, deadline: float) -> float:
+            raise NotImplementedError()
 
     def after_start_never_runs() -> None:  # pragma: no cover
         pytest.fail("shouldn't get here")
@@ -433,14 +446,20 @@ def test_guest_warns_if_abandoned() -> None:
 
 
 def aiotrio_run(
-    trio_fn: Callable[..., Awaitable[T]],
+    trio_fn: Callable[[], Awaitable[T]],
     *,
     pass_not_threadsafe: bool = True,
-    **start_guest_run_kwargs: Any,
+    run_sync_soon_not_threadsafe: InHost | None = None,
+    host_uses_signal_set_wakeup_fd: bool = False,
+    clock: Clock | None = None,
+    instruments: Sequence[Instrument] = (),
+    restrict_keyboard_interrupt_to_checkpoints: bool = False,
+    strict_exception_groups: bool = True,
 ) -> T:
     loop = asyncio.new_event_loop()
 
     async def aio_main() -> T:
+        nonlocal run_sync_soon_not_threadsafe
         trio_done_fut: asyncio.Future[Outcome[T]] = loop.create_future()
 
         def trio_done_callback(main_outcome: Outcome[T]) -> None:
@@ -448,13 +467,18 @@ def aiotrio_run(
             trio_done_fut.set_result(main_outcome)
 
         if pass_not_threadsafe:
-            start_guest_run_kwargs["run_sync_soon_not_threadsafe"] = loop.call_soon
+            run_sync_soon_not_threadsafe = cast(InHost, loop.call_soon)
 
         trio.lowlevel.start_guest_run(
             trio_fn,
             run_sync_soon_threadsafe=loop.call_soon_threadsafe,
             done_callback=trio_done_callback,
-            **start_guest_run_kwargs,
+            run_sync_soon_not_threadsafe=run_sync_soon_not_threadsafe,
+            host_uses_signal_set_wakeup_fd=host_uses_signal_set_wakeup_fd,
+            clock=clock,
+            instruments=instruments,
+            restrict_keyboard_interrupt_to_checkpoints=restrict_keyboard_interrupt_to_checkpoints,
+            strict_exception_groups=strict_exception_groups,
         )
 
         return (await trio_done_fut).unwrap()
@@ -559,11 +583,14 @@ def test_guest_mode_internal_errors(
             t = threading.current_thread()
             old_get_events = trio._core._run.TheIOManager.get_events
 
-            def bad_get_events(*args: Any) -> object:
+            def bad_get_events(
+                self: trio._core._run.TheIOManager,
+                timeout: float,
+            ) -> trio._core._run.EventResult:
                 if threading.current_thread() is not t:
                     raise ValueError("oh no!")
                 else:
-                    return old_get_events(*args)
+                    return old_get_events(self, timeout)
 
             m.setattr("trio._core._run.TheIOManager.get_events", bad_get_events)
 
@@ -581,10 +608,10 @@ def test_guest_mode_ki() -> None:
     # Check SIGINT in Trio func and in host func
     async def trio_main(in_host: InHost) -> None:
         with pytest.raises(KeyboardInterrupt):
-            signal_raise(signal.SIGINT)
+            signal.raise_signal(signal.SIGINT)
 
         # Host SIGINT should get injected into Trio
-        in_host(partial(signal_raise, signal.SIGINT))
+        in_host(partial(signal.raise_signal, signal.SIGINT))
         await trio.sleep(10)
 
     with pytest.raises(KeyboardInterrupt) as excinfo:
@@ -597,7 +624,7 @@ def test_guest_mode_ki() -> None:
     final_exc = KeyError("whoa")
 
     async def trio_main_raising(in_host: InHost) -> NoReturn:
-        in_host(partial(signal_raise, signal.SIGINT))
+        in_host(partial(signal.raise_signal, signal.SIGINT))
         raise final_exc
 
     with pytest.raises(KeyboardInterrupt) as excinfo:
