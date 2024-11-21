@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import contextvars
 import queue
 import signal
 import socket
@@ -11,6 +10,7 @@ import threading
 import time
 import traceback
 import warnings
+import weakref
 from collections.abc import AsyncGenerator, Awaitable, Callable, Sequence
 from functools import partial
 from math import inf
@@ -22,6 +22,7 @@ from typing import (
 )
 
 import pytest
+import sniffio
 from outcome import Outcome
 
 import trio
@@ -234,7 +235,8 @@ def test_host_altering_deadlines_wakes_trio_up() -> None:
 
 
 def test_guest_mode_sniffio_integration() -> None:
-    from sniffio import current_async_library, thread_local as sniffio_library
+    current_async_library = sniffio.current_async_library
+    sniffio_library = sniffio.thread_local
 
     async def trio_main(in_host: InHost) -> str:
         async def synchronize() -> None:
@@ -458,9 +460,9 @@ def aiotrio_run(
 
     async def aio_main() -> T:
         nonlocal run_sync_soon_not_threadsafe
-        trio_done_fut = loop.create_future()
+        trio_done_fut: asyncio.Future[Outcome[T]] = loop.create_future()
 
-        def trio_done_callback(main_outcome: Outcome[object]) -> None:
+        def trio_done_callback(main_outcome: Outcome[T]) -> None:
             print(f"trio_fn finished: {main_outcome!r}")
             trio_done_fut.set_result(main_outcome)
 
@@ -479,9 +481,11 @@ def aiotrio_run(
             strict_exception_groups=strict_exception_groups,
         )
 
-        return (await trio_done_fut).unwrap()  # type: ignore[no-any-return]
+        return (await trio_done_fut).unwrap()
 
     try:
+        # can't use asyncio.run because that fails on Windows (3.8, x64, with
+        # Komodia LSP) and segfaults on Windows (3.9, x64, with Komodia LSP)
         return loop.run_until_complete(aio_main())
     finally:
         loop.close()
@@ -655,8 +659,6 @@ def test_guest_mode_autojump_clock_threshold_changing() -> None:
 
 @restore_unraisablehook()
 def test_guest_mode_asyncgens() -> None:
-    import sniffio
-
     record = set()
 
     async def agen(label: str) -> AsyncGenerator[int, None]:
@@ -683,9 +685,49 @@ def test_guest_mode_asyncgens() -> None:
 
         gc_collect_harder()
 
-    # Ensure we don't pollute the thread-level context if run under
-    # an asyncio without contextvars support (3.6)
-    context = contextvars.copy_context()
-    context.run(aiotrio_run, trio_main, host_uses_signal_set_wakeup_fd=True)
+    aiotrio_run(trio_main, host_uses_signal_set_wakeup_fd=True)
 
     assert record == {("asyncio", "asyncio"), ("trio", "trio")}
+
+
+@restore_unraisablehook()
+def test_guest_mode_asyncgens_garbage_collection() -> None:
+    record: set[tuple[str, str, bool]] = set()
+
+    async def agen(label: str) -> AsyncGenerator[int, None]:
+        class A:
+            pass
+
+        a = A()
+        a_wr = weakref.ref(a)
+        assert sniffio.current_async_library() == label
+        try:
+            yield 1
+        finally:
+            library = sniffio.current_async_library()
+            with contextlib.suppress(trio.Cancelled):
+                await sys.modules[library].sleep(0)
+
+            del a
+            if sys.implementation.name == "pypy":
+                gc_collect_harder()
+
+            record.add((label, library, a_wr() is None))
+
+    async def iterate_in_aio() -> None:
+        await agen("asyncio").asend(None)
+
+    async def trio_main() -> None:
+        task = asyncio.ensure_future(iterate_in_aio())
+        done_evt = trio.Event()
+        task.add_done_callback(lambda _: done_evt.set())
+        with trio.fail_after(1):
+            await done_evt.wait()
+
+        await agen("trio").asend(None)
+
+        gc_collect_harder()
+
+    aiotrio_run(trio_main, host_uses_signal_set_wakeup_fd=True)
+
+    assert record == {("asyncio", "asyncio", True), ("trio", "trio", True)}
