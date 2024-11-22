@@ -147,7 +147,7 @@ def _stringify_exception(exc: BaseException) -> str:
 
 
 # String patterns default to including the unicode flag.
-_regex_no_flags = re.compile("").flags
+_regex_no_flags = re.compile(r"").flags
 
 
 @final

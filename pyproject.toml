@@ -125,15 +125,13 @@ select = [
     "Q",     # flake8-quotes
     "RUF",   # Ruff-specific rules
     "SIM",   # flake8-simplify
-    "TCH",   # flake8-type-checking
+    "TC",    # flake8-type-checking
     "UP",    # pyupgrade
     "W",     # Warning
     "YTT",   # flake8-2020
 ]
 extend-ignore = [
     'A002',    # builtin-argument-shadowing
-    'ANN101',  # missing-type-self
-    'ANN102',  # missing-type-cls
     'ANN401',  # any-type (mypy's `disallow_any_explicit` is better)
     'E402',    # module-import-not-at-top-of-file (usually OS-specific)
     'E501',    # line-too-long
