@@ -12,7 +12,6 @@ from socket import AddressFamily, SocketKind
 from typing import (
     TYPE_CHECKING,
     Any,
-    Literal,
     SupportsIndex,
     TypeVar,
     Union,
@@ -337,7 +336,7 @@ if sys.platform == "win32":
     TypeT: TypeAlias = int
     FamilyDefault = _stdlib_socket.AF_INET
 else:
-    FamilyDefault: Literal[None] = None
+    FamilyDefault: None = None
     FamilyT: TypeAlias = Union[int, AddressFamily, None]
     TypeT: TypeAlias = Union[_stdlib_socket.socket, int]
 

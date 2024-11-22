@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import trio
 
 from .. import _core, _subprocess
-from .._abc import ReceiveStream, SendStream  # noqa: TCH001
+from .._abc import ReceiveStream, SendStream  # noqa: TC001
 
 _wait_child_exiting_error: ImportError | None = None
 _create_child_pipe_error: ImportError | None = None
