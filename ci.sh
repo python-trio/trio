@@ -130,13 +130,15 @@ else
     # support subprocess spawning with coverage.py
     echo "import coverage; coverage.process_startup()" | tee -a "$INSTALLDIR/../sitecustomize.py"
 
-    sed -i 's/-p trio\._tests\.pytest_plugin//' "$(pwd)/../pyproject.toml"
+    sed -i '' 's/-p trio\._tests\.pytest_plugin//' "../pyproject.toml"
+    cat ../pyproject.toml
+
     echo "::endgroup::"
     echo "::group:: Run Tests"
     if PYTHONPATH=../tests COVERAGE_PROCESS_START=$(pwd)/../pyproject.toml \
             coverage run --rcfile=../pyproject.toml -m \
             pytest -ra --junitxml=../test-results.xml --run-slow --verbose --durations=10 $flags \
-            -Wall -p _trio_check_attrs_aliases "${INSTALLDIR}"; then
+            -p _trio_check_attrs_aliases "${INSTALLDIR}"; then
         PASSED=true
     else
         PASSED=false
