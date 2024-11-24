@@ -189,7 +189,7 @@ reportUnnecessaryTypeIgnoreComment = true
 typeCheckingMode = "strict"
 
 [tool.pytest.ini_options]
-addopts = ["--strict-markers", "--strict-config", "--import-mode=importlib"]
+addopts = ["--strict-markers", "--strict-config", "-p trio._tests.pytest_plugin", "--import-mode=importlib"]
 faulthandler_timeout = 60
 filterwarnings = [
   "error",

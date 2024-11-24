@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, NoReturn
 import attrs
 import pytest
 
-from trio._tests.conftest import skip_if_optional_else_raise
+from trio._tests.pytest_plugin import skip_if_optional_else_raise
 
 try:
     import trustme
