@@ -130,7 +130,7 @@ else
     # support subprocess spawning with coverage.py
     echo "import coverage; coverage.process_startup()" | tee -a "$INSTALLDIR/../sitecustomize.py"
 
-    sed -i'' 's/-p trio\._tests\.pytest_plugin//' "$INSTALLDIR/pyproject.toml"
+    perl -i -pe 's/-p trio\._tests\.pytest_plugin//' "$INSTALLDIR/pyproject.toml"
 
     echo "::endgroup::"
     echo "::group:: Run Tests"
