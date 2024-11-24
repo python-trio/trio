@@ -130,6 +130,11 @@ else
     # support subprocess spawning with coverage.py
     echo "import coverage; coverage.process_startup()" | tee -a "$INSTALLDIR/../sitecustomize.py"
 
+    # confirm or deny suspicions (this *should* fail.)
+    # we are currently in `.../empty` and we only installed the built wheel from trio
+    #    ... I suspect this will pass, because it's in the wheel. that would be bad!
+    python -c "import _trio_check_attrs_aliases"
+
     echo "::endgroup::"
     echo "::group:: Run Tests"
     if COVERAGE_PROCESS_START=$(pwd)/../pyproject.toml coverage run --rcfile=../pyproject.toml -m pytest -ra --junitxml=../test-results.xml --run-slow "${INSTALLDIR}" --verbose --durations=10 $flags; then
