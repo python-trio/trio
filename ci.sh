@@ -133,7 +133,7 @@ else
     # confirm or deny suspicions (this *should* fail.)
     # we are currently in `.../empty` and we only installed the built wheel from trio
     #    ... I suspect this will pass, because it's in the wheel. that would be bad!
-    python -c "import _trio_check_attrs_aliases"
+    ls "$INSTALLDIR/../"
 
     echo "::endgroup::"
     echo "::group:: Run Tests"
