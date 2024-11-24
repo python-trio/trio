@@ -19,11 +19,10 @@ import pytest
 
 import trio
 import trio.testing
-from trio._tests.pytest_plugin import skip_if_optional_else_raise
+from trio._tests.conftest import RUN_SLOW, skip_if_optional_else_raise
 
 from .. import _core, _util
 from .._core._tests.tutil import slow
-from .pytest_plugin import RUN_SLOW
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator

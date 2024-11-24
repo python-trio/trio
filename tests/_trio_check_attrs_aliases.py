@@ -1,4 +1,4 @@
-"""Conftest is executed by Pytest before test modules.
+"""Plugins are executed by Pytest before test modules.
 
 We use this to monkeypatch attrs.field(), so that we can detect if aliases are used for test_exports.
 """

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from trio._tests.pytest_plugin import skip_if_optional_else_raise
+from trio._tests.conftest import skip_if_optional_else_raise
 
 # imports in gen_exports that are not in `install_requires` in setup.py
 try:

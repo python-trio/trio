@@ -21,7 +21,7 @@ from typing import (
 import pytest
 
 from trio import StapledStream
-from trio._tests.pytest_plugin import skip_if_optional_else_raise
+from trio._tests.conftest import skip_if_optional_else_raise
 from trio.abc import ReceiveStream, SendStream
 from trio.testing import (
     Matcher,

@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, TypeVar
 import pytest
 
 # See trio/_tests/conftest.py for the other half of this
-from trio._tests.pytest_plugin import RUN_SLOW
+from trio._tests.conftest import RUN_SLOW
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable, Sequence

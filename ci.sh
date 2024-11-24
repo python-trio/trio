@@ -135,7 +135,7 @@ else
     if PYTHONPATH=../tests COVERAGE_PROCESS_START=$(pwd)/../pyproject.toml \
             coverage run --rcfile=../pyproject.toml -m \
             pytest -ra --junitxml=../test-results.xml --run-slow --verbose --durations=10 $flags \
-            -p _trio_check_attrs_aliases "${INSTALLDIR}"; then
+            -Wall -p _trio_check_attrs_aliases "${INSTALLDIR}"; then
         PASSED=true
     else
         PASSED=false
