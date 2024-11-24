@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sys
-from typing import Union
+from typing import Callable, Union
 
 from trio.testing import Matcher, RaisesGroup
 from typing_extensions import assert_type
@@ -44,8 +44,7 @@ def check_matches_with_different_exception_type() -> None:
     )
 
     # note: it might be tempting to have this warn.
-    # however, note that we should not warn if e: BaseException
-    # .... therefore this needs to pass as there is no distinction
+    # however, that isn't possible with current typing
     if RaisesGroup(ValueError).matches(e):
         assert_type(e, ExceptionGroup[ValueError])
 
@@ -221,3 +220,14 @@ def check_raisesgroup_overloads() -> None:
 def check_triple_nested_raisesgroup() -> None:
     with RaisesGroup(RaisesGroup(RaisesGroup(ValueError))) as e:
         assert_type(e.value, ExceptionGroup[ExceptionGroup[ExceptionGroup[ValueError]]])
+
+
+def check_check_typing() -> None:
+    assert_type(  # type: ignore
+        RaisesGroup(ValueError).check,
+        Union[
+            Callable[[BaseExceptionGroup[ValueError]], None],
+            Callable[[ExceptionGroup[ValueError]], None],
+            None,
+        ],
+    )

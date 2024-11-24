@@ -419,7 +419,6 @@ class RaisesGroup(
         allow_unwrapped: bool = False,
         flatten_subgroups: bool = False,
         match: str | Pattern[str] | None = None,
-        # NOTE: I don't think the following argument type *should* work. But it does!
         check: (
             Callable[[BaseExceptionGroup[BaseExcT_1]], bool]
             | Callable[[ExceptionGroup[ExcT_1]], bool]
