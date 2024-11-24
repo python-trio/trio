@@ -223,6 +223,8 @@ def check_triple_nested_raisesgroup() -> None:
 
 
 def check_check_typing() -> None:
+    # mypy issue is https://github.com/python/mypy/issues/18185
+
     # fmt: off
     # mypy raises an error on `assert_type`
     # pyright raises an error on `RaisesGroup(ValueError).check`
