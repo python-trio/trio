@@ -2953,6 +2953,13 @@ elif TYPE_CHECKING or hasattr(select, "kqueue"):
         _KqueueStatistics as IOStatistics,
     )
 else:  # pragma: no cover
+    _patchers = sorted({"eventlet", "gevent"}.intersection(sys.modules))
+    if _patchers:
+        raise NotImplementedError(
+            "unsupported platform or primitives trio depends on are monkey-patched out by "
+            + ", ".join(_patchers),
+        )
+
     raise NotImplementedError("unsupported platform")
 
 from ._generated_instrumentation import *
