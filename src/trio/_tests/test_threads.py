@@ -220,7 +220,7 @@ async def test_named_thread() -> None:
     # test that you can set a custom name, and that it's reset afterwards
     async def test_thread_name(name: str) -> None:
         thread = await to_thread_run_sync(f(name), thread_name=name)
-        assert re.match("Trio thread [0-9]*", thread.name)
+        assert re.match(r"Trio thread [0-9]*", thread.name)
 
     await test_thread_name("")
     await test_thread_name("fobiedoo")
@@ -301,7 +301,7 @@ async def test_named_thread_os() -> None:
 
         os_thread_name = _get_thread_name(thread.ident)
         assert os_thread_name is not None, "should skip earlier if this is the case"
-        assert re.match("Trio thread [0-9]*", os_thread_name)
+        assert re.match(r"Trio thread [0-9]*", os_thread_name)
 
     await test_thread_name("")
     await test_thread_name("fobiedoo")

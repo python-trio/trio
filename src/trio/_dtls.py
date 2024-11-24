@@ -36,7 +36,7 @@ if TYPE_CHECKING:
     from types import TracebackType
 
     # See DTLSEndpoint.__init__ for why this is imported here
-    from OpenSSL import SSL  # noqa: TCH004
+    from OpenSSL import SSL  # noqa: TC004
     from typing_extensions import Self, TypeAlias, TypeVarTuple, Unpack
 
     from trio._socket import AddressFormat
