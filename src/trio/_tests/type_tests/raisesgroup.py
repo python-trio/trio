@@ -223,11 +223,15 @@ def check_triple_nested_raisesgroup() -> None:
 
 
 def check_check_typing() -> None:
-    assert_type(  # type: ignore
-        RaisesGroup(ValueError).check,
+    # fmt: off
+    # mypy raises an error on `assert_type`
+    # pyright raises an error on `RaisesGroup(ValueError).check`
+    # to satisfy both, need to disable formatting and put it on one line
+    assert_type(RaisesGroup(ValueError).check,  # type: ignore
         Union[
             Callable[[BaseExceptionGroup[ValueError]], None],
             Callable[[ExceptionGroup[ValueError]], None],
             None,
         ],
     )
+    # fmt: on
