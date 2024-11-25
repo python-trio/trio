@@ -19,12 +19,7 @@ import weakref
 from itertools import count
 from typing import (
     TYPE_CHECKING,
-    Any,
-    Awaitable,
-    Callable,
     Generic,
-    Iterable,
-    Iterator,
     TypeVar,
     Union,
 )
@@ -37,12 +32,14 @@ import trio
 from ._util import NoPublicConstructor, final
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable, Iterable, Iterator
     from types import TracebackType
 
     # See DTLSEndpoint.__init__ for why this is imported here
-    from OpenSSL import SSL  # noqa: TCH004
+    from OpenSSL import SSL  # noqa: TC004
     from typing_extensions import Self, TypeAlias, TypeVarTuple, Unpack
 
+    from trio._socket import AddressFormat
     from trio.socket import SocketType
 
     PosArgsT = TypeVarTuple("PosArgsT")
@@ -571,7 +568,7 @@ def _make_cookie(
     key: bytes,
     salt: bytes,
     tick: int,
-    address: Any,
+    address: AddressFormat,
     client_hello_bits: bytes,
 ) -> bytes:
     assert len(salt) == SALT_BYTES
@@ -592,7 +589,7 @@ def _make_cookie(
 def valid_cookie(
     key: bytes,
     cookie: bytes,
-    address: Any,
+    address: AddressFormat,
     client_hello_bits: bytes,
 ) -> bool:
     if len(cookie) > SALT_BYTES:
@@ -621,7 +618,7 @@ def valid_cookie(
 
 def challenge_for(
     key: bytes,
-    address: Any,
+    address: AddressFormat,
     epoch_seqno: int,
     client_hello_bits: bytes,
 ) -> bytes:
@@ -668,7 +665,7 @@ _T = TypeVar("_T")
 
 
 class _Queue(Generic[_T]):
-    def __init__(self, incoming_packets_buffer: int | float):  # noqa: PYI041
+    def __init__(self, incoming_packets_buffer: int | float) -> None:  # noqa: PYI041
         self.s, self.r = trio.open_memory_channel[_T](incoming_packets_buffer)
 
 
@@ -685,7 +682,7 @@ def _read_loop(read_fn: Callable[[int], bytes]) -> bytes:
 
 async def handle_client_hello_untrusted(
     endpoint: DTLSEndpoint,
-    address: Any,
+    address: AddressFormat,
     packet: bytes,
 ) -> None:
     # it's trivial to write a simple function that directly calls this to
@@ -736,23 +733,6 @@ async def handle_client_hello_untrusted(
             # ...OpenSSL didn't like it, so I guess we didn't have a valid ClientHello
             # after all.
             return
-
-        # Some old versions of OpenSSL have a bug with memory BIOs, where DTLSv1_listen
-        # consumes the ClientHello out of the BIO, but then do_handshake expects the
-        # ClientHello to still be in there (but not the one that ships with Ubuntu
-        # 20.04). In particular, this is known to affect the OpenSSL v1.1.1 that ships
-        # with Ubuntu 18.04. To work around this, we deliver a second copy of the
-        # ClientHello after DTLSv1_listen has completed. This is safe to do
-        # unconditionally, because on newer versions of OpenSSL, the second ClientHello
-        # is treated as a duplicate packet, which is a normal thing that can happen over
-        # UDP. For more details, see:
-        #
-        #     https://github.com/pyca/pyopenssl/blob/e84e7b57d1838de70ab7a27089fbee78ce0d2106/tests/test_ssl.py#L4226-L4293
-        #
-        # This was fixed in v1.1.1a, and all later versions. So maybe in 2024 or so we
-        # can delete this. The fix landed in OpenSSL master as 079ef6bd534d2, and then
-        # was backported to the 1.1.1 branch as d1bfd8076e28.
-        stream._ssl.bio_write(packet)
 
         # Check if we have an existing association
         old_stream = endpoint._streams.get(address)
@@ -863,7 +843,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
     def __init__(
         self,
         endpoint: DTLSEndpoint,
-        peer_address: Any,
+        peer_address: AddressFormat,
         ctx: SSL.Context,
     ) -> None:
         self.endpoint = endpoint
@@ -1239,7 +1219,9 @@ class DTLSEndpoint:
         # as a peer provides a valid cookie, we can immediately tear down the
         # old connection.
         # {remote address: DTLSChannel}
-        self._streams: WeakValueDictionary[Any, DTLSChannel] = WeakValueDictionary()
+        self._streams: WeakValueDictionary[AddressFormat, DTLSChannel] = (
+            WeakValueDictionary()
+        )
         self._listening_context: SSL.Context | None = None
         self._listening_key: bytes | None = None
         self._incoming_connections_q = _Queue[DTLSChannel](float("inf"))

@@ -1,4 +1,4 @@
-from typing import Awaitable, Callable
+from collections.abc import Awaitable, Callable
 
 import pytest
 
@@ -32,7 +32,7 @@ def test_deprecation_warning_run() -> None:
         async with trio.open_nursery(strict_exception_groups=False):
             ...
 
-    def helper(fun: Callable[..., Awaitable[None]], num: int) -> None:
+    def helper(fun: Callable[[], Awaitable[None]], num: int) -> None:
         with pytest.warns(
             trio.TrioDeprecationWarning,
             match="strict_exception_groups=False",

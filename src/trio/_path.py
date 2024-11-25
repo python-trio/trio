@@ -30,8 +30,9 @@ if TYPE_CHECKING:
     T = TypeVar("T")
 
 
-def _wraps_async(
-    wrapped: Callable[..., Any],
+# Explicit .../"Any" is not allowed
+def _wraps_async(  # type: ignore[misc]
+    wrapped: Callable[..., object],
 ) -> Callable[[Callable[P, T]], Callable[P, Awaitable[T]]]:
     def decorator(fn: Callable[P, T]) -> Callable[P, Awaitable[T]]:
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
@@ -222,8 +223,7 @@ class Path(pathlib.PurePath):
         group = _wrap_method(pathlib.Path.group)
     if sys.platform != "win32" or sys.version_info >= (3, 12):
         is_mount = _wrap_method(pathlib.Path.is_mount)
-    if sys.version_info >= (3, 9):
-        readlink = _wrap_method_path(pathlib.Path.readlink)
+    readlink = _wrap_method_path(pathlib.Path.readlink)
     rename = _wrap_method_path(pathlib.Path.rename)
     replace = _wrap_method_path(pathlib.Path.replace)
     resolve = _wrap_method_path(pathlib.Path.resolve)

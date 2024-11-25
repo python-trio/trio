@@ -3,14 +3,11 @@ from __future__ import annotations
 
 import random
 import sys
+from collections.abc import Awaitable, Callable, Generator
 from contextlib import contextmanager, suppress
 from typing import (
     TYPE_CHECKING,
-    Awaitable,
-    Callable,
-    Generator,
     Generic,
-    Tuple,
     TypeVar,
 )
 
@@ -31,7 +28,7 @@ if sys.version_info < (3, 11):
 
 Res1 = TypeVar("Res1", bound=AsyncResource)
 Res2 = TypeVar("Res2", bound=AsyncResource)
-StreamMaker: TypeAlias = Callable[[], Awaitable[Tuple[Res1, Res2]]]
+StreamMaker: TypeAlias = Callable[[], Awaitable[tuple[Res1, Res2]]]
 
 
 class _ForceCloseBoth(Generic[Res1, Res2]):
@@ -314,7 +311,7 @@ async def check_one_way_stream(
     # receive stream causes it to wake up.
     async with _ForceCloseBoth(await stream_maker()) as (s, r):
 
-        async def receive_expecting_closed():
+        async def receive_expecting_closed() -> None:
             with _assert_raises(_core.ClosedResourceError):
                 await r.receive_some(10)
 

@@ -2,14 +2,12 @@ from __future__ import annotations
 
 import re
 import sys
+from contextlib import AbstractContextManager
+from re import Pattern
 from typing import (
     TYPE_CHECKING,
-    Callable,
-    ContextManager,
     Generic,
     Literal,
-    Pattern,
-    Sequence,
     cast,
     overload,
 )
@@ -22,6 +20,7 @@ if TYPE_CHECKING:
     # sphinx will *only* work if we use types.TracebackType, and import
     # *inside* TYPE_CHECKING. No other combination works.....
     import types
+    from collections.abc import Callable, Sequence
 
     from _pytest._code.code import ExceptionChainRepr, ReprExceptionInfo, Traceback
     from typing_extensions import TypeGuard, TypeVar
@@ -53,7 +52,7 @@ class _ExceptionInfo(Generic[MatchE]):
     def __init__(
         self,
         excinfo: tuple[type[MatchE], MatchE, types.TracebackType] | None,
-    ):
+    ) -> None:
         self._excinfo = excinfo
 
     def fill_unfilled(
@@ -148,7 +147,7 @@ def _stringify_exception(exc: BaseException) -> str:
 
 
 # String patterns default to including the unicode flag.
-_regex_no_flags = re.compile("").flags
+_regex_no_flags = re.compile(r"").flags
 
 
 @final
@@ -175,7 +174,7 @@ class Matcher(Generic[MatchE]):
         exception_type: type[MatchE],
         match: str | Pattern[str] = ...,
         check: Callable[[MatchE], bool] = ...,
-    ): ...
+    ) -> None: ...
 
     @overload
     def __init__(
@@ -184,10 +183,10 @@ class Matcher(Generic[MatchE]):
         match: str | Pattern[str],
         # If exception_type is not provided, check() must do any typechecks itself.
         check: Callable[[BaseException], bool] = ...,
-    ): ...
+    ) -> None: ...
 
     @overload
-    def __init__(self, *, check: Callable[[BaseException], bool]): ...
+    def __init__(self, *, check: Callable[[BaseException], bool]) -> None: ...
 
     def __init__(
         self,
@@ -277,7 +276,10 @@ else:
 
 
 @final
-class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperClass[E]):
+class RaisesGroup(
+    AbstractContextManager[ExceptionInfo[BaseExceptionGroup[E]]],
+    SuperClass[E],
+):
     """Contextmanager for checking for an expected `ExceptionGroup`.
     This works similar to ``pytest.raises``, and a version of it will hopefully be added upstream, after which this can be deprecated and removed. See https://github.com/pytest-dev/pytest/issues/11538
 
@@ -350,7 +352,7 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
         flatten_subgroups: bool = False,
         match: None = None,
         check: None = None,
-    ): ...
+    ) -> None: ...
 
     # flatten_subgroups = True also requires no nested RaisesGroup
     @overload
@@ -362,7 +364,7 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
         flatten_subgroups: Literal[True],
         match: str | Pattern[str] | None = None,
         check: Callable[[BaseExceptionGroup[E]], bool] | None = None,
-    ): ...
+    ) -> None: ...
 
     @overload
     def __init__(
@@ -373,7 +375,7 @@ class RaisesGroup(ContextManager[ExceptionInfo[BaseExceptionGroup[E]]], SuperCla
         flatten_subgroups: Literal[False] = False,
         match: str | Pattern[str] | None = None,
         check: Callable[[BaseExceptionGroup[E]], bool] | None = None,
-    ): ...
+    ) -> None: ...
 
     def __init__(
         self,

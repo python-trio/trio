@@ -5,7 +5,6 @@ from math import inf
 from typing import (
     TYPE_CHECKING,
     Generic,
-    Tuple,  # only needed for typechecking on <3.9
 )
 
 import attrs
@@ -93,15 +92,14 @@ def _open_memory_channel(
 # it could replace the normal function header
 if TYPE_CHECKING:
     # written as a class so you can say open_memory_channel[int](5)
-    # Need to use Tuple instead of tuple due to CI check running on 3.8
-    class open_memory_channel(Tuple["MemorySendChannel[T]", "MemoryReceiveChannel[T]"]):
+    class open_memory_channel(tuple["MemorySendChannel[T]", "MemoryReceiveChannel[T]"]):
         def __new__(  # type: ignore[misc]  # "must return a subtype"
             cls,
             max_buffer_size: int | float,  # noqa: PYI041
         ) -> tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]:
             return _open_memory_channel(max_buffer_size)
 
-        def __init__(self, max_buffer_size: int | float):  # noqa: PYI041
+        def __init__(self, max_buffer_size: int | float) -> None:  # noqa: PYI041
             ...
 
 else:

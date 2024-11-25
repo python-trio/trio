@@ -146,8 +146,9 @@ class ThreadPlaceholder:
 
 # Types for the to_thread_run_sync message loop
 @attrs.frozen(eq=False, slots=False)
-class Run(Generic[RetT]):
-    afn: Callable[..., Awaitable[RetT]]
+# Explicit .../"Any" is not allowed
+class Run(Generic[RetT]):  # type: ignore[misc]
+    afn: Callable[..., Awaitable[RetT]]  # type: ignore[misc]
     args: tuple[object, ...]
     context: contextvars.Context = attrs.field(
         init=False,
@@ -205,8 +206,9 @@ class Run(Generic[RetT]):
 
 
 @attrs.frozen(eq=False, slots=False)
-class RunSync(Generic[RetT]):
-    fn: Callable[..., RetT]
+# Explicit .../"Any" is not allowed
+class RunSync(Generic[RetT]):  # type: ignore[misc]
+    fn: Callable[..., RetT]  # type: ignore[misc]
     args: tuple[object, ...]
     context: contextvars.Context = attrs.field(
         init=False,
@@ -522,7 +524,8 @@ def _send_message_to_trio(
     return message_to_trio.queue.get().unwrap()
 
 
-def from_thread_run(
+# Explicit "Any" is not allowed
+def from_thread_run(  # type: ignore[misc]
     afn: Callable[..., Awaitable[RetT]],
     *args: object,
     trio_token: TrioToken | None = None,
@@ -566,7 +569,8 @@ def from_thread_run(
     return _send_message_to_trio(trio_token, Run(afn, args))
 
 
-def from_thread_run_sync(
+# Explicit "Any" is not allowed
+def from_thread_run_sync(  # type: ignore[misc]
     fn: Callable[..., RetT],
     *args: object,
     trio_token: TrioToken | None = None,

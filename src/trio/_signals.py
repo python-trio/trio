@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import trio
 
-from ._util import ConflictDetector, is_main_thread, signal_raise
+from ._util import ConflictDetector, is_main_thread
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable, Generator, Iterable
@@ -78,7 +78,7 @@ class SignalReceiver:
 
     def _add(self, signum: int) -> None:
         if self._closed:
-            signal_raise(signum)
+            signal.raise_signal(signum)
         else:
             self._pending[signum] = None
             self._lot.unpark()
@@ -95,7 +95,7 @@ class SignalReceiver:
             if self._pending:
                 signum, _ = self._pending.popitem(last=False)
                 try:
-                    signal_raise(signum)
+                    signal.raise_signal(signum)
                 finally:
                     deliver_next()
 

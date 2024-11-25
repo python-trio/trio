@@ -7,10 +7,8 @@ import sys
 from contextlib import contextmanager
 from typing import (
     TYPE_CHECKING,
-    Any,
-    Callable,
-    Iterator,
     Literal,
+    Protocol,
     TypeVar,
     cast,
 )
@@ -26,6 +24,7 @@ from ._windows_cffi import (
     AFDPollFlags,
     CData,
     CompletionModes,
+    CType,
     ErrorCodes,
     FileFlags,
     Handle,
@@ -41,6 +40,8 @@ from ._windows_cffi import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
+
     from typing_extensions import Buffer, TypeAlias
 
     from .._file_io import _HasFileNo
@@ -250,13 +251,28 @@ class AFDWaiters:
     current_op: AFDPollOp | None = None
 
 
+# Just used for internal type checking.
+class _AFDHandle(Protocol):
+    Handle: Handle
+    Status: int
+    Events: int
+
+
+# Just used for internal type checking.
+class _AFDPollInfo(Protocol):
+    Timeout: int
+    NumberOfHandles: int
+    Exclusive: int
+    Handles: list[_AFDHandle]
+
+
 # We also need to bundle up all the info for a single op into a standalone
 # object, because we need to keep all these objects alive until the operation
 # finishes, even if we're throwing it away.
 @attrs.frozen(eq=False)
 class AFDPollOp:
     lpOverlapped: CData
-    poll_info: Any
+    poll_info: _AFDPollInfo
     waiters: AFDWaiters
     afd_group: AFDGroup
 
@@ -685,7 +701,7 @@ class WindowsIOManager:
 
             lpOverlapped = ffi.new("LPOVERLAPPED")
 
-            poll_info: Any = ffi.new("AFD_POLL_INFO *")
+            poll_info = cast(_AFDPollInfo, ffi.new("AFD_POLL_INFO *"))
             poll_info.Timeout = 2**63 - 1  # INT64_MAX
             poll_info.NumberOfHandles = 1
             poll_info.Exclusive = 0
@@ -698,9 +714,9 @@ class WindowsIOManager:
                     kernel32.DeviceIoControl(
                         afd_group.handle,
                         IoControlCodes.IOCTL_AFD_POLL,
-                        poll_info,
+                        cast(CType, poll_info),
                         ffi.sizeof("AFD_POLL_INFO"),
-                        poll_info,
+                        cast(CType, poll_info),
                         ffi.sizeof("AFD_POLL_INFO"),
                         ffi.NULL,
                         lpOverlapped,

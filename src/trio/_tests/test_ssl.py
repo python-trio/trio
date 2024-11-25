@@ -11,10 +11,6 @@ from ssl import SSLContext
 from typing import (
     TYPE_CHECKING,
     Any,
-    AsyncIterator,
-    Awaitable,
-    Callable,
-    Iterator,
     NoReturn,
 )
 
@@ -56,6 +52,8 @@ from ..testing import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
+
     from typing_extensions import TypeAlias
 
     from trio._core import MockClock
@@ -170,8 +168,8 @@ def ssl_echo_serve_sync(
 # Fixture that gives a raw socket connected to a trio-test-1 echo server
 # (running in a thread). Useful for testing making connections with different
 # SSLContexts.
-@asynccontextmanager  # type: ignore[misc]  # decorated contains Any
-async def ssl_echo_server_raw(**kwargs: Any) -> AsyncIterator[SocketStream]:
+@asynccontextmanager
+async def ssl_echo_server_raw(expect_fail: bool = False) -> AsyncIterator[SocketStream]:
     a, b = stdlib_socket.socketpair()
     async with trio.open_nursery() as nursery:
         # Exiting the 'with a, b' context manager closes the sockets, which
@@ -180,7 +178,7 @@ async def ssl_echo_server_raw(**kwargs: Any) -> AsyncIterator[SocketStream]:
         with a, b:
             nursery.start_soon(
                 trio.to_thread.run_sync,
-                partial(ssl_echo_serve_sync, b, **kwargs),
+                partial(ssl_echo_serve_sync, b, expect_fail=expect_fail),
             )
 
             yield SocketStream(tsocket.from_stdlib_socket(a))
@@ -188,12 +186,12 @@ async def ssl_echo_server_raw(**kwargs: Any) -> AsyncIterator[SocketStream]:
 
 # Fixture that gives a properly set up SSLStream connected to a trio-test-1
 # echo server (running in a thread)
-@asynccontextmanager  # type: ignore[misc]  # decorated contains Any
+@asynccontextmanager
 async def ssl_echo_server(
     client_ctx: SSLContext,
-    **kwargs: Any,
+    expect_fail: bool = False,
 ) -> AsyncIterator[SSLStream[Stream]]:
-    async with ssl_echo_server_raw(**kwargs) as sock:
+    async with ssl_echo_server_raw(expect_fail=expect_fail) as sock:
         yield SSLStream(sock, client_ctx, server_hostname="trio-test-1.example.org")
 
 
@@ -203,7 +201,10 @@ async def ssl_echo_server(
 # jakkdl: it seems to implement all the abstract methods (now), so I made it inherit
 #         from Stream for the sake of typechecking.
 class PyOpenSSLEchoStream(Stream):
-    def __init__(self, sleeper: None = None) -> None:
+    def __init__(
+        self,
+        sleeper: Callable[[str], Awaitable[None]] | None = None,
+    ) -> None:
         ctx = SSL.Context(SSL.SSLv23_METHOD)
         # TLS 1.3 removes renegotiation support. Which is great for them, but
         # we still have to support versions before that, and that means we
@@ -251,6 +252,7 @@ class PyOpenSSLEchoStream(Stream):
             "simultaneous calls to PyOpenSSLEchoStream.receive_some",
         )
 
+        self.sleeper: Callable[[str], Awaitable[None]]
         if sleeper is None:
 
             async def no_op_sleeper(_: object) -> None:
@@ -386,16 +388,17 @@ async def test_PyOpenSSLEchoStream_gives_resource_busy_errors() -> None:
     await do_test("receive_some", (1,), "receive_some", (1,))
 
 
-@contextmanager  # type: ignore[misc]  # decorated contains Any
+@contextmanager
 def virtual_ssl_echo_server(
     client_ctx: SSLContext,
-    **kwargs: Any,
+    sleeper: Callable[[str], Awaitable[None]] | None = None,
 ) -> Iterator[SSLStream[PyOpenSSLEchoStream]]:
-    fakesock = PyOpenSSLEchoStream(**kwargs)
+    fakesock = PyOpenSSLEchoStream(sleeper=sleeper)
     yield SSLStream(fakesock, client_ctx, server_hostname="trio-test-1.example.org")
 
 
-def ssl_wrap_pair(
+# Explicit "Any" is not allowed
+def ssl_wrap_pair(  # type: ignore[misc]
     client_ctx: SSLContext,
     client_transport: T_Stream,
     server_transport: T_Stream,
@@ -425,23 +428,43 @@ def ssl_wrap_pair(
 MemoryStapledStream: TypeAlias = StapledStream[MemorySendStream, MemoryReceiveStream]
 
 
-def ssl_memory_stream_pair(client_ctx: SSLContext, **kwargs: Any) -> tuple[
+def ssl_memory_stream_pair(
+    client_ctx: SSLContext,
+    client_kwargs: dict[str, str | bytes | bool | None] | None = None,
+    server_kwargs: dict[str, str | bytes | bool | None] | None = None,
+) -> tuple[
     SSLStream[MemoryStapledStream],
     SSLStream[MemoryStapledStream],
 ]:
     client_transport, server_transport = memory_stream_pair()
-    return ssl_wrap_pair(client_ctx, client_transport, server_transport, **kwargs)
+    return ssl_wrap_pair(
+        client_ctx,
+        client_transport,
+        server_transport,
+        client_kwargs=client_kwargs,
+        server_kwargs=server_kwargs,
+    )
 
 
 MyStapledStream: TypeAlias = StapledStream[SendStream, ReceiveStream]
 
 
-def ssl_lockstep_stream_pair(client_ctx: SSLContext, **kwargs: Any) -> tuple[
+def ssl_lockstep_stream_pair(
+    client_ctx: SSLContext,
+    client_kwargs: dict[str, str | bytes | bool | None] | None = None,
+    server_kwargs: dict[str, str | bytes | bool | None] | None = None,
+) -> tuple[
     SSLStream[MyStapledStream],
     SSLStream[MyStapledStream],
 ]:
     client_transport, server_transport = lockstep_stream_pair()
-    return ssl_wrap_pair(client_ctx, client_transport, server_transport, **kwargs)
+    return ssl_wrap_pair(
+        client_ctx,
+        client_transport,
+        server_transport,
+        client_kwargs=client_kwargs,
+        server_kwargs=server_kwargs,
+    )
 
 
 # Simple smoke test for handshake/send/receive/shutdown talking to a
@@ -1321,13 +1344,17 @@ async def test_getpeercert(client_ctx: SSLContext) -> None:
 
 async def test_SSLListener(client_ctx: SSLContext) -> None:
     async def setup(
-        **kwargs: Any,
+        https_compatible: bool = False,
     ) -> tuple[tsocket.SocketType, SSLListener[SocketStream], SSLStream[SocketStream]]:
         listen_sock = tsocket.socket()
         await listen_sock.bind(("127.0.0.1", 0))
         listen_sock.listen(1)
         socket_listener = SocketListener(listen_sock)
-        ssl_listener = SSLListener(socket_listener, SERVER_CTX, **kwargs)
+        ssl_listener = SSLListener(
+            socket_listener,
+            SERVER_CTX,
+            https_compatible=https_compatible,
+        )
 
         transport_client = await open_tcp_stream(*listen_sock.getsockname())
         ssl_client = SSLStream(

@@ -1,0 +1,5 @@
+Rework foreign async generator finalization to track async generator
+ids rather than mutating ``ag_frame.f_locals``. This fixes an issue
+with the previous implementation: locals' lifetimes will no longer be
+extended by materialization in the ``ag_frame.f_locals`` dictionary that
+the previous finalization dispatcher logic needed to access to do its work.

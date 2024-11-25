@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import threading
 from collections import deque
-from typing import TYPE_CHECKING, Callable, NoReturn, Tuple
+from collections.abc import Callable
+from typing import TYPE_CHECKING, NoReturn
 
 import attrs
 
@@ -15,8 +16,9 @@ if TYPE_CHECKING:
 
     PosArgsT = TypeVarTuple("PosArgsT")
 
-Function = Callable[..., object]
-Job = Tuple[Function, Tuple[object, ...]]
+# Explicit "Any" is not allowed
+Function = Callable[..., object]  # type: ignore[misc]
+Job = tuple[Function, tuple[object, ...]]
 
 
 @attrs.define

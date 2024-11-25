@@ -10,13 +10,7 @@ import weakref
 from functools import partial
 from typing import (
     TYPE_CHECKING,
-    AsyncGenerator,
-    Awaitable,
-    Callable,
-    List,
     NoReturn,
-    Tuple,
-    Type,
     TypeVar,
     Union,
 )
@@ -48,18 +42,21 @@ from .._threads import (
 from ..testing import wait_all_tasks_blocked
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator, Awaitable, Callable
+
     from outcome import Outcome
 
     from ..lowlevel import Task
 
-RecordType = List[Tuple[str, Union[threading.Thread, Type[BaseException]]]]
+RecordType = list[tuple[str, Union[threading.Thread, type[BaseException]]]]
 T = TypeVar("T")
 
 
 async def test_do_in_trio_thread() -> None:
     trio_thread = threading.current_thread()
 
-    async def check_case(
+    # Explicit "Any" is not allowed
+    async def check_case(  # type: ignore[misc]
         do_in_trio_thread: Callable[..., threading.Thread],
         fn: Callable[..., T | Awaitable[T]],
         expected: tuple[str, T],
@@ -223,7 +220,7 @@ async def test_named_thread() -> None:
     # test that you can set a custom name, and that it's reset afterwards
     async def test_thread_name(name: str) -> None:
         thread = await to_thread_run_sync(f(name), thread_name=name)
-        assert re.match("Trio thread [0-9]*", thread.name)
+        assert re.match(r"Trio thread [0-9]*", thread.name)
 
     await test_thread_name("")
     await test_thread_name("fobiedoo")
@@ -304,7 +301,7 @@ async def test_named_thread_os() -> None:
 
         os_thread_name = _get_thread_name(thread.ident)
         assert os_thread_name is not None, "should skip earlier if this is the case"
-        assert re.match("Trio thread [0-9]*", os_thread_name)
+        assert re.match(r"Trio thread [0-9]*", os_thread_name)
 
     await test_thread_name("")
     await test_thread_name("fobiedoo")

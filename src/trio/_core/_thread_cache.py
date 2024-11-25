@@ -7,9 +7,12 @@ import traceback
 from functools import partial
 from itertools import count
 from threading import Lock, Thread
-from typing import Any, Callable, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 import outcome
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 RetT = TypeVar("RetT")
 
@@ -126,6 +129,8 @@ name_counter = count()
 
 
 class WorkerThread(Generic[RetT]):
+    __slots__ = ("_default_name", "_job", "_thread", "_thread_cache", "_worker_lock")
+
     def __init__(self, thread_cache: ThreadCache) -> None:
         self._job: (
             tuple[
@@ -207,8 +212,11 @@ class WorkerThread(Generic[RetT]):
 
 
 class ThreadCache:
+    __slots__ = ("_idle_workers",)
+
     def __init__(self) -> None:
-        self._idle_workers: dict[WorkerThread[Any], None] = {}
+        # Explicit "Any" not allowed
+        self._idle_workers: dict[WorkerThread[Any], None] = {}  # type: ignore[misc]
 
     def start_thread_soon(
         self,
