@@ -259,9 +259,7 @@ class Matcher(Generic[MatchE]):
 
 
 @final
-class RaisesGroup(
-    Generic[BaseExcT_co],
-):
+class RaisesGroup(Generic[BaseExcT_co]):
     """Contextmanager for checking for an expected `ExceptionGroup`.
     This works similar to ``pytest.raises``, and a version of it will hopefully be added upstream, after which this can be deprecated and removed. See https://github.com/pytest-dev/pytest/issues/11538
 
