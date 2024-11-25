@@ -556,7 +556,7 @@ going to be rough orders of magnitude to give you a sense of scale; if
 you need precise numbers for your environment, measure!)
 
 .. file.read benchmark is
-   https://github.com/python-trio/trio/blob/v0.27.0/notes-to-self/file-read-latency.py
+   https://github.com/python-trio/trio/wiki/notes-to-self#file-read-latencypy
 .. Numbers for spinning disks and SSDs are from taking a few random
    recent reviews from http://www.storagereview.com/best_drives and
    looking at their "4K Write Latency" test results for "Average MS"
