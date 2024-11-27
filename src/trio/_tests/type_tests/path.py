@@ -54,7 +54,7 @@ def sync_attrs(path: trio.Path) -> None:
     assert_type(path.match("*.py"), bool)
     assert_type(path.relative_to("/usr"), trio.Path)
     if sys.version_info >= (3, 12):
-        assert_type(path.relative_to("/", walk_up=True), bool)
+        assert_type(path.relative_to("/", walk_up=True), trio.Path)
     assert_type(path.with_name("filename.txt"), trio.Path)
     assert_type(path.with_stem("readme"), trio.Path)
     assert_type(path.with_suffix(".log"), trio.Path)
