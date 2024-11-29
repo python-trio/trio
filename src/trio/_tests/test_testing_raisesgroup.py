@@ -199,7 +199,7 @@ def test_catch_unwrapped_exceptions() -> None:
     with pytest.raises(
         AssertionError,
         match=wrap_escape(
-            "Raised exception did not match: TypeError() is not an instance of <class 'ValueError'>",
+            "Raised exception did not match: TypeError() is not of type 'ValueError'",
         ),
     ):
         with RaisesGroup(ValueError, allow_unwrapped=True):
@@ -207,11 +207,21 @@ def test_catch_unwrapped_exceptions() -> None:
     with pytest.raises(
         AssertionError,
         match=wrap_escape(
-            "Raised exception did not match: Matcher(ValueError) does not match TypeError()",
+            "Raised exception did not match: Matcher(ValueError): TypeError() is not of type 'ValueError'",
         ),
     ):
         with RaisesGroup(Matcher(ValueError), allow_unwrapped=True):
             raise TypeError
+
+    # check we don't (or maybe we should?) suggest unwrapping with nested RaisesGroup
+    with pytest.raises(
+        AssertionError,
+        match=wrap_escape(
+            "Raised exception did not match: ValueError() is not an exception group",
+        ),
+    ):
+        with RaisesGroup(RaisesGroup(ValueError)):
+            raise ValueError
 
 
 def test_match() -> None:
