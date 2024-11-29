@@ -125,8 +125,8 @@ def test_flatten_subgroups() -> None:
     with pytest.raises(
         AssertionError,
         match=wrap_escape(
-            # TODO: double period at end
-            "Raised exception did not match: ValueError():\n  RaisesGroup(ValueError, flatten_subgroups=True): ValueError() is not an exception group, and `allow_unwrapped` is not set..",
+            "Raised exception did not match: ValueError():\n"
+            "  RaisesGroup(ValueError, flatten_subgroups=True): ValueError() is not an exception group, but would match with `allow_unwrapped=True`.",
         ),
     ):
         with RaisesGroup(RaisesGroup(ValueError, flatten_subgroups=True)):
@@ -175,7 +175,7 @@ def test_catch_unwrapped_exceptions() -> None:
     with pytest.raises(
         AssertionError,
         match=wrap_escape(
-            "Raised exception did not match: ValueError('value error text') is not an exception group, and `allow_unwrapped` is not set.",
+            "Raised exception did not match: ValueError('value error text') is not an exception group, but would match with `allow_unwrapped=True`",
         ),
     ):
         with RaisesGroup(ValueError):
@@ -379,11 +379,20 @@ def test_assert_message() -> None:
             "Raised exception did not match: RuntimeError():\n"
             "  RuntimeError() is not of type 'ValueError'\n"
             "  Matcher(TypeError): RuntimeError() is not of type 'TypeError'\n"
-            "  RaisesGroup(ValueError): RuntimeError() is not an exception group, and `allow_unwrapped` is not set..",
+            "  RaisesGroup(RuntimeError): RuntimeError() is not an exception group, but would match with `allow_unwrapped=True`\n"
+            "  RaisesGroup(ValueError): RuntimeError() is not an exception group.",
         ),
     ):
-        with RaisesGroup(ValueError, Matcher(TypeError), RaisesGroup(ValueError)):
-            raise ExceptionGroup("a", [RuntimeError(), TypeError(), ValueError()])
+        with RaisesGroup(
+            ValueError,
+            Matcher(TypeError),
+            RaisesGroup(RuntimeError),
+            RaisesGroup(ValueError),
+        ):
+            raise ExceptionGroup(
+                "a",
+                [RuntimeError(), TypeError(), ValueError(), ValueError()],
+            )
     # second fails to match
     with pytest.raises(
         AssertionError,

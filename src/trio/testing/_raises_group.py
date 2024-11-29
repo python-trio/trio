@@ -630,20 +630,29 @@ class RaisesGroup(Generic[BaseExcT_co]):
             self.fail_reason = "exception is None"
             return False
         if not isinstance(exc_val, BaseExceptionGroup):
+            assert not (
+                len(self.expected_exceptions) > 1 and self.allow_unwrapped
+            ), "should not be possible, verified in __init__"
+            # if we have 1 expected exception, check if it would work even if
+            # allow_unwrapped is not set
+            exp_exc = self.expected_exceptions[0]
+            if len(self.expected_exceptions) == 1 and (
+                (isinstance(exp_exc, Matcher) and exp_exc.matches(exc_val))
+                or (isinstance(exp_exc, type) and isinstance(exc_val, exp_exc))
+            ):
+                if self.allow_unwrapped:
+                    return True
+                else:
+                    self.fail_reason = f"{exc_val!r} is not an exception group, but would match with `allow_unwrapped=True`"
+                    return False
             if self.allow_unwrapped:
-                exp_exc = self.expected_exceptions[0]
                 if isinstance(exp_exc, Matcher):
-                    if exp_exc.matches(exc_val):
-                        return True
                     self.fail_reason = f"failed to match {exp_exc} with {exc_val}"
-                    return False
-                if isinstance(exp_exc, type):
-                    if isinstance(exc_val, exp_exc):
-                        return True
+                else:
+                    assert isinstance(exp_exc, type)
                     self.fail_reason = f"{exc_val!r} is not an instance of {exp_exc!r}"
-                    return False
-            # TODO: explicitly suggest `allow_unwrapped` if it *would* match
-            self.fail_reason = f"{exc_val!r} is not an exception group, and `allow_unwrapped` is not set."
+            else:
+                self.fail_reason = f"{exc_val!r} is not an exception group"
             return False
 
         self.fail_reason = _check_match(self.match_expr, exc_val)
@@ -658,6 +667,7 @@ class RaisesGroup(Generic[BaseExcT_co]):
         # important to check the length *after* flattening subgroups
         if len(actual_exceptions) != len(self.expected_exceptions):
             self.fail_reason = f"Incorrect number of exceptions in group, expected {len(self.expected_exceptions)} but got {len(actual_exceptions)}"
+            # TODO: helpful message to suggest flattening subgroup if actual_exceptions are exception groups and expected_exceptions aren't RaisesGroup's
             return False
 
         for e in actual_exceptions:
