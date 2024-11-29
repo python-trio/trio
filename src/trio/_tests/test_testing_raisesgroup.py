@@ -33,7 +33,7 @@ def test_raises_group() -> None:
         AssertionError,
         match=wrap_escape(
             "Raised exception did not match: SyntaxError():\n"
-            "  SyntaxError() is not of type 'ValueError'.",
+            "  SyntaxError() is not of type 'ValueError'",
         ),
     ):
         with RaisesGroup(ValueError):
@@ -122,15 +122,6 @@ def test_flatten_subgroups() -> None:
             "",
             (ExceptionGroup("", (ExceptionGroup("", (ValueError(),)),)),),
         )
-    with pytest.raises(
-        AssertionError,
-        match=wrap_escape(
-            "Raised exception did not match: ValueError():\n"
-            "  RaisesGroup(ValueError, flatten_subgroups=True): ValueError() is not an exception group, but would match with `allow_unwrapped=True`.",
-        ),
-    ):
-        with RaisesGroup(RaisesGroup(ValueError, flatten_subgroups=True)):
-            raise ExceptionGroup("", (ValueError(),))
 
     # but not the other way around
     with pytest.raises(
@@ -138,6 +129,64 @@ def test_flatten_subgroups() -> None:
         match="^You cannot specify a nested structure inside a RaisesGroup with",
     ):
         RaisesGroup(RaisesGroup(ValueError), flatten_subgroups=True)  # type: ignore[call-overload]
+
+    # flatten_subgroups is not sufficient to catch fully unwrapped
+    with pytest.raises(
+        AssertionError,
+        match=wrap_escape(
+            "Raised exception did not match: ValueError():\n"
+            "  RaisesGroup(ValueError, flatten_subgroups=True): ValueError() is not an exception group, but would match with `allow_unwrapped=True`",
+        ),
+    ):
+        with RaisesGroup(RaisesGroup(ValueError, flatten_subgroups=True)):
+            raise ExceptionGroup("", (ValueError(),))
+
+    # helpful suggestion if flatten_subgroups would make it pass
+    with pytest.raises(
+        AssertionError,
+        match=wrap_escape(
+            "Raised exception did not match: Incorrect number of exceptions in group, expected 2 but got 1, did you mean to use `flatten_subgroups=True`?",
+        ),
+    ):
+        with RaisesGroup(ValueError, TypeError):
+            raise ExceptionGroup("", [ExceptionGroup("", [ValueError(), TypeError()])])
+    # but doesn't consider check (otherwise we'd break typing guarantees)
+    with pytest.raises(
+        AssertionError,
+        match=wrap_escape(
+            "Raised exception did not match: Incorrect number of exceptions in group, expected 2 but got 1, did you mean to use `flatten_subgroups=True`?",
+        ),
+    ):
+        with RaisesGroup(
+            ValueError,
+            TypeError,
+            check=lambda eg: len(eg.exceptions) == 1,
+        ):
+            raise ExceptionGroup("", [ExceptionGroup("", [ValueError(), TypeError()])])
+    # crude check if the length is correct, no nested groups are expected, and there
+    # are nested groups
+    with pytest.raises(
+        AssertionError,
+        match=wrap_escape(
+            "Raised exception did not match: ExceptionGroup('', [ValueError()]):\n"
+            "  ExceptionGroup('', [ValueError()]) is not of type 'ValueError'"
+            ", did you mean to use `flatten_subgroups=True`?",
+        ),
+    ):
+        with RaisesGroup(ValueError):
+            raise ExceptionGroup("", [ExceptionGroup("", [ValueError()])])
+    # false alarm example of the above. Only way to get rid of this would be to
+    # do two full passes any time the full type check fails and flatten_subgroups=False
+    with pytest.raises(
+        AssertionError,
+        match=wrap_escape(
+            "Raised exception did not match: ExceptionGroup('', [TypeError()]):\n"
+            "  ExceptionGroup('', [TypeError()]) is not of type 'ValueError'"
+            ", did you mean to use `flatten_subgroups=True`?",
+        ),
+    ):
+        with RaisesGroup(ValueError):
+            raise ExceptionGroup("", [ExceptionGroup("", [TypeError()])])
 
 
 def test_catch_unwrapped_exceptions() -> None:
@@ -185,7 +234,9 @@ def test_catch_unwrapped_exceptions() -> None:
     with pytest.raises(
         AssertionError,
         match=wrap_escape(
-            "Raised exception did not match: ExceptionGroup('', [ValueError()]):\n  ExceptionGroup('', [ValueError()]) is not of type 'ValueError'.",
+            "Raised exception did not match: ExceptionGroup('', [ValueError()]):\n"
+            "  ExceptionGroup('', [ValueError()]) is not of type 'ValueError'"
+            ", did you mean to use `flatten_subgroups=True`?",
         ),
     ):
         with RaisesGroup(ValueError, allow_unwrapped=True):
@@ -372,7 +423,7 @@ def test_assert_message() -> None:
     with pytest.raises(
         AssertionError,
         match=wrap_escape(
-            "Raised exception did not match: TypeError():\n  TypeError() is not of type 'ValueError'.",
+            "Raised exception did not match: TypeError():\n  TypeError() is not of type 'ValueError'",
         ),
     ):
         with RaisesGroup(ValueError):
@@ -382,8 +433,8 @@ def test_assert_message() -> None:
         match=wrap_escape(
             "Raised exception did not match: ExceptionGroup('', [RuntimeError()]):\n"
             "  RaisesGroup(ValueError): RuntimeError():\n"
-            "    RuntimeError() is not of type 'ValueError'.\n"
-            "  RaisesGroup(ValueError, match='a'): Regex pattern 'a' did not match ''.",
+            "    RuntimeError() is not of type 'ValueError'\n"
+            "  RaisesGroup(ValueError, match='a'): Regex pattern 'a' did not match ''",
         ),
     ):
         with RaisesGroup(RaisesGroup(ValueError), RaisesGroup(ValueError, match="a")):
@@ -398,7 +449,7 @@ def test_assert_message() -> None:
             "  RuntimeError() is not of type 'ValueError'\n"
             "  Matcher(TypeError): RuntimeError() is not of type 'TypeError'\n"
             "  RaisesGroup(RuntimeError): RuntimeError() is not an exception group, but would match with `allow_unwrapped=True`\n"
-            "  RaisesGroup(ValueError): RuntimeError() is not an exception group.",
+            "  RaisesGroup(ValueError): RuntimeError() is not an exception group",
         ),
     ):
         with RaisesGroup(
@@ -415,7 +466,7 @@ def test_assert_message() -> None:
     with pytest.raises(
         AssertionError,
         match=wrap_escape(
-            "Raised exception did not match: AssertionError():\n  AssertionError() is not of type 'TypeError'.",
+            "Raised exception did not match: AssertionError():\n  AssertionError() is not of type 'TypeError'",
         ),
     ):
         with RaisesGroup(ValueError, TypeError):
@@ -425,7 +476,7 @@ def test_assert_message() -> None:
         AssertionError,
         match=wrap_escape(
             "Raised exception did not match: TypeError():\n"
-            "  Matcher(ValueError): TypeError() is not of type 'ValueError'.",
+            "  Matcher(ValueError): TypeError() is not of type 'ValueError'",
         ),
     ):
         with RaisesGroup(Matcher(ValueError)):
@@ -448,7 +499,7 @@ def test_assert_message() -> None:
             # Ideally the "did you mean to re.escape" should be indented twice
             "Raised exception did not match: ValueError('h(ell)o'):\n"
             "  Matcher(match='h(ell)o'): Regex pattern 'h(ell)o' did not match 'h(ell)o'\n"
-            "Did you mean to `re.escape()` the regex?.",
+            "Did you mean to `re.escape()` the regex?",
         ),
     ):
         with RaisesGroup(Matcher(match="h(ell)o")):
@@ -473,7 +524,7 @@ def test_matcher() -> None:
         AssertionError,
         match=wrap_escape(
             "Raised exception did not match: ValueError():\n"
-            "  Matcher(TypeError): ValueError() is not of type 'TypeError'.",
+            "  Matcher(TypeError): ValueError() is not of type 'TypeError'",
         ),
     ):
         with RaisesGroup(Matcher(TypeError)):
@@ -487,7 +538,7 @@ def test_matcher_match() -> None:
         AssertionError,
         match=wrap_escape(
             "Raised exception did not match: ValueError('bar'):\n"
-            "  Matcher(ValueError, match='foo'): Regex pattern 'foo' did not match 'bar'.",
+            "  Matcher(ValueError, match='foo'): Regex pattern 'foo' did not match 'bar'",
         ),
     ):
         with RaisesGroup(Matcher(ValueError, "foo")):
@@ -500,7 +551,7 @@ def test_matcher_match() -> None:
         AssertionError,
         match=wrap_escape(
             "Raised exception did not match: ValueError('bar'):\n"
-            "  Matcher(match='foo'): Regex pattern 'foo' did not match 'bar'.",
+            "  Matcher(match='foo'): Regex pattern 'foo' did not match 'bar'",
         ),
     ):
         with RaisesGroup(Matcher(match="foo")):
@@ -513,7 +564,7 @@ def test_matcher_match() -> None:
         AssertionError,
         match=wrap_escape(
             "Raised exception did not match: ValueError('barr'):\n"
-            "  Matcher(ValueError, match='^bar$'): Regex pattern '^bar$' did not match 'barr'.",
+            "  Matcher(ValueError, match='^bar$'): Regex pattern '^bar$' did not match 'barr'",
         ),
     ):
         with RaisesGroup(Matcher(ValueError, match="^bar$")):
@@ -541,7 +592,7 @@ def test_Matcher_check() -> None:
             # it's very verbose with printing out memory location.
             # And/or don't print memory location and just print the name
             "Raised exception did not match: OSError(6, ''):\n"
-            f"  Matcher(OSError, check={check_errno_is_5!r}): check {check_errno_is_5!r} did not return True for OSError(6, '').",
+            f"  Matcher(OSError, check={check_errno_is_5!r}): check {check_errno_is_5!r} did not return True for OSError(6, '')",
         ),
     ):
         with RaisesGroup(Matcher(OSError, check=check_errno_is_5)):
