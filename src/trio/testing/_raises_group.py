@@ -265,6 +265,7 @@ class Matcher(Generic[MatchE]):
         _depth: int = 0,
     ) -> TypeGuard[MatchE]:
         """Check if an exception matches the requirements of this Matcher.
+        If it fails, `.fail_reason` will be set.
 
         Examples::
 
@@ -580,7 +581,7 @@ class RaisesGroup(Generic[BaseExcT_co]):
             reqs.append(f"match={_match_pattern(self.match_expr)!r}")
         if self.check is not None:
             reqs.append(f"check={self.check!r}")
-        return f"RaisesGroup({", ".join(reqs)})"
+        return f"RaisesGroup({', '.join(reqs)})"
 
     def _unroll_exceptions(
         self,
