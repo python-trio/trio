@@ -165,8 +165,8 @@ def _check_match(match_expr: Pattern[str] | None, e: BaseException) -> str | Non
         stringified_exception := _stringify_exception(e),
     ):
         fail_reason = f"Regex pattern {_match_pattern(match_expr)!r} did not match {stringified_exception!r}"
-        if match_expr == stringified_exception:
-            fail_reason += "\n Did you mean to `re.escape()` the regex?"
+        if _match_pattern(match_expr) == stringified_exception:
+            fail_reason += "\nDid you mean to `re.escape()` the regex?"
         return fail_reason
     return None
 
@@ -646,9 +646,10 @@ class RaisesGroup(Generic[BaseExcT_co]):
                 else:
                     self.fail_reason = f"{exc_val!r} is not an exception group, but would match with `allow_unwrapped=True`"
                     return False
+
             if self.allow_unwrapped:
                 if isinstance(exp_exc, Matcher):
-                    self.fail_reason = f"failed to match {exp_exc} with {exc_val}"
+                    self.fail_reason = f"{exp_exc} does not match {exc_val!r}"
                 else:
                     assert isinstance(exp_exc, type)
                     self.fail_reason = f"{exc_val!r} is not an instance of {exp_exc!r}"
@@ -656,6 +657,7 @@ class RaisesGroup(Generic[BaseExcT_co]):
                 self.fail_reason = f"{exc_val!r} is not an exception group"
             return False
 
+        # TODO: if this fails, we should say the *group* message did not match
         self.fail_reason = _check_match(self.match_expr, exc_val)
         if self.fail_reason is not None:
             return False
@@ -696,6 +698,7 @@ class RaisesGroup(Generic[BaseExcT_co]):
 
         # only run `self.check` once we know `exc_val` is correct. (see the types)
         # unfortunately mypy isn't smart enough to recognize the above `for`s as narrowing.
+        # TODO: if this fails, we should say the *group* did not match
         self.fail_reason = _check_check(self.check, exc_val)  # type: ignore[arg-type]
         return self.fail_reason is None
 

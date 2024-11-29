@@ -204,6 +204,14 @@ def test_catch_unwrapped_exceptions() -> None:
     ):
         with RaisesGroup(ValueError, allow_unwrapped=True):
             raise TypeError
+    with pytest.raises(
+        AssertionError,
+        match=wrap_escape(
+            "Raised exception did not match: Matcher(ValueError) does not match TypeError()",
+        ),
+    ):
+        with RaisesGroup(Matcher(ValueError), allow_unwrapped=True):
+            raise TypeError
 
 
 def test_match() -> None:
@@ -413,6 +421,29 @@ def test_assert_message() -> None:
         with RaisesGroup(Matcher(ValueError)):
             raise ExceptionGroup("a", [TypeError()])
 
+    # suggest escaping
+    with pytest.raises(
+        AssertionError,
+        match=wrap_escape(
+            # TODO: this message should say the *group* didn't match
+            "Raised exception did not match: Regex pattern 'h(ell)o' did not match 'h(ell)o'\n"
+            "Did you mean to `re.escape()` the regex?",
+        ),
+    ):
+        with RaisesGroup(ValueError, match="h(ell)o"):
+            raise ExceptionGroup("h(ell)o", [ValueError()])
+    with pytest.raises(
+        AssertionError,
+        match=wrap_escape(
+            # Ideally the "did you mean to re.escape" should be indented twice
+            "Raised exception did not match: ValueError('h(ell)o'):\n"
+            "  Matcher(match='h(ell)o'): Regex pattern 'h(ell)o' did not match 'h(ell)o'\n"
+            "Did you mean to `re.escape()` the regex?.",
+        ),
+    ):
+        with RaisesGroup(Matcher(match="h(ell)o")):
+            raise ExceptionGroup("", [ValueError("h(ell)o")])
+
 
 def test_matcher() -> None:
     with pytest.raises(
@@ -497,8 +528,8 @@ def test_Matcher_check() -> None:
         AssertionError,
         match=wrap_escape(
             # TODO: try to avoid printing the check function twice?
-            # it's very verbose with printing out memory location
-            # and/or don't print memory location and just print the name
+            # it's very verbose with printing out memory location.
+            # And/or don't print memory location and just print the name
             "Raised exception did not match: OSError(6, ''):\n"
             f"  Matcher(OSError, check={check_errno_is_5!r}): check {check_errno_is_5!r} did not return True for OSError(6, '').",
         ),
@@ -521,12 +552,16 @@ def test_matcher_tostring() -> None:
 
 
 def test_raisesgroup_tostring() -> None:
-    assert str(RaisesGroup(ValueError)) == "RaisesGroup(ValueError)"
-    assert (
-        str(RaisesGroup(RaisesGroup(ValueError)))
-        == "RaisesGroup(RaisesGroup(ValueError))"
-    )
-    assert str(RaisesGroup(Matcher(ValueError))) == "RaisesGroup(Matcher(ValueError))"
+    def check_str_and_repr(s: str) -> None:
+        evaled = eval(s)
+        assert s == str(evaled) == repr(evaled)
+
+    check_str_and_repr("RaisesGroup(ValueError)")
+    check_str_and_repr("RaisesGroup(RaisesGroup(ValueError))")
+    check_str_and_repr("RaisesGroup(Matcher(ValueError))")
+    check_str_and_repr("RaisesGroup(ValueError, allow_unwrapped=True)")
+    check_str_and_repr("RaisesGroup(ValueError, match='aoeu')")
+
     assert (
         str(RaisesGroup(ValueError, match="[a-z]", check=bool))
         == f"RaisesGroup(ValueError, match='[a-z]', check={bool!r})"
