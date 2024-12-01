@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from types import TracebackType
 from typing import TYPE_CHECKING, ClassVar, cast
+
+if TYPE_CHECKING:
+    from types import TracebackType
 
 ################################################################
 # concat_tb
