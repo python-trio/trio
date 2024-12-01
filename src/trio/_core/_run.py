@@ -941,7 +941,7 @@ class _TaskStatus(TaskStatus[StatusT]):
     def started(self, value: StatusT | None = None) -> None:
         if self._value is not _NoStatus:
             raise RuntimeError("called 'started' twice on the same task status")
-        self._value = cast(StatusT, value)  # If None, StatusT == None
+        self._value = cast("StatusT", value)  # If None, StatusT == None
 
         # If the old nursery is cancelled, then quietly quit now; the child
         # will eventually exit on its own, and we don't want to risk moving
@@ -2407,7 +2407,7 @@ def run(
     # Inlined copy of runner.main_task_outcome.unwrap() to avoid
     # cluttering every single Trio traceback with an extra frame.
     if isinstance(runner.main_task_outcome, Value):
-        return cast(RetT, runner.main_task_outcome.value)
+        return cast("RetT", runner.main_task_outcome.value)
     elif isinstance(runner.main_task_outcome, Error):
         raise runner.main_task_outcome.error
     else:  # pragma: no cover
@@ -2531,7 +2531,7 @@ def start_guest_run(  # type: ignore[misc]
     # this time, so it shouldn't be possible to get an exception here,
     # except for a TrioInternalError.
     next_send = cast(
-        EventResult,
+        "EventResult",
         None,
     )  # First iteration must be `None`, every iteration after that is EventResult
     for _tick in range(5):  # expected need is 2 iterations + leave some wiggle room

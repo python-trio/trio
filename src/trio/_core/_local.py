@@ -44,7 +44,7 @@ class RunVar(Generic[T]):
     def get(self, default: T | type[_NoValue] = _NoValue) -> T:
         """Gets the value of this :class:`RunVar` for the current run call."""
         try:
-            return cast(T, _run.GLOBAL_RUN_CONTEXT.runner._locals[self])
+            return cast("T", _run.GLOBAL_RUN_CONTEXT.runner._locals[self])
         except AttributeError:
             raise RuntimeError("Cannot be used outside of a run context") from None
         except KeyError:

@@ -242,7 +242,7 @@ class Matcher(Generic[MatchE]):
             return False
         # If exception_type is None check() accepts BaseException.
         # If non-none, we have done an isinstance check above.
-        return self.check is None or self.check(cast(MatchE, exception))
+        return self.check is None or self.check(cast("MatchE", exception))
 
     def __str__(self) -> str:
         reqs = []

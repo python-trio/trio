@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from types import TracebackType
 from typing import TYPE_CHECKING, ClassVar, cast
+
+if TYPE_CHECKING:
+    from types import TracebackType
 
 ################################################################
 # concat_tb
@@ -107,7 +109,7 @@ else:
             return operation.delegate()  # type: ignore[no-any-return]
 
         return cast(
-            TracebackType,
+            "TracebackType",
             tputil.make_proxy(controller, type(base_tb), base_tb),
         )  # Returns proxy to traceback
 
