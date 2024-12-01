@@ -67,7 +67,7 @@ def _real_async_yield(
 # Real yield value is from trio's main loop, but type checkers can't
 # understand that, so we cast it to make type checkers understand.
 _async_yield = cast(
-    Callable[[MessageType], Awaitable[outcome.Outcome[object]]],
+    "Callable[[MessageType], Awaitable[outcome.Outcome[object]]]",
     _real_async_yield,
 )
 

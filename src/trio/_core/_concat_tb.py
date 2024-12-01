@@ -107,7 +107,7 @@ else:
             return operation.delegate()  # type: ignore[no-any-return]
 
         return cast(
-            TracebackType,
+            "TracebackType",
             tputil.make_proxy(controller, type(base_tb), base_tb),
         )  # Returns proxy to traceback
 

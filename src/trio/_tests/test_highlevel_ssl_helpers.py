@@ -92,7 +92,7 @@ async def test_open_ssl_over_tcp_stream_and_everything_else(
             ),
         )
         assert isinstance(value, list)
-        res = cast(list[SSLListener[SocketListener]], value)  # type: ignore[type-var]
+        res = cast("list[SSLListener[SocketListener]]", value)  # type: ignore[type-var]
         (listener,) = res
         async with listener:
             # listener.transport_listener is of type Listener[Stream]

@@ -655,7 +655,7 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
                     local=local,  # noqa: B023  # local is not bound in function definition
                 )
                 assert isinstance(value, tuple)
-                return cast(tuple[Union[str, int], ...], value)
+                return cast("tuple[Union[str, int], ...]", value)
 
             assert_eq(await res((addrs.arbitrary, "http")), (addrs.arbitrary, 80))
             if v6:
