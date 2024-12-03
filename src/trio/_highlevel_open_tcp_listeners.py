@@ -42,7 +42,7 @@ if sys.version_info < (3, 11):
 # backlog just causes it to be silently truncated to the configured maximum,
 # so this is unnecessary -- we can just pass in "infinity" and get the maximum
 # that way. (Verified on Windows, Linux, macOS using
-# notes-to-self/measure-listen-backlog.py)
+# https://github.com/python-trio/trio/wiki/notes-to-self#measure-listen-backlogpy
 def _compute_backlog(backlog: int | None) -> int:
     # Many systems (Linux, BSDs, ...) store the backlog in a uint16 and are
     # missing overflow protection, so we apply our own overflow protection.

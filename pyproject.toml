@@ -90,7 +90,7 @@ fix = true
 
 # The directories to consider when resolving first vs. third-party imports.
 # Does not control what files to include/exclude!
-src = ["src/trio", "notes-to-self"]
+src = ["src/trio"]
 
 include = ["*.py", "*.pyi", "**/pyproject.toml"]
 
@@ -162,8 +162,6 @@ extend-ignore = [
 'src/trio/_abc.py' = ['A005']
 'src/trio/_socket.py' = ['A005']
 'src/trio/_ssl.py' = ['A005']
-# Don't check annotations in notes-to-self
-'notes-to-self/*.py' = ['ANN001', 'ANN002', 'ANN003', 'ANN201', 'ANN202', 'ANN204']
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
