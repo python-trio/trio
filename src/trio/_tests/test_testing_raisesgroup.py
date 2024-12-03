@@ -163,8 +163,7 @@ def test_flatten_subgroups() -> None:
             check=lambda eg: len(eg.exceptions) == 1,
         ):
             raise ExceptionGroup("", [ExceptionGroup("", [ValueError(), TypeError()])])
-    # crude check if the length is correct, no nested groups are expected, and there
-    # are nested groups
+    # correct number of exceptions, and flatten_subgroups would make it pass
     with pytest.raises(
         AssertionError,
         match=wrap_escape(
@@ -175,18 +174,33 @@ def test_flatten_subgroups() -> None:
     ):
         with RaisesGroup(ValueError):
             raise ExceptionGroup("", [ExceptionGroup("", [ValueError()])])
-    # false alarm example of the above. Only way to get rid of this would be to
-    # do two full passes any time the full type check fails and flatten_subgroups=False
+    # correct number of exceptions, but flatten_subgroups wouldn't help, so we don't suggest it
     with pytest.raises(
         AssertionError,
         match=wrap_escape(
             "Raised exception did not match: ExceptionGroup('', [TypeError()]):\n"
-            "  ExceptionGroup('', [TypeError()]) is not of type 'ValueError'"
-            ", did you mean to use `flatten_subgroups=True`?",
+            "  ExceptionGroup('', [TypeError()]) is not of type 'ValueError'",
         ),
     ):
         with RaisesGroup(ValueError):
             raise ExceptionGroup("", [ExceptionGroup("", [TypeError()])])
+
+    # flatten_subgroups can be suggested if nested. This will implicitly ask the user to
+    # do `RaisesGroup(RaisesGroup(ValueError, flatten_subgroups=True))` which is unlikely
+    # to be what they actually want - but I don't think it's worth trying to special-case
+    with pytest.raises(
+        AssertionError,
+        match=wrap_escape(
+            "Raised exception did not match: ExceptionGroup('', [ExceptionGroup('', [ValueError()])]):\n"
+            "  RaisesGroup(ValueError): ExceptionGroup('', [ValueError()]):\n"
+            "    ExceptionGroup('', [ValueError()]) is not of type 'ValueError', did you mean to use `flatten_subgroups=True`?",
+        ),
+    ):
+        with RaisesGroup(RaisesGroup(ValueError)):
+            raise ExceptionGroup(
+                "",
+                [ExceptionGroup("", [ExceptionGroup("", [ValueError()])])],
+            )
 
 
 def test_catch_unwrapped_exceptions() -> None:

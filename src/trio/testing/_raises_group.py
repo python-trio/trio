@@ -670,36 +670,57 @@ class RaisesGroup(Generic[BaseExcT_co]):
         if self.fail_reason is not None:
             return False
 
-        remaining_exceptions = list(self.expected_exceptions)
         actual_exceptions: Sequence[BaseException] = exc_val.exceptions
         if self.flatten_subgroups:
             actual_exceptions = self._unroll_exceptions(actual_exceptions)
 
-        trying_flattening = False
-        suggest_flatten_str = ", did you mean to use `flatten_subgroups=True`?"
+        # do the full check on expected exceptions
+        self.fail_reason = self._check_exceptions(
+            self.expected_exceptions,
+            actual_exceptions,
+            _depth=_depth,
+        )
 
-        # important to check the length *after* flattening subgroups
-        if len(actual_exceptions) != len(self.expected_exceptions):
-            self.fail_reason = f"Incorrect number of exceptions in group, expected {len(self.expected_exceptions)} but got {len(actual_exceptions)}"
+        if self.fail_reason is not None:
+            # if we're not expecting a nested structure, and there is one, do a second
+            # pass where we try flattening it
             if (
                 not self.flatten_subgroups
                 and not any(
                     isinstance(e, RaisesGroup) for e in self.expected_exceptions
                 )
-                and len(actual_exceptions := self._unroll_exceptions(actual_exceptions))
-                == len(self.expected_exceptions)
+                and any(isinstance(e, BaseExceptionGroup) for e in actual_exceptions)
+                and self._check_exceptions(
+                    self.expected_exceptions,
+                    self._unroll_exceptions(exc_val.exceptions),
+                    _depth=_depth,
+                )
+                is None
             ):
-                trying_flattening = True
-            else:
-                return False
+                self.fail_reason += ", did you mean to use `flatten_subgroups=True`?"
+            return False
 
-        suggest_flattening = (
-            not self.flatten_subgroups
-            and not trying_flattening
-            and not any(isinstance(e, RaisesGroup) for e in self.expected_exceptions)
-            and any(isinstance(e, BaseExceptionGroup) for e in actual_exceptions)
-        )
+        # only run `self.check` once we know `exc_val` is correct.
+        # _check_exceptions does not use TypeGuard, since we want to communicate the fail
+        # reason, so we need a type: ignore
+        # TODO: if this fails, we should say the *group* did not match
+        self.fail_reason = _check_check(self.check, exc_val)  # type: ignore[arg-type]
 
+        return self.fail_reason is None
+
+    def _check_exceptions(
+        self,
+        expected_exceptions: tuple[
+            type[BaseExcT_co] | Matcher[BaseExcT_co] | RaisesGroup[BaseException],
+            ...,
+        ],
+        actual_exceptions: Sequence[BaseException],
+        _depth: int,
+    ) -> str | None:
+        if len(actual_exceptions) != len(expected_exceptions):
+            return f"Incorrect number of exceptions in group, expected {len(expected_exceptions)} but got {len(actual_exceptions)}"
+
+        remaining_exceptions = list(self.expected_exceptions)
         for e in actual_exceptions:
             attempts: list[str] = []
             for rem_e in remaining_exceptions:
@@ -709,29 +730,9 @@ class RaisesGroup(Generic[BaseExcT_co]):
                     break
                 attempts.append(res)
             else:
-                if trying_flattening:
-                    # flattening didn't help, fail_reason set in the length check
-                    assert self.fail_reason is not None
-                    return False
-
                 indent = "\n" + " " * 2 * (_depth + 1)
-                self.fail_reason = f"{e!r}:{indent}{indent.join(attempts)}"
-                if suggest_flattening:
-                    self.fail_reason += suggest_flatten_str
-
-                return False
-
-        if trying_flattening:
-            assert self.fail_reason is not None
-            self.fail_reason += suggest_flatten_str
-            return False
-
-        # only run `self.check` once we know `exc_val` is correct. (see the types)
-        # unfortunately mypy isn't smart enough to recognize the above `for`s as narrowing.
-        # TODO: if this fails, we should say the *group* did not match
-        self.fail_reason = _check_check(self.check, exc_val)  # type: ignore[arg-type]
-
-        return self.fail_reason is None
+                return f"{e!r}:{indent}{indent.join(attempts)}"
+        return None
 
     def __exit__(
         self,
