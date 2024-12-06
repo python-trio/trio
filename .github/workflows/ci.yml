@@ -118,16 +118,10 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup python
         uses: actions/setup-python@v5
-        if: "!endsWith(matrix.python, '-dev')"
         with:
           python-version: ${{ fromJSON(format('["{0}", "{1}"]', format('{0}.0-alpha - {0}.X', matrix.python), matrix.python))[startsWith(matrix.python, 'pypy')] }}
           cache: pip
           cache-dependency-path: test-requirements.txt
-      - name: Setup python (dev)
-        uses: deadsnakes/action@v2.0.2
-        if: endsWith(matrix.python, '-dev')
-        with:
-          python-version: '${{ matrix.python }}'
       - name: Run tests
         run: ./ci.sh
         env:
