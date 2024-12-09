@@ -318,7 +318,7 @@ class Matcher(Generic[MatchE]):
 
         # If exception_type is None check() accepts BaseException.
         # If non-none, we have done an isinstance check above.
-        self.fail_reason = _check_check(self.check, cast(MatchE, exception), _depth)
+        self.fail_reason = _check_check(self.check, cast("MatchE", exception), _depth)
         return self.fail_reason is None
 
     def __str__(self) -> str:
@@ -799,7 +799,7 @@ class RaisesGroup(Generic[BaseExcT_co]):
         ), "Internal error - should have been constructed in __enter__"
 
         group_str = (
-            "[group]"
+            "(group)"
             if self.allow_unwrapped and not issubclass(exc_type, BaseExceptionGroup)
             else "group"
         )

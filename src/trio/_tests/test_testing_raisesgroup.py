@@ -271,7 +271,7 @@ def test_catch_unwrapped_exceptions() -> None:
     with pytest.raises(
         AssertionError,
         match=wrap_escape(
-            "Raised exception group did not match: ExceptionGroup('', [ValueError()]) is not of type 'ValueError'\n"
+            "Raised exception group did not match: ExceptionGroup('bar', [ValueError()]) is not of type 'ValueError'\n"
             "Did you mean to use `flatten_subgroups=True`?",
         ),
     ):

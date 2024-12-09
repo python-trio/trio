@@ -5,6 +5,7 @@ on:
     branches-ignore:
       - "dependabot/**"
   pull_request:
+  merge_group:
 
 concurrency:
   group: ${{ github.ref }}-${{ github.workflow }}-${{ github.event_name }}${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && format('-{0}', github.sha) || '' }}
@@ -189,7 +190,8 @@ jobs:
         # can't use setup-python because that python doesn't seem to work;
         # `python3-dev` (rather than `python:alpine`) for some ctypes reason,
         # `nodejs` for pyright (`node-env` pulls in nodejs but that takes a while and can time out the test).
-        run: apk update && apk add python3-dev bash nodejs
+        # `perl` for a platform independent `sed -i` alternative
+        run: apk update && apk add python3-dev bash nodejs perl
       - name: Enter virtual environment
         run: python -m venv .venv
       - name: Run tests

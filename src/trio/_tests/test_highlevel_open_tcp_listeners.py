@@ -314,7 +314,7 @@ async def test_serve_tcp() -> None:
         # nursery.start is incorrectly typed, awaiting #2773
         value = await nursery.start(serve_tcp, handler, 0)
         assert isinstance(value, list)
-        listeners = cast(list[SocketListener], value)
+        listeners = cast("list[SocketListener]", value)
         stream = await open_stream_to_socket_listener(listeners[0])
         async with stream:
             assert await stream.receive_some(1) == b"x"

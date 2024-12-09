@@ -19,11 +19,10 @@ import pytest
 
 import trio
 import trio.testing
-from trio._tests.pytest_plugin import skip_if_optional_else_raise
+from trio._tests.pytest_plugin import RUN_SLOW, skip_if_optional_else_raise
 
 from .. import _core, _util
 from .._core._tests.tutil import slow
-from .pytest_plugin import RUN_SLOW
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
@@ -572,3 +571,37 @@ def test_classes_are_final() -> None:
                 continue
 
             assert class_is_final(class_)
+
+
+# Plugin might not be running, especially if running from an installed version.
+@pytest.mark.skipif(
+    not hasattr(attrs.field, "trio_modded"),
+    reason="Pytest plugin not installed.",
+)
+def test_pyright_recognizes_init_attributes() -> None:
+    """Check whether we provide `alias` for all underscore prefixed attributes.
+
+    Attrs always sets the `alias` attribute on fields, so a pytest plugin is used
+    to monkeypatch `field()` to record whether an alias was defined in the metadata.
+    See `_trio_check_attrs_aliases`.
+    """
+    for module in PUBLIC_MODULES:
+        for class_ in module.__dict__.values():
+            if not attrs.has(class_):
+                continue
+            if isinstance(class_, _util.NoPublicConstructor):
+                continue
+
+            attributes = [
+                attr
+                for attr in attrs.fields(class_)
+                if attr.init
+                if attr.alias
+                not in (
+                    attr.name,
+                    # trio_original_args may not be present in autoattribs
+                    attr.metadata.get("trio_original_args", {}).get("alias"),
+                )
+            ]
+
+            assert attributes == [], class_

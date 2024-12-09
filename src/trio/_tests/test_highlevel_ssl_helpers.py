@@ -10,13 +10,11 @@ import trio
 import trio.testing
 from trio.socket import AF_INET, IPPROTO_TCP, SOCK_STREAM
 
-from .._highlevel_socket import SocketListener
 from .._highlevel_ssl_helpers import (
     open_ssl_over_tcp_listeners,
     open_ssl_over_tcp_stream,
     serve_ssl_over_tcp,
 )
-from .._ssl import SSLListener
 
 # using noqa because linters don't understand how pytest fixtures work.
 from .test_ssl import SERVER_CTX, client_ctx  # noqa: F401
@@ -26,6 +24,9 @@ if TYPE_CHECKING:
     from ssl import SSLContext
 
     from trio.abc import Stream
+
+    from .._highlevel_socket import SocketListener
+    from .._ssl import SSLListener
 
 
 async def echo_handler(stream: Stream) -> None:
@@ -92,7 +93,7 @@ async def test_open_ssl_over_tcp_stream_and_everything_else(
             ),
         )
         assert isinstance(value, list)
-        res = cast(list[SSLListener[SocketListener]], value)  # type: ignore[type-var]
+        res = cast("list[SSLListener[SocketListener]]", value)  # type: ignore[type-var]
         (listener,) = res
         async with listener:
             # listener.transport_listener is of type Listener[Stream]
