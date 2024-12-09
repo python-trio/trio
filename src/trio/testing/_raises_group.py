@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
     from _pytest._code.code import ExceptionChainRepr, ReprExceptionInfo, Traceback
-    from typing_extensions import TypeGuard, TypeVar
+    from typing_extensions import TypeAlias, TypeGuard, TypeVar
 
     # this conditional definition is because we want to allow a TypeVar default
     MatchE = TypeVar(
@@ -42,6 +42,9 @@ BaseExcT_1 = TypeVar("BaseExcT_1", bound=BaseException)
 BaseExcT_2 = TypeVar("BaseExcT_2", bound=BaseException)
 ExcT_1 = TypeVar("ExcT_1", bound=Exception)
 ExcT_2 = TypeVar("ExcT_2", bound=Exception)
+ExpectedType: TypeAlias = (
+    "type[BaseExcT_co] | Matcher[BaseExcT_co] | RaisesGroup[BaseException]"
+)
 
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup, ExceptionGroup
@@ -171,15 +174,22 @@ def _check_match(match_expr: Pattern[str] | None, e: BaseException) -> str | Non
     return None
 
 
+def _check_repr(check: Callable[[BaseExcT_1], bool]) -> str:
+    """Split out so it can be monkeypatched (e.g. by hypothesis)"""
+    return repr(check)
+
+
 def _check_check(
     check: Callable[[BaseExcT_1], bool] | None,
     exception: BaseExcT_1,
+    _depth: int,
 ) -> str | None:
     if check is None:
         return None
+    check_repr = "" if _depth != 0 else " " + _check_repr(check)
 
     if not check(exception):
-        return f"check {check!r} did not return True for {exception!r}"
+        return f"check{check_repr} did not return True for {exception!r}"
     return None
 
 
@@ -308,7 +318,7 @@ class Matcher(Generic[MatchE]):
 
         # If exception_type is None check() accepts BaseException.
         # If non-none, we have done an isinstance check above.
-        self.fail_reason = _check_check(self.check, cast(MatchE, exception))
+        self.fail_reason = _check_check(self.check, cast(MatchE, exception), _depth)
         return self.fail_reason is None
 
     def __str__(self) -> str:
@@ -697,42 +707,82 @@ class RaisesGroup(Generic[BaseExcT_co]):
                 )
                 is None
             ):
-                self.fail_reason += ", did you mean to use `flatten_subgroups=True`?"
+                self.fail_reason += (
+                    f"\n{_depth * '  '}Did you mean to use `flatten_subgroups=True`?"
+                )
             return False
 
         # only run `self.check` once we know `exc_val` is correct.
         # _check_exceptions does not use TypeGuard, since we want to communicate the fail
         # reason, so we need a type: ignore
         # TODO: if this fails, we should say the *group* did not match
-        self.fail_reason = _check_check(self.check, exc_val)  # type: ignore[arg-type]
+        self.fail_reason = _check_check(self.check, exc_val, _depth)  # type: ignore[arg-type]
 
         return self.fail_reason is None
 
     def _check_exceptions(
         self,
         expected_exceptions: tuple[
-            type[BaseExcT_co] | Matcher[BaseExcT_co] | RaisesGroup[BaseException],
+            ExpectedType[BaseExcT_co],
             ...,
         ],
         actual_exceptions: Sequence[BaseException],
         _depth: int,
     ) -> str | None:
-        if len(actual_exceptions) != len(expected_exceptions):
-            return f"Incorrect number of exceptions in group, expected {len(expected_exceptions)} but got {len(actual_exceptions)}"
+        failed_attempts_dict: dict[BaseException, list[str]] = {}
 
         remaining_exceptions = list(self.expected_exceptions)
+        succesful_matches: dict[ExpectedType[BaseExcT_co], BaseException] = {}
         for e in actual_exceptions:
-            attempts: list[str] = []
+            failed_attempts_dict[e] = []
             for rem_e in remaining_exceptions:
-                res = _check_expected(rem_e, e, _depth=_depth + 1)
+                res = _check_expected(rem_e, e, _depth=_depth + 3)
                 if res is None:
+                    succesful_matches[rem_e] = e
                     remaining_exceptions.remove(rem_e)
+                    del failed_attempts_dict[e]
                     break
-                attempts.append(res)
-            else:
-                indent = "\n" + " " * 2 * (_depth + 1)
-                return f"{e!r}:{indent}{indent.join(attempts)}"
-        return None
+                failed_attempts_dict[e].append(res)
+
+        if not remaining_exceptions and not failed_attempts_dict:
+            return None
+
+        succesful_str = (
+            ""
+            if not succesful_matches
+            else f"{len(succesful_matches)} matched exception{'s' if len(succesful_matches) > 1 else ''}. "
+        )
+
+        if not remaining_exceptions:
+            return f"{succesful_str}Unexpected exception(s): {list(failed_attempts_dict.keys())!r}"
+        if not failed_attempts_dict:
+            return f"{succesful_str}Too few exceptions raised, found no match for: {remaining_exceptions!r}"
+
+        # in case of a single expected and single raised we simplify the output
+        if 1 == len(actual_exceptions) == len(expected_exceptions):
+            return f"{succesful_str}{failed_attempts_dict.popitem()[1][0]}"
+
+        # TODO: I'm not 100% sure about printing the exact same as in the case above
+        # And in all cases of len(failed_attemts_dict)==1 we probably don't need a full table
+        if 1 == len(remaining_exceptions) == len(failed_attempts_dict):
+            return f"{succesful_str}{failed_attempts_dict.popitem()[1][0]}"
+
+        curr_indent = " " * 2 * _depth
+        s = ""
+        if succesful_matches:
+            s += f"\n{curr_indent}{succesful_str}"
+        s += f"\n{curr_indent}The following expected exceptions did not find a match: {remaining_exceptions!r}"
+        s += f"\n{curr_indent}The following raised exceptions did not find a match"
+        indent_1 = " " * 2 * (_depth + 1)
+        indent_2 = " " * 2 * (_depth + 2)
+        for key in failed_attempts_dict:
+            s += f"\n{indent_1}{key!r}:"
+            for val in failed_attempts_dict[key]:
+                s += f"\n{indent_2}{val}"
+            for expected, actual_match in succesful_matches.items():
+                if _check_expected(expected, key, _depth=0) is None:
+                    s += f"\n{indent_2}It matches {expected!r} which was paired with {actual_match!r}"
+        return s
 
     def __exit__(
         self,
@@ -748,9 +798,15 @@ class RaisesGroup(Generic[BaseExcT_co]):
             self.excinfo is not None
         ), "Internal error - should have been constructed in __enter__"
 
+        group_str = (
+            "[group]"
+            if self.allow_unwrapped and not issubclass(exc_type, BaseExceptionGroup)
+            else "group"
+        )
+
         assert self.matches(
             exc_val,
-        ), f"Raised exception did not match: {self.fail_reason}"
+        ), f"Raised exception {group_str} did not match: {self.fail_reason}"
 
         # Cast to narrow the exception type now that it's verified.
         exc_info = cast(
