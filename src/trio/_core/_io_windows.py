@@ -153,7 +153,8 @@ T = TypeVar("T")
 #
 # Unfortunately, the Windows kernel seems to have bugs if you try to issue
 # multiple simultaneous IOCTL_AFD_POLL operations on the same socket (see
-# notes-to-self/afd-lab.py). So if a user calls wait_readable and
+# https://github.com/python-trio/trio/wiki/notes-to-self#afd-labpy).
+# So if a user calls wait_readable and
 # wait_writable at the same time, we have to combine those into a single
 # IOCTL_AFD_POLL. This means we can't just use the wait_overlapped machinery.
 # Instead we have some dedicated code to handle these operations, and a
