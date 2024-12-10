@@ -564,14 +564,13 @@ class SocketType:
         raise NotImplementedError
 
     @overload
-    def getsockopt(self, /, level: int, optname: int) -> int: ...
+    def getsockopt(self, level: int, optname: int) -> int: ...
 
     @overload
-    def getsockopt(self, /, level: int, optname: int, buflen: int) -> bytes: ...
+    def getsockopt(self, level: int, optname: int, buflen: int) -> bytes: ...
 
     def getsockopt(
         self,
-        /,
         level: int,
         optname: int,
         buflen: int | None = None,
@@ -579,12 +578,11 @@ class SocketType:
         raise NotImplementedError
 
     @overload
-    def setsockopt(self, /, level: int, optname: int, value: int | Buffer) -> None: ...
+    def setsockopt(self, level: int, optname: int, value: int | Buffer) -> None: ...
 
     @overload
     def setsockopt(
         self,
-        /,
         level: int,
         optname: int,
         value: None,
@@ -593,7 +591,6 @@ class SocketType:
 
     def setsockopt(
         self,
-        /,
         level: int,
         optname: int,
         value: int | Buffer | None,
@@ -601,7 +598,7 @@ class SocketType:
     ) -> None:
         raise NotImplementedError
 
-    def listen(self, /, backlog: int = min(_stdlib_socket.SOMAXCONN, 128)) -> None:
+    def listen(self, backlog: int = min(_stdlib_socket.SOMAXCONN, 128)) -> None:
         raise NotImplementedError
 
     def get_inheritable(self) -> bool:
@@ -614,7 +611,7 @@ class SocketType:
         not TYPE_CHECKING and hasattr(_stdlib_socket.socket, "share")
     ):
 
-        def share(self, /, process_id: int) -> bytes:
+        def share(self, process_id: int) -> bytes:
             raise NotImplementedError
 
     def __enter__(self) -> Self:
@@ -679,7 +676,6 @@ class SocketType:
 
     def recv_into(
         self,
-        /,
         buffer: Buffer,
         nbytes: int = 0,
         flags: int = 0,
@@ -698,7 +694,6 @@ class SocketType:
     # return type of socket.socket.recvfrom_into in typeshed is tuple[bytes, Any]
     def recvfrom_into(
         self,
-        /,
         buffer: Buffer,
         nbytes: int = 0,
         flags: int = 0,
@@ -815,14 +810,13 @@ class _SocketType(SocketType):
         return self._sock.getsockname()
 
     @overload
-    def getsockopt(self, /, level: int, optname: int) -> int: ...
+    def getsockopt(self, level: int, optname: int) -> int: ...
 
     @overload
-    def getsockopt(self, /, level: int, optname: int, buflen: int) -> bytes: ...
+    def getsockopt(self, level: int, optname: int, buflen: int) -> bytes: ...
 
     def getsockopt(
         self,
-        /,
         level: int,
         optname: int,
         buflen: int | None = None,
@@ -832,12 +826,11 @@ class _SocketType(SocketType):
         return self._sock.getsockopt(level, optname, buflen)
 
     @overload
-    def setsockopt(self, /, level: int, optname: int, value: int | Buffer) -> None: ...
+    def setsockopt(self, level: int, optname: int, value: int | Buffer) -> None: ...
 
     @overload
     def setsockopt(
         self,
-        /,
         level: int,
         optname: int,
         value: None,
@@ -846,7 +839,6 @@ class _SocketType(SocketType):
 
     def setsockopt(
         self,
-        /,
         level: int,
         optname: int,
         value: int | Buffer | None,
@@ -867,7 +859,7 @@ class _SocketType(SocketType):
         # four parameters.
         return self._sock.setsockopt(level, optname, value, optlen)
 
-    def listen(self, /, backlog: int = min(_stdlib_socket.SOMAXCONN, 128)) -> None:
+    def listen(self, backlog: int = min(_stdlib_socket.SOMAXCONN, 128)) -> None:
         return self._sock.listen(backlog)
 
     def get_inheritable(self) -> bool:
@@ -880,7 +872,7 @@ class _SocketType(SocketType):
         not TYPE_CHECKING and hasattr(_stdlib_socket.socket, "share")
     ):
 
-        def share(self, /, process_id: int) -> bytes:
+        def share(self, process_id: int) -> bytes:
             return self._sock.share(process_id)
 
     def __enter__(self) -> Self:
