@@ -27,7 +27,7 @@ async def trio_main():
     to_trio, from_aio = trio.open_memory_channel(float("inf"))
     from_trio = asyncio.Queue()
 
-    _task_ref = asyncio.create_task(aio_pingpong(from_trio, to_trio))
+    task_ref = asyncio.create_task(aio_pingpong(from_trio, to_trio))
 
     from_trio.put_nowait(0)
 
@@ -37,7 +37,7 @@ async def trio_main():
         from_trio.put_nowait(n + 1)
         if n >= 10:
             return
-    del _task_ref
+    del task_ref
 
 
 async def aio_pingpong(from_trio, to_trio):
