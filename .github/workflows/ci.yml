@@ -3,7 +3,9 @@ name: CI
 on:
   push:
     branches-ignore:
-      - "dependabot/**"
+      - gh-readonly-queue/**
+      - autodeps/**
+      - pre-commit-ci-update-config
   pull_request:
   merge_group:
 
