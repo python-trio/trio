@@ -3,7 +3,10 @@ name: CI
 on:
   push:
     branches-ignore:
-      - "dependabot/**"
+      # these branches always have another event associated
+      - gh-readonly-queue/**        # GitHub's merge queue uses `merge_group`
+      - autodeps/**                 # autodeps always makes a PR
+      - pre-commit-ci-update-config # pre-commit.ci's updates always have a PR
   pull_request:
   merge_group:
 
