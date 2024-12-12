@@ -467,7 +467,7 @@ async def open_file(
       :func:`trio.Path.open`
 
     """
-    _file = wrap_file(
+    file_ = wrap_file(
         await trio.to_thread.run_sync(
             io.open,
             file,
@@ -480,7 +480,7 @@ async def open_file(
             opener,
         ),
     )
-    return _file
+    return file_
 
 
 def wrap_file(file: FileT) -> AsyncIOWrapper[FileT]:

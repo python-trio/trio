@@ -1283,10 +1283,10 @@ class _SocketType(SocketType):
         @_wraps(_stdlib_socket.socket.sendmsg, assigned=(), updated=())
         async def sendmsg(
             self,
-            __buffers: Iterable[Buffer],
-            __ancdata: Iterable[tuple[int, int, Buffer]] = (),
-            __flags: int = 0,
-            __address: AddressFormat | None = None,
+            buffers: Iterable[Buffer],
+            ancdata: Iterable[tuple[int, int, Buffer]] = (),
+            flags: int = 0,
+            address: AddressFormat | None = None,
         ) -> int:
             """Similar to :meth:`socket.socket.sendmsg`, but async.
 
@@ -1294,15 +1294,15 @@ class _SocketType(SocketType):
             available.
 
             """
-            if __address is not None:
-                __address = await self._resolve_address_nocp(__address, local=False)
+            if address is not None:
+                address = await self._resolve_address_nocp(address, local=False)
             return await self._nonblocking_helper(
                 _core.wait_writable,
                 _stdlib_socket.socket.sendmsg,
-                __buffers,
-                __ancdata,
-                __flags,
-                __address,
+                buffers,
+                ancdata,
+                flags,
+                address,
             )
 
     ################################################################
