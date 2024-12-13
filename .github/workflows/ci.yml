@@ -60,6 +60,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Setup python
         uses: actions/setup-python@v5
         with:
@@ -120,6 +122,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Setup python
         uses: actions/setup-python@v5
         with:
@@ -159,6 +163,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Setup python
         uses: actions/setup-python@v5
         with:
@@ -183,6 +189,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Install necessary packages
         # can't use setup-python because that python doesn't seem to work;
         # `python3-dev` (rather than `python:alpine`) for some ctypes reason,
@@ -219,6 +227,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Setup python
         uses: actions/setup-python@v5
         with:
