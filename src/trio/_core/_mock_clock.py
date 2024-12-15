@@ -63,7 +63,7 @@ class MockClock(Clock):
 
     """
 
-    def __init__(self, rate: float = 0.0, autojump_threshold: float = inf):
+    def __init__(self, rate: float = 0.0, autojump_threshold: float = inf) -> None:
         # when the real clock said 'real_base', the virtual time was
         # 'virtual_base', and since then it's advanced at 'rate' virtual
         # seconds per real second.

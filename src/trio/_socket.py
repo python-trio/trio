@@ -12,7 +12,6 @@ from socket import AddressFamily, SocketKind
 from typing import (
     TYPE_CHECKING,
     Any,
-    Literal,
     SupportsIndex,
     TypeVar,
     Union,
@@ -50,7 +49,8 @@ T = TypeVar("T")
 # most users, so currently we just specify it as `Any`. Otherwise we would write:
 # `AddressFormat = TypeVar("AddressFormat")`
 # but instead we simply do:
-AddressFormat: TypeAlias = Any
+# Explicit "Any" is not allowed
+AddressFormat: TypeAlias = Any  # type: ignore[misc]
 
 
 # Usage:
@@ -65,7 +65,7 @@ class _try_sync:
     def __init__(
         self,
         blocking_exc_override: Callable[[BaseException], bool] | None = None,
-    ):
+    ) -> None:
         self._blocking_exc_override = blocking_exc_override
 
     def _is_blocking_io_error(self, exc: BaseException) -> bool:
@@ -332,7 +332,7 @@ if sys.platform == "win32":
     TypeT: TypeAlias = int
     FamilyDefault = _stdlib_socket.AF_INET
 else:
-    FamilyDefault: Literal[None] = None
+    FamilyDefault: None = None
     FamilyT: TypeAlias = Union[int, AddressFamily, None]
     TypeT: TypeAlias = Union[_stdlib_socket.socket, int]
 
@@ -473,7 +473,7 @@ async def _resolve_address_nocp(
     ipv6_v6only: bool | int,
     address: AddressFormat,
     local: bool,
-) -> Any:
+) -> AddressFormat:
     # Do some pre-checking (or exit early for non-IP sockets)
     if family == _stdlib_socket.AF_INET:
         if not isinstance(address, tuple) or not len(address) == 2:
@@ -710,7 +710,7 @@ class SocketType:
             __bufsize: int,
             __ancbufsize: int = 0,
             __flags: int = 0,
-        ) -> Awaitable[tuple[bytes, list[tuple[int, int, bytes]], int, Any]]:
+        ) -> Awaitable[tuple[bytes, list[tuple[int, int, bytes]], int, object]]:
             raise NotImplementedError
 
     if sys.platform != "win32" or (
@@ -722,7 +722,7 @@ class SocketType:
             __buffers: Iterable[Buffer],
             __ancbufsize: int = 0,
             __flags: int = 0,
-        ) -> Awaitable[tuple[int, list[tuple[int, int, bytes]], int, Any]]:
+        ) -> Awaitable[tuple[int, list[tuple[int, int, bytes]], int, object]]:
             raise NotImplementedError
 
     def send(__self, __bytes: Buffer, __flags: int = 0) -> Awaitable[int]:
@@ -743,7 +743,7 @@ class SocketType:
         __address: tuple[object, ...] | str | Buffer,
     ) -> int: ...
 
-    async def sendto(self, *args: Any) -> int:
+    async def sendto(self, *args: object) -> int:
         raise NotImplementedError
 
     if sys.platform != "win32" or (
@@ -777,7 +777,7 @@ for name, obj in SocketType.__dict__.items():
 
 
 class _SocketType(SocketType):
-    def __init__(self, sock: _stdlib_socket.socket):
+    def __init__(self, sock: _stdlib_socket.socket) -> None:
         if type(sock) is not _stdlib_socket.socket:
             # For example, ssl.SSLSocket subclasses socket.socket, but we
             # certainly don't want to blindly wrap one of those.
@@ -1191,7 +1191,7 @@ class _SocketType(SocketType):
                 __bufsize: int,
                 __ancbufsize: int = 0,
                 __flags: int = 0,
-            ) -> Awaitable[tuple[bytes, list[tuple[int, int, bytes]], int, Any]]: ...
+            ) -> Awaitable[tuple[bytes, list[tuple[int, int, bytes]], int, object]]: ...
 
         recvmsg = _make_simple_sock_method_wrapper(
             _stdlib_socket.socket.recvmsg,
@@ -1213,7 +1213,7 @@ class _SocketType(SocketType):
                 __buffers: Iterable[Buffer],
                 __ancbufsize: int = 0,
                 __flags: int = 0,
-            ) -> Awaitable[tuple[int, list[tuple[int, int, bytes]], int, Any]]: ...
+            ) -> Awaitable[tuple[int, list[tuple[int, int, bytes]], int, object]]: ...
 
         recvmsg_into = _make_simple_sock_method_wrapper(
             _stdlib_socket.socket.recvmsg_into,
@@ -1253,8 +1253,8 @@ class _SocketType(SocketType):
         __address: tuple[object, ...] | str | Buffer,
     ) -> int: ...
 
-    @_wraps(_stdlib_socket.socket.sendto, assigned=(), updated=())  # type: ignore[misc]
-    async def sendto(self, *args: Any) -> int:
+    @_wraps(_stdlib_socket.socket.sendto, assigned=(), updated=())
+    async def sendto(self, *args: object) -> int:
         """Similar to :meth:`socket.socket.sendto`, but async."""
         # args is: data[, flags], address
         # and kwargs are not accepted
@@ -1279,10 +1279,10 @@ class _SocketType(SocketType):
         @_wraps(_stdlib_socket.socket.sendmsg, assigned=(), updated=())
         async def sendmsg(
             self,
-            __buffers: Iterable[Buffer],
-            __ancdata: Iterable[tuple[int, int, Buffer]] = (),
-            __flags: int = 0,
-            __address: AddressFormat | None = None,
+            buffers: Iterable[Buffer],
+            ancdata: Iterable[tuple[int, int, Buffer]] = (),
+            flags: int = 0,
+            address: AddressFormat | None = None,
         ) -> int:
             """Similar to :meth:`socket.socket.sendmsg`, but async.
 
@@ -1290,15 +1290,15 @@ class _SocketType(SocketType):
             available.
 
             """
-            if __address is not None:
-                __address = await self._resolve_address_nocp(__address, local=False)
+            if address is not None:
+                address = await self._resolve_address_nocp(address, local=False)
             return await self._nonblocking_helper(
                 _core.wait_writable,
                 _stdlib_socket.socket.sendmsg,
-                __buffers,
-                __ancdata,
-                __flags,
-                __address,
+                buffers,
+                ancdata,
+                flags,
+                address,
             )
 
     ################################################################

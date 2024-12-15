@@ -116,13 +116,13 @@ else
     echo "::group::Setup for tests"
 
     # We run the tests from inside an empty directory, to make sure Python
-    # doesn't pick up any .py files from our working dir. Might have been
-    # pre-created by some of the code above.
+    # doesn't pick up any .py files from our working dir. Might have already
+    # been created by a previous run.
     mkdir empty || true
     cd empty
 
     INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
-    cp ../pyproject.toml "$INSTALLDIR"
+    cp ../pyproject.toml "$INSTALLDIR"  # TODO: remove this
 
     # get mypy tests a nice cache
     MYPYPATH=".." mypy --config-file= --cache-dir=./.mypy_cache -c "import trio" >/dev/null 2>/dev/null || true
@@ -130,9 +130,15 @@ else
     # support subprocess spawning with coverage.py
     echo "import coverage; coverage.process_startup()" | tee -a "$INSTALLDIR/../sitecustomize.py"
 
+    perl -i -pe 's/-p trio\._tests\.pytest_plugin//' "$INSTALLDIR/pyproject.toml"
+
     echo "::endgroup::"
     echo "::group:: Run Tests"
-    if COVERAGE_PROCESS_START=$(pwd)/../pyproject.toml coverage run --rcfile=../pyproject.toml -m pytest -ra --junitxml=../test-results.xml --run-slow "${INSTALLDIR}" --verbose --durations=10 $flags; then
+    if PYTHONPATH=../tests COVERAGE_PROCESS_START=$(pwd)/../pyproject.toml \
+            coverage run --rcfile=../pyproject.toml -m \
+            pytest -ra --junitxml=../test-results.xml \
+            -p _trio_check_attrs_aliases --verbose --durations=10 \
+            -p trio._tests.pytest_plugin --run-slow $flags "${INSTALLDIR}"; then
         PASSED=true
     else
         PASSED=false

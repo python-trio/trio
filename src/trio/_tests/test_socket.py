@@ -8,17 +8,19 @@ import sys
 import tempfile
 from pathlib import Path
 from socket import AddressFamily, SocketKind
-from typing import TYPE_CHECKING, Any, Callable, Union
+from typing import TYPE_CHECKING, Union, cast
 
 import attrs
 import pytest
 
 from .. import _core, socket as tsocket
-from .._core._tests.tutil import binds_ipv6, creates_ipv6
-from .._socket import _NUMERIC_ONLY, SocketType, _SocketType, _try_sync
+from .._core._tests.tutil import binds_ipv6, can_create_ipv6, creates_ipv6
+from .._socket import _NUMERIC_ONLY, AddressFormat, SocketType, _SocketType, _try_sync
 from ..testing import assert_checkpoints, wait_all_tasks_blocked
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from typing_extensions import TypeAlias
 
     from .._highlevel_socket import SocketStream
@@ -31,9 +33,18 @@ if TYPE_CHECKING:
         Union[tuple[str, int], tuple[str, int, int, int]],
     ]
     GetAddrInfoResponse: TypeAlias = list[GaiTuple]
+    GetAddrInfoArgs: TypeAlias = tuple[
+        Union[str, bytes, None],
+        Union[str, bytes, int, None],
+        int,
+        int,
+        int,
+        int,
+    ]
 else:
     GaiTuple: object
     GetAddrInfoResponse = object
+    GetAddrInfoArgs = object
 
 ################################################################
 # utils
@@ -41,15 +52,34 @@ else:
 
 
 class MonkeypatchedGAI:
-    def __init__(self, orig_getaddrinfo: Callable[..., GetAddrInfoResponse]) -> None:
+    __slots__ = ("_orig_getaddrinfo", "_responses", "record")
+
+    def __init__(
+        self,
+        orig_getaddrinfo: Callable[
+            [str | bytes | None, str | bytes | int | None, int, int, int, int],
+            GetAddrInfoResponse,
+        ],
+    ) -> None:
         self._orig_getaddrinfo = orig_getaddrinfo
-        self._responses: dict[tuple[Any, ...], GetAddrInfoResponse | str] = {}
-        self.record: list[tuple[Any, ...]] = []
+        self._responses: dict[
+            GetAddrInfoArgs,
+            GetAddrInfoResponse | str,
+        ] = {}
+        self.record: list[GetAddrInfoArgs] = []
 
     # get a normalized getaddrinfo argument tuple
-    def _frozenbind(self, *args: Any, **kwargs: Any) -> tuple[Any, ...]:
+    def _frozenbind(
+        self,
+        host: str | bytes | None,
+        port: str | bytes | int | None,
+        family: int = 0,
+        type: int = 0,
+        proto: int = 0,
+        flags: int = 0,
+    ) -> GetAddrInfoArgs:
         sig = inspect.signature(self._orig_getaddrinfo)
-        bound = sig.bind(*args, **kwargs)
+        bound = sig.bind(host, port, family=family, type=type, proto=proto, flags=flags)
         bound.apply_defaults()
         frozenbound = bound.args
         assert not bound.kwargs
@@ -58,18 +88,39 @@ class MonkeypatchedGAI:
     def set(
         self,
         response: GetAddrInfoResponse | str,
-        *args: Any,
-        **kwargs: Any,
+        host: str | bytes | None,
+        port: str | bytes | int | None,
+        family: int = 0,
+        type: int = 0,
+        proto: int = 0,
+        flags: int = 0,
     ) -> None:
-        self._responses[self._frozenbind(*args, **kwargs)] = response
+        self._responses[
+            self._frozenbind(
+                host,
+                port,
+                family=family,
+                type=type,
+                proto=proto,
+                flags=flags,
+            )
+        ] = response
 
-    def getaddrinfo(self, *args: Any, **kwargs: Any) -> GetAddrInfoResponse | str:
-        bound = self._frozenbind(*args, **kwargs)
+    def getaddrinfo(
+        self,
+        host: str | bytes | None,
+        port: str | bytes | int | None,
+        family: int = 0,
+        type: int = 0,
+        proto: int = 0,
+        flags: int = 0,
+    ) -> GetAddrInfoResponse | str:
+        bound = self._frozenbind(host, port, family, type, proto, flags)
         self.record.append(bound)
         if bound in self._responses:
             return self._responses[bound]
-        if bound[-1] & stdlib_socket.AI_NUMERICHOST:
-            return self._orig_getaddrinfo(*args, **kwargs)
+        if flags & stdlib_socket.AI_NUMERICHOST:
+            return self._orig_getaddrinfo(host, port, family, type, proto, flags)
         raise RuntimeError(f"gai called with unexpected arguments {bound}")
 
 
@@ -324,9 +375,12 @@ async def test_sniff_sockopts() -> None:
     from socket import AF_INET, AF_INET6, SOCK_DGRAM, SOCK_STREAM
 
     # generate the combinations of families/types we're testing:
+    families = [AF_INET]
+    if can_create_ipv6:
+        families.append(AF_INET6)
     sockets = [
         stdlib_socket.socket(family, type_)
-        for family in [AF_INET, AF_INET6]
+        for family in families
         for type_ in [SOCK_DGRAM, SOCK_STREAM]
     ]
     for socket in sockets:
@@ -594,11 +648,13 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
                     | tuple[str, str, int]
                     | tuple[str, str, int, int]
                 ),
-            ) -> Any:
-                return await sock._resolve_address_nocp(
+            ) -> tuple[str | int, ...]:
+                value = await sock._resolve_address_nocp(
                     args,
                     local=local,  # noqa: B023  # local is not bound in function definition
                 )
+                assert isinstance(value, tuple)
+                return cast("tuple[Union[str, int], ...]", value)
 
             assert_eq(await res((addrs.arbitrary, "http")), (addrs.arbitrary, 80))
             if v6:
@@ -793,7 +849,10 @@ async def test_SocketType_connect_paths() -> None:
             # nose -- and then swap it back out again before we hit
             # wait_socket_writable, which insists on a real socket.
             class CancelSocket(stdlib_socket.socket):
-                def connect(self, *args: Any, **kwargs: Any) -> None:
+                def connect(
+                    self,
+                    address: AddressFormat,
+                ) -> None:
                     # accessing private method only available in _SocketType
                     assert isinstance(sock, _SocketType)
 
@@ -803,7 +862,7 @@ async def test_SocketType_connect_paths() -> None:
                         self.family,
                         self.type,
                     )
-                    sock._sock.connect(*args, **kwargs)
+                    sock._sock.connect(address)
                     # If connect *doesn't* raise, then pretend it did
                     raise BlockingIOError  # pragma: no cover
 
@@ -850,15 +909,17 @@ async def test_resolve_address_exception_in_connect_closes_socket() -> None:
         with tsocket.socket() as sock:
 
             async def _resolve_address_nocp(
-                self: Any,
-                *args: Any,
-                **kwargs: Any,
+                address: AddressFormat,
+                *,
+                local: bool,
             ) -> None:
+                assert address == ""
+                assert not local
                 cancel_scope.cancel()
                 await _core.checkpoint()
 
             assert isinstance(sock, _SocketType)
-            sock._resolve_address_nocp = _resolve_address_nocp  # type: ignore[method-assign, assignment]
+            sock._resolve_address_nocp = _resolve_address_nocp  # type: ignore[method-assign]
             with assert_checkpoints():
                 with pytest.raises(_core.Cancelled):
                     await sock.connect("")

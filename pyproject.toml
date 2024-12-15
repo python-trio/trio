@@ -105,6 +105,7 @@ allowed-confusables = ["–"]
 
 select = [
     "A",     # flake8-builtins
+    "ANN",   # flake8-annotations
     "ASYNC", # flake8-async
     "B",     # flake8-bugbear
     "C4",    # flake8-comprehensions
@@ -125,13 +126,14 @@ select = [
     "RET",   # flake8-return
     "RUF",   # Ruff-specific rules
     "SIM",   # flake8-simplify
-    "TCH",   # flake8-type-checking
+    "TC",    # flake8-type-checking
     "UP",    # pyupgrade
     "W",     # Warning
     "YTT",   # flake8-2020
 ]
 extend-ignore = [
     'A002',    # builtin-argument-shadowing
+    'ANN401',  # any-type (mypy's `disallow_any_explicit` is better)
     'E402',    # module-import-not-at-top-of-file (usually OS-specific)
     'E501',    # line-too-long
     'F403',    # undefined-local-with-import-star
@@ -161,6 +163,8 @@ extend-ignore = [
 'src/trio/_abc.py' = ['A005']
 'src/trio/_socket.py' = ['A005']
 'src/trio/_ssl.py' = ['A005']
+# Don't check annotations in notes-to-self
+'notes-to-self/*.py' = ['ANN001', 'ANN002', 'ANN003', 'ANN201', 'ANN202', 'ANN204']
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
@@ -184,6 +188,7 @@ warn_return_any = true
 
 # Avoid subtle backsliding
 disallow_any_decorated = true
+disallow_any_explicit = true
 disallow_any_generics = true
 disallow_any_unimported = true
 disallow_incomplete_defs = true
@@ -199,7 +204,7 @@ reportUnnecessaryTypeIgnoreComment = true
 typeCheckingMode = "strict"
 
 [tool.pytest.ini_options]
-addopts = ["--strict-markers", "--strict-config", "-p trio._tests.pytest_plugin"]
+addopts = ["--strict-markers", "--strict-config", "-p trio._tests.pytest_plugin", "--import-mode=importlib"]
 faulthandler_timeout = 60
 filterwarnings = [
   "error",
