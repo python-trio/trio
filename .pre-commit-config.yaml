@@ -2,7 +2,7 @@ ci:
   autofix_prs: true
   autoupdate_schedule: weekly
   submodules: false
-  skip: []
+  skip: ["pip-compile", "pip-compile-docs"]
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
