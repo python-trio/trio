@@ -2,7 +2,7 @@ ci:
   autofix_prs: true
   autoupdate_schedule: weekly
   submodules: false
-  skip: [regenerate-files]
+  skip: []
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
