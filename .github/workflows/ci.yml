@@ -86,6 +86,9 @@ jobs:
         with:
           directory: empty
           name: Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})
+          # multiple flags is marked as an error in codecov UI, but is actually fine
+          # https://github.com/codecov/feedback/issues/567
+          flags: Windows,${{ matrix.python }}
           # this option cannot be set in .codecov.yml
           fail_ci_if_error: true
 
@@ -136,6 +139,7 @@ jobs:
         with:
           directory: empty
           name: Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})
+          flags: Ubuntu,${{ matrix.python }}
           fail_ci_if_error: true
 
   macOS:
@@ -171,6 +175,7 @@ jobs:
         with:
           directory: empty
           name: macOS (${{ matrix.python }})
+          flags: macOS,${{ matrix.python }}
           fail_ci_if_error: true
 
   # run CI on a musl linux
@@ -191,11 +196,15 @@ jobs:
         run: python -m venv .venv
       - name: Run tests
         run: source .venv/bin/activate && ./ci.sh
+      - name: Get Python version for codecov flag
+        id: get-version
+        run: echo "version=$(python -V | cut -d' ' -f2 | cut -d'.' -f1,2)" > $GITHUB_OUTPUT
       - if: always()
         uses: codecov/codecov-action@v3
         with:
           directory: empty
           name: Alpine
+          flags: Alpine,${{ steps.get-version.outputs.version }}
           fail_ci_if_error: true
 
   Cython:
