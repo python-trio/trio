@@ -85,8 +85,9 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           directory: empty
-          token: 87cefb17-c44b-4f2f-8b30-1fff5769ce46
           name: Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})
+          # this option cannot be set in .codecov.yml
+          fail_ci_if_error: true
 
   Ubuntu:
     name: 'Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})'
@@ -134,8 +135,8 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           directory: empty
-          token: 87cefb17-c44b-4f2f-8b30-1fff5769ce46
           name: Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})
+          fail_ci_if_error: true
 
   macOS:
     name: 'macOS (${{ matrix.python }})'
@@ -169,8 +170,8 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           directory: empty
-          token: 87cefb17-c44b-4f2f-8b30-1fff5769ce46
           name: macOS (${{ matrix.python }})
+          fail_ci_if_error: true
 
   # run CI on a musl linux
   Alpine:
@@ -194,8 +195,8 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           directory: empty
-          token: 87cefb17-c44b-4f2f-8b30-1fff5769ce46
           name: Alpine
+          fail_ci_if_error: true
 
   Cython:
     name: "Cython"

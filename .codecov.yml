@@ -11,6 +11,10 @@ codecov:
     notify_error: true # if uploads fail, replace cov comment with a comment with errors.
   require_ci_to_pass: false
 
+  # Publicly exposing the token has some small risks from mistakes or malicious actors.
+  # See https://docs.codecov.com/docs/codecov-tokens for correctly configuring it.
+  token: 87cefb17-c44b-4f2f-8b30-1fff5769ce46
+
 # only post PR comment if coverage changes
 comment:
   require_changes: true
