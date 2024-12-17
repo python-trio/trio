@@ -134,7 +134,9 @@ jobs:
         env:
           CHECK_FORMATTING: '${{ matrix.check_formatting }}'
           NO_TEST_REQUIREMENTS: '${{ matrix.no_test_requirements }}'
-      - if: ${{ always() && matrix.check_formatting != '1' }}
+      - if: >-
+          always()
+          && matrix.check_formatting != '1'
         uses: codecov/codecov-action@v3
         with:
           directory: empty
@@ -198,7 +200,7 @@ jobs:
         run: source .venv/bin/activate && ./ci.sh
       - name: Get Python version for codecov flag
         id: get-version
-        run: echo "version=$(python -V | cut -d' ' -f2 | cut -d'.' -f1,2)" > $GITHUB_OUTPUT
+        run: echo "version=$(python -V | cut -d' ' -f2 | cut -d'.' -f1,2)" >> "${GITHUB_OUTPUT}"
       - if: always()
         uses: codecov/codecov-action@v3
         with:

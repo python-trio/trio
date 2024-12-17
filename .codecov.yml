@@ -6,7 +6,7 @@ codecov:
   notify:
     # This number needs to be changed whenever the number of runs in CI is changed.
     # Another option is codecov-cli: https://github.com/codecov/codecov-cli#send-notifications
-    after_n_builds: 78
+    after_n_builds: 27
     wait_for_ci: false
     notify_error: true # if uploads fail, replace cov comment with a comment with errors.
   require_ci_to_pass: false
