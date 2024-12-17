@@ -40,9 +40,10 @@ repos:
     hooks:
       - id: regenerate-files
         name: regenerate generated files
-        language: system
+        language: python
         entry: python src/trio/_tools/gen_exports.py
         pass_filenames: false
+        additional_dependencies: ["astor", "attrs", "black", "ruff"]
         files: ^src\/trio\/_core\/(_run|(_i(o_(common|epoll|kqueue|windows)|nstrumentation)))\.py$
   - repo: https://github.com/astral-sh/uv-pre-commit
     rev: 0.5.9
