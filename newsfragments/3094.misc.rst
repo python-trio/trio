@@ -1,0 +1,1 @@
+Switch to using PEP570 for positional-only arguments for `~trio.socket.SocketType`'s methods.

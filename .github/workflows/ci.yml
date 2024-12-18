@@ -3,7 +3,10 @@ name: CI
 on:
   push:
     branches-ignore:
-      - "dependabot/**"
+      # these branches always have another event associated
+      - gh-readonly-queue/**        # GitHub's merge queue uses `merge_group`
+      - autodeps/**                 # autodeps always makes a PR
+      - pre-commit-ci-update-config # pre-commit.ci's updates always have a PR
   pull_request:
   merge_group:
 
@@ -82,9 +85,12 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           directory: empty
-          token: 87cefb17-c44b-4f2f-8b30-1fff5769ce46
           name: Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})
+          # multiple flags is marked as an error in codecov UI, but is actually fine
+          # https://github.com/codecov/feedback/issues/567
           flags: Windows,${{ matrix.python }}
+          # this option cannot be set in .codecov.yml
+          fail_ci_if_error: true
 
   Ubuntu:
     name: 'Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})'
@@ -119,28 +125,24 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup python
         uses: actions/setup-python@v5
-        if: "!endsWith(matrix.python, '-dev')"
         with:
           python-version: ${{ fromJSON(format('["{0}", "{1}"]', format('{0}.0-alpha - {0}.X', matrix.python), matrix.python))[startsWith(matrix.python, 'pypy')] }}
           cache: pip
           cache-dependency-path: test-requirements.txt
-      - name: Setup python (dev)
-        uses: deadsnakes/action@v2.0.2
-        if: endsWith(matrix.python, '-dev')
-        with:
-          python-version: '${{ matrix.python }}'
       - name: Run tests
         run: ./ci.sh
         env:
           CHECK_FORMATTING: '${{ matrix.check_formatting }}'
           NO_TEST_REQUIREMENTS: '${{ matrix.no_test_requirements }}'
-      - if: always()
+      - if: >-
+          always()
+          && matrix.check_formatting != '1'
         uses: codecov/codecov-action@v3
         with:
           directory: empty
-          token: 87cefb17-c44b-4f2f-8b30-1fff5769ce46
           name: Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})
           flags: Ubuntu,${{ matrix.python }}
+          fail_ci_if_error: true
 
   macOS:
     name: 'macOS (${{ matrix.python }})'
@@ -174,9 +176,9 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           directory: empty
-          token: 87cefb17-c44b-4f2f-8b30-1fff5769ce46
           name: macOS (${{ matrix.python }})
           flags: macOS,${{ matrix.python }}
+          fail_ci_if_error: true
 
   # run CI on a musl linux
   Alpine:
@@ -196,13 +198,16 @@ jobs:
         run: python -m venv .venv
       - name: Run tests
         run: source .venv/bin/activate && ./ci.sh
+      - name: Get Python version for codecov flag
+        id: get-version
+        run: echo "version=$(python -V | cut -d' ' -f2 | cut -d'.' -f1,2)" >> "${GITHUB_OUTPUT}"
       - if: always()
         uses: codecov/codecov-action@v3
         with:
           directory: empty
-          token: 87cefb17-c44b-4f2f-8b30-1fff5769ce46
           name: Alpine
-          flags: Alpine,3.12
+          flags: Alpine,${{ steps.get-version.outputs.version }}
+          fail_ci_if_error: true
 
   Cython:
     name: "Cython"
