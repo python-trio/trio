@@ -458,6 +458,12 @@ async def test_SocketType_basics() -> None:
     sock.close()
 
 
+@pytest.mark.xfail(
+    sys.platform == "darwin" and sys.version_info[:3] == (3, 13, 1),
+    reason="TODO: This started failing in CI after 3.13.1",
+    raises=OSError,
+    strict=True,
+)
 async def test_SocketType_setsockopt() -> None:
     sock = tsocket.socket()
     with sock as _:
