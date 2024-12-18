@@ -11,44 +11,6 @@ if [ -z "${GITHUB_STEP_SUMMARY+x}" ]; then
     ON_GITHUB_CI=false
 fi
 
-# Test if the generated code is still up to date
-echo "::group::Generate Exports"
-python ./src/trio/_tools/gen_exports.py --test \
-    || EXIT_STATUS=$?
-echo "::endgroup::"
-
-# Autoformatter *first*, to avoid double-reporting errors
-# (we'd like to run further autoformatters but *after* merging;
-# see https://forum.bors.tech/t/pre-test-and-pre-merge-hooks/322)
-# autoflake --recursive --in-place .
-# pyupgrade --py3-plus $(find . -name "*.py")
-echo "::group::Black"
-if ! black --check src/trio; then
-    echo "* Black found issues" >> "$GITHUB_STEP_SUMMARY"
-    EXIT_STATUS=1
-    black --diff src/trio
-    echo "::endgroup::"
-    echo "::error:: Black found issues"
-else
-    echo "::endgroup::"
-fi
-
-# Run ruff, configured in pyproject.toml
-echo "::group::Ruff"
-if ! ruff check .; then
-    echo "* ruff found issues." >> "$GITHUB_STEP_SUMMARY"
-    EXIT_STATUS=1
-    if $ON_GITHUB_CI; then
-        ruff check --output-format github --diff .
-    else
-        ruff check --diff .
-    fi
-    echo "::endgroup::"
-    echo "::error:: ruff found issues"
-else
-    echo "::endgroup::"
-fi
-
 # Run mypy on all supported platforms
 # MYPY is set if any of them fail.
 MYPY=0
@@ -93,8 +55,6 @@ if git status --porcelain | grep -q "requirements.txt"; then
     EXIT_STATUS=1
     echo "::endgroup::"
 fi
-
-codespell || EXIT_STATUS=$?
 
 echo "::group::Pyright interface tests"
 python src/trio/_tests/check_type_completeness.py || EXIT_STATUS=$?
