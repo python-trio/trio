@@ -101,12 +101,11 @@ def has_docstring_at_runtime(name: str) -> bool:
         ):
             return True
 
-        else:
-            print(
-                f"Pyright sees {name} at runtime, but unable to getattr({obj.__name__}, {obj_name}).",
-                file=sys.stderr,
-            )
-            return False
+        print(
+            f"Pyright sees {name} at runtime, but unable to getattr({obj.__name__}, {obj_name}).",
+            file=sys.stderr,
+        )
+        return False
     return bool(obj.__doc__)
 
 

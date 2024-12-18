@@ -433,8 +433,7 @@ class SSLStream(Stream, Generic[T_Stream]):
                 raise NeedHandshakeError(f"call do_handshake() before calling {name!r}")
 
             return getattr(self._ssl_object, name)
-        else:
-            raise AttributeError(name)
+        raise AttributeError(name)
 
     def __setattr__(self, name: str, value: object) -> None:
         if name in self._forwarded:
@@ -448,12 +447,11 @@ class SSLStream(Stream, Generic[T_Stream]):
     def _check_status(self) -> None:
         if self._state is _State.OK:
             return
-        elif self._state is _State.BROKEN:
+        if self._state is _State.BROKEN:
             raise trio.BrokenResourceError
-        elif self._state is _State.CLOSED:
+        if self._state is _State.CLOSED:
             raise trio.ClosedResourceError
-        else:  # pragma: no cover
-            raise AssertionError()
+        raise AssertionError()  # pragma: no cover
 
     # This is probably the single trickiest function in Trio. It has lots of
     # comments, though, just make sure to think carefully if you ever have to
@@ -707,8 +705,7 @@ class SSLStream(Stream, Generic[T_Stream]):
                 ):
                     await trio.lowlevel.checkpoint()
                     return b""
-                else:
-                    raise
+                raise
             if max_bytes is None:
                 # If we somehow have more data already in our pending buffer
                 # than the estimate receive size, bump up our size a bit for
@@ -732,8 +729,7 @@ class SSLStream(Stream, Generic[T_Stream]):
                 if self._https_compatible and _is_eof(exc.__cause__):
                     await trio.lowlevel.checkpoint()
                     return b""
-                else:
-                    raise
+                raise
 
     async def send_all(self, data: bytes | bytearray | memoryview) -> None:
         """Encrypt some data and then send it on the underlying transport.

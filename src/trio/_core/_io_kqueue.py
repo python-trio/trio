@@ -81,9 +81,8 @@ class KqueueIOManager:
             events += batch
             if len(batch) < max_events:
                 break
-            else:
-                timeout = 0
-                # and loop back to the start
+            timeout = 0
+            # and loop back to the start
         return events
 
     def process_events(self, events: EventResult) -> None:

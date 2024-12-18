@@ -62,8 +62,7 @@ def process_line(line: str) -> Result | None:
             kind=mypy_to_github[kind],
             message=message,
         )
-    else:
-        return None
+    return None
 
 
 def export(results: dict[Result, list[str]]) -> None:

@@ -123,6 +123,7 @@ select = [
     "PT",    # flake8-pytest-style
     "PYI",   # flake8-pyi
     "Q",     # flake8-quotes
+    "RET",   # flake8-return
     "RUF",   # Ruff-specific rules
     "SIM",   # flake8-simplify
     "TC",    # flake8-type-checking

@@ -149,8 +149,7 @@ class FdStream(Stream):
                                 raise trio.ClosedResourceError(
                                     "file was already closed",
                                 ) from None
-                            else:
-                                raise trio.BrokenResourceError from e
+                            raise trio.BrokenResourceError from e
 
     async def wait_send_all_might_not_block(self) -> None:
         with self._send_conflict_detector:
@@ -176,7 +175,7 @@ class FdStream(Stream):
             await trio.lowlevel.checkpoint()
             while True:
                 try:
-                    data = os.read(self._fd_holder.fd, max_bytes)
+                    return os.read(self._fd_holder.fd, max_bytes)
                 except BlockingIOError:
                     await trio.lowlevel.wait_readable(self._fd_holder.fd)
                 except OSError as exc:
@@ -184,12 +183,7 @@ class FdStream(Stream):
                         raise trio.ClosedResourceError(
                             "file was already closed",
                         ) from None
-                    else:
-                        raise trio.BrokenResourceError from exc
-                else:
-                    break
-
-            return data
+                    raise trio.BrokenResourceError from exc
 
     def close(self) -> None:
         self._fd_holder.close()

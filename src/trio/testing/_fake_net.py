@@ -44,7 +44,7 @@ IPAddress: TypeAlias = Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
 def _family_for(ip: IPAddress) -> int:
     if isinstance(ip, ipaddress.IPv4Address):
         return trio.socket.AF_INET
-    elif isinstance(ip, ipaddress.IPv6Address):
+    if isinstance(ip, ipaddress.IPv6Address):
         return trio.socket.AF_INET6
     raise NotImplementedError("Unhandled IPAddress instance type")  # pragma: no cover
 
@@ -52,7 +52,7 @@ def _family_for(ip: IPAddress) -> int:
 def _wildcard_ip_for(family: int) -> IPAddress:
     if family == trio.socket.AF_INET:
         return ipaddress.ip_address("0.0.0.0")
-    elif family == trio.socket.AF_INET6:
+    if family == trio.socket.AF_INET6:
         return ipaddress.ip_address("::")
     raise NotImplementedError("Unhandled ip address family")  # pragma: no cover
 
@@ -61,7 +61,7 @@ def _wildcard_ip_for(family: int) -> IPAddress:
 def _localhost_ip_for(family: int) -> IPAddress:  # pragma: no cover
     if family == trio.socket.AF_INET:
         return ipaddress.ip_address("127.0.0.1")
-    elif family == trio.socket.AF_INET6:
+    if family == trio.socket.AF_INET6:
         return ipaddress.ip_address("::1")
     raise NotImplementedError("Unhandled ip address family")
 
@@ -403,11 +403,10 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         self._check_closed()
         if self._binding is not None:
             return self._binding.local.as_python_sockaddr()
-        elif self.family == trio.socket.AF_INET:
+        if self.family == trio.socket.AF_INET:
             return ("0.0.0.0", 0)
-        else:
-            assert self.family == trio.socket.AF_INET6
-            return ("::", 0)
+        assert self.family == trio.socket.AF_INET6
+        return ("::", 0)
 
     # TODO: This method is not tested, and seems to make incorrect assumptions. It should maybe raise NotImplementedError.
     def getpeername(self) -> tuple[str, int] | tuple[str, int, int, int]:

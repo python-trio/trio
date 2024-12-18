@@ -293,8 +293,7 @@ async def test_SocketListener_accept_errors() -> None:
             event = next(self._events)
             if isinstance(event, BaseException):
                 raise event
-            else:
-                return event, None
+            return event, None
 
     fake_server_sock = FakeSocket([])
 

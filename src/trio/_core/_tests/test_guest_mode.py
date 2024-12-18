@@ -589,8 +589,7 @@ def test_guest_mode_internal_errors(
             ) -> trio._core._run.EventResult:
                 if threading.current_thread() is not t:
                     raise ValueError("oh no!")
-                else:
-                    return old_get_events(self, timeout)
+                return old_get_events(self, timeout)
 
             m.setattr("trio._core._run.TheIOManager.get_events", bad_get_events)
 

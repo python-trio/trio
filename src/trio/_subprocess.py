@@ -771,9 +771,8 @@ async def _run_process(
             output=stdout,
             stderr=stderr,
         )
-    else:
-        assert proc.returncode is not None
-        return subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)
+    assert proc.returncode is not None
+    return subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)
 
 
 # There's a lot of duplication here because type checkers don't
