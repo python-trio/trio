@@ -291,6 +291,8 @@ relative_files = true
 [tool.coverage.report]
 precision = 1
 skip_covered = true
+skip_empty = true
+show_missing = true
 exclude_lines = [
     "pragma: no cover",
     "abc.abstractmethod",
