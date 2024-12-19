@@ -202,6 +202,27 @@ async def test_multi_wait(background_process: BackgroundProcessType) -> None:
             proc.kill()
 
 
+@background_process_param
+async def test_multi_wait_no_pidfd(background_process: BackgroundProcessType) -> None:
+    with mock.patch("trio._subprocess.can_try_pidfd_open", new=False):
+        async with background_process(SLEEP(10)) as proc:
+            # Check that wait (including multi-wait) tolerates being cancelled
+            async with _core.open_nursery() as nursery:
+                nursery.start_soon(proc.wait)
+                nursery.start_soon(proc.wait)
+                nursery.start_soon(proc.wait)
+                await wait_all_tasks_blocked()
+                nursery.cancel_scope.cancel()
+
+            # Now try waiting for real
+            async with _core.open_nursery() as nursery:
+                nursery.start_soon(proc.wait)
+                nursery.start_soon(proc.wait)
+                nursery.start_soon(proc.wait)
+                await wait_all_tasks_blocked()
+                proc.kill()
+
+
 COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR = python(
     "data = sys.stdin.buffer.read(); "
     "sys.stdout.buffer.write(data); "
