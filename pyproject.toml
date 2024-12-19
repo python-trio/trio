@@ -303,6 +303,9 @@ exclude_lines = [
     'class .*\bProtocol\b.*\):',
     "raise NotImplementedError",
 ]
+exclude_also = [
+  '^\s*@pytest\.mark\.xfail',
+]
 partial_branches = [
     "pragma: no branch",
     "if not TYPE_CHECKING:",
