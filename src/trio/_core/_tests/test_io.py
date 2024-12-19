@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import random
+import select
 import socket as stdlib_socket
+import sys
 from collections.abc import Awaitable, Callable
 from contextlib import suppress
 from typing import TYPE_CHECKING, TypeVar
@@ -343,6 +345,7 @@ async def test_io_manager_statistics() -> None:
             assert iostats.tasks_waiting_write == expected_writers
         else:
             assert iostats.backend == "kqueue"
+            assert iostats.monitors == 0
             assert iostats.tasks_waiting == expected_readers + expected_writers
 
     a1, b1 = stdlib_socket.socketpair()
@@ -379,6 +382,38 @@ async def test_io_manager_statistics() -> None:
 
         # 1 for call_soon_task
         check(expected_readers=1, expected_writers=0)
+
+
+@pytest.mark.skipif(sys.platform in {"win32", "linux"})
+async def test_io_manager_kqueue_monitors_statistics() -> None:
+    def check(
+        *,
+        expected_monitors: int,
+        expected_readers: int,
+        expected_writers: int,
+    ) -> None:
+        statistics = _core.current_statistics()
+        print(statistics)
+        iostats = statistics.io_statistics
+        assert iostats.backend == "kqueue"
+        assert iostats.monitors == expected_monitors
+        assert iostats.tasks_waiting == expected_readers + expected_writers
+
+    a1, b1 = stdlib_socket.socketpair()
+    for sock in [a1, b1]:
+        sock.setblocking(False)
+
+    with a1, b1:
+        # let the call_soon_task settle down
+        await wait_all_tasks_blocked()
+
+        # 1 for call_soon_task
+        check(expected_monitors=0, expected_readers=1, expected_writers=0)
+
+        with trio.lowlevel.monitor_kevent(a1.fileno(), select.KQ_FILTER_READ):
+            check(expected_monitors=1, expected_readers=1, expected_writers=0)
+
+        check(expected_monitors=0, expected_readers=1, expected_writers=0)
 
 
 async def test_can_survive_unnotified_close() -> None:
