@@ -16,6 +16,7 @@ from typing import (
     Any,
     NoReturn,
 )
+from unittest import mock
 
 import pytest
 
@@ -144,6 +145,26 @@ async def test_basic(background_process: BackgroundProcessType) -> None:
         EXIT_FALSE,
         "exited with status 1",
     )
+
+
+@background_process_param
+async def test_basic_no_pidfd(background_process: BackgroundProcessType) -> None:
+    with mock.patch("trio._subprocess.can_try_pidfd_open", new=False):
+        async with background_process(EXIT_TRUE) as proc:
+            assert proc._pidfd is None
+            await proc.wait()
+        assert isinstance(proc, Process)
+        assert proc._pidfd is None
+        assert proc.returncode == 0
+        assert repr(proc) == f"<trio.Process {EXIT_TRUE}: exited with status 0>"
+
+        async with background_process(EXIT_FALSE) as proc:
+            await proc.wait()
+        assert proc.returncode == 1
+        assert repr(proc) == "<trio.Process {!r}: {}>".format(
+            EXIT_FALSE,
+            "exited with status 1",
+        )
 
 
 @background_process_param
