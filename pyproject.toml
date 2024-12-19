@@ -268,6 +268,10 @@ directory = "misc"
 name = "Miscellaneous internal changes"
 showcontent = true
 
+[tool.coverage.html]
+show_contexts = true
+skip_covered = false
+
 [tool.coverage.run]
 branch = true
 source_pkgs = ["trio"]
