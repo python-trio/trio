@@ -566,6 +566,31 @@ async def test_wait_reapable_fails(background_process: BackgroundProcessType) ->
         signal.signal(signal.SIGCHLD, old_sigchld)
 
 
+@pytest.mark.skipif(not posix, reason="POSIX specific")
+@background_process_param
+async def test_wait_reapable_fails_no_pidfd(
+    background_process: BackgroundProcessType,
+) -> None:
+    if TYPE_CHECKING and sys.platform == "win32":
+        return
+    with mock.patch("trio._subprocess.can_try_pidfd_open", new=False):
+        old_sigchld = signal.signal(signal.SIGCHLD, signal.SIG_IGN)
+        try:
+            # With SIGCHLD disabled, the wait() syscall will wait for the
+            # process to exit but then fail with ECHILD. Make sure we
+            # support this case as the stdlib subprocess module does.
+            async with background_process(SLEEP(3600)) as proc:
+                async with _core.open_nursery() as nursery:
+                    nursery.start_soon(proc.wait)
+                    await wait_all_tasks_blocked()
+                    proc.kill()
+                    nursery.cancel_scope.deadline = _core.current_time() + 1.0
+                assert not nursery.cancel_scope.cancelled_caught
+                assert proc.returncode == 0  # exit status unknowable, so...
+        finally:
+            signal.signal(signal.SIGCHLD, old_sigchld)
+
+
 @slow
 def test_waitid_eintr() -> None:
     # This only matters on PyPy (where we're coding EINTR handling
