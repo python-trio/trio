@@ -296,6 +296,7 @@ omit = [
 # The test suite spawns subprocesses to test some stuff, so make sure
 # this doesn't corrupt the coverage files
 parallel = true
+plugins = []
 relative_files = true
 source = ["."]
 
