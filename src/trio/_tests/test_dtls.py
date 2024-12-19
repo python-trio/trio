@@ -117,6 +117,18 @@ async def test_smoke(ipv6: bool) -> None:
             assert client_channel.get_cleartext_mtu() == cleartext_mtu_1234
 
 
+@parametrize_ipv6
+async def test_smoke_close_immediately(ipv6: bool) -> None:
+    # used to get 100% branch coverage in this file itself
+    async with dtls_echo_server(ipv6=ipv6) as (_server_endpoint, address):
+        with endpoint(ipv6=ipv6) as client_endpoint:
+            client_channel = client_endpoint.connect(address, client_ctx)
+            with pytest.raises(trio.NeedHandshakeError):
+                client_channel.get_cleartext_mtu()
+
+            await client_channel.do_handshake()
+
+
 @slow
 async def test_handshake_over_terrible_network(
     autojump_clock: trio.testing.MockClock,
