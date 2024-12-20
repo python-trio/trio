@@ -26,6 +26,9 @@ coverage:
   range: 100..100
   status:
     # require patches to be 100%
+    project:
+      default:
+        target: 100%
     patch:
       default:
         target: 100%
