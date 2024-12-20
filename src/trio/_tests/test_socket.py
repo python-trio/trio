@@ -458,6 +458,12 @@ async def test_SocketType_basics() -> None:
     sock.close()
 
 
+@pytest.mark.xfail(
+    sys.platform == "darwin" and sys.version_info[:3] == (3, 13, 1),
+    reason="TODO: This started failing in CI after 3.13.1",
+    raises=OSError,
+    strict=True,
+)
 async def test_SocketType_setsockopt() -> None:
     sock = tsocket.socket()
     with sock as _:
@@ -655,7 +661,7 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
                     local=local,  # noqa: B023  # local is not bound in function definition
                 )
                 assert isinstance(value, tuple)
-                return cast(tuple[Union[str, int], ...], value)
+                return cast("tuple[Union[str, int], ...]", value)
 
             assert_eq(await res((addrs.arbitrary, "http")), (addrs.arbitrary, 80))
             if v6:

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import enum
 import types
-from collections.abc import Awaitable
 
 # Jedi gets mad in test_static_tool_sees_class_members if we use collections Callable
 from typing import TYPE_CHECKING, Any, Callable, NoReturn, Union, cast
@@ -15,7 +14,7 @@ import outcome
 from . import _run
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Awaitable, Generator
 
     from typing_extensions import TypeAlias
 
@@ -67,7 +66,7 @@ def _real_async_yield(
 # Real yield value is from trio's main loop, but type checkers can't
 # understand that, so we cast it to make type checkers understand.
 _async_yield = cast(
-    Callable[[MessageType], Awaitable[outcome.Outcome[object]]],
+    "Callable[[MessageType], Awaitable[outcome.Outcome[object]]]",
     _real_async_yield,
 )
 

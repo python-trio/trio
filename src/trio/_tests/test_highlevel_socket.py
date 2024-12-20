@@ -20,6 +20,12 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 
+@pytest.mark.xfail(
+    sys.platform == "darwin" and sys.version_info[:3] == (3, 13, 1),
+    reason="TODO: This started failing in CI after 3.13.1",
+    raises=OSError,
+    strict=True,
+)
 async def test_SocketStream_basics() -> None:
     # stdlib socket bad (even if connected)
     stdlib_a, stdlib_b = stdlib_socket.socketpair()

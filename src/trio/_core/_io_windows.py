@@ -153,7 +153,8 @@ T = TypeVar("T")
 #
 # Unfortunately, the Windows kernel seems to have bugs if you try to issue
 # multiple simultaneous IOCTL_AFD_POLL operations on the same socket (see
-# notes-to-self/afd-lab.py). So if a user calls wait_readable and
+# https://github.com/python-trio/trio/wiki/notes-to-self#afd-labpy).
+# So if a user calls wait_readable and
 # wait_writable at the same time, we have to combine those into a single
 # IOCTL_AFD_POLL. This means we can't just use the wait_overlapped machinery.
 # Instead we have some dedicated code to handle these operations, and a
@@ -700,7 +701,7 @@ class WindowsIOManager:
 
             lpOverlapped = ffi.new("LPOVERLAPPED")
 
-            poll_info = cast(_AFDPollInfo, ffi.new("AFD_POLL_INFO *"))
+            poll_info = cast("_AFDPollInfo", ffi.new("AFD_POLL_INFO *"))
             poll_info.Timeout = 2**63 - 1  # INT64_MAX
             poll_info.NumberOfHandles = 1
             poll_info.Exclusive = 0
@@ -713,9 +714,9 @@ class WindowsIOManager:
                     kernel32.DeviceIoControl(
                         afd_group.handle,
                         IoControlCodes.IOCTL_AFD_POLL,
-                        cast(CType, poll_info),
+                        cast("CType", poll_info),
                         ffi.sizeof("AFD_POLL_INFO"),
-                        cast(CType, poll_info),
+                        cast("CType", poll_info),
                         ffi.sizeof("AFD_POLL_INFO"),
                         ffi.NULL,
                         lpOverlapped,
@@ -937,13 +938,13 @@ class WindowsIOManager:
         # operation will not be cancellable, depending on how Windows is
         # feeling today. So we need to check for cancellation manually.
         await _core.checkpoint_if_cancelled()
-        lpOverlapped = cast(_Overlapped, ffi.new("LPOVERLAPPED"))
+        lpOverlapped = cast("_Overlapped", ffi.new("LPOVERLAPPED"))
         try:
             submit_fn(lpOverlapped)
         except OSError as exc:
             if exc.winerror != ErrorCodes.ERROR_IO_PENDING:
                 raise
-        await self.wait_overlapped(handle, cast(CData, lpOverlapped))
+        await self.wait_overlapped(handle, cast("CData", lpOverlapped))
         return lpOverlapped
 
     @_public
