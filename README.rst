@@ -18,8 +18,8 @@
    :target: https://anaconda.org/conda-forge/trio
    :alt: Latest conda-forge version
 
-.. image:: https://codecov.io/gh/python-trio/trio/branch/main/graph/badge.svg
-   :target: https://codecov.io/gh/python-trio/trio
+.. image:: https://codecov.io/gh/python-trio/trio/graph/badge.svg?flag=pytest
+   :target: https://app.codecov.io/gh/python-trio/trio?flags[]=pytest
    :alt: Test coverage
 
 Trio – a friendly Python library for async concurrency and I/O
