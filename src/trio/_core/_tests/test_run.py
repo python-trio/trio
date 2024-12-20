@@ -371,6 +371,15 @@ async def test_cancel_scope_validation() -> None:
         match="^Cannot specify both a deadline and a relative deadline$",
     ):
         _core.CancelScope(deadline=7, relative_deadline=3)
+
+    with pytest.raises(ValueError, match="^deadline must not be NaN$"):
+        _core.CancelScope(deadline=nan)
+    with pytest.raises(ValueError, match="^relative deadline must not be NaN$"):
+        _core.CancelScope(relative_deadline=nan)
+
+    with pytest.raises(ValueError, match="^timeout must be non-negative$"):
+        _core.CancelScope(relative_deadline=-3)
+
     scope = _core.CancelScope()
 
     with pytest.raises(ValueError, match="^deadline must not be NaN$"):
