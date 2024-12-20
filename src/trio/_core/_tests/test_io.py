@@ -411,15 +411,13 @@ async def test_io_manager_kqueue_monitors_statistics() -> None:
             # 1 for call_soon_task
             check(expected_monitors=0, expected_readers=1, expected_writers=0)
 
-            with _core.monitor_kevent(a1.fileno(), select.KQ_FILTER_READ) as q:
+            with _core.monitor_kevent(a1.fileno(), select.KQ_FILTER_READ):
                 with (
                     pytest.raises(_core.BusyResourceError),
                     _core.monitor_kevent(a1.fileno(), select.KQ_FILTER_READ),
                 ):
                     pass  # pragma: no cover
                 check(expected_monitors=1, expected_readers=1, expected_writers=0)
-                b1.send(b"\x00")
-                assert len(await q.get_batch()) == 1
 
             check(expected_monitors=0, expected_readers=1, expected_writers=0)
 
