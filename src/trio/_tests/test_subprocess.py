@@ -82,13 +82,6 @@ else:
         return python(f"import time; time.sleep({seconds})")
 
 
-def got_signal(proc: Process, sig: SignalType) -> bool:
-    if (not TYPE_CHECKING and posix) or sys.platform != "win32":
-        return proc.returncode == -sig
-    else:
-        return proc.returncode != 0
-
-
 @asynccontextmanager  # type: ignore[misc]  # Any in decorated
 async def open_process_then_kill(
     *args: Any,
