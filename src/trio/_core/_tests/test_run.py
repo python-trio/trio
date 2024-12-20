@@ -11,6 +11,7 @@ import weakref
 from contextlib import ExitStack, contextmanager, suppress
 from math import inf, nan
 from typing import TYPE_CHECKING, NoReturn, TypeVar
+from unittest import mock
 
 import outcome
 import pytest
@@ -26,7 +27,7 @@ from ...testing import (
     assert_checkpoints,
     wait_all_tasks_blocked,
 )
-from .._run import DEADLINE_HEAP_MIN_PRUNE_THRESHOLD
+from .._run import DEADLINE_HEAP_MIN_PRUNE_THRESHOLD, _count_context_run_tb_frames
 from .tutil import (
     check_sequence_matches,
     create_asyncio_future_in_new_loop,
@@ -2845,3 +2846,12 @@ async def test_ki_protection_doesnt_leave_cyclic_garbage() -> None:
 
     assert isinstance(exc, MyException)
     assert gc.get_referrers(exc) == no_other_refs()
+
+
+def test_context_run_tb_frames() -> None:
+    class Context:
+        def run(self, fn: Callable[[], object]) -> object:
+            return fn()
+
+    with mock.patch("trio._core._run.copy_context", return_value=Context()):
+        assert _count_context_run_tb_frames() == 1
