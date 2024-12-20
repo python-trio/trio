@@ -180,22 +180,13 @@ def run_linters(file: File, source: str) -> str:
       SystemExit: If either failed.
     """
 
-    success, response = run_black(file, source)
-    if not success:
-        print(response)
-        sys.exit(1)
+    for fn in (run_black, run_ruff, run_black):
+        success, source = fn(file, source)
+        if not success:
+            print(source)
+            sys.exit(1)
 
-    success, response = run_ruff(file, response)
-    if not success:  # pragma: no cover  # Test for run_ruff should catch
-        print(response)
-        sys.exit(1)
-
-    success, response = run_black(file, response)
-    if not success:
-        print(response)
-        sys.exit(1)
-
-    return response
+    return source
 
 
 def gen_public_wrappers_source(file: File) -> str:
