@@ -293,7 +293,7 @@ def process(files: Iterable[File], *, do_test: bool) -> None:
             with open(new_path, "w", encoding="utf-8", newline="\n") as fp:
                 fp.write(new_source)
         print("Regenerated sources successfully.")
-        if not matches_disk:
+        if not matches_disk:  # TODO: test this branch
             # With pre-commit integration, show that we edited files.
             sys.exit(1)
 

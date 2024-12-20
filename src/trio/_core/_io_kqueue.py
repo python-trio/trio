@@ -98,7 +98,7 @@ class KqueueIOManager:
             if isinstance(receiver, _core.Task):
                 _core.reschedule(receiver, outcome.Value(event))
             else:
-                receiver.put_nowait(event)
+                receiver.put_nowait(event)  # TODO: test this line
 
     # kevent registration is complicated -- e.g. aio submission can
     # implicitly perform a EV_ADD, and EVFILT_PROC with NOTE_TRACK will
@@ -162,7 +162,7 @@ class KqueueIOManager:
 
         def abort(raise_cancel: RaiseCancelT) -> Abort:
             r = abort_func(raise_cancel)
-            if r is _core.Abort.SUCCEEDED:
+            if r is _core.Abort.SUCCEEDED:  # TODO: test this branch
                 del self._registered[key]
             return r
 
