@@ -386,6 +386,7 @@ async def test_io_manager_statistics() -> None:
 
 @pytest.mark.skipif(sys.platform in {"win32", "linux"}, reason="no kqueue")
 async def test_io_manager_kqueue_monitors_statistics() -> None:
+    assert sys.platform not in {"win32", "linux"}
     def check(
         *,
         expected_monitors: int,
