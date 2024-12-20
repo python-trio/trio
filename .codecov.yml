@@ -21,7 +21,7 @@ comment:
 
 coverage:
   # required range
-  range: 99.6..100
+  range: 99.8..100
   status:
     # require patches to be 100%
     patch:
