@@ -1039,7 +1039,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                             if (
                                 isinstance(maybe_volley[0], PseudoHandshakeMessage)
                                 and maybe_volley[0].content_type == ContentType.alert
-                            ):
+                            ):  # TODO: test this branch
                                 # we're sending an alert (e.g. due to a corrupted
                                 # packet). We want to send it once, but don't save it to
                                 # retransmit -- keep the last volley as the current

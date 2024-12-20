@@ -81,7 +81,7 @@ class KqueueIOManager:
             events += batch
             if len(batch) < max_events:
                 break
-            else:
+            else:  # TODO: test this line
                 timeout = 0
                 # and loop back to the start
         return events
