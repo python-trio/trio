@@ -195,9 +195,7 @@ def gen_public_wrappers_source(file: File) -> str:
 
     """
     header = [HEADER]
-
-    if file.imports:
-        header.append(file.imports)
+    header.append(file.imports)
     if file.platform:
         # Simple checks to avoid repeating imports. If this messes up, type checkers/tests will
         # just give errors.
