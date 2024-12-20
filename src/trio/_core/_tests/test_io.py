@@ -385,11 +385,7 @@ async def test_io_manager_statistics() -> None:
 
 
 @pytest.mark.filterwarnings("ignore:.*UnboundedQueue:trio.TrioDeprecationWarning")
-@pytest.mark.skipif(sys.platform in {"win32", "linux"}, reason="no kqueue")
 async def test_io_manager_kqueue_monitors_statistics() -> None:
-    assert sys.platform != "win32"
-    assert sys.platform != "linux"
-
     def check(
         *,
         expected_monitors: int,
@@ -411,13 +407,14 @@ async def test_io_manager_kqueue_monitors_statistics() -> None:
         # let the call_soon_task settle down
         await wait_all_tasks_blocked()
 
-        # 1 for call_soon_task
-        check(expected_monitors=0, expected_readers=1, expected_writers=0)
+        if sys.platform != "win32" and sys.platform != "linux":
+            # 1 for call_soon_task
+            check(expected_monitors=0, expected_readers=1, expected_writers=0)
 
-        with trio.lowlevel.monitor_kevent(a1.fileno(), select.KQ_FILTER_READ):
-            check(expected_monitors=1, expected_readers=1, expected_writers=0)
+            with trio.lowlevel.monitor_kevent(a1.fileno(), select.KQ_FILTER_READ):
+                check(expected_monitors=1, expected_readers=1, expected_writers=0)
 
-        check(expected_monitors=0, expected_readers=1, expected_writers=0)
+            check(expected_monitors=0, expected_readers=1, expected_writers=0)
 
 
 async def test_can_survive_unnotified_close() -> None:
