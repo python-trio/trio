@@ -93,7 +93,7 @@ class KqueueIOManager:
                 self._force_wakeup.drain()
                 continue
             receiver = self._registered[key]
-            if event.flags & select.KQ_EV_ONESHOT:
+            if event.flags & select.KQ_EV_ONESHOT:  # TODO: test this branch
                 del self._registered[key]
             if isinstance(receiver, _core.Task):
                 _core.reschedule(receiver, outcome.Value(event))
