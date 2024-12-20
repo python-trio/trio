@@ -1,0 +1,2 @@
+:func:`inspect.iscoroutinefunction` and the like now give correct answers when
+called on KI-protected functions.

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import threading
 from collections import deque
-from typing import TYPE_CHECKING, Callable, NoReturn, Tuple
+from collections.abc import Callable
+from typing import TYPE_CHECKING, NoReturn
 
 import attrs
 
@@ -15,8 +16,9 @@ if TYPE_CHECKING:
 
     PosArgsT = TypeVarTuple("PosArgsT")
 
-Function = Callable[..., object]
-Job = Tuple[Function, Tuple[object, ...]]
+# Explicit "Any" is not allowed
+Function = Callable[..., object]  # type: ignore[misc]
+Job = tuple[Function, tuple[object, ...]]
 
 
 @attrs.define
@@ -64,7 +66,9 @@ class EntryQueue:
                 sync_fn(*args)
             except BaseException as exc:
 
-                async def kill_everything(exc: BaseException) -> NoReturn:
+                async def kill_everything(  # noqa: RUF029  # await not used
+                    exc: BaseException,
+                ) -> NoReturn:
                     raise exc
 
                 try:
@@ -139,7 +143,7 @@ class EntryQueue:
             # wakeup call might trigger an OSError b/c the IO manager has
             # already been shut down.
             if idempotent:
-                self.idempotent_queue[(sync_fn, args)] = None
+                self.idempotent_queue[sync_fn, args] = None
             else:
                 self.queue.append((sync_fn, args))
             self.wakeup.wakeup_thread_and_signal_safe()

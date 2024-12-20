@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import partial
-from typing import TYPE_CHECKING, Any, NoReturn
+from typing import TYPE_CHECKING, NoReturn, cast
 
 import attrs
 import pytest
@@ -66,7 +66,11 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
     ]:
         return [(AF_INET, SOCK_STREAM, IPPROTO_TCP, "", self.sockaddr)]
 
-    async def getnameinfo(self, *args: Any) -> NoReturn:  # pragma: no cover
+    async def getnameinfo(
+        self,
+        sockaddr: tuple[str, int] | tuple[str, int, int, int],
+        flags: int,
+    ) -> NoReturn:  # pragma: no cover
         raise NotImplementedError
 
 
@@ -79,17 +83,17 @@ async def test_open_ssl_over_tcp_stream_and_everything_else(
         # TODO: this function wraps an SSLListener around a SocketListener, this is illegal
         # according to current type hints, and probably for good reason. But there should
         # maybe be a different wrapper class/function that could be used instead?
-        res: list[SSLListener[SocketListener]] = (  # type: ignore[type-var]
-            await nursery.start(
-                partial(
-                    serve_ssl_over_tcp,
-                    echo_handler,
-                    0,
-                    SERVER_CTX,
-                    host="127.0.0.1",
-                ),
-            )
+        value = await nursery.start(
+            partial(
+                serve_ssl_over_tcp,
+                echo_handler,
+                0,
+                SERVER_CTX,
+                host="127.0.0.1",
+            ),
         )
+        assert isinstance(value, list)
+        res = cast("list[SSLListener[SocketListener]]", value)  # type: ignore[type-var]
         (listener,) = res
         async with listener:
             # listener.transport_listener is of type Listener[Stream]

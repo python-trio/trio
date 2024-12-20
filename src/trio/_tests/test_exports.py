@@ -19,11 +19,10 @@ import pytest
 
 import trio
 import trio.testing
-from trio._tests.pytest_plugin import skip_if_optional_else_raise
+from trio._tests.pytest_plugin import RUN_SLOW, skip_if_optional_else_raise
 
 from .. import _core, _util
 from .._core._tests.tutil import slow
-from .pytest_plugin import RUN_SLOW
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
@@ -117,7 +116,7 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
 # they might be using a newer version of Python with additional symbols which
 # won't be reflected in trio.socket, and this shouldn't cause downstream test
 # runs to start failing.
-@pytest.mark.redistributors_should_skip()
+@pytest.mark.redistributors_should_skip
 # Static analysis tools often have trouble with alpha releases, where Python's
 # internals are in flux, grammar may not have settled down, etc.
 @pytest.mark.skipif(
@@ -243,7 +242,7 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
 # modules, instead of once per class.
 @slow
 # see comment on test_static_tool_sees_all_symbols
-@pytest.mark.redistributors_should_skip()
+@pytest.mark.redistributors_should_skip
 # Static analysis tools often have trouble with alpha releases, where Python's
 # internals are in flux, grammar may not have settled down, etc.
 @pytest.mark.skipif(
@@ -390,11 +389,13 @@ def test_static_tool_sees_class_members(
 
             assert "node" in cached_type_info
             node = cached_type_info["node"]
-            static_names = no_hidden(k for k in node["names"] if not k.startswith("."))
+            static_names = no_hidden(
+                k for k in node.get("names", ()) if not k.startswith(".")
+            )
             for symbol in node["mro"][1:]:
                 node = lookup_symbol(symbol)["node"]
                 static_names |= no_hidden(
-                    k for k in node["names"] if not k.startswith(".")
+                    k for k in node.get("names", ()) if not k.startswith(".")
                 )
             static_names -= ignore_names
 
@@ -572,3 +573,37 @@ def test_classes_are_final() -> None:
                 continue
 
             assert class_is_final(class_)
+
+
+# Plugin might not be running, especially if running from an installed version.
+@pytest.mark.skipif(
+    not hasattr(attrs.field, "trio_modded"),
+    reason="Pytest plugin not installed.",
+)
+def test_pyright_recognizes_init_attributes() -> None:
+    """Check whether we provide `alias` for all underscore prefixed attributes.
+
+    Attrs always sets the `alias` attribute on fields, so a pytest plugin is used
+    to monkeypatch `field()` to record whether an alias was defined in the metadata.
+    See `_trio_check_attrs_aliases`.
+    """
+    for module in PUBLIC_MODULES:
+        for class_ in module.__dict__.values():
+            if not attrs.has(class_):
+                continue
+            if isinstance(class_, _util.NoPublicConstructor):
+                continue
+
+            attributes = [
+                attr
+                for attr in attrs.fields(class_)
+                if attr.init
+                if attr.alias
+                not in (
+                    attr.name,
+                    # trio_original_args may not be present in autoattribs
+                    attr.metadata.get("trio_original_args", {}).get("alias"),
+                )
+            ]
+
+            assert attributes == [], class_

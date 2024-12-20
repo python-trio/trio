@@ -1,26 +1,21 @@
 from __future__ import annotations
 
-import inspect
 import signal
 import sys
-from functools import wraps
-from typing import TYPE_CHECKING, Final, Protocol, TypeVar
+import types
+import weakref
+from typing import TYPE_CHECKING, Generic, Protocol, TypeVar
 
 import attrs
 
 from .._util import is_main_thread
-
-CallableT = TypeVar("CallableT", bound="Callable[..., object]")
-RetT = TypeVar("RetT")
+from ._run_context import GLOBAL_RUN_CONTEXT
 
 if TYPE_CHECKING:
     import types
     from collections.abc import Callable
 
-    from typing_extensions import ParamSpec, TypeGuard
-
-    ArgsT = ParamSpec("ArgsT")
-
+    from typing_extensions import Self, TypeGuard
 # In ordinary single-threaded Python code, when you hit control-C, it raises
 # an exception and automatically does all the regular unwinding stuff.
 #
@@ -83,20 +78,117 @@ if TYPE_CHECKING:
 # for any Python program that's written to catch and ignore
 # KeyboardInterrupt.)
 
-# We use this special string as a unique key into the frame locals dictionary.
-# The @ ensures it is not a valid identifier and can't clash with any possible
-# real local name. See: https://github.com/python-trio/trio/issues/469
-LOCALS_KEY_KI_PROTECTION_ENABLED: Final = "@TRIO_KI_PROTECTION_ENABLED"
+_T = TypeVar("_T")
+
+
+class _IdRef(weakref.ref[_T]):
+    __slots__ = ("_hash",)
+    _hash: int
+
+    def __new__(
+        cls,
+        ob: _T,
+        callback: Callable[[Self], object] | None = None,
+        /,
+    ) -> Self:
+        self: Self = weakref.ref.__new__(cls, ob, callback)
+        self._hash = object.__hash__(ob)
+        return self
+
+    def __eq__(self, other: object) -> bool:
+        if self is other:
+            return True
+
+        if not isinstance(other, _IdRef):
+            return NotImplemented
+
+        my_obj = None
+        try:
+            my_obj = self()
+            return my_obj is not None and my_obj is other()
+        finally:
+            del my_obj
+
+    # we're overriding a builtin so we do need this
+    def __ne__(self, other: object) -> bool:
+        return not self == other
+
+    def __hash__(self) -> int:
+        return self._hash
+
+
+_KT = TypeVar("_KT")
+_VT = TypeVar("_VT")
+
+
+# see also: https://github.com/python/cpython/issues/88306
+class WeakKeyIdentityDictionary(Generic[_KT, _VT]):
+    def __init__(self) -> None:
+        self._data: dict[_IdRef[_KT], _VT] = {}
+
+        def remove(
+            k: _IdRef[_KT],
+            selfref: weakref.ref[
+                WeakKeyIdentityDictionary[_KT, _VT]
+            ] = weakref.ref(  # noqa: B008  # function-call-in-default-argument
+                self,
+            ),
+        ) -> None:
+            self = selfref()
+            if self is not None:
+                try:  # noqa: SIM105 # supressible-exception
+                    del self._data[k]
+                except KeyError:
+                    pass
+
+        self._remove = remove
+
+    def __getitem__(self, k: _KT) -> _VT:
+        return self._data[_IdRef(k)]
+
+    def __setitem__(self, k: _KT, v: _VT) -> None:
+        self._data[_IdRef(k, self._remove)] = v
+
+
+_CODE_KI_PROTECTION_STATUS_WMAP: WeakKeyIdentityDictionary[
+    types.CodeType,
+    bool,
+] = WeakKeyIdentityDictionary()
+
+
+# This is to support the async_generator package necessary for aclosing on <3.10
+# functions decorated @async_generator are given this magic property that's a
+# reference to the object itself
+# see python-trio/async_generator/async_generator/_impl.py
+def legacy_isasyncgenfunction(
+    obj: object,
+) -> TypeGuard[Callable[..., types.AsyncGeneratorType[object, object]]]:
+    return getattr(obj, "_async_gen_function", None) == id(obj)
 
 
 # NB: according to the signal.signal docs, 'frame' can be None on entry to
 # this function:
 def ki_protection_enabled(frame: types.FrameType | None) -> bool:
+    try:
+        task = GLOBAL_RUN_CONTEXT.task
+    except AttributeError:
+        task_ki_protected = False
+        task_frame = None
+    else:
+        task_ki_protected = task._ki_protected
+        task_frame = task.coro.cr_frame
+
     while frame is not None:
-        if LOCALS_KEY_KI_PROTECTION_ENABLED in frame.f_locals:
-            return bool(frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED])
+        try:
+            v = _CODE_KI_PROTECTION_STATUS_WMAP[frame.f_code]
+        except KeyError:
+            pass
+        else:
+            return bool(v)
         if frame.f_code.co_name == "__del__":
             return True
+        if frame is task_frame:
+            return task_ki_protected
         frame = frame.f_back
     return True
 
@@ -117,90 +209,33 @@ def currently_ki_protected() -> bool:
     return ki_protection_enabled(sys._getframe())
 
 
-# This is to support the async_generator package necessary for aclosing on <3.10
-# functions decorated @async_generator are given this magic property that's a
-# reference to the object itself
-# see python-trio/async_generator/async_generator/_impl.py
-def legacy_isasyncgenfunction(
-    obj: object,
-) -> TypeGuard[Callable[..., types.AsyncGeneratorType[object, object]]]:
-    return getattr(obj, "_async_gen_function", None) == id(obj)
+class _SupportsCode(Protocol):
+    __code__: types.CodeType
 
 
-def _ki_protection_decorator(
-    enabled: bool,
-) -> Callable[[Callable[ArgsT, RetT]], Callable[ArgsT, RetT]]:
-    # The "ignore[return-value]" below is because the inspect functions cast away the
-    # original return type of fn, making it just CoroutineType[Any, Any, Any] etc.
-    # ignore[misc] is because @wraps() is passed a callable with Any in the return type.
-    def decorator(fn: Callable[ArgsT, RetT]) -> Callable[ArgsT, RetT]:
-        # In some version of Python, isgeneratorfunction returns true for
-        # coroutine functions, so we have to check for coroutine functions
-        # first.
-        if inspect.iscoroutinefunction(fn):
-
-            @wraps(fn)
-            def wrapper(*args: ArgsT.args, **kwargs: ArgsT.kwargs) -> RetT:  # type: ignore[misc]
-                # See the comment for regular generators below
-                coro = fn(*args, **kwargs)
-                assert coro.cr_frame is not None, "Coroutine frame should exist"
-                coro.cr_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
-                return coro  # type: ignore[return-value]
-
-            return wrapper
-        elif inspect.isgeneratorfunction(fn):
-
-            @wraps(fn)
-            def wrapper(*args: ArgsT.args, **kwargs: ArgsT.kwargs) -> RetT:  # type: ignore[misc]
-                # It's important that we inject this directly into the
-                # generator's locals, as opposed to setting it here and then
-                # doing 'yield from'. The reason is, if a generator is
-                # throw()n into, then it may magically pop to the top of the
-                # stack. And @contextmanager generators in particular are a
-                # case where we often want KI protection, and which are often
-                # thrown into! See:
-                #     https://bugs.python.org/issue29590
-                gen = fn(*args, **kwargs)
-                gen.gi_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
-                return gen  # type: ignore[return-value]
-
-            return wrapper
-        elif inspect.isasyncgenfunction(fn) or legacy_isasyncgenfunction(fn):
-
-            @wraps(fn)  # type: ignore[arg-type]
-            def wrapper(*args: ArgsT.args, **kwargs: ArgsT.kwargs) -> RetT:  # type: ignore[misc]
-                # See the comment for regular generators above
-                agen = fn(*args, **kwargs)
-                agen.ag_frame.f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
-                return agen  # type: ignore[return-value]
-
-            return wrapper
-        else:
-
-            @wraps(fn)
-            def wrapper(*args: ArgsT.args, **kwargs: ArgsT.kwargs) -> RetT:
-                sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = enabled
-                return fn(*args, **kwargs)
-
-            return wrapper
-
-    return decorator
+_T_supports_code = TypeVar("_T_supports_code", bound=_SupportsCode)
 
 
-# pyright workaround: https://github.com/microsoft/pyright/issues/5866
-class KIProtectionSignature(Protocol):
-    __name__: str
+def enable_ki_protection(f: _T_supports_code, /) -> _T_supports_code:
+    """Decorator to enable KI protection."""
+    orig = f
 
-    def __call__(self, f: CallableT, /) -> CallableT:
-        pass
+    if legacy_isasyncgenfunction(f):
+        f = f.__wrapped__  # type: ignore
+
+    _CODE_KI_PROTECTION_STATUS_WMAP[f.__code__] = True
+    return orig
 
 
-# the following `type: ignore`s are because we use ParamSpec internally, but want to allow overloads
-enable_ki_protection: KIProtectionSignature = _ki_protection_decorator(True)  # type: ignore[assignment]
-enable_ki_protection.__name__ = "enable_ki_protection"
+def disable_ki_protection(f: _T_supports_code, /) -> _T_supports_code:
+    """Decorator to disable KI protection."""
+    orig = f
 
-disable_ki_protection: KIProtectionSignature = _ki_protection_decorator(False)  # type: ignore[assignment]
-disable_ki_protection.__name__ = "disable_ki_protection"
+    if legacy_isasyncgenfunction(f):
+        f = f.__wrapped__  # type: ignore
+
+    _CODE_KI_PROTECTION_STATUS_WMAP[f.__code__] = False
+    return orig
 
 
 @attrs.define(slots=False)

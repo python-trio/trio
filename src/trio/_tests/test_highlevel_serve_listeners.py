@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import errno
 from functools import partial
-from typing import TYPE_CHECKING, Awaitable, Callable, NoReturn
+from typing import TYPE_CHECKING, NoReturn, cast
 
 import attrs
 
@@ -19,6 +19,8 @@ from trio.testing import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
     import pytest
 
     from trio._channel import MemoryReceiveChannel, MemorySendChannel
@@ -94,11 +96,13 @@ async def test_serve_listeners_basic() -> None:
         parent_nursery.cancel_scope.cancel()
 
     async with trio.open_nursery() as nursery:
-        l2: list[MemoryListener] = await nursery.start(
+        value = await nursery.start(
             trio.serve_listeners,
             handler,
             listeners,
         )
+        assert isinstance(value, list)
+        l2 = cast("list[MemoryListener]", value)
         assert l2 == listeners
         # This is just split into another function because gh-136 isn't
         # implemented yet
@@ -170,7 +174,9 @@ async def test_serve_listeners_connection_nursery(autojump_clock: MockClock) -> 
     # the exception is wrapped twice because we open two nested nurseries
     with RaisesGroup(RaisesGroup(Done)):
         async with trio.open_nursery() as nursery:
-            handler_nursery: trio.Nursery = await nursery.start(connection_watcher)
+            value = await nursery.start(connection_watcher)
+            assert isinstance(value, trio.Nursery)
+            handler_nursery: trio.Nursery = value
             await nursery.start(
                 partial(
                     trio.serve_listeners,

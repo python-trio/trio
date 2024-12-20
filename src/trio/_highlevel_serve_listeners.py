@@ -3,7 +3,8 @@ from __future__ import annotations
 import errno
 import logging
 import os
-from typing import Any, Awaitable, Callable, NoReturn, TypeVar
+from collections.abc import Awaitable, Callable
+from typing import Any, NoReturn, TypeVar
 
 import trio
 
@@ -24,7 +25,8 @@ LOGGER = logging.getLogger("trio.serve_listeners")
 
 
 StreamT = TypeVar("StreamT", bound=trio.abc.AsyncResource)
-ListenerT = TypeVar("ListenerT", bound=trio.abc.Listener[Any])
+# Explicit "Any" is not allowed
+ListenerT = TypeVar("ListenerT", bound=trio.abc.Listener[Any])  # type: ignore[misc]
 Handler = Callable[[StreamT], Awaitable[object]]
 
 
@@ -66,7 +68,8 @@ async def _serve_one_listener(
 # https://github.com/python/typing/issues/548
 
 
-async def serve_listeners(
+# Explicit "Any" is not allowed
+async def serve_listeners(  # type: ignore[misc]
     handler: Handler[StreamT],
     listeners: list[ListenerT],
     *,

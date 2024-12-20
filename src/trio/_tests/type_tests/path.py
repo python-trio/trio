@@ -4,7 +4,7 @@ import io
 import os
 import pathlib
 import sys
-from typing import IO, Any, BinaryIO, List, Tuple
+from typing import IO, Any, BinaryIO
 
 import trio
 from trio._file_io import AsyncIOWrapper
@@ -35,7 +35,7 @@ def operator_checks(text: str, tpath: trio.Path, ppath: pathlib.Path) -> None:
 
 
 def sync_attrs(path: trio.Path) -> None:
-    assert_type(path.parts, Tuple[str, ...])
+    assert_type(path.parts, tuple[str, ...])
     assert_type(path.drive, str)
     assert_type(path.root, str)
     assert_type(path.anchor, str)
@@ -43,22 +43,20 @@ def sync_attrs(path: trio.Path) -> None:
     assert_type(path.parent, trio.Path)
     assert_type(path.name, str)
     assert_type(path.suffix, str)
-    assert_type(path.suffixes, List[str])
+    assert_type(path.suffixes, list[str])
     assert_type(path.stem, str)
     assert_type(path.as_posix(), str)
     assert_type(path.as_uri(), str)
     assert_type(path.is_absolute(), bool)
-    if sys.version_info > (3, 9):
-        assert_type(path.is_relative_to(path), bool)
+    assert_type(path.is_relative_to(path), bool)
     assert_type(path.is_reserved(), bool)
     assert_type(path.joinpath(path, "folder"), trio.Path)
     assert_type(path.match("*.py"), bool)
     assert_type(path.relative_to("/usr"), trio.Path)
-    if sys.version_info > (3, 12):
-        assert_type(path.relative_to("/", walk_up=True), bool)
+    if sys.version_info >= (3, 12):
+        assert_type(path.relative_to("/", walk_up=True), trio.Path)
     assert_type(path.with_name("filename.txt"), trio.Path)
-    if sys.version_info > (3, 9):
-        assert_type(path.with_stem("readme"), trio.Path)
+    assert_type(path.with_stem("readme"), trio.Path)
     assert_type(path.with_suffix(".log"), trio.Path)
 
 
@@ -75,7 +73,7 @@ async def async_attrs(path: trio.Path) -> None:
         assert_type(await path.group(), str)
     assert_type(await path.is_dir(), bool)
     assert_type(await path.is_file(), bool)
-    if sys.version_info > (3, 12):
+    if sys.version_info >= (3, 12):
         assert_type(await path.is_junction(), bool)
     if sys.platform != "win32":
         assert_type(await path.is_mount(), bool)
@@ -95,8 +93,7 @@ async def async_attrs(path: trio.Path) -> None:
         assert_type(await path.owner(), str)
     assert_type(await path.read_bytes(), bytes)
     assert_type(await path.read_text(encoding="utf16", errors="replace"), str)
-    if sys.version_info > (3, 9):
-        assert_type(await path.readlink(), trio.Path)
+    assert_type(await path.readlink(), trio.Path)
     assert_type(await path.rename("another"), trio.Path)
     assert_type(await path.replace(path), trio.Path)
     assert_type(await path.resolve(), trio.Path)
@@ -107,7 +104,7 @@ async def async_attrs(path: trio.Path) -> None:
     assert_type(await path.rmdir(), None)
     assert_type(await path.samefile("something_else"), bool)
     assert_type(await path.symlink_to("somewhere"), None)
-    if sys.version_info > (3, 10):
+    if sys.version_info >= (3, 10):
         assert_type(await path.hardlink_to("elsewhere"), None)
     assert_type(await path.touch(), None)
     assert_type(await path.unlink(missing_ok=True), None)
@@ -141,4 +138,4 @@ async def open_results(path: trio.Path, some_int: int, some_str: str) -> None:
     assert_type(await file_text.read(), str)
     assert_type(await file_text.write("test"), int)
     # TODO: report mypy bug: equiv to https://github.com/microsoft/pyright/issues/6833
-    assert_type(await file_text.readlines(), List[str])
+    assert_type(await file_text.readlines(), list[str])

@@ -395,9 +395,9 @@ class _Overlapped(Protocol):
     hEvent: Handle
 
 
-kernel32 = cast(_Kernel32, ffi.dlopen("kernel32.dll"))
-ntdll = cast(_Nt, ffi.dlopen("ntdll.dll"))
-ws2_32 = cast(_Ws2, ffi.dlopen("ws2_32.dll"))
+kernel32 = cast("_Kernel32", ffi.dlopen("kernel32.dll"))
+ntdll = cast("_Nt", ffi.dlopen("ntdll.dll"))
+ws2_32 = cast("_Ws2", ffi.dlopen("ws2_32.dll"))
 
 ################################################################
 # Magic numbers

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+from collections.abc import Callable, Iterable
 from functools import partial
 from typing import (
     IO,
@@ -8,9 +9,7 @@ from typing import (
     Any,
     AnyStr,
     BinaryIO,
-    Callable,
     Generic,
-    Iterable,
     TypeVar,
     Union,
     overload,
@@ -31,6 +30,8 @@ if TYPE_CHECKING:
         StrOrBytesPath,
     )
     from typing_extensions import Literal
+
+    from ._sync import CapacityLimiter
 
 # This list is also in the docs, make sure to keep them in sync
 _FILE_SYNC_ATTRS: set[str] = {
@@ -242,7 +243,10 @@ class AsyncIOWrapper(AsyncResource, Generic[FileT_co]):
                 meth = getattr(self._wrapped, name)
 
                 @async_wraps(self.__class__, self._wrapped.__class__, name)
-                async def wrapper(*args, **kwargs):
+                async def wrapper(
+                    *args: Callable[..., T],
+                    **kwargs: object | str | bool | CapacityLimiter | None,
+                ) -> T:
                     func = partial(meth, *args, **kwargs)
                     return await trio.to_thread.run_sync(func)
 
@@ -445,7 +449,7 @@ async def open_file(
     newline: str | None = None,
     closefd: bool = True,
     opener: _Opener | None = None,
-) -> AsyncIOWrapper[Any]:
+) -> AsyncIOWrapper[object]:
     """Asynchronous version of :func:`open`.
 
     Returns:
@@ -463,7 +467,7 @@ async def open_file(
       :func:`trio.Path.open`
 
     """
-    _file = wrap_file(
+    file_ = wrap_file(
         await trio.to_thread.run_sync(
             io.open,
             file,
@@ -476,7 +480,7 @@ async def open_file(
             opener,
         ),
     )
-    return _file
+    return file_
 
 
 def wrap_file(file: FileT) -> AsyncIOWrapper[FileT]:

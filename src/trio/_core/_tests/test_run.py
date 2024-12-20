@@ -9,8 +9,8 @@ import time
 import types
 import weakref
 from contextlib import ExitStack, contextmanager, suppress
-from math import inf
-from typing import TYPE_CHECKING, Any, NoReturn, TypeVar, cast
+from math import inf, nan
+from typing import TYPE_CHECKING, NoReturn, TypeVar
 
 import outcome
 import pytest
@@ -269,8 +269,8 @@ async def test_current_time_with_mock_clock(mock_clock: _core.MockClock) -> None
     start = mock_clock.current_time()
     assert mock_clock.current_time() == _core.current_time()
     assert mock_clock.current_time() == _core.current_time()
-    mock_clock.jump(3.14)
-    assert start + 3.14 == mock_clock.current_time() == _core.current_time()
+    mock_clock.jump(3.15)
+    assert start + 3.15 == mock_clock.current_time() == _core.current_time()
 
 
 async def test_current_clock(mock_clock: _core.MockClock) -> None:
@@ -363,6 +363,27 @@ async def test_cancel_scope_repr(mock_clock: _core.MockClock) -> None:
         scope.cancel()
         assert "cancelled" in repr(scope)
     assert "exited" in repr(scope)
+
+
+async def test_cancel_scope_validation() -> None:
+    with pytest.raises(
+        ValueError,
+        match="^Cannot specify both a deadline and a relative deadline$",
+    ):
+        _core.CancelScope(deadline=7, relative_deadline=3)
+    scope = _core.CancelScope()
+
+    with pytest.raises(ValueError, match="^deadline must not be NaN$"):
+        scope.deadline = nan
+    with pytest.raises(ValueError, match="^relative deadline must not be NaN$"):
+        scope.relative_deadline = nan
+
+    with pytest.raises(ValueError, match="^relative deadline must be non-negative$"):
+        scope.relative_deadline = -3
+    scope.relative_deadline = 5
+    assert scope.relative_deadline == 5
+
+    # several related tests of CancelScope are implicitly handled by test_timeouts.py
 
 
 def test_cancel_points() -> None:
@@ -802,7 +823,9 @@ async def test_cancel_scope_misnesting() -> None:
             await sleep_forever()
 
     async with _core.open_nursery() as nursery:
-        scope: _core.CancelScope = await nursery.start(task3)
+        value = await nursery.start(task3)
+        assert isinstance(value, _core.CancelScope)
+        scope: _core.CancelScope = value
         with pytest.raises(RuntimeError, match="from unrelated"):
             scope.__exit__(None, None, None)
         scope.cancel()
@@ -1625,7 +1648,10 @@ async def test_spawn_name() -> None:
     async def func2() -> None:  # pragma: no cover
         pass
 
-    async def check(spawn_fn: Callable[..., object]) -> None:
+    # Explicit .../"Any" is not allowed
+    async def check(  # type: ignore[misc]
+        spawn_fn: Callable[..., object],
+    ) -> None:
         spawn_fn(func1, "func1")
         spawn_fn(func1, "func2", name=func2)
         spawn_fn(func1, "func3", name="func3")
@@ -1660,13 +1686,14 @@ async def test_current_effective_deadline(mock_clock: _core.MockClock) -> None:
 
 
 def test_nice_error_on_bad_calls_to_run_or_spawn() -> None:
-    def bad_call_run(
+    # Explicit .../"Any" is not allowed
+    def bad_call_run(  # type: ignore[misc]
         func: Callable[..., Awaitable[object]],
         *args: tuple[object, ...],
     ) -> None:
         _core.run(func, *args)
 
-    def bad_call_spawn(
+    def bad_call_spawn(  # type: ignore[misc]
         func: Callable[..., Awaitable[object]],
         *args: tuple[object, ...],
     ) -> None:
@@ -1938,7 +1965,9 @@ async def test_nursery_start_with_cancelled_nursery() -> None:
 
     # Cancelling the setup_nursery just *before* calling started()
     async with _core.open_nursery() as nursery:
-        target_nursery: _core.Nursery = await nursery.start(setup_nursery)
+        value = await nursery.start(setup_nursery)
+        assert isinstance(value, _core.Nursery)
+        target_nursery: _core.Nursery = value
         await target_nursery.start(
             sleeping_children,
             target_nursery.cancel_scope.cancel,
@@ -1946,7 +1975,9 @@ async def test_nursery_start_with_cancelled_nursery() -> None:
 
     # Cancelling the setup_nursery just *after* calling started()
     async with _core.open_nursery() as nursery:
-        target_nursery = await nursery.start(setup_nursery)
+        value = await nursery.start(setup_nursery)
+        assert isinstance(value, _core.Nursery)
+        target_nursery = value
         await target_nursery.start(sleeping_children, lambda: None)
         target_nursery.cancel_scope.cancel()
 
@@ -2264,7 +2295,8 @@ async def test_permanently_detach_coroutine_object() -> None:
         await sleep(0)
         nonlocal task, pdco_outcome
         task = _core.current_task()
-        pdco_outcome = await outcome.acapture(
+        # `No overload variant of "acapture" matches argument types "Callable[[Outcome[object]], Coroutine[Any, Any, object]]", "Outcome[None]"`
+        pdco_outcome = await outcome.acapture(  # type: ignore[call-overload]
             _core.permanently_detach_coroutine_object,
             task_outcome,
         )
@@ -2277,10 +2309,11 @@ async def test_permanently_detach_coroutine_object() -> None:
     # is still iterable. At that point anything can be sent into the coroutine, so the .coro type
     # is wrong.
     assert pdco_outcome is None
-    assert not_none(task).coro.send(cast(Any, "be free!")) == "I'm free!"
+    # `Argument 1 to "send" of "Coroutine" has incompatible type "str"; expected "Outcome[object]"`
+    assert not_none(task).coro.send("be free!") == "I'm free!"  # type: ignore[arg-type]
     assert pdco_outcome == outcome.Value("be free!")
     with pytest.raises(StopIteration):
-        not_none(task).coro.send(cast(Any, None))
+        not_none(task).coro.send(None)  # type: ignore[arg-type]
 
     # Check the exception paths too
     task = None
@@ -2293,7 +2326,7 @@ async def test_permanently_detach_coroutine_object() -> None:
     assert not_none(task).coro.throw(throw_in) == "uh oh"
     assert pdco_outcome == outcome.Error(throw_in)
     with pytest.raises(StopIteration):
-        task.coro.send(cast(Any, None))
+        task.coro.send(None)
 
     async def bad_detach() -> None:
         async with _core.open_nursery():
@@ -2345,9 +2378,10 @@ async def test_detach_and_reattach_coroutine_object() -> None:
         await wait_all_tasks_blocked()
 
         # Okay, it's detached. Here's our coroutine runner:
-        assert not_none(task).coro.send(cast(Any, "not trio!")) == 1
-        assert not_none(task).coro.send(cast(Any, None)) == 2
-        assert not_none(task).coro.send(cast(Any, None)) == "byebye"
+        # `Argument 1 to "send" of "Coroutine" has incompatible type "str"; expected "Outcome[object]"`
+        assert not_none(task).coro.send("not trio!") == 1  # type: ignore[arg-type]
+        assert not_none(task).coro.send(None) == 2  # type: ignore[arg-type]
+        assert not_none(task).coro.send(None) == "byebye"  # type: ignore[arg-type]
 
         # Now it's been reattached, and we can leave the nursery
 
@@ -2377,7 +2411,8 @@ async def test_detached_coroutine_cancellation() -> None:
         await wait_all_tasks_blocked()
         assert task is not None
         nursery.cancel_scope.cancel()
-        task.coro.send(cast(Any, None))
+        # `Argument 1 to "send" of "Coroutine" has incompatible type "None"; expected "Outcome[object]"`
+        task.coro.send(None)  # type: ignore[arg-type]
 
     assert abort_fn_called
 
@@ -2484,9 +2519,13 @@ async def test_cancel_scope_exit_doesnt_create_cyclic_garbage() -> None:
 
     old_flags = gc.get_debug()
     try:
+        # fmt: off
+        # Remove after 3.9 unsupported, black formats in a way that breaks if
+        # you do `-X oldparser`
         with RaisesGroup(
             Matcher(ValueError, "^this is a crash$"),
         ), _core.CancelScope() as outer:
+            # fmt: on
             async with _core.open_nursery() as nursery:
                 gc.collect()
                 gc.set_debug(gc.DEBUG_SAVEALL)
@@ -2753,3 +2792,47 @@ async def test_internal_error_old_nursery_multiple_tasks() -> None:
         with pytest.raises(_core.TrioInternalError) as excinfo:
             await nursery.start(spawn_tasks_in_old_nursery)
     assert RaisesGroup(ValueError, ValueError).matches(excinfo.value.__cause__)
+
+
+if sys.version_info >= (3, 11):
+
+    def no_other_refs() -> list[object]:
+        return []
+
+else:
+
+    def no_other_refs() -> list[object]:
+        return [sys._getframe(1)]
+
+
+@pytest.mark.skipif(
+    sys.implementation.name != "cpython",
+    reason="Only makes sense with refcounting GC",
+)
+async def test_ki_protection_doesnt_leave_cyclic_garbage() -> None:
+    class MyException(Exception):
+        pass
+
+    async def demo() -> None:
+        async def handle_error() -> None:
+            try:
+                raise MyException
+            except MyException as e:
+                exceptions.append(e)
+
+        exceptions: list[MyException] = []
+        try:
+            async with _core.open_nursery() as n:
+                n.start_soon(handle_error)
+            raise ExceptionGroup("errors", exceptions)
+        finally:
+            exceptions = []
+
+    exc: Exception | None = None
+    try:
+        await demo()
+    except ExceptionGroup as excs:
+        exc = excs.exceptions[0]
+
+    assert isinstance(exc, MyException)
+    assert gc.get_referrers(exc) == no_other_refs()

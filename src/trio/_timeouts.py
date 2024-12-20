@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import math
-from contextlib import AbstractContextManager, contextmanager
-from typing import TYPE_CHECKING
+import sys
+from contextlib import contextmanager
+from typing import TYPE_CHECKING, NoReturn
 
 import trio
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 
 def move_on_at(deadline: float, *, shield: bool = False) -> trio.CancelScope:
@@ -20,14 +24,19 @@ def move_on_at(deadline: float, *, shield: bool = False) -> trio.CancelScope:
       ValueError: if deadline is NaN.
 
     """
-    if math.isnan(deadline):
-        raise ValueError("deadline must not be NaN")
+    # CancelScope validates that deadline isn't math.nan
     return trio.CancelScope(deadline=deadline, shield=shield)
 
 
-def move_on_after(seconds: float, *, shield: bool = False) -> trio.CancelScope:
+def move_on_after(
+    seconds: float,
+    *,
+    shield: bool = False,
+) -> trio.CancelScope:
     """Use as a context manager to create a cancel scope whose deadline is
     set to now + *seconds*.
+
+    The deadline of the cancel scope is calculated upon entering.
 
     Args:
       seconds (float): The timeout.
@@ -35,21 +44,32 @@ def move_on_after(seconds: float, *, shield: bool = False) -> trio.CancelScope:
           of the newly created cancel scope.
 
     Raises:
-      ValueError: if timeout is less than zero or NaN.
+      ValueError: if ``seconds`` is less than zero or NaN.
 
     """
+    # duplicate validation logic to have the correct parameter name
     if seconds < 0:
-        raise ValueError("timeout must be non-negative")
-    return move_on_at(trio.current_time() + seconds, shield=shield)
+        raise ValueError("`seconds` must be non-negative")
+    if math.isnan(seconds):
+        raise ValueError("`seconds` must not be NaN")
+    return trio.CancelScope(
+        shield=shield,
+        relative_deadline=seconds,
+    )
 
 
-async def sleep_forever() -> None:
+async def sleep_forever() -> NoReturn:
     """Pause execution of the current task forever (or until cancelled).
 
-    Equivalent to calling ``await sleep(math.inf)``.
+    Equivalent to calling ``await sleep(math.inf)``, except that if manually
+    rescheduled this will raise a `RuntimeError`.
+
+    Raises:
+      RuntimeError: if rescheduled
 
     """
     await trio.lowlevel.wait_task_rescheduled(lambda _: trio.lowlevel.Abort.SUCCEEDED)
+    raise RuntimeError("Should never have been rescheduled!")
 
 
 async def sleep_until(deadline: float) -> None:
@@ -84,7 +104,7 @@ async def sleep(seconds: float) -> None:
 
     """
     if seconds < 0:
-        raise ValueError("duration must be non-negative")
+        raise ValueError("`seconds` must be non-negative")
     if seconds == 0:
         await trio.lowlevel.checkpoint()
     else:
@@ -98,9 +118,12 @@ class TooSlowError(Exception):
     """
 
 
-# workaround for PyCharm not being able to infer return type from @contextmanager
-# see https://youtrack.jetbrains.com/issue/PY-36444/PyCharm-doesnt-infer-types-when-using-contextlib.contextmanager-decorator
-def fail_at(deadline: float, *, shield: bool = False) -> AbstractContextManager[trio.CancelScope]:  # type: ignore[misc]
+@contextmanager
+def fail_at(
+    deadline: float,
+    *,
+    shield: bool = False,
+) -> Generator[trio.CancelScope, None, None]:
     """Creates a cancel scope with the given deadline, and raises an error if it
     is actually cancelled.
 
@@ -129,15 +152,12 @@ def fail_at(deadline: float, *, shield: bool = False) -> AbstractContextManager[
         raise TooSlowError
 
 
-if not TYPE_CHECKING:
-    fail_at = contextmanager(fail_at)
-
-
+@contextmanager
 def fail_after(
     seconds: float,
     *,
     shield: bool = False,
-) -> AbstractContextManager[trio.CancelScope]:
+) -> Generator[trio.CancelScope, None, None]:
     """Creates a cancel scope with the given timeout, and raises an error if
     it is actually cancelled.
 
@@ -147,6 +167,8 @@ def fail_after(
     is that when the :exc:`Cancelled` exception reaches :func:`move_on_after`,
     it's caught and discarded. When it reaches :func:`fail_after`, then it's
     caught and :exc:`TooSlowError` is raised in its place.
+
+    The deadline of the cancel scope is calculated upon entering.
 
     Args:
       seconds (float): The timeout.
@@ -159,6 +181,17 @@ def fail_after(
       ValueError: if *seconds* is less than zero or NaN.
 
     """
-    if seconds < 0:
-        raise ValueError("timeout must be non-negative")
-    return fail_at(trio.current_time() + seconds, shield=shield)
+    with move_on_after(seconds, shield=shield) as scope:
+        yield scope
+    if scope.cancelled_caught:
+        raise TooSlowError
+
+
+# Users don't need to know that fail_at & fail_after wraps move_on_at and move_on_after
+# and there is no functional difference. So we replace the return value when generating
+# documentation.
+if "sphinx" in sys.modules:  # pragma: no cover
+    import inspect
+
+    for c in (fail_at, fail_after):
+        c.__signature__ = inspect.Signature.from_callable(c).replace(return_annotation=trio.CancelScope)  # type: ignore[union-attr]

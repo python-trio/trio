@@ -3,7 +3,7 @@ from __future__ import annotations
 import errno
 import socket as stdlib_socket
 import sys
-from typing import Sequence
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -16,7 +16,16 @@ from ..testing import (
 )
 from .test_socket import setsockopt_tests
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
+
+@pytest.mark.xfail(
+    sys.platform == "darwin" and sys.version_info[:3] == (3, 13, 1),
+    reason="TODO: This started failing in CI after 3.13.1",
+    raises=OSError,
+    strict=True,
+)
 async def test_SocketStream_basics() -> None:
     # stdlib socket bad (even if connected)
     stdlib_a, stdlib_b = stdlib_socket.socketpair()
@@ -131,7 +140,10 @@ async def fill_stream(s: SocketStream) -> None:
 
 
 async def test_SocketStream_generic() -> None:
-    async def stream_maker() -> tuple[SocketStream, SocketStream]:
+    async def stream_maker() -> tuple[
+        SocketStream,
+        SocketStream,
+    ]:
         left, right = tsocket.socketpair()
         return SocketStream(left), SocketStream(right)
 

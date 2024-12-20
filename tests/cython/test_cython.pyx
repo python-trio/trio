@@ -19,4 +19,5 @@ async def trio_main() -> None:
         nursery.start_soon(foo)
         nursery.start_soon(foo)
 
-trio.run(trio_main)
+def invoke_main_entry_point():
+    trio.run(trio_main)

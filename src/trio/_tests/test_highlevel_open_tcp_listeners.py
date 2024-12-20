@@ -4,7 +4,7 @@ import errno
 import socket as stdlib_socket
 import sys
 from socket import AddressFamily, SocketKind
-from typing import TYPE_CHECKING, Any, Sequence, overload
+from typing import TYPE_CHECKING, cast, overload
 
 import attrs
 import pytest
@@ -26,7 +26,11 @@ if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from typing_extensions import Buffer
+
+    from trio._socket import AddressFormat
 
 
 async def test_open_tcp_listeners_basic() -> None:
@@ -193,7 +197,7 @@ class FakeSocket(tsocket.SocketType):
     ) -> None:
         pass
 
-    async def bind(self, address: Any) -> None:
+    async def bind(self, address: AddressFormat) -> None:
         pass
 
     def listen(self, /, backlog: int = min(stdlib_socket.SOMAXCONN, 128)) -> None:
@@ -308,7 +312,9 @@ async def test_serve_tcp() -> None:
 
     async with trio.open_nursery() as nursery:
         # nursery.start is incorrectly typed, awaiting #2773
-        listeners: list[SocketListener] = await nursery.start(serve_tcp, handler, 0)
+        value = await nursery.start(serve_tcp, handler, 0)
+        assert isinstance(value, list)
+        listeners = cast("list[SocketListener]", value)
         stream = await open_stream_to_socket_listener(listeners[0])
         async with stream:
             assert await stream.receive_some(1) == b"x"
@@ -329,7 +335,7 @@ async def test_open_tcp_listeners_some_address_families_unavailable(
 ) -> None:
     fsf = FakeSocketFactory(
         10,
-        raise_on_family={family: errno.EAFNOSUPPORT for family in fail_families},
+        raise_on_family=dict.fromkeys(fail_families, errno.EAFNOSUPPORT),
     )
     tsocket.set_custom_socket_factory(fsf)
     tsocket.set_custom_hostname_resolver(
@@ -402,7 +408,7 @@ async def test_open_tcp_listeners_backlog() -> None:
 async def test_open_tcp_listeners_backlog_float_error() -> None:
     fsf = FakeSocketFactory(99)
     tsocket.set_custom_socket_factory(fsf)
-    for should_fail in (0.0, 2.18, 3.14, 9.75):
+    for should_fail in (0.0, 2.18, 3.15, 9.75):
         with pytest.raises(
             TypeError,
             match=f"backlog must be an int or None, not {should_fail!r}",
