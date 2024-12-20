@@ -1,1 +1,1 @@
-Get more coverage
+Get and enforce 100% coverage
