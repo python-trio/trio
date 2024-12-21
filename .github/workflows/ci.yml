@@ -215,7 +215,7 @@ jobs:
           name: Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})
           # multiple flags is marked as an error in codecov UI, but is actually fine
           # https://github.com/codecov/feedback/issues/567
-          flags: Windows,${{ matrix.python }}
+          flags: pytest,Windows,${{ matrix.python }}
           # this option cannot be set in .codecov.yml
           fail_ci_if_error: true
 
@@ -278,8 +278,18 @@ jobs:
         with:
           directory: empty
           name: Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})
-          flags: Ubuntu,${{ matrix.python }}
+          flags: pytest,Ubuntu,${{ matrix.python }}
           fail_ci_if_error: true
+      - if: >-
+          always()
+          && matrix.check_formatting == '1'
+        uses: codecov/codecov-action@v5
+        with:
+          disable_search: true
+          files: mypy-cov-*-py-*/*
+          flags: MyPy
+          fail_ci_if_error: true
+          name: MyPy type coverage
 
   macOS:
     name: 'macOS (${{ matrix.python }})'
@@ -320,7 +330,7 @@ jobs:
         with:
           directory: empty
           name: macOS (${{ matrix.python }})
-          flags: macOS,${{ matrix.python }}
+          flags: pytest,macOS,${{ matrix.python }}
           fail_ci_if_error: true
 
   # run CI on a musl linux
@@ -356,7 +366,7 @@ jobs:
         with:
           directory: empty
           name: Alpine
-          flags: Alpine,${{ steps.get-version.outputs.version }}
+          flags: pytest,Alpine,${{ steps.get-version.outputs.version }}
           fail_ci_if_error: true
 
   Cython:
@@ -416,7 +426,7 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           name: Cython
-          flags: Cython,${{ steps.get-version.outputs.version }}
+          flags: pytest,Cython,${{ steps.get-version.outputs.version }}
           fail_ci_if_error: true
 
   # https://github.com/marketplace/actions/alls-green#why
