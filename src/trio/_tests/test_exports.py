@@ -384,7 +384,9 @@ def test_static_tool_sees_class_members(
         elif tool == "mypy":
             # load the cached type information
             cached_type_info = cache_json["names"][class_name]
-            assert "node" not in cached_type_info, "previously this was an 'if' but it seems it's no longer possible for this cache to contain 'node', if this assert raises for you please let us know!"
+            assert (
+                "node" not in cached_type_info
+            ), "previously this was an 'if' but it seems it's no longer possible for this cache to contain 'node', if this assert raises for you please let us know!"
             cached_type_info = lookup_symbol(cached_type_info["cross_ref"])
 
             assert "node" in cached_type_info
