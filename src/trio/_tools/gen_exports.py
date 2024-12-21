@@ -180,7 +180,7 @@ def run_linters(file: File, source: str) -> str:
       SystemExit: If either failed.
     """
 
-    for fn in (run_black, run_ruff, run_black):
+    for fn in (run_black, run_ruff):
         success, source = fn(file, source)
         if not success:
             print(source)
