@@ -308,18 +308,16 @@ precision = 1
 skip_covered = true
 skip_empty = true
 show_missing = true
-exclude_lines = [
-    "pragma: no cover",
-    "abc.abstractmethod",
-    "if TYPE_CHECKING.*:",
-    "if _t.TYPE_CHECKING:",
-    "if t.TYPE_CHECKING:",
-    "@overload",
-    'class .*\bProtocol\b.*\):',
-    "raise NotImplementedError",
-]
 exclude_also = [
   '^\s*@pytest\.mark\.xfail',
+   "abc.abstractmethod",
+   "if TYPE_CHECKING.*:",
+   "if _t.TYPE_CHECKING:",
+   "if t.TYPE_CHECKING:",
+   "@overload",
+   'class .*\bProtocol\b.*\):',
+   "raise NotImplementedError",
+   'TODO: test this line'
 ]
 partial_branches = [
     "pragma: no branch",
@@ -329,4 +327,5 @@ partial_branches = [
     "if .* or not TYPE_CHECKING:",
     "if .* or not _t.TYPE_CHECKING:",
     "if .* or not t.TYPE_CHECKING:",
+   'TODO: test this branch',
 ]
