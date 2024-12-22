@@ -21,9 +21,13 @@ comment:
 
 coverage:
   # required range
-  range: 99.6..100
+  precision: 5
+  round: down
+  range: 100..100
   status:
-    # require patches to be 100%
-    patch:
+    project:
       default:
         target: 100%
+    patch:
+      default:
+        target: 100%  # require patches to be 100%

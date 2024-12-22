@@ -16,6 +16,7 @@ from typing import (
     Any,
     NoReturn,
 )
+from unittest import mock
 
 import pytest
 
@@ -81,13 +82,6 @@ else:
         return python(f"import time; time.sleep({seconds})")
 
 
-def got_signal(proc: Process, sig: SignalType) -> bool:
-    if (not TYPE_CHECKING and posix) or sys.platform != "win32":
-        return proc.returncode == -sig
-    else:
-        return proc.returncode != 0
-
-
 @asynccontextmanager  # type: ignore[misc]  # Any in decorated
 async def open_process_then_kill(
     *args: Any,
@@ -147,6 +141,26 @@ async def test_basic(background_process: BackgroundProcessType) -> None:
 
 
 @background_process_param
+async def test_basic_no_pidfd(background_process: BackgroundProcessType) -> None:
+    with mock.patch("trio._subprocess.can_try_pidfd_open", new=False):
+        async with background_process(EXIT_TRUE) as proc:
+            assert proc._pidfd is None
+            await proc.wait()
+        assert isinstance(proc, Process)
+        assert proc._pidfd is None
+        assert proc.returncode == 0
+        assert repr(proc) == f"<trio.Process {EXIT_TRUE}: exited with status 0>"
+
+        async with background_process(EXIT_FALSE) as proc:
+            await proc.wait()
+        assert proc.returncode == 1
+        assert repr(proc) == "<trio.Process {!r}: {}>".format(
+            EXIT_FALSE,
+            "exited with status 1",
+        )
+
+
+@background_process_param
 async def test_auto_update_returncode(
     background_process: BackgroundProcessType,
 ) -> None:
@@ -179,6 +193,27 @@ async def test_multi_wait(background_process: BackgroundProcessType) -> None:
             nursery.start_soon(proc.wait)
             await wait_all_tasks_blocked()
             proc.kill()
+
+
+@background_process_param
+async def test_multi_wait_no_pidfd(background_process: BackgroundProcessType) -> None:
+    with mock.patch("trio._subprocess.can_try_pidfd_open", new=False):
+        async with background_process(SLEEP(10)) as proc:
+            # Check that wait (including multi-wait) tolerates being cancelled
+            async with _core.open_nursery() as nursery:
+                nursery.start_soon(proc.wait)
+                nursery.start_soon(proc.wait)
+                nursery.start_soon(proc.wait)
+                await wait_all_tasks_blocked()
+                nursery.cancel_scope.cancel()
+
+            # Now try waiting for real
+            async with _core.open_nursery() as nursery:
+                nursery.start_soon(proc.wait)
+                nursery.start_soon(proc.wait)
+                nursery.start_soon(proc.wait)
+                await wait_all_tasks_blocked()
+                proc.kill()
 
 
 COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR = python(
@@ -522,6 +557,31 @@ async def test_wait_reapable_fails(background_process: BackgroundProcessType) ->
             assert proc.returncode == 0  # exit status unknowable, so...
     finally:
         signal.signal(signal.SIGCHLD, old_sigchld)
+
+
+@pytest.mark.skipif(not posix, reason="POSIX specific")
+@background_process_param
+async def test_wait_reapable_fails_no_pidfd(
+    background_process: BackgroundProcessType,
+) -> None:
+    if TYPE_CHECKING and sys.platform == "win32":
+        return
+    with mock.patch("trio._subprocess.can_try_pidfd_open", new=False):
+        old_sigchld = signal.signal(signal.SIGCHLD, signal.SIG_IGN)
+        try:
+            # With SIGCHLD disabled, the wait() syscall will wait for the
+            # process to exit but then fail with ECHILD. Make sure we
+            # support this case as the stdlib subprocess module does.
+            async with background_process(SLEEP(3600)) as proc:
+                async with _core.open_nursery() as nursery:
+                    nursery.start_soon(proc.wait)
+                    await wait_all_tasks_blocked()
+                    proc.kill()
+                    nursery.cancel_scope.deadline = _core.current_time() + 1.0
+                assert not nursery.cancel_scope.cancelled_caught
+                assert proc.returncode == 0  # exit status unknowable, so...
+        finally:
+            signal.signal(signal.SIGCHLD, old_sigchld)
 
 
 @slow

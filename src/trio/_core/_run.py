@@ -115,7 +115,8 @@ _ALLOW_DETERMINISTIC_SCHEDULING: Final = False
 _r = random.Random()
 
 
-def _hypothesis_plugin_setup() -> None:
+# no cover because we don't check the hypothesis plugin works with hypothesis
+def _hypothesis_plugin_setup() -> None:  # pragma: no cover
     from hypothesis import register_random
 
     global _ALLOW_DETERMINISTIC_SCHEDULING

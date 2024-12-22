@@ -58,7 +58,7 @@ def worst_case_mtu(sock: SocketType) -> int:
     if sock.family == trio.socket.AF_INET:
         return 576 - packet_header_overhead(sock)
     else:
-        return 1280 - packet_header_overhead(sock)
+        return 1280 - packet_header_overhead(sock)  # TODO: test this line
 
 
 def best_guess_mtu(sock: SocketType) -> int:
@@ -222,7 +222,7 @@ def decode_handshake_fragment_untrusted(payload: bytes) -> HandshakeFragment:
             frag_offset_bytes,
             frag_len_bytes,
         ) = HANDSHAKE_MESSAGE_HEADER.unpack_from(payload)
-    except struct.error as exc:
+    except struct.error as exc:  # TODO: test this line
         raise BadPacket("bad handshake message header") from exc
     # 'struct' doesn't have built-in support for 24-bit integers, so we
     # have to do it by hand. These can't fail.
@@ -425,14 +425,14 @@ class RecordEncoder:
         for message in messages:
             if isinstance(message, OpaqueHandshakeMessage):
                 encoded = encode_record(message.record)
-                if mtu - len(packet) - len(encoded) <= 0:
+                if mtu - len(packet) - len(encoded) <= 0:  # TODO: test this line
                     packets.append(packet)
                     packet = bytearray()
                 packet += encoded
                 assert len(packet) <= mtu
             elif isinstance(message, PseudoHandshakeMessage):
                 space = mtu - len(packet) - RECORD_HEADER.size - len(message.payload)
-                if space <= 0:
+                if space <= 0:  # TODO: test this line
                     packets.append(packet)
                     packet = bytearray()
                 packet += RECORD_HEADER.pack(
@@ -1039,7 +1039,7 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
                             if (
                                 isinstance(maybe_volley[0], PseudoHandshakeMessage)
                                 and maybe_volley[0].content_type == ContentType.alert
-                            ):
+                            ):  # TODO: test this line
                                 # we're sending an alert (e.g. due to a corrupted
                                 # packet). We want to send it once, but don't save it to
                                 # retransmit -- keep the last volley as the current
@@ -1326,9 +1326,8 @@ class DTLSEndpoint:
             raise trio.BusyResourceError("another task is already listening")
         try:
             self.socket.getsockname()
-        except OSError:
-            # TODO: Write test that triggers this
-            raise RuntimeError(  # pragma: no cover
+        except OSError:  # TODO: test this line
+            raise RuntimeError(
                 "DTLS socket must be bound before it can serve",
             ) from None
         self._ensure_receive_loop()
