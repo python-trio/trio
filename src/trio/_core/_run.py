@@ -115,7 +115,8 @@ _ALLOW_DETERMINISTIC_SCHEDULING: Final = False
 _r = random.Random()
 
 
-def _hypothesis_plugin_setup() -> None:
+# no cover because we don't check the hypothesis plugin works with hypothesis
+def _hypothesis_plugin_setup() -> None:  # pragma: no cover
     from hypothesis import register_random
 
     global _ALLOW_DETERMINISTIC_SCHEDULING
@@ -543,9 +544,13 @@ class CancelScope:
     cancelled_caught: bool = attrs.field(default=False, init=False)
 
     # Constructor arguments:
-    _relative_deadline: float = attrs.field(default=inf, kw_only=True)
-    _deadline: float = attrs.field(default=inf, kw_only=True)
-    _shield: bool = attrs.field(default=False, kw_only=True)
+    _relative_deadline: float = attrs.field(
+        default=inf,
+        kw_only=True,
+        alias="relative_deadline",
+    )
+    _deadline: float = attrs.field(default=inf, kw_only=True, alias="deadline")
+    _shield: bool = attrs.field(default=False, kw_only=True, alias="shield")
 
     def __attrs_post_init__(self) -> None:
         if isnan(self._deadline):
@@ -941,7 +946,7 @@ class _TaskStatus(TaskStatus[StatusT]):
     def started(self, value: StatusT | None = None) -> None:
         if self._value is not _NoStatus:
             raise RuntimeError("called 'started' twice on the same task status")
-        self._value = cast(StatusT, value)  # If None, StatusT == None
+        self._value = cast("StatusT", value)  # If None, StatusT == None
 
         # If the old nursery is cancelled, then quietly quit now; the child
         # will eventually exit on its own, and we don't want to risk moving
@@ -2411,7 +2416,7 @@ def run(
     # cluttering every single Trio traceback with an extra frame.
     try:
         if isinstance(runner.main_task_outcome, Value):
-            return cast(RetT, runner.main_task_outcome.value)
+            return cast("RetT", runner.main_task_outcome.value)
         elif isinstance(runner.main_task_outcome, Error):
             raise runner.main_task_outcome.error
         else:  # pragma: no cover
@@ -2537,7 +2542,7 @@ def start_guest_run(  # type: ignore[misc]
     # this time, so it shouldn't be possible to get an exception here,
     # except for a TrioInternalError.
     next_send = cast(
-        EventResult,
+        "EventResult",
         None,
     )  # First iteration must be `None`, every iteration after that is EventResult
     for _tick in range(5):  # expected need is 2 iterations + leave some wiggle room
@@ -2960,6 +2965,13 @@ elif TYPE_CHECKING or hasattr(select, "kqueue"):
         _KqueueStatistics as IOStatistics,
     )
 else:  # pragma: no cover
+    _patchers = sorted({"eventlet", "gevent"}.intersection(sys.modules))
+    if _patchers:
+        raise NotImplementedError(
+            "unsupported platform or primitives trio depends on are monkey-patched out by "
+            + ", ".join(_patchers),
+        )
+
     raise NotImplementedError("unsupported platform")
 
 from ._generated_instrumentation import *

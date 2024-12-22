@@ -81,7 +81,7 @@ class KqueueIOManager:
             events += batch
             if len(batch) < max_events:
                 break
-            else:
+            else:  # TODO: test this line
                 timeout = 0
                 # and loop back to the start
         return events
@@ -93,12 +93,12 @@ class KqueueIOManager:
                 self._force_wakeup.drain()
                 continue
             receiver = self._registered[key]
-            if event.flags & select.KQ_EV_ONESHOT:
+            if event.flags & select.KQ_EV_ONESHOT:  # TODO: test this branch
                 del self._registered[key]
             if isinstance(receiver, _core.Task):
                 _core.reschedule(receiver, outcome.Value(event))
             else:
-                receiver.put_nowait(event)
+                receiver.put_nowait(event)  # TODO: test this line
 
     # kevent registration is complicated -- e.g. aio submission can
     # implicitly perform a EV_ADD, and EVFILT_PROC with NOTE_TRACK will
@@ -162,7 +162,7 @@ class KqueueIOManager:
 
         def abort(raise_cancel: RaiseCancelT) -> Abort:
             r = abort_func(raise_cancel)
-            if r is _core.Abort.SUCCEEDED:
+            if r is _core.Abort.SUCCEEDED:  # TODO: test this branch
                 del self._registered[key]
             return r
 

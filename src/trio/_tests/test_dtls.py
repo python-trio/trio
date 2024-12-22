@@ -75,7 +75,9 @@ async def dtls_echo_server(
                     print("server starting do_handshake")
                     await dtls_channel.do_handshake()
                     print("server finished do_handshake")
-                    async for packet in dtls_channel:
+                    # no branch for leaving this for loop because we only leave
+                    # a channel by cancellation.
+                    async for packet in dtls_channel:  # pragma: no branch
                         print(f"echoing {packet!r} -> {dtls_channel.peer_address!r}")
                         await dtls_channel.send(packet)
                 except trio.BrokenResourceError:  # pragma: no cover

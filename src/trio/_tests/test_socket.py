@@ -376,9 +376,7 @@ async def test_sniff_sockopts() -> None:
     from socket import AF_INET, AF_INET6, SOCK_DGRAM, SOCK_STREAM
 
     # generate the combinations of families/types we're testing:
-    families = [AF_INET]
-    if can_create_ipv6:
-        families.append(AF_INET6)
+    families = (AF_INET, AF_INET6) if can_create_ipv6 else (AF_INET,)
     sockets = [
         stdlib_socket.socket(family, type_)
         for family in families
@@ -458,6 +456,12 @@ async def test_SocketType_basics() -> None:
     sock.close()
 
 
+@pytest.mark.xfail(
+    sys.platform == "darwin" and sys.version_info[:3] == (3, 13, 1),
+    reason="TODO: This started failing in CI after 3.13.1",
+    raises=OSError,
+    strict=True,
+)
 async def test_SocketType_setsockopt() -> None:
     sock = tsocket.socket()
     with sock as _:
@@ -655,7 +659,7 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
                     local=local,  # noqa: B023  # local is not bound in function definition
                 )
                 assert isinstance(value, tuple)
-                return cast(tuple[Union[str, int], ...], value)
+                return cast("tuple[Union[str, int], ...]", value)
 
             assert_eq(await res((addrs.arbitrary, "http")), (addrs.arbitrary, 80))
             if v6:

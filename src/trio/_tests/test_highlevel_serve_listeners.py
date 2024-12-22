@@ -102,7 +102,7 @@ async def test_serve_listeners_basic() -> None:
             listeners,
         )
         assert isinstance(value, list)
-        l2 = cast(list[MemoryListener], value)
+        l2 = cast("list[MemoryListener]", value)
         assert l2 == listeners
         # This is just split into another function because gh-136 isn't
         # implemented yet
