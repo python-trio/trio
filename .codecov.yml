@@ -1,0 +1,33 @@
+# -- repository yaml --
+
+# Explicitly wait for all jobs to finish, as wait_for_ci prematurely triggers.
+# See https://github.com/python-trio/trio/issues/2689
+codecov:
+  notify:
+    # This number needs to be changed whenever the number of runs in CI is changed.
+    # Another option is codecov-cli: https://github.com/codecov/codecov-cli#send-notifications
+    after_n_builds: 31
+    wait_for_ci: false
+    notify_error: true # if uploads fail, replace cov comment with a comment with errors.
+  require_ci_to_pass: false
+
+  # Publicly exposing the token has some small risks from mistakes or malicious actors.
+  # See https://docs.codecov.com/docs/codecov-tokens for correctly configuring it.
+  token: 87cefb17-c44b-4f2f-8b30-1fff5769ce46
+
+# only post PR comment if coverage changes
+comment:
+  require_changes: true
+
+coverage:
+  # required range
+  precision: 5
+  round: down
+  range: 100..100
+  status:
+    project:
+      default:
+        target: 100%
+    patch:
+      default:
+        target: 100%  # require patches to be 100%

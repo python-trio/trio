@@ -115,7 +115,7 @@ async def test_context_shields_from_outer(scope: TimeoutScope) -> None:
         outer.cancel()
         try:
             await trio.lowlevel.checkpoint()
-        except trio.Cancelled:
+        except trio.Cancelled:  # pragma: no cover
             pytest.fail("shield didn't work")
         inner.shield = False
         with pytest.raises(trio.Cancelled):

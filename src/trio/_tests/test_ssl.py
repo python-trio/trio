@@ -210,27 +210,11 @@ class PyOpenSSLEchoStream(Stream):
         # we still have to support versions before that, and that means we
         # need to test renegotiation support, which means we need to force this
         # to use a lower version where this test server can trigger
-        # renegotiations. Of course TLS 1.3 support isn't released yet, but
-        # I'm told that this will work once it is. (And once it is we can
-        # remove the pragma: no cover too.) Alternatively, we could switch to
-        # using TLSv1_2_METHOD.
-        #
-        # Discussion: https://github.com/pyca/pyopenssl/issues/624
-
-        # This is the right way, but we can't use it until this PR is in a
-        # released:
-        #     https://github.com/pyca/pyopenssl/pull/861
-        #
-        # if hasattr(SSL, "OP_NO_TLSv1_3"):
-        #     ctx.set_options(SSL.OP_NO_TLSv1_3)
-        #
-        # Fortunately pyopenssl uses cryptography under the hood, so we can be
-        # confident that they're using the same version of openssl
+        # renegotiations.
         from cryptography.hazmat.bindings.openssl.binding import Binding
 
         b = Binding()
-        if hasattr(b.lib, "SSL_OP_NO_TLSv1_3"):
-            ctx.set_options(b.lib.SSL_OP_NO_TLSv1_3)
+        ctx.set_options(b.lib.SSL_OP_NO_TLSv1_3)
 
         # Unfortunately there's currently no way to say "use 1.3 or worse", we
         # can only disable specific versions. And if the two sides start
