@@ -11,6 +11,12 @@ if [ -z "${GITHUB_STEP_SUMMARY+x}" ]; then
     ON_GITHUB_CI=false
 fi
 
+# Test if the generated code is still up to date
+echo "::group::Generate Exports"
+python ./src/trio/_tools/gen_exports.py --test \
+    || EXIT_STATUS=$?
+echo "::endgroup::"
+
 # Run mypy on all supported platforms
 # MYPY is set if any of them fail.
 MYPY=0

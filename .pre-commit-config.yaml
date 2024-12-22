@@ -2,7 +2,9 @@ ci:
   autofix_prs: true
   autoupdate_schedule: weekly
   submodules: false
-  skip: ["pip-compile"]
+  # pip-compile requires internet, regenerate-files may get cache
+  # issues in CI, so they're run in check.sh
+  skip: [pip-compile, regenerate-files]
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
