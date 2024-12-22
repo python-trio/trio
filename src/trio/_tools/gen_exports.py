@@ -180,22 +180,13 @@ def run_linters(file: File, source: str) -> str:
       SystemExit: If either failed.
     """
 
-    success, response = run_black(file, source)
-    if not success:
-        print(response)
-        sys.exit(1)
+    for fn in (run_black, run_ruff):
+        success, source = fn(file, source)
+        if not success:
+            print(source)
+            sys.exit(1)
 
-    success, response = run_ruff(file, response)
-    if not success:  # pragma: no cover  # Test for run_ruff should catch
-        print(response)
-        sys.exit(1)
-
-    success, response = run_black(file, response)
-    if not success:
-        print(response)
-        sys.exit(1)
-
-    return response
+    return source
 
 
 def gen_public_wrappers_source(file: File) -> str:
@@ -204,9 +195,7 @@ def gen_public_wrappers_source(file: File) -> str:
 
     """
     header = [HEADER]
-
-    if file.imports:
-        header.append(file.imports)
+    header.append(file.imports)
     if file.platform:
         # Simple checks to avoid repeating imports. If this messes up, type checkers/tests will
         # just give errors.
@@ -304,7 +293,7 @@ def process(files: Iterable[File], *, do_test: bool) -> None:
             with open(new_path, "w", encoding="utf-8", newline="\n") as fp:
                 fp.write(new_source)
         print("Regenerated sources successfully.")
-        if not matches_disk:
+        if not matches_disk:  # TODO: test this branch
             # With pre-commit integration, show that we edited files.
             sys.exit(1)
 
