@@ -5,6 +5,63 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.27.0 (2024-10-17)
+------------------------
+
+Breaking changes
+~~~~~~~~~~~~~~~~
+
+- :func:`trio.move_on_after` and :func:`trio.fail_after` previously set the deadline relative to initialization time, instead of more intuitively upon entering the context manager. This might change timeouts if a program relied on this behavior. If you want to restore previous behavior you should instead use ``trio.move_on_at(trio.current_time() + ...)``.
+  flake8-async has a new rule to catch this, in case you're supporting older trio versions. See :ref:`ASYNC122`. (`#2512 <https://github.com/python-trio/trio/issues/2512>`__)
+
+
+Features
+~~~~~~~~
+
+- :meth:`CancelScope.relative_deadline` and :meth:`CancelScope.is_relative` added, as well as a ``relative_deadline`` parameter to ``__init__``. This allows initializing scopes ahead of time, but where the specified relative deadline doesn't count down until the scope is entered. (`#2512 <https://github.com/python-trio/trio/issues/2512>`__)
+- :class:`trio.Lock` and :class:`trio.StrictFIFOLock` will now raise :exc:`trio.BrokenResourceError` when :meth:`trio.Lock.acquire` would previously stall due to the owner of the lock exiting without releasing the lock. (`#3035 <https://github.com/python-trio/trio/issues/3035>`__)
+- `trio.move_on_at`, `trio.move_on_after`, `trio.fail_at` and `trio.fail_after` now accept *shield* as a keyword argument. If specified, it provides an initial value for the `~trio.CancelScope.shield` attribute of the `trio.CancelScope` object created by the context manager. (`#3052 <https://github.com/python-trio/trio/issues/3052>`__)
+- Added :func:`trio.lowlevel.add_parking_lot_breaker` and :func:`trio.lowlevel.remove_parking_lot_breaker` to allow creating custom lock/semaphore implementations that will break their underlying parking lot if a task exits unexpectedly. :meth:`trio.lowlevel.ParkingLot.break_lot` is also added, to allow breaking a parking lot intentionally. (`#3081 <https://github.com/python-trio/trio/issues/3081>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Allow sockets to bind any ``os.PathLike`` object. (`#3041 <https://github.com/python-trio/trio/issues/3041>`__)
+- Update ``trio.lowlevel.open_process``'s documentation to allow bytes. (`#3076 <https://github.com/python-trio/trio/issues/3076>`__)
+- Update :func:`trio.sleep_forever` to be `NoReturn`. (`#3095 <https://github.com/python-trio/trio/issues/3095>`__)
+
+
+Improved documentation
+~~~~~~~~~~~~~~~~~~~~~~
+
+- Add docstrings for memory channels' ``statistics()`` and ``aclose`` methods. (`#3101 <https://github.com/python-trio/trio/issues/3101>`__)
+
+
+Trio 0.26.2 (2024-08-08)
+------------------------
+
+Bugfixes
+~~~~~~~~
+
+- Remove remaining ``hash`` usage and fix test configuration issue that prevented it from being caught. (`#3053 <https://github.com/python-trio/trio/issues/3053>`__)
+
+
+Trio 0.26.1 (2024-08-05)
+------------------------
+
+Bugfixes
+~~~~~~~~
+
+- Switched ``attrs`` usage off of ``hash``, which is now deprecated. (`#3053 <https://github.com/python-trio/trio/issues/3053>`__)
+
+
+Miscellaneous internal changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Use PyPI's Trusted Publishers to make releases. (`#2980 <https://github.com/python-trio/trio/issues/2980>`__)
+
+
 Trio 0.26.0 (2024-07-05)
 ------------------------
 
@@ -117,7 +174,7 @@ Trio 0.23.2 (2023-12-14)
 Features
 ~~~~~~~~
 
-- `TypeVarTuple <https://docs.python.org/3.12/library/typing.html#typing.TypeVarTuple>`_ is now used to fully type :meth:`nursery.start_soon() <trio.Nursery.start_soon>`, :func:`trio.run()`, :func:`trio.to_thread.run_sync()`, and other similar functions accepting ``(func, *args)``. This means type checkers will be able to verify types are used correctly. :meth:`nursery.start() <trio.Nursery.start>` is not fully typed yet however. (`#2881 <https://github.com/python-trio/trio/issues/2881>`__)
+- `TypeVarTuple <https://docs.python.org/3.12/library/typing.html#typing.TypeVarTuple>`_ is now used to fully type :meth:`nursery.start_soon() <trio.Nursery.start_soon>`, :func:`trio.run`, :func:`trio.to_thread.run_sync`, and other similar functions accepting ``(func, *args)``. This means type checkers will be able to verify types are used correctly. :meth:`nursery.start() <trio.Nursery.start>` is not fully typed yet however. (`#2881 <https://github.com/python-trio/trio/issues/2881>`__)
 
 
 Bugfixes
@@ -976,7 +1033,7 @@ Bugfixes
 - Fixed a race condition on macOS, where Trio's TCP listener would crash if an
   incoming TCP connection was closed before the listener had a chance to accept
   it. (`#609 <https://github.com/python-trio/trio/issues/609>`__)
-- :func:`trio.open_tcp_stream()` has been refactored to clean up unsuccessful
+- :func:`trio.open_tcp_stream` has been refactored to clean up unsuccessful
   connection attempts more reliably. (`#809
   <https://github.com/python-trio/trio/issues/809>`__)
 

@@ -1,8 +1,11 @@
-import signal
+from __future__ import annotations
+
 import sys
 import types
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator, Coroutine, Generator
 import pytest
 
 import trio
@@ -21,25 +24,13 @@ from .._util import (
     fixup_module_metadata,
     generic_function,
     is_main_thread,
-    signal_raise,
 )
 from ..testing import wait_all_tasks_blocked
 
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
+
 T = TypeVar("T")
-
-
-def test_signal_raise() -> None:
-    record = []
-
-    def handler(signum: int, _: object) -> None:
-        record.append(signum)
-
-    old = signal.signal(signal.SIGFPE, handler)
-    try:
-        signal_raise(signal.SIGFPE)
-    finally:
-        signal.signal(signal.SIGFPE, old)
-    assert record == [signal.SIGFPE]
 
 
 async def test_ConflictDetector() -> None:
@@ -116,9 +107,11 @@ def test_coroutine_or_error() -> None:
         import asyncio
 
         if sys.version_info < (3, 11):
-            # not bothering to type this one
-            @asyncio.coroutine  # type: ignore[misc]
-            def generator_based_coro() -> Any:  # pragma: no cover
+
+            @asyncio.coroutine
+            def generator_based_coro() -> (
+                Generator[Coroutine[None, None, None], None, None]
+            ):  # pragma: no cover
                 yield from asyncio.sleep(1)
 
             with pytest.raises(TypeError) as excinfo:
@@ -147,12 +140,13 @@ def test_coroutine_or_error() -> None:
 
         assert "appears to be synchronous" in str(excinfo.value)
 
-        async def async_gen(_: object) -> Any:  # pragma: no cover
+        async def async_gen(
+            _: object,
+        ) -> AsyncGenerator[None, None]:  # pragma: no cover
             yield
 
-        # does not give arg-type typing error
         with pytest.raises(TypeError) as excinfo:
-            coroutine_or_error(async_gen, [0])  # type: ignore[unused-coroutine]
+            coroutine_or_error(async_gen, [0])  # type: ignore[arg-type,unused-coroutine]
         msg = "expected an async function but got an async generator"
         assert msg in str(excinfo.value)
 
@@ -198,13 +192,13 @@ def test_no_public_constructor_metaclass() -> None:
         def __init__(self, a: int, b: float) -> None:
             """Check arguments can be passed to __init__."""
             assert a == 8
-            assert b == 3.14
+            assert b == 3.15
 
     with pytest.raises(TypeError):
-        SpecialClass(8, 3.14)
+        SpecialClass(8, 3.15)
 
     # Private constructor should not raise, and passes args to __init__.
-    assert isinstance(SpecialClass._create(8, b=3.14), SpecialClass)
+    assert isinstance(SpecialClass._create(8, b=3.15), SpecialClass)
 
 
 def test_fixup_module_metadata() -> None:

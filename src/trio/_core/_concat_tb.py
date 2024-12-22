@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from types import TracebackType
-from typing import Any, ClassVar, cast
+from typing import TYPE_CHECKING, ClassVar, cast
+
+if TYPE_CHECKING:
+    from types import TracebackType
 
 ################################################################
 # concat_tb
@@ -86,7 +88,9 @@ else:
     def copy_tb(base_tb: TracebackType, tb_next: TracebackType | None) -> TracebackType:
         # tputil.ProxyOperation is PyPy-only, and there's no way to specify
         # cpython/pypy in current type checkers.
-        def controller(operation: tputil.ProxyOperation) -> Any | None:  # type: ignore[no-any-unimported]
+        def controller(  # type: ignore[no-any-unimported]
+            operation: tputil.ProxyOperation,
+        ) -> TracebackType | None:
             # Rationale for pragma: I looked fairly carefully and tried a few
             # things, and AFAICT it's not actually possible to get any
             # 'opname' that isn't __getattr__ or __getattribute__. So there's
@@ -99,12 +103,14 @@ else:
                     "__getattr__",
                 }
                 and operation.args[0] == "tb_next"
-            ):  # pragma: no cover
+            ) or TYPE_CHECKING:  # pragma: no cover
                 return tb_next
-            return operation.delegate()  # Delegate is reverting to original behaviour
+            # Delegate is reverting to original behaviour
+            return operation.delegate()  # type: ignore[no-any-return]
 
         return cast(
-            TracebackType, tputil.make_proxy(controller, type(base_tb), base_tb)
+            "TracebackType",
+            tputil.make_proxy(controller, type(base_tb), base_tb),
         )  # Returns proxy to traceback
 
 
@@ -112,7 +118,8 @@ else:
 # `strict_exception_groups=False`. Once that is retired this function and its helper can
 # be removed as well.
 def concat_tb(
-    head: TracebackType | None, tail: TracebackType | None
+    head: TracebackType | None,
+    tail: TracebackType | None,
 ) -> TracebackType | None:
     # We have to use an iterative algorithm here, because in the worst case
     # this might be a RecursionError stack that is by definition too deep to

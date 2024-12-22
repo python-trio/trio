@@ -5,7 +5,7 @@ import math
 import select
 import sys
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Callable, Iterator, Literal
+from typing import TYPE_CHECKING, Literal
 
 import attrs
 import outcome
@@ -15,6 +15,8 @@ from ._run import _public
 from ._wakeup_socketpair import WakeupSocketpair
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
+
     from typing_extensions import TypeAlias
 
     from .._channel import MemoryReceiveChannel, MemorySendChannel
@@ -44,7 +46,9 @@ class KqueueIOManager:
 
     def __attrs_post_init__(self) -> None:
         force_wakeup_event = select.kevent(
-            self._force_wakeup.wakeup_sock, select.KQ_FILTER_READ, select.KQ_EV_ADD
+            self._force_wakeup.wakeup_sock,
+            select.KQ_FILTER_READ,
+            select.KQ_EV_ADD,
         )
         self._kqueue.control([force_wakeup_event], 0)
         self._force_wakeup_fd = self._force_wakeup.wakeup_sock.fileno()
@@ -78,7 +82,7 @@ class KqueueIOManager:
             events += batch
             if len(batch) < max_events:
                 break
-            else:
+            else:  # TODO: test this line
                 timeout = 0
                 # and loop back to the start
         return events
@@ -90,12 +94,12 @@ class KqueueIOManager:
                 self._force_wakeup.drain()
                 continue
             receiver = self._registered[key]
-            if event.flags & select.KQ_EV_ONESHOT:
+            if event.flags & select.KQ_EV_ONESHOT:  # TODO: test this branch
                 del self._registered[key]
             if isinstance(receiver, _core.Task):
                 _core.reschedule(receiver, outcome.Value(event))
             else:
-                receiver.send_nowait(event)
+                receiver.send_nowait(event)  # TODO: test this line
 
     # kevent registration is complicated -- e.g. aio submission can
     # implicitly perform a EV_ADD, and EVFILT_PROC with NOTE_TRACK will
@@ -130,7 +134,7 @@ class KqueueIOManager:
         key = (ident, filter)
         if key in self._registered:
             raise _core.BusyResourceError(
-                "attempt to register multiple listeners for same ident/filter pair"
+                "attempt to register multiple listeners for same ident/filter pair",
             )
         send, recv = open_memory_channel[select.kevent](math.inf)
         self._registered[key] = send
@@ -154,13 +158,13 @@ class KqueueIOManager:
         key = (ident, filter)
         if key in self._registered:
             raise _core.BusyResourceError(
-                "attempt to register multiple listeners for same ident/filter pair"
+                "attempt to register multiple listeners for same ident/filter pair",
             )
         self._registered[key] = _core.current_task()
 
         def abort(raise_cancel: RaiseCancelT) -> Abort:
             r = abort_func(raise_cancel)
-            if r is _core.Abort.SUCCEEDED:
+            if r is _core.Abort.SUCCEEDED:  # TODO: test this branch
                 del self._registered[key]
             return r
 

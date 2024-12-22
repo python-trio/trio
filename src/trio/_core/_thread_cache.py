@@ -7,9 +7,12 @@ import traceback
 from functools import partial
 from itertools import count
 from threading import Lock, Thread
-from typing import Any, Callable, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 import outcome
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 RetT = TypeVar("RetT")
 
@@ -23,7 +26,9 @@ def _to_os_thread_name(name: str) -> bytes:
 # called once on import
 def get_os_thread_name_func() -> Callable[[int | None, str], None] | None:
     def namefunc(
-        setname: Callable[[int, bytes], int], ident: int | None, name: str
+        setname: Callable[[int, bytes], int],
+        ident: int | None,
+        name: str,
     ) -> None:
         # Thread.ident is None "if it has not been started". Unclear if that can happen
         # with current usage.
@@ -33,7 +38,9 @@ def get_os_thread_name_func() -> Callable[[int | None, str], None] | None:
     # namefunc on Mac also takes an ident, even if pthread_setname_np doesn't/can't use it
     # so the caller don't need to care about platform.
     def darwin_namefunc(
-        setname: Callable[[bytes], int], ident: int | None, name: str
+        setname: Callable[[bytes], int],
+        ident: int | None,
+        name: str,
     ) -> None:
         # I don't know if Mac can rename threads that hasn't been started, but default
         # to no to be on the safe side.
@@ -122,6 +129,8 @@ name_counter = count()
 
 
 class WorkerThread(Generic[RetT]):
+    __slots__ = ("_default_name", "_job", "_thread", "_thread_cache", "_worker_lock")
+
     def __init__(self, thread_cache: ThreadCache) -> None:
         self._job: (
             tuple[
@@ -203,8 +212,11 @@ class WorkerThread(Generic[RetT]):
 
 
 class ThreadCache:
+    __slots__ = ("_idle_workers",)
+
     def __init__(self) -> None:
-        self._idle_workers: dict[WorkerThread[Any], None] = {}
+        # Explicit "Any" not allowed
+        self._idle_workers: dict[WorkerThread[Any], None] = {}  # type: ignore[misc]
 
     def start_thread_soon(
         self,

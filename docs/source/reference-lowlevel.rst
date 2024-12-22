@@ -377,6 +377,46 @@ These transitions are accomplished using two function decorators:
    poorly-timed :exc:`KeyboardInterrupt` could leave the lock in an
    inconsistent state and cause a deadlock.
 
+   Since KeyboardInterrupt protection is tracked per code object, any attempt to
+   conditionally protect the same block of code in different ways is unlikely to behave
+   how you expect. If you try to conditionally protect a closure, it will be
+   unconditionally protected instead::
+
+       def example(protect: bool) -> bool:
+           def inner() -> bool:
+               return trio.lowlevel.currently_ki_protected()
+           if protect:
+               inner = trio.lowlevel.enable_ki_protection(inner)
+           return inner()
+
+       async def amain():
+           assert example(False) == False
+           assert example(True) == True  # once protected ...
+           assert example(False) == True  # ... always protected
+
+       trio.run(amain)
+
+   If you really need conditional protection, you can achieve it by giving each
+   KI-protected instance of the closure its own code object::
+
+       def example(protect: bool) -> bool:
+           def inner() -> bool:
+               return trio.lowlevel.currently_ki_protected()
+           if protect:
+               inner.__code__ = inner.__code__.replace()
+               inner = trio.lowlevel.enable_ki_protection(inner)
+           return inner()
+
+       async def amain():
+           assert example(False) == False
+           assert example(True) == True
+           assert example(False) == False
+
+       trio.run(amain)
+
+   (This isn't done by default because it carries some memory overhead and reduces
+   the potential for specializing optimizations in recent versions of CPython.)
+
 .. autofunction:: currently_ki_protected
 
 
@@ -392,6 +432,10 @@ Wait queue abstraction
 
 .. autoclass:: ParkingLotStatistics
    :members:
+
+.. autofunction:: add_parking_lot_breaker
+
+.. autofunction:: remove_parking_lot_breaker
 
 Low-level checkpoint functions
 ------------------------------

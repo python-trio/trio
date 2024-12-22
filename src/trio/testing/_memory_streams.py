@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import operator
-from typing import TYPE_CHECKING, Awaitable, Callable, TypeVar
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, TypeVar
 
 from .. import _core, _util
 from .._highlevel_generic import StapledStream
@@ -29,7 +30,7 @@ class _UnboundedByteQueue:
         self._closed = False
         self._lot = _core.ParkingLot()
         self._fetch_lock = _util.ConflictDetector(
-            "another task is already fetching data"
+            "another task is already fetching data",
         )
 
     # This object treats "close" as being like closing the send side of a
@@ -113,9 +114,9 @@ class MemorySendStream(SendStream):
         send_all_hook: AsyncHook | None = None,
         wait_send_all_might_not_block_hook: AsyncHook | None = None,
         close_hook: SyncHook | None = None,
-    ):
+    ) -> None:
         self._conflict_detector = _util.ConflictDetector(
-            "another task is using this stream"
+            "another task is using this stream",
         )
         self._outgoing = _UnboundedByteQueue()
         self.send_all_hook = send_all_hook
@@ -223,9 +224,9 @@ class MemoryReceiveStream(ReceiveStream):
         self,
         receive_some_hook: AsyncHook | None = None,
         close_hook: SyncHook | None = None,
-    ):
+    ) -> None:
         self._conflict_detector = _util.ConflictDetector(
-            "another task is using this stream"
+            "another task is using this stream",
         )
         self._incoming = _UnboundedByteQueue()
         self._closed = False
@@ -347,7 +348,8 @@ def memory_stream_one_way_pair() -> tuple[MemorySendStream, MemoryReceiveStream]
     def pump_from_send_stream_to_recv_stream() -> None:
         memory_stream_pump(send_stream, recv_stream)
 
-    async def async_pump_from_send_stream_to_recv_stream() -> None:
+    # await not used
+    async def async_pump_from_send_stream_to_recv_stream() -> None:  # noqa: RUF029
         pump_from_send_stream_to_recv_stream()
 
     send_stream.send_all_hook = async_pump_from_send_stream_to_recv_stream
@@ -356,7 +358,7 @@ def memory_stream_one_way_pair() -> tuple[MemorySendStream, MemoryReceiveStream]
 
 
 def _make_stapled_pair(
-    one_way_pair: Callable[[], tuple[SendStreamT, ReceiveStreamT]]
+    one_way_pair: Callable[[], tuple[SendStreamT, ReceiveStreamT]],
 ) -> tuple[
     StapledStream[SendStreamT, ReceiveStreamT],
     StapledStream[SendStreamT, ReceiveStreamT],
@@ -461,10 +463,10 @@ class _LockstepByteQueue:
         self._receiver_waiting = False
         self._waiters = _core.ParkingLot()
         self._send_conflict_detector = _util.ConflictDetector(
-            "another task is already sending"
+            "another task is already sending",
         )
         self._receive_conflict_detector = _util.ConflictDetector(
-            "another task is already receiving"
+            "another task is already receiving",
         )
 
     def _something_happened(self) -> None:
@@ -548,7 +550,7 @@ class _LockstepByteQueue:
 
 
 class _LockstepSendStream(SendStream):
-    def __init__(self, lbq: _LockstepByteQueue):
+    def __init__(self, lbq: _LockstepByteQueue) -> None:
         self._lbq = lbq
 
     def close(self) -> None:
@@ -566,7 +568,7 @@ class _LockstepSendStream(SendStream):
 
 
 class _LockstepReceiveStream(ReceiveStream):
-    def __init__(self, lbq: _LockstepByteQueue):
+    def __init__(self, lbq: _LockstepByteQueue) -> None:
         self._lbq = lbq
 
     def close(self) -> None:

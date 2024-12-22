@@ -139,21 +139,24 @@ def current_default_thread_limiter() -> CapacityLimiter:
 # system; see https://github.com/python-trio/trio/issues/182
 # But for now we just need an object to stand in for the thread, so we can
 # keep track of who's holding the CapacityLimiter's token.
-@attrs.frozen(eq=False, hash=False, slots=False)
+@attrs.frozen(eq=False, slots=False)
 class ThreadPlaceholder:
     name: str
 
 
 # Types for the to_thread_run_sync message loop
 @attrs.frozen(eq=False, slots=False)
-class Run(Generic[RetT]):
-    afn: Callable[..., Awaitable[RetT]]
+# Explicit .../"Any" is not allowed
+class Run(Generic[RetT]):  # type: ignore[misc]
+    afn: Callable[..., Awaitable[RetT]]  # type: ignore[misc]
     args: tuple[object, ...]
     context: contextvars.Context = attrs.field(
-        init=False, factory=contextvars.copy_context
+        init=False,
+        factory=contextvars.copy_context,
     )
     queue: stdlib_queue.SimpleQueue[outcome.Outcome[RetT]] = attrs.field(
-        init=False, factory=stdlib_queue.SimpleQueue
+        init=False,
+        factory=stdlib_queue.SimpleQueue,
     )
 
     @disable_ki_protection
@@ -190,25 +193,30 @@ class Run(Generic[RetT]):
         def in_trio_thread() -> None:
             try:
                 trio.lowlevel.spawn_system_task(
-                    self.run_system, name=self.afn, context=self.context
+                    self.run_system,
+                    name=self.afn,
+                    context=self.context,
                 )
             except RuntimeError:  # system nursery is closed
                 self.queue.put_nowait(
-                    outcome.Error(trio.RunFinishedError("system nursery is closed"))
+                    outcome.Error(trio.RunFinishedError("system nursery is closed")),
                 )
 
         token.run_sync_soon(in_trio_thread)
 
 
 @attrs.frozen(eq=False, slots=False)
-class RunSync(Generic[RetT]):
-    fn: Callable[..., RetT]
+# Explicit .../"Any" is not allowed
+class RunSync(Generic[RetT]):  # type: ignore[misc]
+    fn: Callable[..., RetT]  # type: ignore[misc]
     args: tuple[object, ...]
     context: contextvars.Context = attrs.field(
-        init=False, factory=contextvars.copy_context
+        init=False,
+        factory=contextvars.copy_context,
     )
     queue: stdlib_queue.SimpleQueue[outcome.Outcome[RetT]] = attrs.field(
-        init=False, factory=stdlib_queue.SimpleQueue
+        init=False,
+        factory=stdlib_queue.SimpleQueue,
     )
 
     @disable_ki_protection
@@ -220,7 +228,7 @@ class RunSync(Generic[RetT]):
             ret.close()
             raise TypeError(
                 "Trio expected a synchronous function, but {!r} appears to be "
-                "asynchronous".format(getattr(self.fn, "__qualname__", self.fn))
+                "asynchronous".format(getattr(self.fn, "__qualname__", self.fn)),
             )
 
         return ret
@@ -386,7 +394,7 @@ async def to_thread_run_sync(  # type: ignore[misc]
                 ret.close()
                 raise TypeError(
                     "Trio expected a sync function, but {!r} appears to be "
-                    "asynchronous".format(getattr(sync_fn, "__qualname__", sync_fn))
+                    "asynchronous".format(getattr(sync_fn, "__qualname__", sync_fn)),
                 )
 
             return ret
@@ -441,7 +449,7 @@ async def to_thread_run_sync(  # type: ignore[misc]
                 msg_from_thread.run_sync()
             else:  # pragma: no cover, internal debugging guard TODO: use assert_never
                 raise TypeError(
-                    f"trio.to_thread.run_sync received unrecognized thread message {msg_from_thread!r}."
+                    f"trio.to_thread.run_sync received unrecognized thread message {msg_from_thread!r}.",
                 )
             del msg_from_thread
 
@@ -477,14 +485,15 @@ def from_thread_check_cancelled() -> None:
         raise_cancel = PARENT_TASK_DATA.cancel_register[0]
     except AttributeError:
         raise RuntimeError(
-            "this thread wasn't created by Trio, can't check for cancellation"
+            "this thread wasn't created by Trio, can't check for cancellation",
         ) from None
     if raise_cancel is not None:
         raise_cancel()
 
 
 def _send_message_to_trio(
-    trio_token: TrioToken | None, message_to_trio: Run[RetT] | RunSync[RetT]
+    trio_token: TrioToken | None,
+    message_to_trio: Run[RetT] | RunSync[RetT],
 ) -> RetT:
     """Shared logic of from_thread functions"""
     token_provided = trio_token is not None
@@ -494,7 +503,7 @@ def _send_message_to_trio(
             trio_token = PARENT_TASK_DATA.token
         except AttributeError:
             raise RuntimeError(
-                "this thread wasn't created by Trio, pass kwarg trio_token=..."
+                "this thread wasn't created by Trio, pass kwarg trio_token=...",
             ) from None
     elif not isinstance(trio_token, TrioToken):
         raise RuntimeError("Passed kwarg trio_token is not of type TrioToken")
@@ -515,7 +524,8 @@ def _send_message_to_trio(
     return message_to_trio.queue.get().unwrap()
 
 
-def from_thread_run(
+# Explicit "Any" is not allowed
+def from_thread_run(  # type: ignore[misc]
     afn: Callable[..., Awaitable[RetT]],
     *args: object,
     trio_token: TrioToken | None = None,
@@ -559,7 +569,8 @@ def from_thread_run(
     return _send_message_to_trio(trio_token, Run(afn, args))
 
 
-def from_thread_run_sync(
+# Explicit "Any" is not allowed
+def from_thread_run_sync(  # type: ignore[misc]
     fn: Callable[..., RetT],
     *args: object,
     trio_token: TrioToken | None = None,

@@ -1,0 +1,26 @@
+Rework KeyboardInterrupt protection to track code objects, rather than frames,
+as protected or not. The new implementation no longer needs to access
+``frame.f_locals`` dictionaries, so it won't artificially extend the lifetime of
+local variables. Since KeyboardInterrupt protection is now imposed statically
+(when a protected function is defined) rather than each time the function runs,
+its previously-noticeable performance overhead should now be near zero.
+The lack of a call-time wrapper has some other benefits as well:
+
+* :func:`inspect.iscoroutinefunction` and the like now give correct answers when
+  called on KI-protected functions.
+
+* Calling a synchronous KI-protected function no longer pushes an additional stack
+  frame, so tracebacks are clearer.
+
+* A synchronous KI-protected function invoked from C code (such as a weakref
+  finalizer) is now guaranteed to start executing; previously there would be a brief
+  window in which KeyboardInterrupt could be raised before the protection was
+  established.
+
+One minor drawback of the new approach is that multiple instances of the same
+closure share a single KeyboardInterrupt protection state (because they share a
+single code object). That means that if you apply
+`@enable_ki_protection <trio.lowlevel.enable_ki_protection>` to some of them
+and not others, you won't get the protection semantics you asked for. See the
+documentation of `@enable_ki_protection <trio.lowlevel.enable_ki_protection>`
+for more details and a workaround.
