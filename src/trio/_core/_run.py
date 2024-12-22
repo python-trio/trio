@@ -1726,7 +1726,7 @@ class Runner:  # type: ignore[misc]
         self.asyncgens.close()
         if "after_run" in self.instruments:
             self.instruments.call("after_run")
-        self.system_nursery: Nursery | None = None
+        self.system_nursery = None
         # This is where KI protection gets disabled, so we do it last
         self.ki_manager.close()
 
