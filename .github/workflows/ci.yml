@@ -52,11 +52,10 @@ jobs:
       - name: Set the expected dist artifact names
         id: artifact-name
         run: |
-          echo 'sdist=${{ env.dist-name }}-${VERSION}.tar.gz' >> "${GITHUB_OUTPUT}"
-          echo 'wheel=${{
-            env.dist-name
-          }}-${VERSION}-py3-none-any.whl' >> "${GITHUB_OUTPUT}"
+          echo "sdist=${DIST_NAME}-${VERSION}.tar.gz" >> "${GITHUB_OUTPUT}"
+          echo "wheel=${DIST_NAME}-${VERSION}-py3-none-any.whl" >> "${GITHUB_OUTPUT}"
         env:
+          DIST_NAME: ${{ env.dist-name }}
           VERSION: ${{ steps.dist-version.outputs.version }}
 
       - name: Install build
