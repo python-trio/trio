@@ -40,14 +40,19 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Install build
+        run: python -Im pip install build
+
       - name: Get the dist version
         id: dist-version
-        run: >-
-          echo "version=$(
-          grep ^__version__ src/trio/_version.py
-          | sed 's#__version__ = "\([^"]\+\)"#\1#'
-          )"
-          >> "${GITHUB_OUTPUT}"
+        shell: python
+        run: |
+          import os
+          import build.util
+          version = build.util.project_wheel_metadata(".").version
+
+          with open(os.environ["GITHUB_OUTPUT"], mode="a", encoding="utf8") as f:
+              f.write(f"version={version}")
 
       - name: Set the expected dist artifact names
         id: artifact-name
@@ -57,9 +62,6 @@ jobs:
         env:
           DIST_NAME: ${{ env.dist-name }}
           VERSION: ${{ steps.dist-version.outputs.version }}
-
-      - name: Install build
-        run: python -Im pip install build
 
       - name: Build dists
         run: python -Im build
