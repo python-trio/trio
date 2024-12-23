@@ -176,9 +176,6 @@ fixture-parentheses = false
 python_version = "3.9"
 files = ["src/trio/", "docs/source/*.py"]
 
-# Be flexible about dependencies that don't have stubs yet (like pytest)
-ignore_missing_imports = true
-
 # Be strict about use of Mypy
 local_partial_types = true
 warn_unused_ignores = true
@@ -197,6 +194,26 @@ disallow_untyped_calls = true
 disallow_untyped_decorators = true
 disallow_untyped_defs = true
 check_untyped_defs = true
+
+# Below are the originally missing strictness settings:
+disallow_any_expr = true
+
+enable_error_code = [
+  "ignore-without-code",
+]
+
+extra_checks = true
+
+ignore_missing_imports = false
+
+no_implicit_reexport = true
+
+# `strict` will pick up any future strictness-related settings:
+strict = true
+strict_equality = true
+strict_optional = true
+
+warn_no_return = true
 
 [tool.pyright]
 pythonVersion = "3.9"
