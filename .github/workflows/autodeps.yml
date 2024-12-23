@@ -22,7 +22,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          persist-credentials: true
+          persist-credentials: true  # credentials are needed to push commits
       - name: Setup python
         uses: actions/setup-python@v5
         with:
