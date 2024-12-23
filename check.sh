@@ -45,22 +45,10 @@ if [ $MYPY -ne 0 ]; then
 fi
 
 # Check pip compile is consistent
-echo "::group::Pip Compile - Tests"
-uv pip compile --universal --python-version=3.9 test-requirements.in -o test-requirements.txt
+echo "::group::Pip Compile - Tests & Docs"
+pre-commit run pip-compile --all-files \
+    || EXIT_STATUS=$?
 echo "::endgroup::"
-echo "::group::Pip Compile - Docs"
-uv pip compile --universal --python-version=3.11 docs-requirements.in -o docs-requirements.txt
-echo "::endgroup::"
-
-if git status --porcelain | grep -q "requirements.txt"; then
-    echo "::error::requirements.txt changed."
-    echo "::group::requirements.txt changed"
-    echo "* requirements.txt changed" >> "$GITHUB_STEP_SUMMARY"
-    git status --porcelain
-    git --no-pager diff --color ./*requirements.txt
-    EXIT_STATUS=1
-    echo "::endgroup::"
-fi
 
 echo "::group::Pyright interface tests"
 python src/trio/_tests/check_type_completeness.py || EXIT_STATUS=$?
@@ -79,8 +67,7 @@ Problems were found by static analysis (listed above).
 To fix formatting and see remaining errors, run
 
     uv pip install -r test-requirements.txt
-    black src/trio
-    ruff check src/trio
+    pre-commit run --all-files
     ./check.sh
 
 in your local checkout.

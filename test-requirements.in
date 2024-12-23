@@ -17,6 +17,7 @@ ruff >= 0.8.0
 astor          # code generation
 uv >= 0.2.24
 codespell
+pre-commit
 
 # https://github.com/python-trio/trio/pull/654#issuecomment-420518745
 mypy-extensions
