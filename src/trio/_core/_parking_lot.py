@@ -1,5 +1,5 @@
 # ParkingLot provides an abstraction for a fair waitqueue with cancellation
-# and requeueing support. Inspiration:
+# and requeuing support. Inspiration:
 #
 #    https://webkit.org/blog/6161/locking-in-webkit/
 #    https://amanieu.github.io/parking_lot/
@@ -136,7 +136,7 @@ class ParkingLotStatistics:
 @final
 @attrs.define(eq=False)
 class ParkingLot:
-    """A fair wait queue with cancellation and requeueing.
+    """A fair wait queue with cancellation and requeuing.
 
     This class encapsulates the tricky parts of implementing a wait
     queue. It's useful for implementing higher-level synchronization
