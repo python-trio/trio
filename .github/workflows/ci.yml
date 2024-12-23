@@ -41,7 +41,7 @@ jobs:
           persist-credentials: false
 
       - name: Install build
-        run: python -Im pip install build
+        run: python -Im pip install build -c test-requirements.txt
 
       - name: Get the dist version
         id: dist-version
