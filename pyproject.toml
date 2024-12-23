@@ -93,7 +93,7 @@ default.extend-ignore-re = [
 IPPROTO_ND = "IPPROTO_ND"
 ERROR_INVALID_PARMETER = "ERROR_INVALID_PARMETER"
 xn--caf-dma = "xn--caf-dma"
-mis-nested = "miss-nested"
+mis-nested = "misnested"
 
 [tool.typos.default.extend-words]
 astroid = "astroid"

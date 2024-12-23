@@ -348,7 +348,7 @@ class CancelStatus:
     # become effectively cancelled when they do, unless scope.shield
     # is True.  May be None (for the outermost CancelStatus in a call
     # to trio.run(), briefly during TaskStatus.started(), or during
-    # recovery from miss-nesting of cancel scopes).
+    # recovery from misnesting of cancel scopes).
     _parent: CancelStatus | None = attrs.field(default=None, repr=False, alias="parent")
 
     # All of the CancelStatuses that have this CancelStatus as their parent.
@@ -362,7 +362,7 @@ class CancelStatus:
 
     # Set to True on still-active cancel statuses that are children
     # of a cancel status that's been closed. This is used to permit
-    # recovery from miss-nested cancel scopes (well, at least enough
+    # recovery from misnested cancel scopes (well, at least enough
     # recovery to show a useful traceback).
     abandoned_by_misnesting: bool = attrs.field(default=False, init=False, repr=False)
 
@@ -595,7 +595,7 @@ class CancelScope:
             return new_exc
         scope_task = current_task()
         if scope_task._cancel_status is not self._cancel_status:
-            # Cancel scope miss-nesting: this cancel scope isn't the most
+            # Cancel scope misnesting: this cancel scope isn't the most
             # recently opened by this task (that's still open). That is,
             # our assumptions about context managers forming a stack
             # have been violated. Try and make the best of it.
