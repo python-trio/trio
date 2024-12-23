@@ -52,10 +52,12 @@ jobs:
       - name: Set the expected dist artifact names
         id: artifact-name
         run: |
-          echo 'sdist=${{ env.dist-name }}-*.tar.gz' >> "${GITHUB_OUTPUT}"
+          echo 'sdist=${{ env.dist-name }}-${VERSION}.tar.gz' >> "${GITHUB_OUTPUT}"
           echo 'wheel=${{
             env.dist-name
-          }}-*-py3-none-any.whl' >> "${GITHUB_OUTPUT}"
+          }}-${VERSION}-py3-none-any.whl' >> "${GITHUB_OUTPUT}"
+        env:
+          VERSION: ${{ steps.dist-version.outputs.version }}
 
       - name: Install build
         run: python -Im pip install build
@@ -65,8 +67,11 @@ jobs:
       - name: Verify that the artifacts with expected names got created
         run: >-
           ls -1
-          dist/${{ steps.artifact-name.outputs.sdist }}
-          dist/${{ steps.artifact-name.outputs.wheel }}
+          dist/${SDIST}
+          dist/${WHEEL}
+        env:
+          SDIST: ${{ steps.artifact-name.outputs.sdist }}
+          WHEEL: ${{ steps.artifact-name.outputs.wheel }}
       - name: Store the distribution packages
         uses: actions/upload-artifact@v4
         with:
