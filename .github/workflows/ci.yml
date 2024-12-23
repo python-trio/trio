@@ -49,7 +49,7 @@ jobs:
         run: |
           import os
           import build.util
-          version = build.util.project_wheel_metadata(".").version
+          version = build.util.project_wheel_metadata(".")["version"]
 
           with open(os.environ["GITHUB_OUTPUT"], mode="a", encoding="utf8") as f:
               f.write(f"version={version}")
