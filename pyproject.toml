@@ -84,6 +84,21 @@ force-exclude = '''
 [tool.codespell]
 ignore-words-list = 'astroid,crasher,asend'
 
+[tool.typos]
+default.extend-ignore-re = [
+    "(?Rm)^.*(#|//)\\s*spellchecker:disable-line$",
+]
+
+[tool.typos.default.extend-identifiers]
+IPPROTO_ND = "IPPROTO_ND"
+xn--caf-dma = "xn--caf-dma"
+mis-nested = "misnested"
+
+[tool.typos.default.extend-words]
+astroid = "astroid"
+crasher = "crasher"
+asend = "asend"
+
 [tool.ruff]
 respect-gitignore = true
 fix = true

@@ -136,7 +136,7 @@ class WeakKeyIdentityDictionary(Generic[_KT, _VT]):
         ) -> None:
             self = selfref()
             if self is not None:
-                try:  # noqa: SIM105 # supressible-exception
+                try:  # noqa: SIM105  # suppressible-exception
                     del self._data[k]
                 except KeyError:
                     pass
