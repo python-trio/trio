@@ -591,7 +591,7 @@ async def test_run_in_worker_thread_limiter_error() -> None:
 
     bs = BadCapacityLimiter()
 
-    with pytest.raises(ValueError, match="^release on behalf$") as excinfo:
+    with pytest.raises(ValueError, match=r"^release on behalf$") as excinfo:
         await to_thread_run_sync(lambda: None, limiter=bs)  # type: ignore[arg-type]
     assert excinfo.value.__context__ is None
     assert record == ["acquire", "release"]
@@ -600,7 +600,7 @@ async def test_run_in_worker_thread_limiter_error() -> None:
     # If the original function raised an error, then the semaphore error
     # chains with it
     d: dict[str, object] = {}
-    with pytest.raises(ValueError, match="^release on behalf$") as excinfo:
+    with pytest.raises(ValueError, match=r"^release on behalf$") as excinfo:
         await to_thread_run_sync(lambda: d["x"], limiter=bs)  # type: ignore[arg-type]
     assert isinstance(excinfo.value.__context__, KeyError)
     assert record == ["acquire", "release"]
