@@ -41,7 +41,7 @@ python -m pip install -U pip uv -c test-requirements.txt
 python -m pip --version
 python -m uv --version
 
-python -m uv pip install build
+python -m uv pip install build -c test-requirements.txt
 
 python -m build
 wheel_package=$(ls dist/*.whl)

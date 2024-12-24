@@ -10,6 +10,7 @@ jedi; implementation_name == "cpython"                  # for jedi code completi
 cryptography>=41.0.0  # cryptography<41 segfaults on pypy3.10
 
 # Tools
+build
 black; implementation_name == "cpython"
 mypy  # Would use mypy[faster-cache], but orjson has build issues on pypy
 orjson; implementation_name == "cpython"
