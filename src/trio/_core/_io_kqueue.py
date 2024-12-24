@@ -142,7 +142,10 @@ class KqueueIOManager:
             yield recv
         finally:
             send.close()
-            del self._registered[key]
+            try:
+                del self._registered[key]
+            except KeyError:
+                pass
 
     @_public
     async def wait_kevent(
