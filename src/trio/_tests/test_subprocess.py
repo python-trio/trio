@@ -382,12 +382,12 @@ async def test_run() -> None:
         await run_process(CAT, stderr=subprocess.PIPE)
     with pytest.raises(
         ValueError,
-        match="^can't specify both stdout and capture_stdout$",
+        match=r"^can't specify both stdout and capture_stdout$",
     ):
         await run_process(CAT, capture_stdout=True, stdout=subprocess.DEVNULL)
     with pytest.raises(
         ValueError,
-        match="^can't specify both stderr and capture_stderr$",
+        match=r"^can't specify both stderr and capture_stderr$",
     ):
         await run_process(CAT, capture_stderr=True, stderr=None)
 

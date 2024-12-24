@@ -677,7 +677,7 @@ def test_trio_test() -> None:
         autojump_clock: object,
     ) -> None: ...  # pragma: no cover
 
-    with pytest.raises(ValueError, match="^too many clocks spoil the broth!$"):
+    with pytest.raises(ValueError, match=r"^too many clocks spoil the broth!$"):
         trio_test(busy_kitchen)(
             mock_clock=MockClock(),
             autojump_clock=MockClock(autojump_threshold=0),

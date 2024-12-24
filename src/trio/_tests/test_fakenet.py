@@ -97,7 +97,7 @@ async def test_recv_methods() -> None:
     assert await s1.sendto(b"ghi", s2.getsockname()) == 3
     buf = bytearray(10)
 
-    with pytest.raises(NotImplementedError, match="^partial recvfrom_into$"):
+    with pytest.raises(NotImplementedError, match=r"^partial recvfrom_into$"):
         (nbytes, addr) = await s2.recvfrom_into(buf, nbytes=2)
 
     (nbytes, addr) = await s2.recvfrom_into(buf)
@@ -121,14 +121,18 @@ async def test_recv_methods() -> None:
     with pytest.raises(OSError, match=ENOTCONN_MSG) as exc:
         await s2.send(b"mno")
     assert exc.value.errno == errno.ENOTCONN
-    with pytest.raises(NotImplementedError, match="^FakeNet send flags must be 0, not"):
+    with pytest.raises(
+        NotImplementedError, match=r"^FakeNet send flags must be 0, not"
+    ):
         await s2.send(b"mno", flags)
 
     # sendto errors
     # it's successfully used earlier
-    with pytest.raises(NotImplementedError, match="^FakeNet send flags must be 0, not"):
+    with pytest.raises(
+        NotImplementedError, match=r"^FakeNet send flags must be 0, not"
+    ):
         await s2.sendto(b"mno", flags, s1.getsockname())
-    with pytest.raises(TypeError, match="wrong number of arguments$"):
+    with pytest.raises(TypeError, match=r"wrong number of arguments$"):
         await s2.sendto(b"mno", flags, s1.getsockname(), "extra arg")  # type: ignore[call-overload]
 
 
@@ -184,7 +188,7 @@ async def test_nonwindows_functionality() -> None:
 
         with pytest.raises(
             AttributeError,
-            match="^'FakeSocket' object has no attribute 'share'$",
+            match=r"^'FakeSocket' object has no attribute 'share'$",
         ):
             await s1.share(0)  # type: ignore[attr-defined]
 
@@ -202,17 +206,17 @@ async def test_windows_functionality() -> None:
         await s1.bind(("127.0.0.1", 0))
         with pytest.raises(
             AttributeError,
-            match="^'FakeSocket' object has no attribute 'sendmsg'$",
+            match=r"^'FakeSocket' object has no attribute 'sendmsg'$",
         ):
             await s1.sendmsg([b"jkl"], (), 0, s2.getsockname())  # type: ignore[attr-defined]
         with pytest.raises(
             AttributeError,
-            match="^'FakeSocket' object has no attribute 'recvmsg'$",
+            match=r"^'FakeSocket' object has no attribute 'recvmsg'$",
         ):
             s2.recvmsg(0)  # type: ignore[attr-defined]
         with pytest.raises(
             AttributeError,
-            match="^'FakeSocket' object has no attribute 'recvmsg_into'$",
+            match=r"^'FakeSocket' object has no attribute 'recvmsg_into'$",
         ):
             s2.recvmsg_into([])  # type: ignore[attr-defined]
         with pytest.raises(NotImplementedError):
@@ -239,7 +243,7 @@ async def test_not_implemented_functions() -> None:
     # setsockopt
     with pytest.raises(
         NotImplementedError,
-        match="^FakeNet always has IPV6_V6ONLY=True$",
+        match=r"^FakeNet always has IPV6_V6ONLY=True$",
     ):
         s1.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, False)
     with pytest.raises(
@@ -257,7 +261,7 @@ async def test_not_implemented_functions() -> None:
     s1.set_inheritable(False)
     with pytest.raises(
         NotImplementedError,
-        match="^FakeNet can't make inheritable sockets$",
+        match=r"^FakeNet can't make inheritable sockets$",
     ):
         s1.set_inheritable(True)
 
@@ -276,7 +280,7 @@ async def test_getpeername() -> None:
 
     with pytest.raises(
         AssertionError,
-        match="^This method seems to assume that self._binding has a remote UDPEndpoint$",
+        match=r"^This method seems to assume that self._binding has a remote UDPEndpoint$",
     ):
         s1.getpeername()
 

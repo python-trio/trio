@@ -94,7 +94,7 @@ def test_initial_task_error() -> None:
     async def main(x: object) -> NoReturn:
         raise ValueError(x)
 
-    with pytest.raises(ValueError, match="^17$") as excinfo:
+    with pytest.raises(ValueError, match=r"^17$") as excinfo:
         _core.run(main, 17)
     assert excinfo.value.args == (17,)
 
@@ -246,7 +246,7 @@ async def test_reschedule() -> None:
         t2 = _core.current_task()
         _core.reschedule(not_none(t1), outcome.Value(0))
         print("child2 sleep")
-        with pytest.raises(ValueError, match="^error message$"):
+        with pytest.raises(ValueError, match=r"^error message$"):
             await sleep_forever()
         print("child2 successful exit")
 
@@ -369,26 +369,26 @@ async def test_cancel_scope_repr(mock_clock: _core.MockClock) -> None:
 async def test_cancel_scope_validation() -> None:
     with pytest.raises(
         ValueError,
-        match="^Cannot specify both a deadline and a relative deadline$",
+        match=r"^Cannot specify both a deadline and a relative deadline$",
     ):
         _core.CancelScope(deadline=7, relative_deadline=3)
 
-    with pytest.raises(ValueError, match="^deadline must not be NaN$"):
+    with pytest.raises(ValueError, match=r"^deadline must not be NaN$"):
         _core.CancelScope(deadline=nan)
-    with pytest.raises(ValueError, match="^relative deadline must not be NaN$"):
+    with pytest.raises(ValueError, match=r"^relative deadline must not be NaN$"):
         _core.CancelScope(relative_deadline=nan)
 
-    with pytest.raises(ValueError, match="^timeout must be non-negative$"):
+    with pytest.raises(ValueError, match=r"^timeout must be non-negative$"):
         _core.CancelScope(relative_deadline=-3)
 
     scope = _core.CancelScope()
 
-    with pytest.raises(ValueError, match="^deadline must not be NaN$"):
+    with pytest.raises(ValueError, match=r"^deadline must not be NaN$"):
         scope.deadline = nan
-    with pytest.raises(ValueError, match="^relative deadline must not be NaN$"):
+    with pytest.raises(ValueError, match=r"^relative deadline must not be NaN$"):
         scope.relative_deadline = nan
 
-    with pytest.raises(ValueError, match="^relative deadline must be non-negative$"):
+    with pytest.raises(ValueError, match=r"^relative deadline must be non-negative$"):
         scope.relative_deadline = -3
     scope.relative_deadline = 5
     assert scope.relative_deadline == 5
@@ -1063,7 +1063,7 @@ async def test_exc_info() -> None:
         async with seq(0):
             pass  # we don't yield until seq(2) below
         record.append("child1 raise")
-        with pytest.raises(ValueError, match="^child1$") as excinfo:
+        with pytest.raises(ValueError, match=r"^child1$") as excinfo:
             try:
                 raise ValueError("child1")
             except ValueError:
@@ -1360,7 +1360,7 @@ def test_TrioToken_run_sync_soon_after_main_crash() -> None:
         token.run_sync_soon(lambda: record.append("sync-cb"))
         raise ValueError("error text")
 
-    with pytest.raises(ValueError, match="^error text$"):
+    with pytest.raises(ValueError, match=r"^error text$"):
         _core.run(main)
 
     assert record == ["sync-cb"]
@@ -1724,12 +1724,12 @@ def test_nice_error_on_bad_calls_to_run_or_spawn() -> None:
     # different ways
     with pytest.raises(
         TypeError,
-        match="^Trio was expecting an async function, but instead it got a coroutine object <.*>",
+        match=r"^Trio was expecting an async function, but instead it got a coroutine object <.*>",
     ):
         bad_call_run(f())  # type: ignore[arg-type]
     with pytest.raises(
         TypeError,
-        match="expected an async function but got an async generator",
+        match=r"expected an async function but got an async generator",
     ):
         bad_call_run(async_gen, 0)  # type: ignore
 
@@ -2655,7 +2655,7 @@ def test_setting_strict_exception_groups(
         # mypy doesn't like kwarg magic
         _core.run(main, **_create_kwargs(run_strict))  # type: ignore[arg-type]
 
-    matcher = Matcher(RuntimeError, "^test error$")
+    matcher = Matcher(RuntimeError, r"^test error$")
 
     if multiple_exceptions:
         with RaisesGroup(matcher, matcher):
@@ -2666,7 +2666,7 @@ def test_setting_strict_exception_groups(
         with RaisesGroup(matcher):
             run_main()
     else:
-        with pytest.raises(RuntimeError, match="^test error$"):
+        with pytest.raises(RuntimeError, match=r"^test error$"):
             run_main()
 
 

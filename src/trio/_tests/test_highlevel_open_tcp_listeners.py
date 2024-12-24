@@ -97,7 +97,7 @@ async def test_open_tcp_listeners_rebind() -> None:
         probe.setsockopt(stdlib_socket.SOL_SOCKET, stdlib_socket.SO_REUSEADDR, 1)
         with pytest.raises(
             OSError,
-            match="(Address (already )?in use|An attempt was made to access a socket in a way forbidden by its access permissions)$",
+            match=r"(Address (already )?in use|An attempt was made to access a socket in a way forbidden by its access permissions)$",
         ):
             probe.bind(sockaddr1)
 

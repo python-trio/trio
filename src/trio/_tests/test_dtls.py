@@ -107,7 +107,7 @@ async def test_smoke(ipv6: bool) -> None:
 
             with pytest.raises(
                 ValueError,
-                match="^openssl doesn't support sending empty DTLS packets$",
+                match=r"^openssl doesn't support sending empty DTLS packets$",
             ):
                 await client_channel.send(b"")
 
@@ -299,7 +299,7 @@ async def test_client_multiplex() -> None:
 
 async def test_dtls_over_dgram_only() -> None:
     with trio.socket.socket() as s:
-        with pytest.raises(ValueError, match="^DTLS requires a SOCK_DGRAM socket$"):
+        with pytest.raises(ValueError, match=r"^DTLS requires a SOCK_DGRAM socket$"):
             DTLSEndpoint(s)
 
 
