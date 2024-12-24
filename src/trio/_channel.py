@@ -5,10 +5,9 @@ from math import inf
 from typing import (
     TYPE_CHECKING,
     Generic,
-    Tuple,  # only needed for typechecking on <3.9
 )
 
-import attr
+import attrs
 from outcome import Error, Value
 
 import trio
@@ -93,14 +92,14 @@ def _open_memory_channel(
 # it could replace the normal function header
 if TYPE_CHECKING:
     # written as a class so you can say open_memory_channel[int](5)
-    # Need to use Tuple instead of tuple due to CI check running on 3.8
-    class open_memory_channel(Tuple["MemorySendChannel[T]", "MemoryReceiveChannel[T]"]):
+    class open_memory_channel(tuple["MemorySendChannel[T]", "MemoryReceiveChannel[T]"]):
         def __new__(  # type: ignore[misc]  # "must return a subtype"
-            cls, max_buffer_size: int | float  # noqa: PYI041
+            cls,
+            max_buffer_size: int | float,  # noqa: PYI041
         ) -> tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]:
             return _open_memory_channel(max_buffer_size)
 
-        def __init__(self, max_buffer_size: int | float):  # noqa: PYI041
+        def __init__(self, max_buffer_size: int | float) -> None:  # noqa: PYI041
             ...
 
 else:
@@ -109,30 +108,30 @@ else:
     open_memory_channel = generic_function(_open_memory_channel)
 
 
-@attr.s(frozen=True, slots=True)
-class MemoryChannelStats:
-    current_buffer_used: int = attr.ib()
-    max_buffer_size: int | float = attr.ib()
-    open_send_channels: int = attr.ib()
-    open_receive_channels: int = attr.ib()
-    tasks_waiting_send: int = attr.ib()
-    tasks_waiting_receive: int = attr.ib()
+@attrs.frozen
+class MemoryChannelStatistics:
+    current_buffer_used: int
+    max_buffer_size: int | float
+    open_send_channels: int
+    open_receive_channels: int
+    tasks_waiting_send: int
+    tasks_waiting_receive: int
 
 
-@attr.s(slots=True)
+@attrs.define
 class MemoryChannelState(Generic[T]):
-    max_buffer_size: int | float = attr.ib()
-    data: deque[T] = attr.ib(factory=deque)
+    max_buffer_size: int | float
+    data: deque[T] = attrs.Factory(deque)
     # Counts of open endpoints using this state
-    open_send_channels: int = attr.ib(default=0)
-    open_receive_channels: int = attr.ib(default=0)
+    open_send_channels: int = 0
+    open_receive_channels: int = 0
     # {task: value}
-    send_tasks: OrderedDict[Task, T] = attr.ib(factory=OrderedDict)
+    send_tasks: OrderedDict[Task, T] = attrs.Factory(OrderedDict)
     # {task: None}
-    receive_tasks: OrderedDict[Task, None] = attr.ib(factory=OrderedDict)
+    receive_tasks: OrderedDict[Task, None] = attrs.Factory(OrderedDict)
 
-    def statistics(self) -> MemoryChannelStats:
-        return MemoryChannelStats(
+    def statistics(self) -> MemoryChannelStatistics:
+        return MemoryChannelStatistics(
             current_buffer_used=len(self.data),
             max_buffer_size=self.max_buffer_size,
             open_send_channels=self.open_send_channels,
@@ -143,14 +142,14 @@ class MemoryChannelState(Generic[T]):
 
 
 @final
-@attr.s(eq=False, repr=False)
+@attrs.define(eq=False, repr=False, slots=False)
 class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
-    _state: MemoryChannelState[SendType] = attr.ib()
-    _closed: bool = attr.ib(default=False)
+    _state: MemoryChannelState[SendType]
+    _closed: bool = False
     # This is just the tasks waiting on *this* object. As compared to
     # self._state.send_tasks, which includes tasks from this object and
     # all clones.
-    _tasks: set[Task] = attr.ib(factory=set)
+    _tasks: set[Task] = attrs.Factory(set)
 
     def __attrs_post_init__(self) -> None:
         self._state.open_send_channels += 1
@@ -158,7 +157,9 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
     def __repr__(self) -> str:
         return f"<send channel at {id(self):#x}, using buffer at {id(self._state):#x}>"
 
-    def statistics(self) -> MemoryChannelStats:
+    def statistics(self) -> MemoryChannelStatistics:
+        """Returns a `MemoryChannelStatistics` for the memory channel this is
+        associated with."""
         # XX should we also report statistics specific to this object?
         return self._state.statistics()
 
@@ -281,26 +282,31 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
 
     @enable_ki_protection
     async def aclose(self) -> None:
+        """Close this send channel object asynchronously.
+
+        See `MemorySendChannel.close`."""
         self.close()
         await trio.lowlevel.checkpoint()
 
 
 @final
-@attr.s(eq=False, repr=False)
+@attrs.define(eq=False, repr=False, slots=False)
 class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstructor):
-    _state: MemoryChannelState[ReceiveType] = attr.ib()
-    _closed: bool = attr.ib(default=False)
-    _tasks: set[trio._core._run.Task] = attr.ib(factory=set)
+    _state: MemoryChannelState[ReceiveType]
+    _closed: bool = False
+    _tasks: set[trio._core._run.Task] = attrs.Factory(set)
 
     def __attrs_post_init__(self) -> None:
         self._state.open_receive_channels += 1
 
-    def statistics(self) -> MemoryChannelStats:
+    def statistics(self) -> MemoryChannelStatistics:
+        """Returns a `MemoryChannelStatistics` for the memory channel this is
+        associated with."""
         return self._state.statistics()
 
     def __repr__(self) -> str:
-        return "<receive channel at {:#x}, using buffer at {:#x}>".format(
-            id(self), id(self._state)
+        return (
+            f"<receive channel at {id(self):#x}, using buffer at {id(self._state):#x}>"
         )
 
     @enable_ki_protection
@@ -429,5 +435,8 @@ class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstr
 
     @enable_ki_protection
     async def aclose(self) -> None:
+        """Close this receive channel object asynchronously.
+
+        See `MemoryReceiveChannel.close`."""
         self.close()
         await trio.lowlevel.checkpoint()

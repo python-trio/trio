@@ -6,6 +6,7 @@ This first is run with Mypy's output piped in, to collect messages in
 mypy_annotate.dat. After all platforms run, we run this again, which prints the
 messages in GitHub's format but with cross-platform failures deduplicated.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -85,7 +86,9 @@ def main(argv: list[str]) -> None:
     """Look for error messages, and convert the format."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--dumpfile", help="File to write pickled messages to.", required=True
+        "--dumpfile",
+        help="File to write pickled messages to.",
+        required=True,
     )
     parser.add_argument(
         "--platform",

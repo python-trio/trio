@@ -210,7 +210,7 @@ typedef struct _AFD_POLL_INFO {
 # cribbed from pywincffi
 # programmatically strips out those annotations MSDN likes, like _In_
 REGEX_SAL_ANNOTATION = re.compile(
-    r"\b(_In_|_Inout_|_Out_|_Outptr_|_Reserved_)(opt_)?\b"
+    r"\b(_In_|_Inout_|_Out_|_Outptr_|_Reserved_)(opt_)?\b",
 )
 LIB = REGEX_SAL_ANNOTATION.sub(" ", LIB)
 
@@ -241,8 +241,7 @@ class _Kernel32(Protocol):
         CompletionKey: int,
         NumberOfConcurrentThreads: int,
         /,
-    ) -> Handle:
-        ...
+    ) -> Handle: ...
 
     def CreateEventA(
         self,
@@ -251,13 +250,14 @@ class _Kernel32(Protocol):
         bInitialState: bool,
         lpName: AlwaysNull,
         /,
-    ) -> Handle:
-        ...
+    ) -> Handle: ...
 
     def SetFileCompletionNotificationModes(
-        self, handle: Handle, flags: CompletionModes, /
-    ) -> int:
-        ...
+        self,
+        handle: Handle,
+        flags: CompletionModes,
+        /,
+    ) -> int: ...
 
     def PostQueuedCompletionStatus(
         self,
@@ -266,16 +266,14 @@ class _Kernel32(Protocol):
         dwCompletionKey: int,
         lpOverlapped: CData | AlwaysNull,
         /,
-    ) -> bool:
-        ...
+    ) -> bool: ...
 
     def CancelIoEx(
         self,
         hFile: Handle,
         lpOverlapped: CData | AlwaysNull,
         /,
-    ) -> bool:
-        ...
+    ) -> bool: ...
 
     def WriteFile(
         self,
@@ -286,8 +284,7 @@ class _Kernel32(Protocol):
         lpNumberOfBytesWritten: AlwaysNull,
         lpOverlapped: _Overlapped,
         /,
-    ) -> bool:
-        ...
+    ) -> bool: ...
 
     def ReadFile(
         self,
@@ -298,8 +295,7 @@ class _Kernel32(Protocol):
         lpNumberOfBytesRead: AlwaysNull,
         lpOverlapped: _Overlapped,
         /,
-    ) -> bool:
-        ...
+    ) -> bool: ...
 
     def GetQueuedCompletionStatusEx(
         self,
@@ -310,8 +306,7 @@ class _Kernel32(Protocol):
         dwMilliseconds: int,
         fAlertable: bool | int,
         /,
-    ) -> CData:
-        ...
+    ) -> CData: ...
 
     def CreateFileW(
         self,
@@ -323,11 +318,9 @@ class _Kernel32(Protocol):
         dwFlagsAndAttributes: FileFlags,
         hTemplateFile: AlwaysNull,
         /,
-    ) -> Handle:
-        ...
+    ) -> Handle: ...
 
-    def WaitForSingleObject(self, hHandle: Handle, dwMilliseconds: int, /) -> CData:
-        ...
+    def WaitForSingleObject(self, hHandle: Handle, dwMilliseconds: int, /) -> CData: ...
 
     def WaitForMultipleObjects(
         self,
@@ -336,14 +329,11 @@ class _Kernel32(Protocol):
         bWaitAll: bool,
         dwMilliseconds: int,
         /,
-    ) -> ErrorCodes:
-        ...
+    ) -> ErrorCodes: ...
 
-    def SetEvent(self, handle: Handle, /) -> None:
-        ...
+    def SetEvent(self, handle: Handle, /) -> None: ...
 
-    def CloseHandle(self, handle: Handle, /) -> bool:
-        ...
+    def CloseHandle(self, handle: Handle, /) -> bool: ...
 
     def DeviceIoControl(
         self,
@@ -358,22 +348,19 @@ class _Kernel32(Protocol):
         lpBytesReturned: AlwaysNull,
         lpOverlapped: CData,
         /,
-    ) -> bool:
-        ...
+    ) -> bool: ...
 
 
 class _Nt(Protocol):
     """Statically typed version of the dtdll.dll functions we use."""
 
-    def RtlNtStatusToDosError(self, status: int, /) -> ErrorCodes:
-        ...
+    def RtlNtStatusToDosError(self, status: int, /) -> ErrorCodes: ...
 
 
 class _Ws2(Protocol):
     """Statically typed version of the ws2_32.dll functions we use."""
 
-    def WSAGetLastError(self) -> int:
-        ...
+    def WSAGetLastError(self) -> int: ...
 
     def WSAIoctl(
         self,
@@ -388,8 +375,7 @@ class _Ws2(Protocol):
         # actually LPWSAOVERLAPPED_COMPLETION_ROUTINE
         lpCompletionRoutine: AlwaysNull,
         /,
-    ) -> int:
-        ...
+    ) -> int: ...
 
 
 class _DummyStruct(Protocol):
@@ -409,9 +395,9 @@ class _Overlapped(Protocol):
     hEvent: Handle
 
 
-kernel32 = cast(_Kernel32, ffi.dlopen("kernel32.dll"))
-ntdll = cast(_Nt, ffi.dlopen("ntdll.dll"))
-ws2_32 = cast(_Ws2, ffi.dlopen("ws2_32.dll"))
+kernel32 = cast("_Kernel32", ffi.dlopen("kernel32.dll"))
+ntdll = cast("_Nt", ffi.dlopen("ntdll.dll"))
+ws2_32 = cast("_Ws2", ffi.dlopen("ws2_32.dll"))
 
 ################################################################
 # Magic numbers

@@ -3,7 +3,11 @@ This namespace represents low-level functionality not intended for daily use,
 but useful for extending Trio's functionality.
 """
 
+# imports are renamed with leading underscores to indicate they are not part of the public API
+
 import select as _select
+
+# static checkers don't understand if importing this as _sys, so it's deleted later
 import sys
 import typing as _t
 
@@ -21,6 +25,7 @@ from ._core import (
     UnboundedQueue as UnboundedQueue,
     UnboundedQueueStatistics as UnboundedQueueStatistics,
     add_instrument as add_instrument,
+    add_parking_lot_breaker as add_parking_lot_breaker,
     cancel_shielded_checkpoint as cancel_shielded_checkpoint,
     checkpoint as checkpoint,
     checkpoint_if_cancelled as checkpoint_if_cancelled,
@@ -36,6 +41,7 @@ from ._core import (
     permanently_detach_coroutine_object as permanently_detach_coroutine_object,
     reattach_detached_coroutine_object as reattach_detached_coroutine_object,
     remove_instrument as remove_instrument,
+    remove_parking_lot_breaker as remove_parking_lot_breaker,
     reschedule as reschedule,
     spawn_system_task as spawn_system_task,
     start_guest_run as start_guest_run,

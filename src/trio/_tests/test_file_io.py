@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 import importlib
 import io
 import os
-import pathlib
 import re
-from typing import List, Tuple
+from typing import TYPE_CHECKING
 from unittest import mock
 from unittest.mock import sentinel
 
@@ -12,6 +13,9 @@ import pytest
 import trio
 from trio import _core, _file_io
 from trio._file_io import _FILE_ASYNC_METHODS, _FILE_SYNC_ATTRS, AsyncIOWrapper
+
+if TYPE_CHECKING:
+    import pathlib
 
 
 @pytest.fixture
@@ -55,13 +59,15 @@ def test_wrap_non_iobase() -> None:
 
 
 def test_wrapped_property(
-    async_file: AsyncIOWrapper[mock.Mock], wrapped: mock.Mock
+    async_file: AsyncIOWrapper[mock.Mock],
+    wrapped: mock.Mock,
 ) -> None:
     assert async_file.wrapped is wrapped
 
 
 def test_dir_matches_wrapped(
-    async_file: AsyncIOWrapper[mock.Mock], wrapped: mock.Mock
+    async_file: AsyncIOWrapper[mock.Mock],
+    wrapped: mock.Mock,
 ) -> None:
     attrs = _FILE_SYNC_ATTRS.union(_FILE_ASYNC_METHODS)
 
@@ -109,7 +115,7 @@ def test_type_stubs_match_lists() -> None:
         pytest.fail("No TYPE CHECKING line?")
 
     # Now we should be at the type checking block.
-    found: List[Tuple[str, str]] = []
+    found: list[tuple[str, str]] = []
     for line in source:  # pragma: no branch - expected to break early
         if line.strip() and not line.startswith(" " * 8):
             break  # Dedented out of the if TYPE_CHECKING block.
@@ -128,7 +134,8 @@ def test_type_stubs_match_lists() -> None:
 
 
 def test_sync_attrs_forwarded(
-    async_file: AsyncIOWrapper[mock.Mock], wrapped: mock.Mock
+    async_file: AsyncIOWrapper[mock.Mock],
+    wrapped: mock.Mock,
 ) -> None:
     for attr_name in _FILE_SYNC_ATTRS:
         if attr_name not in dir(async_file):
@@ -138,7 +145,8 @@ def test_sync_attrs_forwarded(
 
 
 def test_sync_attrs_match_wrapper(
-    async_file: AsyncIOWrapper[mock.Mock], wrapped: mock.Mock
+    async_file: AsyncIOWrapper[mock.Mock],
+    wrapped: mock.Mock,
 ) -> None:
     for attr_name in _FILE_SYNC_ATTRS:
         if attr_name in dir(async_file):
@@ -170,7 +178,8 @@ def test_async_methods_signature(async_file: AsyncIOWrapper[mock.Mock]) -> None:
 
 
 async def test_async_methods_wrap(
-    async_file: AsyncIOWrapper[mock.Mock], wrapped: mock.Mock
+    async_file: AsyncIOWrapper[mock.Mock],
+    wrapped: mock.Mock,
 ) -> None:
     for meth_name in _FILE_ASYNC_METHODS:
         if meth_name not in dir(async_file):
@@ -182,15 +191,17 @@ async def test_async_methods_wrap(
         value = await meth(sentinel.argument, keyword=sentinel.keyword)
 
         wrapped_meth.assert_called_once_with(
-            sentinel.argument, keyword=sentinel.keyword
+            sentinel.argument,
+            keyword=sentinel.keyword,
         )
         assert value == wrapped_meth()
 
         wrapped.reset_mock()
 
 
-async def test_async_methods_match_wrapper(
-    async_file: AsyncIOWrapper[mock.Mock], wrapped: mock.Mock
+def test_async_methods_match_wrapper(
+    async_file: AsyncIOWrapper[mock.Mock],
+    wrapped: mock.Mock,
 ) -> None:
     for meth_name in _FILE_ASYNC_METHODS:
         if meth_name in dir(async_file):
@@ -222,11 +233,9 @@ async def test_open_context_manager(path: pathlib.Path) -> None:
 async def test_async_iter() -> None:
     async_file = trio.wrap_file(io.StringIO("test\nfoo\nbar"))
     expected = list(async_file.wrapped)
-    result = []
     async_file.wrapped.seek(0)
 
-    async for line in async_file:
-        result.append(line)
+    result = [line async for line in async_file]
 
     assert result == expected
 
@@ -249,7 +258,7 @@ async def test_detach_rewraps_asynciobase(tmp_path: pathlib.Path) -> None:
     tmp_file = tmp_path / "filename"
     tmp_file.touch()
     # flake8-async does not like opening files in async mode
-    with open(tmp_file, mode="rb", buffering=0) as raw:  # noqa: ASYNC101
+    with open(tmp_file, mode="rb", buffering=0) as raw:  # noqa: ASYNC230
         buffered = io.BufferedReader(raw)
 
         async_file = trio.wrap_file(buffered)

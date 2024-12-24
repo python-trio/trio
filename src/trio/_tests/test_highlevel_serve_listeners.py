@@ -2,22 +2,27 @@ from __future__ import annotations
 
 import errno
 from functools import partial
-from typing import TYPE_CHECKING, Awaitable, Callable, NoReturn
+from typing import TYPE_CHECKING, NoReturn, cast
 
-import attr
-import pytest
+import attrs
 
 import trio
 from trio import Nursery, StapledStream, TaskStatus
 from trio.testing import (
+    Matcher,
     MemoryReceiveStream,
     MemorySendStream,
     MockClock,
+    RaisesGroup,
     memory_stream_pair,
     wait_all_tasks_blocked,
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+    import pytest
+
     from trio._channel import MemoryReceiveChannel, MemorySendChannel
     from trio.abc import Stream
 
@@ -26,15 +31,15 @@ if TYPE_CHECKING:
 StapledMemoryStream = StapledStream[MemorySendStream, MemoryReceiveStream]
 
 
-@attr.s(hash=False, eq=False)
+@attrs.define(eq=False, slots=False)
 class MemoryListener(trio.abc.Listener[StapledMemoryStream]):
-    closed: bool = attr.ib(default=False)
-    accepted_streams: list[trio.abc.Stream] = attr.ib(factory=list)
+    closed: bool = False
+    accepted_streams: list[trio.abc.Stream] = attrs.Factory(list)
     queued_streams: tuple[
         MemorySendChannel[StapledMemoryStream],
         MemoryReceiveChannel[StapledMemoryStream],
-    ] = attr.ib(factory=(lambda: trio.open_memory_channel[StapledMemoryStream](1)))
-    accept_hook: Callable[[], Awaitable[object]] | None = attr.ib(default=None)
+    ] = attrs.Factory(lambda: trio.open_memory_channel[StapledMemoryStream](1))
+    accept_hook: Callable[[], Awaitable[object]] | None = None
 
     async def connect(self) -> StapledMemoryStream:
         assert not self.closed
@@ -91,9 +96,13 @@ async def test_serve_listeners_basic() -> None:
         parent_nursery.cancel_scope.cancel()
 
     async with trio.open_nursery() as nursery:
-        l2: list[MemoryListener] = await nursery.start(
-            trio.serve_listeners, handler, listeners
+        value = await nursery.start(
+            trio.serve_listeners,
+            handler,
+            listeners,
         )
+        assert isinstance(value, list)
+        l2 = cast("list[MemoryListener]", value)
         assert l2 == listeners
         # This is just split into another function because gh-136 isn't
         # implemented yet
@@ -110,15 +119,18 @@ async def test_serve_listeners_accept_unrecognized_error() -> None:
         async def raise_error() -> NoReturn:
             raise error  # noqa: B023  # Set from loop
 
+        def check_error(e: BaseException) -> bool:
+            return e is error  # noqa: B023
+
         listener.accept_hook = raise_error
 
-        with pytest.raises(type(error)) as excinfo:
+        with RaisesGroup(Matcher(check=check_error)):
             await trio.serve_listeners(None, [listener])  # type: ignore[arg-type]
-        assert excinfo.value is error
 
 
 async def test_serve_listeners_accept_capacity_error(
-    autojump_clock: MockClock, caplog: pytest.LogCaptureFixture
+    autojump_clock: MockClock,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     listener = MemoryListener()
 
@@ -150,7 +162,8 @@ async def test_serve_listeners_connection_nursery(autojump_clock: MockClock) -> 
         pass
 
     async def connection_watcher(
-        *, task_status: TaskStatus[Nursery] = trio.TASK_STATUS_IGNORED
+        *,
+        task_status: TaskStatus[Nursery] = trio.TASK_STATUS_IGNORED,
     ) -> NoReturn:
         async with trio.open_nursery() as nursery:
             task_status.started(nursery)
@@ -158,16 +171,19 @@ async def test_serve_listeners_connection_nursery(autojump_clock: MockClock) -> 
             assert len(nursery.child_tasks) == 10
             raise Done
 
-    with pytest.raises(Done):  # noqa: PT012
+    # the exception is wrapped twice because we open two nested nurseries
+    with RaisesGroup(RaisesGroup(Done)):
         async with trio.open_nursery() as nursery:
-            handler_nursery: trio.Nursery = await nursery.start(connection_watcher)
+            value = await nursery.start(connection_watcher)
+            assert isinstance(value, trio.Nursery)
+            handler_nursery: trio.Nursery = value
             await nursery.start(
                 partial(
                     trio.serve_listeners,
                     handler,
                     [listener],
                     handler_nursery=handler_nursery,
-                )
+                ),
             )
             for _ in range(10):
                 nursery.start_soon(listener.connect)

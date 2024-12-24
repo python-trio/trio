@@ -1,20 +1,22 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Container, Iterable, NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
-import attr
+import attrs
 import pytest
 
 from ... import _abc, _core
 from .tutil import check_sequence_matches
 
 if TYPE_CHECKING:
+    from collections.abc import Container, Iterable
+
     from ...lowlevel import Task
 
 
-@attr.s(eq=False, hash=False)
+@attrs.define(eq=False, slots=False)
 class TaskRecorder(_abc.Instrument):
-    record: list[tuple[str, Task | None]] = attr.ib(factory=list)
+    record: list[tuple[str, Task | None]] = attrs.Factory(list)
 
     def before_run(self) -> None:
         self.record.append(("before_run", None))
@@ -204,7 +206,7 @@ def test_instruments_crash(caplog: pytest.LogCaptureFixture) -> None:
     assert ("after_run", None) in r.record
     # And we got a log message
     assert caplog.records[0].exc_info is not None
-    exc_type, exc_value, exc_traceback = caplog.records[0].exc_info
+    exc_type, exc_value, _exc_traceback = caplog.records[0].exc_info
     assert exc_type is ValueError
     assert str(exc_value) == "oops"
     assert "Instrument has been disabled" in caplog.records[0].message
@@ -255,7 +257,7 @@ def test_instrument_that_raises_on_getattr() -> None:
             raise ValueError("oops")
 
     async def main() -> None:
-        with pytest.raises(ValueError, match="^oops$"):
+        with pytest.raises(ValueError, match=r"^oops$"):
             _core.add_instrument(EvilInstrument())
 
         # Make sure the instrument is fully removed from the per-method lists

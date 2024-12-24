@@ -4,15 +4,14 @@ import errno
 import socket as stdlib_socket
 import sys
 from socket import AddressFamily, SocketKind
-from typing import TYPE_CHECKING, Any, Sequence, overload
+from typing import TYPE_CHECKING, cast, overload
 
-import attr
+import attrs
 import pytest
 
 import trio
 from trio import (
     SocketListener,
-    TrioDeprecationWarning,
     open_tcp_listeners,
     open_tcp_stream,
     serve_tcp,
@@ -27,7 +26,11 @@ if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from typing_extensions import Buffer
+
+    from trio._socket import AddressFormat
 
 
 async def test_open_tcp_listeners_basic() -> None:
@@ -94,7 +97,7 @@ async def test_open_tcp_listeners_rebind() -> None:
         probe.setsockopt(stdlib_socket.SOL_SOCKET, stdlib_socket.SO_REUSEADDR, 1)
         with pytest.raises(
             OSError,
-            match="(Address (already )?in use|An attempt was made to access a socket in a way forbidden by its access permissions)$",
+            match=r"(Address (already )?in use|An attempt was made to access a socket in a way forbidden by its access permissions)$",
         ):
             probe.bind(sockaddr1)
 
@@ -132,15 +135,15 @@ class FakeOSError(OSError):
     pass
 
 
-@attr.s
+@attrs.define(slots=False)
 class FakeSocket(tsocket.SocketType):
-    _family: AddressFamily = attr.ib(converter=AddressFamily)
-    _type: SocketKind = attr.ib(converter=SocketKind)
-    _proto: int = attr.ib()
+    _family: AddressFamily = attrs.field(converter=AddressFamily)
+    _type: SocketKind = attrs.field(converter=SocketKind)
+    _proto: int
 
-    closed: bool = attr.ib(default=False)
-    poison_listen: bool = attr.ib(default=False)
-    backlog: int | None = attr.ib(default=None)
+    closed: bool = False
+    poison_listen: bool = False
+    backlog: int | None = None
 
     @property
     def type(self) -> SocketKind:
@@ -155,27 +158,34 @@ class FakeSocket(tsocket.SocketType):
         return self._proto
 
     @overload
-    def getsockopt(self, /, level: int, optname: int) -> int:
-        ...
+    def getsockopt(self, /, level: int, optname: int) -> int: ...
 
     @overload
-    def getsockopt(self, /, level: int, optname: int, buflen: int) -> bytes:
-        ...
+    def getsockopt(self, /, level: int, optname: int, buflen: int) -> bytes: ...
 
     def getsockopt(
-        self, /, level: int, optname: int, buflen: int | None = None
+        self,
+        /,
+        level: int,
+        optname: int,
+        buflen: int | None = None,
     ) -> int | bytes:
         if (level, optname) == (tsocket.SOL_SOCKET, tsocket.SO_ACCEPTCONN):
             return True
         raise AssertionError()  # pragma: no cover
 
     @overload
-    def setsockopt(self, /, level: int, optname: int, value: int | Buffer) -> None:
-        ...
+    def setsockopt(self, /, level: int, optname: int, value: int | Buffer) -> None: ...
 
     @overload
-    def setsockopt(self, /, level: int, optname: int, value: None, optlen: int) -> None:
-        ...
+    def setsockopt(
+        self,
+        /,
+        level: int,
+        optname: int,
+        value: None,
+        optlen: int,
+    ) -> None: ...
 
     def setsockopt(
         self,
@@ -187,7 +197,7 @@ class FakeSocket(tsocket.SocketType):
     ) -> None:
         pass
 
-    async def bind(self, address: Any) -> None:
+    async def bind(self, address: AddressFormat) -> None:
         pass
 
     def listen(self, /, backlog: int = min(stdlib_socket.SOMAXCONN, 128)) -> None:
@@ -201,25 +211,25 @@ class FakeSocket(tsocket.SocketType):
         self.closed = True
 
 
-@attr.s
+@attrs.define(slots=False)
 class FakeSocketFactory(SocketFactory):
-    poison_after: int = attr.ib()
-    sockets: list[tsocket.SocketType] = attr.ib(factory=list)
-    raise_on_family: dict[AddressFamily, int] = attr.ib(factory=dict)  # family => errno
+    poison_after: int
+    sockets: list[tsocket.SocketType] = attrs.Factory(list)
+    raise_on_family: dict[AddressFamily, int] = attrs.Factory(dict)  # family => errno
 
     def socket(
         self,
         family: AddressFamily | int | None = None,
-        type: SocketKind | int | None = None,
+        type_: SocketKind | int | None = None,
         proto: int = 0,
     ) -> tsocket.SocketType:
         assert family is not None
-        assert type is not None
+        assert type_ is not None
         if isinstance(family, int) and not isinstance(family, AddressFamily):
             family = AddressFamily(family)  # pragma: no cover
         if family in self.raise_on_family:
             raise OSError(self.raise_on_family[family], "nope")
-        sock = FakeSocket(family, type, proto)
+        sock = FakeSocket(family, type_, proto)
         self.poison_after -= 1
         if self.poison_after == 0:
             sock.poison_listen = True
@@ -227,13 +237,13 @@ class FakeSocketFactory(SocketFactory):
         return sock
 
 
-@attr.s
+@attrs.define(slots=False)
 class FakeHostnameResolver(HostnameResolver):
-    family_addr_pairs: Sequence[tuple[AddressFamily, str]] = attr.ib()
+    family_addr_pairs: Sequence[tuple[AddressFamily, str]]
 
     async def getaddrinfo(
         self,
-        host: bytes | str | None,
+        host: bytes | None,
         port: bytes | str | int | None,
         family: int = 0,
         type: int = 0,
@@ -255,7 +265,9 @@ class FakeHostnameResolver(HostnameResolver):
         ]
 
     async def getnameinfo(
-        self, sockaddr: tuple[str, int] | tuple[str, int, int, int], flags: int
+        self,
+        sockaddr: tuple[str, int] | tuple[str, int, int, int],
+        flags: int,
     ) -> tuple[str, str]:
         raise NotImplementedError()
 
@@ -271,8 +283,8 @@ async def test_open_tcp_listeners_multiple_host_cleanup_on_error() -> None:
                 (tsocket.AF_INET, "1.1.1.1"),
                 (tsocket.AF_INET, "2.2.2.2"),
                 (tsocket.AF_INET, "3.3.3.3"),
-            ]
-        )
+            ],
+        ),
     )
 
     with pytest.raises(FakeOSError):
@@ -300,7 +312,9 @@ async def test_serve_tcp() -> None:
 
     async with trio.open_nursery() as nursery:
         # nursery.start is incorrectly typed, awaiting #2773
-        listeners: list[SocketListener] = await nursery.start(serve_tcp, handler, 0)
+        value = await nursery.start(serve_tcp, handler, 0)
+        assert isinstance(value, list)
+        listeners = cast("list[SocketListener]", value)
         stream = await open_stream_to_socket_listener(listeners[0])
         async with stream:
             assert await stream.receive_some(1) == b"x"
@@ -316,14 +330,16 @@ async def test_serve_tcp() -> None:
     [{tsocket.AF_INET}, {tsocket.AF_INET6}, {tsocket.AF_INET, tsocket.AF_INET6}],
 )
 async def test_open_tcp_listeners_some_address_families_unavailable(
-    try_families: set[AddressFamily], fail_families: set[AddressFamily]
+    try_families: set[AddressFamily],
+    fail_families: set[AddressFamily],
 ) -> None:
     fsf = FakeSocketFactory(
-        10, raise_on_family={family: errno.EAFNOSUPPORT for family in fail_families}
+        10,
+        raise_on_family=dict.fromkeys(fail_families, errno.EAFNOSUPPORT),
     )
     tsocket.set_custom_socket_factory(fsf)
     tsocket.set_custom_hostname_resolver(
-        FakeHostnameResolver([(family, "foo") for family in try_families])
+        FakeHostnameResolver([(family, "foo") for family in try_families]),
     )
 
     should_succeed = try_families - fail_families
@@ -355,7 +371,7 @@ async def test_open_tcp_listeners_socket_fails_not_afnosupport() -> None:
     )
     tsocket.set_custom_socket_factory(fsf)
     tsocket.set_custom_hostname_resolver(
-        FakeHostnameResolver([(tsocket.AF_INET, "foo"), (tsocket.AF_INET6, "bar")])
+        FakeHostnameResolver([(tsocket.AF_INET, "foo"), (tsocket.AF_INET6, "bar")]),
     )
 
     with pytest.raises(OSError, match="nope") as exc_info:
@@ -389,22 +405,12 @@ async def test_open_tcp_listeners_backlog() -> None:
             assert listener.socket.backlog == expected  # type: ignore[attr-defined]
 
 
-async def test_open_tcp_listeners_backlog_inf_warning() -> None:
-    fsf = FakeSocketFactory(99)
-    tsocket.set_custom_socket_factory(fsf)
-    with pytest.warns(TrioDeprecationWarning):
-        listeners = await open_tcp_listeners(0, backlog=float("inf"))  # type: ignore[arg-type]
-    assert listeners
-    for listener in listeners:
-        # `backlog` only exists on FakeSocket
-        assert listener.socket.backlog == 0xFFFF  # type: ignore[attr-defined]
-
-
 async def test_open_tcp_listeners_backlog_float_error() -> None:
     fsf = FakeSocketFactory(99)
     tsocket.set_custom_socket_factory(fsf)
-    for should_fail in (0.0, 2.18, 3.14, 9.75):
+    for should_fail in (0.0, 2.18, 3.15, 9.75):
         with pytest.raises(
-            TypeError, match=f"backlog must be an int or None, not {should_fail!r}"
+            TypeError,
+            match=f"backlog must be an int or None, not {should_fail!r}",
         ):
             await open_tcp_listeners(0, backlog=should_fail)  # type: ignore[arg-type]

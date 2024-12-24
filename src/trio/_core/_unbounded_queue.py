@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Generic, TypeVar
 
-import attr
+import attrs
 
 from .. import _core
 from .._deprecate import deprecated
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
 
-@attr.s(slots=True, frozen=True)
+@attrs.frozen
 class UnboundedQueueStatistics:
     """An object containing debugging information.
 
@@ -26,8 +26,8 @@ class UnboundedQueueStatistics:
 
     """
 
-    qsize: int = attr.ib()
-    tasks_waiting: int = attr.ib()
+    qsize: int
+    tasks_waiting: int
 
 
 @final
@@ -66,6 +66,7 @@ class UnboundedQueue(Generic[T]):
         issue=497,
         thing="trio.lowlevel.UnboundedQueue",
         instead="trio.open_memory_channel(math.inf)",
+        use_triodeprecationwarning=True,
     )
     def __init__(self) -> None:
         self._lot = _core.ParkingLot()
@@ -151,7 +152,8 @@ class UnboundedQueue(Generic[T]):
     def statistics(self) -> UnboundedQueueStatistics:
         """Return an :class:`UnboundedQueueStatistics` object containing debugging information."""
         return UnboundedQueueStatistics(
-            qsize=len(self._data), tasks_waiting=self._lot.statistics().tasks_waiting
+            qsize=len(self._data),
+            tasks_waiting=self._lot.statistics().tasks_waiting,
         )
 
     def __aiter__(self) -> Self:

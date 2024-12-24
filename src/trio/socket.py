@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # This is a public namespace, so we don't want to expose any non-underscored
 # attributes that aren't actually part of our public API. But it's very
 # annoying to carefully always use underscored names for module-level
@@ -5,36 +7,35 @@
 # implementation in an underscored module, and then re-export the public parts
 # here.
 # We still have some underscore names though but only a few.
-
-
-# Uses `from x import y as y` for compatibility with `pyright --verifytypes` (#2625)
-
-# Dynamically re-export whatever constants this particular Python happens to
-# have:
 import socket as _stdlib_socket
+
+# static checkers don't understand if importing this as _sys, so it's deleted later
 import sys
 import typing as _t
 
 from . import _socket
 
-_bad_symbols: _t.Set[str] = set()
+_bad_symbols: set[str] = set()
 if sys.platform == "win32":
     # See https://github.com/python-trio/trio/issues/39
     # Do not import for windows platform
     # (you can still get it from stdlib socket, of course, if you want it)
     _bad_symbols.add("SO_REUSEADDR")
 
+# Dynamically re-export whatever constants this particular Python happens to
+# have:
 globals().update(
     {
         _name: getattr(_stdlib_socket, _name)
         for _name in _stdlib_socket.__all__  # type: ignore
         if _name.isupper() and _name not in _bad_symbols
-    }
+    },
 )
 
 # import the overwrites
 from contextlib import suppress as _suppress
 
+# Uses `from x import y as y` for compatibility with `pyright --verifytypes` (#2625)
 from ._socket import (
     SocketType as SocketType,
     from_stdlib_socket as from_stdlib_socket,
@@ -70,9 +71,15 @@ from socket import (
 if sys.implementation.name == "cpython":
     from socket import (
         if_indextoname as if_indextoname,
-        if_nameindex as if_nameindex,
         if_nametoindex as if_nametoindex,
     )
+
+    # For android devices, if_nameindex support was introduced in API 24,
+    # so it doesn't exist for any version prior.
+    with _suppress(ImportError):
+        from socket import (
+            if_nameindex as if_nameindex,
+        )
 
 
 # not always available so expose only if
@@ -98,7 +105,7 @@ del sys
 # re-export them. Since the exact set of constants varies depending on Python
 # version, platform, the libc installed on the system where Python was built,
 # etc., we figure out which constants to re-export dynamically at runtime (see
-# below). But that confuses static analysis tools like jedi and mypy. So this
+# above). But that confuses static analysis tools like jedi and mypy. So this
 # import statement statically lists every constant that *could* be
 # exported. There's a test in test_exports.py to make sure that the list is
 # kept up to date.
@@ -114,6 +121,7 @@ if _t.TYPE_CHECKING:
         AF_BRIDGE as AF_BRIDGE,
         AF_CAN as AF_CAN,
         AF_ECONET as AF_ECONET,
+        AF_HYPERV as AF_HYPERV,
         AF_INET as AF_INET,
         AF_INET6 as AF_INET6,
         AF_IPX as AF_IPX,
@@ -242,6 +250,17 @@ if _t.TYPE_CHECKING:
         HCI_DATA_DIR as HCI_DATA_DIR,
         HCI_FILTER as HCI_FILTER,
         HCI_TIME_STAMP as HCI_TIME_STAMP,
+        HV_GUID_BROADCAST as HV_GUID_BROADCAST,
+        HV_GUID_CHILDREN as HV_GUID_CHILDREN,
+        HV_GUID_LOOPBACK as HV_GUID_LOOPBACK,
+        HV_GUID_PARENT as HV_GUID_PARENT,
+        HV_GUID_WILDCARD as HV_GUID_WILDCARD,
+        HV_GUID_ZERO as HV_GUID_ZERO,
+        HV_PROTOCOL_RAW as HV_PROTOCOL_RAW,
+        HVSOCKET_ADDRESS_FLAG_PASSTHRU as HVSOCKET_ADDRESS_FLAG_PASSTHRU,
+        HVSOCKET_CONNECT_TIMEOUT as HVSOCKET_CONNECT_TIMEOUT,
+        HVSOCKET_CONNECT_TIMEOUT_MAX as HVSOCKET_CONNECT_TIMEOUT_MAX,
+        HVSOCKET_CONNECTED_SUSPEND as HVSOCKET_CONNECTED_SUSPEND,
         INADDR_ALLHOSTS_GROUP as INADDR_ALLHOSTS_GROUP,
         INADDR_ANY as INADDR_ANY,
         INADDR_BROADCAST as INADDR_BROADCAST,
@@ -388,6 +407,7 @@ if _t.TYPE_CHECKING:
         NETLINK_USERSOCK as NETLINK_USERSOCK,
         NETLINK_XFRM as NETLINK_XFRM,
         NI_DGRAM as NI_DGRAM,
+        NI_IDN as NI_IDN,
         NI_MAXHOST as NI_MAXHOST,
         NI_MAXSERV as NI_MAXSERV,
         NI_NAMEREQD as NI_NAMEREQD,
@@ -436,6 +456,7 @@ if _t.TYPE_CHECKING:
         SIOCGIFNAME as SIOCGIFNAME,
         SO_ACCEPTCONN as SO_ACCEPTCONN,
         SO_BINDTODEVICE as SO_BINDTODEVICE,
+        SO_BINDTOIFINDEX as SO_BINDTOIFINDEX,
         SO_BROADCAST as SO_BROADCAST,
         SO_DEBUG as SO_DEBUG,
         SO_DOMAIN as SO_DOMAIN,
@@ -492,6 +513,7 @@ if _t.TYPE_CHECKING:
         SYSPROTO_CONTROL as SYSPROTO_CONTROL,
         TCP_CC_INFO as TCP_CC_INFO,
         TCP_CONGESTION as TCP_CONGESTION,
+        TCP_CONNECTION_INFO as TCP_CONNECTION_INFO,
         TCP_CORK as TCP_CORK,
         TCP_DEFER_ACCEPT as TCP_DEFER_ACCEPT,
         TCP_FASTOPEN as TCP_FASTOPEN,

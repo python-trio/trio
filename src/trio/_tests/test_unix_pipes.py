@@ -12,6 +12,9 @@ from .. import _core
 from .._core._tests.tutil import gc_collect_harder, skip_if_fbsd_pipes_broken
 from ..testing import check_one_way_stream, wait_all_tasks_blocked
 
+if TYPE_CHECKING:
+    from .._file_io import _HasFileNo
+
 posix = os.name == "posix"
 pytestmark = pytest.mark.skipif(not posix, reason="posix only")
 
@@ -30,7 +33,7 @@ async def make_pipe() -> tuple[FdStream, FdStream]:
     return FdStream(w), FdStream(r)
 
 
-async def make_clogged_pipe():
+async def make_clogged_pipe() -> tuple[FdStream, FdStream]:
     s, r = await make_pipe()
     try:
         while True:
@@ -107,7 +110,7 @@ async def test_pipe_errors() -> None:
     r, w = os.pipe()
     os.close(w)
     async with FdStream(r) as s:
-        with pytest.raises(ValueError, match="^max_bytes must be integer >= 1$"):
+        with pytest.raises(ValueError, match=r"^max_bytes must be integer >= 1$"):
             await s.receive_some(0)
 
 
@@ -117,11 +120,11 @@ async def test_del() -> None:
     del w, r
     gc_collect_harder()
 
-    with pytest.raises(OSError, match="Bad file descriptor$") as excinfo:
+    with pytest.raises(OSError, match=r"Bad file descriptor$") as excinfo:
         os.close(f1)
     assert excinfo.value.errno == errno.EBADF
 
-    with pytest.raises(OSError, match="Bad file descriptor$") as excinfo:
+    with pytest.raises(OSError, match=r"Bad file descriptor$") as excinfo:
         os.close(f2)
     assert excinfo.value.errno == errno.EBADF
 
@@ -134,11 +137,11 @@ async def test_async_with() -> None:
     assert w.fileno() == -1
     assert r.fileno() == -1
 
-    with pytest.raises(OSError, match="Bad file descriptor$") as excinfo:
+    with pytest.raises(OSError, match=r"Bad file descriptor$") as excinfo:
         os.close(w.fileno())
     assert excinfo.value.errno == errno.EBADF
 
-    with pytest.raises(OSError, match="Bad file descriptor$") as excinfo:
+    with pytest.raises(OSError, match=r"Bad file descriptor$") as excinfo:
         os.close(r.fileno())
     assert excinfo.value.errno == errno.EBADF
 
@@ -197,8 +200,11 @@ async def test_close_at_bad_time_for_receive_some(
 
     orig_wait_readable = _core._run.TheIOManager.wait_readable
 
-    async def patched_wait_readable(*args, **kwargs) -> None:
-        await orig_wait_readable(*args, **kwargs)
+    async def patched_wait_readable(
+        self: _core._run.TheIOManager,
+        fd: int | _HasFileNo,
+    ) -> None:
+        await orig_wait_readable(self, fd)
         await r.aclose()
 
     monkeypatch.setattr(_core._run.TheIOManager, "wait_readable", patched_wait_readable)
@@ -225,8 +231,11 @@ async def test_close_at_bad_time_for_send_all(monkeypatch: pytest.MonkeyPatch) -
 
     orig_wait_writable = _core._run.TheIOManager.wait_writable
 
-    async def patched_wait_writable(*args, **kwargs) -> None:
-        await orig_wait_writable(*args, **kwargs)
+    async def patched_wait_writable(
+        self: _core._run.TheIOManager,
+        fd: int | _HasFileNo,
+    ) -> None:
+        await orig_wait_writable(self, fd)
         await s.aclose()
 
     monkeypatch.setattr(_core._run.TheIOManager, "wait_writable", patched_wait_writable)

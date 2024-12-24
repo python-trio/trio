@@ -2,8 +2,14 @@
 from __future__ import annotations
 
 import random
+import sys
+from collections.abc import Awaitable, Callable, Generator
 from contextlib import contextmanager, suppress
-from typing import TYPE_CHECKING, Awaitable, Callable, Generic, Tuple, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Generic,
+    TypeVar,
+)
 
 from .. import CancelScope, _core
 from .._abc import AsyncResource, HalfCloseableStream, ReceiveStream, SendStream, Stream
@@ -11,16 +17,18 @@ from .._highlevel_generic import aclose_forcefully
 from ._checkpoints import assert_checkpoints
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
     from types import TracebackType
 
     from typing_extensions import ParamSpec, TypeAlias
 
     ArgsT = ParamSpec("ArgsT")
 
+if sys.version_info < (3, 11):
+    from exceptiongroup import BaseExceptionGroup
+
 Res1 = TypeVar("Res1", bound=AsyncResource)
 Res2 = TypeVar("Res2", bound=AsyncResource)
-StreamMaker: TypeAlias = Callable[[], Awaitable[Tuple[Res1, Res2]]]
+StreamMaker: TypeAlias = Callable[[], Awaitable[tuple[Res1, Res2]]]
 
 
 class _ForceCloseBoth(Generic[Res1, Res2]):
@@ -45,14 +53,22 @@ class _ForceCloseBoth(Generic[Res1, Res2]):
 # This is used in this file instead of pytest.raises in order to avoid a dependency
 # on pytest, as the check_* functions are publicly exported.
 @contextmanager
-def _assert_raises(exc: type[BaseException]) -> Generator[None, None, None]:
+def _assert_raises(
+    expected_exc: type[BaseException],
+    wrapped: bool = False,
+) -> Generator[None, None, None]:
     __tracebackhide__ = True
     try:
         yield
-    except exc:
-        pass
+    except BaseExceptionGroup as exc:
+        assert wrapped, "caught exceptiongroup, but expected an unwrapped exception"
+        # assert in except block ignored below
+        assert len(exc.exceptions) == 1  # noqa: PT017
+        assert isinstance(exc.exceptions[0], expected_exc)  # noqa: PT017
+    except expected_exc:
+        assert not wrapped, "caught exception, but expected an exceptiongroup"
     else:
-        raise AssertionError(f"expected exception: {exc}")
+        raise AssertionError(f"expected exception: {expected_exc}")
 
 
 async def check_one_way_stream(
@@ -137,7 +153,7 @@ async def check_one_way_stream(
             nursery.start_soon(do_send_all, b"x")
             assert await do_receive_some(None) == b"x"
 
-        with _assert_raises(_core.BusyResourceError):
+        with _assert_raises(_core.BusyResourceError, wrapped=True):
             async with _core.open_nursery() as nursery:
                 nursery.start_soon(do_receive_some, 1)
                 nursery.start_soon(do_receive_some, 1)
@@ -156,7 +172,8 @@ async def check_one_way_stream(
 
         async with _core.open_nursery() as nursery:
             nursery.start_soon(
-                simple_check_wait_send_all_might_not_block, nursery.cancel_scope
+                simple_check_wait_send_all_might_not_block,
+                nursery.cancel_scope,
             )
             nursery.start_soon(do_receive_some, 1)
 
@@ -294,7 +311,7 @@ async def check_one_way_stream(
     # receive stream causes it to wake up.
     async with _ForceCloseBoth(await stream_maker()) as (s, r):
 
-        async def receive_expecting_closed():
+        async def receive_expecting_closed() -> None:
             with _assert_raises(_core.ClosedResourceError):
                 await r.receive_some(10)
 
@@ -335,7 +352,7 @@ async def check_one_way_stream(
 
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
             # simultaneous wait_send_all_might_not_block fails
-            with _assert_raises(_core.BusyResourceError):
+            with _assert_raises(_core.BusyResourceError, wrapped=True):
                 async with _core.open_nursery() as nursery:
                     nursery.start_soon(s.wait_send_all_might_not_block)
                     nursery.start_soon(s.wait_send_all_might_not_block)
@@ -344,7 +361,7 @@ async def check_one_way_stream(
             # this test might destroy the stream b/c we end up cancelling
             # send_all and e.g. SSLStream can't handle that, so we have to
             # recreate afterwards)
-            with _assert_raises(_core.BusyResourceError):
+            with _assert_raises(_core.BusyResourceError, wrapped=True):
                 async with _core.open_nursery() as nursery:
                     nursery.start_soon(s.wait_send_all_might_not_block)
                     nursery.start_soon(s.send_all, b"123")
@@ -352,7 +369,7 @@ async def check_one_way_stream(
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s, r):
             # send_all and send_all blocked simultaneously should also raise
             # (but again this might destroy the stream)
-            with _assert_raises(_core.BusyResourceError):
+            with _assert_raises(_core.BusyResourceError, wrapped=True):
                 async with _core.open_nursery() as nursery:
                     nursery.start_soon(s.send_all, b"123")
                     nursery.start_soon(s.send_all, b"123")
@@ -449,7 +466,9 @@ async def check_two_way_stream(
         test_data = i.to_bytes(DUPLEX_TEST_SIZE, "little")
 
         async def sender(
-            s: Stream, data: bytes | bytearray | memoryview, seed: int
+            s: Stream,
+            data: bytes | bytearray | memoryview,
+            seed: int,
         ) -> None:
             r = random.Random(seed)
             m = memoryview(data)
@@ -534,7 +553,7 @@ async def check_half_closeable_stream(
     if clogged_stream_maker is not None:
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s1, s2):
             # send_all and send_eof simultaneously is not ok
-            with _assert_raises(_core.BusyResourceError):
+            with _assert_raises(_core.BusyResourceError, wrapped=True):
                 async with _core.open_nursery() as nursery:
                     nursery.start_soon(s1.send_all, b"x")
                     await _core.wait_all_tasks_blocked()
@@ -543,7 +562,7 @@ async def check_half_closeable_stream(
         async with _ForceCloseBoth(await clogged_stream_maker()) as (s1, s2):
             # wait_send_all_might_not_block and send_eof simultaneously is not
             # ok either
-            with _assert_raises(_core.BusyResourceError):
+            with _assert_raises(_core.BusyResourceError, wrapped=True):
                 async with _core.open_nursery() as nursery:
                     nursery.start_soon(s1.wait_send_all_might_not_block)
                     await _core.wait_all_tasks_blocked()

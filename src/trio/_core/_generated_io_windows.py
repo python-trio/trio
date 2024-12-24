@@ -3,18 +3,20 @@
 # *************************************************************
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ContextManager
+import sys
+from typing import TYPE_CHECKING
 
-from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
+from ._ki import enable_ki_protection
 from ._run import GLOBAL_RUN_CONTEXT
 
 if TYPE_CHECKING:
+    from contextlib import AbstractContextManager
+
     from typing_extensions import Buffer
 
     from .._file_io import _HasFileNo
     from ._unbounded_queue import UnboundedQueue
     from ._windows_cffi import CData, Handle
-import sys
 
 assert not TYPE_CHECKING or sys.platform == "win32"
 
@@ -32,7 +34,8 @@ __all__ = [
 ]
 
 
-async def wait_readable(sock: (_HasFileNo | int)) -> None:
+@enable_ki_protection
+async def wait_readable(sock: _HasFileNo | int) -> None:
     """Block until the kernel reports that the given object is readable.
 
     On Unix systems, ``sock`` must either be an integer file descriptor,
@@ -54,14 +57,14 @@ async def wait_readable(sock: (_HasFileNo | int)) -> None:
         if another task calls :func:`notify_closing` while this
         function is still working.
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_readable(sock)
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
 
 
-async def wait_writable(sock: (_HasFileNo | int)) -> None:
+@enable_ki_protection
+async def wait_writable(sock: _HasFileNo | int) -> None:
     """Block until the kernel reports that the given object is writable.
 
     See `wait_readable` for the definition of ``sock``.
@@ -73,14 +76,14 @@ async def wait_writable(sock: (_HasFileNo | int)) -> None:
         if another task calls :func:`notify_closing` while this
         function is still working.
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_writable(sock)
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
 
 
-def notify_closing(handle: (Handle | int | _HasFileNo)) -> None:
+@enable_ki_protection
+def notify_closing(handle: Handle | int | _HasFileNo) -> None:
     """Notify waiters of the given object that it will be closed.
 
     Call this before closing a file descriptor (on Unix) or socket (on
@@ -105,35 +108,32 @@ def notify_closing(handle: (Handle | int | _HasFileNo)) -> None:
     step, so other tasks won't be able to tell what order they happened
     in anyway.
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.notify_closing(handle)
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
 
 
-def register_with_iocp(handle: (int | CData)) -> None:
+@enable_ki_protection
+def register_with_iocp(handle: int | CData) -> None:
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26
     <https://github.com/python-trio/trio/issues/26>`__ and `#52
     <https://github.com/python-trio/trio/issues/52>`__.
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.register_with_iocp(handle)
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
 
 
-async def wait_overlapped(
-    handle_: (int | CData), lpOverlapped: (CData | int)
-) -> object:
+@enable_ki_protection
+async def wait_overlapped(handle_: int | CData, lpOverlapped: CData | int) -> object:
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26
     <https://github.com/python-trio/trio/issues/26>`__ and `#52
     <https://github.com/python-trio/trio/issues/52>`__.
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_overlapped(
             handle_, lpOverlapped
@@ -142,15 +142,15 @@ async def wait_overlapped(
         raise RuntimeError("must be called from async context") from None
 
 
+@enable_ki_protection
 async def write_overlapped(
-    handle: (int | CData), data: Buffer, file_offset: int = 0
+    handle: int | CData, data: Buffer, file_offset: int = 0
 ) -> int:
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26
     <https://github.com/python-trio/trio/issues/26>`__ and `#52
     <https://github.com/python-trio/trio/issues/52>`__.
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.write_overlapped(
             handle, data, file_offset
@@ -159,15 +159,15 @@ async def write_overlapped(
         raise RuntimeError("must be called from async context") from None
 
 
+@enable_ki_protection
 async def readinto_overlapped(
-    handle: (int | CData), buffer: Buffer, file_offset: int = 0
+    handle: int | CData, buffer: Buffer, file_offset: int = 0
 ) -> int:
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26
     <https://github.com/python-trio/trio/issues/26>`__ and `#52
     <https://github.com/python-trio/trio/issues/52>`__.
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.readinto_overlapped(
             handle, buffer, file_offset
@@ -176,26 +176,28 @@ async def readinto_overlapped(
         raise RuntimeError("must be called from async context") from None
 
 
+@enable_ki_protection
 def current_iocp() -> int:
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26
     <https://github.com/python-trio/trio/issues/26>`__ and `#52
     <https://github.com/python-trio/trio/issues/52>`__.
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.current_iocp()
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
 
 
-def monitor_completion_key() -> ContextManager[tuple[int, UnboundedQueue[object]]]:
+@enable_ki_protection
+def monitor_completion_key() -> (
+    AbstractContextManager[tuple[int, UnboundedQueue[object]]]
+):
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26
     <https://github.com/python-trio/trio/issues/26>`__ and `#52
     <https://github.com/python-trio/trio/issues/52>`__.
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.io_manager.monitor_completion_key()
     except AttributeError:

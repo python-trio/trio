@@ -10,13 +10,7 @@ import weakref
 from functools import partial
 from typing import (
     TYPE_CHECKING,
-    AsyncGenerator,
-    Awaitable,
-    Callable,
-    List,
     NoReturn,
-    Tuple,
-    Type,
     TypeVar,
     Union,
 )
@@ -28,7 +22,6 @@ from .. import (
     CancelScope,
     CapacityLimiter,
     Event,
-    TrioDeprecationWarning,
     _core,
     fail_after,
     move_on_after,
@@ -38,27 +31,32 @@ from .. import (
 from .._core._tests.test_ki import ki_self
 from .._core._tests.tutil import slow
 from .._threads import (
+    active_thread_count,
     current_default_thread_limiter,
     from_thread_check_cancelled,
     from_thread_run,
     from_thread_run_sync,
     to_thread_run_sync,
+    wait_all_threads_completed,
 )
 from ..testing import wait_all_tasks_blocked
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator, Awaitable, Callable
+
     from outcome import Outcome
 
     from ..lowlevel import Task
 
-RecordType = List[Tuple[str, Union[threading.Thread, Type[BaseException]]]]
+RecordType = list[tuple[str, Union[threading.Thread, type[BaseException]]]]
 T = TypeVar("T")
 
 
 async def test_do_in_trio_thread() -> None:
     trio_thread = threading.current_thread()
 
-    async def check_case(
+    # Explicit "Any" is not allowed
+    async def check_case(  # type: ignore[misc]
         do_in_trio_thread: Callable[..., threading.Thread],
         fn: Callable[..., T | Awaitable[T]],
         expected: tuple[str, T],
@@ -164,8 +162,8 @@ def test_run_in_trio_thread_ki() -> None:
         thread = threading.Thread(target=external_thread_fn)
         thread.start()
         print("waiting")
-        while thread.is_alive():
-            await sleep(0.01)
+        while thread.is_alive():  # noqa: ASYNC110
+            await sleep(0.01)  # Fine to poll in tests.
         print("waited, joining")
         thread.join()
         print("done")
@@ -222,7 +220,7 @@ async def test_named_thread() -> None:
     # test that you can set a custom name, and that it's reset afterwards
     async def test_thread_name(name: str) -> None:
         thread = await to_thread_run_sync(f(name), thread_name=name)
-        assert re.match("Trio thread [0-9]*", thread.name)
+        assert re.match(r"Trio thread [0-9]*", thread.name)
 
     await test_thread_name("")
     await test_thread_name("fobiedoo")
@@ -237,9 +235,17 @@ def _get_thread_name(ident: int | None = None) -> str | None:
 
     libpthread_path = ctypes.util.find_library("pthread")
     if not libpthread_path:
-        print(f"no pthread on {sys.platform})")
+        # musl includes pthread functions directly in libc.so
+        # (but note that find_library("c") does not work on musl,
+        #  see: https://github.com/python/cpython/issues/65821)
+        # so try that library instead
+        # if it doesn't exist, CDLL() will fail below
+        libpthread_path = "libc.so"
+    try:
+        libpthread = ctypes.CDLL(libpthread_path)
+    except Exception:
+        print(f"no pthread on {sys.platform}")
         return None
-    libpthread = ctypes.CDLL(libpthread_path)
 
     pthread_getname_np = getattr(libpthread, "pthread_getname_np", None)
 
@@ -295,7 +301,7 @@ async def test_named_thread_os() -> None:
 
         os_thread_name = _get_thread_name(thread.ident)
         assert os_thread_name is not None, "should skip earlier if this is the case"
-        assert re.match("Trio thread [0-9]*", os_thread_name)
+        assert re.match(r"Trio thread [0-9]*", os_thread_name)
 
     await test_thread_name("")
     await test_thread_name("fobiedoo")
@@ -304,7 +310,7 @@ async def test_named_thread_os() -> None:
     await test_thread_name("💙", expected="?")
 
 
-async def test_has_pthread_setname_np() -> None:
+def test_has_pthread_setname_np() -> None:
     from trio._core._thread_cache import get_os_thread_name_func
 
     k = get_os_thread_name_func()
@@ -327,7 +333,8 @@ async def test_run_in_worker_thread() -> None:
         raise ValueError(threading.current_thread())
 
     with pytest.raises(
-        ValueError, match=r"^<Thread\(Trio thread \d+, started daemon \d+\)>$"
+        ValueError,
+        match=r"^<Thread\(Trio thread \d+, started daemon \d+\)>$",
     ) as excinfo:
         await to_thread_run_sync(g)
     print(excinfo.value.args)
@@ -366,7 +373,7 @@ async def test_run_in_worker_thread_cancellation() -> None:
     # Put the thread out of its misery:
     q.put(None)
     while register[0] != "finished":
-        time.sleep(0.01)  # noqa: ASYNC101  # Need to wait for OS thread
+        time.sleep(0.01)  # noqa: ASYNC251  # Need to wait for OS thread
 
     # This one can't be cancelled
     record = []
@@ -395,7 +402,8 @@ async def test_run_in_worker_thread_cancellation() -> None:
 # handled gracefully. (Requires that the thread result machinery be prepared
 # for call_soon to raise RunFinishedError.)
 def test_run_in_worker_thread_abandoned(
-    capfd: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+    capfd: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(_core._thread_cache, "IDLE_TIMEOUT", 0.01)
 
@@ -435,7 +443,9 @@ def test_run_in_worker_thread_abandoned(
 @pytest.mark.parametrize("cancel", [False, True])
 @pytest.mark.parametrize("use_default_limiter", [False, True])
 async def test_run_in_worker_thread_limiter(
-    MAX: int, cancel: bool, use_default_limiter: bool
+    MAX: int,
+    cancel: bool,
+    use_default_limiter: bool,
 ) -> None:
     # This test is a bit tricky. The goal is to make sure that if we set
     # limiter=CapacityLimiter(MAX), then in fact only MAX threads are ever
@@ -526,7 +536,9 @@ async def test_run_in_worker_thread_limiter(
             # sure no-one is sneaking past, and to make sure the high_water
             # check below won't fail due to scheduling issues. (It could still
             # fail if too many threads are let through here.)
-            while state.parked != MAX or c.statistics().tasks_waiting != MAX:
+            while (  # noqa: ASYNC110
+                state.parked != MAX or c.statistics().tasks_waiting != MAX
+            ):
                 await sleep(0.01)  # pragma: no cover
             # Then release the threads
             gate.set()
@@ -537,7 +549,7 @@ async def test_run_in_worker_thread_limiter(
             # Some threads might still be running; need to wait to them to
             # finish before checking that all threads ran. We can do this
             # using the CapacityLimiter.
-            while c.borrowed_tokens > 0:
+            while c.borrowed_tokens > 0:  # noqa: ASYNC110
                 await sleep(0.01)  # pragma: no cover
 
         assert state.ran == COUNT
@@ -562,7 +574,7 @@ async def test_run_in_worker_thread_custom_limiter() -> None:
 
     # TODO: should CapacityLimiter have an abc or protocol so users can modify it?
     # because currently it's `final` so writing code like this is not allowed.
-    await to_thread_run_sync(lambda: None, limiter=CustomLimiter())  # type: ignore[call-overload]
+    await to_thread_run_sync(lambda: None, limiter=CustomLimiter())  # type: ignore[arg-type]
     assert record == ["acquire", "release"]
 
 
@@ -579,8 +591,8 @@ async def test_run_in_worker_thread_limiter_error() -> None:
 
     bs = BadCapacityLimiter()
 
-    with pytest.raises(ValueError, match="^release on behalf$") as excinfo:
-        await to_thread_run_sync(lambda: None, limiter=bs)  # type: ignore[call-overload]
+    with pytest.raises(ValueError, match=r"^release on behalf$") as excinfo:
+        await to_thread_run_sync(lambda: None, limiter=bs)  # type: ignore[arg-type]
     assert excinfo.value.__context__ is None
     assert record == ["acquire", "release"]
     record = []
@@ -588,8 +600,8 @@ async def test_run_in_worker_thread_limiter_error() -> None:
     # If the original function raised an error, then the semaphore error
     # chains with it
     d: dict[str, object] = {}
-    with pytest.raises(ValueError, match="^release on behalf$") as excinfo:
-        await to_thread_run_sync(lambda: d["x"], limiter=bs)  # type: ignore[call-overload]
+    with pytest.raises(ValueError, match=r"^release on behalf$") as excinfo:
+        await to_thread_run_sync(lambda: d["x"], limiter=bs)  # type: ignore[arg-type]
     assert isinstance(excinfo.value.__context__, KeyError)
     assert record == ["acquire", "release"]
 
@@ -636,7 +648,7 @@ async def test_trio_to_thread_run_sync_expected_error() -> None:
 
 
 trio_test_contextvar: contextvars.ContextVar[str] = contextvars.ContextVar(
-    "trio_test_contextvar"
+    "trio_test_contextvar",
 )
 
 
@@ -868,7 +880,7 @@ def test_from_thread_run_during_shutdown() -> None:
             with _core.CancelScope(shield=True):
                 try:
                     await to_thread_run_sync(
-                        partial(from_thread_run, sleep, 0, trio_token=token)
+                        partial(from_thread_run, sleep, 0, trio_token=token),
                     )
                 except _core.RunFinishedError:
                     record.append("finished")
@@ -899,7 +911,7 @@ async def test_unsafe_abandon_on_cancel_kwarg() -> None:
             raise NotImplementedError
 
     with pytest.raises(NotImplementedError):
-        await to_thread_run_sync(int, abandon_on_cancel=BadBool())  # type: ignore[call-overload]
+        await to_thread_run_sync(int, abandon_on_cancel=BadBool())  # type: ignore[arg-type]
 
 
 async def test_from_thread_reuses_task() -> None:
@@ -1061,7 +1073,7 @@ async def test_from_thread_check_cancelled() -> None:
     assert q.get(timeout=1) == "Cancelled"
 
 
-async def test_from_thread_check_cancelled_raises_in_foreign_threads() -> None:
+def test_from_thread_check_cancelled_raises_in_foreign_threads() -> None:
     with pytest.raises(RuntimeError):
         from_thread_check_cancelled()
     q: stdlib_queue.Queue[Outcome[object]] = stdlib_queue.Queue()
@@ -1086,23 +1098,48 @@ async def test_reentry_doesnt_deadlock() -> None:
                 nursery.start_soon(child)
 
 
-async def test_cancellable_and_abandon_raises() -> None:
-    with pytest.raises(
-        ValueError,
-        match=r"^Cannot set `cancellable` and `abandon_on_cancel` simultaneously\.$",
-    ):
-        await to_thread_run_sync(bool, cancellable=True, abandon_on_cancel=False)  # type: ignore[call-overload]
+async def test_wait_all_threads_completed() -> None:
+    no_threads_left = False
+    e1 = Event()
+    e2 = Event()
 
-    with pytest.raises(
-        ValueError,
-        match=r"^Cannot set `cancellable` and `abandon_on_cancel` simultaneously\.$",
-    ):
-        await to_thread_run_sync(bool, cancellable=True, abandon_on_cancel=True)  # type: ignore[call-overload]
+    e1_exited = Event()
+    e2_exited = Event()
+
+    async def wait_event(e: Event, e_exit: Event) -> None:
+        def thread() -> None:
+            from_thread_run(e.wait)
+
+        await to_thread_run_sync(thread)
+        e_exit.set()
+
+    async def wait_no_threads_left() -> None:
+        nonlocal no_threads_left
+        await wait_all_threads_completed()
+        no_threads_left = True
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(wait_event, e1, e1_exited)
+        nursery.start_soon(wait_event, e2, e2_exited)
+        await wait_all_tasks_blocked()
+        nursery.start_soon(wait_no_threads_left)
+        await wait_all_tasks_blocked()
+        assert not no_threads_left
+        assert active_thread_count() == 2
+
+        e1.set()
+        await e1_exited.wait()
+        await wait_all_tasks_blocked()
+        assert not no_threads_left
+        assert active_thread_count() == 1
+
+        e2.set()
+        await e2_exited.wait()
+        await wait_all_tasks_blocked()
+        assert no_threads_left
+        assert active_thread_count() == 0
 
 
-async def test_cancellable_warns() -> None:
-    with pytest.warns(TrioDeprecationWarning):
-        await to_thread_run_sync(bool, cancellable=False)
-
-    with pytest.warns(TrioDeprecationWarning):
-        await to_thread_run_sync(bool, cancellable=True)
+async def test_wait_all_threads_completed_no_threads() -> None:
+    await wait_all_threads_completed()
+    assert active_thread_count() == 0

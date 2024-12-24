@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+from collections.abc import Callable, Iterable
 from functools import partial
 from typing import (
     IO,
@@ -8,9 +9,7 @@ from typing import (
     Any,
     AnyStr,
     BinaryIO,
-    Callable,
     Generic,
-    Iterable,
     TypeVar,
     Union,
     overload,
@@ -31,6 +30,8 @@ if TYPE_CHECKING:
         StrOrBytesPath,
     )
     from typing_extensions import Literal
+
+    from ._sync import CapacityLimiter
 
 # This list is also in the docs, make sure to keep them in sync
 _FILE_SYNC_ATTRS: set[str] = {
@@ -242,7 +243,10 @@ class AsyncIOWrapper(AsyncResource, Generic[FileT_co]):
                 meth = getattr(self._wrapped, name)
 
                 @async_wraps(self.__class__, self._wrapped.__class__, name)
-                async def wrapper(*args, **kwargs):
+                async def wrapper(
+                    *args: Callable[..., T],
+                    **kwargs: object | str | bool | CapacityLimiter | None,
+                ) -> T:
                     func = partial(meth, *args, **kwargs)
                     return await trio.to_thread.run_sync(func)
 
@@ -355,8 +359,7 @@ async def open_file(
     newline: str | None = None,
     closefd: bool = True,
     opener: _Opener | None = None,
-) -> AsyncIOWrapper[io.TextIOWrapper]:
-    ...
+) -> AsyncIOWrapper[io.TextIOWrapper]: ...
 
 
 @overload
@@ -369,8 +372,7 @@ async def open_file(
     newline: None = None,
     closefd: bool = True,
     opener: _Opener | None = None,
-) -> AsyncIOWrapper[io.FileIO]:
-    ...
+) -> AsyncIOWrapper[io.FileIO]: ...
 
 
 @overload
@@ -383,8 +385,7 @@ async def open_file(
     newline: None = None,
     closefd: bool = True,
     opener: _Opener | None = None,
-) -> AsyncIOWrapper[io.BufferedRandom]:
-    ...
+) -> AsyncIOWrapper[io.BufferedRandom]: ...
 
 
 @overload
@@ -397,8 +398,7 @@ async def open_file(
     newline: None = None,
     closefd: bool = True,
     opener: _Opener | None = None,
-) -> AsyncIOWrapper[io.BufferedWriter]:
-    ...
+) -> AsyncIOWrapper[io.BufferedWriter]: ...
 
 
 @overload
@@ -411,8 +411,7 @@ async def open_file(
     newline: None = None,
     closefd: bool = True,
     opener: _Opener | None = None,
-) -> AsyncIOWrapper[io.BufferedReader]:
-    ...
+) -> AsyncIOWrapper[io.BufferedReader]: ...
 
 
 @overload
@@ -425,8 +424,7 @@ async def open_file(
     newline: None = None,
     closefd: bool = True,
     opener: _Opener | None = None,
-) -> AsyncIOWrapper[BinaryIO]:
-    ...
+) -> AsyncIOWrapper[BinaryIO]: ...
 
 
 @overload
@@ -439,8 +437,7 @@ async def open_file(  # type: ignore[misc]  # Any usage matches builtins.open().
     newline: str | None = None,
     closefd: bool = True,
     opener: _Opener | None = None,
-) -> AsyncIOWrapper[IO[Any]]:
-    ...
+) -> AsyncIOWrapper[IO[Any]]: ...
 
 
 async def open_file(
@@ -452,7 +449,7 @@ async def open_file(
     newline: str | None = None,
     closefd: bool = True,
     opener: _Opener | None = None,
-) -> AsyncIOWrapper[Any]:
+) -> AsyncIOWrapper[object]:
     """Asynchronous version of :func:`open`.
 
     Returns:
@@ -470,12 +467,20 @@ async def open_file(
       :func:`trio.Path.open`
 
     """
-    _file = wrap_file(
+    file_ = wrap_file(
         await trio.to_thread.run_sync(
-            io.open, file, mode, buffering, encoding, errors, newline, closefd, opener
-        )
+            io.open,
+            file,
+            mode,
+            buffering,
+            encoding,
+            errors,
+            newline,
+            closefd,
+            opener,
+        ),
     )
-    return _file
+    return file_
 
 
 def wrap_file(file: FileT) -> AsyncIOWrapper[FileT]:
@@ -502,7 +507,7 @@ def wrap_file(file: FileT) -> AsyncIOWrapper[FileT]:
     if not (has("close") and (has("read") or has("write"))):
         raise TypeError(
             f"{file} does not implement required duck-file methods: "
-            "close and (read or write)"
+            "close and (read or write)",
         )
 
     return AsyncIOWrapper(file)

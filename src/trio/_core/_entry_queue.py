@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import threading
 from collections import deque
-from typing import TYPE_CHECKING, Callable, NoReturn, Tuple
+from collections.abc import Callable
+from typing import TYPE_CHECKING, NoReturn
 
-import attr
+import attrs
 
 from .. import _core
 from .._util import NoPublicConstructor, final
@@ -15,11 +16,12 @@ if TYPE_CHECKING:
 
     PosArgsT = TypeVarTuple("PosArgsT")
 
-Function = Callable[..., object]
-Job = Tuple[Function, Tuple[object, ...]]
+# Explicit "Any" is not allowed
+Function = Callable[..., object]  # type: ignore[misc]
+Job = tuple[Function, tuple[object, ...]]
 
 
-@attr.s(slots=True)
+@attrs.define
 class EntryQueue:
     # This used to use a queue.Queue. but that was broken, because Queues are
     # implemented in Python, and not reentrant -- so it was thread-safe, but
@@ -28,11 +30,11 @@ class EntryQueue:
     # atomic WRT signal delivery (signal handlers can run on either side, but
     # not *during* a deque operation). dict makes similar guarantees - and
     # it's even ordered!
-    queue: deque[Job] = attr.ib(factory=deque)
-    idempotent_queue: dict[Job, None] = attr.ib(factory=dict)
+    queue: deque[Job] = attrs.Factory(deque)
+    idempotent_queue: dict[Job, None] = attrs.Factory(dict)
 
-    wakeup: WakeupSocketpair = attr.ib(factory=WakeupSocketpair)
-    done: bool = attr.ib(default=False)
+    wakeup: WakeupSocketpair = attrs.Factory(WakeupSocketpair)
+    done: bool = False
     # Must be a reentrant lock, because it's acquired from signal handlers.
     # RLock is signal-safe as of cpython 3.2. NB that this does mean that the
     # lock is effectively *disabled* when we enter from signal context. The
@@ -41,7 +43,7 @@ class EntryQueue:
     # main thread -- it just might happen at some inconvenient place. But if
     # you look at the one place where the main thread holds the lock, it's
     # just to make 1 assignment, so that's atomic WRT a signal anyway.
-    lock: threading.RLock = attr.ib(factory=threading.RLock)
+    lock: threading.RLock = attrs.Factory(threading.RLock)
 
     async def task(self) -> None:
         assert _core.currently_ki_protected()
@@ -64,7 +66,9 @@ class EntryQueue:
                 sync_fn(*args)
             except BaseException as exc:
 
-                async def kill_everything(exc: BaseException) -> NoReturn:
+                async def kill_everything(  # noqa: RUF029  # await not used
+                    exc: BaseException,
+                ) -> NoReturn:
                     raise exc
 
                 try:
@@ -77,7 +81,7 @@ class EntryQueue:
                     parent_nursery = _core.current_task().parent_nursery
                     if parent_nursery is None:
                         raise AssertionError(
-                            "Internal error: `parent_nursery` should never be `None`"
+                            "Internal error: `parent_nursery` should never be `None`",
                         ) from exc  # pragma: no cover
                     parent_nursery.start_soon(kill_everything, exc)
 
@@ -139,14 +143,14 @@ class EntryQueue:
             # wakeup call might trigger an OSError b/c the IO manager has
             # already been shut down.
             if idempotent:
-                self.idempotent_queue[(sync_fn, args)] = None
+                self.idempotent_queue[sync_fn, args] = None
             else:
                 self.queue.append((sync_fn, args))
             self.wakeup.wakeup_thread_and_signal_safe()
 
 
 @final
-@attr.s(eq=False, hash=False, slots=True)
+@attrs.define(eq=False)
 class TrioToken(metaclass=NoPublicConstructor):
     """An opaque object representing a single call to :func:`trio.run`.
 
@@ -166,7 +170,7 @@ class TrioToken(metaclass=NoPublicConstructor):
 
     """
 
-    _reentry_queue: EntryQueue = attr.ib()
+    _reentry_queue: EntryQueue
 
     def run_sync_soon(
         self,

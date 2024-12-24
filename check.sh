@@ -78,10 +78,10 @@ fi
 
 # Check pip compile is consistent
 echo "::group::Pip Compile - Tests"
-pip-compile test-requirements.in
+uv pip compile --universal --python-version=3.9 test-requirements.in -o test-requirements.txt
 echo "::endgroup::"
 echo "::group::Pip Compile - Docs"
-pip-compile docs-requirements.in
+uv pip compile --universal --python-version=3.11 docs-requirements.in -o docs-requirements.txt
 echo "::endgroup::"
 
 if git status --porcelain | grep -q "requirements.txt"; then
@@ -96,18 +96,8 @@ fi
 
 codespell || EXIT_STATUS=$?
 
-PYRIGHT=0
 echo "::group::Pyright interface tests"
-pyright --verifytypes --ignoreexternal --pythonplatform=Linux --verifytypes=trio \
-    || { echo "* Pyright --verifytypes (Linux) found errors." >> "$GITHUB_STEP_SUMMARY"; PYRIGHT=1; }
-pyright --verifytypes --ignoreexternal --pythonplatform=Darwin --verifytypes=trio \
-    || { echo "* Pyright --verifytypes (Mac) found errors." >> "$GITHUB_STEP_SUMMARY"; PYRIGHT=1; }
-pyright --verifytypes --ignoreexternal --pythonplatform=Windows --verifytypes=trio \
-    || { echo "* Pyright --verifytypes (Windows) found errors." >> "$GITHUB_STEP_SUMMARY"; PYRIGHT=1; }
-if [ $PYRIGHT -ne 0 ]; then
-    echo "::error:: Pyright --verifytypes returned errors."
-    EXIT_STATUS=1
-fi
+python src/trio/_tests/check_type_completeness.py || EXIT_STATUS=$?
 
 pyright src/trio/_tests/type_tests || EXIT_STATUS=$?
 pyright src/trio/_core/_tests/type_tests || EXIT_STATUS=$?
@@ -122,7 +112,7 @@ if [ $EXIT_STATUS -ne 0 ]; then
 Problems were found by static analysis (listed above).
 To fix formatting and see remaining errors, run
 
-    pip install -r test-requirements.txt
+    uv pip install -r test-requirements.txt
     black src/trio
     ruff check src/trio
     ./check.sh
