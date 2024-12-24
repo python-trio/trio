@@ -67,6 +67,8 @@ jedi==0.19.2 ; implementation_name == 'cpython'
     # via -r test-requirements.in
 jinja2==3.1.4
     # via sphinx
+lxml==5.3.0
+    # via mypy
 markupsafe==3.0.2
     # via jinja2
 mccabe==0.7.0

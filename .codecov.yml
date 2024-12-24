@@ -6,7 +6,7 @@ codecov:
   notify:
     # This number needs to be changed whenever the number of runs in CI is changed.
     # Another option is codecov-cli: https://github.com/codecov/codecov-cli#send-notifications
-    after_n_builds: 31
+    after_n_builds: 32
     wait_for_ci: false
     notify_error: true # if uploads fail, replace cov comment with a comment with errors.
   require_ci_to_pass: false
@@ -25,9 +25,31 @@ coverage:
   round: down
   range: 100..100
   status:
-    project:
-      default:
-        target: 100%
     patch:
       default:
         target: 100%  # require patches to be 100%
+      lib:
+        flags:
+        - pytest
+      typing:
+        flags:
+        - MyPy
+    project:
+      default:
+        target: 100%
+      lib:
+        flags:
+        - pytest
+        paths:
+        - src/
+        target: 100%
+      tests:
+        flags:
+        - pytest
+        paths:
+        - tests/
+        target: 100%
+      typing:
+        flags:
+        - MyPy
+        target: 91.79%
