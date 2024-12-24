@@ -81,6 +81,6 @@ async def test_open_unix_socket() -> None:
 async def test_error_on_no_unix() -> None:
     with pytest.raises(
         RuntimeError,
-        match="^Unix sockets are not supported on this platform$",
+        match=r"^Unix sockets are not supported on this platform$",
     ):
         await open_unix_socket("")

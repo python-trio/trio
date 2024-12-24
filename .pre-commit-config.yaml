@@ -22,7 +22,7 @@ repos:
     hooks:
       - id: black
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.3
+    rev: v0.8.4
     hooks:
       - id: ruff
         types: [file]
@@ -36,6 +36,10 @@ repos:
     rev: v1.0.0
     hooks:
       - id: sphinx-lint
+  - repo: https://github.com/woodruffw/zizmor-pre-commit
+    rev: v0.10.0
+    hooks:
+      - id: zizmor
   - repo: local
     hooks:
       - id: regenerate-files
