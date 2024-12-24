@@ -280,9 +280,9 @@ class KqueueIOManager:
 
         for filter_ in [select.KQ_FILTER_READ, select.KQ_FILTER_WRITE]:
             key = (fd, filter_)
-            receiver = self._registered.get(key)
-
-            if receiver is None:
+            try:
+                receiver = self._registered.pop(key)
+            except KeyError:
                 continue
 
             if type(receiver) is _core.Task:
@@ -290,7 +290,5 @@ class KqueueIOManager:
                 self._kqueue.control([event], 0)
                 exc = _core.ClosedResourceError("another task closed this fd")
                 _core.reschedule(receiver, outcome.Error(exc))
-                del self._registered[key]
             else:
                 receiver.close()
-                del self._registered[key]
