@@ -2104,14 +2104,14 @@ class Runner:  # type: ignore[misc]
     def _deliver_ki_cb(self) -> None:
         if not self.ki_pending:
             return
-        # Can't happen because main_task and run_sync_soon_task are created at
-        # the same time -- so even if KI arrives before main_task is created,
-        # we won't get here until afterwards.
-        assert self.main_task is not None
         if self.main_task_outcome is not None:
             # We're already in the process of exiting -- leave ki_pending set
             # and we'll check it again on our way out of run().
             return
+        # Can't happen because main_task and run_sync_soon_task are created at
+        # the same time -- so even if KI arrives before main_task is created,
+        # we won't get here until afterwards.
+        assert self.main_task is not None
         self.main_task._attempt_delivery_of_pending_ki()
 
     ################
