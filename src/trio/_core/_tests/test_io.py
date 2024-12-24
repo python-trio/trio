@@ -384,7 +384,6 @@ async def test_io_manager_statistics() -> None:
         check(expected_readers=1, expected_writers=0)
 
 
-@pytest.mark.filterwarnings("ignore:.*UnboundedQueue:trio.TrioDeprecationWarning")
 async def test_io_manager_kqueue_monitors_statistics() -> None:
     def check(
         *,
@@ -411,13 +410,17 @@ async def test_io_manager_kqueue_monitors_statistics() -> None:
             # 1 for call_soon_task
             check(expected_monitors=0, expected_readers=1, expected_writers=0)
 
-            with _core.monitor_kevent(a1.fileno(), select.KQ_FILTER_READ):
+            with _core.monitor_kevent(a1.fileno(), select.KQ_FILTER_READ) as q:
                 with (
                     pytest.raises(_core.BusyResourceError),
                     _core.monitor_kevent(a1.fileno(), select.KQ_FILTER_READ),
                 ):
                     pass  # pragma: no cover
                 check(expected_monitors=1, expected_readers=1, expected_writers=0)
+                _core.notify_closing(a1)
+                a1.close()
+                with trio.fail_after(1):
+                    assert len([v async for v in q]) == 0
 
             check(expected_monitors=0, expected_readers=1, expected_writers=0)
 

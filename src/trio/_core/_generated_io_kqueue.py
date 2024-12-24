@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from contextlib import AbstractContextManager
 
-    from .. import _core
+    from .._channel import MemoryReceiveChannel
     from .._file_io import _HasFileNo
     from ._traps import Abort, RaiseCancelT
 
@@ -46,7 +46,7 @@ def current_kqueue() -> select.kqueue:
 @enable_ki_protection
 def monitor_kevent(
     ident: int, filter: int
-) -> AbstractContextManager[_core.UnboundedQueue[select.kevent]]:
+) -> AbstractContextManager[MemoryReceiveChannel[select.kevent]]:
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26
     <https://github.com/python-trio/trio/issues/26>`__.
