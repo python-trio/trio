@@ -91,8 +91,6 @@ default.extend-ignore-re = [
 
 [tool.typos.default.extend-identifiers]
 IPPROTO_ND = "IPPROTO_ND"
-xn--caf-dma = "xn--caf-dma"
-mis-nested = "misnested"
 
 [tool.typos.default.extend-words]
 astroid = "astroid"
