@@ -5,6 +5,71 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.28.0 (2024-12-25)
+------------------------
+
+Bugfixes
+~~~~~~~~
+
+- :func:`inspect.iscoroutinefunction` and the like now give correct answers when
+  called on KI-protected functions. (`#2670 <https://github.com/python-trio/trio/issues/2670>`__)
+- Rework KeyboardInterrupt protection to track code objects, rather than frames,
+  as protected or not. The new implementation no longer needs to access
+  ``frame.f_locals`` dictionaries, so it won't artificially extend the lifetime of
+  local variables. Since KeyboardInterrupt protection is now imposed statically
+  (when a protected function is defined) rather than each time the function runs,
+  its previously-noticeable performance overhead should now be near zero.
+  The lack of a call-time wrapper has some other benefits as well:
+
+  * :func:`inspect.iscoroutinefunction` and the like now give correct answers when
+    called on KI-protected functions.
+
+  * Calling a synchronous KI-protected function no longer pushes an additional stack
+    frame, so tracebacks are clearer.
+
+  * A synchronous KI-protected function invoked from C code (such as a weakref
+    finalizer) is now guaranteed to start executing; previously there would be a brief
+    window in which KeyboardInterrupt could be raised before the protection was
+    established.
+
+  One minor drawback of the new approach is that multiple instances of the same
+  closure share a single KeyboardInterrupt protection state (because they share a
+  single code object). That means that if you apply
+  `@enable_ki_protection <trio.lowlevel.enable_ki_protection>` to some of them
+  and not others, you won't get the protection semantics you asked for. See the
+  documentation of `@enable_ki_protection <trio.lowlevel.enable_ki_protection>`
+  for more details and a workaround. (`#3108 <https://github.com/python-trio/trio/issues/3108>`__)
+- Rework foreign async generator finalization to track async generator
+  ids rather than mutating ``ag_frame.f_locals``. This fixes an issue
+  with the previous implementation: locals' lifetimes will no longer be
+  extended by materialization in the ``ag_frame.f_locals`` dictionary that
+  the previous finalization dispatcher logic needed to access to do its work. (`#3112 <https://github.com/python-trio/trio/issues/3112>`__)
+- Ensure that Pyright recognizes our underscore prefixed attributes for attrs classes. (`#3114 <https://github.com/python-trio/trio/issues/3114>`__)
+- Fix `trio.testing.RaisesGroup`'s typing. (`#3141 <https://github.com/python-trio/trio/issues/3141>`__)
+
+
+Improved documentation
+~~~~~~~~~~~~~~~~~~~~~~
+
+- Improve error message when run after gevent's monkey patching. (`#3087 <https://github.com/python-trio/trio/issues/3087>`__)
+- Document that :func:`trio.sleep_forever` is guaranteed to raise an exception now. (`#3113 <https://github.com/python-trio/trio/issues/3113>`__)
+
+
+Removals without deprecations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Remove workaround for OpenSSL 1.1.1 DTLS ClientHello bug. (`#3097 <https://github.com/python-trio/trio/issues/3097>`__)
+- Drop support for Python 3.8. (`#3104 <https://github.com/python-trio/trio/issues/3104>`__) (`#3106 <https://github.com/python-trio/trio/issues/3106>`__)
+
+
+Miscellaneous internal changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Switch to using PEP570 for positional-only arguments for `~trio.socket.SocketType`'s methods. (`#3094 <https://github.com/python-trio/trio/issues/3094>`__)
+- Improve type annotations in several places by removing `Any` usage. (`#3121 <https://github.com/python-trio/trio/issues/3121>`__)
+- Get and enforce 100% coverage (`#3159 <https://github.com/python-trio/trio/issues/3159>`__)
+
+
 Trio 0.27.0 (2024-10-17)
 ------------------------
 
