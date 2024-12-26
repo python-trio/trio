@@ -25,13 +25,20 @@ echo "::group::Mypy"
 rm -f mypy_annotate.dat
 # Pipefail makes these pipelines fail if mypy does, even if mypy_annotate.py succeeds.
 set -o pipefail
-mypy --show-error-end --platform linux | python ./src/trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Linux \
-    || { echo "* Mypy (Linux) found type errors." >> "$GITHUB_STEP_SUMMARY"; MYPY=1; }
+# mypy --show-error-end --python-version=3.13 --cobertura-xml-report=mypy-cov-linux-py-3.13 --platform linux | python ./src/trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Linux \
+#     || { echo "* Mypy (Linux, Python 3.13) found type errors." >> "$GITHUB_STEP_SUMMARY"; MYPY=1; }
+# # Darwin tests FreeBSD too
+# mypy --show-error-end --python-version=3.13 --cobertura-xml-report=mypy-cov-macos-py-3.13 --platform darwin | python ./src/trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Mac \
+#     || { echo "* Mypy (Mac, Python 3.13) found type errors." >> "$GITHUB_STEP_SUMMARY"; MYPY=1; }
+# mypy --show-error-end --python-version=3.13 --cobertura-xml-report=mypy-cov-windows-py-3.13 --platform win32 | python ./src/trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Windows \
+#     || { echo "* Mypy (Windows, Python 3.13) found type errors." >> "$GITHUB_STEP_SUMMARY"; MYPY=1; }
+mypy --show-error-end --python-version=3.9 --cobertura-xml-report=mypy-cov-linux-py-3.9 --platform linux | python ./src/trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Linux \
+    || { echo "* Mypy (Linux, Python 3.9) found type errors." >> "$GITHUB_STEP_SUMMARY"; MYPY=1; }
 # Darwin tests FreeBSD too
-mypy --show-error-end --platform darwin | python ./src/trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Mac \
-    || { echo "* Mypy (Mac) found type errors." >> "$GITHUB_STEP_SUMMARY"; MYPY=1; }
-mypy --show-error-end --platform win32 | python ./src/trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Windows \
-    || { echo "* Mypy (Windows) found type errors." >> "$GITHUB_STEP_SUMMARY"; MYPY=1; }
+mypy --show-error-end --python-version=3.9 --cobertura-xml-report=mypy-cov-macos-py-3.9 --platform darwin | python ./src/trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Mac \
+    || { echo "* Mypy (Mac, Python 3.9) found type errors." >> "$GITHUB_STEP_SUMMARY"; MYPY=1; }
+mypy --show-error-end --python-version=3.9 --cobertura-xml-report=mypy-cov-windows-py-3.9 --platform win32 | python ./src/trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat --platform Windows \
+    || { echo "* Mypy (Windows, Python 3.9) found type errors." >> "$GITHUB_STEP_SUMMARY"; MYPY=1; }
 set +o pipefail
 # Re-display errors using Github's syntax, read out of mypy_annotate.dat
 python ./src/trio/_tools/mypy_annotate.py --dumpfile mypy_annotate.dat
