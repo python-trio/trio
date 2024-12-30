@@ -223,8 +223,7 @@ jobs:
           # multiple flags is marked as an error in codecov UI, but is actually fine
           # https://github.com/codecov/feedback/issues/567
           flags: Windows,${{ matrix.python }}
-          # this option cannot be set in .codecov.yml
-          fail_ci_if_error: true
+          fail_ci_if_error: false  # change to true when using codecov action v5
 
   Ubuntu:
     name: 'Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})'
@@ -288,7 +287,7 @@ jobs:
           directory: empty
           name: Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})
           flags: Ubuntu,${{ matrix.python }}
-          fail_ci_if_error: true
+          fail_ci_if_error: false
 
   macOS:
     name: 'macOS (${{ matrix.python }})'
@@ -330,7 +329,7 @@ jobs:
           directory: empty
           name: macOS (${{ matrix.python }})
           flags: macOS,${{ matrix.python }}
-          fail_ci_if_error: true
+          fail_ci_if_error: false
 
   # run CI on a musl linux
   Alpine:
@@ -366,7 +365,7 @@ jobs:
           directory: empty
           name: Alpine
           flags: Alpine,${{ steps.get-version.outputs.version }}
-          fail_ci_if_error: true
+          fail_ci_if_error: false
 
   Cython:
     name: "Cython"
@@ -426,7 +425,7 @@ jobs:
         with:
           name: Cython
           flags: Cython,${{ steps.get-version.outputs.version }}
-          fail_ci_if_error: true
+          fail_ci_if_error: false
 
   # https://github.com/marketplace/actions/alls-green#why
   check:  # This job does nothing and is only used for the branch protection
