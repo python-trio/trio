@@ -30,7 +30,7 @@ click==8.1.7 ; implementation_name == 'cpython'
     # via black
 codespell==2.3.0
     # via -r test-requirements.in
-colorama==0.4.6 ; (implementation_name == 'cpython' and platform_system == 'Windows') or sys_platform == 'win32'
+colorama==0.4.6 ; sys_platform == 'win32'
     # via
     #   click
     #   pylint
@@ -181,7 +181,7 @@ typing-extensions==4.12.2
     #   pyright
 urllib3==2.2.3
     # via requests
-uv==0.5.5
+uv==0.5.13
     # via -r test-requirements.in
 virtualenv==20.28.0
     # via pre-commit

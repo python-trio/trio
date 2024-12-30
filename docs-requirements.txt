@@ -20,7 +20,7 @@ charset-normalizer==3.4.0
     # via requests
 click==8.1.7
     # via towncrier
-colorama==0.4.6 ; platform_system == 'Windows' or sys_platform == 'win32'
+colorama==0.4.6 ; sys_platform == 'win32'
     # via
     #   click
     #   sphinx
