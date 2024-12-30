@@ -52,7 +52,7 @@ repos:
         additional_dependencies: ["astor", "attrs", "black", "ruff"]
         files: ^src\/trio\/_core\/(_run|(_i(o_(common|epoll|kqueue|windows)|nstrumentation)))\.py$
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.5.9
+    rev: 0.5.13
     hooks:
       # Compile requirements
       - id: pip-compile
