@@ -639,6 +639,31 @@ class CancelScope:
                 self.cancelled_caught = True
                 exc = None
             elif isinstance(exc, BaseExceptionGroup):
+                # sanity check users
+                egs = [exc]
+                visited = set()
+                while egs:
+                    next_eg = egs.pop()
+                    if next_eg in visited:
+                        continue
+                    visited.add(next_eg)
+                    if (
+                        "derive" not in type(next_eg).__dict__
+                        and type(next_eg) is not ExceptionGroup
+                    ):
+                        warnings.warn(
+                            f"derive not implemented for {type(next_eg).__name__}, results may be unexpected",
+                            stacklevel=1,
+                        )
+
+                    egs.extend(
+                        [
+                            e
+                            for e in next_eg.exceptions
+                            if isinstance(e, BaseExceptionGroup)
+                        ]
+                    )
+
                 matched, exc = exc.split(Cancelled)
                 if matched:
                     self.cancelled_caught = True

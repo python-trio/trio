@@ -10,7 +10,7 @@ import types
 import weakref
 from contextlib import ExitStack, contextmanager, suppress
 from math import inf, nan
-from typing import TYPE_CHECKING, NoReturn, TypeVar
+from typing import TYPE_CHECKING, NoReturn, Self, TypeVar
 from unittest import mock
 
 import outcome
@@ -44,6 +44,7 @@ if TYPE_CHECKING:
         Awaitable,
         Callable,
         Generator,
+        Sequence,
     )
 
 if sys.version_info < (3, 11):
@@ -2855,3 +2856,65 @@ def test_context_run_tb_frames() -> None:
 
     with mock.patch("trio._core._run.copy_context", return_value=Context()):
         assert _count_context_run_tb_frames() == 1
+
+
+def test_run_with_custom_exception_group() -> None:
+    class ExceptionGroupForTest(ExceptionGroup):
+        @staticmethod
+        def for_test(message: str, excs: list[Exception]) -> ExceptionGroupForTest:
+            raise NotImplementedError()
+
+    async def check1(exception_group_type: type[ExceptionGroupForTest]) -> None:
+        raise exception_group_type.for_test("test message", [ValueError("uh oh")])
+
+    async def check2(exception_group_type: type[ExceptionGroupForTest]) -> None:
+        with _core.CancelScope():
+            raise exception_group_type.for_test("test message", [ValueError("uh oh")])
+
+    async def check3(exception_group_type: type[ExceptionGroupForTest]) -> None:
+        async with _core.open_nursery():
+            raise exception_group_type.for_test("test message", [ValueError("uh oh")])
+
+    class HasDerive(ExceptionGroupForTest):
+        def derive(self, excs: Sequence[BaseException]) -> HasDerive:
+            return HasDerive(self.message, excs)
+
+        @staticmethod
+        def for_test(message: str, excs: list[Exception]) -> HasDerive:
+            return HasDerive(message, excs)
+
+    class NormalNew(ExceptionGroupForTest):
+        @staticmethod
+        def for_test(message: str, excs: list[Exception]) -> NormalNew:
+            return NormalNew(message, excs)
+
+    class AbnormalNew(ExceptionGroupForTest):
+        def __new__(cls, excs: Sequence[Exception]) -> Self:
+            return super().__new__(cls, f"has {len(excs)} exceptions", excs)
+
+        @staticmethod
+        def for_test(message: str, excs: list[Exception]) -> AbnormalNew:
+            return AbnormalNew(excs)
+
+    for check in (check1, check2, check3):
+        for error in (HasDerive, NormalNew, AbnormalNew):
+            if check is check3:
+                if error in (NormalNew, AbnormalNew):
+                    with (
+                        pytest.warns(UserWarning, match="^derive not implemented"),
+                        pytest.raises(ExceptionGroup) as e,
+                    ):
+                        _core.run(check, error)
+
+                    error = ExceptionGroup  # we don't provide something better
+                else:
+                    with pytest.raises(ExceptionGroup) as e:
+                        _core.run(check, error)
+
+                assert len(e.value.exceptions) == 1
+                assert isinstance(e.value.exceptions[0], error)
+            else:
+                with pytest.raises(error):
+                    _core.run(check, error)
+
+            print(f"{check} + {error} PASSED")
