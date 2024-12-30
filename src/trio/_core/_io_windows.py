@@ -856,9 +856,9 @@ class WindowsIOManager:
         <https://github.com/python-trio/trio/issues/52>`__.
         """
         handle = _handle(handle_)
-        if isinstance(lpOverlapped, int):
+        if isinstance(lpOverlapped, int):  # TODO: test this line
             lpOverlapped = ffi.cast("LPOVERLAPPED", lpOverlapped)
-        if lpOverlapped in self._overlapped_waiters:
+        if lpOverlapped in self._overlapped_waiters:  # TODO: test this line
             raise _core.BusyResourceError(
                 "another task is already waiting on that lpOverlapped",
             )

@@ -376,9 +376,7 @@ async def test_sniff_sockopts() -> None:
     from socket import AF_INET, AF_INET6, SOCK_DGRAM, SOCK_STREAM
 
     # generate the combinations of families/types we're testing:
-    families = [AF_INET]
-    if can_create_ipv6:
-        families.append(AF_INET6)
+    families = (AF_INET, AF_INET6) if can_create_ipv6 else (AF_INET,)
     sockets = [
         stdlib_socket.socket(family, type_)
         for family in families

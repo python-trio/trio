@@ -131,15 +131,18 @@ select = [
     "YTT",   # flake8-2020
 ]
 extend-ignore = [
-    'A002',    # builtin-argument-shadowing
-    'ANN401',  # any-type (mypy's `disallow_any_explicit` is better)
-    'E402',    # module-import-not-at-top-of-file (usually OS-specific)
-    'E501',    # line-too-long
-    'F403',    # undefined-local-with-import-star
-    'F405',    # undefined-local-with-import-star-usage
-    'PERF203', # try-except-in-loop (not always possible to refactor)
-    'PT012',   # multiple statements in pytest.raises block
-    'SIM117',  # multiple-with-statements (messes up lots of context-based stuff and looks bad)
+    "A002",    # builtin-argument-shadowing
+    "ANN401",  # any-type (mypy's `disallow_any_explicit` is better)
+    "E402",    # module-import-not-at-top-of-file (usually OS-specific)
+    "E501",    # line-too-long
+    "F403",    # undefined-local-with-import-star
+    "F405",    # undefined-local-with-import-star-usage
+    "PERF203", # try-except-in-loop (not always possible to refactor)
+    "PT012",   # multiple statements in pytest.raises block
+    "SIM117",  # multiple-with-statements (messes up lots of context-based stuff and looks bad)
+
+    # conflicts with formatter (ruff recommends these be disabled)
+    "COM812",
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -268,6 +271,20 @@ directory = "misc"
 name = "Miscellaneous internal changes"
 showcontent = true
 
+[tool.coverage.html]
+show_contexts = true
+skip_covered = false
+
+[tool.coverage.paths]
+_site-packages-to-src-mapping = [
+  "src",
+  "*/src",
+  '*\src',
+  "*/lib/pypy*/site-packages",
+  "*/lib/python*/site-packages",
+  '*\Lib\site-packages',
+]
+
 [tool.coverage.run]
 branch = true
 source_pkgs = ["trio"]
@@ -282,19 +299,25 @@ omit = [
 # The test suite spawns subprocesses to test some stuff, so make sure
 # this doesn't corrupt the coverage files
 parallel = true
+plugins = []
+relative_files = true
+source = ["."]
 
 [tool.coverage.report]
 precision = 1
 skip_covered = true
-exclude_lines = [
-    "pragma: no cover",
-    "abc.abstractmethod",
-    "if TYPE_CHECKING.*:",
-    "if _t.TYPE_CHECKING:",
-    "if t.TYPE_CHECKING:",
-    "@overload",
-    'class .*\bProtocol\b.*\):',
-    "raise NotImplementedError",
+skip_empty = true
+show_missing = true
+exclude_also = [
+  '^\s*@pytest\.mark\.xfail',
+   "abc.abstractmethod",
+   "if TYPE_CHECKING.*:",
+   "if _t.TYPE_CHECKING:",
+   "if t.TYPE_CHECKING:",
+   "@overload",
+   'class .*\bProtocol\b.*\):',
+   "raise NotImplementedError",
+   'TODO: test this line'
 ]
 partial_branches = [
     "pragma: no branch",
@@ -304,4 +327,5 @@ partial_branches = [
     "if .* or not TYPE_CHECKING:",
     "if .* or not _t.TYPE_CHECKING:",
     "if .* or not t.TYPE_CHECKING:",
+   'TODO: test this branch',
 ]
