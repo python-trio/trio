@@ -1,0 +1,1 @@
+Warn if a user forgot to implement ``.derive`` for an ExceptionGroup subclass.

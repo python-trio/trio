@@ -10,7 +10,7 @@ import types
 import weakref
 from contextlib import ExitStack, contextmanager, suppress
 from math import inf, nan
-from typing import TYPE_CHECKING, NoReturn, Self, TypeVar
+from typing import TYPE_CHECKING, NoReturn, TypeVar
 from unittest import mock
 
 import outcome
@@ -46,6 +46,8 @@ if TYPE_CHECKING:
         Generator,
         Sequence,
     )
+
+    from typing_extensions import Self
 
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup, ExceptionGroup
@@ -2859,7 +2861,7 @@ def test_context_run_tb_frames() -> None:
 
 
 def test_run_with_custom_exception_group() -> None:
-    class ExceptionGroupForTest(ExceptionGroup):
+    class ExceptionGroupForTest(ExceptionGroup[Exception]):
         @staticmethod
         def for_test(message: str, excs: list[Exception]) -> ExceptionGroupForTest:
             raise NotImplementedError()
@@ -2876,7 +2878,7 @@ def test_run_with_custom_exception_group() -> None:
             raise exception_group_type.for_test("test message", [ValueError("uh oh")])
 
     class HasDerive(ExceptionGroupForTest):
-        def derive(self, excs: Sequence[BaseException]) -> HasDerive:
+        def derive(self, excs: Sequence[Exception]) -> HasDerive:
             return HasDerive(self.message, excs)
 
         @staticmethod
@@ -2897,7 +2899,7 @@ def test_run_with_custom_exception_group() -> None:
             return AbnormalNew(excs)
 
     for check in (check1, check2, check3):
-        for error in (HasDerive, NormalNew, AbnormalNew):
+        for error in [HasDerive, NormalNew, AbnormalNew]:
             if check is check3:
                 if error in (NormalNew, AbnormalNew):
                     with (

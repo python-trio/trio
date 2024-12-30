@@ -52,7 +52,7 @@ from ._traps import (
 )
 
 if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup
+    from exceptiongroup import BaseExceptionGroup, ExceptionGroup
 
 
 if TYPE_CHECKING:
