@@ -2,7 +2,7 @@
 #    uv pip compile --universal --python-version=3.11 docs-requirements.in -o docs-requirements.txt
 alabaster==1.0.0
     # via sphinx
-attrs==24.2.0
+attrs==24.3.0
     # via
     #   -r docs-requirements.in
     #   outcome
@@ -10,15 +10,15 @@ babel==2.16.0
     # via sphinx
 beautifulsoup4==4.12.3
     # via sphinx-codeautolink
-certifi==2024.8.30
+certifi==2024.12.14
     # via requests
 cffi==1.17.1 ; os_name == 'nt' or platform_python_implementation != 'PyPy'
     # via
     #   -r docs-requirements.in
     #   cryptography
-charset-normalizer==3.4.0
+charset-normalizer==3.4.1
     # via requests
-click==8.1.7
+click==8.1.8
     # via towncrier
 colorama==0.4.6 ; sys_platform == 'win32'
     # via
@@ -40,7 +40,7 @@ imagesize==1.4.1
     # via sphinx
 immutables==0.21
     # via -r docs-requirements.in
-jinja2==3.1.4
+jinja2==3.1.5
     # via
     #   -r docs-requirements.in
     #   sphinx
@@ -102,5 +102,5 @@ sphinxcontrib-trio==1.1.2
     # via -r docs-requirements.in
 towncrier==24.8.0
     # via -r docs-requirements.in
-urllib3==2.2.3
+urllib3==2.3.0
     # via requests
