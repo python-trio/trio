@@ -64,14 +64,14 @@ except ImportError:
         # which it already is, so we're done. Otherwise, we have to actually
         # do some work:
         if tb_next is not None:
-            _ctypes.Py_INCREF(tb_next)  # type: ignore[attr-defined]
+            _ctypes.Py_INCREF(tb_next)
             c_new_tb.tb_next = id(tb_next)
 
         assert c_new_tb.tb_frame is not None
-        _ctypes.Py_INCREF(base_tb.tb_frame)  # type: ignore[attr-defined]
+        _ctypes.Py_INCREF(base_tb.tb_frame)
         old_tb_frame = new_tb.tb_frame
         c_new_tb.tb_frame = id(base_tb.tb_frame)
-        _ctypes.Py_DECREF(old_tb_frame)  # type: ignore[attr-defined]
+        _ctypes.Py_DECREF(old_tb_frame)
 
         c_new_tb.tb_lasti = base_tb.tb_lasti
         c_new_tb.tb_lineno = base_tb.tb_lineno
