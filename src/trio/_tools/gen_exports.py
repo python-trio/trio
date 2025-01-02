@@ -380,6 +380,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from contextlib import AbstractContextManager
 
+    from .._channel import MemoryReceiveChannel
     from .. import _core
     from .._file_io import _HasFileNo
     from ._traps import Abort, RaiseCancelT
@@ -393,8 +394,8 @@ if TYPE_CHECKING:
 
     from typing_extensions import Buffer
 
+    from .._channel import MemoryReceiveChannel
     from .._file_io import _HasFileNo
-    from ._unbounded_queue import UnboundedQueue
     from ._windows_cffi import Handle, CData
 """
 

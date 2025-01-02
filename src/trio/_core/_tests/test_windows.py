@@ -79,10 +79,6 @@ def test_winerror(monkeypatch: pytest.MonkeyPatch) -> None:
     assert exc.value.filename2 == "b/file"
 
 
-# The undocumented API that this is testing should be changed to stop using
-# UnboundedQueue (or just removed until we have time to redo it), but until
-# then we filter out the warning.
-@pytest.mark.filterwarnings("ignore:.*UnboundedQueue:trio.TrioDeprecationWarning")
 async def test_completion_key_listen() -> None:
     from .. import _io_windows
 
@@ -98,17 +94,13 @@ async def test_completion_key_listen() -> None:
     with _core.monitor_completion_key() as (key, queue):
         async with _core.open_nursery() as nursery:
             nursery.start_soon(post, key)
-            i = 0
+
             print("loop")
-            async for batch in queue:  # pragma: no branch
-                print("got some", batch)
-                for info in batch:
-                    assert isinstance(info, _io_windows.CompletionKeyEventInfo)
-                    assert info.lpOverlapped == 0
-                    assert info.dwNumberOfBytesTransferred == i
-                    i += 1
-                if i == 10:
-                    break
+            for i in range(10):
+                info = await queue.receive()
+                assert isinstance(info, _io_windows.CompletionKeyEventInfo)
+                assert info.lpOverlapped == 0
+                assert info.dwNumberOfBytesTransferred == i
             print("end loop")
 
 

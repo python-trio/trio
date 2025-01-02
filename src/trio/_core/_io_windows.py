@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import enum
 import itertools
+import math
 import socket
 import sys
 from contextlib import contextmanager
@@ -44,9 +45,9 @@ if TYPE_CHECKING:
 
     from typing_extensions import Buffer, TypeAlias
 
+    from .._channel import MemoryReceiveChannel, MemorySendChannel
     from .._file_io import _HasFileNo
     from ._traps import Abort, RaiseCancelT
-    from ._unbounded_queue import UnboundedQueue
 
 EventResult: TypeAlias = int
 T = TypeVar("T")
@@ -455,7 +456,7 @@ class WindowsIOManager:
         self._overlapped_waiters: dict[CData, _core.Task] = {}
         self._posted_too_late_to_cancel: set[CData] = set()
 
-        self._completion_key_queues: dict[int, UnboundedQueue[object]] = {}
+        self._completion_key_queues: dict[int, MemorySendChannel[object]] = {}
         self._completion_key_counter = itertools.count(CKeys.USER_DEFINED)
 
         with socket.socket() as s:
@@ -641,7 +642,7 @@ class WindowsIOManager:
                     lpOverlapped=overlapped,
                     dwNumberOfBytesTransferred=transferred,
                 )
-                queue.put_nowait(info)
+                queue.send_nowait(info)
 
     def _register_with_iocp(self, handle_: int | CData, completion_key: int) -> None:
         handle = _handle(handle_)
@@ -1027,16 +1028,21 @@ class WindowsIOManager:
 
     @contextmanager
     @_public
-    def monitor_completion_key(self) -> Iterator[tuple[int, UnboundedQueue[object]]]:
+    def monitor_completion_key(
+        self,
+    ) -> Iterator[tuple[int, MemoryReceiveChannel[object]]]:
         """TODO: these are implemented, but are currently more of a sketch than
         anything real. See `#26
         <https://github.com/python-trio/trio/issues/26>`__ and `#52
         <https://github.com/python-trio/trio/issues/52>`__.
         """
+        from .._channel import open_memory_channel
+
         key = next(self._completion_key_counter)
-        queue = _core.UnboundedQueue[object]()
-        self._completion_key_queues[key] = queue
+        send, recv = open_memory_channel[object](math.inf)
+        self._completion_key_queues[key] = send
         try:
-            yield (key, queue)
+            yield (key, recv)
         finally:
+            send.close()
             del self._completion_key_queues[key]
