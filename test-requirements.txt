@@ -38,7 +38,7 @@ colorama==0.4.6 ; sys_platform == 'win32'
     #   sphinx
 coverage==7.6.10
     # via -r test-requirements.in
-cryptography==43.0.3
+cryptography==44.0.0
     # via
     #   -r test-requirements.in
     #   pyopenssl
@@ -118,7 +118,7 @@ pygments==2.18.0
     # via sphinx
 pylint==3.3.3
     # via -r test-requirements.in
-pyopenssl==24.2.1
+pyopenssl==24.3.0
     # via -r test-requirements.in
 pyright==1.1.391
     # via -r test-requirements.in
@@ -159,7 +159,7 @@ tomli==2.2.1 ; python_full_version < '3.11'
     #   sphinx
 tomlkit==0.13.2
     # via pylint
-trustme==1.2.0
+trustme==1.2.1
     # via -r test-requirements.in
 types-cffi==1.16.0.20241221
     # via
