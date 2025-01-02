@@ -189,7 +189,7 @@ def _check_check(
     check_repr = "" if _depth != 0 else " " + _check_repr(check)
 
     if not check(exception):
-        return f"check{check_repr} did not return True for {exception!r}"
+        return f"check{check_repr} did not return True"
     return None
 
 
@@ -204,7 +204,11 @@ def _check_type(
         exception,
         expected_type,
     ):
-        return f"{exception!r} is not of type {expected_type.__name__!r}"
+        end = f"is not of type {expected_type.__name__!r}"
+        maybe_inner_group = (
+            "inner " if isinstance(exception, BaseExceptionGroup) else ""
+        )
+        return f"{maybe_inner_group}{type(exception).__name__!r} {end}"
     return None
 
 
@@ -655,7 +659,9 @@ class RaisesGroup(Generic[BaseExcT_co]):
             self.fail_reason = "exception is None"
             return False
         if not isinstance(exc_val, BaseExceptionGroup):
-            not_group_msg = f"{exc_val!r} is not an exception group"
+            # we opt to only print type of the exception here, as the repr would
+            # likely be quite long
+            not_group_msg = f"{type(exc_val).__name__!r} is not an exception group"
             if len(self.expected_exceptions) > 1:
                 self.fail_reason = not_group_msg
                 return False
@@ -729,23 +735,29 @@ class RaisesGroup(Generic[BaseExcT_co]):
         actual_exceptions: Sequence[BaseException],
         _depth: int,
     ) -> str | None:
-        failed_attempts_dict: dict[BaseException, list[str]] = {}
+        failed_attempts: list[tuple[BaseException, list[str]]] = []
+        succesful_matches: list[tuple[ExpectedType[BaseExcT_co], BaseException]] = []
 
         remaining_exceptions = list(self.expected_exceptions)
-        succesful_matches: dict[ExpectedType[BaseExcT_co], BaseException] = {}
+
         for e in actual_exceptions:
-            failed_attempts_dict[e] = []
+            failed_attempts.append((e, []))
             for rem_e in remaining_exceptions:
                 res = _check_expected(rem_e, e, _depth=_depth + 3)
                 if res is None:
-                    succesful_matches[rem_e] = e
+                    succesful_matches.append((rem_e, e))
                     remaining_exceptions.remove(rem_e)
-                    del failed_attempts_dict[e]
+                    failed_attempts.pop()
                     break
-                failed_attempts_dict[e].append(res)
+                failed_attempts[-1][1].append(res)
 
-        if not remaining_exceptions and not failed_attempts_dict:
+        if not remaining_exceptions and not failed_attempts:
             return None
+
+        # in case of a single expected and single raised we simplify the output
+        if 1 == len(actual_exceptions) == len(expected_exceptions):
+            assert not succesful_matches
+            return f"{failed_attempts.pop()[1][0]}"
 
         succesful_str = (
             ""
@@ -754,18 +766,15 @@ class RaisesGroup(Generic[BaseExcT_co]):
         )
 
         if not remaining_exceptions:
-            return f"{succesful_str}Unexpected exception(s): {list(failed_attempts_dict.keys())!r}"
-        if not failed_attempts_dict:
+            unexpected_exps = [fa[0] for fa in failed_attempts]
+            return f"{succesful_str}Unexpected exception(s): {unexpected_exps!r}"
+        if not failed_attempts:
             return f"{succesful_str}Too few exceptions raised, found no match for: {remaining_exceptions!r}"
 
-        # in case of a single expected and single raised we simplify the output
-        if 1 == len(actual_exceptions) == len(expected_exceptions):
-            return f"{succesful_str}{failed_attempts_dict.popitem()[1][0]}"
-
         # TODO: I'm not 100% sure about printing the exact same as in the case above
-        # And in all cases of len(failed_attemts_dict)==1 we probably don't need a full table
-        if 1 == len(remaining_exceptions) == len(failed_attempts_dict):
-            return f"{succesful_str}{failed_attempts_dict.popitem()[1][0]}"
+        # And in all cases of len(failed_attempts)==1 we probably don't need a full table
+        if 1 == len(remaining_exceptions) == len(failed_attempts):
+            return f"{succesful_str}{failed_attempts.pop()[1][0]}"
 
         curr_indent = " " * 2 * _depth
         s = ""
@@ -775,12 +784,12 @@ class RaisesGroup(Generic[BaseExcT_co]):
         s += f"\n{curr_indent}The following raised exceptions did not find a match"
         indent_1 = " " * 2 * (_depth + 1)
         indent_2 = " " * 2 * (_depth + 2)
-        for key in failed_attempts_dict:
-            s += f"\n{indent_1}{key!r}:"
-            for val in failed_attempts_dict[key]:
-                s += f"\n{indent_2}{val}"
-            for expected, actual_match in succesful_matches.items():
-                if _check_expected(expected, key, _depth=0) is None:
+        for actual_exception, results in failed_attempts:
+            s += f"\n{indent_1}{actual_exception!r}:"
+            for res in results:
+                s += f"\n{indent_2}{res}"
+            for expected, actual_match in succesful_matches:
+                if _check_expected(expected, actual_exception, _depth=0) is None:
                     s += f"\n{indent_2}It matches {expected!r} which was paired with {actual_match!r}"
         return s
 
