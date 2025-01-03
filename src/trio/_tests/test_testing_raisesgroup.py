@@ -501,7 +501,6 @@ def test_assert_message() -> None:
             [RuntimeError(), TypeError(), ValueError("foo"), ValueError("bar")],
         )
 
-    # TODO: is this one too terse?
     with (
         fails_raises_group(
             "1 matched exception. 'AssertionError' is not of type 'TypeError'"
@@ -597,7 +596,13 @@ def test_assert_message_nested() -> None:
             "          Matcher(TypeError, match='foo'): Regex pattern 'foo' did not match 'cccccccccccccccccccccccccccccccccccccccc'\n"
             "        TypeError('dddddddddddddddddddddddddddddddddddddddd'):\n"
             "          Matcher(TypeError, match='foo'): Regex pattern 'foo' did not match 'dddddddddddddddddddddddddddddddddddddddd'\n"
-            "    RaisesGroup(TypeError, ValueError): 1 matched exception. 'TypeError' is not of type 'ValueError'",
+            "    RaisesGroup(TypeError, ValueError): \n"
+            "      1 matched exception. \n"
+            "      The following expected exceptions did not find a match: [<class 'ValueError'>]\n"
+            "      The following raised exceptions did not find a match\n"
+            "        TypeError('dddddddddddddddddddddddddddddddddddddddd'):\n"
+            "          'TypeError' is not of type 'ValueError'\n"
+            "          It matches <class 'TypeError'> which was paired with TypeError('cccccccccccccccccccccccccccccccccccccccc')",
             add_prefix=False,  # to see the full structure
         ),
         RaisesGroup(
@@ -647,7 +652,15 @@ def test_assert_message_nested() -> None:
 def test_misordering_example() -> None:
     with (
         fails_raises_group(
-            "3 matched exceptions. Matcher(ValueError, match='foo'): Regex pattern 'foo' did not match 'bar'"
+            "\n"
+            "3 matched exceptions. \n"
+            "The following expected exceptions did not find a match: [Matcher(ValueError, match='foo')]\n"
+            "The following raised exceptions did not find a match\n"
+            "  ValueError('bar'):\n"
+            "    Matcher(ValueError, match='foo'): Regex pattern 'foo' did not match 'bar'\n"
+            "    It matches <class 'ValueError'> which was paired with ValueError('foo')\n"
+            "    It matches <class 'ValueError'> which was paired with ValueError('foo')\n"
+            "    It matches <class 'ValueError'> which was paired with ValueError('foo')"
         ),
         RaisesGroup(
             ValueError, ValueError, ValueError, Matcher(ValueError, match="foo")
@@ -664,6 +677,34 @@ def test_misordering_example() -> None:
         )
 
 
+def test_brief_error_on_one_fail() -> None:
+    """if only one raised and one expected fail to match up, we print a full table iff
+    the raised exception would match one of the expected that previously got matched"""
+    # no also-matched
+    with (
+        fails_raises_group(
+            "1 matched exception. 'TypeError' is not of type 'ValueError'"
+        ),
+        RaisesGroup(ValueError, ValueError),
+    ):
+        raise ExceptionGroup("", [ValueError(), TypeError()])
+
+    # TypeError would match Exception
+    with (
+        fails_raises_group(
+            "\n"
+            "1 matched exception. \n"
+            "The following expected exceptions did not find a match: [<class 'ValueError'>]\n"
+            "The following raised exceptions did not find a match\n"
+            "  TypeError():\n"
+            "    'TypeError' is not of type 'ValueError'\n"
+            "    It matches <class 'Exception'> which was paired with ValueError()"
+        ),
+        RaisesGroup(Exception, ValueError),
+    ):
+        raise ExceptionGroup("", [ValueError(), TypeError()])
+
+
 def test_identity_oopsies() -> None:
     # it's both possible to have several instances of the same exception in the same group
     # and to expect multiple of the same type
@@ -671,12 +712,12 @@ def test_identity_oopsies() -> None:
 
     with (
         fails_raises_group(
-            "3 matched exceptions. 'ValueError' is not of type 'TypeError'"
+            "3 matched exceptions. 'RuntimeError' is not of type 'TypeError'"
         ),
         RaisesGroup(ValueError, ValueError, ValueError, TypeError),
     ):
         raise ExceptionGroup(
-            "", [ValueError(), ValueError(), ValueError(), ValueError()]
+            "", [ValueError(), ValueError(), ValueError(), RuntimeError()]
         )
 
     e = ValueError("foo")

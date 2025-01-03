@@ -692,7 +692,6 @@ class RaisesGroup(Generic[BaseExcT_co]):
 
         # do the full check on expected exceptions
         self.fail_reason = self._check_exceptions(
-            self.expected_exceptions,
             actual_exceptions,
             _depth=_depth,
         )
@@ -707,7 +706,6 @@ class RaisesGroup(Generic[BaseExcT_co]):
                 )
                 and any(isinstance(e, BaseExceptionGroup) for e in actual_exceptions)
                 and self._check_exceptions(
-                    self.expected_exceptions,
                     self._unroll_exceptions(exc_val.exceptions),
                     _depth=_depth,
                 )
@@ -728,13 +726,15 @@ class RaisesGroup(Generic[BaseExcT_co]):
 
     def _check_exceptions(
         self,
-        expected_exceptions: tuple[
-            ExpectedType[BaseExcT_co],
-            ...,
-        ],
         actual_exceptions: Sequence[BaseException],
         _depth: int,
     ) -> str | None:
+        """helper method for RaisesGroup.matches that attempts to pair up expected and actual exceptions"""
+
+        # juggling *3* lists to track results is a bit silly, should perhaps rewrite with
+        # a single container tracking all results, with three states for successful/fail_reason/not_checked
+        # that also opens up for the ability to not require the exceptions to be ordered... which would probably
+        # be quite useful.
         failed_attempts: list[tuple[BaseException, list[str]]] = []
         succesful_matches: list[tuple[ExpectedType[BaseExcT_co], BaseException]] = []
 
@@ -751,11 +751,12 @@ class RaisesGroup(Generic[BaseExcT_co]):
                     break
                 failed_attempts[-1][1].append(res)
 
+        # All exceptions matched up successfully
         if not remaining_exceptions and not failed_attempts:
             return None
 
         # in case of a single expected and single raised we simplify the output
-        if 1 == len(actual_exceptions) == len(expected_exceptions):
+        if 1 == len(actual_exceptions) == len(self.expected_exceptions):
             assert not succesful_matches
             return f"{failed_attempts.pop()[1][0]}"
 
@@ -765,17 +766,36 @@ class RaisesGroup(Generic[BaseExcT_co]):
             else f"{len(succesful_matches)} matched exception{'s' if len(succesful_matches) > 1 else ''}. "
         )
 
+        # all expected were found
         if not remaining_exceptions:
             unexpected_exps = [fa[0] for fa in failed_attempts]
             return f"{succesful_str}Unexpected exception(s): {unexpected_exps!r}"
+        # all raised exceptions were expected
         if not failed_attempts:
             return f"{succesful_str}Too few exceptions raised, found no match for: {remaining_exceptions!r}"
 
-        # TODO: I'm not 100% sure about printing the exact same as in the case above
-        # And in all cases of len(failed_attempts)==1 we probably don't need a full table
-        if 1 == len(remaining_exceptions) == len(failed_attempts):
+        would_also_match: list[
+            list[tuple[ExpectedType[BaseExcT_co], BaseException]]
+        ] = []
+        for actual_exception, _ in failed_attempts:
+            would_also_match.append([])
+            # we could optimize here and only check expected exceptions we haven't checked
+            for expected, actual_match in succesful_matches:
+                if _check_expected(expected, actual_exception, _depth=0) is None:
+                    would_also_match[-1].append((expected, actual_match))
+
+        # if there's only one remaining and one failed, and the unmatched didn't match anything else,
+        # we elect to only print why the remaining and the failed didn't match.
+        if (
+            1
+            == len(remaining_exceptions)
+            == len(failed_attempts)
+            == len(would_also_match)
+            and not would_also_match[0]
+        ):
             return f"{succesful_str}{failed_attempts.pop()[1][0]}"
 
+        # there's both expected and raised exceptions without matches
         curr_indent = " " * 2 * _depth
         s = ""
         if succesful_matches:
@@ -784,13 +804,14 @@ class RaisesGroup(Generic[BaseExcT_co]):
         s += f"\n{curr_indent}The following raised exceptions did not find a match"
         indent_1 = " " * 2 * (_depth + 1)
         indent_2 = " " * 2 * (_depth + 2)
-        for actual_exception, results in failed_attempts:
+        for (actual_exception, results), also_matched in zip(
+            failed_attempts, would_also_match
+        ):
             s += f"\n{indent_1}{actual_exception!r}:"
             for res in results:
                 s += f"\n{indent_2}{res}"
-            for expected, actual_match in succesful_matches:
-                if _check_expected(expected, actual_exception, _depth=0) is None:
-                    s += f"\n{indent_2}It matches {expected!r} which was paired with {actual_match!r}"
+            for expected, actual_match in also_matched:
+                s += f"\n{indent_2}It matches {expected!r} which was paired with {actual_match!r}"
         return s
 
     def __exit__(
