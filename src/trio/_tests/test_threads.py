@@ -852,7 +852,7 @@ async def test_trio_from_thread_run_contextvars() -> None:
     assert sniffio.current_async_library() == "trio"
 
 
-def test_run_fn_as_system_task_catched_badly_typed_token() -> None:
+def test_run_fn_as_system_task_caught_badly_typed_token() -> None:
     with pytest.raises(RuntimeError):
         from_thread_run_sync(
             _core.current_time,

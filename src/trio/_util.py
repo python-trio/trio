@@ -234,7 +234,7 @@ def fixup_module_metadata(
 # so don't bother.
 class generic_function(Generic[RetT]):
     """Decorator that makes a function indexable, to communicate
-    non-inferrable generic type parameters to a static type checker.
+    non-inferable generic type parameters to a static type checker.
 
     If you write::
 
