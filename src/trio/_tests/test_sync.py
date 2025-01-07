@@ -633,11 +633,11 @@ async def test_lock_handover() -> None:
 
     # this task acquires the lock
     lock.acquire_nowait()
-    assert GLOBAL_PARKING_LOT_BREAKER == {
+    assert {
         _core.current_task(): [
             lock._lot,
         ],
-    }
+    } == GLOBAL_PARKING_LOT_BREAKER
 
     async with trio.open_nursery() as nursery:
         nursery.start_soon(lock.acquire)
