@@ -1,1 +1,1 @@
-`RaisesGroup` now raises an `AssertionError` with a helpful message if it fails to match the raised exception. Previously it would let the original exception fall through, but that is now instead the ``__context__``.
+`trio.testing.RaisesGroup` now raises an `AssertionError` with a helpful message if it fails to match the raised exception. Previously it would let the original exception fall through, but that is now instead the ``__context__``.

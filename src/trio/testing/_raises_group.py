@@ -304,7 +304,7 @@ class Matcher(Generic[MatchE]):
         _depth: int = 0,
     ) -> TypeGuard[MatchE]:
         """Check if an exception matches the requirements of this Matcher.
-        If it fails, `.fail_reason` will be set.
+        If it fails, ``.fail_reason`` will be set.
 
         Examples::
 
