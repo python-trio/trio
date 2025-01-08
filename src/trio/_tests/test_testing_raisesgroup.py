@@ -132,7 +132,7 @@ def test_flatten_subgroups() -> None:
     # but not the other way around
     with pytest.raises(
         ValueError,
-        match="^You cannot specify a nested structure inside a RaisesGroup with",
+        match=r"^You cannot specify a nested structure inside a RaisesGroup with",
     ):
         RaisesGroup(RaisesGroup(ValueError), flatten_subgroups=True)  # type: ignore[call-overload]
 
@@ -229,7 +229,7 @@ def test_catch_unwrapped_exceptions() -> None:
     # expecting multiple unwrapped exceptions is not possible
     with pytest.raises(
         ValueError,
-        match="^You cannot specify multiple exceptions with",
+        match=r"^You cannot specify multiple exceptions with",
     ):
         RaisesGroup(SyntaxError, ValueError, allow_unwrapped=True)  # type: ignore[call-overload]
     # if users want one of several exception types they need to use a Matcher
@@ -748,7 +748,7 @@ def test_identity_oopsies() -> None:
 def test_matcher() -> None:
     with pytest.raises(
         ValueError,
-        match="^You must specify at least one parameter to match on.$",
+        match=r"^You must specify at least one parameter to match on.$",
     ):
         Matcher()  # type: ignore[call-overload]
     with pytest.raises(

@@ -20,12 +20,6 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 
-@pytest.mark.xfail(
-    sys.platform == "darwin" and sys.version_info[:3] == (3, 13, 1),
-    reason="TODO: This started failing in CI after 3.13.1",
-    raises=OSError,
-    strict=True,
-)
 async def test_SocketStream_basics() -> None:
     # stdlib socket bad (even if connected)
     stdlib_a, stdlib_b = stdlib_socket.socketpair()
@@ -37,7 +31,7 @@ async def test_SocketStream_basics() -> None:
     with tsocket.socket(type=tsocket.SOCK_DGRAM) as sock:
         with pytest.raises(
             ValueError,
-            match="^SocketStream requires a SOCK_STREAM socket$",
+            match=r"^SocketStream requires a SOCK_STREAM socket$",
         ):
             # TODO: does not raise an error?
             SocketStream(sock)
@@ -169,7 +163,7 @@ async def test_SocketListener() -> None:
         await s.bind(("127.0.0.1", 0))
         with pytest.raises(
             ValueError,
-            match="^SocketListener requires a SOCK_STREAM socket$",
+            match=r"^SocketListener requires a SOCK_STREAM socket$",
         ) as excinfo:
             SocketListener(s)
         excinfo.match(r".*SOCK_STREAM")
@@ -181,7 +175,7 @@ async def test_SocketListener() -> None:
             await s.bind(("127.0.0.1", 0))
             with pytest.raises(
                 ValueError,
-                match="^SocketListener requires a listening socket$",
+                match=r"^SocketListener requires a listening socket$",
             ) as excinfo:
                 SocketListener(s)
             excinfo.match(r".*listen")

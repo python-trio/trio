@@ -27,7 +27,7 @@ if sys.platform == "win32":
 globals().update(
     {
         _name: getattr(_stdlib_socket, _name)
-        for _name in _stdlib_socket.__all__  # type: ignore
+        for _name in _stdlib_socket.__all__
         if _name.isupper() and _name not in _bad_symbols
     },
 )

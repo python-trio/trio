@@ -192,9 +192,7 @@ class HostnameResolver(ABC):
         Any required IDNA encoding is handled before calling this function;
         your implementation can assume that it will never see U-labels like
         ``"café.com"``, and only needs to handle A-labels like
-        ``b"xn--caf-dma.com"``.
-
-        """
+        ``b"xn--caf-dma.com"``."""  # spellchecker:disable-line
 
     @abstractmethod
     async def getnameinfo(

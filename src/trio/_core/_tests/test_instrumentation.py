@@ -257,7 +257,7 @@ def test_instrument_that_raises_on_getattr() -> None:
             raise ValueError("oops")
 
     async def main() -> None:
-        with pytest.raises(ValueError, match="^oops$"):
+        with pytest.raises(ValueError, match=r"^oops$"):
             _core.add_instrument(EvilInstrument())
 
         # Make sure the instrument is fully removed from the per-method lists

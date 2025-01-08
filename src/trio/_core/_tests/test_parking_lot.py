@@ -363,7 +363,7 @@ async def test_parking_lot_breaker_register_exited_task() -> None:
     # trying to register an exited task as lot breaker errors
     with pytest.raises(
         trio.BrokenResourceError,
-        match="^Attempted to add already exited task as lot breaker.$",
+        match=r"^Attempted to add already exited task as lot breaker.$",
     ):
         add_parking_lot_breaker(child_task, lot)
 

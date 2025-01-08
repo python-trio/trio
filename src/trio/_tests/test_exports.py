@@ -509,6 +509,9 @@ def test_static_tool_sees_class_members(
         ):
             missing.remove("with_segments")
 
+        if sys.version_info >= (3, 13) and attrs.has(class_):
+            missing.remove("__replace__")
+
         if missing or extra:  # pragma: no cover
             errors[f"{module_name}.{class_name}"] = {
                 "missing": missing,

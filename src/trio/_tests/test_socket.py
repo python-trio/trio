@@ -456,12 +456,6 @@ async def test_SocketType_basics() -> None:
     sock.close()
 
 
-@pytest.mark.xfail(
-    sys.platform == "darwin" and sys.version_info[:3] == (3, 13, 1),
-    reason="TODO: This started failing in CI after 3.13.1",
-    raises=OSError,
-    strict=True,
-)
 async def test_SocketType_setsockopt() -> None:
     sock = tsocket.socket()
     with sock as _:
@@ -473,7 +467,14 @@ def setsockopt_tests(sock: SocketType | SocketStream) -> None:
     # specifying optlen. Not supported on pypy, and I couldn't find
     # valid calls on darwin or win32.
     if hasattr(tsocket, "SO_BINDTODEVICE"):
-        sock.setsockopt(tsocket.SOL_SOCKET, tsocket.SO_BINDTODEVICE, None, 0)
+        try:
+            sock.setsockopt(tsocket.SOL_SOCKET, tsocket.SO_BINDTODEVICE, None, 0)
+        except OSError as e:
+            # some versions of Python have the attribute yet can run on platforms
+            # that do not support it. For instance, MacOS 15 gained support for
+            # SO_BINDTODEVICE and CPython 3.13.1 was built on it (presumably), but
+            # our CI runners ran MacOS 14 and so failed.
+            assert e.errno == 42  # noqa: PT017
 
     # specifying value
     sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, False)

@@ -125,7 +125,7 @@ async def test_open_tcp_stream_real_socket_smoketest() -> None:
 
 
 async def test_open_tcp_stream_input_validation() -> None:
-    with pytest.raises(ValueError, match="^host must be str or bytes, not None$"):
+    with pytest.raises(ValueError, match=r"^host must be str or bytes, not None$"):
         await open_tcp_stream(None, 80)  # type: ignore[arg-type]
     with pytest.raises(TypeError):
         await open_tcp_stream("127.0.0.1", b"80")  # type: ignore[arg-type]

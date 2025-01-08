@@ -37,6 +37,8 @@ jobs:
 
       - name: Grab the source from Git
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Get the dist version
         id: dist-version
@@ -50,10 +52,11 @@ jobs:
       - name: Set the expected dist artifact names
         id: artifact-name
         run: |
-          echo 'sdist=${{ env.dist-name }}-*.tar.gz' >> "${GITHUB_OUTPUT}"
-          echo 'wheel=${{
-            env.dist-name
-          }}-*-py3-none-any.whl' >> "${GITHUB_OUTPUT}"
+          echo "sdist=${DIST_NAME}-${VERSION}.tar.gz" >> "${GITHUB_OUTPUT}"
+          echo "wheel=${DIST_NAME}-${VERSION}-py3-none-any.whl" >> "${GITHUB_OUTPUT}"
+        env:
+          DIST_NAME: ${{ env.dist-name }}
+          VERSION: ${{ steps.dist-version.outputs.version }}
 
       - name: Install build
         run: python -Im pip install build
@@ -63,8 +66,11 @@ jobs:
       - name: Verify that the artifacts with expected names got created
         run: >-
           ls -1
-          dist/${{ steps.artifact-name.outputs.sdist }}
-          dist/${{ steps.artifact-name.outputs.wheel }}
+          dist/${SDIST}
+          dist/${WHEEL}
+        env:
+          SDIST: ${{ steps.artifact-name.outputs.sdist }}
+          WHEEL: ${{ steps.artifact-name.outputs.wheel }}
       - name: Store the distribution packages
         uses: actions/upload-artifact@v4
         with:
@@ -99,6 +105,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: git-src
+          persist-credentials: false
 
       - name: >-
           Smoke-test: install test requirements from the Git repo
@@ -216,8 +223,7 @@ jobs:
           # multiple flags is marked as an error in codecov UI, but is actually fine
           # https://github.com/codecov/feedback/issues/567
           flags: Windows,${{ matrix.python }}
-          # this option cannot be set in .codecov.yml
-          fail_ci_if_error: true
+          fail_ci_if_error: false  # change to true when using codecov action v5
 
   Ubuntu:
     name: 'Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})'
@@ -260,6 +266,8 @@ jobs:
       - name: Grab the source from Git
         if: matrix.check_formatting == '1'
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Setup python
         uses: actions/setup-python@v5
         with:
@@ -279,7 +287,7 @@ jobs:
           directory: empty
           name: Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})
           flags: Ubuntu,${{ matrix.python }}
-          fail_ci_if_error: true
+          fail_ci_if_error: false
 
   macOS:
     name: 'macOS (${{ matrix.python }})'
@@ -321,7 +329,7 @@ jobs:
           directory: empty
           name: macOS (${{ matrix.python }})
           flags: macOS,${{ matrix.python }}
-          fail_ci_if_error: true
+          fail_ci_if_error: false
 
   # run CI on a musl linux
   Alpine:
@@ -357,7 +365,7 @@ jobs:
           directory: empty
           name: Alpine
           flags: Alpine,${{ steps.get-version.outputs.version }}
-          fail_ci_if_error: true
+          fail_ci_if_error: false
 
   Cython:
     name: "Cython"
@@ -417,7 +425,7 @@ jobs:
         with:
           name: Cython
           flags: Cython,${{ steps.get-version.outputs.version }}
-          fail_ci_if_error: true
+          fail_ci_if_error: false
 
   # https://github.com/marketplace/actions/alls-green#why
   check:  # This job does nothing and is only used for the branch protection
