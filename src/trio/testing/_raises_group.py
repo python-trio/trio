@@ -167,7 +167,12 @@ def _check_match(match_expr: Pattern[str] | None, e: BaseException) -> str | Non
         match_expr,
         stringified_exception := _stringify_exception(e),
     ):
-        fail_reason = f"Regex pattern {_match_pattern(match_expr)!r} did not match {stringified_exception!r}"
+        maybe_specify_type = (
+            f" of {_exception_type_name(type(e))}"
+            if isinstance(e, BaseExceptionGroup)
+            else ""
+        )
+        fail_reason = f"Regex pattern {_match_pattern(match_expr)!r} did not match {stringified_exception!r}{maybe_specify_type}"
         if _match_pattern(match_expr) == stringified_exception:
             fail_reason += "\nDid you mean to `re.escape()` the regex?"
         return fail_reason
@@ -685,14 +690,23 @@ class RaisesGroup(Generic[BaseExcT_co]):
                 self.fail_reason = not_group_msg
             return False
 
-        # TODO: if this fails, we should say the *group* message did not match
-        self.fail_reason = _check_match(self.match_expr, exc_val)
-        if self.fail_reason is not None:
-            return False
-
         actual_exceptions: Sequence[BaseException] = exc_val.exceptions
         if self.flatten_subgroups:
             actual_exceptions = self._unroll_exceptions(actual_exceptions)
+
+        self.fail_reason = _check_match(self.match_expr, exc_val)
+        if self.fail_reason is not None:
+            if (
+                len(actual_exceptions) == len(self.expected_exceptions) == 1
+                and isinstance(expected := self.expected_exceptions[0], type)
+                and isinstance(actual := actual_exceptions[0], expected)
+                and _check_match(self.match_expr, actual) is None
+            ):
+                assert (
+                    self.match_expr is not None
+                ), "can't be None if _check_match failed"
+                self.fail_reason += f", but matched expected exception. You might want RaisesGroup(Matcher({expected.__name__}, match={_match_pattern(self.match_expr)!r}"
+            return False
 
         # do the full check on expected exceptions
         self.fail_reason = self._check_exceptions(

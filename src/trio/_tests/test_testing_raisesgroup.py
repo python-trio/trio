@@ -334,10 +334,24 @@ def test_match() -> None:
         raise e
 
     with (
-        fails_raises_group("Regex pattern 'foo' did not match 'bar'"),
+        fails_raises_group(
+            "Regex pattern 'foo' did not match 'bar' of 'ExceptionGroup'"
+        ),
         RaisesGroup(ValueError, match="foo"),
     ):
         raise ExceptionGroup("bar", (ValueError(),))
+
+    # Suggest a fix for easy pitfall of adding match to the RaisesGroup instead of
+    # using a Matcher.
+    # This requires a single expected & raised exception, the expected is a type,
+    # and `isinstance(raised, expected_type)`.
+    with (
+        fails_raises_group(
+            "Regex pattern 'foo' did not match 'bar' of 'ExceptionGroup', but matched expected exception. You might want RaisesGroup(Matcher(ValueError, match='foo'"
+        ),
+        RaisesGroup(ValueError, match="foo"),
+    ):
+        raise ExceptionGroup("bar", [ValueError("foo")])
 
 
 def test_check() -> None:
@@ -470,7 +484,7 @@ def test_assert_message() -> None:
             "The following raised exceptions did not find a match\n"
             "  ExceptionGroup('', [RuntimeError()]):\n"
             "    RaisesGroup(ValueError): 'RuntimeError' is not of type 'ValueError'\n"
-            "    RaisesGroup(ValueError, match='a'): Regex pattern 'a' did not match ''\n"
+            "    RaisesGroup(ValueError, match='a'): Regex pattern 'a' did not match '' of 'ExceptionGroup'\n"
             "  RuntimeError():\n"
             "    RaisesGroup(ValueError): 'RuntimeError' is not an exception group\n"
             "    RaisesGroup(ValueError, match='a'): 'RuntimeError' is not an exception group",
@@ -531,8 +545,7 @@ def test_assert_message() -> None:
     # suggest escaping
     with (
         fails_raises_group(
-            # TODO: this message should say the *group* didn't match
-            "Raised exception group did not match: Regex pattern 'h(ell)o' did not match 'h(ell)o'\n"
+            "Raised exception group did not match: Regex pattern 'h(ell)o' did not match 'h(ell)o' of 'ExceptionGroup'\n"
             "Did you mean to `re.escape()` the regex?",
             add_prefix=False,  # to see the full structure
         ),
