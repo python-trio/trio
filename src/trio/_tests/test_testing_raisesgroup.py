@@ -109,6 +109,15 @@ def test_incorrect_number_exceptions() -> None:
     ):
         raise ExceptionGroup("", (ValueError(),))
 
+    # TODO: another example where an expected exception matches an already matched exception
+    with (
+        fails_raises_group(
+            "1 matched exception. 'SyntaxError' is not of type 'ValueError'"
+        ),
+        RaisesGroup(ValueError, ValueError),
+    ):
+        raise ExceptionGroup("", [ValueError(), SyntaxError()])
+
 
 def test_flatten_subgroups() -> None:
     # loose semantics, as with expect*
