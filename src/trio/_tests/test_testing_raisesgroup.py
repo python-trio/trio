@@ -159,8 +159,8 @@ def test_flatten_subgroups() -> None:
             "The following expected exceptions did not find a match: [<class 'ValueError'>, <class 'TypeError'>]\n"
             "The following raised exceptions did not find a match\n"
             "  ExceptionGroup('', [ValueError(), TypeError()]):\n"
-            "    inner 'ExceptionGroup' is not of type 'ValueError'\n"
-            "    inner 'ExceptionGroup' is not of type 'TypeError'\n"
+            "    Unexpected nested 'ExceptionGroup', expected bare 'ValueError'\n"
+            "    Unexpected nested 'ExceptionGroup', expected bare 'TypeError'\n"
             "Did you mean to use `flatten_subgroups=True`?",
             add_prefix=False,
         ),
@@ -174,8 +174,8 @@ def test_flatten_subgroups() -> None:
             "The following expected exceptions did not find a match: [<class 'ValueError'>, <class 'TypeError'>]\n"
             "The following raised exceptions did not find a match\n"
             "  ExceptionGroup('', [ValueError(), TypeError()]):\n"
-            "    inner 'ExceptionGroup' is not of type 'ValueError'\n"
-            "    inner 'ExceptionGroup' is not of type 'TypeError'\n"
+            "    Unexpected nested 'ExceptionGroup', expected bare 'ValueError'\n"
+            "    Unexpected nested 'ExceptionGroup', expected bare 'TypeError'\n"
             "Did you mean to use `flatten_subgroups=True`?",
             add_prefix=False,
         ),
@@ -190,7 +190,7 @@ def test_flatten_subgroups() -> None:
     # This now doesn't print a repr of the caught exception at all, but that can be found in the traceback
     with (
         fails_raises_group(
-            "Raised exception group did not match: inner 'ExceptionGroup' is not of type 'ValueError'\n"
+            "Raised exception group did not match: Unexpected nested 'ExceptionGroup', expected bare 'ValueError'\n"
             "Did you mean to use `flatten_subgroups=True`?",
             add_prefix=False,
         ),
@@ -199,7 +199,9 @@ def test_flatten_subgroups() -> None:
         raise ExceptionGroup("", [ExceptionGroup("", [ValueError()])])
     # correct number of exceptions, but flatten_subgroups wouldn't help, so we don't suggest it
     with (
-        fails_raises_group("inner 'ExceptionGroup' is not of type 'ValueError'"),
+        fails_raises_group(
+            "Unexpected nested 'ExceptionGroup', expected bare 'ValueError'"
+        ),
         RaisesGroup(ValueError),
     ):
         raise ExceptionGroup("", [ExceptionGroup("", [TypeError()])])
@@ -209,7 +211,7 @@ def test_flatten_subgroups() -> None:
     # to be what they actually want - but I don't think it's worth trying to special-case
     with (
         fails_raises_group(
-            "RaisesGroup(ValueError): inner 'ExceptionGroup' is not of type 'ValueError'\n"
+            "RaisesGroup(ValueError): Unexpected nested 'ExceptionGroup', expected bare 'ValueError'\n"
             "      Did you mean to use `flatten_subgroups=True`?",
         ),
         RaisesGroup(RaisesGroup(ValueError)),
@@ -263,7 +265,7 @@ def test_catch_unwrapped_exceptions() -> None:
     # allow_unwrapped on its own won't match against nested groups
     with (
         fails_raises_group(
-            "inner 'ExceptionGroup' is not of type 'ValueError'\n"
+            "Unexpected nested 'ExceptionGroup', expected bare 'ValueError'\n"
             "Did you mean to use `flatten_subgroups=True`?",
         ),
         RaisesGroup(ValueError, allow_unwrapped=True),
@@ -538,17 +540,16 @@ def test_assert_message() -> None:
     ):
         raise ExceptionGroup("", [ValueError("h(ell)o")])
 
-    # TODO: Printing `ExceptionGroup('', [ValueError(), TypeError()])` over and over here is a bit silly
     with (
         fails_raises_group(
             "Raised exception group did not match: \n"
             "The following expected exceptions did not find a match: [<class 'ValueError'>, <class 'ValueError'>, <class 'ValueError'>, <class 'ValueError'>]\n"
             "The following raised exceptions did not find a match\n"
             "  ExceptionGroup('', [ValueError(), TypeError()]):\n"
-            "    inner 'ExceptionGroup' is not of type 'ValueError'\n"
-            "    inner 'ExceptionGroup' is not of type 'ValueError'\n"
-            "    inner 'ExceptionGroup' is not of type 'ValueError'\n"
-            "    inner 'ExceptionGroup' is not of type 'ValueError'",
+            "    Unexpected nested 'ExceptionGroup', expected bare 'ValueError'\n"
+            "    Unexpected nested 'ExceptionGroup', expected bare 'ValueError'\n"
+            "    Unexpected nested 'ExceptionGroup', expected bare 'ValueError'\n"
+            "    Unexpected nested 'ExceptionGroup', expected bare 'ValueError'",
             add_prefix=False,  # to see the full structure
         ),
         RaisesGroup(ValueError, ValueError, ValueError, ValueError),

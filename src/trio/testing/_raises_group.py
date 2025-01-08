@@ -193,6 +193,10 @@ def _check_check(
     return None
 
 
+def _exception_type_name(e: type[BaseException]) -> str:
+    return repr(e.__name__)
+
+
 def _check_type(
     expected_type: type[BaseException] | None,
     exception: BaseException,
@@ -204,11 +208,11 @@ def _check_type(
         exception,
         expected_type,
     ):
-        end = f"is not of type {expected_type.__name__!r}"
-        maybe_inner_group = (
-            "inner " if isinstance(exception, BaseExceptionGroup) else ""
-        )
-        return f"{maybe_inner_group}{type(exception).__name__!r} {end}"
+        actual_type_str = _exception_type_name(type(exception))
+        expected_type_str = _exception_type_name(expected_type)
+        if isinstance(exception, BaseExceptionGroup):
+            return f"Unexpected nested {actual_type_str}, expected bare {expected_type_str}"
+        return f"{actual_type_str} is not of type {expected_type_str}"
     return None
 
 
@@ -736,7 +740,7 @@ class RaisesGroup(Generic[BaseExcT_co]):
         # that also opens up for the ability to not require the exceptions to be ordered... which would probably
         # be quite useful.
         failed_attempts: list[tuple[BaseException, list[str]]] = []
-        succesful_matches: list[tuple[ExpectedType[BaseExcT_co], BaseException]] = []
+        successful_matches: list[tuple[ExpectedType[BaseExcT_co], BaseException]] = []
 
         remaining_exceptions = list(self.expected_exceptions)
 
@@ -745,7 +749,7 @@ class RaisesGroup(Generic[BaseExcT_co]):
             for rem_e in remaining_exceptions:
                 res = _check_expected(rem_e, e, _depth=_depth + 3)
                 if res is None:
-                    succesful_matches.append((rem_e, e))
+                    successful_matches.append((rem_e, e))
                     remaining_exceptions.remove(rem_e)
                     failed_attempts.pop()
                     break
@@ -757,22 +761,22 @@ class RaisesGroup(Generic[BaseExcT_co]):
 
         # in case of a single expected and single raised we simplify the output
         if 1 == len(actual_exceptions) == len(self.expected_exceptions):
-            assert not succesful_matches
+            assert not successful_matches
             return f"{failed_attempts.pop()[1][0]}"
 
-        succesful_str = (
+        successful_str = (
             ""
-            if not succesful_matches
-            else f"{len(succesful_matches)} matched exception{'s' if len(succesful_matches) > 1 else ''}. "
+            if not successful_matches
+            else f"{len(successful_matches)} matched exception{'s' if len(successful_matches) > 1 else ''}. "
         )
 
         # all expected were found
         if not remaining_exceptions:
             unexpected_exps = [fa[0] for fa in failed_attempts]
-            return f"{succesful_str}Unexpected exception(s): {unexpected_exps!r}"
+            return f"{successful_str}Unexpected exception(s): {unexpected_exps!r}"
         # all raised exceptions were expected
         if not failed_attempts:
-            return f"{succesful_str}Too few exceptions raised, found no match for: {remaining_exceptions!r}"
+            return f"{successful_str}Too few exceptions raised, found no match for: {remaining_exceptions!r}"
 
         would_also_match: list[
             list[tuple[ExpectedType[BaseExcT_co], BaseException]]
@@ -780,7 +784,7 @@ class RaisesGroup(Generic[BaseExcT_co]):
         for actual_exception, _ in failed_attempts:
             would_also_match.append([])
             # we could optimize here and only check expected exceptions we haven't checked
-            for expected, actual_match in succesful_matches:
+            for expected, actual_match in successful_matches:
                 if _check_expected(expected, actual_exception, _depth=0) is None:
                     would_also_match[-1].append((expected, actual_match))
 
@@ -793,13 +797,13 @@ class RaisesGroup(Generic[BaseExcT_co]):
             == len(would_also_match)
             and not would_also_match[0]
         ):
-            return f"{succesful_str}{failed_attempts.pop()[1][0]}"
+            return f"{successful_str}{failed_attempts.pop()[1][0]}"
 
         # there's both expected and raised exceptions without matches
         curr_indent = " " * 2 * _depth
         s = ""
-        if succesful_matches:
-            s += f"\n{curr_indent}{succesful_str}"
+        if successful_matches:
+            s += f"\n{curr_indent}{successful_str}"
         s += f"\n{curr_indent}The following expected exceptions did not find a match: {remaining_exceptions!r}"
         s += f"\n{curr_indent}The following raised exceptions did not find a match"
         indent_1 = " " * 2 * (_depth + 1)
