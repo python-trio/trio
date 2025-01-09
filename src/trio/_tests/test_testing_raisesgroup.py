@@ -24,6 +24,9 @@ def wrap_escape(s: str) -> str:
 def fails_raises_group(
     msg: str, add_prefix: bool = True
 ) -> RaisesContext[AssertionError]:
+    assert (
+        msg[-1] != "\n"
+    ), "developer error, expected string should not end with newline"
     prefix = "Raised exception group did not match: " if add_prefix else ""
     return pytest.raises(AssertionError, match=wrap_escape(prefix + msg))
 
@@ -77,14 +80,6 @@ def test_incorrect_number_exceptions() -> None:
     # but we now instead indicate excess/missing exceptions
     with (
         fails_raises_group(
-            "1 matched exception. Unexpected exception(s): [ValueError()]"
-        ),
-        RaisesGroup(ValueError),
-    ):
-        raise ExceptionGroup("", (ValueError(), ValueError()))
-
-    with (
-        fails_raises_group(
             "1 matched exception. Unexpected exception(s): [RuntimeError()]"
         ),
         RaisesGroup(ValueError),
@@ -94,25 +89,48 @@ def test_incorrect_number_exceptions() -> None:
     # will error if there's missing exceptions
     with (
         fails_raises_group(
-            "1 matched exception. Too few exceptions raised, found no match for: [<class 'SyntaxError'>]"
+            "1 matched exception. Too few exceptions raised, found no match for: ['SyntaxError']"
         ),
         RaisesGroup(ValueError, SyntaxError),
     ):
         raise ExceptionGroup("", (ValueError(),))
 
-    # TODO: this one should maybe say that it matched an already matched exception
     with (
         fails_raises_group(
-            "1 matched exception. Too few exceptions raised, found no match for: [<class 'ValueError'>]"
+            "\n"
+            "1 matched exception. \n"
+            "Too few exceptions raised!\n"
+            "The following expected exceptions did not find a match:\n"
+            "  'ValueError'\n"
+            "    It matches ValueError() which was paired with 'ValueError'"
         ),
         RaisesGroup(ValueError, ValueError),
     ):
         raise ExceptionGroup("", (ValueError(),))
 
-    # TODO: another example where an expected exception matches an already matched exception
     with (
         fails_raises_group(
-            "1 matched exception. 'SyntaxError' is not of type 'ValueError'"
+            "\n"
+            "1 matched exception. \n"
+            "Unexpected exception(s)!\n"
+            "The following raised exceptions did not find a match\n"
+            "  ValueError():\n"
+            "    It matches 'ValueError' which was paired with ValueError()"
+        ),
+        RaisesGroup(ValueError),
+    ):
+        raise ExceptionGroup("", (ValueError(), ValueError()))
+
+    with (
+        fails_raises_group(
+            "\n"
+            "1 matched exception. \n"
+            "The following expected exceptions did not find a match:\n"
+            "  'ValueError'\n"
+            "    It matches ValueError() which was paired with 'ValueError'\n"
+            "The following raised exceptions did not find a match\n"
+            "  SyntaxError():\n"
+            "    'SyntaxError' is not of type 'ValueError'"
         ),
         RaisesGroup(ValueError, ValueError),
     ):
@@ -165,7 +183,9 @@ def test_flatten_subgroups() -> None:
     with (
         fails_raises_group(
             "Raised exception group did not match: \n"
-            "The following expected exceptions did not find a match: [<class 'ValueError'>, <class 'TypeError'>]\n"
+            "The following expected exceptions did not find a match:\n"
+            "  'ValueError'\n"
+            "  'TypeError'\n"
             "The following raised exceptions did not find a match\n"
             "  ExceptionGroup('', [ValueError(), TypeError()]):\n"
             "    Unexpected nested 'ExceptionGroup', expected bare 'ValueError'\n"
@@ -180,7 +200,9 @@ def test_flatten_subgroups() -> None:
     with (
         fails_raises_group(
             "Raised exception group did not match: \n"
-            "The following expected exceptions did not find a match: [<class 'ValueError'>, <class 'TypeError'>]\n"
+            "The following expected exceptions did not find a match:\n"
+            "  'ValueError'\n"
+            "  'TypeError'\n"
             "The following raised exceptions did not find a match\n"
             "  ExceptionGroup('', [ValueError(), TypeError()]):\n"
             "    Unexpected nested 'ExceptionGroup', expected bare 'ValueError'\n"
@@ -480,7 +502,9 @@ def test_assert_message() -> None:
     with (
         fails_raises_group(
             "Raised exception group did not match: \n"
-            "The following expected exceptions did not find a match: [RaisesGroup(ValueError), RaisesGroup(ValueError, match='a')]\n"
+            "The following expected exceptions did not find a match:\n"
+            "  RaisesGroup(ValueError)\n"
+            "  RaisesGroup(ValueError, match='a')\n"
             "The following raised exceptions did not find a match\n"
             "  ExceptionGroup('', [RuntimeError()]):\n"
             "    RaisesGroup(ValueError): 'RuntimeError' is not of type 'ValueError'\n"
@@ -501,17 +525,19 @@ def test_assert_message() -> None:
         fails_raises_group(
             "Raised exception group did not match: \n"
             "2 matched exceptions. \n"
-            "The following expected exceptions did not find a match: [RaisesGroup(RuntimeError), RaisesGroup(ValueError)]\n"
+            "The following expected exceptions did not find a match:\n"
+            "  RaisesGroup(RuntimeError)\n"
+            "  RaisesGroup(ValueError)\n"
             "The following raised exceptions did not find a match\n"
             "  RuntimeError():\n"
-            "    'RuntimeError' is not of type 'ValueError'\n"
-            "    Matcher(TypeError): 'RuntimeError' is not of type 'TypeError'\n"
+            # "    'RuntimeError' is not of type 'ValueError'\n"
+            # "    Matcher(TypeError): 'RuntimeError' is not of type 'TypeError'\n"
             "    RaisesGroup(RuntimeError): 'RuntimeError' is not an exception group, but would match with `allow_unwrapped=True`\n"
             "    RaisesGroup(ValueError): 'RuntimeError' is not an exception group\n"
             "  ValueError('bar'):\n"
+            "    It matches 'ValueError' which was paired with ValueError('foo')\n"
             "    RaisesGroup(RuntimeError): 'ValueError' is not an exception group\n"
-            "    RaisesGroup(ValueError): 'ValueError' is not an exception group, but would match with `allow_unwrapped=True`\n"
-            "    It matches <class 'ValueError'> which was paired with ValueError('foo')",
+            "    RaisesGroup(ValueError): 'ValueError' is not an exception group, but would match with `allow_unwrapped=True`",
             add_prefix=False,  # to see the full structure
         ),
         RaisesGroup(
@@ -565,7 +591,11 @@ def test_assert_message() -> None:
     with (
         fails_raises_group(
             "Raised exception group did not match: \n"
-            "The following expected exceptions did not find a match: [<class 'ValueError'>, <class 'ValueError'>, <class 'ValueError'>, <class 'ValueError'>]\n"
+            "The following expected exceptions did not find a match:\n"
+            "  'ValueError'\n"
+            "  'ValueError'\n"
+            "  'ValueError'\n"
+            "  'ValueError'\n"
             "The following raised exceptions did not find a match\n"
             "  ExceptionGroup('', [ValueError(), TypeError()]):\n"
             "    Unexpected nested 'ExceptionGroup', expected bare 'ValueError'\n"
@@ -585,7 +615,11 @@ def test_assert_message_nested() -> None:
     with (
         fails_raises_group(
             "Raised exception group did not match: \n"
-            "The following expected exceptions did not find a match: [RaisesGroup(ValueError), RaisesGroup(RaisesGroup(ValueError)), RaisesGroup(Matcher(TypeError, match='foo')), RaisesGroup(TypeError, ValueError)]\n"
+            "The following expected exceptions did not find a match:\n"
+            "  RaisesGroup(ValueError)\n"
+            "  RaisesGroup(RaisesGroup(ValueError))\n"
+            "  RaisesGroup(Matcher(TypeError, match='foo'))\n"
+            "  RaisesGroup(TypeError, ValueError)\n"
             "The following raised exceptions did not find a match\n"
             "  TypeError('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'):\n"
             "    RaisesGroup(ValueError): 'TypeError' is not an exception group\n"
@@ -596,24 +630,27 @@ def test_assert_message_nested() -> None:
             "    RaisesGroup(ValueError): 'TypeError' is not of type 'ValueError'\n"
             "    RaisesGroup(RaisesGroup(ValueError)): RaisesGroup(ValueError): 'TypeError' is not an exception group\n"
             "    RaisesGroup(Matcher(TypeError, match='foo')): Matcher(TypeError, match='foo'): Regex pattern 'foo' did not match 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'\n"
-            "    RaisesGroup(TypeError, ValueError): 1 matched exception. Too few exceptions raised, found no match for: [<class 'ValueError'>]\n"
+            "    RaisesGroup(TypeError, ValueError): 1 matched exception. Too few exceptions raised, found no match for: ['ValueError']\n"
             "  ExceptionGroup('Exceptions from Trio nursery', [TypeError('cccccccccccccccccccccccccccccccccccccccc'), TypeError('dddddddddddddddddddddddddddddddddddddddd')]):\n"
             "    RaisesGroup(ValueError): \n"
-            "      The following expected exceptions did not find a match: [<class 'ValueError'>]\n"
+            "      The following expected exceptions did not find a match:\n"
+            "        'ValueError'\n"
             "      The following raised exceptions did not find a match\n"
             "        TypeError('cccccccccccccccccccccccccccccccccccccccc'):\n"
             "          'TypeError' is not of type 'ValueError'\n"
             "        TypeError('dddddddddddddddddddddddddddddddddddddddd'):\n"
             "          'TypeError' is not of type 'ValueError'\n"
             "    RaisesGroup(RaisesGroup(ValueError)): \n"
-            "      The following expected exceptions did not find a match: [RaisesGroup(ValueError)]\n"
+            "      The following expected exceptions did not find a match:\n"
+            "        RaisesGroup(ValueError)\n"
             "      The following raised exceptions did not find a match\n"
             "        TypeError('cccccccccccccccccccccccccccccccccccccccc'):\n"
             "          RaisesGroup(ValueError): 'TypeError' is not an exception group\n"
             "        TypeError('dddddddddddddddddddddddddddddddddddddddd'):\n"
             "          RaisesGroup(ValueError): 'TypeError' is not an exception group\n"
             "    RaisesGroup(Matcher(TypeError, match='foo')): \n"
-            "      The following expected exceptions did not find a match: [Matcher(TypeError, match='foo')]\n"
+            "      The following expected exceptions did not find a match:\n"
+            "        Matcher(TypeError, match='foo')\n"
             "      The following raised exceptions did not find a match\n"
             "        TypeError('cccccccccccccccccccccccccccccccccccccccc'):\n"
             "          Matcher(TypeError, match='foo'): Regex pattern 'foo' did not match 'cccccccccccccccccccccccccccccccccccccccc'\n"
@@ -621,11 +658,12 @@ def test_assert_message_nested() -> None:
             "          Matcher(TypeError, match='foo'): Regex pattern 'foo' did not match 'dddddddddddddddddddddddddddddddddddddddd'\n"
             "    RaisesGroup(TypeError, ValueError): \n"
             "      1 matched exception. \n"
-            "      The following expected exceptions did not find a match: [<class 'ValueError'>]\n"
+            "      The following expected exceptions did not find a match:\n"
+            "        'ValueError'\n"
             "      The following raised exceptions did not find a match\n"
             "        TypeError('dddddddddddddddddddddddddddddddddddddddd'):\n"
-            "          'TypeError' is not of type 'ValueError'\n"
-            "          It matches <class 'TypeError'> which was paired with TypeError('cccccccccccccccccccccccccccccccccccccccc')",
+            "          It matches 'TypeError' which was paired with TypeError('cccccccccccccccccccccccccccccccccccccccc')\n"
+            "          'TypeError' is not of type 'ValueError'",
             add_prefix=False,  # to see the full structure
         ),
         RaisesGroup(
@@ -657,7 +695,9 @@ def test_assert_message_nested() -> None:
             AssertionError,
             match=(
                 r"^Raised exception group did not match: \n"
-                r"The following expected exceptions did not find a match: \[Matcher\(check=<function test_assert_message_nested.<locals>.<lambda> at .*>\), <class 'TypeError'>\]\n"
+                r"The following expected exceptions did not find a match:\n"
+                r"  Matcher\(check=<function test_assert_message_nested.<locals>.<lambda> at .*>\)\n"
+                r"  'TypeError'\n"
                 r"The following raised exceptions did not find a match\n"
                 r"  ValueError\('foo'\):\n"
                 r"    Matcher\(check=<function test_assert_message_nested.<locals>.<lambda> at .*>\): check did not return True\n"
@@ -677,13 +717,18 @@ def test_misordering_example() -> None:
         fails_raises_group(
             "\n"
             "3 matched exceptions. \n"
-            "The following expected exceptions did not find a match: [Matcher(ValueError, match='foo')]\n"
+            "The following expected exceptions did not find a match:\n"
+            "  Matcher(ValueError, match='foo')\n"
+            "    It matches ValueError('foo') which was paired with 'ValueError'\n"
+            "    It matches ValueError('foo') which was paired with 'ValueError'\n"
+            "    It matches ValueError('foo') which was paired with 'ValueError'\n"
             "The following raised exceptions did not find a match\n"
             "  ValueError('bar'):\n"
+            "    It matches 'ValueError' which was paired with ValueError('foo')\n"
+            "    It matches 'ValueError' which was paired with ValueError('foo')\n"
+            "    It matches 'ValueError' which was paired with ValueError('foo')\n"
             "    Matcher(ValueError, match='foo'): Regex pattern 'foo' did not match 'bar'\n"
-            "    It matches <class 'ValueError'> which was paired with ValueError('foo')\n"
-            "    It matches <class 'ValueError'> which was paired with ValueError('foo')\n"
-            "    It matches <class 'ValueError'> which was paired with ValueError('foo')"
+            "There exist a possible match when attempting an exhaustive check, but RaisesGroup uses a greedy algorithm. Please make your expected exceptions more stringent with Matcher etc so the greedy algorithm can function."
         ),
         RaisesGroup(
             ValueError, ValueError, ValueError, Matcher(ValueError, match="foo")
@@ -706,24 +751,41 @@ def test_brief_error_on_one_fail() -> None:
     # no also-matched
     with (
         fails_raises_group(
-            "1 matched exception. 'TypeError' is not of type 'ValueError'"
+            "1 matched exception. 'TypeError' is not of type 'RuntimeError'"
         ),
-        RaisesGroup(ValueError, ValueError),
+        RaisesGroup(ValueError, RuntimeError),
     ):
         raise ExceptionGroup("", [ValueError(), TypeError()])
 
-    # TypeError would match Exception
+    # raised would match an expected
     with (
         fails_raises_group(
             "\n"
             "1 matched exception. \n"
-            "The following expected exceptions did not find a match: [<class 'ValueError'>]\n"
+            "The following expected exceptions did not find a match:\n"
+            "  'RuntimeError'\n"
             "The following raised exceptions did not find a match\n"
             "  TypeError():\n"
-            "    'TypeError' is not of type 'ValueError'\n"
-            "    It matches <class 'Exception'> which was paired with ValueError()"
+            "    It matches 'Exception' which was paired with ValueError()\n"
+            "    'TypeError' is not of type 'RuntimeError'"
         ),
-        RaisesGroup(Exception, ValueError),
+        RaisesGroup(Exception, RuntimeError),
+    ):
+        raise ExceptionGroup("", [ValueError(), TypeError()])
+
+    # expected would match a raised
+    with (
+        fails_raises_group(
+            "\n"
+            "1 matched exception. \n"
+            "The following expected exceptions did not find a match:\n"
+            "  'ValueError'\n"
+            "    It matches ValueError() which was paired with 'ValueError'\n"
+            "The following raised exceptions did not find a match\n"
+            "  TypeError():\n"
+            "    'TypeError' is not of type 'ValueError'"
+        ),
+        RaisesGroup(ValueError, ValueError),
     ):
         raise ExceptionGroup("", [ValueError(), TypeError()])
 
@@ -748,7 +810,10 @@ def test_identity_oopsies() -> None:
     with (
         fails_raises_group(
             "\n"
-            "The following expected exceptions did not find a match: [Matcher(match='bar'), Matcher(match='bar'), Matcher(match='bar')]\n"
+            "The following expected exceptions did not find a match:\n"
+            "  Matcher(match='bar')\n"
+            "  Matcher(match='bar')\n"
+            "  Matcher(match='bar')\n"
             "The following raised exceptions did not find a match\n"
             "  ValueError('foo'):\n"
             "    Matcher(match='bar'): Regex pattern 'bar' did not match 'foo'\n"

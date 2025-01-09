@@ -8,6 +8,7 @@ from typing import (
     Generic,
     Literal,
     cast,
+    final as t_final,
     overload,
 )
 
@@ -19,7 +20,7 @@ if TYPE_CHECKING:
     # sphinx will *only* work if we use types.TracebackType, and import
     # *inside* TYPE_CHECKING. No other combination works.....
     import types
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable, Iterator, Sequence
 
     from _pytest._code.code import ExceptionChainRepr, ReprExceptionInfo, Traceback
     from typing_extensions import TypeAlias, TypeGuard, TypeVar
@@ -200,6 +201,12 @@ def _check_check(
 
 def _exception_type_name(e: type[BaseException]) -> str:
     return repr(e.__name__)
+
+
+def _repr_expected(e: ExpectedType[BaseException]) -> str:
+    if isinstance(e, type):
+        return _exception_type_name(e)
+    return repr(e)
 
 
 def _check_type(
@@ -514,10 +521,7 @@ class RaisesGroup(Generic[BaseExcT_co]):
             | None
         ) = None,
     ):
-        self.expected_exceptions: tuple[
-            type[BaseExcT_co] | Matcher[BaseExcT_co] | RaisesGroup[BaseException],
-            ...,
-        ] = (
+        self.expected_exceptions: tuple[ExpectedType[BaseExcT_co], ...] = (
             exception,
             *other_exceptions,
         )
@@ -748,88 +752,113 @@ class RaisesGroup(Generic[BaseExcT_co]):
         _depth: int,
     ) -> str | None:
         """helper method for RaisesGroup.matches that attempts to pair up expected and actual exceptions"""
+        # full table with all results
+        results = ResultHolder(self.expected_exceptions, actual_exceptions)
 
-        # juggling *3* lists to track results is a bit silly, should perhaps rewrite with
-        # a single container tracking all results, with three states for successful/fail_reason/not_checked
-        # that also opens up for the ability to not require the exceptions to be ordered... which would probably
-        # be quite useful.
-        failed_attempts: list[tuple[BaseException, list[str]]] = []
-        successful_matches: list[tuple[ExpectedType[BaseExcT_co], BaseException]] = []
+        # (indexes of) raised exceptions that haven't (yet) found an expected
+        remaining_actual = list(range(len(actual_exceptions)))
+        # (indexes of) expected exceptions that haven't found a matching raised
+        failed_expected: list[int] = []
+        # successful greedy matches
+        matches: dict[int, int] = {}
 
-        remaining_exceptions = list(self.expected_exceptions)
-
-        for e in actual_exceptions:
-            failed_attempts.append((e, []))
-            for rem_e in remaining_exceptions:
-                res = _check_expected(rem_e, e, _depth=_depth + 3)
+        # loop over expected exceptions first to get a more predictable result
+        for i_exp, expected in enumerate(self.expected_exceptions):
+            for i_rem in remaining_actual:
+                res = _check_expected(
+                    expected, actual_exceptions[i_rem], _depth=_depth + 3
+                )
+                results.set_result(i_exp, i_rem, res)
                 if res is None:
-                    successful_matches.append((rem_e, e))
-                    remaining_exceptions.remove(rem_e)
-                    failed_attempts.pop()
+                    remaining_actual.remove(i_rem)
+                    matches[i_exp] = i_rem
                     break
-                failed_attempts[-1][1].append(res)
+            else:
+                failed_expected.append(i_exp)
 
         # All exceptions matched up successfully
-        if not remaining_exceptions and not failed_attempts:
+        if not remaining_actual and not failed_expected:
             return None
 
         # in case of a single expected and single raised we simplify the output
         if 1 == len(actual_exceptions) == len(self.expected_exceptions):
-            assert not successful_matches
-            return f"{failed_attempts.pop()[1][0]}"
+            assert not matches
+            return res
+
+        # The test case is failing, so we can do a slow and exhaustive check to find
+        # duplicate matches etc that will be helpful in debugging
+        for i_exp, expected in enumerate(self.expected_exceptions):
+            for i_actual, actual in enumerate(actual_exceptions):
+                if results.has_result(i_exp, i_actual):
+                    continue
+                results.set_result(
+                    i_exp,
+                    i_actual,
+                    _check_expected(expected, actual, _depth=_depth + 3),
+                )
 
         successful_str = (
-            ""
-            if not successful_matches
-            else f"{len(successful_matches)} matched exception{'s' if len(successful_matches) > 1 else ''}. "
+            f"{len(matches)} matched exception{'s' if len(matches) > 1 else ''}. "
+            if matches
+            else ""
         )
 
         # all expected were found
-        if not remaining_exceptions:
-            unexpected_exps = [fa[0] for fa in failed_attempts]
-            return f"{successful_str}Unexpected exception(s): {unexpected_exps!r}"
+        if not failed_expected and results.no_match_for_actual(remaining_actual):
+            return f"{successful_str}Unexpected exception(s): {[actual_exceptions[i] for i in remaining_actual]!r}"
         # all raised exceptions were expected
-        if not failed_attempts:
-            return f"{successful_str}Too few exceptions raised, found no match for: {remaining_exceptions!r}"
-
-        would_also_match: list[
-            list[tuple[ExpectedType[BaseExcT_co], BaseException]]
-        ] = []
-        for actual_exception, _ in failed_attempts:
-            would_also_match.append([])
-            # we could optimize here and only check expected exceptions we haven't checked
-            for expected, actual_match in successful_matches:
-                if _check_expected(expected, actual_exception, _depth=0) is None:
-                    would_also_match[-1].append((expected, actual_match))
+        if not remaining_actual and results.no_match_for_expected(failed_expected):
+            return f"{successful_str}Too few exceptions raised, found no match for: [{', '.join(_repr_expected(self.expected_exceptions[i]) for i in failed_expected)}]"
 
         # if there's only one remaining and one failed, and the unmatched didn't match anything else,
         # we elect to only print why the remaining and the failed didn't match.
         if (
-            1
-            == len(remaining_exceptions)
-            == len(failed_attempts)
-            == len(would_also_match)
-            and not would_also_match[0]
+            1 == len(remaining_actual) == len(failed_expected)
+            and results.no_match_for_actual(remaining_actual)
+            and results.no_match_for_expected(failed_expected)
         ):
-            return f"{successful_str}{failed_attempts.pop()[1][0]}"
+            return f"{successful_str}{results.get_result(failed_expected[0], remaining_actual[0])}"
 
         # there's both expected and raised exceptions without matches
         curr_indent = " " * 2 * _depth
         s = ""
-        if successful_matches:
+        if matches:
             s += f"\n{curr_indent}{successful_str}"
-        s += f"\n{curr_indent}The following expected exceptions did not find a match: {remaining_exceptions!r}"
-        s += f"\n{curr_indent}The following raised exceptions did not find a match"
         indent_1 = " " * 2 * (_depth + 1)
         indent_2 = " " * 2 * (_depth + 2)
-        for (actual_exception, results), also_matched in zip(
-            failed_attempts, would_also_match
+
+        if not remaining_actual:
+            s += f"\n{curr_indent}Too few exceptions raised!"
+        elif not failed_expected:
+            s += f"\n{curr_indent}Unexpected exception(s)!"
+
+        if failed_expected:
+            s += f"\n{curr_indent}The following expected exceptions did not find a match:"
+            rev_matches = {v: k for k, v in matches.items()}
+        for i_failed in failed_expected:
+            s += f"\n{indent_1}{_repr_expected(self.expected_exceptions[i_failed])}"
+            for i_actual, actual in enumerate(actual_exceptions):
+                res = results.get_result(i_exp, i_actual)
+                if res is None:
+                    # we print full repr of match target
+                    s += f"\n{indent_2}It matches {actual!r} which was paired with {_repr_expected(self.expected_exceptions[rev_matches[i_actual]])}"
+
+        if remaining_actual:
+            s += f"\n{curr_indent}The following raised exceptions did not find a match"
+        for i_actual in remaining_actual:
+            s += f"\n{indent_1}{actual_exceptions[i_actual]!r}:"
+            for i_exp, expected in enumerate(self.expected_exceptions):
+                res = results.get_result(i_exp, i_actual)
+                if i_exp in failed_expected:
+                    s += f"\n{indent_2}{res}"
+                if res is None:
+                    # we print full repr of match target
+                    s += f"\n{indent_2}It matches {_repr_expected(expected)} which was paired with {actual_exceptions[matches[i_exp]]!r}"
+
+        if len(self.expected_exceptions) == len(actual_exceptions) and possible_match(
+            results
         ):
-            s += f"\n{indent_1}{actual_exception!r}:"
-            for res in results:
-                s += f"\n{indent_2}{res}"
-            for expected, actual_match in also_matched:
-                s += f"\n{indent_2}It matches {expected!r} which was paired with {actual_match!r}"
+            s += f"\n{curr_indent}There exist a possible match when attempting an exhaustive check, but RaisesGroup uses a greedy algorithm. Please make your expected exceptions more stringent with Matcher etc so the greedy algorithm can function."
         return s
 
     def __exit__(
@@ -877,3 +906,64 @@ class RaisesGroup(Generic[BaseExcT_co]):
                 raise AssertionError("unknown type")
         group_type = "Base" if self.is_baseexceptiongroup else ""
         return f"{group_type}ExceptionGroup({', '.join(subexcs)})"
+
+
+@t_final
+class NotChecked: ...
+
+
+class ResultHolder:
+    def __init__(
+        self,
+        expected_exceptions: tuple[ExpectedType[BaseExcT_co], ...],
+        actual_exceptions: Sequence[BaseException],
+    ) -> None:
+        self.results: list[list[str | type[NotChecked] | None]] = [
+            [NotChecked for _ in expected_exceptions] for _ in actual_exceptions
+        ]
+
+    def set_result(self, expected: int, actual: int, result: str | None) -> None:
+        self.results[actual][expected] = result
+
+    def get_result(self, expected: int, actual: int) -> str | None:
+        res = self.results[actual][expected]
+        assert res is not NotChecked
+        # why doesn't mypy pick up on the above assert?
+        return res  # type: ignore[return-value]
+
+    def get_all_results_for_actual(self, actual: int) -> Iterator[str | None]:
+        for res in self.results[actual]:
+            assert res is not NotChecked
+            yield res  # type: ignore[misc]
+
+    def has_result(self, expected: int, actual: int) -> bool:
+        return self.results[actual][expected] is not NotChecked
+
+    def no_match_for_expected(self, expected: list[int]) -> bool:
+        for i in expected:
+            for actual_results in self.results:
+                assert actual_results[i] is not NotChecked
+                if actual_results[i] is None:
+                    return False
+        return True
+
+    def no_match_for_actual(self, actual: list[int]) -> bool:
+        for i in actual:
+            for res in self.results[i]:
+                assert res is not NotChecked
+                if res is None:
+                    return False
+        return True
+
+
+def possible_match(results: ResultHolder, used: set[int] | None = None) -> bool:
+    if used is None:
+        used = set()
+    curr_row = len(used)
+    if curr_row == len(results.results):
+        return True
+
+    for i, val in enumerate(results.results[curr_row]):
+        if val is None and i not in used and possible_match(results, used | {i}):
+            return True
+    return False
