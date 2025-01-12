@@ -702,7 +702,7 @@ class RaisesGroup(Generic[BaseExcT_co]):
                 assert (
                     self.match_expr is not None
                 ), "can't be None if _check_match failed"
-                self.fail_reason += f", but matched the expected {_repr_expected(expected)}. You might want RaisesGroup(Matcher({expected.__name__}, match={_match_pattern(self.match_expr)!r}"
+                self.fail_reason += f", but matched the expected {_repr_expected(expected)}. You might want RaisesGroup(Matcher({expected.__name__}, match={_match_pattern(self.match_expr)!r}))"
             return False
 
         # do the full check on expected exceptions

@@ -369,7 +369,7 @@ def test_match() -> None:
     # and `isinstance(raised, expected_type)`.
     with (
         fails_raises_group(
-            "Regex pattern 'foo' did not match 'bar' of 'ExceptionGroup', but matched the expected 'ValueError'. You might want RaisesGroup(Matcher(ValueError, match='foo'"
+            "Regex pattern 'foo' did not match 'bar' of 'ExceptionGroup', but matched the expected 'ValueError'. You might want RaisesGroup(Matcher(ValueError, match='foo'))"
         ),
         RaisesGroup(ValueError, match="foo"),
     ):
