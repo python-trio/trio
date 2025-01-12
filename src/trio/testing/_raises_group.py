@@ -8,7 +8,6 @@ from typing import (
     Generic,
     Literal,
     cast,
-    final as t_final,
     overload,
 )
 
@@ -181,7 +180,10 @@ def _check_match(match_expr: Pattern[str] | None, e: BaseException) -> str | Non
 
 
 def _check_repr(check: Callable[[BaseExcT_1], bool]) -> str:
-    """Split out so it can be monkeypatched (e.g. by hypothesis)"""
+    """Get the repr of a ``check`` parameter.
+
+    Split out so it can be monkeypatched (e.g. by hypothesis)
+    """
     return repr(check)
 
 
@@ -709,7 +711,7 @@ class RaisesGroup(Generic[BaseExcT_co]):
                 assert (
                     self.match_expr is not None
                 ), "can't be None if _check_match failed"
-                self.fail_reason += f", but matched expected exception. You might want RaisesGroup(Matcher({expected.__name__}, match={_match_pattern(self.match_expr)!r}"
+                self.fail_reason += f", but matched the expected {_repr_expected(expected)}. You might want RaisesGroup(Matcher({expected.__name__}, match={_match_pattern(self.match_expr)!r}"
             return False
 
         # do the full check on expected exceptions
@@ -908,7 +910,7 @@ class RaisesGroup(Generic[BaseExcT_co]):
         return f"{group_type}ExceptionGroup({', '.join(subexcs)})"
 
 
-@t_final
+@final
 class NotChecked: ...
 
 
