@@ -300,7 +300,7 @@ class Matcher(Generic[MatchE]):
         self.match: Pattern[str] | None
         self._match = match
         if isinstance(match, str):
-            self.match = re.compile(match, flags=_REGEX_NO_FLAGS)
+            self.match = re.compile(match)
         else:
             self.match = match
         self.check = check
@@ -530,10 +530,7 @@ class RaisesGroup(Generic[BaseExcT_co]):
         self.allow_unwrapped = allow_unwrapped
         self.flatten_subgroups: bool = flatten_subgroups
         if isinstance(match, str):
-            self.match_expr: Pattern[str] | None = re.compile(
-                match,
-                flags=_REGEX_NO_FLAGS,
-            )
+            self.match_expr: Pattern[str] | None = re.compile(match)
         else:
             self.match_expr = match
         self.check = check
