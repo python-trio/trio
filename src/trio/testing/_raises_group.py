@@ -343,7 +343,7 @@ class Matcher(Generic[MatchE]):
         self.fail_reason = _check_check(self.check, cast("MatchE", exception), _depth)
         return self.fail_reason is None
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         reqs = []
         if self.exception_type is not None:
             reqs.append(self.exception_type.__name__)
@@ -355,9 +355,6 @@ class Matcher(Generic[MatchE]):
         if self.check is not None:
             reqs.append(f"check={self.check!r}")
         return f'Matcher({", ".join(reqs)})'
-
-    def __repr__(self) -> str:
-        return self.__str__()
 
 
 @final
@@ -603,9 +600,6 @@ class RaisesGroup(Generic[BaseExcT_co]):
             ExceptionInfo.for_later()
         )
         return self.excinfo
-
-    def __str__(self) -> str:
-        return self.__repr__()
 
     def __repr__(self) -> str:
         reqs = [
