@@ -243,7 +243,7 @@ def test_flatten_subgroups() -> None:
     with (
         fails_raises_group(
             "RaisesGroup(ValueError): Unexpected nested 'ExceptionGroup', expected bare 'ValueError'\n"
-            "      Did you mean to use `flatten_subgroups=True`?",
+            "Did you mean to use `flatten_subgroups=True`?",
         ),
         RaisesGroup(RaisesGroup(ValueError)),
     ):
@@ -609,6 +609,141 @@ def test_assert_message() -> None:
         raise ExceptionGroup("", [ExceptionGroup("", [ValueError(), TypeError()])])
 
 
+def test_message_indent() -> None:
+    with (
+        fails_raises_group(
+            "Raised exception group did not match: \n"
+            "The following expected exceptions did not find a match:\n"
+            "  RaisesGroup(ValueError, ValueError)\n"
+            "  'ValueError'\n"
+            "The following raised exceptions did not find a match\n"
+            "  ExceptionGroup('', [TypeError(), RuntimeError()]):\n"
+            "    RaisesGroup(ValueError, ValueError): \n"
+            "      The following expected exceptions did not find a match:\n"
+            "        'ValueError'\n"
+            "        'ValueError'\n"
+            "      The following raised exceptions did not find a match\n"
+            "        TypeError():\n"
+            "          'TypeError' is not of type 'ValueError'\n"
+            "          'TypeError' is not of type 'ValueError'\n"
+            "        RuntimeError():\n"
+            "          'RuntimeError' is not of type 'ValueError'\n"
+            "          'RuntimeError' is not of type 'ValueError'\n"
+            # TODO: this line is not great, should maybe follow the same format as the other and say
+            # 'ValueError': Unexpected nested 'ExceptionGroup' (?)
+            "    Unexpected nested 'ExceptionGroup', expected bare 'ValueError'\n"
+            "  TypeError():\n"
+            "    RaisesGroup(ValueError, ValueError): 'TypeError' is not an exception group\n"
+            "    'TypeError' is not of type 'ValueError'",
+            add_prefix=False,
+        ),
+        RaisesGroup(
+            RaisesGroup(ValueError, ValueError),
+            ValueError,
+        ),
+    ):
+        raise ExceptionGroup(
+            "",
+            [
+                ExceptionGroup("", [TypeError(), RuntimeError()]),
+                TypeError(),
+            ],
+        )
+    with (
+        fails_raises_group(
+            "Raised exception group did not match: \n"
+            "RaisesGroup(ValueError, ValueError): \n"
+            "  The following expected exceptions did not find a match:\n"
+            "    'ValueError'\n"
+            "    'ValueError'\n"
+            "  The following raised exceptions did not find a match\n"
+            "    TypeError():\n"
+            "      'TypeError' is not of type 'ValueError'\n"
+            "      'TypeError' is not of type 'ValueError'\n"
+            "    RuntimeError():\n"
+            "      'RuntimeError' is not of type 'ValueError'\n"
+            "      'RuntimeError' is not of type 'ValueError'",
+            add_prefix=False,
+        ),
+        RaisesGroup(
+            RaisesGroup(ValueError, ValueError),
+        ),
+    ):
+        raise ExceptionGroup(
+            "",
+            [
+                ExceptionGroup("", [TypeError(), RuntimeError()]),
+            ],
+        )
+
+
+def test_suggestion_on_nested_and_brief_error() -> None:
+    # TODO: "Did you mean to use" looks like a bullet entry
+    # This is only a problem when it's nested *and* it's a single-line error
+    with (
+        fails_raises_group(
+            "\n"
+            "The following expected exceptions did not find a match:\n"
+            "  RaisesGroup(ValueError)\n"
+            "  'ValueError'\n"
+            "The following raised exceptions did not find a match\n"
+            "  ExceptionGroup('', [ExceptionGroup('', [ValueError()])]):\n"
+            "    RaisesGroup(ValueError): Unexpected nested 'ExceptionGroup', expected bare 'ValueError'\n"
+            "    Did you mean to use `flatten_subgroups=True`?\n"
+            "    Unexpected nested 'ExceptionGroup', expected bare 'ValueError'",
+        ),
+        RaisesGroup(RaisesGroup(ValueError), ValueError),
+    ):
+        raise ExceptionGroup(
+            "",
+            [ExceptionGroup("", [ExceptionGroup("", [ValueError()])])],
+        )
+    # here it's not a problem
+    with (
+        fails_raises_group(
+            "\n"
+            "The following expected exceptions did not find a match:\n"
+            "  RaisesGroup(ValueError, ValueError)\n"
+            "  'ValueError'\n"
+            "The following raised exceptions did not find a match\n"
+            "  ExceptionGroup('', [ValueError(), ExceptionGroup('', [ValueError()])]):\n"
+            "    RaisesGroup(ValueError, ValueError): \n"
+            "      1 matched exception. \n"
+            "      The following expected exceptions did not find a match:\n"
+            "        'ValueError'\n"
+            "          It matches ValueError() which was paired with 'ValueError'\n"
+            "      The following raised exceptions did not find a match\n"
+            "        ExceptionGroup('', [ValueError()]):\n"
+            "          Unexpected nested 'ExceptionGroup', expected bare 'ValueError'\n"
+            "      Did you mean to use `flatten_subgroups=True`?\n"
+            "    Unexpected nested 'ExceptionGroup', expected bare 'ValueError'"
+        ),
+        RaisesGroup(RaisesGroup(ValueError, ValueError), ValueError),
+    ):
+        raise ExceptionGroup(
+            "",
+            [ExceptionGroup("", [ValueError(), ExceptionGroup("", [ValueError()])])],
+        )
+    # and for the non-nested case see test_flatten_subgroups
+
+    # same problem goes for re.escape suggestion
+    with (
+        fails_raises_group(
+            "\n"
+            "The following expected exceptions did not find a match:\n"
+            "  RaisesGroup(Exception, match='^hello')\n"
+            "  'ValueError'\n"
+            "The following raised exceptions did not find a match\n"
+            "  ExceptionGroup('^hello', [Exception()]):\n"
+            "    RaisesGroup(Exception, match='^hello'): Regex pattern '^hello' did not match '^hello' of 'ExceptionGroup'\n"
+            "    Did you mean to `re.escape()` the regex?\n"
+            "    Unexpected nested 'ExceptionGroup', expected bare 'ValueError'"
+        ),
+        RaisesGroup(RaisesGroup(Exception, match="^hello"), ValueError),
+    ):
+        raise ExceptionGroup("", [ExceptionGroup("^hello", [Exception()])])
+
+
 def test_assert_message_nested() -> None:
     # we only get one instance of aaaaaaaaaa... and bbbbbb..., but we do get multiple instances of ccccc... and dddddd..
     # but I think this now only prints the full repr when that is necessary to disambiguate exceptions
@@ -728,7 +863,7 @@ def test_misordering_example() -> None:
             "    It matches 'ValueError' which was paired with ValueError('foo')\n"
             "    It matches 'ValueError' which was paired with ValueError('foo')\n"
             "    Matcher(ValueError, match='foo'): Regex pattern 'foo' did not match 'bar'\n"
-            "There exist a possible match when attempting an exhaustive check, but RaisesGroup uses a greedy algorithm. Please make your expected exceptions more stringent with Matcher etc so the greedy algorithm can function."
+            "There exist a possible match when attempting an exhaustive check, but RaisesGroup uses a greedy algorithm. Please make your expected exceptions more stringent with `Matcher` etc so the greedy algorithm can function."
         ),
         RaisesGroup(
             ValueError, ValueError, ValueError, Matcher(ValueError, match="foo")

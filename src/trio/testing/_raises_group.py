@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import sys
 from re import Pattern
+from textwrap import indent
 from typing import (
     TYPE_CHECKING,
     Generic,
@@ -190,11 +191,11 @@ def _check_repr(check: Callable[[BaseExcT_1], bool]) -> str:
 def _check_check(
     check: Callable[[BaseExcT_1], bool] | None,
     exception: BaseExcT_1,
-    _depth: int,
+    suppress_repr: bool,
 ) -> str | None:
     if check is None:
         return None
-    check_repr = "" if _depth != 0 else " " + _check_repr(check)
+    check_repr = "" if suppress_repr else " " + _check_repr(check)
 
     if not check(exception):
         return f"check{check_repr} did not return True"
@@ -235,14 +236,15 @@ def _check_expected(
         type[BaseException] | Matcher[BaseException] | RaisesGroup[BaseException]
     ),
     exception: BaseException,
-    _depth: int = 0,
 ) -> str | None:
     if isinstance(expected_type, type):
         return _check_type(expected_type, exception)
-    res = expected_type.matches(exception, _depth=_depth)  # type: ignore[call-overload]
+    res = expected_type.matches(exception)
     if res:
         return None
     assert expected_type.fail_reason is not None
+    if expected_type.fail_reason.startswith("\n"):
+        return f"\n{expected_type!r}: {indent(expected_type.fail_reason, '  ')}"
     return f"{expected_type!r}: {expected_type.fail_reason}"
 
 
@@ -309,8 +311,6 @@ class Matcher(Generic[MatchE]):
     def matches(
         self,
         exception: BaseException,
-        *,
-        _depth: int = 0,
     ) -> TypeGuard[MatchE]:
         """Check if an exception matches the requirements of this Matcher.
         If it fails, ``.fail_reason`` will be set.
@@ -340,7 +340,7 @@ class Matcher(Generic[MatchE]):
 
         # If exception_type is None check() accepts BaseException.
         # If non-none, we have done an isinstance check above.
-        self.fail_reason = _check_check(self.check, cast("MatchE", exception), _depth)
+        self.fail_reason = _check_check(self.check, cast("MatchE", exception), True)
         return self.fail_reason is None
 
     def __repr__(self) -> str:
@@ -534,6 +534,9 @@ class RaisesGroup(Generic[BaseExcT_co]):
         self.is_baseexceptiongroup = False
         self.fail_reason: str | None = None
 
+        # used to suppress repeated printing of `repr(check)`
+        self._nested: bool = False
+
         if allow_unwrapped and other_exceptions:
             raise ValueError(
                 "You cannot specify multiple exceptions with `allow_unwrapped=True.`"
@@ -568,6 +571,7 @@ class RaisesGroup(Generic[BaseExcT_co]):
                         " match a nested structure.",
                     )
                 self.is_baseexceptiongroup |= exc.is_baseexceptiongroup
+                exc._nested = True
             elif isinstance(exc, Matcher):
                 # The Matcher could match BaseExceptions through the other arguments
                 # but `self.is_baseexceptiongroup` is only used for printing.
@@ -645,7 +649,6 @@ class RaisesGroup(Generic[BaseExcT_co]):
     def matches(
         self,
         exc_val: BaseException | None,
-        _depth: int = 0,
     ) -> TypeGuard[BaseExceptionGroup[BaseExcT_co]]:
         """Check if an exception matches the requirements of this RaisesGroup.
 
@@ -708,7 +711,6 @@ class RaisesGroup(Generic[BaseExcT_co]):
         # do the full check on expected exceptions
         self.fail_reason = self._check_exceptions(
             actual_exceptions,
-            _depth=_depth,
         )
 
         if self.fail_reason is not None:
@@ -722,27 +724,23 @@ class RaisesGroup(Generic[BaseExcT_co]):
                 and any(isinstance(e, BaseExceptionGroup) for e in actual_exceptions)
                 and self._check_exceptions(
                     self._unroll_exceptions(exc_val.exceptions),
-                    _depth=_depth,
                 )
                 is None
             ):
-                self.fail_reason += (
-                    f"\n{_depth * '  '}Did you mean to use `flatten_subgroups=True`?"
-                )
+                self.fail_reason += "\nDid you mean to use `flatten_subgroups=True`?"
             return False
 
         # only run `self.check` once we know `exc_val` is correct.
         # _check_exceptions does not use TypeGuard, since we want to communicate the fail
         # reason, so we need a type: ignore
         # TODO: if this fails, we should say the *group* did not match
-        self.fail_reason = _check_check(self.check, exc_val, _depth)  # type: ignore[arg-type]
+        self.fail_reason = _check_check(self.check, exc_val, self._nested)  # type: ignore[arg-type]
 
         return self.fail_reason is None
 
     def _check_exceptions(
         self,
         actual_exceptions: Sequence[BaseException],
-        _depth: int,
     ) -> str | None:
         """helper method for RaisesGroup.matches that attempts to pair up expected and actual exceptions"""
         # full table with all results
@@ -758,9 +756,7 @@ class RaisesGroup(Generic[BaseExcT_co]):
         # loop over expected exceptions first to get a more predictable result
         for i_exp, expected in enumerate(self.expected_exceptions):
             for i_rem in remaining_actual:
-                res = _check_expected(
-                    expected, actual_exceptions[i_rem], _depth=_depth + 3
-                )
+                res = _check_expected(expected, actual_exceptions[i_rem])
                 results.set_result(i_exp, i_rem, res)
                 if res is None:
                     remaining_actual.remove(i_rem)
@@ -784,11 +780,7 @@ class RaisesGroup(Generic[BaseExcT_co]):
             for i_actual, actual in enumerate(actual_exceptions):
                 if results.has_result(i_exp, i_actual):
                     continue
-                results.set_result(
-                    i_exp,
-                    i_actual,
-                    _check_expected(expected, actual, _depth=_depth + 3),
-                )
+                results.set_result(i_exp, i_actual, _check_expected(expected, actual))
 
         successful_str = (
             f"{len(matches)} matched exception{'s' if len(matches) > 1 else ''}. "
@@ -813,37 +805,38 @@ class RaisesGroup(Generic[BaseExcT_co]):
             return f"{successful_str}{results.get_result(failed_expected[0], remaining_actual[0])}"
 
         # there's both expected and raised exceptions without matches
-        curr_indent = " " * 2 * _depth
         s = ""
         if matches:
-            s += f"\n{curr_indent}{successful_str}"
-        indent_1 = " " * 2 * (_depth + 1)
-        indent_2 = " " * 2 * (_depth + 2)
+            s += f"\n{successful_str}"
+        indent_1 = " " * 2
+        indent_2 = " " * 4
 
         if not remaining_actual:
-            s += f"\n{curr_indent}Too few exceptions raised!"
+            s += "\nToo few exceptions raised!"
         elif not failed_expected:
-            s += f"\n{curr_indent}Unexpected exception(s)!"
+            s += "\nUnexpected exception(s)!"
 
         if failed_expected:
-            s += f"\n{curr_indent}The following expected exceptions did not find a match:"
+            s += "\nThe following expected exceptions did not find a match:"
             rev_matches = {v: k for k, v in matches.items()}
         for i_failed in failed_expected:
             s += f"\n{indent_1}{_repr_expected(self.expected_exceptions[i_failed])}"
             for i_actual, actual in enumerate(actual_exceptions):
-                res = results.get_result(i_exp, i_actual)
-                if res is None:
+                if results.get_result(i_exp, i_actual) is None:
                     # we print full repr of match target
                     s += f"\n{indent_2}It matches {actual!r} which was paired with {_repr_expected(self.expected_exceptions[rev_matches[i_actual]])}"
 
         if remaining_actual:
-            s += f"\n{curr_indent}The following raised exceptions did not find a match"
+            s += "\nThe following raised exceptions did not find a match"
         for i_actual in remaining_actual:
             s += f"\n{indent_1}{actual_exceptions[i_actual]!r}:"
             for i_exp, expected in enumerate(self.expected_exceptions):
                 res = results.get_result(i_exp, i_actual)
                 if i_exp in failed_expected:
-                    s += f"\n{indent_2}{res}"
+                    assert res is not None
+                    if res[0] != "\n":
+                        s += "\n"
+                    s += indent(res, indent_2)
                 if res is None:
                     # we print full repr of match target
                     s += f"\n{indent_2}It matches {_repr_expected(expected)} which was paired with {actual_exceptions[matches[i_exp]]!r}"
@@ -851,7 +844,7 @@ class RaisesGroup(Generic[BaseExcT_co]):
         if len(self.expected_exceptions) == len(actual_exceptions) and possible_match(
             results
         ):
-            s += f"\n{curr_indent}There exist a possible match when attempting an exhaustive check, but RaisesGroup uses a greedy algorithm. Please make your expected exceptions more stringent with Matcher etc so the greedy algorithm can function."
+            s += "\nThere exist a possible match when attempting an exhaustive check, but RaisesGroup uses a greedy algorithm. Please make your expected exceptions more stringent with `Matcher` etc so the greedy algorithm can function."
         return s
 
     def __exit__(
