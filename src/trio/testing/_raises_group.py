@@ -344,17 +344,17 @@ class Matcher(Generic[MatchE]):
         return self.fail_reason is None
 
     def __repr__(self) -> str:
-        reqs = []
+        parameters = []
         if self.exception_type is not None:
-            reqs.append(self.exception_type.__name__)
+            parameters.append(self.exception_type.__name__)
         if self.match is not None:
             # If no flags were specified, discard the redundant re.compile() here.
-            reqs.append(
+            parameters.append(
                 f"match={_match_pattern(self.match)!r}",
             )
         if self.check is not None:
-            reqs.append(f"check={self.check!r}")
-        return f'Matcher({", ".join(reqs)})'
+            parameters.append(f"check={self.check!r}")
+        return f'Matcher({", ".join(parameters)})'
 
 
 @final
