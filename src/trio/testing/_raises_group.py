@@ -252,7 +252,10 @@ class AbstractMatcher(ABC, Generic[BaseExcT_co]):
     @abstractmethod
     def matches(
         self: AbstractMatcher[BaseExcT_1], exc_val: BaseException
-    ) -> TypeGuard[BaseExcT_1]: ...
+    ) -> TypeGuard[BaseExcT_1]:
+        """Check if an exception matches the requirements of this AbstractMatcher.
+        If it fails, `AbstractMatcher.fail_reason` should be set.
+        """
 
 
 @final
@@ -572,16 +575,13 @@ class RaisesGroup(AbstractMatcher[BaseExceptionGroup[BaseExcT_co]]):
                 self.is_baseexceptiongroup |= exc.is_baseexceptiongroup
                 exc._nested = True
             elif isinstance(exc, Matcher):
+                if exc.exception_type is not None:
+                    # Matcher __init__ assures it's a subclass of BaseException
+                    self.is_baseexceptiongroup |= not issubclass(
+                        exc.exception_type,
+                        Exception,
+                    )
                 exc._nested = True
-                # The Matcher could match BaseExceptions through the other arguments
-                # but `self.is_baseexceptiongroup` is only used for printing.
-                if exc.exception_type is None:
-                    continue
-                # Matcher __init__ assures it's a subclass of BaseException
-                self.is_baseexceptiongroup |= not issubclass(
-                    exc.exception_type,
-                    Exception,
-                )
             elif isinstance(exc, type) and issubclass(exc, BaseException):
                 self.is_baseexceptiongroup |= not issubclass(exc, Exception)
             else:
