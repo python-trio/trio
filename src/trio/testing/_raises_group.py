@@ -572,6 +572,7 @@ class RaisesGroup(AbstractMatcher[BaseExceptionGroup[BaseExcT_co]]):
                 self.is_baseexceptiongroup |= exc.is_baseexceptiongroup
                 exc._nested = True
             elif isinstance(exc, Matcher):
+                exc._nested = True
                 # The Matcher could match BaseExceptions through the other arguments
                 # but `self.is_baseexceptiongroup` is only used for printing.
                 if exc.exception_type is None:
@@ -581,7 +582,6 @@ class RaisesGroup(AbstractMatcher[BaseExceptionGroup[BaseExcT_co]]):
                     exc.exception_type,
                     Exception,
                 )
-                exc._nested = True
             elif isinstance(exc, type) and issubclass(exc, BaseException):
                 self.is_baseexceptiongroup |= not issubclass(exc, Exception)
             else:
