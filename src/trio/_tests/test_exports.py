@@ -321,9 +321,9 @@ def test_static_tool_sees_class_members(
         # Ignore classes that don't use attrs, they only define their members once
         # __init__ is called (and reason they don't use attrs is because they're going
         # to be reimplemented in pytest).
-        # I think that's why these are failing at least?
+        # I think that's why these are failing at least? (they're passing locally, so...)
         if class_ is trio.testing.RaisesGroup or class_ is trio.testing.Matcher:
-            continue
+            pass
 
         # dir() and inspect.getmembers doesn't display properties from the metaclass
         # also ignore some dunder methods that tend to differ but are of no consequence
