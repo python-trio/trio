@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 import sys
-from abc import ABC
+from abc import ABC, abstractmethod
 from re import Pattern
 from textwrap import indent
 from typing import (
@@ -21,10 +21,10 @@ if TYPE_CHECKING:
     # sphinx will *only* work if we use types.TracebackType, and import
     # *inside* TYPE_CHECKING. No other combination works.....
     import types
-    from collections.abc import Callable, Iterator, Sequence
+    from collections.abc import Callable, Sequence
 
     from _pytest._code.code import ExceptionChainRepr, ReprExceptionInfo, Traceback
-    from typing_extensions import TypeAlias, TypeGuard, TypeVar
+    from typing_extensions import TypeGuard, TypeVar
 
     # this conditional definition is because we want to allow a TypeVar default
     MatchE = TypeVar(
@@ -44,9 +44,6 @@ BaseExcT_1 = TypeVar("BaseExcT_1", bound=BaseException)
 BaseExcT_2 = TypeVar("BaseExcT_2", bound=BaseException)
 ExcT_1 = TypeVar("ExcT_1", bound=Exception)
 ExcT_2 = TypeVar("ExcT_2", bound=Exception)
-ExpectedType: TypeAlias = (
-    "type[BaseExcT_co] | Matcher[BaseExcT_co] | RaisesGroup[BaseException]"
-)
 
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup, ExceptionGroup
@@ -196,31 +193,48 @@ def _check_raw_type(
 
 
 class AbstractMatcher(ABC, Generic[BaseExcT_co]):
-    def __init__(self) -> None:
-        self.fail_reason: str | None = None
+    """ABC with common functionality shared between Matcher and RaisesGroup"""
 
-        # used to suppress repeated printing of `repr(check)`
+    def __init__(
+        self,
+        match: str | Pattern[str] | None,
+        check: Callable[[BaseExcT_co], bool] | None,
+    ) -> None:
+        if isinstance(match, str):
+            self.match: Pattern[str] | None = re.compile(match)
+        else:
+            self.match = match
+        self.check = check
+        self._fail_reason: str | None = None
+
+        # used to suppress repeated printing of `repr(self.check)`
         self._nested: bool = False
 
+    @property
+    def fail_reason(self) -> str | None:
+        """Set after a call to `Matcher.matches` or `RaisesGroup.matches` to give a human-readable
+        reason for why the match failed.
+        When used as a context manager the string will be given as the text of an
+        `AssertionError`"""
+        return self._fail_reason
+
     def _check_check(
-        self,
-        check: Callable[[BaseExcT_1], bool] | None,
+        self: AbstractMatcher[BaseExcT_1],
         exception: BaseExcT_1,
-        suppress_repr: bool,
     ) -> bool:
-        if check is None:
+        if self.check is None:
             return True
 
-        if check(exception):
+        if self.check(exception):
             return True
 
-        check_repr = "" if suppress_repr else " " + repr_callable(check)
-        self.fail_reason = f"check{check_repr} did not return True"
+        check_repr = "" if self._nested else " " + repr_callable(self.check)
+        self._fail_reason = f"check{check_repr} did not return True"
         return False
 
-    def _check_match(self, match_expr: Pattern[str] | None, e: BaseException) -> bool:
-        if match_expr is None or re.search(
-            match_expr,
+    def _check_match(self, e: BaseException) -> bool:
+        if self.match is None or re.search(
+            self.match,
             stringified_exception := _stringify_exception(e),
         ):
             return True
@@ -230,17 +244,22 @@ class AbstractMatcher(ABC, Generic[BaseExcT_co]):
             if isinstance(e, BaseExceptionGroup)
             else ""
         )
-        self.fail_reason = f"Regex pattern {_match_pattern(match_expr)!r} did not match {stringified_exception!r}{maybe_specify_type}"
-        if _match_pattern(match_expr) == stringified_exception:
-            self.fail_reason += "\nDid you mean to `re.escape()` the regex?"
+        self._fail_reason = f"Regex pattern {_match_pattern(self.match)!r} did not match {stringified_exception!r}{maybe_specify_type}"
+        if _match_pattern(self.match) == stringified_exception:
+            self._fail_reason += "\nDid you mean to `re.escape()` the regex?"
         return False
+
+    @abstractmethod
+    def matches(
+        self: AbstractMatcher[BaseExcT_1], exc_val: BaseException
+    ) -> TypeGuard[BaseExcT_1]: ...
 
 
 @final
 class Matcher(AbstractMatcher[MatchE]):
     """Helper class to be used together with RaisesGroups when you want to specify requirements on sub-exceptions. Only specifying the type is redundant, and it's also unnecessary when the type is a nested `RaisesGroup` since it supports the same arguments.
     The type is checked with `isinstance`, and does not need to be an exact match. If that is wanted you can use the ``check`` parameter.
-    :meth:`trio.testing.Matcher.matches` can also be used standalone to check individual exceptions.
+    :meth:`Matcher.matches` can also be used standalone to check individual exceptions.
 
     Examples::
 
@@ -280,6 +299,7 @@ class Matcher(AbstractMatcher[MatchE]):
         match: str | Pattern[str] | None = None,
         check: Callable[[MatchE], bool] | None = None,
     ):
+        super().__init__(match, check)
         if exception_type is None and match is None and check is None:
             raise ValueError("You must specify at least one parameter to match on.")
         if exception_type is not None and not issubclass(exception_type, BaseException):
@@ -287,25 +307,13 @@ class Matcher(AbstractMatcher[MatchE]):
                 f"exception_type {exception_type} must be a subclass of BaseException",
             )
         self.exception_type = exception_type
-        self.match: Pattern[str] | None
-        self._match = match
-        if isinstance(match, str):
-            self.match = re.compile(match)
-        else:
-            self.match = match
-        self.check = check
-
-        # in theory `Matcher` could be modified to be a contextmanager and work the
-        # same as pytest.raises, in which case this would be set in RaisesGroup.__init__
-        # iff it is nested within a RaisesGroup
-        self._nested = True
 
     def matches(
         self,
         exception: BaseException,
     ) -> TypeGuard[MatchE]:
         """Check if an exception matches the requirements of this Matcher.
-        If it fails, ``.fail_reason`` will be set.
+        If it fails, `Matcher.fail_reason` will be set.
 
         Examples::
 
@@ -325,10 +333,10 @@ class Matcher(AbstractMatcher[MatchE]):
         if not self._check_type(exception):
             return False
 
-        if not self._check_match(self.match, exception):
+        if not self._check_match(exception):
             return False
 
-        return self._check_check(self.check, exception, True)
+        return self._check_check(exception)
 
     def __repr__(self) -> str:
         parameters = []
@@ -344,12 +352,12 @@ class Matcher(AbstractMatcher[MatchE]):
         return f'Matcher({", ".join(parameters)})'
 
     def _check_type(self, exception: BaseException) -> TypeGuard[MatchE]:
-        self.fail_reason = _check_raw_type(self.exception_type, exception)
-        return self.fail_reason is None
+        self._fail_reason = _check_raw_type(self.exception_type, exception)
+        return self._fail_reason is None
 
 
 @final
-class RaisesGroup(AbstractMatcher[BaseExcT_co]):
+class RaisesGroup(AbstractMatcher[BaseExceptionGroup[BaseExcT_co]]):
     """Contextmanager for checking for an expected `ExceptionGroup`.
     This works similar to ``pytest.raises``, and a version of it will hopefully be added upstream, after which this can be deprecated and removed. See https://github.com/pytest-dev/pytest/issues/11538
 
@@ -511,18 +519,21 @@ class RaisesGroup(AbstractMatcher[BaseExcT_co]):
             | None
         ) = None,
     ):
-        super().__init__()
-        self.expected_exceptions: tuple[ExpectedType[BaseExcT_co], ...] = (
+        # error: Argument 2 to "__init__" of "AbstractMatcher" has incompatible type
+        # "Union[Callable[[BaseExceptionGroup[BaseExcT_1]], bool], Callable[[ExceptionGroup[ExcT_1]], bool], None]"
+        # ; expected
+        # "Optional[Callable[[BaseExceptionGroup[Union[ExcT_1, BaseExcT_1, BaseExceptionGroup[BaseExcT_2]]]], bool]]"
+        # which is kinda obviously off, but idk how to resolve that while also not
+        # getting any errors about overloads
+        super().__init__(match, check)  # type: ignore[arg-type]
+        self.expected_exceptions: tuple[
+            type[BaseExcT_co] | Matcher[BaseExcT_co] | RaisesGroup[BaseException], ...
+        ] = (
             exception,
             *other_exceptions,
         )
         self.allow_unwrapped = allow_unwrapped
         self.flatten_subgroups: bool = flatten_subgroups
-        if isinstance(match, str):
-            self.match_expr: Pattern[str] | None = re.compile(match)
-        else:
-            self.match_expr = match
-        self.check = check
         self.is_baseexceptiongroup = False
 
         if allow_unwrapped and other_exceptions:
@@ -570,6 +581,7 @@ class RaisesGroup(AbstractMatcher[BaseExcT_co]):
                     exc.exception_type,
                     Exception,
                 )
+                exc._nested = True
             elif isinstance(exc, type) and issubclass(exc, BaseException):
                 self.is_baseexceptiongroup |= not issubclass(exc, Exception)
             else:
@@ -602,9 +614,9 @@ class RaisesGroup(AbstractMatcher[BaseExcT_co]):
             reqs.append(f"allow_unwrapped={self.allow_unwrapped}")
         if self.flatten_subgroups:
             reqs.append(f"flatten_subgroups={self.flatten_subgroups}")
-        if self.match_expr is not None:
+        if self.match is not None:
             # If no flags were specified, discard the redundant re.compile() here.
-            reqs.append(f"match={_match_pattern(self.match_expr)!r}")
+            reqs.append(f"match={_match_pattern(self.match)!r}")
         if self.check is not None:
             reqs.append(f"check={self.check!r}")
         return f"RaisesGroup({', '.join(reqs)})"
@@ -639,6 +651,7 @@ class RaisesGroup(AbstractMatcher[BaseExcT_co]):
         exc_val: BaseException | None,
     ) -> TypeGuard[BaseExceptionGroup[BaseExcT_co]]:
         """Check if an exception matches the requirements of this RaisesGroup.
+        If it fails, `RaisesGroup.fail_reason` will be set.
 
         Example::
 
@@ -651,16 +664,16 @@ class RaisesGroup(AbstractMatcher[BaseExcT_co]):
             assert len(myexc.exceptions) == 1
             assert isinstance(myexc.exceptions[0], ValueError)
         """
-        self.fail_reason = None
+        self._fail_reason = None
         if exc_val is None:
-            self.fail_reason = "exception is None"
+            self._fail_reason = "exception is None"
             return False
         if not isinstance(exc_val, BaseExceptionGroup):
             # we opt to only print type of the exception here, as the repr would
             # likely be quite long
             not_group_msg = f"{type(exc_val).__name__!r} is not an exception group"
             if len(self.expected_exceptions) > 1:
-                self.fail_reason = not_group_msg
+                self._fail_reason = not_group_msg
                 return False
             # if we have 1 expected exception, check if it would work even if
             # allow_unwrapped is not set
@@ -669,34 +682,32 @@ class RaisesGroup(AbstractMatcher[BaseExcT_co]):
                 return True
 
             if res is None:
-                self.fail_reason = (
+                self._fail_reason = (
                     f"{not_group_msg}, but would match with `allow_unwrapped=True`"
                 )
             elif self.allow_unwrapped:
-                self.fail_reason = res
+                self._fail_reason = res
             else:
-                self.fail_reason = not_group_msg
+                self._fail_reason = not_group_msg
             return False
 
         actual_exceptions: Sequence[BaseException] = exc_val.exceptions
         if self.flatten_subgroups:
             actual_exceptions = self._unroll_exceptions(actual_exceptions)
 
-        if not self._check_match(self.match_expr, exc_val):
-            old_reason = self.fail_reason
+        if not self._check_match(exc_val):
+            old_reason = self._fail_reason
             if (
                 len(actual_exceptions) == len(self.expected_exceptions) == 1
                 and isinstance(expected := self.expected_exceptions[0], type)
                 and isinstance(actual := actual_exceptions[0], expected)
-                and self._check_match(self.match_expr, actual)
+                and self._check_match(actual)
             ):
-                assert (
-                    self.match_expr is not None
-                ), "can't be None if _check_match failed"
-                assert self.fail_reason is old_reason is not None
-                self.fail_reason += f", but matched the expected {self._repr_expected(expected)}. You might want RaisesGroup(Matcher({expected.__name__}, match={_match_pattern(self.match_expr)!r}))"
+                assert self.match is not None, "can't be None if _check_match failed"
+                assert self._fail_reason is old_reason is not None
+                self._fail_reason += f", but matched the expected {self._repr_expected(expected)}. You might want RaisesGroup(Matcher({expected.__name__}, match={_match_pattern(self.match)!r}))"
             else:
-                self.fail_reason = old_reason
+                self._fail_reason = old_reason
             return False
 
         # do the full check on expected exceptions
@@ -704,8 +715,8 @@ class RaisesGroup(AbstractMatcher[BaseExcT_co]):
             exc_val,
             actual_exceptions,
         ):
-            assert self.fail_reason is not None
-            old_reason = self.fail_reason
+            assert self._fail_reason is not None
+            old_reason = self._fail_reason
             # if we're not expecting a nested structure, and there is one, do a second
             # pass where we try flattening it
             if (
@@ -719,19 +730,16 @@ class RaisesGroup(AbstractMatcher[BaseExcT_co]):
                     self._unroll_exceptions(exc_val.exceptions),
                 )
             ):
-                self.fail_reason = (
+                self._fail_reason = (
                     old_reason + "\nDid you mean to use `flatten_subgroups=True`?"
                 )
             else:
-                self.fail_reason = old_reason
+                self._fail_reason = old_reason
             return False
 
-        # only run `self.check` once we know `exc_val` is correct.
-        # _check_exceptions does not use TypeGuard, since we want to communicate the fail
-        # reason, so we need a type: ignore
+        # Only run `self.check` once we know `exc_val` is of the correct type.
         # TODO: if this fails, we should say the *group* did not match
-        # error: Argument 1 to "_check_check" of "AbstractMatcher" has incompatible type "Union[Callable[[BaseExceptionGroup[BaseExcT_1]], bool], Callable[[ExceptionGroup[ExcT_1]], bool], None]"; expected "Optional[Callable[[BaseExceptionGroup[BaseExcT_co]], bool]]"  [arg-type]
-        return self._check_check(self.check, exc_val, self._nested)  # type: ignore[arg-type]
+        return self._check_check(exc_val)
 
     @staticmethod
     def _check_expected(
@@ -753,7 +761,7 @@ class RaisesGroup(AbstractMatcher[BaseExcT_co]):
         return f"{expected_type!r}: {expected_type.fail_reason}"
 
     @staticmethod
-    def _repr_expected(e: ExpectedType[BaseException]) -> str:
+    def _repr_expected(e: type[BaseException] | AbstractMatcher[BaseException]) -> str:
         """Get the repr of an expected type/Matcher/RaisesGroup, but we only want
         the name if it's a type"""
         if isinstance(e, type):
@@ -808,7 +816,7 @@ class RaisesGroup(AbstractMatcher[BaseExcT_co]):
         # in case of a single expected and single raised we simplify the output
         if 1 == len(actual_exceptions) == len(self.expected_exceptions):
             assert not matches
-            self.fail_reason = res
+            self._fail_reason = res
             return False
 
         # The test case is failing, so we can do a slow and exhaustive check to find
@@ -829,11 +837,11 @@ class RaisesGroup(AbstractMatcher[BaseExcT_co]):
 
         # all expected were found
         if not failed_expected and results.no_match_for_actual(remaining_actual):
-            self.fail_reason = f"{successful_str}Unexpected exception(s): {[actual_exceptions[i] for i in remaining_actual]!r}"
+            self._fail_reason = f"{successful_str}Unexpected exception(s): {[actual_exceptions[i] for i in remaining_actual]!r}"
             return False
         # all raised exceptions were expected
         if not remaining_actual and results.no_match_for_expected(failed_expected):
-            self.fail_reason = f"{successful_str}Too few exceptions raised, found no match for: [{', '.join(self._repr_expected(self.expected_exceptions[i]) for i in failed_expected)}]"
+            self._fail_reason = f"{successful_str}Too few exceptions raised, found no match for: [{', '.join(self._repr_expected(self.expected_exceptions[i]) for i in failed_expected)}]"
             return False
 
         # if there's only one remaining and one failed, and the unmatched didn't match anything else,
@@ -843,7 +851,7 @@ class RaisesGroup(AbstractMatcher[BaseExcT_co]):
             and results.no_match_for_actual(remaining_actual)
             and results.no_match_for_expected(failed_expected)
         ):
-            self.fail_reason = f"{successful_str}{results.get_result(failed_expected[0], remaining_actual[0])}"
+            self._fail_reason = f"{successful_str}{results.get_result(failed_expected[0], remaining_actual[0])}"
             return False
 
         # there's both expected and raised exceptions without matches
@@ -889,7 +897,7 @@ class RaisesGroup(AbstractMatcher[BaseExcT_co]):
             results
         ):
             s += "\nThere exist a possible match when attempting an exhaustive check, but RaisesGroup uses a greedy algorithm. Please make your expected exceptions more stringent with `Matcher` etc so the greedy algorithm can function."
-        self.fail_reason = s
+        self._fail_reason = s
         return False
 
     def __exit__(
@@ -914,7 +922,7 @@ class RaisesGroup(AbstractMatcher[BaseExcT_co]):
 
         assert self.matches(
             exc_val,
-        ), f"Raised exception {group_str} did not match: {self.fail_reason}"
+        ), f"Raised exception {group_str} did not match: {self._fail_reason}"
 
         # Cast to narrow the exception type now that it's verified.
         exc_info = cast(
@@ -946,7 +954,9 @@ class NotChecked: ...
 class ResultHolder:
     def __init__(
         self,
-        expected_exceptions: tuple[ExpectedType[BaseExcT_co], ...],
+        expected_exceptions: tuple[
+            type[BaseException] | AbstractMatcher[BaseException], ...
+        ],
         actual_exceptions: Sequence[BaseException],
     ) -> None:
         self.results: list[list[str | type[NotChecked] | None]] = [
@@ -961,11 +971,6 @@ class ResultHolder:
         assert res is not NotChecked
         # why doesn't mypy pick up on the above assert?
         return res  # type: ignore[return-value]
-
-    def get_all_results_for_actual(self, actual: int) -> Iterator[str | None]:
-        for res in self.results[actual]:
-            assert res is not NotChecked
-            yield res  # type: ignore[misc]
 
     def has_result(self, expected: int, actual: int) -> bool:
         return self.results[actual][expected] is not NotChecked
