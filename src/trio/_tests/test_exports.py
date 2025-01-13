@@ -323,7 +323,7 @@ def test_static_tool_sees_class_members(
         # to be reimplemented in pytest).
         # Not 100% that's the case, and it works locally, so whatever /shrug
         if class_ is trio.testing.RaisesGroup or class_ is trio.testing.Matcher:
-            pass
+            continue
 
         # dir() and inspect.getmembers doesn't display properties from the metaclass
         # also ignore some dunder methods that tend to differ but are of no consequence
