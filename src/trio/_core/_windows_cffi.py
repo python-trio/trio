@@ -210,7 +210,7 @@ typedef struct _AFD_POLL_INFO {
 # cribbed from pywincffi
 # programmatically strips out those annotations MSDN likes, like _In_
 REGEX_SAL_ANNOTATION = re.compile(
-    r"\b(_In_|_Inout_|_Out_|_Outptr_|_Reserved_)(opt_)?\b"
+    r"\b(_In_|_Inout_|_Out_|_Outptr_|_Reserved_)(opt_)?\b",
 )
 LIB = REGEX_SAL_ANNOTATION.sub(" ", LIB)
 
@@ -253,7 +253,10 @@ class _Kernel32(Protocol):
     ) -> Handle: ...
 
     def SetFileCompletionNotificationModes(
-        self, handle: Handle, flags: CompletionModes, /
+        self,
+        handle: Handle,
+        flags: CompletionModes,
+        /,
     ) -> int: ...
 
     def PostQueuedCompletionStatus(
@@ -392,9 +395,9 @@ class _Overlapped(Protocol):
     hEvent: Handle
 
 
-kernel32 = cast(_Kernel32, ffi.dlopen("kernel32.dll"))
-ntdll = cast(_Nt, ffi.dlopen("ntdll.dll"))
-ws2_32 = cast(_Ws2, ffi.dlopen("ws2_32.dll"))
+kernel32 = cast("_Kernel32", ffi.dlopen("kernel32.dll"))
+ntdll = cast("_Nt", ffi.dlopen("ntdll.dll"))
+ws2_32 = cast("_Ws2", ffi.dlopen("ws2_32.dll"))
 
 ################################################################
 # Magic numbers
@@ -417,7 +420,7 @@ class ErrorCodes(enum.IntEnum):
     ERROR_OPERATION_ABORTED = 995
     ERROR_ABANDONED_WAIT_0 = 735
     ERROR_INVALID_HANDLE = 6
-    ERROR_INVALID_PARMETER = 87
+    ERROR_INVALID_PARAMETER = 87
     ERROR_NOT_FOUND = 1168
     ERROR_NOT_SOCKET = 10038
 

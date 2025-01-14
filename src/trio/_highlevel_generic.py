@@ -53,7 +53,7 @@ def _is_halfclosable(stream: SendStream) -> TypeGuard[HalfCloseableStream]:
 
 
 @final
-@attrs.define(eq=False, hash=False, slots=False)
+@attrs.define(eq=False, slots=False)
 class StapledStream(
     HalfCloseableStream,
     Generic[SendStreamT, ReceiveStreamT],

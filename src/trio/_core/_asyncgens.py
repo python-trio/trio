@@ -4,7 +4,7 @@ import logging
 import sys
 import warnings
 import weakref
-from typing import TYPE_CHECKING, NoReturn
+from typing import TYPE_CHECKING, NoReturn, TypeVar
 
 import attrs
 
@@ -16,14 +16,30 @@ from . import _run
 ASYNCGEN_LOGGER = logging.getLogger("trio.async_generator_errors")
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from types import AsyncGeneratorType
-    from typing import Set
+
+    from typing_extensions import ParamSpec
+
+    _P = ParamSpec("_P")
 
     _WEAK_ASYNC_GEN_SET = weakref.WeakSet[AsyncGeneratorType[object, NoReturn]]
-    _ASYNC_GEN_SET = Set[AsyncGeneratorType[object, NoReturn]]
+    _ASYNC_GEN_SET = set[AsyncGeneratorType[object, NoReturn]]
 else:
     _WEAK_ASYNC_GEN_SET = weakref.WeakSet
     _ASYNC_GEN_SET = set
+
+_R = TypeVar("_R")
+
+
+@_core.disable_ki_protection
+def _call_without_ki_protection(
+    f: Callable[_P, _R],
+    /,
+    *args: _P.args,
+    **kwargs: _P.kwargs,
+) -> _R:
+    return f(*args, **kwargs)
 
 
 @attrs.define(eq=False)
@@ -36,6 +52,11 @@ class AsyncGenerators:
     # regular set so we don't have to deal with GC firing at
     # unexpected times.
     alive: _WEAK_ASYNC_GEN_SET | _ASYNC_GEN_SET = attrs.Factory(_WEAK_ASYNC_GEN_SET)
+    # The ids of foreign async generators are added to this set when first
+    # iterated. Usually it is not safe to refer to ids like this, but because
+    # we're using a finalizer we can ensure ids in this set do not outlive
+    # their async generator.
+    foreign: set[int] = attrs.Factory(set)
 
     # This collects async generators that get garbage collected during
     # the one-tick window between the system nursery closing and the
@@ -52,15 +73,16 @@ class AsyncGenerators:
                 # An async generator first iterated outside of a Trio
                 # task doesn't belong to Trio. Probably we're in guest
                 # mode and the async generator belongs to our host.
-                # The locals dictionary is the only good place to
+                # A strong set of ids is one of the only good places to
                 # remember this fact, at least until
-                # https://bugs.python.org/issue40916 is implemented.
-                agen.ag_frame.f_locals["@trio_foreign_asyncgen"] = True
+                # https://github.com/python/cpython/issues/85093 is implemented.
+                self.foreign.add(id(agen))
                 if self.prev_hooks.firstiter is not None:
                     self.prev_hooks.firstiter(agen)
 
         def finalize_in_trio_context(
-            agen: AsyncGeneratorType[object, NoReturn], agen_name: str
+            agen: AsyncGeneratorType[object, NoReturn],
+            agen_name: str,
         ) -> None:
             try:
                 runner.spawn_system_task(
@@ -76,16 +98,21 @@ class AsyncGenerators:
                 # have hit it.
                 self.trailing_needs_finalize.add(agen)
 
+        @_core.enable_ki_protection
         def finalizer(agen: AsyncGeneratorType[object, NoReturn]) -> None:
-            agen_name = name_asyncgen(agen)
             try:
-                is_ours = not agen.ag_frame.f_locals.get("@trio_foreign_asyncgen")
-            except AttributeError:  # pragma: no cover
+                self.foreign.remove(id(agen))
+            except KeyError:
                 is_ours = True
+            else:
+                is_ours = False
 
+            agen_name = name_asyncgen(agen)
             if is_ours:
                 runner.entry_queue.run_sync_soon(
-                    finalize_in_trio_context, agen, agen_name
+                    finalize_in_trio_context,
+                    agen,
+                    agen_name,
                 )
 
                 # Do this last, because it might raise an exception
@@ -103,8 +130,9 @@ class AsyncGenerators:
                 )
             else:
                 # Not ours -> forward to the host loop's async generator finalizer
-                if self.prev_hooks.finalizer is not None:
-                    self.prev_hooks.finalizer(agen)
+                finalizer = self.prev_hooks.finalizer
+                if finalizer is not None:
+                    _call_without_ki_protection(finalizer, agen)
                 else:
                     # Host has no finalizer.  Reimplement the default
                     # Python behavior with no hooks installed: throw in
@@ -114,7 +142,7 @@ class AsyncGenerators:
                     try:
                         # If the next thing is a yield, this will raise RuntimeError
                         # which we allow to propagate
-                        closer.send(None)
+                        _call_without_ki_protection(closer.send, None)
                     except StopIteration:
                         pass
                     else:
@@ -123,7 +151,7 @@ class AsyncGenerators:
                         raise RuntimeError(
                             f"Non-Trio async generator {agen_name!r} awaited something "
                             "during finalization; install a finalization hook to "
-                            "support this, or wrap it in 'async with aclosing(...):'"
+                            "support this, or wrap it in 'async with aclosing(...):'",
                         )
 
         self.prev_hooks = sys.get_asyncgen_hooks()
@@ -146,7 +174,7 @@ class AsyncGenerators:
         # them was an asyncgen finalizer that snuck in under the wire.
         runner.entry_queue.run_sync_soon(runner.reschedule, runner.init_task)
         await _core.wait_task_rescheduled(
-            lambda _: _core.Abort.FAILED  # pragma: no cover
+            lambda _: _core.Abort.FAILED,  # pragma: no cover
         )
         self.alive.update(self.trailing_needs_finalize)
         self.trailing_needs_finalize.clear()
@@ -193,7 +221,9 @@ class AsyncGenerators:
         sys.set_asyncgen_hooks(*self.prev_hooks)
 
     async def _finalize_one(
-        self, agen: AsyncGeneratorType[object, NoReturn], name: object
+        self,
+        agen: AsyncGeneratorType[object, NoReturn],
+        name: object,
     ) -> None:
         try:
             # This shield ensures that finalize_asyncgen never exits

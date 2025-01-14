@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import os
 import pathlib
-from typing import TYPE_CHECKING, Any, Type, Union
+from typing import TYPE_CHECKING, Union
 
 import pytest
 
 import trio
 from trio._file_io import AsyncIOWrapper
-from trio._path import AsyncAutoWrapperType as WrapperType
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -28,6 +27,16 @@ def method_pair(
     return getattr(sync_path, method_name), getattr(async_path, method_name)
 
 
+@pytest.mark.skipif(os.name == "nt", reason="OS is not posix")
+def test_instantiate_posix() -> None:
+    assert isinstance(trio.Path(), trio.PosixPath)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="OS is not Windows")
+def test_instantiate_windows() -> None:
+    assert isinstance(trio.Path(), trio.WindowsPath)
+
+
 async def test_open_is_async_context_manager(path: trio.Path) -> None:
     async with await path.open("w") as f:
         assert isinstance(f, AsyncIOWrapper)
@@ -35,15 +44,15 @@ async def test_open_is_async_context_manager(path: trio.Path) -> None:
     assert f.closed
 
 
-async def test_magic() -> None:
+def test_magic() -> None:
     path = trio.Path("test")
 
     assert str(path) == "test"
     assert bytes(path) == b"test"
 
 
-EitherPathType = Union[Type[trio.Path], Type[pathlib.Path]]
-PathOrStrType = Union[EitherPathType, Type[str]]
+EitherPathType = Union[type[trio.Path], type[pathlib.Path]]
+PathOrStrType = Union[EitherPathType, type[str]]
 cls_pairs: list[tuple[EitherPathType, EitherPathType]] = [
     (trio.Path, pathlib.Path),
     (pathlib.Path, trio.Path),
@@ -52,7 +61,7 @@ cls_pairs: list[tuple[EitherPathType, EitherPathType]] = [
 
 
 @pytest.mark.parametrize(("cls_a", "cls_b"), cls_pairs)
-async def test_cmp_magic(cls_a: EitherPathType, cls_b: EitherPathType) -> None:
+def test_cmp_magic(cls_a: EitherPathType, cls_b: EitherPathType) -> None:
     a, b = cls_a(""), cls_b("")
     assert a == b
     assert not a != b  # noqa: SIM202  # negate-not-equal-op
@@ -79,7 +88,7 @@ cls_pairs_str: list[tuple[PathOrStrType, PathOrStrType]] = [
 
 
 @pytest.mark.parametrize(("cls_a", "cls_b"), cls_pairs_str)
-async def test_div_magic(cls_a: PathOrStrType, cls_b: PathOrStrType) -> None:
+def test_div_magic(cls_a: PathOrStrType, cls_b: PathOrStrType) -> None:
     a, b = cls_a("a"), cls_b("b")
 
     result = a / b  # type: ignore[operator]
@@ -89,31 +98,34 @@ async def test_div_magic(cls_a: PathOrStrType, cls_b: PathOrStrType) -> None:
 
 
 @pytest.mark.parametrize(
-    ("cls_a", "cls_b"), [(trio.Path, pathlib.Path), (trio.Path, trio.Path)]
+    ("cls_a", "cls_b"),
+    [(trio.Path, pathlib.Path), (trio.Path, trio.Path)],
 )
 @pytest.mark.parametrize("path", ["foo", "foo/bar/baz", "./foo"])
-async def test_hash_magic(
-    cls_a: EitherPathType, cls_b: EitherPathType, path: str
+def test_hash_magic(
+    cls_a: EitherPathType,
+    cls_b: EitherPathType,
+    path: str,
 ) -> None:
     a, b = cls_a(path), cls_b(path)
     assert hash(a) == hash(b)
 
 
-async def test_forwarded_properties(path: trio.Path) -> None:
+def test_forwarded_properties(path: trio.Path) -> None:
     # use `name` as a representative of forwarded properties
 
     assert "name" in dir(path)
     assert path.name == "test"
 
 
-async def test_async_method_signature(path: trio.Path) -> None:
+def test_async_method_signature(path: trio.Path) -> None:
     # use `resolve` as a representative of wrapped methods
 
     assert path.resolve.__name__ == "resolve"
     assert path.resolve.__qualname__ == "Path.resolve"
 
     assert path.resolve.__doc__ is not None
-    assert "pathlib.Path.resolve" in path.resolve.__doc__
+    assert path.resolve.__qualname__ in path.resolve.__doc__
 
 
 @pytest.mark.parametrize("method_name", ["is_dir", "is_file"])
@@ -126,7 +138,7 @@ async def test_compare_async_stat_methods(method_name: str) -> None:
     assert result == async_result
 
 
-async def test_invalid_name_not_wrapped(path: trio.Path) -> None:
+def test_invalid_name_not_wrapped(path: trio.Path) -> None:
     with pytest.raises(AttributeError):
         getattr(path, "invalid_fake_attr")  # noqa: B009  # "get-attr-with-constant"
 
@@ -142,7 +154,7 @@ async def test_async_methods_rewrap(method_name: str) -> None:
     assert str(result) == str(async_result)
 
 
-async def test_forward_methods_rewrap(path: trio.Path, tmp_path: pathlib.Path) -> None:
+def test_forward_methods_rewrap(path: trio.Path, tmp_path: pathlib.Path) -> None:
     with_name = path.with_name("foo")
     with_suffix = path.with_suffix(".py")
 
@@ -152,7 +164,7 @@ async def test_forward_methods_rewrap(path: trio.Path, tmp_path: pathlib.Path) -
     assert with_suffix == tmp_path / "test.py"
 
 
-async def test_forward_properties_rewrap(path: trio.Path) -> None:
+def test_forward_properties_rewrap(path: trio.Path) -> None:
     assert isinstance(path.parent, trio.Path)
 
 
@@ -162,45 +174,10 @@ async def test_forward_methods_without_rewrap(path: trio.Path) -> None:
     assert path.as_uri().startswith("file:///")
 
 
-async def test_repr() -> None:
+def test_repr() -> None:
     path = trio.Path(".")
 
     assert repr(path) == "trio.Path('.')"
-
-
-class MockWrapped:
-    unsupported = "unsupported"
-    _private = "private"
-
-
-class _MockWrapper:
-    _forwards = MockWrapped
-    _wraps = MockWrapped
-
-
-MockWrapper: Any = _MockWrapper  # Disable type checking, it's a mock.
-
-
-async def test_type_forwards_unsupported() -> None:
-    with pytest.raises(TypeError):
-        WrapperType.generate_forwards(MockWrapper, {})
-
-
-async def test_type_wraps_unsupported() -> None:
-    with pytest.raises(TypeError):
-        WrapperType.generate_wraps(MockWrapper, {})
-
-
-async def test_type_forwards_private() -> None:
-    WrapperType.generate_forwards(MockWrapper, {"unsupported": None})
-
-    assert not hasattr(MockWrapper, "_private")
-
-
-async def test_type_wraps_private() -> None:
-    WrapperType.generate_wraps(MockWrapper, {"unsupported": None})
-
-    assert not hasattr(MockWrapper, "_private")
 
 
 @pytest.mark.parametrize("meth", [trio.Path.__init__, trio.Path.joinpath])
@@ -216,7 +193,7 @@ async def test_path_wraps_path(
     assert wrapped == result
 
 
-async def test_path_nonpath() -> None:
+def test_path_nonpath() -> None:
     with pytest.raises(TypeError):
         trio.Path(1)  # type: ignore
 
@@ -278,3 +255,21 @@ async def test_classmethods() -> None:
 
     # Wrapped method has docstring
     assert trio.Path.home.__doc__
+
+
+@pytest.mark.parametrize(
+    "wrapper",
+    [
+        trio._path._wraps_async,
+        trio._path._wrap_method,
+        trio._path._wrap_method_path,
+        trio._path._wrap_method_path_iterable,
+    ],
+)
+def test_wrapping_without_docstrings(
+    wrapper: Callable[[Callable[[], None]], Callable[[], None]],
+) -> None:
+    @wrapper
+    def func_without_docstring() -> None: ...  # pragma: no cover
+
+    assert func_without_docstring.__doc__ is None

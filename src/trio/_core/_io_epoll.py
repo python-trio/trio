@@ -198,12 +198,14 @@ class _EpollStatistics:
 # wanted to about how epoll works.
 
 
-@attrs.define(eq=False, hash=False)
+@attrs.define(eq=False)
 class EpollIOManager:
-    _epoll: select.epoll = attrs.Factory(select.epoll)
+    # Using lambda here because otherwise crash on import with gevent monkey patching
+    # See https://github.com/python-trio/trio/issues/2848
+    _epoll: select.epoll = attrs.Factory(lambda: select.epoll())
     # {fd: EpollWaiters}
     _registered: defaultdict[int, EpollWaiters] = attrs.Factory(
-        lambda: defaultdict(EpollWaiters)
+        lambda: defaultdict(EpollWaiters),
     )
     _force_wakeup: WakeupSocketpair = attrs.Factory(WakeupSocketpair)
     _force_wakeup_fd: int | None = None
@@ -296,7 +298,7 @@ class EpollIOManager:
         waiters = self._registered[fd]
         if getattr(waiters, attr_name) is not None:
             raise _core.BusyResourceError(
-                "another task is already reading / writing this fd"
+                "another task is already reading / writing this fd",
             )
         setattr(waiters, attr_name, _core.current_task())
         self._update_registrations(fd)
