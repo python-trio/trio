@@ -7,8 +7,10 @@ set -ex -o pipefail
 export PYRIGHT_PYTHON_IGNORE_WARNINGS=1
 
 # Log some general info about the environment
+echo "::group::Environment"
 uname -a
 env | sort
+echo "::endgroup::"
 
 # Curl's built-in retry system is not very robust; it gives up on lots of
 # network errors that we want to retry on. Wget might work better, but it's
@@ -30,20 +32,36 @@ function curl-harder() {
 # We have a Python environment!
 ################################################################
 
-python -c "import sys, struct, ssl; print('#' * 70); print('python:', sys.version); print('version_info:', sys.version_info); print('bits:', struct.calcsize('P') * 8); print('openssl:', ssl.OPENSSL_VERSION, ssl.OPENSSL_VERSION_INFO); print('#' * 70)"
+echo "::group::Versions"
+python -c "import sys, struct, ssl; print('python:', sys.version); print('version_info:', sys.version_info); print('bits:', struct.calcsize('P') * 8); print('openssl:', ssl.OPENSSL_VERSION, ssl.OPENSSL_VERSION_INFO)"
+echo "::endgroup::"
 
-python -m pip install -U pip setuptools wheel
+echo "::group::Install dependencies"
+python -m pip install -U pip uv -c test-requirements.txt
 python -m pip --version
+python -m uv --version
 
-python setup.py sdist --formats=zip
-python -m pip install dist/*.zip
+python -m uv pip install build
+
+python -m build
+wheel_package=$(ls dist/*.whl)
+python -m uv pip install "trio @ $wheel_package" -c test-requirements.txt
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
-    python -m pip install -r test-requirements.txt
+    python -m uv pip install -r test-requirements.txt exceptiongroup
+    echo "::endgroup::"
     source check.sh
 else
     # Actual tests
-    python -m pip install -r test-requirements.txt
+    # expands to 0 != 1 if NO_TEST_REQUIREMENTS is not set, if set the `-0` has no effect
+    # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_06_02
+    if [ "${NO_TEST_REQUIREMENTS-0}" == 1 ]; then
+        python -m uv pip install pytest coverage -c test-requirements.txt
+        flags="--skip-optional-imports"
+    else
+        python -m uv pip install -r test-requirements.txt
+        flags=""
+    fi
 
     # So we can run the test for our apport/excepthook interaction working
     if [ -e /etc/lsb-release ] && grep -q Ubuntu /etc/lsb-release; then
@@ -81,7 +99,7 @@ else
         # when installing, and then running 'certmgr.msc' and exporting the
         # certificate. See:
         #    http://www.migee.com/2010/09/24/solution-for-unattendedsilent-installs-and-would-you-like-to-install-this-device-software/
-        certutil -addstore "TrustedPublisher" trio/_tests/astrill-codesigning-cert.cer
+        certutil -addstore "TrustedPublisher" src/trio/_tests/astrill-codesigning-cert.cer
         # Double-slashes are how you tell windows-bash that you want a single
         # slash, and don't treat this as a unix-style filename that needs to
         # be replaced by a windows-style filename.
@@ -93,18 +111,18 @@ else
         done
         netsh winsock show catalog
     fi
+    echo "::endgroup::"
+
+    echo "::group::Setup for tests"
 
     # We run the tests from inside an empty directory, to make sure Python
-    # doesn't pick up any .py files from our working dir. Might have been
-    # pre-created by some of the code above.
+    # doesn't pick up any .py files from our working dir. Might have already
+    # been created by a previous run.
     mkdir empty || true
     cd empty
 
     INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
-    cp ../pyproject.toml $INSTALLDIR
-
-    # TODO: remove this once we have a py.typed file
-    touch "$INSTALLDIR/py.typed"
+    cp ../pyproject.toml "$INSTALLDIR"  # TODO: remove this
 
     # get mypy tests a nice cache
     MYPYPATH=".." mypy --config-file= --cache-dir=./.mypy_cache -c "import trio" >/dev/null 2>/dev/null || true
@@ -112,15 +130,25 @@ else
     # support subprocess spawning with coverage.py
     echo "import coverage; coverage.process_startup()" | tee -a "$INSTALLDIR/../sitecustomize.py"
 
-    if COVERAGE_PROCESS_START=$(pwd)/../.coveragerc coverage run --rcfile=../.coveragerc -m pytest -r a -p trio._tests.pytest_plugin --junitxml=../test-results.xml --run-slow ${INSTALLDIR} --verbose --durations=10; then
+    perl -i -pe 's/-p trio\._tests\.pytest_plugin//' "$INSTALLDIR/pyproject.toml"
+
+    echo "::endgroup::"
+    echo "::group:: Run Tests"
+    if PYTHONPATH=../tests COVERAGE_PROCESS_START=$(pwd)/../pyproject.toml \
+            coverage run --rcfile=../pyproject.toml -m \
+            pytest -ra --junitxml=../test-results.xml \
+            -p _trio_check_attrs_aliases --verbose --durations=10 \
+            -p trio._tests.pytest_plugin --run-slow $flags "${INSTALLDIR}"; then
         PASSED=true
     else
         PASSED=false
     fi
+    echo "::endgroup::"
+    echo "::group::Coverage"
 
-    coverage combine --rcfile ../.coveragerc
-    coverage report -m --rcfile ../.coveragerc
-    coverage xml --rcfile ../.coveragerc
+    coverage combine --rcfile ../pyproject.toml
+    coverage report -m --rcfile ../pyproject.toml
+    coverage xml --rcfile ../pyproject.toml
 
     # Remove the LSP again; again we want to do this ASAP to avoid
     # accidentally breaking other stuff.
@@ -128,5 +156,6 @@ else
         netsh winsock reset
     fi
 
+    echo "::endgroup::"
     $PASSED
 fi

@@ -1,6 +1,14 @@
+ci:
+  autofix_prs: true
+  autoupdate_schedule: weekly
+  submodules: false
+  # pip-compile requires internet, regenerate-files may get cache
+  # issues in CI, so they're run in check.sh
+  skip: [pip-compile, regenerate-files]
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v5.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -9,31 +17,63 @@ repos:
       - id: check-merge-conflict
       - id: mixed-line-ending
       - id: check-case-conflict
-  - repo: https://github.com/psf/black
-    rev: 23.7.0
+      - id: sort-simple-yaml
+        files: .pre-commit-config.yaml
+  - repo: https://github.com/psf/black-pre-commit-mirror
+    rev: 24.10.0
     hooks:
       - id: black
-  - repo: https://github.com/pycqa/isort
-    rev: 5.12.0
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.1
     hooks:
-      - id: isort
-  - repo: https://github.com/pycqa/flake8
-    rev: 6.1.0
-    hooks:
-      - id: flake8
-        additional_dependencies:
-          - "flake8-pyproject==1.2.3"
+      - id: ruff
         types: [file]
-        types_or: [python, pyi]
+        types_or: [python, pyi, toml]
+        args: ["--show-fixes"]
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.2.5
+    rev: v2.3.0
     hooks:
       - id: codespell
-
-ci:
-  autofix_commit_msg: "[pre-commit.ci] auto fixes from pre-commit.com hooks"
-  autofix_prs: true
-  autoupdate_commit_msg: "[pre-commit.ci] pre-commit autoupdate"
-  autoupdate_schedule: weekly
-  skip: [black,isort]
-  submodules: false
+  - repo: https://github.com/crate-ci/typos
+    rev: dictgen-v0.3.1
+    hooks:
+      - id: typos
+  - repo: https://github.com/sphinx-contrib/sphinx-lint
+    rev: v1.0.0
+    hooks:
+      - id: sphinx-lint
+  - repo: https://github.com/woodruffw/zizmor-pre-commit
+    rev: v1.1.1
+    hooks:
+      - id: zizmor
+  - repo: local
+    hooks:
+      - id: regenerate-files
+        name: regenerate generated files
+        language: python
+        entry: python src/trio/_tools/gen_exports.py
+        pass_filenames: false
+        additional_dependencies: ["astor", "attrs", "black", "ruff"]
+        files: ^src\/trio\/_core\/(_run|(_i(o_(common|epoll|kqueue|windows)|nstrumentation)))\.py$
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.5.18
+    hooks:
+      # Compile requirements
+      - id: pip-compile
+        name: uv pip-compile test-requirements.in
+        args: [
+          "--universal",
+          "--python-version=3.9",
+          "test-requirements.in",
+          "-o",
+          "test-requirements.txt"]
+        files: ^test-requirements\.(in|txt)$
+      - id: pip-compile
+        name: uv pip-compile docs-requirements.in
+        args: [
+          "--universal",
+          "--python-version=3.11",
+          "docs-requirements.in",
+          "-o",
+          "docs-requirements.txt"]
+        files: ^docs-requirements\.(in|txt)$
