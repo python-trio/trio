@@ -104,9 +104,6 @@ from ._timeouts import (
     sleep_forever as sleep_forever,
     sleep_until as sleep_until,
 )
-
-# pyright explicitly does not care about `__version__`
-# see https://github.com/microsoft/pyright/blob/main/docs/typed-libraries.md#type-completeness
 from ._version import __version__ as __version__
 
 # Not imported by default, but mentioned here so static analysis tools like
