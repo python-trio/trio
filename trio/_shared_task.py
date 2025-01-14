@@ -15,9 +15,7 @@ __all__ = ["SharedTaskRegistry"]
 # matching.
 def _unpack_call(fn, args, kwargs):
     if isinstance(fn, functools.partial):
-        inner_fn, inner_args, inner_kwargs = _call_to_key(
-            fn.func, fn.args, fn.kwargs
-        )
+        inner_fn, inner_args, inner_kwargs = _call_to_key(fn.func, fn.args, fn.kwargs)
         fn = inner_fn
         args = (*inner_args, *args)
         kwargs = {**inner_kwargs, **kwargs}
