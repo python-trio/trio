@@ -1,14 +1,18 @@
-# RTD is currently installing 1.5.3, which has a bug in :lineno-match:
-sphinx >= 4.0, < 6.2
+# RTD is currently installing 1.5.3, which has a bug in :lineno-match: (??)
+# sphinx 5.3 doesn't work with our _NoValue workaround
+sphinx >= 6.0
 jinja2
-sphinx_rtd_theme
+# >= is necessary to prevent `uv` from selecting a `Sphinx` version this does not support
+sphinx_rtd_theme >= 3
 sphinxcontrib-jquery
 sphinxcontrib-trio
 towncrier
+sphinx-hoverxref
+sphinx-codeautolink
 
 # Trio's own dependencies
 cffi; os_name == "nt"
-attrs >= 19.2.0
+attrs >= 23.2.0
 sortedcontainers
 idna
 outcome
