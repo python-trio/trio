@@ -132,7 +132,7 @@ class UnixSocketListener(Listener[SocketStream]):
 
     """
 
-    __slots__ = ("socket", "path", "inode")
+    __slots__ = ("inode", "path", "socket")
 
     def __init__(
         self,
