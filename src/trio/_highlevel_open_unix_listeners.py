@@ -79,7 +79,7 @@ async def open_unix_listener(
 
         sock.listen(computed_backlog)
 
-        return trio.SocketListener(sock, str_path)
+        return trio.SocketListener(sock)
     except BaseException:
         sock.close()
         os.unlink(str_path)
@@ -92,7 +92,7 @@ async def serve_unix(
     *,
     backlog: int | None = None,
     handler_nursery: trio.Nursery | None = None,
-    task_status: TaskStatus[list[trio.UnixSocketListener]] = trio.TASK_STATUS_IGNORED,
+    task_status: TaskStatus[list[trio.SocketListener]] = trio.TASK_STATUS_IGNORED,
 ) -> None:
     """Listen for incoming UNIX connections, and for each one start a task
     running ``handler(stream)``.

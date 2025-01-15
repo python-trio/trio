@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import errno
 from contextlib import contextmanager, suppress
-from os import PathLike, stat, unlink
+from os import stat, unlink
+from os.path import exists
 from stat import S_ISSOCK
 from typing import TYPE_CHECKING, Final, overload
 
@@ -18,7 +19,7 @@ if TYPE_CHECKING:
 
     from typing_extensions import Buffer
 
-    from ._socket import SocketType
+    from ._socket import AddressFormat, SocketType
 
 # XX TODO: this number was picked arbitrarily. We should do experiments to
 # tune it. (Or make it dynamic -- one idea is to start small and increase it
@@ -358,33 +359,25 @@ class SocketListener(Listener[SocketStream]):
     incoming connections as :class:`SocketStream` objects.
 
     Args:
-
       socket: The Trio socket object to wrap. Must have type ``SOCK_STREAM``,
           and be listening.
 
-      path: Used for keeping track of which path a Unix socket is bound
-          to. If not ``None``, :meth:`aclose` will unlink this path.
-          File must have socket mode flag set.
-
     Note that the :class:`SocketListener` "takes ownership" of the given
-    socket; closing the :class:`SocketListener` will also close the socket.
+    socket; closing the :class:`SocketListener` will also close the
+    socket, and if it's a Unix socket, it will also unlink the leftover
+    socket file that the Unix socket is bound to.
 
     .. attribute:: socket
 
        The Trio socket object that this stream wraps.
 
-    .. attribute:: path
-
-       The path to unlink in :meth:`aclose` that a Unix socket is bound to.
-
     """
 
-    __slots__ = ("path", "socket")
+    __slots__ = ("socket",)
 
     def __init__(
         self,
         socket: SocketType,
-        path: str | bytes | PathLike[str] | PathLike[bytes] | None = None,
     ) -> None:
         if not isinstance(socket, tsocket.SocketType):
             raise TypeError("SocketListener requires a Trio socket object")
@@ -398,11 +391,8 @@ class SocketListener(Listener[SocketStream]):
         else:
             if not listening:
                 raise ValueError("SocketListener requires a listening socket")
-        if path is not None and not S_ISSOCK(stat(path).st_mode):
-            raise ValueError("Specified path must be a Unix socket file")
 
         self.socket = socket
-        self.path = path
 
     async def accept(self) -> SocketStream:
         """Accept an incoming connection.
@@ -433,8 +423,21 @@ class SocketListener(Listener[SocketStream]):
                 return SocketStream(sock)
 
     async def aclose(self) -> None:
-        """Close this listener and its underlying socket."""
+        """Close this listener, its underlying socket, and for Unix sockets unlink the socket file."""
+        is_unix_socket = self.socket.family == getattr(tsocket, "AF_UNIX", None)
+
+        path: AddressFormat | None = None
+        if is_unix_socket:
+            # If unix socket, need to get path before we close socket
+            # or OS errors
+            path = self.socket.getsockname()
         self.socket.close()
-        if self.path is not None:
-            unlink(self.path)
+        # If unix socket, clean up socket file that gets left behind.
+        if (
+            is_unix_socket
+            and path is not None
+            and exists(path)
+            and S_ISSOCK(stat(path).st_mode)
+        ):
+            unlink(path)
         await trio.lowlevel.checkpoint()
