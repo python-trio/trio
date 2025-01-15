@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import errno
 from contextlib import contextmanager, suppress
-from typing import TYPE_CHECKING, overload
+from os import unlink
+from typing import TYPE_CHECKING, Final, overload
 
 import trio
 
@@ -30,6 +31,8 @@ _closed_stream_errnos = {
     # Windows
     errno.ENOTSOCK,
 }
+
+HAS_UNIX: Final = hasattr(tsocket, "AF_UNIX")
 
 
 @contextmanager
@@ -411,4 +414,77 @@ class SocketListener(Listener[SocketStream]):
     async def aclose(self) -> None:
         """Close this listener and its underlying socket."""
         self.socket.close()
+        await trio.lowlevel.checkpoint()
+
+
+@final
+class UnixSocketListener(Listener[SocketStream]):
+    """A :class:`~trio.abc.Listener` that uses a listening socket to accept
+    incoming connections as :class:`SocketStream` objects.
+
+    Args:
+      socket: The Trio socket object to wrap. Must have type ``SOCK_STREAM``,
+          and be listening.
+
+    Note that the :class:`UnixSocketListener` "takes ownership" of the given
+    socket; closing the :class:`UnixSocketListener` will also close the socket
+    and unlink its associated file.
+
+    .. attribute:: socket
+
+       The Trio socket object that this stream wraps.
+
+    """
+
+    def __init__(self, socket: SocketType) -> None:
+        if not HAS_UNIX:
+            raise RuntimeError("Unix sockets are not supported on this platform")
+        if not isinstance(socket, tsocket.SocketType):
+            raise TypeError("SocketListener requires a Trio socket object")
+        if socket.type != tsocket.SOCK_STREAM:
+            raise ValueError("SocketListener requires a SOCK_STREAM socket")
+        try:
+            listening = socket.getsockopt(tsocket.SOL_SOCKET, tsocket.SO_ACCEPTCONN)
+        except OSError:
+            # SO_ACCEPTCONN fails on macOS; we just have to trust the user.
+            pass
+        else:
+            if not listening:
+                raise ValueError("SocketListener requires a listening socket")
+
+        self.socket = socket
+
+    async def accept(self) -> SocketStream:
+        """Accept an incoming connection.
+
+        Returns:
+          :class:`SocketStream`
+
+        Raises:
+          OSError: if the underlying call to ``accept`` raises an unexpected
+              error.
+          ClosedResourceError: if you already closed the socket.
+
+        This method handles routine errors like ``ECONNABORTED``, but passes
+        other errors on to its caller. In particular, it does *not* make any
+        special effort to handle resource exhaustion errors like ``EMFILE``,
+        ``ENFILE``, ``ENOBUFS``, ``ENOMEM``.
+
+        """
+        while True:
+            try:
+                sock, _ = await self.socket.accept()
+            except OSError as exc:
+                if exc.errno in _closed_stream_errnos:
+                    raise trio.ClosedResourceError from None
+                if exc.errno not in _ignorable_accept_errnos:
+                    raise
+            else:
+                return SocketStream(sock)
+
+    async def aclose(self) -> None:
+        """Close this listener, its underlying socket, and unlink its associated file."""
+        path = self.socket.getsockname()
+        self.socket.close()
+        unlink(path)
         await trio.lowlevel.checkpoint()

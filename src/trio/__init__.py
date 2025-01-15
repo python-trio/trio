@@ -63,11 +63,16 @@ from ._highlevel_open_tcp_listeners import (
     serve_tcp as serve_tcp,
 )
 from ._highlevel_open_tcp_stream import open_tcp_stream as open_tcp_stream
+from ._highlevel_open_unix_listeners import (
+    open_unix_listener as open_unix_listener,
+    serve_unix as serve_unix,
+)
 from ._highlevel_open_unix_stream import open_unix_socket as open_unix_socket
 from ._highlevel_serve_listeners import serve_listeners as serve_listeners
 from ._highlevel_socket import (
     SocketListener as SocketListener,
     SocketStream as SocketStream,
+    UnixSocketListener as UnixSocketListener,
 )
 from ._highlevel_ssl_helpers import (
     open_ssl_over_tcp_listeners as open_ssl_over_tcp_listeners,
