@@ -81,7 +81,7 @@ class SocketStream(HalfCloseableStream):
         if socket.type != tsocket.SOCK_STREAM:
             raise ValueError("SocketStream requires a SOCK_STREAM socket")
 
-        self.socket = socket
+        self.socket: SocketType = socket
         self._send_conflict_detector = ConflictDetector(
             "another task is currently sending data on this SocketStream",
         )
@@ -392,7 +392,7 @@ class SocketListener(Listener[SocketStream]):
             if not listening:
                 raise ValueError("SocketListener requires a listening socket")
 
-        self.socket = socket
+        self.socket: SocketType = socket
 
     async def accept(self) -> SocketStream:
         """Accept an incoming connection.
