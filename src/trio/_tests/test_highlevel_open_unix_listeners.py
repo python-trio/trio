@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import socket as stdlib_socket
 import sys
+import tempfile
+from os import unlink
+from os.path import exists
 from typing import TYPE_CHECKING, cast
 
 import pytest
@@ -16,6 +19,7 @@ from trio import (
 from trio.testing import open_stream_to_socket_listener
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
     from pathlib import Path
 
     from trio.abc import SendStream
@@ -30,11 +34,17 @@ skip_if_not_unix = pytest.mark.skipif(
 
 
 @pytest.fixture
-def temp_unix_socket_path(tmp_path: Path) -> str:
+def temp_unix_socket_path(tmp_path: Path) -> Generator[str, None, None]:
     """Fixture to create a temporary Unix socket path."""
-    # Create a temporary file in the tmp_path directory
-    temp_socket_path = tmp_path / "socket.sock"
-    return str(temp_socket_path)
+    if sys.platform == "darwin":
+        # On macos, opening unix socket will fail if name is too long
+        temp_socket_path = tempfile.mkstemp(suffix=".sock")
+    else:
+        temp_socket_path = str(tmp_path / "socket.sock")
+    yield temp_socket_path
+    # If test failed to delete file at the end, do it for them.
+    if exists(temp_socket_path):
+        unlink(temp_socket_path)
 
 
 @skip_if_not_unix
