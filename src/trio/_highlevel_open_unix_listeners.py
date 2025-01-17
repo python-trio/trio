@@ -82,7 +82,8 @@ async def open_unix_listener(
         return trio.SocketListener(sock)
     except BaseException:
         sock.close()
-        os.unlink(str_path)
+        if os.path.exists(str_path):
+            os.unlink(str_path)
         raise
 
 
