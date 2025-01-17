@@ -38,7 +38,9 @@ def temp_unix_socket_path(tmp_path: Path) -> Generator[str, None, None]:
     """Fixture to create a temporary Unix socket path."""
     if sys.platform == "darwin":
         # On macos, opening unix socket will fail if name is too long
-        temp_socket_path = tempfile.mkstemp(suffix=".sock")
+        temp_socket_path = tempfile.mkstemp(suffix=".sock")[1]
+        # mkstemp makes a file, we just wanted a unique name
+        unlink(temp_socket_path)
     else:
         temp_socket_path = str(tmp_path / "socket.sock")
     yield temp_socket_path
