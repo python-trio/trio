@@ -188,6 +188,7 @@ extend-ignore = [
     "PERF203", # try-except-in-loop (not always possible to refactor)
     "PT012",   # multiple statements in pytest.raises block
     "SIM117",  # multiple-with-statements (messes up lots of context-based stuff and looks bad)
+    "PT031",   # pytest-warns-with-multiple-statements (tests need large blocks in a lot of cases)
 
     # conflicts with formatter (ruff recommends these be disabled)
     "COM812",
