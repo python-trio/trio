@@ -270,7 +270,10 @@ def test_warning_class() -> None:
         warn_deprecated("foo", "bar", issue=None, instead=None)
 
     # essentially the same as the above check
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(
+        DeprecationWarning,
+        match="^foo is deprecated since Trio bar with no replacement$",
+    ):
         warn_deprecated("foo", "bar", issue=None, instead=None)
 
     with pytest.warns(TrioDeprecationWarning):

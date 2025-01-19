@@ -46,6 +46,8 @@ fi
 
 # Check pip compile is consistent
 echo "::group::Pip Compile - Tests & Docs"
+pre-commit run uv-lock --all-files \
+    || EXIT_STATUS=$?
 pre-commit run pip-compile --all-files \
     || EXIT_STATUS=$?
 echo "::endgroup::"
