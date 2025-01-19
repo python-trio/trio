@@ -64,7 +64,7 @@ esac
 python -m pip install uv==$UV_VERSION
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
-    python -m uv sync --extra base_tests --extra tests
+    python -m uv sync --locked --extra base_tests --extra tests
     echo "::endgroup::"
     source check.sh
 else
@@ -72,11 +72,11 @@ else
     # expands to 0 != 1 if NO_TEST_REQUIREMENTS is not set, if set the `-0` has no effect
     # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_06_02
     if [ "${NO_TEST_REQUIREMENTS-0}" == 1 ]; then
-        python -m uv sync --extra base_tests
+        python -m uv sync --locked --extra base_tests
         # python -m uv pip install pytest coverage -c test-requirements.txt
         flags="--skip-optional-imports"
     else
-        python -m uv sync --extra base_tests --extra tests
+        python -m uv sync --locked --extra base_tests --extra tests
         flags=""
     fi
 
