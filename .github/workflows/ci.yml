@@ -122,7 +122,7 @@ jobs:
         env:
           PYTHONPATH: src/
         run: >-
-          pytest --collect-only -qq .
+          python -Im pytest --collect-only -qq .
           | sort
           | tee collected-tests
         shell: bash -eEuo pipefail {0}
@@ -133,7 +133,7 @@ jobs:
         env:
           PYTHONPATH: src/
         run: >-
-          pytest --collect-only -qq .
+          python -Im pytest --collect-only -qq .
           | sort
           | tee collected-tests
         shell: bash -eEuo pipefail {0}
