@@ -30,22 +30,21 @@ jobs:
 
       - name: Bump dependencies
         run: |
-          python -m pip install -U pip pre-commit
-          python -m pip install -r test-requirements.txt
-          uv pip compile --universal --python-version=3.9 --upgrade test-requirements.in -o test-requirements.txt
+          python -m pip install -U uv
+          uv lock --upgrade
+          uv tool install pre-commit
           uv pip compile --universal --python-version=3.11 --upgrade docs-requirements.in -o docs-requirements.txt
-          pre-commit autoupdate --jobs 0
+          uv run pre-commit autoupdate --jobs 0
 
       - name: Install new requirements
-        run: python -m pip install -r test-requirements.txt
+        run: uv sync
 
       # apply newer versions' formatting
-      - name: Black
-        run: black src/trio
+      - name: Pre-commit updates
+        run: uv run pre-commit run -a
 
       - name: uv
         run: |
-          uv pip compile --universal --python-version=3.9 test-requirements.in -o test-requirements.txt
           uv pip compile --universal --python-version=3.11 docs-requirements.in -o docs-requirements.txt
 
       - name: Commit changes and create automerge PR
