@@ -418,7 +418,10 @@ def test_guest_warns_if_abandoned() -> None:
         with pytest.raises(ZeroDivisionError):
             trivial_guest_run(abandoned_main)
 
-    with pytest.warns(RuntimeWarning, match="Trio guest run got abandoned"):
+    with pytest.warns(  # noqa: PT031
+        RuntimeWarning,
+        match="Trio guest run got abandoned",
+    ):
         do_abandoned_guest_run()
         gc_collect_harder()
 
