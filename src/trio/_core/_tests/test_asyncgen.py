@@ -42,7 +42,7 @@ def test_asyncgen_basics() -> None:
 
     async def async_main() -> None:
         # GC'ed before exhausted
-        with pytest.warns(
+        with pytest.warns(  # noqa: PT031
             ResourceWarning,
             match="Async generator.*collected before.*exhausted",
         ):

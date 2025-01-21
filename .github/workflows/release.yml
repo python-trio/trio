@@ -3,6 +3,8 @@ on:
     tags:
       - v*
 
+permissions: {}
+
 # a lot of code taken from https://github.com/pypa/cibuildwheel/blob/main/examples/github-deploy.yml
 jobs:
   build:
