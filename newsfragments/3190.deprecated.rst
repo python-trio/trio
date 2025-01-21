@@ -1,0 +1,1 @@
+Deprecate ``trio.__version__`` in favor of `importlib.metadata.version`.
