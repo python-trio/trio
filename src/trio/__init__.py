@@ -104,7 +104,7 @@ from ._timeouts import (
     sleep_forever as sleep_forever,
     sleep_until as sleep_until,
 )
-from ._version import __version__ as trio_version
+from ._version import __version__ as __version__
 
 # Not imported by default, but mentioned here so static analysis tools like
 # pylint will know that it exists.
@@ -117,9 +117,12 @@ _deprecate.enable_attribute_deprecations(__name__)
 
 __deprecated_attributes__: dict[str, _deprecate.DeprecatedAttribute] = {
     "__version__": _deprecate.DeprecatedAttribute(
-        trio_version, "0.29.0", issue=None, instead='importlib.metadata.version("trio")'
+        __version__, "0.29.0", issue=None, instead='importlib.metadata.version("trio")'
     )
 }
+
+if not TYPE_CHECKING:
+    del __version__
 
 # Having the public path in .__module__ attributes is important for:
 # - exception names in printed tracebacks
