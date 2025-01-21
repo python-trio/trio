@@ -115,7 +115,11 @@ from . import _deprecate as _deprecate
 
 _deprecate.enable_attribute_deprecations(__name__)
 
-__deprecated_attributes__: dict[str, _deprecate.DeprecatedAttribute] = {}
+__deprecated_attributes__: dict[str, _deprecate.DeprecatedAttribute] = {
+    "__version__": _deprecate.DeprecatedAttribute(
+        __version__, "0.29.0", issue=None, instead='importlib.metadata.version("trio")'
+    )
+}
 
 # Having the public path in .__module__ attributes is important for:
 # - exception names in printed tracebacks
