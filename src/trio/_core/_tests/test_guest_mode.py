@@ -418,31 +418,34 @@ def test_guest_warns_if_abandoned() -> None:
         with pytest.raises(ZeroDivisionError):
             trivial_guest_run(abandoned_main)
 
-    with pytest.warns(RuntimeWarning, match="Trio guest run got abandoned"):
+    with pytest.warns(  # noqa: PT031
+        RuntimeWarning,
+        match="Trio guest run got abandoned",
+    ):
         do_abandoned_guest_run()
         gc_collect_harder()
 
-        # If you have problems some day figuring out what's holding onto a
-        # reference to the unrolled_run generator and making this test fail,
-        # then this might be useful to help track it down. (It assumes you
-        # also hack start_guest_run so that it does 'global W; W =
-        # weakref(unrolled_run_gen)'.)
-        #
-        # import gc
-        # print(trio._core._run.W)
-        # targets = [trio._core._run.W()]
-        # for i in range(15):
-        #     new_targets = []
-        #     for target in targets:
-        #         new_targets += gc.get_referrers(target)
-        #         new_targets.remove(targets)
-        #     print("#####################")
-        #     print(f"depth {i}: {len(new_targets)}")
-        #     print(new_targets)
-        #     targets = new_targets
+    # If you have problems some day figuring out what's holding onto a
+    # reference to the unrolled_run generator and making this test fail,
+    # then this might be useful to help track it down. (It assumes you
+    # also hack start_guest_run so that it does 'global W; W =
+    # weakref(unrolled_run_gen)'.)
+    #
+    # import gc
+    # print(trio._core._run.W)
+    # targets = [trio._core._run.W()]
+    # for i in range(15):
+    #     new_targets = []
+    #     for target in targets:
+    #         new_targets += gc.get_referrers(target)
+    #         new_targets.remove(targets)
+    #     print("#####################")
+    #     print(f"depth {i}: {len(new_targets)}")
+    #     print(new_targets)
+    #     targets = new_targets
 
-        with pytest.raises(RuntimeError):
-            trio.current_time()
+    with pytest.raises(RuntimeError):
+        trio.current_time()
 
 
 def aiotrio_run(
