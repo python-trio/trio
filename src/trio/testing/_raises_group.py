@@ -186,8 +186,10 @@ def _check_raw_type(
     ):
         actual_type_str = _exception_type_name(type(exception))
         expected_type_str = _exception_type_name(expected_type)
-        if isinstance(exception, BaseExceptionGroup):
-            return f"Unexpected nested {actual_type_str}, expected bare {expected_type_str}"
+        if isinstance(exception, BaseExceptionGroup) and not issubclass(
+            expected_type, BaseExceptionGroup
+        ):
+            return f"Unexpected nested {actual_type_str}, expected {expected_type_str}"
         return f"{actual_type_str} is not of type {expected_type_str}"
     return None
 
@@ -212,7 +214,7 @@ class AbstractMatcher(ABC, Generic[BaseExcT_co]):
 
     @property
     def fail_reason(self) -> str | None:
-        """Set after a call to `Matcher.matches` or `RaisesGroup.matches` to give a human-readable
+        """Set after a call to `matches` to give a human-readable
         reason for why the match failed.
         When used as a context manager the string will be given as the text of an
         `AssertionError`"""
@@ -246,7 +248,7 @@ class AbstractMatcher(ABC, Generic[BaseExcT_co]):
         )
         self._fail_reason = f"Regex pattern {_match_pattern(self.match)!r} did not match {stringified_exception!r}{maybe_specify_type}"
         if _match_pattern(self.match) == stringified_exception:
-            self._fail_reason += "\nDid you mean to `re.escape()` the regex?"
+            self._fail_reason += "\n  Did you mean to `re.escape()` the regex?"
         return False
 
     @abstractmethod
@@ -522,13 +524,16 @@ class RaisesGroup(AbstractMatcher[BaseExceptionGroup[BaseExcT_co]]):
             | None
         ) = None,
     ):
-        # error: Argument 2 to "__init__" of "AbstractMatcher" has incompatible type
-        # "Union[Callable[[BaseExceptionGroup[BaseExcT_1]], bool], Callable[[ExceptionGroup[ExcT_1]], bool], None]"
-        # ; expected
-        # "Optional[Callable[[BaseExceptionGroup[Union[ExcT_1, BaseExcT_1, BaseExceptionGroup[BaseExcT_2]]]], bool]]"
-        # which is kinda obviously off, but idk how to resolve that while also not
-        # getting any errors about overloads
-        super().__init__(match, check)  # type: ignore[arg-type]
+        # The type hint on the `self` and `check` parameters uses different formats
+        # that are *very* hard to reconcile while adhering to the overloads, so we cast
+        # it to avoid an error when passing it to super().__init__
+        check = cast(
+            "Callable[["
+            "BaseExceptionGroup[ExcT_1|BaseExcT_1|BaseExceptionGroup[BaseExcT_2]]"
+            "], bool]",
+            check,
+        )
+        super().__init__(match, check)
         self.expected_exceptions: tuple[
             type[BaseExcT_co] | Matcher[BaseExcT_co] | RaisesGroup[BaseException], ...
         ] = (
@@ -730,8 +735,12 @@ class RaisesGroup(AbstractMatcher[BaseExceptionGroup[BaseExcT_co]]):
                     self._unroll_exceptions(exc_val.exceptions),
                 )
             ):
+                # only indent if it's a single-line reason. In a multi-line there's already
+                # indented lines that this does not belong to.
+                indent = "  " if "\n" not in self._fail_reason else ""
                 self._fail_reason = (
-                    old_reason + "\nDid you mean to use `flatten_subgroups=True`?"
+                    old_reason
+                    + f"\n{indent}Did you mean to use `flatten_subgroups=True`?"
                 )
             else:
                 self._fail_reason = old_reason
