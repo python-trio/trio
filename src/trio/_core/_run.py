@@ -123,6 +123,20 @@ def _hypothesis_plugin_setup() -> None:  # pragma: no cover
     _ALLOW_DETERMINISTIC_SCHEDULING = True  # type: ignore
     register_random(_r)
 
+    # monkeypatch repr_callable to make repr's way better
+    # requires importing hypothesis (in the test file or in conftest.py)
+    try:
+        from hypothesis.internal.reflection import get_pretty_function_description
+
+        import trio.testing._raises_group
+
+        def repr_callable(fun: Callable[[BaseException], bool]) -> str:
+            return "'" + get_pretty_function_description(fun) + "'"
+
+        trio.testing._raises_group.repr_callable = repr_callable
+    except ImportError:
+        pass
+
 
 def _count_context_run_tb_frames() -> int:
     """Count implementation dependent traceback frames from Context.run()

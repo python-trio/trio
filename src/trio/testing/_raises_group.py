@@ -161,10 +161,10 @@ def _match_pattern(match: Pattern[str]) -> str | Pattern[str]:
     return match.pattern if match.flags == _REGEX_NO_FLAGS else match
 
 
-def repr_callable(fun: Callable[[BaseExcT_1], bool]) -> str:
+def repr_callable(fun: Callable[[BaseException], bool]) -> str:
     """Get the repr of a ``check`` parameter.
 
-    Split out so it can be monkeypatched (e.g. by hypothesis)
+    Split out so it can be monkeypatched (e.g. by our hypothesis plugin)
     """
     return repr(fun)
 
@@ -275,6 +275,8 @@ class Matcher(AbstractMatcher[MatchE]):
         with RaisesGroups(Matcher(check=lambda x: type(x) is ValueError)):
             ...
 
+    Tip: if you install ``hypothesis`` and import it in ``conftest.py`` you will get
+    readable ``repr``s of ``check`` callables in the output.
     """
 
     # At least one of the three parameters must be passed.
@@ -353,7 +355,7 @@ class Matcher(AbstractMatcher[MatchE]):
                 f"match={_match_pattern(self.match)!r}",
             )
         if self.check is not None:
-            parameters.append(f"check={self.check!r}")
+            parameters.append(f"check={repr_callable(self.check)}")
         return f'Matcher({", ".join(parameters)})'
 
     def _check_type(self, exception: BaseException) -> TypeGuard[MatchE]:
@@ -413,6 +415,9 @@ class RaisesGroup(AbstractMatcher[BaseExceptionGroup[BaseExcT_co]]):
 
     even though it generally does not care about the order of the exceptions in the group.
     To avoid the above you should specify the first ValueError with a Matcher as well.
+
+    Tip: if you install ``hypothesis`` and import it in ``conftest.py`` you will get
+    readable ``repr``s of ``check`` callables in the output.
     """
 
     # allow_unwrapped=True requires: singular exception, exception not being
@@ -623,7 +628,7 @@ class RaisesGroup(AbstractMatcher[BaseExceptionGroup[BaseExcT_co]]):
             # If no flags were specified, discard the redundant re.compile() here.
             reqs.append(f"match={_match_pattern(self.match)!r}")
         if self.check is not None:
-            reqs.append(f"check={self.check!r}")
+            reqs.append(f"check={repr_callable(self.check)}")
         return f"RaisesGroup({', '.join(reqs)})"
 
     def _unroll_exceptions(
