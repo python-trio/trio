@@ -76,6 +76,7 @@ if TYPE_CHECKING:
     PosArgT = TypeVarTuple("PosArgT")
     StatusT = TypeVar("StatusT", default=None)
     StatusT_contra = TypeVar("StatusT_contra", contravariant=True, default=None)
+    BaseExcT = TypeVar("BaseExcT", bound=BaseException)
 else:
     from typing import TypeVar
 
@@ -130,8 +131,9 @@ def _hypothesis_plugin_setup() -> None:  # pragma: no cover
 
         import trio.testing._raises_group
 
-        def repr_callable(fun: Callable[[BaseException], bool]) -> str:
-            return "'" + get_pretty_function_description(fun) + "'"
+        def repr_callable(fun: Callable[[BaseExcT], bool]) -> str:
+            # add quotes around the signature
+            return repr(get_pretty_function_description(fun))
 
         trio.testing._raises_group.repr_callable = repr_callable
     except ImportError:

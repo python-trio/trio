@@ -161,7 +161,7 @@ def _match_pattern(match: Pattern[str]) -> str | Pattern[str]:
     return match.pattern if match.flags == _REGEX_NO_FLAGS else match
 
 
-def repr_callable(fun: Callable[[BaseException], bool]) -> str:
+def repr_callable(fun: Callable[[BaseExcT_1], bool]) -> str:
     """Get the repr of a ``check`` parameter.
 
     Split out so it can be monkeypatched (e.g. by our hypothesis plugin)
