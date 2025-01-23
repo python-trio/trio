@@ -378,7 +378,7 @@ class CancelStatus:
         return self._parent
 
     @parent.setter
-    def parent(self, parent: CancelStatus) -> None:
+    def parent(self, parent: CancelStatus | None) -> None:
         if self._parent is not None:
             self._parent._children.remove(self)
         self._parent = parent
