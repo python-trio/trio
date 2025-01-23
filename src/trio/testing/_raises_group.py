@@ -251,6 +251,8 @@ class AbstractMatcher(ABC, Generic[BaseExcT_co]):
             self._fail_reason += "\n  Did you mean to `re.escape()` the regex?"
         return False
 
+    # TODO: when transitioning to pytest, harmonize Matcher and RaisesGroup
+    # signatures. One names the parameter `exc_val` and the other `exception`
     @abstractmethod
     def matches(
         self: AbstractMatcher[BaseExcT_1], exc_val: BaseException
@@ -282,7 +284,7 @@ class Matcher(AbstractMatcher[MatchE]):
     # At least one of the three parameters must be passed.
     @overload
     def __init__(
-        self: Matcher[MatchE],
+        self,
         exception_type: type[MatchE],
         match: str | Pattern[str] = ...,
         check: Callable[[MatchE], bool] = ...,
@@ -616,20 +618,20 @@ class RaisesGroup(AbstractMatcher[BaseExceptionGroup[BaseExcT_co]]):
         return self.excinfo
 
     def __repr__(self) -> str:
-        reqs = [
+        parameters = [
             e.__name__ if isinstance(e, type) else repr(e)
             for e in self.expected_exceptions
         ]
         if self.allow_unwrapped:
-            reqs.append(f"allow_unwrapped={self.allow_unwrapped}")
+            parameters.append(f"allow_unwrapped={self.allow_unwrapped}")
         if self.flatten_subgroups:
-            reqs.append(f"flatten_subgroups={self.flatten_subgroups}")
+            parameters.append(f"flatten_subgroups={self.flatten_subgroups}")
         if self.match is not None:
             # If no flags were specified, discard the redundant re.compile() here.
-            reqs.append(f"match={_match_pattern(self.match)!r}")
+            parameters.append(f"match={_match_pattern(self.match)!r}")
         if self.check is not None:
-            reqs.append(f"check={repr_callable(self.check)}")
-        return f"RaisesGroup({', '.join(reqs)})"
+            parameters.append(f"check={repr_callable(self.check)}")
+        return f"RaisesGroup({', '.join(parameters)})"
 
     def _unroll_exceptions(
         self,
@@ -982,9 +984,9 @@ class ResultHolder:
 
     def get_result(self, expected: int, actual: int) -> str | None:
         res = self.results[actual][expected]
-        assert res is not NotChecked
-        # why doesn't mypy pick up on the above assert?
-        return res  # type: ignore[return-value]
+        # mypy doesn't support `assert res is not NotChecked`
+        assert not isinstance(res, type)
+        return res
 
     def has_result(self, expected: int, actual: int) -> bool:
         return self.results[actual][expected] is not NotChecked
