@@ -1797,7 +1797,7 @@ If you've used other I/O frameworks, you may have encountered the
 concept of a "thread pool", which is most commonly implemented as a
 fixed size collection of threads that hang around waiting for jobs to
 be assigned to them. These solve two different problems: First,
-re-using the same threads over and over is more efficient than
+reusing the same threads over and over is more efficient than
 starting and stopping a new thread for every job you need done;
 basically, the pool acts as a kind of cache for idle threads. And
 second, having a fixed size avoids getting into a situation where
@@ -1848,7 +1848,7 @@ into two layers. The lower layer is responsible for taking blocking
 I/O jobs and arranging for them to run immediately on some worker
 thread. It takes care of solving the tricky concurrency problems
 involved in managing threads and is responsible for optimizations like
-re-using threads, but has no admission control policy: if you give it
+reusing threads, but has no admission control policy: if you give it
 100,000 jobs, it will spawn 100,000 threads. The upper layer is
 responsible for providing the policy to make sure that this doesn't
 happen – but since it *only* has to worry about policy, it can be much
