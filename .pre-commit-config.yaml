@@ -24,14 +24,14 @@ repos:
     hooks:
       - id: black
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.9.2
+    rev: v0.9.3
     hooks:
       - id: ruff
         types: [file]
         types_or: [python, pyi, toml]
         args: ["--show-fixes"]
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.3.0
+    rev: v2.4.0
     hooks:
       - id: codespell
   - repo: https://github.com/crate-ci/typos
@@ -56,7 +56,7 @@ repos:
         additional_dependencies: ["astor", "attrs", "black", "ruff"]
         files: ^src\/trio\/_core\/(_run|(_i(o_(common|epoll|kqueue|windows)|nstrumentation)))\.py$
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.5.21
+    rev: 0.5.24
     hooks:
       # Compile requirements
       - id: pip-compile
