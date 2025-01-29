@@ -315,9 +315,9 @@ author = "Nathaniel J. Smith"
 # built documents.
 #
 # The short X.Y version.
-import trio
+import importlib.metadata
 
-version = trio.__version__
+version = importlib.metadata.version("trio")
 # The full version, including alpha/beta/rc tags.
 release = version
 
