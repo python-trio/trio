@@ -31,8 +31,6 @@ if TYPE_CHECKING:
 
 # For our local_customization module
 sys.path.insert(0, os.path.abspath("."))
-# For trio itself
-sys.path.insert(0, os.path.abspath("../../src"))
 
 # Enable reloading with `typing.TYPE_CHECKING` being True
 os.environ["SPHINX_AUTODOC_RELOAD_MODULES"] = "1"
@@ -315,9 +313,9 @@ author = "Nathaniel J. Smith"
 # built documents.
 #
 # The short X.Y version.
-import trio
+import importlib.metadata
 
-version = trio.__version__
+version = importlib.metadata.version("trio")
 # The full version, including alpha/beta/rc tags.
 release = version
 
