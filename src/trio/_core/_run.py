@@ -2832,8 +2832,9 @@ def unrolled_run(
     except BaseException as exc:
         raise TrioInternalError("internal error in Trio - please file a bug!") from exc
     finally:
-        GLOBAL_RUN_CONTEXT.__dict__.clear()
         runner.close()
+        GLOBAL_RUN_CONTEXT.__dict__.clear()
+
         # Have to do this after runner.close() has disabled KI protection,
         # because otherwise there's a race where ki_pending could get set
         # after we check it.
@@ -2954,16 +2955,18 @@ async def checkpoint_if_cancelled() -> None:
 
 def in_trio_run() -> bool:
     """Check whether we are in a Trio run.
+    This returns `True` if and only if :func:`~trio.current_time` will succeed.
 
-    See also :ref:`the different types of contexts <trio_contexts>`.
+    See also the discussion of differing ways of :ref:`detecting Trio <trio_contexts>`.
     """
     return hasattr(GLOBAL_RUN_CONTEXT, "runner")
 
 
 def in_trio_task() -> bool:
     """Check whether we are in a Trio task.
+    This returns `True` if and only if :func:`~trio.lowlevel.current_task` will succeed.
 
-    See also :ref:`the different types of contexts <trio_contexts>`.
+    See also the discussion of differing ways of :ref:`detecting Trio <trio_contexts>`.
     """
     return hasattr(GLOBAL_RUN_CONTEXT, "task")
 

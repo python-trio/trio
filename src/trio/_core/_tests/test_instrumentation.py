@@ -275,17 +275,16 @@ def test_instrument_call_trio_context() -> None:
         pass
 
     hooks = {
-        # category 1
+        # not run in task context
         "after_io_wait": (True, False),
         "before_io_wait": (True, False),
         "before_run": (True, False),
-        # category 2
-        "after_run": (False, False),
-        # category 3
+        "after_run": (True, False),
+        # run in task context
         "before_task_step": (True, True),
         "after_task_step": (True, True),
         "task_exited": (True, True),
-        # category 4
+        # depends
         "task_scheduled": (True, None),
         "task_spawned": (True, None),
     }
