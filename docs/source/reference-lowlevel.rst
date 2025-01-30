@@ -70,7 +70,8 @@ This requires that you either be:
 
 * indirectly inside (and on the same thread as) a call to
   :func:`trio.run`, for run-level information such as the
-  :func:`~trio.current_time` or :func:`~trio.lowlevel.current_clock`.
+  :func:`~trio.current_time` or :func:`~trio.lowlevel.current_clock`;
+  or
 
 * indirectly inside a Trio task, for task-level information such as
   the :func:`~trio.lowlevel.current_task` or
