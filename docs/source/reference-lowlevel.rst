@@ -81,9 +81,9 @@ your needs.
 | inside an abort function        | `True`                            | `True`                             |
 +---------------------------------+-----------------------------------+------------------------------------+
 
-.. function:: in_trio_run
+.. autofunction:: in_trio_run
 
-.. function:: in_trio_task
+.. autofunction:: in_trio_task
 
 The current clock
 -----------------
