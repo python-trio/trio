@@ -295,12 +295,11 @@ def test_instrument_call_trio_context() -> None:
             self: Instrument,
             *args: object,
             hook: str = hook,
-            val: tuple[bool | None, bool | None] = val,
+            val: tuple[bool, bool | None] = val,
         ) -> None:
             fail_str = f"failed in {hook}"
 
-            if val[0] is not None:
-                assert _core.in_trio_run() == val[0], fail_str
+            assert _core.in_trio_run() == val[0], fail_str
             if val[1] is not None:
                 assert _core.in_trio_task() == val[1], fail_str
             called.add(hook)
