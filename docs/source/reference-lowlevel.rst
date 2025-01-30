@@ -56,6 +56,8 @@ Global statistics
 .. autoclass:: RunStatistics()
 
 
+.. _trio_contexts:
+
 The current Trio context
 ------------------------
 

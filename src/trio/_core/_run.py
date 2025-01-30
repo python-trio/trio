@@ -2953,10 +2953,18 @@ async def checkpoint_if_cancelled() -> None:
 
 
 def in_trio_run() -> bool:
+    """Check whether we are in a Trio run.
+
+    See also :ref:`the different types of contexts <trio_contexts>`.
+    """
     return hasattr(GLOBAL_RUN_CONTEXT, "runner")
 
 
 def in_trio_task() -> bool:
+    """Check whether we are in a Trio task.
+
+    See also :ref:`the different types of contexts <trio_contexts>`.
+    """
     return hasattr(GLOBAL_RUN_CONTEXT, "task")
 
 
