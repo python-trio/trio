@@ -2283,7 +2283,7 @@ def setup_runner(
     # It wouldn't be *hard* to support nested calls to run(), but I can't
     # think of a single good reason for it, so let's be conservative for
     # now:
-    if hasattr(GLOBAL_RUN_CONTEXT, "runner"):
+    if in_trio_run():
         raise RuntimeError("Attempted to call run() from inside a run()")
 
     if clock is None:
@@ -2950,6 +2950,14 @@ async def checkpoint_if_cancelled() -> None:
         await _core.checkpoint()
         raise AssertionError("this should never happen")  # pragma: no cover
     task._cancel_points += 1
+
+
+def in_trio_run() -> bool:
+    return hasattr(GLOBAL_RUN_CONTEXT, "runner")
+
+
+def in_trio_task() -> bool:
+    return hasattr(GLOBAL_RUN_CONTEXT, "task")
 
 
 if sys.platform == "win32":

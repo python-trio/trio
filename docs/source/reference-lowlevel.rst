@@ -56,6 +56,33 @@ Global statistics
 .. autoclass:: RunStatistics()
 
 
+The current Trio context
+------------------------
+
+There are two different types of contexts in :mod:`trio`. Here are the
+semantics presented as a handy table. Choose the right function for
+your needs.
+
++---------------------------------+-----------------------------------+------------------------------------+
+| situation                       | :func:`trio.lowlevel.in_trio_run` | :func:`trio.lowlevel.in_trio_task` |
++=================================+===================================+====================================+
+| inside a running async function | `True`                            | `True`                             |
++---------------------------------+-----------------------------------+------------------------------------+
+| without a running Trio loop     | `False`                           | `False`                            |
++---------------------------------+-----------------------------------+------------------------------------+
+| in a guest run's host loop      | `True`                            | `False`                            |
++---------------------------------+-----------------------------------+------------------------------------+
+| inside an instrument call       | depends                           | depends                            |
++---------------------------------+-----------------------------------+------------------------------------+
+| :func:`trio.to_thread.run_sync` | `False`                           | `False`                            |
++---------------------------------+-----------------------------------+------------------------------------+
+| inside an abort function        | `True`                            | `True`                             |
++---------------------------------+-----------------------------------+------------------------------------+
+
+.. function:: in_trio_run
+
+.. function:: in_trio_task
+
 The current clock
 -----------------
 

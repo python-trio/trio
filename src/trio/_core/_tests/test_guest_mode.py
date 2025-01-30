@@ -264,6 +264,26 @@ def test_guest_mode_sniffio_integration() -> None:
         sniffio_library.name = None
 
 
+def test_guest_mode_trio_context_detection() -> None:
+    def check(thing: bool) -> None:
+        assert thing
+
+    assert not trio.lowlevel.in_trio_run()
+    assert not trio.lowlevel.in_trio_task()
+
+    async def trio_main(in_host: InHost) -> None:
+        for _ in range(2):
+            assert trio.lowlevel.in_trio_run()
+            assert trio.lowlevel.in_trio_task()
+
+            in_host(lambda: check(trio.lowlevel.in_trio_run()))
+            in_host(lambda: check(not trio.lowlevel.in_trio_task()))
+
+    trivial_guest_run(trio_main)
+    assert not trio.lowlevel.in_trio_run()
+    assert not trio.lowlevel.in_trio_task()
+
+
 def test_warn_set_wakeup_fd_overwrite() -> None:
     assert signal.set_wakeup_fd(-1) == -1
 
