@@ -2855,3 +2855,34 @@ def test_context_run_tb_frames() -> None:
 
     with mock.patch("trio._core._run.copy_context", return_value=Context()):
         assert _count_context_run_tb_frames() == 1
+
+
+@restore_unraisablehook()
+def test_trio_context_detection() -> None:
+    assert not _core.in_trio_run()
+    assert not _core.in_trio_task()
+
+    def inner() -> None:
+        assert _core.in_trio_run()
+        assert _core.in_trio_task()
+
+    def sync_inner() -> None:
+        assert not _core.in_trio_run()
+        assert not _core.in_trio_task()
+
+    def inner_abort(_: object) -> _core.Abort:
+        assert _core.in_trio_run()
+        assert _core.in_trio_task()
+        return _core.Abort.SUCCEEDED
+
+    async def main() -> None:
+        assert _core.in_trio_run()
+        assert _core.in_trio_task()
+
+        inner()
+
+        await to_thread_run_sync(sync_inner)
+        with _core.CancelScope(deadline=_core.current_time() - 1):
+            await _core.wait_task_rescheduled(inner_abort)
+
+    _core.run(main)
