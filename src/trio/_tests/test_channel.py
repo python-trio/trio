@@ -1,13 +1,16 @@
 from __future__ import annotations
 
-from typing import Union
+from typing import TYPE_CHECKING, Union
 
 import pytest
 
 import trio
-from trio import EndOfChannel, open_memory_channel
+from trio import EndOfChannel, background_with_channel, open_memory_channel
 
-from ..testing import assert_checkpoints, wait_all_tasks_blocked
+from ..testing import RaisesGroup, assert_checkpoints, wait_all_tasks_blocked
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
 
 
 async def test_channel() -> None:
@@ -411,3 +414,78 @@ async def test_unbuffered() -> None:
             assert await r.receive() == 1
     with pytest.raises(trio.WouldBlock):
         r.receive_nowait()
+
+
+async def test_background_with_channel() -> None:
+    @background_with_channel()
+    async def agen() -> AsyncGenerator[int]:
+        yield 1
+        await trio.sleep_forever()  # simulate deadlock
+        yield 2
+
+    async with agen() as recv_chan:
+        async for x in recv_chan:
+            assert x == 1
+            break  # exit, cleanup should be quick
+    # comment `nursery.cancel_scope.cancel()` and it hangs
+
+
+async def test_background_with_channel_exhaust() -> None:
+    @background_with_channel()
+    async def agen() -> AsyncGenerator[int]:
+        yield 1
+
+    async with agen() as recv_chan:
+        async for x in recv_chan:
+            assert x == 1
+
+
+async def test_background_with_channel_broken_resource() -> None:
+    @background_with_channel()
+    async def agen() -> AsyncGenerator[int]:
+        yield 1
+        yield 2
+
+    async with agen() as recv_chan:
+        assert await recv_chan.__anext__() == 1
+
+        # close the receiving channel
+        await recv_chan.aclose()
+
+        # trying to get the next element errors
+        with pytest.raises(trio.ClosedResourceError):
+            await recv_chan.__anext__()
+
+        # but we don't get an error on exit of the cm
+
+
+async def test_background_with_channel_cancelled() -> None:
+    with trio.CancelScope() as cs:
+
+        @background_with_channel()
+        async def agen() -> AsyncGenerator[int]:
+            yield 1
+            yield 1
+
+        async with agen():
+            cs.cancel()
+
+
+async def test_background_with_channel_waitwhat() -> None:
+    @background_with_channel()
+    async def agen() -> AsyncGenerator[int]:
+        yield 1
+        # this exception sometimes disappear, and I don't know why
+        # gc? trio randomness?
+        # idk if it's gonna show up in CI, but I have like a 50% shot of failing
+        # when running the test case by itself
+        raise ValueError("oae")
+
+    with RaisesGroup(ValueError):
+        async with agen() as recv_chan:
+            async for x in recv_chan:
+                assert x == 1
+
+
+# TODO: I'm also failing to figure out how to test max_buffer_size
+# and/or what changing it even achieves

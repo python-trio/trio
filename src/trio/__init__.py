@@ -28,6 +28,7 @@ from ._channel import (
     MemoryChannelStatistics as MemoryChannelStatistics,
     MemoryReceiveChannel as MemoryReceiveChannel,
     MemorySendChannel as MemorySendChannel,
+    background_with_channel as background_with_channel,
     open_memory_channel as open_memory_channel,
 )
 from ._core import (

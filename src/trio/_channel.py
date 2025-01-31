@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import sys
 from collections import OrderedDict, deque
-from collections.abc import AsyncGenerator, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from functools import wraps
 from math import inf
 from typing import (
     TYPE_CHECKING,
     Generic,
+    Protocol,
+    TypeVar,
 )
 
 import attrs
@@ -20,24 +22,30 @@ from ._core import Abort, RaiseCancelT, Task, enable_ki_protection
 from ._util import NoPublicConstructor, final, generic_function
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator, Awaitable, Callable
     from types import TracebackType
 
     from typing_extensions import ParamSpec, Self
 
     P = ParamSpec("P")
 
-try:
+if sys.version_info >= (3, 10):
     from contextlib import aclosing  # new in Python 3.10
-except ImportError:
+else:
 
-    class aclosing:
-        def __init__(self, aiter):
-            self._aiter = aiter
+    class _SupportsAclose(Protocol):
+        def aclose(self) -> Awaitable[object]: ...
 
-        async def __aenter__(self):
+    _SupportsAcloseT = TypeVar("_SupportsAcloseT", bound=_SupportsAclose)
+
+    class aclosing(AbstractAsyncContextManager[_SupportsAcloseT, None]):
+        def __init__(self, thing: _SupportsAcloseT) -> None:
+            self._aiter = thing
+
+        async def __aenter__(self) -> _SupportsAcloseT:
             return self._aiter
 
-        async def __aexit__(self, *args):
+        async def __aexit__(self, *exc_info: object) -> None:
             await self._aiter.aclose()
 
 
@@ -471,14 +479,14 @@ def background_with_channel(max_buffer_size: float = 0) -> Callable[
 
     The `yield` keyword offers a very convenient way to write iterators...
     which makes it really unfortunate that async generators are so difficult
-    to call correctly.  Yielding from the inside of a cancel scope or a nursery 
+    to call correctly.  Yielding from the inside of a cancel scope or a nursery
     to the outside `violates structured concurrency <https://xkcd.com/292/>`_
-    with consequences explainined in :pep:`789`.  Even then, resource cleanup 
+    with consequences explained in :pep:`789`.  Even then, resource cleanup
     errors remain common (:pep:`533`) unless you wrap every call in
     :func:`~contextlib.aclosing`.
 
     This decorator gives you the best of both worlds: with careful exception
-    handling and a background task we preserve structured concurrency by 
+    handling and a background task we preserve structured concurrency by
     offering only the safe interface, and you can still write your iterables
     with the convenience of `yield`.  For example:
 
@@ -493,7 +501,7 @@ def background_with_channel(max_buffer_size: float = 0) -> Callable[
                 ...
 
     While the combined async-with-async-for can be inconvenient at first,
-    the context manager is indispensible for both correctness and for prompt
+    the context manager is indispensable for both correctness and for prompt
     cleanup of resources.
     """
     # Perhaps a future PEP will adopt `async with for` syntax, like
@@ -545,6 +553,7 @@ def background_with_channel(max_buffer_size: float = 0) -> Callable[
                     except trio.Cancelled:
                         raise
                     except BaseException as error_from_send:
+                        # TODO: add test case ... but idk how
                         # Forward any other errors to the generator.  Exit cleanly
                         # if exhausted; otherwise it was handled in there and we
                         # can continue the inner loop with this value.
