@@ -70,7 +70,6 @@ from ._traps import (
     temporarily_detach_coroutine_object,
     wait_task_rescheduled,
 )
-from ._unbounded_queue import UnboundedQueue, UnboundedQueueStatistics
 
 # Windows imports
 if sys.platform == "win32":
