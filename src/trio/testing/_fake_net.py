@@ -155,7 +155,7 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
             SocketKind,
             int,
             str,
-            tuple[str, int] | tuple[str, int, int, int],
+            tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes],
         ]
     ]:
         raise NotImplementedError("FakeNet doesn't do fake DNS yet")

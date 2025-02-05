@@ -182,7 +182,7 @@ async def getaddrinfo(
         SocketKind,
         int,
         str,
-        tuple[str, int] | tuple[str, int, int, int],
+        tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes],
     ]
 ]:
     """Look up a numeric address given a name.

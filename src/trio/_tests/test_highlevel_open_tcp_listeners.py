@@ -255,7 +255,7 @@ class FakeHostnameResolver(HostnameResolver):
             SocketKind,
             int,
             str,
-            tuple[str, int] | tuple[str, int, int, int],
+            tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes],
         ]
     ]:
         assert isinstance(port, int)
