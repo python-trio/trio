@@ -200,6 +200,8 @@ def test_raise_in_deliver(capfd: pytest.CaptureFixture[str]) -> None:
 
 @pytest.mark.skipif(not hasattr(os, "fork"), reason="os.fork isn't supported")
 def test_clear_thread_cache_after_fork() -> None:
+    assert hasattr(os, "fork")
+
     def foo() -> None:
         pass
 
@@ -217,4 +219,4 @@ def test_clear_thread_cache_after_fork() -> None:
 
     if child_pid != 0:
         # if this test fails, this will hang, triggering a timeout.
-        os.wait4(child_pid, 0)
+        os.waitpid(child_pid, 0)
