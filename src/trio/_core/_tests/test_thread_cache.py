@@ -221,14 +221,22 @@ def test_clear_thread_cache_after_fork() -> None:
         # if this test fails, this will hang, triggering a timeout.
         os.waitpid(child_pid, 0)
     else:
+        # this is necessary because os._exit doesn't unwind the stack,
+        # so coverage doesn't get to automatically stop and save
+        # coverage information.
         try:
             import coverage
 
             cov = coverage.Coverage.current()
+            # the following pragmas are necessary because if coverage:
+            #  - isn't running, then it can't record the branch not
+            #    taken
+            #  - isn't installed, then it can't record the ImportError
+
             if cov:  # pragma: no branch
                 cov.stop()
                 cov.save()
         except ImportError:  # pragma: no cover
             pass
 
-        os._exit(0)  # pragma: no cover
+        os._exit(0)  # pragma: no cover  # coverage was stopped above.
