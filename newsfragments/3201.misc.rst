@@ -1,0 +1,5 @@
+The typing of :func:`trio.abc.HostnameResolver.getaddrinfo` has been corrected to
+match that of the stdlib `socket.getaddrinfo`, which was updated in mypy 1.15 (via
+a typeshed update) to include the possibility of ``tuple[int, bytes]`` for the
+``sockaddr`` field of the result. This happens in situations where Python was compiled
+with ``--disable-ipv6``.
