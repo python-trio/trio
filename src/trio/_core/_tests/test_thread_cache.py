@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import threading
 import time
 from contextlib import contextmanager
@@ -195,3 +196,25 @@ def test_raise_in_deliver(capfd: pytest.CaptureFixture[str]) -> None:
     err = capfd.readouterr().err
     assert "don't do this" in err
     assert "delivering result" in err
+
+
+@pytest.mark.skipif(not hasattr(os, "fork"), reason="os.fork isn't supported")
+def test_clear_thread_cache_after_fork() -> None:
+    def foo() -> None:
+        pass
+
+    # ensure the thread cache exists
+    done = threading.Event()
+    start_thread_soon(foo, lambda _: done.set())
+    done.wait()
+
+    child_pid = os.fork()
+
+    # try using it
+    done = threading.Event()
+    start_thread_soon(foo, lambda _: done.set())
+    done.wait()
+
+    if child_pid != 0:
+        # if this test fails, this will hang, triggering a timeout.
+        os.wait4(child_pid, 0)
