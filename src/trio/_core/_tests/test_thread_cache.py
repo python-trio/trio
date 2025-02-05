@@ -225,10 +225,10 @@ def test_clear_thread_cache_after_fork() -> None:
             import coverage
 
             cov = coverage.Coverage.current()
-            if cov:
+            if cov:  # pragma: no branch
                 cov.stop()
                 cov.save()
-        except ImportError:
+        except ImportError:  # pragma: no cover
             pass
 
-        os._exit(0)
+        os._exit(0)  # pragma: no cover
