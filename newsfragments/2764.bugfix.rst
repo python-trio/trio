@@ -1,0 +1,1 @@
+Clear Trio's cache of worker threads upon `os.fork`.
