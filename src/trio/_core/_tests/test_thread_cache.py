@@ -221,4 +221,14 @@ def test_clear_thread_cache_after_fork() -> None:
         # if this test fails, this will hang, triggering a timeout.
         os.waitpid(child_pid, 0)
     else:
+        try:
+            import coverage
+
+            cov = coverage.Coverage.current()
+            if cov:
+                cov.stop()
+                cov.save()
+        except ImportError:
+            pass
+
         os._exit(0)
