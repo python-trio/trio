@@ -220,3 +220,5 @@ def test_clear_thread_cache_after_fork() -> None:
     if child_pid != 0:
         # if this test fails, this will hang, triggering a timeout.
         os.waitpid(child_pid, 0)
+    else:
+        os._exit(0)
