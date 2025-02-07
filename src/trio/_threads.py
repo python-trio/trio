@@ -253,7 +253,7 @@ class RunSync(Generic[RetT]):  # type: ignore[explicit-any]
         token.run_sync_soon(self.run_sync)
 
 
-@enable_ki_protection  # Decorator used on function with Coroutine[Any, Any, RetT]
+@enable_ki_protection
 async def to_thread_run_sync(
     sync_fn: Callable[[Unpack[Ts]], RetT],
     *args: Unpack[Ts],

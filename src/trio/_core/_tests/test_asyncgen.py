@@ -5,14 +5,12 @@ import sys
 import weakref
 from math import inf
 from types import AsyncGeneratorType
-from typing import TYPE_CHECKING, NoReturn, TypeAlias, cast
+from typing import TYPE_CHECKING, NoReturn
 
 import pytest
 
 from ... import _core
 from .tutil import gc_collect_harder, restore_unraisablehook
-
-AGT: TypeAlias = AsyncGeneratorType[int, None]
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -71,26 +69,27 @@ def test_asyncgen_basics() -> None:
         # No problems saving the geniter when using either of these patterns
         aiter_ = example("exhausted 3")
         try:
-            saved.append(cast("AGT", aiter_))
+            saved.append(aiter_)
             assert await aiter_.asend(None) == 42
         finally:
             await aiter_.aclose()
         assert collected.pop() == "exhausted 3"
 
         # Also fine if you exhaust it at point of use
-        saved.append(cast("AGT", example("exhausted 4")))
+        saved.append(example("exhausted 4"))
         async for val in saved[-1]:
             assert val == 42
         assert collected.pop() == "exhausted 4"
 
         # Leave one referenced-but-unexhausted and make sure it gets cleaned up
-        saved.append(cast("AGT", example("outlived run")))
+        saved.append(example("outlived run"))
         assert await saved[-1].asend(None) == 42
         assert collected == []
 
     _core.run(async_main)
     assert collected.pop() == "outlived run"
     for agen in saved:
+        assert isinstance(agen, AsyncGeneratorType)
         assert agen.ag_frame is None  # all should now be exhausted
 
 
