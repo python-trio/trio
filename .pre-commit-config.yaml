@@ -34,6 +34,8 @@ repos:
     rev: v2.4.1
     hooks:
       - id: codespell
+        additional_dependencies:
+          - tomli
   - repo: https://github.com/crate-ci/typos
     rev: typos-dict-v0.12.4
     hooks:

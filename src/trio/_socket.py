@@ -46,8 +46,7 @@ T = TypeVar("T")
 # most users, so currently we just specify it as `Any`. Otherwise we would write:
 # `AddressFormat = TypeVar("AddressFormat")`
 # but instead we simply do:
-# Explicit "Any" is not allowed
-AddressFormat: TypeAlias = Any  # type: ignore[misc]
+AddressFormat: TypeAlias = Any  # type: ignore[explicit-any]
 
 
 # Usage:

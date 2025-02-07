@@ -4,12 +4,15 @@ import contextlib
 import sys
 import weakref
 from math import inf
-from typing import TYPE_CHECKING, NoReturn
+from types import AsyncGeneratorType
+from typing import TYPE_CHECKING, NoReturn, TypeAlias, cast
 
 import pytest
 
 from ... import _core
 from .tutil import gc_collect_harder, restore_unraisablehook
+
+AGT: TypeAlias = AsyncGeneratorType[int, None]
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -68,20 +71,20 @@ def test_asyncgen_basics() -> None:
         # No problems saving the geniter when using either of these patterns
         aiter_ = example("exhausted 3")
         try:
-            saved.append(aiter_)
+            saved.append(cast("AGT", aiter_))
             assert await aiter_.asend(None) == 42
         finally:
             await aiter_.aclose()
         assert collected.pop() == "exhausted 3"
 
         # Also fine if you exhaust it at point of use
-        saved.append(example("exhausted 4"))
+        saved.append(cast("AGT", example("exhausted 4")))
         async for val in saved[-1]:
             assert val == 42
         assert collected.pop() == "exhausted 4"
 
         # Leave one referenced-but-unexhausted and make sure it gets cleaned up
-        saved.append(example("outlived run"))
+        saved.append(cast("AGT", example("outlived run")))
         assert await saved[-1].asend(None) == 42
         assert collected == []
 
@@ -301,9 +304,11 @@ def test_delegation_to_existing_hooks() -> None:
     record = []
 
     def my_firstiter(agen: AsyncGenerator[object, NoReturn]) -> None:
+        assert isinstance(agen, AsyncGeneratorType)
         record.append("firstiter " + agen.ag_frame.f_locals["arg"])
 
     def my_finalizer(agen: AsyncGenerator[object, NoReturn]) -> None:
+        assert isinstance(agen, AsyncGeneratorType)
         record.append("finalizer " + agen.ag_frame.f_locals["arg"])
 
     async def example(arg: str) -> AsyncGenerator[int, None]:

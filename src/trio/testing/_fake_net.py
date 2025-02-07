@@ -507,8 +507,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         __address: tuple[object, ...] | str | Buffer | None,
     ) -> int: ...
 
-    # Explicit "Any" is not allowed
-    async def sendto(  # type: ignore[misc]
+    async def sendto(  # type: ignore[explicit-any]
         self,
         *args: Any,
     ) -> int:
