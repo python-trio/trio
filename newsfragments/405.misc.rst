@@ -1,0 +1,1 @@
+Stop using ctypes to mutate tracebacks for ``strict_exception_groups=False``'s exception collapsing.
