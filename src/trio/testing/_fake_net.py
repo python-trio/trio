@@ -82,9 +82,6 @@ def _scatter(data: bytes, buffers: Iterable[Buffer]) -> int:
     return written
 
 
-T_UDPEndpoint = TypeVar("T_UDPEndpoint", bound="UDPEndpoint")
-
-
 @attrs.frozen
 class UDPEndpoint:
     ip: IPAddress
@@ -101,9 +98,9 @@ class UDPEndpoint:
 
     @classmethod
     def from_python_sockaddr(
-        cls: type[T_UDPEndpoint],
+        cls,
         sockaddr: tuple[str, int] | tuple[str, int, int, int],
-    ) -> T_UDPEndpoint:
+    ) -> UDPEndpoint:
         ip, port = sockaddr[:2]
         return cls(ip=ipaddress.ip_address(ip), port=port)
 
