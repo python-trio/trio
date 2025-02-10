@@ -18,7 +18,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     NoReturn,
-    TypeVar,
     Union,
     overload,
 )
