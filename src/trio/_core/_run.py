@@ -7,7 +7,6 @@ import itertools
 import random
 import select
 import sys
-import types
 import warnings
 from collections import deque
 from contextlib import AbstractAsyncContextManager, contextmanager, suppress
@@ -58,6 +57,7 @@ if sys.version_info < (3, 11):
 
 if TYPE_CHECKING:
     import contextvars
+    import types
     from collections.abc import (
         Awaitable,
         Callable,
@@ -1886,8 +1886,7 @@ class Runner:  # type: ignore[explicit-any]
                 return await orig_coro
 
             coro = python_wrapper(coro)
-        assert isinstance(coro, types.CoroutineType)
-        assert coro.cr_frame is not None, "Coroutine frame should exist"
+        assert coro.cr_frame is not None, "Coroutine frame should exist"  # type: ignore[attr-defined]
 
         ######
         # Set up the Task object
