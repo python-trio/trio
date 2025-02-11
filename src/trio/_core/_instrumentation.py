@@ -10,17 +10,14 @@ from .._abc import Instrument
 INSTRUMENT_LOGGER = logging.getLogger("trio.abc.Instrument")
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Sequence
 
-    from typing_extensions import ParamSpec
-
-    P = ParamSpec("P")
     T = TypeVar("T")
 
 
 # Decorator to mark methods public. This does nothing by itself, but
 # trio/_tools/gen_exports.py looks for it.
-def _public(fn: Callable[P, T]) -> Callable[P, T]:
+def _public(fn: T) -> T:
     return fn
 
 
