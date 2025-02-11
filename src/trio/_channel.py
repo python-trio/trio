@@ -519,7 +519,7 @@ def background_with_channel(max_buffer_size: float = 0) -> Callable[
             async with trio.open_nursery() as nursery:
                 ait = fn(*args, **kwargs)
                 nursery.start_soon(_move_elems_to_channel, ait, send_chan)
-                async with recv_chan:
+                async with send_chan, recv_chan:  # keep the channel open
                     yield recv_chan
                 # Return promptly, without waiting for `await anext(ait)`
                 nursery.cancel_scope.cancel()
@@ -530,7 +530,7 @@ def background_with_channel(max_buffer_size: float = 0) -> Callable[
         aiterable: AsyncGenerator[T, None],
         send_chan: trio.MemorySendChannel[T],
     ) -> None:
-        async with send_chan, aclosing(aiterable) as agen:
+        async with aclosing(aiterable) as agen:
             # Outer loop manually advances the aiterable; we can't use async-for because
             # we're going to use `.asend(err)` to forward errors back to the generator.
             while True:
