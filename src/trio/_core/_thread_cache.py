@@ -215,8 +215,7 @@ class ThreadCache:
     __slots__ = ("_idle_workers",)
 
     def __init__(self) -> None:
-        # Explicit "Any" not allowed
-        self._idle_workers: dict[WorkerThread[Any], None] = {}  # type: ignore[misc]
+        self._idle_workers: dict[WorkerThread[Any], None] = {}  # type: ignore[explicit-any]
 
     def start_thread_soon(
         self,

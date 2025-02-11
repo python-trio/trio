@@ -25,8 +25,7 @@ LOGGER = logging.getLogger("trio.serve_listeners")
 
 
 StreamT = TypeVar("StreamT", bound=trio.abc.AsyncResource)
-# Explicit "Any" is not allowed
-ListenerT = TypeVar("ListenerT", bound=trio.abc.Listener[Any])  # type: ignore[misc]
+ListenerT = TypeVar("ListenerT", bound=trio.abc.Listener[Any])  # type: ignore[explicit-any]
 Handler = Callable[[StreamT], Awaitable[object]]
 
 
@@ -68,8 +67,7 @@ async def _serve_one_listener(
 # https://github.com/python/typing/issues/548
 
 
-# Explicit "Any" is not allowed
-async def serve_listeners(  # type: ignore[misc]
+async def serve_listeners(  # type: ignore[explicit-any]
     handler: Handler[StreamT],
     listeners: list[ListenerT],
     *,

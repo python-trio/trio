@@ -8,7 +8,7 @@ import trio
 from trio.socket import SOCK_STREAM, SocketType, getaddrinfo, socket
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Generator, MutableSequence
     from socket import AddressFamily, SocketKind
 
     from trio._socket import AddressFormat
@@ -134,9 +134,8 @@ def close_all() -> Generator[set[SocketType], None, None]:
             raise BaseExceptionGroup("", errs)
 
 
-# Explicit "Any" is not allowed
-def reorder_for_rfc_6555_section_5_4(  # type: ignore[misc]
-    targets: list[tuple[AddressFamily, SocketKind, int, str, Any]],
+def reorder_for_rfc_6555_section_5_4(  # type: ignore[explicit-any]
+    targets: MutableSequence[tuple[AddressFamily, SocketKind, int, str, Any]],
 ) -> None:
     # RFC 6555 section 5.4 says that if getaddrinfo returns multiple address
     # families (e.g. IPv4 and IPv6), then you should make sure that your first

@@ -151,7 +151,7 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
             SocketKind,
             int,
             str,
-            tuple[str, int] | tuple[str, int, int, int],
+            tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes],
         ]
     ]:
         raise NotImplementedError("FakeNet doesn't do fake DNS yet")
@@ -503,8 +503,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         __address: tuple[object, ...] | str | Buffer | None,
     ) -> int: ...
 
-    # Explicit "Any" is not allowed
-    async def sendto(  # type: ignore[misc]
+    async def sendto(  # type: ignore[explicit-any]
         self,
         *args: Any,
     ) -> int:
