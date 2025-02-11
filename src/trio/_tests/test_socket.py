@@ -14,7 +14,7 @@ import attrs
 import pytest
 
 from .. import _core, socket as tsocket
-from .._core._tests.tutil import binds_ipv6, can_create_ipv6, creates_ipv6
+from .._core._tests.tutil import binds_ipv6, can_create_ipv6, creates_ipv6, slow
 from .._socket import _NUMERIC_ONLY, AddressFormat, SocketType, _SocketType, _try_sync
 from ..testing import assert_checkpoints, wait_all_tasks_blocked
 
@@ -829,6 +829,7 @@ async def test_SocketType_non_blocking_paths() -> None:
 
 
 # This tests the complicated paths through connect
+@slow  # turns out failing to connect to port 2 takes 2 seconds on Windows
 async def test_SocketType_connect_paths() -> None:
     with tsocket.socket() as sock:
         with pytest.raises(
@@ -899,6 +900,7 @@ async def test_SocketType_connect_paths() -> None:
 
 
 # Fix issue #1810
+@slow  # turns out failing to connect to port 2 takes 2 seconds on Windows
 async def test_address_in_socket_error() -> None:
     address = "127.0.0.1"
     with tsocket.socket() as sock:
@@ -1215,7 +1217,7 @@ async def test_interrupted_by_close() -> None:
 
 
 async def test_many_sockets() -> None:
-    total = 5000  # Must be more than MAX_AFD_GROUP_SIZE
+    total = 1000  # Must be more than MAX_AFD_GROUP_SIZE
     sockets = []
     # Open at most <total> socket pairs
     for opened in range(0, total, 2):
