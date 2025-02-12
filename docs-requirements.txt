@@ -8,7 +8,7 @@ attrs==25.1.0
     #   outcome
 babel==2.17.0
     # via sphinx
-beautifulsoup4==4.13.3
+beautifulsoup4==4.12.3
     # via sphinx-codeautolink
 certifi==2025.1.31
     # via requests
@@ -102,7 +102,5 @@ sphinxcontrib-trio==1.1.2
     # via -r docs-requirements.in
 towncrier==24.8.0
     # via -r docs-requirements.in
-typing-extensions==4.12.2
-    # via beautifulsoup4
 urllib3==2.3.0
     # via requests
