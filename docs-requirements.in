@@ -23,5 +23,5 @@ exceptiongroup >= 1.0.0rc9
 immutables >= 0.6
 
 # types used in annotations
-# TODO: for some reason bumping this fails docs build
+# TODO: fix support for importing typing-extensions
 pyOpenSSL < 25.0.0
