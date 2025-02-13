@@ -469,7 +469,7 @@ class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstr
         await trio.lowlevel.checkpoint()
 
 
-def background_with_channel(max_buffer_size: float = 1) -> Callable[
+def background_with_channel(max_buffer_size: float = 0) -> Callable[
     [
         Callable[P, AsyncGenerator[T, None]],
     ],

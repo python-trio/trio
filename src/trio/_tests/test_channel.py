@@ -421,7 +421,6 @@ async def test_background_with_channel() -> None:
     async def agen() -> AsyncGenerator[int]:
         yield 1
         await trio.sleep_forever()  # simulate deadlock
-        yield 2
 
     async with agen() as recv_chan:
         async for x in recv_chan:
@@ -493,8 +492,7 @@ async def test_background_with_channel_buffer_size_too_small(
         yield 2
         raise AssertionError(
             "buffer size 0 means we shouldn't be asked for another value"
-        )
-        await trio.sleep_forever()
+        )  # pragma: no cover
 
     with trio.move_on_after(5):
         async with agen() as recv_chan:
