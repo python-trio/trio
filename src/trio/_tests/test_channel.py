@@ -427,7 +427,6 @@ async def test_background_with_channel() -> None:
         async for x in recv_chan:
             assert x == 1
             break  # exit, cleanup should be quick
-    # comment `nursery.cancel_scope.cancel()` and it hangs
 
 
 async def test_background_with_channel_exhaust() -> None:
@@ -471,14 +470,12 @@ async def test_background_with_channel_cancelled() -> None:
             cs.cancel()
 
 
-async def test_background_with_channel_waitwhat() -> None:
+async def test_background_with_channel_no_race() -> None:
+    # this previously led to a race condition due to
+    # https://github.com/python-trio/trio/issues/1559
     @background_with_channel()
     async def agen() -> AsyncGenerator[int]:
         yield 1
-        # this exception sometimes disappear, and I don't know why
-        # gc? trio randomness?
-        # idk if it's gonna show up in CI, but I have like a 50% shot of failing
-        # when running the test case by itself
         raise ValueError("oae")
 
     with RaisesGroup(ValueError):
@@ -487,5 +484,39 @@ async def test_background_with_channel_waitwhat() -> None:
                 assert x == 1
 
 
-# TODO: I'm also failing to figure out how to test max_buffer_size
-# and/or what changing it even achieves
+async def test_background_with_channel_buffer_size_too_small(
+    autojump_clock: trio.testing.MockClock,
+) -> None:
+    @background_with_channel(0)
+    async def agen() -> AsyncGenerator[int]:
+        yield 1
+        yield 2
+        raise AssertionError(
+            "buffer size 0 means we shouldn't be asked for another value"
+        )
+        await trio.sleep_forever()
+
+    with trio.move_on_after(5):
+        async with agen() as recv_chan:
+            async for x in recv_chan:
+                assert x == 1
+                await trio.sleep_forever()
+
+
+async def test_background_with_channel_buffer_size_just_right(
+    autojump_clock: trio.testing.MockClock,
+) -> None:
+    event = trio.Event()
+
+    @background_with_channel(2)
+    async def agen() -> AsyncGenerator[int]:
+        yield 1
+        yield 2
+        event.set()
+
+    async with agen() as recv_chan:
+        await event.wait()
+        assert await recv_chan.__anext__() == 1
+        assert await recv_chan.__anext__() == 2
+        with pytest.raises(StopAsyncIteration):
+            await recv_chan.__anext__()

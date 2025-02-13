@@ -469,7 +469,7 @@ class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstr
         await trio.lowlevel.checkpoint()
 
 
-def background_with_channel(max_buffer_size: float = 0) -> Callable[
+def background_with_channel(max_buffer_size: float = 1) -> Callable[
     [
         Callable[P, AsyncGenerator[T, None]],
     ],
@@ -518,8 +518,10 @@ def background_with_channel(max_buffer_size: float = 0) -> Callable[
             send_chan, recv_chan = trio.open_memory_channel[T](max_buffer_size)
             async with trio.open_nursery() as nursery:
                 ait = fn(*args, **kwargs)
-                nursery.start_soon(_move_elems_to_channel, ait, send_chan)
-                async with send_chan, recv_chan:  # keep the channel open
+                # nursery.start to make sure that we will clean up send_chan & ait
+                await nursery.start(_move_elems_to_channel, ait, send_chan)
+                # async with recv_chan could eat exceptions, so use sync cm
+                with recv_chan:
                     yield recv_chan
                 # Return promptly, without waiting for `await anext(ait)`
                 nursery.cancel_scope.cancel()
@@ -529,38 +531,24 @@ def background_with_channel(max_buffer_size: float = 0) -> Callable[
     async def _move_elems_to_channel(
         aiterable: AsyncGenerator[T, None],
         send_chan: trio.MemorySendChannel[T],
+        task_status: trio.TaskStatus,
     ) -> None:
-        async with aclosing(aiterable) as agen:
-            # Outer loop manually advances the aiterable; we can't use async-for because
-            # we're going to use `.asend(err)` to forward errors back to the generator.
-            while True:
-                # Get the next value from `agen`; return if exhausted
-                try:
-                    value: T = await agen.__anext__()
-                except StopAsyncIteration:
-                    return
-                # Inner loop ensures that we send values which are yielded after
-                # catching an exception which we sent back to the generator.
-                while True:
+        # `async with send_chan` will eat exceptions,
+        # see https://github.com/python-trio/trio/issues/1559
+        with send_chan:
+            async with aclosing(aiterable) as agen:
+                task_status.started()
+                # Outer loop manually advances the aiterable; we can't use async-for because
+                # we're going to use `.asend(err)` to forward errors back to the generator.
+                async for value in agen:
+                    # Get the next value from `agen`; return if exhausted
                     try:
                         # Send the value to the channel
                         await send_chan.send(value)
-                        break
                     except trio.BrokenResourceError:
                         # Closing the corresponding receive channel should cause
                         # a clean shutdown of the generator.
                         return
-                    except trio.Cancelled:
-                        raise
-                    except BaseException as error_from_send:
-                        # TODO: add test case ... but idk how
-                        # Forward any other errors to the generator.  Exit cleanly
-                        # if exhausted; otherwise it was handled in there and we
-                        # can continue the inner loop with this value.
-                        try:
-                            value = await agen.athrow(error_from_send)
-                        except StopAsyncIteration:
-                            return
         # Phew.  Context managers all cleaned up, we're done here.
 
     return decorator
