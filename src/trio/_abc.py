@@ -178,7 +178,7 @@ class HostnameResolver(ABC):
             socket.SocketKind,
             int,
             str,
-            tuple[str, int] | tuple[str, int, int, int],
+            tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes],
         ]
     ]:
         """A custom implementation of :func:`~trio.socket.getaddrinfo`.

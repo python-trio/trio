@@ -21,7 +21,7 @@ from sniffio import thread_local as sniffio_loop
 import trio
 
 # Explicit "Any" is not allowed
-CallT = TypeVar("CallT", bound=Callable[..., Any])  # type: ignore[misc]
+CallT = TypeVar("CallT", bound=Callable[..., Any])  # type: ignore[explicit-any]
 T = TypeVar("T")
 RetT = TypeVar("RetT")
 
@@ -177,16 +177,14 @@ class ConflictDetector:
         self._held = False
 
 
-# Explicit "Any" is not allowed
-def async_wraps(  # type: ignore[misc]
+def async_wraps(  # type: ignore[explicit-any]
     cls: type[object],
     wrapped_cls: type[object],
     attr_name: str,
 ) -> Callable[[CallT], CallT]:
     """Similar to wraps, but for async wrappers of non-async functions."""
 
-    # Explicit "Any" is not allowed
-    def decorator(func: CallT) -> CallT:  # type: ignore[misc]
+    def decorator(func: CallT) -> CallT:  # type: ignore[explicit-any]
         func.__name__ = attr_name
         func.__qualname__ = f"{cls.__qualname__}.{attr_name}"
 
@@ -249,8 +247,7 @@ class generic_function(Generic[RetT]):
     but at least it becomes possible to write those.
     """
 
-    # Explicit .../"Any" is not allowed
-    def __init__(  # type: ignore[misc]
+    def __init__(  # type: ignore[explicit-any]
         self,
         fn: Callable[..., RetT],
     ) -> None:
@@ -346,11 +343,9 @@ def name_asyncgen(agen: AsyncGeneratorType[object, NoReturn]) -> str:
 
 # work around a pyright error
 if TYPE_CHECKING:
-    # Explicit .../"Any" is not allowed
-    Fn = TypeVar("Fn", bound=Callable[..., object])  # type: ignore[misc]
+    Fn = TypeVar("Fn", bound=Callable[..., object])  # type: ignore[explicit-any]
 
-    # Explicit .../"Any" is not allowed
-    def wraps(  # type: ignore[misc]
+    def wraps(  # type: ignore[explicit-any]
         wrapped: Callable[..., object],
         assigned: Sequence[str] = ...,
         updated: Sequence[str] = ...,

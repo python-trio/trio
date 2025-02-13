@@ -1,0 +1,1 @@
+Fixed spelling error in Windows error code enum for ``ERROR_INVALID_PARAMETER``.

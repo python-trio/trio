@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ctypes
 import ctypes.util
+import os
 import sys
 import traceback
 from functools import partial
@@ -215,8 +216,7 @@ class ThreadCache:
     __slots__ = ("_idle_workers",)
 
     def __init__(self) -> None:
-        # Explicit "Any" not allowed
-        self._idle_workers: dict[WorkerThread[Any], None] = {}  # type: ignore[misc]
+        self._idle_workers: dict[WorkerThread[Any], None] = {}  # type: ignore[explicit-any]
 
     def start_thread_soon(
         self,
@@ -301,3 +301,15 @@ def start_thread_soon(
 
     """
     THREAD_CACHE.start_thread_soon(fn, deliver, name)
+
+
+def clear_worker_threads() -> None:
+    # This is OK because the child process does not actually have any
+    # worker threads. Additionally, while WorkerThread keeps a strong
+    # reference and so would get affected, the only place those are
+    # stored is here.
+    THREAD_CACHE._idle_workers.clear()
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=clear_worker_threads)
