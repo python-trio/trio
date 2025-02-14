@@ -477,7 +477,7 @@ def background_with_channel(max_buffer_size: float = 0) -> Callable[
 ]:
     """Decorate an async generator function to make it cancellation-safe.
 
-    The `yield` keyword offers a very convenient way to write iterators...
+    The ``yield`` keyword offers a very convenient way to write iterators...
     which makes it really unfortunate that async generators are so difficult
     to call correctly.  Yielding from the inside of a cancel scope or a nursery
     to the outside `violates structured concurrency <https://xkcd.com/292/>`_
@@ -488,7 +488,7 @@ def background_with_channel(max_buffer_size: float = 0) -> Callable[
     This decorator gives you the best of both worlds: with careful exception
     handling and a background task we preserve structured concurrency by
     offering only the safe interface, and you can still write your iterables
-    with the convenience of `yield`.  For example:
+    with the convenience of ``yield``.  For example::
 
         @background_with_channel()
         async def my_async_iterable(arg, *, kwarg=True):

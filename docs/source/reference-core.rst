@@ -1607,7 +1607,11 @@ the numbers 0 through 9 with a 1-second delay before each one:
 
     trio.run(use_it)
 
-Trio supports async generators, with some caveats described in this section.
+Trio supports async generators, but there's several caveats and it's very
+hard to handle them properly. Therefore Trio bundles a helper,
+`trio.background_with_channel` that does it for you.
+
+The details on those problems are described in the following sections.
 
 Finalization
 ~~~~~~~~~~~~
