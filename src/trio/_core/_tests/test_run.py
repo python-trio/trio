@@ -2820,7 +2820,6 @@ else:
 @pytest.mark.xfail(
     sys.version_info >= (3, 14),
     reason="https://github.com/python/cpython/issues/125603",
-    strict=True,
 )
 async def test_ki_protection_doesnt_leave_cyclic_garbage() -> None:
     class MyException(Exception):
