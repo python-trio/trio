@@ -1,1 +1,0 @@
-Publicly re-export ``__version__`` for type checking purposes.
