@@ -504,17 +504,18 @@ def background_with_channel(max_buffer_size: float = 0) -> Callable[
     the context manager is indispensable for both correctness and for prompt
     cleanup of resources.
 
-    ... note::
+    .. note::
 
         With 'raw' async generators, code in the generator will never run
         concurrently with that in the body of the ``async for`` loop - the
         generator is resumed to compute each element on request.
         Even with ``max_buffer_size=0``, a ``@background_with_channel()``
         function will 'precompute' each element in a background task, and
-        store it in the channel until requested by the loop.
+        send it to the internal channel, where it will wait until requested
+        by the loop.
 
         This is rarely a problem, so we've avoided the performance cost
-        of exactly replicating the behavior of raw generators.  If you
+        of exactly replicating the behavior of raw generators.  If
         concurrent execution would cause problems, we recommend using a
         :class:`trio.Lock` around the critical sections.
     """
