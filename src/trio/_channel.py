@@ -531,31 +531,31 @@ def background_with_channel(max_buffer_size: float = 0) -> Callable[
         ) -> AsyncGenerator[trio.MemoryReceiveChannel[T], None]:
             send_chan, recv_chan = trio.open_memory_channel[T](max_buffer_size)
             async with trio.open_nursery() as nursery:
-                ait = fn(*args, **kwargs)
-                # nursery.start to make sure that we will clean up send_chan & ait
-                await nursery.start(_move_elems_to_channel, ait, send_chan)
-                # async with recv_chan could eat exceptions, so use sync cm
+                agen = fn(*args, **kwargs)
+                # `nursery.start` to make sure that we will clean up send_chan & ait
+                # If this errors we don't close `recv_chan`, but the caller
+                # never gets access to it, so that's not a problem.
+                await nursery.start(_move_elems_to_channel, agen, send_chan)
+                # `async with recv_chan` could eat exceptions, so use sync cm
                 with recv_chan:
                     yield recv_chan
-                # Return promptly, without waiting for `await anext(ait)`
+                # Return promptly, without waiting for the generator to yield the
+                # next value
                 nursery.cancel_scope.cancel()
 
         return context_manager
 
     async def _move_elems_to_channel(
-        aiterable: AsyncGenerator[T, None],
+        agen: AsyncGenerator[T, None],
         send_chan: trio.MemorySendChannel[T],
         task_status: trio.TaskStatus,
     ) -> None:
         # `async with send_chan` will eat exceptions,
         # see https://github.com/python-trio/trio/issues/1559
         with send_chan:
-            async with aclosing(aiterable) as agen:
+            async with aclosing(agen):
                 task_status.started()
-                # Outer loop manually advances the aiterable; we can't use async-for because
-                # we're going to use `.asend(err)` to forward errors back to the generator.
                 async for value in agen:
-                    # Get the next value from `agen`; return if exhausted
                     try:
                         # Send the value to the channel
                         await send_chan.send(value)
@@ -563,6 +563,5 @@ def background_with_channel(max_buffer_size: float = 0) -> Callable[
                         # Closing the corresponding receive channel should cause
                         # a clean shutdown of the generator.
                         return
-        # Phew.  Context managers all cleaned up, we're done here.
 
     return decorator
