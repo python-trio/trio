@@ -16,8 +16,7 @@ if TYPE_CHECKING:
 
     PosArgsT = TypeVarTuple("PosArgsT")
 
-# Explicit "Any" is not allowed
-Function = Callable[..., object]  # type: ignore[misc]
+Function = Callable[..., object]  # type: ignore[explicit-any]
 Job = tuple[Function, tuple[object, ...]]
 
 

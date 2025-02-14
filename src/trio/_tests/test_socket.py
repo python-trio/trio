@@ -30,7 +30,7 @@ if TYPE_CHECKING:
         SocketKind,
         int,
         str,
-        Union[tuple[str, int], tuple[str, int, int, int]],
+        Union[tuple[str, int], tuple[str, int, int, int], tuple[int, bytes]],
     ]
     GetAddrInfoResponse: TypeAlias = list[GaiTuple]
     GetAddrInfoArgs: TypeAlias = tuple[
@@ -186,7 +186,7 @@ async def test_getaddrinfo(monkeygai: MonkeypatchedGAI) -> None:
         ) -> tuple[
             AddressFamily,
             SocketKind,
-            tuple[str, int] | tuple[str, int, int] | tuple[str, int, int, int],
+            tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes],
         ]:
             # (family, type, proto, canonname, sockaddr)
             family, type_, _proto, _canonname, sockaddr = gai_tup
@@ -198,7 +198,7 @@ async def test_getaddrinfo(monkeygai: MonkeypatchedGAI) -> None:
             tuple[
                 AddressFamily,
                 SocketKind,
-                tuple[str, int] | tuple[str, int, int] | tuple[str, int, int, int],
+                tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes],
             ]
         ]:
             return [interesting_fields(gai_tup) for gai_tup in gai_list]

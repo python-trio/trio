@@ -82,8 +82,8 @@ else:
         return python(f"import time; time.sleep({seconds})")
 
 
-@asynccontextmanager  # type: ignore[misc]  # Any in decorated
-async def open_process_then_kill(
+@asynccontextmanager
+async def open_process_then_kill(  # type: ignore[misc, explicit-any]
     *args: Any,
     **kwargs: Any,
 ) -> AsyncIterator[Process]:
@@ -95,8 +95,8 @@ async def open_process_then_kill(
         await proc.wait()
 
 
-@asynccontextmanager  # type: ignore[misc]  # Any in decorated
-async def run_process_in_nursery(
+@asynccontextmanager
+async def run_process_in_nursery(  # type: ignore[misc, explicit-any]
     *args: Any,
     **kwargs: Any,
 ) -> AsyncIterator[Process]:
@@ -115,8 +115,7 @@ background_process_param = pytest.mark.parametrize(
     ids=["open_process", "run_process in nursery"],
 )
 
-# Explicit .../"Any" is not allowed
-BackgroundProcessType: TypeAlias = Callable[  # type: ignore[misc]
+BackgroundProcessType: TypeAlias = Callable[  # type: ignore[explicit-any]
     ...,
     AbstractAsyncContextManager[Process],
 ]

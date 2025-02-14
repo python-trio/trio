@@ -2,23 +2,22 @@ from __future__ import annotations
 
 import logging
 import types
-from collections.abc import Callable, Sequence
-from typing import TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 from .._abc import Instrument
 
 # Used to log exceptions in instruments
 INSTRUMENT_LOGGER = logging.getLogger("trio.abc.Instrument")
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
-# Explicit "Any" is not allowed
-F = TypeVar("F", bound=Callable[..., object])  # type: ignore[misc]
+    T = TypeVar("T")
 
 
 # Decorator to mark methods public. This does nothing by itself, but
 # trio/_tools/gen_exports.py looks for it.
-# Explicit "Any" is not allowed
-def _public(fn: F) -> F:  # type: ignore[misc]
+def _public(fn: T) -> T:
     return fn
 
 

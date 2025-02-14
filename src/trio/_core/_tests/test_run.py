@@ -1658,8 +1658,7 @@ async def test_spawn_name() -> None:
     async def func2() -> None:  # pragma: no cover
         pass
 
-    # Explicit .../"Any" is not allowed
-    async def check(  # type: ignore[misc]
+    async def check(  # type: ignore[explicit-any]
         spawn_fn: Callable[..., object],
     ) -> None:
         spawn_fn(func1, "func1")
@@ -1696,14 +1695,13 @@ async def test_current_effective_deadline(mock_clock: _core.MockClock) -> None:
 
 
 def test_nice_error_on_bad_calls_to_run_or_spawn() -> None:
-    # Explicit .../"Any" is not allowed
-    def bad_call_run(  # type: ignore[misc]
+    def bad_call_run(  # type: ignore[explicit-any]
         func: Callable[..., Awaitable[object]],
         *args: tuple[object, ...],
     ) -> None:
         _core.run(func, *args)
 
-    def bad_call_spawn(  # type: ignore[misc]
+    def bad_call_spawn(  # type: ignore[explicit-any]
         func: Callable[..., Awaitable[object]],
         *args: tuple[object, ...],
     ) -> None:

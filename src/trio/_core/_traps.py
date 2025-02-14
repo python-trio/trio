@@ -104,8 +104,7 @@ class Abort(enum.Enum):
 
 # Should always return the type a Task "expects", unless you willfully reschedule it
 # with a bad value.
-# Explicit "Any" is not allowed
-async def wait_task_rescheduled(  # type: ignore[misc]
+async def wait_task_rescheduled(  # type: ignore[explicit-any]
     abort_func: Callable[[RaiseCancelT], Abort],
 ) -> Any:
     """Put the current task to sleep, with cancellation support.

@@ -5,6 +5,39 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.29.0 (2025-02-14)
+------------------------
+
+Features
+~~~~~~~~
+
+- Add :func:`trio.lowlevel.in_trio_run` and :func:`trio.lowlevel.in_trio_task` and document the semantics (and differences) thereof. See :ref:`the documentation <trio_contexts>`. (`#2757 <https://github.com/python-trio/trio/issues/2757>`__)
+- If `trio.testing.RaisesGroup` does not get the expected exceptions it now raises an `AssertionError` with a helpful message, instead of letting the raised exception/group fall through. The raised exception is available in the ``__context__`` of the `AssertionError` and can be seen in the traceback. (`#3145 <https://github.com/python-trio/trio/issues/3145>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Clear Trio's cache of worker threads upon `os.fork`. (`#2764 <https://github.com/python-trio/trio/issues/2764>`__)
+
+
+Miscellaneous internal changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Stop using ctypes to mutate tracebacks for ``strict_exception_groups=False``'s exception collapsing. (`#405 <https://github.com/python-trio/trio/issues/405>`__)
+- Fixed spelling error in Windows error code enum for ``ERROR_INVALID_PARAMETER``. (`#3166 <https://github.com/python-trio/trio/issues/3166>`__)
+- Publicly re-export ``__version__`` for type checking purposes. (`#3186 <https://github.com/python-trio/trio/issues/3186>`__)
+- The typing of :func:`trio.abc.HostnameResolver.getaddrinfo` has been corrected to
+  match that of the stdlib `socket.getaddrinfo`, which was updated in mypy 1.15 (via
+  a typeshed update) to include the possibility of ``tuple[int, bytes]`` for the
+  ``sockaddr`` field of the result. This happens in situations where Python was compiled
+  with ``--disable-ipv6``.
+
+  Additionally, the static typing of :func:`trio.to_thread.run_sync`,
+  :func:`trio.from_thread.run` and :func:`trio.from_thread.run_sync` has been
+  improved and should reflect the underlying function being run. (`#3201 <https://github.com/python-trio/trio/issues/3201>`__)
+
+
 Trio 0.28.0 (2024-12-25)
 ------------------------
 

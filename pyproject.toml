@@ -186,7 +186,7 @@ combine-as-imports = true
 fixture-parentheses = false
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 files = ["src/trio/", "docs/source/*.py"]
 
 # Be flexible about dependencies that don't have stubs yet (like pytest)
