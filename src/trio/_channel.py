@@ -510,12 +510,12 @@ def background_with_channel(max_buffer_size: float = 0) -> Callable[
         concurrently with that in the body of the ``async for`` loop - the
         generator is resumed to compute each element on request.
         Even with ``max_buffer_size=0``, a ``@background_with_channel()``
-        function will 'precompute' each element in a background task, and 
+        function will 'precompute' each element in a background task, and
         store it in the channel until requested by the loop.
 
-        This is rarely a problem, so we've avoided the performance cost 
+        This is rarely a problem, so we've avoided the performance cost
         of exactly replicating the behavior of raw generators.  If you
-        concurent execution would cause problems, we recommend using a 
+        concurrent execution would cause problems, we recommend using a
         :class:`trio.Lock` around the critical sections.
     """
     # Perhaps a future PEP will adopt `async with for` syntax, like
