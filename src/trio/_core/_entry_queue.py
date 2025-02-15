@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import threading
 from collections import deque
-from typing import TYPE_CHECKING, Callable, NoReturn, Tuple
+from collections.abc import Callable
+from typing import TYPE_CHECKING, NoReturn
 
 import attrs
 
@@ -15,8 +16,8 @@ if TYPE_CHECKING:
 
     PosArgsT = TypeVarTuple("PosArgsT")
 
-Function = Callable[..., object]
-Job = Tuple[Function, Tuple[object, ...]]
+Function = Callable[..., object]  # type: ignore[explicit-any]
+Job = tuple[Function, tuple[object, ...]]
 
 
 @attrs.define
@@ -64,7 +65,9 @@ class EntryQueue:
                 sync_fn(*args)
             except BaseException as exc:
 
-                async def kill_everything(exc: BaseException) -> NoReturn:
+                async def kill_everything(  # noqa: RUF029  # await not used
+                    exc: BaseException,
+                ) -> NoReturn:
                     raise exc
 
                 try:
@@ -77,7 +80,7 @@ class EntryQueue:
                     parent_nursery = _core.current_task().parent_nursery
                     if parent_nursery is None:
                         raise AssertionError(
-                            "Internal error: `parent_nursery` should never be `None`"
+                            "Internal error: `parent_nursery` should never be `None`",
                         ) from exc  # pragma: no cover
                     parent_nursery.start_soon(kill_everything, exc)
 
@@ -139,14 +142,14 @@ class EntryQueue:
             # wakeup call might trigger an OSError b/c the IO manager has
             # already been shut down.
             if idempotent:
-                self.idempotent_queue[(sync_fn, args)] = None
+                self.idempotent_queue[sync_fn, args] = None
             else:
                 self.queue.append((sync_fn, args))
             self.wakeup.wakeup_thread_and_signal_safe()
 
 
 @final
-@attrs.define(eq=False, hash=False)
+@attrs.define(eq=False)
 class TrioToken(metaclass=NoPublicConstructor):
     """An opaque object representing a single call to :func:`trio.run`.
 

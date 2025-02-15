@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 @_util.final
-@attrs.define(eq=False, hash=False, slots=False)
+@attrs.define(eq=False, slots=False)
 class Sequencer:
     """A convenience class for forcing code in different tasks to run in an
     explicit linear order.
@@ -55,7 +55,8 @@ class Sequencer:
     """
 
     _sequence_points: defaultdict[int, Event] = attrs.field(
-        factory=lambda: defaultdict(Event), init=False
+        factory=lambda: defaultdict(Event),
+        init=False,
     )
     _claimed: set[int] = attrs.field(factory=set, init=False)
     _broken: bool = attrs.field(default=False, init=False)
@@ -75,7 +76,7 @@ class Sequencer:
                 for event in self._sequence_points.values():
                     event.set()
                 raise RuntimeError(
-                    "Sequencer wait cancelled -- sequence broken"
+                    "Sequencer wait cancelled -- sequence broken",
                 ) from None
             else:
                 if self._broken:

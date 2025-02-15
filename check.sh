@@ -17,38 +17,6 @@ python ./src/trio/_tools/gen_exports.py --test \
     || EXIT_STATUS=$?
 echo "::endgroup::"
 
-# Autoformatter *first*, to avoid double-reporting errors
-# (we'd like to run further autoformatters but *after* merging;
-# see https://forum.bors.tech/t/pre-test-and-pre-merge-hooks/322)
-# autoflake --recursive --in-place .
-# pyupgrade --py3-plus $(find . -name "*.py")
-echo "::group::Black"
-if ! black --check src/trio; then
-    echo "* Black found issues" >> "$GITHUB_STEP_SUMMARY"
-    EXIT_STATUS=1
-    black --diff src/trio
-    echo "::endgroup::"
-    echo "::error:: Black found issues"
-else
-    echo "::endgroup::"
-fi
-
-# Run ruff, configured in pyproject.toml
-echo "::group::Ruff"
-if ! ruff check .; then
-    echo "* ruff found issues." >> "$GITHUB_STEP_SUMMARY"
-    EXIT_STATUS=1
-    if $ON_GITHUB_CI; then
-        ruff check --output-format github --diff .
-    else
-        ruff check --diff .
-    fi
-    echo "::endgroup::"
-    echo "::error:: ruff found issues"
-else
-    echo "::endgroup::"
-fi
-
 # Run mypy on all supported platforms
 # MYPY is set if any of them fail.
 MYPY=0
@@ -77,24 +45,10 @@ if [ $MYPY -ne 0 ]; then
 fi
 
 # Check pip compile is consistent
-echo "::group::Pip Compile - Tests"
-pip-compile test-requirements.in
+echo "::group::Pip Compile - Tests & Docs"
+pre-commit run pip-compile --all-files \
+    || EXIT_STATUS=$?
 echo "::endgroup::"
-echo "::group::Pip Compile - Docs"
-pip-compile docs-requirements.in
-echo "::endgroup::"
-
-if git status --porcelain | grep -q "requirements.txt"; then
-    echo "::error::requirements.txt changed."
-    echo "::group::requirements.txt changed"
-    echo "* requirements.txt changed" >> "$GITHUB_STEP_SUMMARY"
-    git status --porcelain
-    git --no-pager diff --color ./*requirements.txt
-    EXIT_STATUS=1
-    echo "::endgroup::"
-fi
-
-codespell || EXIT_STATUS=$?
 
 echo "::group::Pyright interface tests"
 python src/trio/_tests/check_type_completeness.py || EXIT_STATUS=$?
@@ -112,9 +66,8 @@ if [ $EXIT_STATUS -ne 0 ]; then
 Problems were found by static analysis (listed above).
 To fix formatting and see remaining errors, run
 
-    pip install -r test-requirements.txt
-    black src/trio
-    ruff check src/trio
+    uv pip install -r test-requirements.txt
+    pre-commit run --all-files
     ./check.sh
 
 in your local checkout.

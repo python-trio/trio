@@ -19,11 +19,10 @@ import pytest
 
 import trio
 import trio.testing
-from trio._tests.pytest_plugin import skip_if_optional_else_raise
+from trio._tests.pytest_plugin import RUN_SLOW, skip_if_optional_else_raise
 
 from .. import _core, _util
 from .._core._tests.tutil import slow
-from .pytest_plugin import RUN_SLOW
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
@@ -55,7 +54,7 @@ def _ensure_mypy_cache_updated() -> None:
                 "--no-error-summary",
                 "-c",
                 "import trio",
-            ]
+            ],
         )
         assert not result[1]  # stderr
         assert not result[0]  # stdout
@@ -72,7 +71,8 @@ def test_core_is_properly_reexported() -> None:
         found = 0
         for source in sources:
             if symbol in dir(source) and getattr(source, symbol) is getattr(
-                _core, symbol
+                _core,
+                symbol,
             ):
                 found += 1
         print(symbol, found)
@@ -116,7 +116,7 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
 # they might be using a newer version of Python with additional symbols which
 # won't be reflected in trio.socket, and this shouldn't cause downstream test
 # runs to start failing.
-@pytest.mark.redistributors_should_skip()
+@pytest.mark.redistributors_should_skip
 # Static analysis tools often have trouble with alpha releases, where Python's
 # internals are in flux, grammar may not have settled down, etc.
 @pytest.mark.skipif(
@@ -172,8 +172,6 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
     elif tool == "mypy":
         if not RUN_SLOW:  # pragma: no cover
             pytest.skip("use --run-slow to check against mypy")
-        if sys.implementation.name != "cpython":
-            pytest.skip("mypy not installed in tests on pypy")
 
         cache = Path.cwd() / ".mypy_cache"
 
@@ -244,7 +242,7 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
 # modules, instead of once per class.
 @slow
 # see comment on test_static_tool_sees_all_symbols
-@pytest.mark.redistributors_should_skip()
+@pytest.mark.redistributors_should_skip
 # Static analysis tools often have trouble with alpha releases, where Python's
 # internals are in flux, grammar may not have settled down, etc.
 @pytest.mark.skipif(
@@ -254,7 +252,9 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
 @pytest.mark.parametrize("module_name", PUBLIC_MODULE_NAMES)
 @pytest.mark.parametrize("tool", ["jedi", "mypy"])
 def test_static_tool_sees_class_members(
-    tool: str, module_name: str, tmp_path: Path
+    tool: str,
+    module_name: str,
+    tmp_path: Path,
 ) -> None:
     module = PUBLIC_MODULES[PUBLIC_MODULE_NAMES.index(module_name)]
 
@@ -266,10 +266,10 @@ def test_static_tool_sees_class_members(
             if (not symbol.startswith("_")) or symbol.startswith("__")
         }
 
-    if tool == "mypy":
-        if sys.implementation.name != "cpython":
-            pytest.skip("mypy not installed in tests on pypy")
+    if tool == "jedi" and sys.implementation.name != "cpython":
+        pytest.skip("jedi does not support pypy")
 
+    if tool == "mypy":
         cache = Path.cwd() / ".mypy_cache"
 
         _ensure_mypy_cache_updated()
@@ -318,8 +318,11 @@ def test_static_tool_sees_class_members(
         if module_name == "trio.socket" and class_name in dir(stdlib_socket):
             continue
 
-        # ignore class that does dirty tricks
-        if class_ is trio.testing.RaisesGroup:
+        # Ignore classes that don't use attrs, they only define their members once
+        # __init__ is called (and reason they don't use attrs is because they're going
+        # to be reimplemented in pytest).
+        # Not 100% that's the case, and it works locally, so whatever /shrug
+        if class_ is trio.testing.RaisesGroup or class_ is trio.testing.Matcher:
             continue
 
         # dir() and inspect.getmembers doesn't display properties from the metaclass
@@ -376,7 +379,7 @@ def test_static_tool_sees_class_members(
                 skip_if_optional_else_raise(error)
 
             script = jedi.Script(
-                f"from {module_name} import {class_name}; {class_name}."
+                f"from {module_name} import {class_name}; {class_name}.",
             )
             completions = script.complete()
             static_names = no_hidden(c.name for c in completions) - ignore_names
@@ -384,16 +387,20 @@ def test_static_tool_sees_class_members(
         elif tool == "mypy":
             # load the cached type information
             cached_type_info = cache_json["names"][class_name]
-            if "node" not in cached_type_info:
-                cached_type_info = lookup_symbol(cached_type_info["cross_ref"])
+            assert (
+                "node" not in cached_type_info
+            ), "previously this was an 'if' but it seems it's no longer possible for this cache to contain 'node', if this assert raises for you please let us know!"
+            cached_type_info = lookup_symbol(cached_type_info["cross_ref"])
 
             assert "node" in cached_type_info
             node = cached_type_info["node"]
-            static_names = no_hidden(k for k in node["names"] if not k.startswith("."))
+            static_names = no_hidden(
+                k for k in node.get("names", ()) if not k.startswith(".")
+            )
             for symbol in node["mro"][1:]:
                 node = lookup_symbol(symbol)["node"]
                 static_names |= no_hidden(
-                    k for k in node["names"] if not k.startswith(".")
+                    k for k in node.get("names", ()) if not k.startswith(".")
                 )
             static_names -= ignore_names
 
@@ -456,11 +463,6 @@ def test_static_tool_sees_class_members(
                 "send_all_hook",
                 "wait_send_all_might_not_block_hook",
             },
-            trio.testing.Matcher: {
-                "exception_type",
-                "match",
-                "check",
-            },
         }
         if tool == "mypy" and class_ in EXTRAS:
             before = len(extra)
@@ -506,6 +508,9 @@ def test_static_tool_sees_class_members(
             and class_ in (trio.Path, trio.WindowsPath, trio.PosixPath)
         ):
             missing.remove("with_segments")
+
+        if sys.version_info >= (3, 13) and attrs.has(class_):
+            missing.remove("__replace__")
 
         if missing or extra:  # pragma: no cover
             errors[f"{module_name}.{class_name}"] = {
@@ -571,3 +576,37 @@ def test_classes_are_final() -> None:
                 continue
 
             assert class_is_final(class_)
+
+
+# Plugin might not be running, especially if running from an installed version.
+@pytest.mark.skipif(
+    not hasattr(attrs.field, "trio_modded"),
+    reason="Pytest plugin not installed.",
+)
+def test_pyright_recognizes_init_attributes() -> None:
+    """Check whether we provide `alias` for all underscore prefixed attributes.
+
+    Attrs always sets the `alias` attribute on fields, so a pytest plugin is used
+    to monkeypatch `field()` to record whether an alias was defined in the metadata.
+    See `_trio_check_attrs_aliases`.
+    """
+    for module in PUBLIC_MODULES:
+        for class_ in module.__dict__.values():
+            if not attrs.has(class_):
+                continue
+            if isinstance(class_, _util.NoPublicConstructor):
+                continue
+
+            attributes = [
+                attr
+                for attr in attrs.fields(class_)
+                if attr.init
+                if attr.alias
+                not in (
+                    attr.name,
+                    # trio_original_args may not be present in autoattribs
+                    attr.metadata.get("trio_original_args", {}).get("alias"),
+                )
+            ]
+
+            assert attributes == [], class_

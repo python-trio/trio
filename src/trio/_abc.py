@@ -178,7 +178,7 @@ class HostnameResolver(ABC):
             socket.SocketKind,
             int,
             str,
-            tuple[str, int] | tuple[str, int, int, int],
+            tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes],
         ]
     ]:
         """A custom implementation of :func:`~trio.socket.getaddrinfo`.
@@ -192,13 +192,13 @@ class HostnameResolver(ABC):
         Any required IDNA encoding is handled before calling this function;
         your implementation can assume that it will never see U-labels like
         ``"café.com"``, and only needs to handle A-labels like
-        ``b"xn--caf-dma.com"``.
-
-        """
+        ``b"xn--caf-dma.com"``."""  # spellchecker:disable-line
 
     @abstractmethod
     async def getnameinfo(
-        self, sockaddr: tuple[str, int] | tuple[str, int, int, int], flags: int
+        self,
+        sockaddr: tuple[str, int] | tuple[str, int, int, int],
+        flags: int,
     ) -> tuple[str, str]:
         """A custom implementation of :func:`~trio.socket.getnameinfo`.
 
@@ -691,6 +691,14 @@ class ReceiveChannel(AsyncResource, Generic[ReceiveType]):
             raise StopAsyncIteration from None
 
 
+# these are necessary for Sphinx's :show-inheritance: with type args.
+# (this should be removed if possible)
+# see: https://github.com/python/cpython/issues/123250
+SendChannel.__module__ = SendChannel.__module__.replace("_abc", "abc")
+ReceiveChannel.__module__ = ReceiveChannel.__module__.replace("_abc", "abc")
+Listener.__module__ = Listener.__module__.replace("_abc", "abc")
+
+
 class Channel(SendChannel[T], ReceiveChannel[T]):
     """A standard interface for interacting with bidirectional channels.
 
@@ -700,3 +708,7 @@ class Channel(SendChannel[T], ReceiveChannel[T]):
     """
 
     __slots__ = ()
+
+
+# see above
+Channel.__module__ = Channel.__module__.replace("_abc", "abc")

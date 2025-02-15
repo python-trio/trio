@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import os
 import threading
 import time
 from contextlib import contextmanager
 from queue import Queue
-from typing import TYPE_CHECKING, Iterator, NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 import pytest
 
@@ -13,6 +14,8 @@ from .._thread_cache import ThreadCache, start_thread_soon
 from .tutil import gc_collect_harder, slow
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from outcome import Outcome
 
 
@@ -193,3 +196,47 @@ def test_raise_in_deliver(capfd: pytest.CaptureFixture[str]) -> None:
     err = capfd.readouterr().err
     assert "don't do this" in err
     assert "delivering result" in err
+
+
+@pytest.mark.skipif(not hasattr(os, "fork"), reason="os.fork isn't supported")
+def test_clear_thread_cache_after_fork() -> None:
+    assert hasattr(os, "fork")
+
+    def foo() -> None:
+        pass
+
+    # ensure the thread cache exists
+    done = threading.Event()
+    start_thread_soon(foo, lambda _: done.set())
+    done.wait()
+
+    child_pid = os.fork()
+
+    # try using it
+    done = threading.Event()
+    start_thread_soon(foo, lambda _: done.set())
+    done.wait()
+
+    if child_pid != 0:
+        # if this test fails, this will hang, triggering a timeout.
+        os.waitpid(child_pid, 0)
+    else:
+        # this is necessary because os._exit doesn't unwind the stack,
+        # so coverage doesn't get to automatically stop and save
+        # coverage information.
+        try:
+            import coverage
+
+            cov = coverage.Coverage.current()
+            # the following pragmas are necessary because if coverage:
+            #  - isn't running, then it can't record the branch not
+            #    taken
+            #  - isn't installed, then it can't record the ImportError
+
+            if cov:  # pragma: no branch
+                cov.stop()
+                cov.save()
+        except ImportError:  # pragma: no cover
+            pass
+
+        os._exit(0)  # pragma: no cover  # coverage was stopped above.

@@ -1,8 +1,11 @@
 """Test variadic generic typing for Nursery.start[_soon]()."""
 
-from typing import Awaitable, Callable
+from typing import TYPE_CHECKING
 
 from trio import TASK_STATUS_IGNORED, Nursery, TaskStatus
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 
 async def task_0() -> None: ...
@@ -47,7 +50,6 @@ async def task_requires_start(*, task_status: TaskStatus[str]) -> None:
 
 async def task_pos_or_kw(value: str, task_status: TaskStatus[int]) -> None:
     """Check a function which doesn't use the *-syntax works."""
-    ...
 
 
 def check_start_soon(nursery: Nursery) -> None:

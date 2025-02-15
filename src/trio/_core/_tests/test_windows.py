@@ -54,7 +54,8 @@ def test_winerror(monkeypatch: pytest.MonkeyPatch) -> None:
 
     mock.return_value = (12, "test error")
     with pytest.raises(
-        OSError, match=r"^\[WinError 12\] test error: 'file_1' -> 'file_2'$"
+        OSError,
+        match=r"^\[WinError 12\] test error: 'file_1' -> 'file_2'$",
     ) as exc:
         raise_winerror(filename="file_1", filename2="file_2")
     mock.assert_called_once_with()
@@ -66,7 +67,8 @@ def test_winerror(monkeypatch: pytest.MonkeyPatch) -> None:
 
     # With an explicit number passed in, it overrides what getwinerror() returns.
     with pytest.raises(
-        OSError, match=r"^\[WinError 18\] test error: 'a/file' -> 'b/file'$"
+        OSError,
+        match=r"^\[WinError 18\] test error: 'a/file' -> 'b/file'$",
     ) as exc:
         raise_winerror(18, filename="a/file", filename2="b/file")
     mock.assert_called_once_with(18)
@@ -117,7 +119,8 @@ async def test_readinto_overlapped() -> None:
     with tempfile.TemporaryDirectory() as tdir:
         tfile = os.path.join(tdir, "numbers.txt")
         with open(  # noqa: ASYNC230  # This is a test, synchronous is ok
-            tfile, "wb"
+            tfile,
+            "wb",
         ) as fp:
             fp.write(data)
             fp.flush()
@@ -141,7 +144,9 @@ async def test_readinto_overlapped() -> None:
 
                 async def read_region(start: int, end: int) -> None:
                     await _core.readinto_overlapped(
-                        handle, buffer_view[start:end], start
+                        handle,
+                        buffer_view[start:end],
+                        start,
                     )
 
                 _core.register_with_iocp(handle)
@@ -184,7 +189,10 @@ def test_forgot_to_register_with_iocp() -> None:
             try:
                 async with _core.open_nursery() as nursery:
                     nursery.start_soon(
-                        _core.readinto_overlapped, read_handle, target, name="xyz"
+                        _core.readinto_overlapped,
+                        read_handle,
+                        target,
+                        name="xyz",
                     )
                     await wait_all_tasks_blocked()
                     nursery.cancel_scope.cancel()
@@ -241,7 +249,9 @@ def test_lsp_that_hooks_select_gives_good_error(
     from .._windows_cffi import CData, WSAIoctls, _handle
 
     def patched_get_underlying(
-        sock: int | CData, *, which: int = WSAIoctls.SIO_BASE_HANDLE
+        sock: int | CData,
+        *,
+        which: int = WSAIoctls.SIO_BASE_HANDLE,
     ) -> CData:
         if hasattr(sock, "fileno"):  # pragma: no branch
             sock = sock.fileno()
@@ -252,7 +262,8 @@ def test_lsp_that_hooks_select_gives_good_error(
 
     monkeypatch.setattr(_io_windows, "_get_underlying_socket", patched_get_underlying)
     with pytest.raises(
-        RuntimeError, match="SIO_BASE_HANDLE and SIO_BSP_HANDLE_SELECT differ"
+        RuntimeError,
+        match="SIO_BASE_HANDLE and SIO_BSP_HANDLE_SELECT differ",
     ):
         _core.run(sleep, 0)
 
@@ -269,7 +280,9 @@ def test_lsp_that_completely_hides_base_socket_gives_good_error(
     from .._windows_cffi import CData, WSAIoctls, _handle
 
     def patched_get_underlying(
-        sock: int | CData, *, which: int = WSAIoctls.SIO_BASE_HANDLE
+        sock: int | CData,
+        *,
+        which: int = WSAIoctls.SIO_BASE_HANDLE,
     ) -> CData:
         if hasattr(sock, "fileno"):  # pragma: no branch
             sock = sock.fileno()

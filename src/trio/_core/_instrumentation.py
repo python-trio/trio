@@ -1,23 +1,27 @@
+from __future__ import annotations
+
 import logging
 import types
-from typing import Any, Callable, Dict, Sequence, TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 from .._abc import Instrument
 
 # Used to log exceptions in instruments
 INSTRUMENT_LOGGER = logging.getLogger("trio.abc.Instrument")
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
-F = TypeVar("F", bound=Callable[..., Any])
+    T = TypeVar("T")
 
 
 # Decorator to mark methods public. This does nothing by itself, but
 # trio/_tools/gen_exports.py looks for it.
-def _public(fn: F) -> F:
+def _public(fn: T) -> T:
     return fn
 
 
-class Instruments(Dict[str, Dict[Instrument, None]]):
+class Instruments(dict[str, dict[Instrument, None]]):
     """A collection of `trio.abc.Instrument` organized by hook.
 
     Instrumentation calls are rather expensive, and we don't want a
@@ -29,7 +33,7 @@ class Instruments(Dict[str, Dict[Instrument, None]]):
 
     __slots__ = ()
 
-    def __init__(self, incoming: Sequence[Instrument]):
+    def __init__(self, incoming: Sequence[Instrument]) -> None:
         self["_all"] = {}
         for instrument in incoming:
             self.add_instrument(instrument)
@@ -86,7 +90,11 @@ class Instruments(Dict[str, Dict[Instrument, None]]):
                 if not instruments:
                     del self[hookname]
 
-    def call(self, hookname: str, *args: Any) -> None:
+    def call(
+        self,
+        hookname: str,
+        *args: object,
+    ) -> None:
         """Call hookname(*args) on each applicable instrument.
 
         You must first check whether there are any instruments installed for

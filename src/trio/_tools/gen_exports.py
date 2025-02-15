@@ -34,12 +34,11 @@ from __future__ import annotations
 
 import sys
 
-from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
+from ._ki import enable_ki_protection
 from ._run import GLOBAL_RUN_CONTEXT
 """
 
-TEMPLATE = """sys._getframe().f_locals[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
-try:
+TEMPLATE = """try:
     return{}GLOBAL_RUN_CONTEXT.{}.{}
 except AttributeError:
     raise RuntimeError("must be called from async context") from None
@@ -181,17 +180,13 @@ def run_linters(file: File, source: str) -> str:
       SystemExit: If either failed.
     """
 
-    success, response = run_black(file, source)
-    if not success:
-        print(response)
-        sys.exit(1)
+    for fn in (run_black, run_ruff):
+        success, source = fn(file, source)
+        if not success:
+            print(source)
+            sys.exit(1)
 
-    success, response = run_ruff(file, response)
-    if not success:  # pragma: no cover  # Test for run_ruff should catch
-        print(response)
-        sys.exit(1)
-
-    return response
+    return source
 
 
 def gen_public_wrappers_source(file: File) -> str:
@@ -200,9 +195,7 @@ def gen_public_wrappers_source(file: File) -> str:
 
     """
     header = [HEADER]
-
-    if file.imports:
-        header.append(file.imports)
+    header.append(file.imports)
     if file.platform:
         # Simple checks to avoid repeating imports. If this messes up, type checkers/tests will
         # just give errors.
@@ -211,7 +204,7 @@ def gen_public_wrappers_source(file: File) -> str:
         if "import sys" not in file.imports:  # pragma: no cover
             header.append("import sys\n")
         header.append(
-            f'\nassert not TYPE_CHECKING or sys.platform=="{file.platform}"\n'
+            f'\nassert not TYPE_CHECKING or sys.platform=="{file.platform}"\n',
         )
 
     generated = ["".join(header)]
@@ -232,7 +225,7 @@ def gen_public_wrappers_source(file: File) -> str:
             is_cm = False
 
         # Remove decorators
-        method.decorator_list = []
+        method.decorator_list = [ast.Name("enable_ki_protection")]
 
         # Create pass through arguments
         new_args = create_passthrough_args(method)
@@ -248,7 +241,7 @@ def gen_public_wrappers_source(file: File) -> str:
         func = astor.to_source(method, indent_with=" " * 4)
 
         if is_cm:  # pragma: no cover
-            func = func.replace("->Iterator", "->ContextManager")
+            func = func.replace("->Iterator", "->AbstractContextManager")
 
         # Create export function body
         template = TEMPLATE.format(
@@ -273,8 +266,7 @@ def matches_disk_files(new_files: dict[str, str]) -> bool:
     for new_path, new_source in new_files.items():
         if not os.path.exists(new_path):
             return False
-        with open(new_path, encoding="utf-8") as old_file:
-            old_source = old_file.read()
+        old_source = Path(new_path).read_text(encoding="utf-8")
         if old_source != new_source:
             return False
     return True
@@ -289,27 +281,34 @@ def process(files: Iterable[File], *, do_test: bool) -> None:
         dirname, basename = os.path.split(file.path)
         new_path = os.path.join(dirname, PREFIX + basename)
         new_files[new_path] = new_source
+    matches_disk = matches_disk_files(new_files)
     if do_test:
-        if not matches_disk_files(new_files):
+        if not matches_disk:
             print("Generated sources are outdated. Please regenerate.")
             sys.exit(1)
         else:
             print("Generated sources are up to date.")
     else:
         for new_path, new_source in new_files.items():
-            with open(new_path, "w", encoding="utf-8") as f:
-                f.write(new_source)
+            with open(new_path, "w", encoding="utf-8", newline="\n") as fp:
+                fp.write(new_source)
         print("Regenerated sources successfully.")
+        if not matches_disk:  # TODO: test this branch
+            # With pre-commit integration, show that we edited files.
+            sys.exit(1)
 
 
 # This is in fact run in CI, but only in the formatting check job, which
 # doesn't collect coverage.
 def main() -> None:  # pragma: no cover
     parser = argparse.ArgumentParser(
-        description="Generate python code for public api wrappers"
+        description="Generate python code for public api wrappers",
     )
     parser.add_argument(
-        "--test", "-t", action="store_true", help="test if code is still up to date"
+        "--test",
+        "-t",
+        action="store_true",
+        help="test if code is still up to date",
     )
     parsed_args = parser.parse_args()
 
@@ -374,25 +373,29 @@ if TYPE_CHECKING:
 """
 
 IMPORTS_KQUEUE = """\
-from typing import Callable, ContextManager, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import select
+    from collections.abc import Callable
+    from contextlib import AbstractContextManager
 
     from .. import _core
-    from ._traps import Abort, RaiseCancelT
     from .._file_io import _HasFileNo
+    from ._traps import Abort, RaiseCancelT
 """
 
 IMPORTS_WINDOWS = """\
-from typing import TYPE_CHECKING, ContextManager
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .._file_io import _HasFileNo
-    from ._windows_cffi import Handle, CData
+    from contextlib import AbstractContextManager
+
     from typing_extensions import Buffer
 
+    from .._file_io import _HasFileNo
     from ._unbounded_queue import UnboundedQueue
+    from ._windows_cffi import Handle, CData
 """
 
 

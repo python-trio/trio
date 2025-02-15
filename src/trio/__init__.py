@@ -1,5 +1,4 @@
-"""Trio - A friendly Python library for async concurrency and I/O
-"""
+"""Trio - A friendly Python library for async concurrency and I/O"""
 
 from __future__ import annotations
 
@@ -25,6 +24,7 @@ from ._core import TASK_STATUS_IGNORED as TASK_STATUS_IGNORED  # isort: split
 # Submodules imported by default
 from . import abc, from_thread, lowlevel, socket, to_thread
 from ._channel import (
+    MemoryChannelStatistics as MemoryChannelStatistics,
     MemoryReceiveChannel as MemoryReceiveChannel,
     MemorySendChannel as MemorySendChannel,
     open_memory_channel as open_memory_channel,
@@ -103,10 +103,7 @@ from ._timeouts import (
     sleep_forever as sleep_forever,
     sleep_until as sleep_until,
 )
-
-# pyright explicitly does not care about `__version__`
-# see https://github.com/microsoft/pyright/blob/main/docs/typed-libraries.md#type-completeness
-from ._version import __version__
+from ._version import __version__ as __version__
 
 # Not imported by default, but mentioned here so static analysis tools like
 # pylint will know that it exists.

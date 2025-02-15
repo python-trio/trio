@@ -7,10 +7,8 @@ import sys
 from contextlib import contextmanager
 from typing import (
     TYPE_CHECKING,
-    Any,
-    Callable,
-    Iterator,
     Literal,
+    Protocol,
     TypeVar,
     cast,
 )
@@ -26,6 +24,7 @@ from ._windows_cffi import (
     AFDPollFlags,
     CData,
     CompletionModes,
+    CType,
     ErrorCodes,
     FileFlags,
     Handle,
@@ -41,6 +40,8 @@ from ._windows_cffi import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
+
     from typing_extensions import Buffer, TypeAlias
 
     from .._file_io import _HasFileNo
@@ -152,7 +153,8 @@ T = TypeVar("T")
 #
 # Unfortunately, the Windows kernel seems to have bugs if you try to issue
 # multiple simultaneous IOCTL_AFD_POLL operations on the same socket (see
-# notes-to-self/afd-lab.py). So if a user calls wait_readable and
+# https://github.com/python-trio/trio/wiki/notes-to-self#afd-labpy).
+# So if a user calls wait_readable and
 # wait_writable at the same time, we have to combine those into a single
 # IOCTL_AFD_POLL. This means we can't just use the wait_overlapped machinery.
 # Instead we have some dedicated code to handle these operations, and a
@@ -249,13 +251,28 @@ class AFDWaiters:
     current_op: AFDPollOp | None = None
 
 
+# Just used for internal type checking.
+class _AFDHandle(Protocol):
+    Handle: Handle
+    Status: int
+    Events: int
+
+
+# Just used for internal type checking.
+class _AFDPollInfo(Protocol):
+    Timeout: int
+    NumberOfHandles: int
+    Exclusive: int
+    Handles: list[_AFDHandle]
+
+
 # We also need to bundle up all the info for a single op into a standalone
 # object, because we need to keep all these objects alive until the operation
 # finishes, even if we're throwing it away.
 @attrs.frozen(eq=False)
 class AFDPollOp:
     lpOverlapped: CData
-    poll_info: Any
+    poll_info: _AFDPollInfo
     waiters: AFDWaiters
     afd_group: AFDGroup
 
@@ -303,7 +320,9 @@ def _check(success: T) -> T:
 
 
 def _get_underlying_socket(
-    sock: _HasFileNo | int | Handle, *, which: WSAIoctls = WSAIoctls.SIO_BASE_HANDLE
+    sock: _HasFileNo | int | Handle,
+    *,
+    which: WSAIoctls = WSAIoctls.SIO_BASE_HANDLE,
 ) -> Handle:
     if hasattr(sock, "fileno"):
         sock = sock.fileno()
@@ -354,7 +373,8 @@ def _get_base_socket(sock: _HasFileNo | int | Handle) -> Handle:
                 sock = sock.fileno()
             sock = _handle(sock)
             next_sock = _get_underlying_socket(
-                sock, which=WSAIoctls.SIO_BSP_HANDLE_POLL
+                sock,
+                which=WSAIoctls.SIO_BSP_HANDLE_POLL,
             )
             if next_sock == sock:
                 # If BSP_HANDLE_POLL returns the same socket we already had,
@@ -366,7 +386,7 @@ def _get_base_socket(sock: _HasFileNo | int | Handle) -> Handle:
                     "return a different socket. Please file a bug at "
                     "https://github.com/python-trio/trio/issues/new, "
                     "and include the output of running: "
-                    "netsh winsock show catalog"
+                    "netsh winsock show catalog",
                 ) from ex
             # Otherwise we've gotten at least one layer deeper, so
             # loop back around to keep digging.
@@ -421,7 +441,7 @@ class WindowsIOManager:
         self._all_afd_handles: list[Handle] = []
 
         self._iocp = _check(
-            kernel32.CreateIoCompletionPort(INVALID_HANDLE_VALUE, ffi.NULL, 0, 0)
+            kernel32.CreateIoCompletionPort(INVALID_HANDLE_VALUE, ffi.NULL, 0, 0),
         )
         self._events = ffi.new("OVERLAPPED_ENTRY[]", MAX_EVENTS)
 
@@ -454,7 +474,8 @@ class WindowsIOManager:
             # LSPs can in theory override this, but we believe that it never
             # actually happens in the wild (except Komodia)
             select_handle = _get_underlying_socket(
-                s, which=WSAIoctls.SIO_BSP_HANDLE_SELECT
+                s,
+                which=WSAIoctls.SIO_BSP_HANDLE_SELECT,
             )
             try:
                 # LSPs shouldn't override this...
@@ -472,7 +493,7 @@ class WindowsIOManager:
                         "Please file a bug at "
                         "https://github.com/python-trio/trio/issues/new, "
                         "and include the output of running: "
-                        "netsh winsock show catalog"
+                        "netsh winsock show catalog",
                     )
 
     def close(self) -> None:
@@ -508,8 +529,11 @@ class WindowsIOManager:
         assert self._iocp is not None
         _check(
             kernel32.PostQueuedCompletionStatus(
-                self._iocp, 0, CKeys.FORCE_WAKEUP, ffi.NULL
-            )
+                self._iocp,
+                0,
+                CKeys.FORCE_WAKEUP,
+                ffi.NULL,
+            ),
         )
 
     def get_events(self, timeout: float) -> EventResult:
@@ -521,8 +545,13 @@ class WindowsIOManager:
             assert self._iocp is not None
             _check(
                 kernel32.GetQueuedCompletionStatusEx(
-                    self._iocp, self._events, MAX_EVENTS, received, milliseconds, 0
-                )
+                    self._iocp,
+                    self._events,
+                    MAX_EVENTS,
+                    received,
+                    milliseconds,
+                    0,
+                ),
             )
         except OSError as exc:
             if exc.winerror != ErrorCodes.WAIT_TIMEOUT:  # pragma: no cover
@@ -563,7 +592,8 @@ class WindowsIOManager:
                 overlapped = entry.lpOverlapped
                 transferred = entry.dwNumberOfBytesTransferred
                 info = CompletionKeyEventInfo(
-                    lpOverlapped=overlapped, dwNumberOfBytesTransferred=transferred
+                    lpOverlapped=overlapped,
+                    dwNumberOfBytesTransferred=transferred,
                 )
                 _core.reschedule(waiter, Value(info))
             elif entry.lpCompletionKey == CKeys.LATE_CANCEL:
@@ -586,7 +616,7 @@ class WindowsIOManager:
                     exc = _core.TrioInternalError(
                         f"Failed to cancel overlapped I/O in {waiter.name} and didn't "
                         "receive the completion either. Did you forget to "
-                        "call register_with_iocp()?"
+                        "call register_with_iocp()?",
                     )
                     # Raising this out of handle_io ensures that
                     # the user will see our message even if some
@@ -608,7 +638,8 @@ class WindowsIOManager:
                 overlapped = int(ffi.cast("uintptr_t", entry.lpOverlapped))
                 transferred = entry.dwNumberOfBytesTransferred
                 info = CompletionKeyEventInfo(
-                    lpOverlapped=overlapped, dwNumberOfBytesTransferred=transferred
+                    lpOverlapped=overlapped,
+                    dwNumberOfBytesTransferred=transferred,
                 )
                 queue.put_nowait(info)
 
@@ -622,8 +653,9 @@ class WindowsIOManager:
         # Ref: http://www.lenholgate.com/blog/2009/09/interesting-blog-posts-on-high-performance-servers.html
         _check(
             kernel32.SetFileCompletionNotificationModes(
-                handle, CompletionModes.FILE_SKIP_SET_EVENT_ON_HANDLE
-            )
+                handle,
+                CompletionModes.FILE_SKIP_SET_EVENT_ON_HANDLE,
+            ),
         )
 
     ################################################################
@@ -637,8 +669,9 @@ class WindowsIOManager:
             try:
                 _check(
                     kernel32.CancelIoEx(
-                        afd_group.handle, waiters.current_op.lpOverlapped
-                    )
+                        afd_group.handle,
+                        waiters.current_op.lpOverlapped,
+                    ),
                 )
             except OSError as exc:
                 if exc.winerror != ErrorCodes.ERROR_NOT_FOUND:
@@ -668,7 +701,7 @@ class WindowsIOManager:
 
             lpOverlapped = ffi.new("LPOVERLAPPED")
 
-            poll_info: Any = ffi.new("AFD_POLL_INFO *")
+            poll_info = cast("_AFDPollInfo", ffi.new("AFD_POLL_INFO *"))
             poll_info.Timeout = 2**63 - 1  # INT64_MAX
             poll_info.NumberOfHandles = 1
             poll_info.Exclusive = 0
@@ -681,13 +714,13 @@ class WindowsIOManager:
                     kernel32.DeviceIoControl(
                         afd_group.handle,
                         IoControlCodes.IOCTL_AFD_POLL,
-                        poll_info,
+                        cast("CType", poll_info),
                         ffi.sizeof("AFD_POLL_INFO"),
-                        poll_info,
+                        cast("CType", poll_info),
                         ffi.sizeof("AFD_POLL_INFO"),
                         ffi.NULL,
                         lpOverlapped,
-                    )
+                    ),
                 )
             except OSError as exc:
                 if exc.winerror != ErrorCodes.ERROR_IO_PENDING:
@@ -813,7 +846,9 @@ class WindowsIOManager:
 
     @_public
     async def wait_overlapped(
-        self, handle_: int | CData, lpOverlapped: CData | int
+        self,
+        handle_: int | CData,
+        lpOverlapped: CData | int,
     ) -> object:
         """TODO: these are implemented, but are currently more of a sketch than
         anything real. See `#26
@@ -821,11 +856,11 @@ class WindowsIOManager:
         <https://github.com/python-trio/trio/issues/52>`__.
         """
         handle = _handle(handle_)
-        if isinstance(lpOverlapped, int):
+        if isinstance(lpOverlapped, int):  # TODO: test this line
             lpOverlapped = ffi.cast("LPOVERLAPPED", lpOverlapped)
-        if lpOverlapped in self._overlapped_waiters:
+        if lpOverlapped in self._overlapped_waiters:  # TODO: test this line
             raise _core.BusyResourceError(
-                "another task is already waiting on that lpOverlapped"
+                "another task is already waiting on that lpOverlapped",
             )
         task = _core.current_task()
         self._overlapped_waiters[lpOverlapped] = task
@@ -852,8 +887,11 @@ class WindowsIOManager:
                     # does, we'll assume the handle wasn't registered.
                     _check(
                         kernel32.PostQueuedCompletionStatus(
-                            self._iocp, 0, CKeys.LATE_CANCEL, lpOverlapped
-                        )
+                            self._iocp,
+                            0,
+                            CKeys.LATE_CANCEL,
+                            lpOverlapped,
+                        ),
                     )
                     # Keep the lpOverlapped referenced so its address
                     # doesn't get reused until our posted completion
@@ -863,7 +901,7 @@ class WindowsIOManager:
                     self._posted_too_late_to_cancel.add(lpOverlapped)
                 else:  # pragma: no cover
                     raise _core.TrioInternalError(
-                        "CancelIoEx failed with unexpected error"
+                        "CancelIoEx failed with unexpected error",
                     ) from exc
             return _core.Abort.FAILED
 
@@ -888,7 +926,9 @@ class WindowsIOManager:
         return info
 
     async def _perform_overlapped(
-        self, handle: int | CData, submit_fn: Callable[[_Overlapped], None]
+        self,
+        handle: int | CData,
+        submit_fn: Callable[[_Overlapped], None],
     ) -> _Overlapped:
         # submit_fn(lpOverlapped) submits some I/O
         # it may raise an OSError with ERROR_IO_PENDING
@@ -898,18 +938,21 @@ class WindowsIOManager:
         # operation will not be cancellable, depending on how Windows is
         # feeling today. So we need to check for cancellation manually.
         await _core.checkpoint_if_cancelled()
-        lpOverlapped = cast(_Overlapped, ffi.new("LPOVERLAPPED"))
+        lpOverlapped = cast("_Overlapped", ffi.new("LPOVERLAPPED"))
         try:
             submit_fn(lpOverlapped)
         except OSError as exc:
             if exc.winerror != ErrorCodes.ERROR_IO_PENDING:
                 raise
-        await self.wait_overlapped(handle, cast(CData, lpOverlapped))
+        await self.wait_overlapped(handle, cast("CData", lpOverlapped))
         return lpOverlapped
 
     @_public
     async def write_overlapped(
-        self, handle: int | CData, data: Buffer, file_offset: int = 0
+        self,
+        handle: int | CData,
+        data: Buffer,
+        file_offset: int = 0,
     ) -> int:
         """TODO: these are implemented, but are currently more of a sketch than
         anything real. See `#26
@@ -930,7 +973,7 @@ class WindowsIOManager:
                         len(cbuf),
                         ffi.NULL,
                         lpOverlapped,
-                    )
+                    ),
                 )
 
             lpOverlapped = await self._perform_overlapped(handle, submit_write)
@@ -939,7 +982,10 @@ class WindowsIOManager:
 
     @_public
     async def readinto_overlapped(
-        self, handle: int | CData, buffer: Buffer, file_offset: int = 0
+        self,
+        handle: int | CData,
+        buffer: Buffer,
+        file_offset: int = 0,
     ) -> int:
         """TODO: these are implemented, but are currently more of a sketch than
         anything real. See `#26
@@ -959,7 +1005,7 @@ class WindowsIOManager:
                         len(cbuf),
                         ffi.NULL,
                         lpOverlapped,
-                    )
+                    ),
                 )
 
             lpOverlapped = await self._perform_overlapped(handle, submit_read)

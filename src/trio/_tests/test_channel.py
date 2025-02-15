@@ -13,7 +13,7 @@ from ..testing import assert_checkpoints, wait_all_tasks_blocked
 async def test_channel() -> None:
     with pytest.raises(TypeError):
         open_memory_channel(1.0)
-    with pytest.raises(ValueError, match="^max_buffer_size must be >= 0$"):
+    with pytest.raises(ValueError, match=r"^max_buffer_size must be >= 0$"):
         open_memory_channel(-1)
 
     s, r = open_memory_channel[Union[int, str, None]](2)
@@ -107,7 +107,8 @@ async def test_channel_multiple_consumers() -> None:
 
 async def test_close_basics() -> None:
     async def send_block(
-        s: trio.MemorySendChannel[None], expect: type[BaseException]
+        s: trio.MemorySendChannel[None],
+        expect: type[BaseException],
     ) -> None:
         with pytest.raises(expect):
             await s.send(None)
@@ -149,7 +150,7 @@ async def test_close_basics() -> None:
         with pytest.raises(trio.ClosedResourceError):
             await r.receive()
 
-    s2, r2 = open_memory_channel[int](0)
+    _s2, r2 = open_memory_channel[int](0)
     async with trio.open_nursery() as nursery:
         nursery.start_soon(receive_block, r2)
         await wait_all_tasks_blocked()
@@ -164,7 +165,8 @@ async def test_close_basics() -> None:
 
 async def test_close_sync() -> None:
     async def send_block(
-        s: trio.MemorySendChannel[None], expect: type[BaseException]
+        s: trio.MemorySendChannel[None],
+        expect: type[BaseException],
     ) -> None:
         with pytest.raises(expect):
             await s.send(None)

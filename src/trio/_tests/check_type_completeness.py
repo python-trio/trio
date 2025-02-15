@@ -32,7 +32,7 @@ def run_pyright(platform: str) -> subprocess.CompletedProcess[bytes]:
             "pyright",
             # Specify a platform and version to keep imported modules consistent.
             f"--pythonplatform={platform}",
-            "--pythonversion=3.8",
+            "--pythonversion=3.9",
             "--verifytypes=trio",
             "--outputjson",
             "--ignoreexternal",
@@ -111,7 +111,9 @@ def has_docstring_at_runtime(name: str) -> bool:
 
 
 def check_type(
-    platform: str, full_diagnostics_file: Path | None, expected_errors: list[object]
+    platform: str,
+    full_diagnostics_file: Path | None,
+    expected_errors: list[object],
 ) -> list[object]:
     # convince isort we use the trio import
     assert trio
@@ -144,7 +146,7 @@ def check_type(
                 if message.startswith("No docstring found for"):
                     continue
                 if message.startswith(
-                    "Type is missing type annotation and could be inferred differently by type checkers"
+                    "Type is missing type annotation and could be inferred differently by type checkers",
                 ):
                     continue
 

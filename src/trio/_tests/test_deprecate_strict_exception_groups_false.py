@@ -1,4 +1,4 @@
-from typing import Awaitable, Callable
+from collections.abc import Awaitable, Callable
 
 import pytest
 
@@ -7,7 +7,8 @@ import trio
 
 async def test_deprecation_warning_open_nursery() -> None:
     with pytest.warns(
-        trio.TrioDeprecationWarning, match="strict_exception_groups=False"
+        trio.TrioDeprecationWarning,
+        match="strict_exception_groups=False",
     ) as record:
         async with trio.open_nursery(strict_exception_groups=False):
             ...
@@ -31,9 +32,10 @@ def test_deprecation_warning_run() -> None:
         async with trio.open_nursery(strict_exception_groups=False):
             ...
 
-    def helper(fun: Callable[..., Awaitable[None]], num: int) -> None:
+    def helper(fun: Callable[[], Awaitable[None]], num: int) -> None:
         with pytest.warns(
-            trio.TrioDeprecationWarning, match="strict_exception_groups=False"
+            trio.TrioDeprecationWarning,
+            match="strict_exception_groups=False",
         ) as record:
             trio.run(fun, strict_exception_groups=False)
         assert len(record) == num
@@ -52,7 +54,8 @@ def test_deprecation_warning_start_guest_run() -> None:
         return "ok"
 
     with pytest.warns(
-        trio.TrioDeprecationWarning, match="strict_exception_groups=False"
+        trio.TrioDeprecationWarning,
+        match="strict_exception_groups=False",
     ) as record:
         trivial_guest_run(
             trio_return,

@@ -5,7 +5,6 @@ from math import inf
 from typing import (
     TYPE_CHECKING,
     Generic,
-    Tuple,  # only needed for typechecking on <3.9
 )
 
 import attrs
@@ -93,14 +92,14 @@ def _open_memory_channel(
 # it could replace the normal function header
 if TYPE_CHECKING:
     # written as a class so you can say open_memory_channel[int](5)
-    # Need to use Tuple instead of tuple due to CI check running on 3.8
-    class open_memory_channel(Tuple["MemorySendChannel[T]", "MemoryReceiveChannel[T]"]):
+    class open_memory_channel(tuple["MemorySendChannel[T]", "MemoryReceiveChannel[T]"]):
         def __new__(  # type: ignore[misc]  # "must return a subtype"
-            cls, max_buffer_size: int | float  # noqa: PYI041
+            cls,
+            max_buffer_size: int | float,  # noqa: PYI041
         ) -> tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]:
             return _open_memory_channel(max_buffer_size)
 
-        def __init__(self, max_buffer_size: int | float):  # noqa: PYI041
+        def __init__(self, max_buffer_size: int | float) -> None:  # noqa: PYI041
             ...
 
 else:
@@ -110,7 +109,7 @@ else:
 
 
 @attrs.frozen
-class MemoryChannelStats:
+class MemoryChannelStatistics:
     current_buffer_used: int
     max_buffer_size: int | float
     open_send_channels: int
@@ -131,8 +130,8 @@ class MemoryChannelState(Generic[T]):
     # {task: None}
     receive_tasks: OrderedDict[Task, None] = attrs.Factory(OrderedDict)
 
-    def statistics(self) -> MemoryChannelStats:
-        return MemoryChannelStats(
+    def statistics(self) -> MemoryChannelStatistics:
+        return MemoryChannelStatistics(
             current_buffer_used=len(self.data),
             max_buffer_size=self.max_buffer_size,
             open_send_channels=self.open_send_channels,
@@ -158,7 +157,9 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
     def __repr__(self) -> str:
         return f"<send channel at {id(self):#x}, using buffer at {id(self._state):#x}>"
 
-    def statistics(self) -> MemoryChannelStats:
+    def statistics(self) -> MemoryChannelStatistics:
+        """Returns a `MemoryChannelStatistics` for the memory channel this is
+        associated with."""
         # XX should we also report statistics specific to this object?
         return self._state.statistics()
 
@@ -281,6 +282,9 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
 
     @enable_ki_protection
     async def aclose(self) -> None:
+        """Close this send channel object asynchronously.
+
+        See `MemorySendChannel.close`."""
         self.close()
         await trio.lowlevel.checkpoint()
 
@@ -295,7 +299,9 @@ class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstr
     def __attrs_post_init__(self) -> None:
         self._state.open_receive_channels += 1
 
-    def statistics(self) -> MemoryChannelStats:
+    def statistics(self) -> MemoryChannelStatistics:
+        """Returns a `MemoryChannelStatistics` for the memory channel this is
+        associated with."""
         return self._state.statistics()
 
     def __repr__(self) -> str:
@@ -429,5 +435,8 @@ class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstr
 
     @enable_ki_protection
     async def aclose(self) -> None:
+        """Close this receive channel object asynchronously.
+
+        See `MemoryReceiveChannel.close`."""
         self.close()
         await trio.lowlevel.checkpoint()
