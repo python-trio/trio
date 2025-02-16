@@ -802,6 +802,8 @@ async def _run_process(
 
 
 class GeneralProcessArgs(TypedDict, total=False):
+    """Arguments shared between all runs."""
+
     stdout: int | HasFileno | None
     stderr: int | HasFileno | None
     close_fds: bool
@@ -814,6 +816,8 @@ if TYPE_CHECKING:
     if sys.platform == "win32":
 
         class WindowsProcessArgs(GeneralProcessArgs, total=False):
+            """Arguments shared between all Windows runs."""
+
             shell: bool
             startupinfo: subprocess.STARTUPINFO | None
             creationflags: int
@@ -1086,6 +1090,8 @@ if TYPE_CHECKING:
         # readers (?)
 
         class UnixProcessArgs3_9(GeneralProcessArgs, total=False):
+            """Arguments shared between all Unix runs."""
+
             preexec_fn: Callable[[], object] | None
             restore_signals: bool
             start_new_session: bool
@@ -1098,12 +1104,18 @@ if TYPE_CHECKING:
             umask: int
 
         class UnixProcessArgs3_10(UnixProcessArgs3_9, total=False):
+            """Arguments shared between all Unix runs on 3.10+."""
+
             pipesize: int
 
         class UnixProcessArgs3_11(UnixProcessArgs3_10, total=False):
+            """Arguments shared between all Unix runs on 3.11+."""
+
             process_group: int
 
         class UnixRunProcessMixin(TypedDict, total=False):
+            """Arguments unique to run_process on Unix."""
+
             task_status: TaskStatus[Process]
             capture_stdout: bool
             capture_stderr: bool
