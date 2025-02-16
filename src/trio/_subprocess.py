@@ -7,7 +7,7 @@ import sys
 import warnings
 from contextlib import ExitStack
 from functools import partial
-from typing import TYPE_CHECKING, Final, Literal, Protocol, Union, overload
+from typing import TYPE_CHECKING, Final, Literal, Protocol, TypedDict, Union, overload
 
 import trio
 
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Mapping, Sequence
     from io import TextIOWrapper
 
-    from typing_extensions import TypeAlias
+    from typing_extensions import TypeAlias, Unpack
 
     from ._abc import ReceiveStream, SendStream
 
@@ -784,24 +784,31 @@ async def _run_process(
 # - on Windows, there are startupinfo and creationflags options;
 #   on Unix, there are preexec_fn, restore_signals, start_new_session, and pass_fds
 # - run_process() has the signature of open_process() plus arguments
-#   capture_stdout, capture_stderr, check, deliver_cancel, and the ability to pass
-#   bytes as stdin
+#   capture_stdout, capture_stderr, check, deliver_cancel, the ability to pass
+#   bytes as stdin, and the ability to run in `nursery.start`
+
+
+class GeneralProcessArgs(TypedDict, total=False):
+    stdout: int | HasFileno | None
+    stderr: int | HasFileno | None
+    close_fds: bool
+    cwd: StrOrBytesPath | None
+    env: Mapping[str, str] | None
+
 
 if TYPE_CHECKING:
     if sys.platform == "win32":
+
+        class WindowsProcessArgs(GeneralProcessArgs, total=False):
+            shell: bool
+            startupinfo: subprocess.STARTUPINFO | None
+            creationflags: int
 
         async def open_process(
             command: StrOrBytesPath | Sequence[StrOrBytesPath],
             *,
             stdin: int | HasFileno | None = None,
-            stdout: int | HasFileno | None = None,
-            stderr: int | HasFileno | None = None,
-            close_fds: bool = True,
-            shell: bool = False,
-            cwd: StrOrBytesPath | None = None,
-            env: Mapping[str, str] | None = None,
-            startupinfo: subprocess.STARTUPINFO | None = None,
-            creationflags: int = 0,
+            **kwargs: Unpack[WindowsProcessArgs],
         ) -> trio.Process:
             r"""Execute a child program in a new process.
 
@@ -864,14 +871,7 @@ if TYPE_CHECKING:
             capture_stderr: bool = False,
             check: bool = True,
             deliver_cancel: Callable[[Process], Awaitable[object]] | None = None,
-            stdout: int | HasFileno | None = None,
-            stderr: int | HasFileno | None = None,
-            close_fds: bool = True,
-            shell: bool = False,
-            cwd: StrOrBytesPath | None = None,
-            env: Mapping[str, str] | None = None,
-            startupinfo: subprocess.STARTUPINFO | None = None,
-            creationflags: int = 0,
+            **kwargs: Unpack[WindowsProcessArgs],
         ) -> subprocess.CompletedProcess[bytes]:
             """Run ``command`` in a subprocess and wait for it to complete.
 
@@ -1067,6 +1067,13 @@ if TYPE_CHECKING:
             ...
 
     else:  # Unix
+
+        class UnixProcessArgs(GeneralProcessArgs, total=False):
+            preexec_fn: Callable[[], object] | None
+            restore_signals: bool
+            start_new_session: bool
+            pass_fds: Sequence[int]
+
         # pyright doesn't give any error about these missing docstrings as they're
         # overloads. But might still be a problem for other static analyzers / docstring
         # readers (?)
@@ -1075,16 +1082,8 @@ if TYPE_CHECKING:
             command: StrOrBytesPath,
             *,
             stdin: int | HasFileno | None = None,
-            stdout: int | HasFileno | None = None,
-            stderr: int | HasFileno | None = None,
-            close_fds: bool = True,
             shell: Literal[True],
-            cwd: StrOrBytesPath | None = None,
-            env: Mapping[str, str] | None = None,
-            preexec_fn: Callable[[], object] | None = None,
-            restore_signals: bool = True,
-            start_new_session: bool = False,
-            pass_fds: Sequence[int] = (),
+            **kwargs: Unpack[UnixProcessArgs],
         ) -> trio.Process: ...
 
         @overload
@@ -1092,60 +1091,33 @@ if TYPE_CHECKING:
             command: Sequence[StrOrBytesPath],
             *,
             stdin: int | HasFileno | None = None,
-            stdout: int | HasFileno | None = None,
-            stderr: int | HasFileno | None = None,
-            close_fds: bool = True,
             shell: bool = False,
-            cwd: StrOrBytesPath | None = None,
-            env: Mapping[str, str] | None = None,
-            preexec_fn: Callable[[], object] | None = None,
-            restore_signals: bool = True,
-            start_new_session: bool = False,
-            pass_fds: Sequence[int] = (),
+            **kwargs: Unpack[UnixProcessArgs],
         ) -> trio.Process: ...
+
+        class UnixRunProcessArgs(UnixProcessArgs):
+            task_status: TaskStatus[Process]
+            capture_stdout: bool
+            capture_stderr: bool
+            check: bool
+            deliver_cancel: Callable[[Process], Awaitable[None]] | None
 
         @overload  # type: ignore[no-overload-impl]
         async def run_process(
             command: StrOrBytesPath,
             *,
-            task_status: TaskStatus[Process] = trio.TASK_STATUS_IGNORED,
             stdin: bytes | bytearray | memoryview | int | HasFileno | None = None,
-            capture_stdout: bool = False,
-            capture_stderr: bool = False,
-            check: bool = True,
-            deliver_cancel: Callable[[Process], Awaitable[object]] | None = None,
-            stdout: int | HasFileno | None = None,
-            stderr: int | HasFileno | None = None,
-            close_fds: bool = True,
             shell: Literal[True],
-            cwd: StrOrBytesPath | None = None,
-            env: Mapping[str, str] | None = None,
-            preexec_fn: Callable[[], object] | None = None,
-            restore_signals: bool = True,
-            start_new_session: bool = False,
-            pass_fds: Sequence[int] = (),
+            **kwargs: Unpack[UnixRunProcessArgs],
         ) -> subprocess.CompletedProcess[bytes]: ...
 
         @overload
         async def run_process(
             command: Sequence[StrOrBytesPath],
             *,
-            task_status: TaskStatus[Process] = trio.TASK_STATUS_IGNORED,
             stdin: bytes | bytearray | memoryview | int | HasFileno | None = None,
-            capture_stdout: bool = False,
-            capture_stderr: bool = False,
-            check: bool = True,
-            deliver_cancel: Callable[[Process], Awaitable[None]] | None = None,
-            stdout: int | HasFileno | None = None,
-            stderr: int | HasFileno | None = None,
-            close_fds: bool = True,
             shell: bool = False,
-            cwd: StrOrBytesPath | None = None,
-            env: Mapping[str, str] | None = None,
-            preexec_fn: Callable[[], object] | None = None,
-            restore_signals: bool = True,
-            start_new_session: bool = False,
-            pass_fds: Sequence[int] = (),
+            **kwargs: Unpack[UnixRunProcessArgs],
         ) -> subprocess.CompletedProcess[bytes]: ...
 
 else:
