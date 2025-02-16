@@ -1085,7 +1085,7 @@ if TYPE_CHECKING:
         # overloads. But might still be a problem for other static analyzers / docstring
         # readers (?)
 
-        class UnixProcessArgs(GeneralProcessArgs, total=False):
+        class UnixProcessArgs3_9(GeneralProcessArgs, total=False):
             preexec_fn: Callable[[], object] | None
             restore_signals: bool
             start_new_session: bool
@@ -1097,7 +1097,7 @@ if TYPE_CHECKING:
             user: str | int | None
             umask: int
 
-        class UnixProcessArgs3_10(UnixProcessArgs, total=False):
+        class UnixProcessArgs3_10(UnixProcessArgs3_9, total=False):
             pipesize: int
 
         class UnixProcessArgs3_11(UnixProcessArgs3_10, total=False):
@@ -1111,127 +1111,50 @@ if TYPE_CHECKING:
             deliver_cancel: Callable[[Process], Awaitable[None]] | None
 
         if sys.version_info >= (3, 11):
-
-            @overload  # type: ignore[no-overload-impl]
-            async def open_process(
-                command: StrOrBytesPath,
-                *,
-                stdin: int | HasFileno | None = None,
-                shell: Literal[True],
-                **kwargs: Unpack[UnixProcessArgs3_11],
-            ) -> trio.Process: ...
-
-            @overload
-            async def open_process(
-                command: Sequence[StrOrBytesPath],
-                *,
-                stdin: int | HasFileno | None = None,
-                shell: bool = False,
-                **kwargs: Unpack[UnixProcessArgs3_11],
-            ) -> trio.Process: ...
-
-            class UnixRunProcessArgs(UnixProcessArgs3_11, UnixRunProcessMixin):
-                pass
-
-            @overload  # type: ignore[no-overload-impl]
-            async def run_process(
-                command: StrOrBytesPath,
-                *,
-                stdin: bytes | bytearray | memoryview | int | HasFileno | None = None,
-                shell: Literal[True],
-                **kwargs: Unpack[UnixRunProcessArgs],
-            ) -> subprocess.CompletedProcess[bytes]: ...
-
-            @overload
-            async def run_process(
-                command: Sequence[StrOrBytesPath],
-                *,
-                stdin: bytes | bytearray | memoryview | int | HasFileno | None = None,
-                shell: bool = False,
-                **kwargs: Unpack[UnixRunProcessArgs],
-            ) -> subprocess.CompletedProcess[bytes]: ...
-
+            UnixProcessArgs = UnixProcessArgs3_11
         elif sys.version_info >= (3, 10):
-
-            @overload  # type: ignore[no-overload-impl]
-            async def open_process(
-                command: StrOrBytesPath,
-                *,
-                stdin: int | HasFileno | None = None,
-                shell: Literal[True],
-                **kwargs: Unpack[UnixProcessArgs3_10],
-            ) -> trio.Process: ...
-
-            @overload
-            async def open_process(
-                command: Sequence[StrOrBytesPath],
-                *,
-                stdin: int | HasFileno | None = None,
-                shell: bool = False,
-                **kwargs: Unpack[UnixProcessArgs3_10],
-            ) -> trio.Process: ...
-
-            class UnixRunProcessArgs(UnixProcessArgs3_10, UnixRunProcessMixin):
-                pass
-
-            @overload  # type: ignore[no-overload-impl]
-            async def run_process(
-                command: StrOrBytesPath,
-                *,
-                stdin: bytes | bytearray | memoryview | int | HasFileno | None = None,
-                shell: Literal[True],
-                **kwargs: Unpack[UnixRunProcessArgs],
-            ) -> subprocess.CompletedProcess[bytes]: ...
-
-            @overload
-            async def run_process(
-                command: Sequence[StrOrBytesPath],
-                *,
-                stdin: bytes | bytearray | memoryview | int | HasFileno | None = None,
-                shell: bool = False,
-                **kwargs: Unpack[UnixRunProcessArgs],
-            ) -> subprocess.CompletedProcess[bytes]: ...
-
+            UnixProcessArgs = UnixProcessArgs3_10
         else:
+            UnixProcessArgs = UnixProcessArgs3_9
 
-            @overload  # type: ignore[no-overload-impl]
-            async def open_process(
-                command: StrOrBytesPath,
-                *,
-                stdin: int | HasFileno | None = None,
-                shell: Literal[True],
-                **kwargs: Unpack[UnixProcessArgs],
-            ) -> trio.Process: ...
+        @overload  # type: ignore[no-overload-impl]
+        async def open_process(
+            command: StrOrBytesPath,
+            *,
+            stdin: int | HasFileno | None = None,
+            shell: Literal[True],
+            **kwargs: Unpack[UnixProcessArgs],
+        ) -> trio.Process: ...
 
-            @overload
-            async def open_process(
-                command: Sequence[StrOrBytesPath],
-                *,
-                stdin: int | HasFileno | None = None,
-                shell: bool = False,
-                **kwargs: Unpack[UnixProcessArgs],
-            ) -> trio.Process: ...
+        @overload
+        async def open_process(
+            command: Sequence[StrOrBytesPath],
+            *,
+            stdin: int | HasFileno | None = None,
+            shell: bool = False,
+            **kwargs: Unpack[UnixProcessArgs],
+        ) -> trio.Process: ...
 
-            class UnixRunProcessArgs(UnixProcessArgs, UnixRunProcessMixin):
-                pass
+        class UnixRunProcessArgs(UnixProcessArgs, UnixRunProcessMixin):
+            pass
 
-            @overload  # type: ignore[no-overload-impl]
-            async def run_process(
-                command: StrOrBytesPath,
-                *,
-                stdin: bytes | bytearray | memoryview | int | HasFileno | None = None,
-                shell: Literal[True],
-                **kwargs: Unpack[UnixRunProcessArgs],
-            ) -> subprocess.CompletedProcess[bytes]: ...
+        @overload  # type: ignore[no-overload-impl]
+        async def run_process(
+            command: StrOrBytesPath,
+            *,
+            stdin: bytes | bytearray | memoryview | int | HasFileno | None = None,
+            shell: Literal[True],
+            **kwargs: Unpack[UnixRunProcessArgs],
+        ) -> subprocess.CompletedProcess[bytes]: ...
 
-            @overload
-            async def run_process(
-                command: Sequence[StrOrBytesPath],
-                *,
-                stdin: bytes | bytearray | memoryview | int | HasFileno | None = None,
-                shell: bool = False,
-                **kwargs: Unpack[UnixRunProcessArgs],
-            ) -> subprocess.CompletedProcess[bytes]: ...
+        @overload
+        async def run_process(
+            command: Sequence[StrOrBytesPath],
+            *,
+            stdin: bytes | bytearray | memoryview | int | HasFileno | None = None,
+            shell: bool = False,
+            **kwargs: Unpack[UnixRunProcessArgs],
+        ) -> subprocess.CompletedProcess[bytes]: ...
 
 else:
     # At runtime, use the actual implementations.
