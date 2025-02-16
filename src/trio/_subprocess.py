@@ -1122,12 +1122,25 @@ if TYPE_CHECKING:
             check: bool
             deliver_cancel: Callable[[Process], Awaitable[None]] | None
 
+        # TODO: once https://github.com/python/mypy/issues/18692 is
+        #       fixed, move the `UnixRunProcessArgs` definition down.
         if sys.version_info >= (3, 11):
             UnixProcessArgs = UnixProcessArgs3_11
+
+            class UnixRunProcessArgs(UnixProcessArgs3_11, UnixRunProcessMixin):
+                """Arguments for run_process on Unix with 3.11+"""
+
         elif sys.version_info >= (3, 10):
             UnixProcessArgs = UnixProcessArgs3_10
+
+            class UnixRunProcessArgs(UnixProcessArgs3_10, UnixRunProcessMixin):
+                """Arguments for run_process on Unix with 3.10+"""
+
         else:
             UnixProcessArgs = UnixProcessArgs3_9
+
+            class UnixRunProcessArgs(UnixProcessArgs3_9, UnixRunProcessMixin):
+                """Arguments for run_process on Unix with 3.9+"""
 
         @overload  # type: ignore[no-overload-impl]
         async def open_process(
@@ -1146,9 +1159,6 @@ if TYPE_CHECKING:
             shell: bool = False,
             **kwargs: Unpack[UnixProcessArgs],
         ) -> trio.Process: ...
-
-        class UnixRunProcessArgs(UnixProcessArgs, UnixRunProcessMixin):
-            pass
 
         @overload  # type: ignore[no-overload-impl]
         async def run_process(
