@@ -181,15 +181,6 @@ Abstract base classes
 .. currentmodule:: trio
 
 
-Converting Async Generators to use streams
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Using async generators is very handy, but also very treacherous. See
-:ref:`async-generators`. Therefore Trio provides a handy helper that
-solves that!
-
-.. autofunction:: trio.background_with_channel
-
 Generic stream tools
 ~~~~~~~~~~~~~~~~~~~~
 

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 from collections import OrderedDict, deque
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from functools import wraps
@@ -8,8 +7,6 @@ from math import inf
 from typing import (
     TYPE_CHECKING,
     Generic,
-    Protocol,
-    TypeVar,
 )
 
 import attrs
@@ -22,31 +19,12 @@ from ._core import Abort, RaiseCancelT, Task, enable_ki_protection
 from ._util import NoPublicConstructor, final, generic_function
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Awaitable, Callable
+    from collections.abc import AsyncGenerator, Callable
     from types import TracebackType
 
     from typing_extensions import ParamSpec, Self
 
     P = ParamSpec("P")
-
-if sys.version_info >= (3, 10):
-    from contextlib import aclosing  # new in Python 3.10
-else:
-
-    class _SupportsAclose(Protocol):
-        def aclose(self) -> Awaitable[object]: ...
-
-    _SupportsAcloseT = TypeVar("_SupportsAcloseT", bound=_SupportsAclose)
-
-    class aclosing(AbstractAsyncContextManager[_SupportsAcloseT, None]):
-        def __init__(self, thing: _SupportsAcloseT) -> None:
-            self._aiter = thing
-
-        async def __aenter__(self) -> _SupportsAcloseT:
-            return self._aiter
-
-        async def __aexit__(self, *exc_info: object) -> None:
-            await self._aiter.aclose()
 
 
 def _open_memory_channel(
@@ -533,15 +511,15 @@ def background_with_channel(max_buffer_size: float = 0) -> Callable[
             send_chan, recv_chan = trio.open_memory_channel[T](max_buffer_size)
             async with trio.open_nursery() as nursery:
                 agen = fn(*args, **kwargs)
-                # `nursery.start` to make sure that we will clean up send_chan & ait
+                # `nursery.start` to make sure that we will clean up send_chan & agen
                 # If this errors we don't close `recv_chan`, but the caller
                 # never gets access to it, so that's not a problem.
                 await nursery.start(_move_elems_to_channel, agen, send_chan)
                 # `async with recv_chan` could eat exceptions, so use sync cm
                 with recv_chan:
                     yield recv_chan
-                # Return promptly, without waiting for the generator to yield the
-                # next value
+                # User has exited context manager, cancel to immediately close the
+                # abandoned generator if it's still alive.
                 nursery.cancel_scope.cancel()
 
         return context_manager
@@ -554,7 +532,7 @@ def background_with_channel(max_buffer_size: float = 0) -> Callable[
         # `async with send_chan` will eat exceptions,
         # see https://github.com/python-trio/trio/issues/1559
         with send_chan:
-            async with aclosing(agen):
+            try:
                 task_status.started()
                 async for value in agen:
                     try:
@@ -564,5 +542,8 @@ def background_with_channel(max_buffer_size: float = 0) -> Callable[
                         # Closing the corresponding receive channel should cause
                         # a clean shutdown of the generator.
                         return
+            finally:
+                # replace try-finally with contextlib.aclosing once python39 is dropped
+                await agen.aclose()
 
     return decorator
