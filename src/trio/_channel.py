@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import sys
 from collections import OrderedDict, deque
+from collections.abc import AsyncGenerator, Callable  # noqa: TC003  # Needed for Sphinx
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from functools import wraps
 from math import inf
@@ -19,12 +21,19 @@ from ._core import Abort, RaiseCancelT, Task, enable_ki_protection
 from ._util import NoPublicConstructor, final, generic_function
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Callable
     from types import TracebackType
 
     from typing_extensions import ParamSpec, Self
 
     P = ParamSpec("P")
+elif "sphinx" in sys.modules:
+    # P needs to exist for Sphinx to parse the type hints successfully.
+    try:
+        from typing_extensions import ParamSpec
+    except ImportError:
+        P = ...  # This is valid in Callable, though not correct
+    else:
+        P = ParamSpec("P")
 
 
 def _open_memory_channel(
