@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import sys
 from collections import OrderedDict, deque
+from collections.abc import AsyncGenerator, Callable  # noqa: TC003  # Needed for Sphinx
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from functools import wraps
 from math import inf
 from typing import (
     TYPE_CHECKING,
@@ -19,7 +23,17 @@ from ._util import NoPublicConstructor, final, generic_function
 if TYPE_CHECKING:
     from types import TracebackType
 
-    from typing_extensions import Self
+    from typing_extensions import ParamSpec, Self
+
+    P = ParamSpec("P")
+elif "sphinx" in sys.modules:
+    # P needs to exist for Sphinx to parse the type hints successfully.
+    try:
+        from typing_extensions import ParamSpec
+    except ImportError:
+        P = ...  # This is valid in Callable, though not correct
+    else:
+        P = ParamSpec("P")
 
 
 def _open_memory_channel(
@@ -440,3 +454,105 @@ class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstr
         See `MemoryReceiveChannel.close`."""
         self.close()
         await trio.lowlevel.checkpoint()
+
+
+def background_with_channel(max_buffer_size: float = 0) -> Callable[
+    [
+        Callable[P, AsyncGenerator[T, None]],
+    ],
+    Callable[P, AbstractAsyncContextManager[trio.MemoryReceiveChannel[T]]],
+]:
+    """Decorate an async generator function to make it cancellation-safe.
+
+    The ``yield`` keyword offers a very convenient way to write iterators...
+    which makes it really unfortunate that async generators are so difficult
+    to call correctly.  Yielding from the inside of a cancel scope or a nursery
+    to the outside `violates structured concurrency <https://xkcd.com/292/>`_
+    with consequences explained in :pep:`789`.  Even then, resource cleanup
+    errors remain common (:pep:`533`) unless you wrap every call in
+    :func:`~contextlib.aclosing`.
+
+    This decorator gives you the best of both worlds: with careful exception
+    handling and a background task we preserve structured concurrency by
+    offering only the safe interface, and you can still write your iterables
+    with the convenience of ``yield``.  For example::
+
+        @background_with_channel()
+        async def my_async_iterable(arg, *, kwarg=True):
+            while ...:
+                item = await ...
+                yield item
+
+        async with my_async_iterable(...) as recv_chan:
+            async for item in recv_chan:
+                ...
+
+    While the combined async-with-async-for can be inconvenient at first,
+    the context manager is indispensable for both correctness and for prompt
+    cleanup of resources.
+
+    .. note::
+
+        With 'raw' async generators, code in the generator will never run
+        concurrently with that in the body of the ``async for`` loop - the
+        generator is resumed to compute each element on request.
+        Even with ``max_buffer_size=0``, a ``@background_with_channel()``
+        function will 'precompute' each element in a background task, and
+        send it to the internal channel, where it will wait until requested
+        by the loop.
+
+        This is rarely a problem, so we've avoided the performance cost
+        of exactly replicating the behavior of raw generators.  If
+        concurrent execution would cause problems, we recommend using a
+        :class:`trio.Lock` around the critical sections.
+    """
+    # Perhaps a future PEP will adopt `async with for` syntax, like
+    # https://coconut.readthedocs.io/en/master/DOCS.html#async-with-for
+
+    def decorator(
+        fn: Callable[P, AsyncGenerator[T, None]],
+    ) -> Callable[P, AbstractAsyncContextManager[trio.MemoryReceiveChannel[T]]]:
+        @asynccontextmanager
+        @wraps(fn)
+        async def context_manager(
+            *args: P.args, **kwargs: P.kwargs
+        ) -> AsyncGenerator[trio.MemoryReceiveChannel[T], None]:
+            send_chan, recv_chan = trio.open_memory_channel[T](max_buffer_size)
+            async with trio.open_nursery() as nursery:
+                agen = fn(*args, **kwargs)
+                # `nursery.start` to make sure that we will clean up send_chan & agen
+                # If this errors we don't close `recv_chan`, but the caller
+                # never gets access to it, so that's not a problem.
+                await nursery.start(_move_elems_to_channel, agen, send_chan)
+                # `async with recv_chan` could eat exceptions, so use sync cm
+                with recv_chan:
+                    yield recv_chan
+                # User has exited context manager, cancel to immediately close the
+                # abandoned generator if it's still alive.
+                nursery.cancel_scope.cancel()
+
+        return context_manager
+
+    async def _move_elems_to_channel(
+        agen: AsyncGenerator[T, None],
+        send_chan: trio.MemorySendChannel[T],
+        task_status: trio.TaskStatus,
+    ) -> None:
+        # `async with send_chan` will eat exceptions,
+        # see https://github.com/python-trio/trio/issues/1559
+        with send_chan:
+            try:
+                task_status.started()
+                async for value in agen:
+                    try:
+                        # Send the value to the channel
+                        await send_chan.send(value)
+                    except trio.BrokenResourceError:
+                        # Closing the corresponding receive channel should cause
+                        # a clean shutdown of the generator.
+                        return
+            finally:
+                # replace try-finally with contextlib.aclosing once python39 is dropped
+                await agen.aclose()
+
+    return decorator
