@@ -21,12 +21,11 @@
 # theirs and our tasks are lighter, so for us #objects is smaller and #tasks
 # is larger.
 #
-# This is in the core because for two reasons. First, it's used by
-# UnboundedQueue, and UnboundedQueue is used for a number of things in the
-# core. And second, it's responsible for providing fairness to all of our
-# high-level synchronization primitives (locks, queues, etc.). For now with
-# our FIFO scheduler this is relatively trivial (it's just a FIFO waitqueue),
-# but in the future we ever start support task priorities or fair scheduling
+# This is in the core because it's responsible for providing fairness to all
+# of our high-level synchronization primitives (locks, queues, etc.). For now
+# with our FIFO scheduler this is relatively trivial (it's just a FIFO
+# waitqueue), but in the future we ever start support task priorities or fair
+# scheduling
 #
 #    https://github.com/python-trio/trio/issues/32
 #

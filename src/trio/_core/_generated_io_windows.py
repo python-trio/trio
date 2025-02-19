@@ -14,8 +14,8 @@ if TYPE_CHECKING:
 
     from typing_extensions import Buffer
 
+    from .._channel import MemoryReceiveChannel
     from .._file_io import _HasFileNo
-    from ._unbounded_queue import UnboundedQueue
     from ._windows_cffi import CData, Handle
 
 assert not TYPE_CHECKING or sys.platform == "win32"
@@ -191,7 +191,7 @@ def current_iocp() -> int:
 
 @enable_ki_protection
 def monitor_completion_key() -> (
-    AbstractContextManager[tuple[int, UnboundedQueue[object]]]
+    AbstractContextManager[tuple[int, MemoryReceiveChannel[object]]]
 ):
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26

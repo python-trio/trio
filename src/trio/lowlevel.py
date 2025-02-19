@@ -22,8 +22,6 @@ from ._core import (
     RunVarToken as RunVarToken,
     Task as Task,
     TrioToken as TrioToken,
-    UnboundedQueue as UnboundedQueue,
-    UnboundedQueueStatistics as UnboundedQueueStatistics,
     add_instrument as add_instrument,
     add_parking_lot_breaker as add_parking_lot_breaker,
     cancel_shielded_checkpoint as cancel_shielded_checkpoint,
