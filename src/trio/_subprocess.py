@@ -1111,7 +1111,7 @@ if TYPE_CHECKING:
         class UnixProcessArgs3_11(UnixProcessArgs3_10, total=False):
             """Arguments shared between all Unix runs on 3.11+."""
 
-            process_group: int
+            process_group: int | None
 
         class UnixRunProcessMixin(TypedDict, total=False):
             """Arguments unique to run_process on Unix."""
