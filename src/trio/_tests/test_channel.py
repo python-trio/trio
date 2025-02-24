@@ -463,7 +463,9 @@ async def test_background_with_channel_cancelled() -> None:
         @background_with_channel()
         async def agen() -> AsyncGenerator[int]:
             yield 1
-            yield 1
+            raise AssertionError(  # pragma: no cover
+                "cancel before consumption means generator should not be iteratod"
+            )
 
         async with agen():
             cs.cancel()
@@ -496,7 +498,7 @@ async def test_background_with_channel_buffer_size_too_small(
 
     with trio.move_on_after(5):
         async with agen() as recv_chan:
-            async for x in recv_chan:
+            async for x in recv_chan:  # pragma: no branch
                 assert x == 1
                 await trio.sleep_forever()
 
