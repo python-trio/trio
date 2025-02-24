@@ -35,6 +35,7 @@ class Instruments(UserDict[str, dict[Instrument, None]]):
     __slots__ = ()
 
     def __init__(self, incoming: Sequence[Instrument]) -> None:
+        super().__init__({})
         self["_all"] = {}
         for instrument in incoming:
             self.add_instrument(instrument)
