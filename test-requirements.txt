@@ -186,7 +186,7 @@ typing-extensions==4.12.2
     #   pyright
 urllib3==2.3.0
     # via requests
-uv==0.5.30
+uv==0.6.1
     # via -r test-requirements.in
 virtualenv==20.29.2
     # via pre-commit
