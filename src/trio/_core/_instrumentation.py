@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import types
+from collections import UserDict
 from typing import TYPE_CHECKING, TypeVar
 
 from .._abc import Instrument
@@ -21,7 +22,7 @@ def _public(fn: T) -> T:
     return fn
 
 
-class Instruments(dict[str, dict[Instrument, None]]):
+class Instruments(UserDict[str, dict[Instrument, None]]):
     """A collection of `trio.abc.Instrument` organized by hook.
 
     Instrumentation calls are rather expensive, and we don't want a
