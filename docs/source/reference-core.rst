@@ -1744,7 +1744,7 @@ so sometimes you'll get an unhelpful `TrioInternalError`. (And
 sometimes it will seem to work, which is probably the worst outcome of
 all, since then you might not notice the issue until you perform some
 minor refactoring of the generator or the code that's iterating it, or
-just get unlucky. There is a draft :pep:`798` with accompanying
+just get unlucky. There is a draft :pep:`789` with accompanying
 `discussion thread
 <https://discuss.python.org/t/preventing-yield-inside-certain-context-managers/1091>`__
 that would at least make it fail consistently.)
