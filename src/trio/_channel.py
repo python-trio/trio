@@ -456,11 +456,40 @@ class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstr
         await trio.lowlevel.checkpoint()
 
 
-def background_with_channel(max_buffer_size: float = 0) -> Callable[
+class RecvChanWrapper(ReceiveChannel[T]):
+    def __init__(
+        self, recv_chan: MemoryReceiveChannel[T], send_semaphore: trio.Semaphore | None
+    ) -> None:
+        self.recv_chan = recv_chan
+        self.send_semaphore = send_semaphore
+
+    # TODO: should this allow clones?
+
+    async def receive(self) -> T:
+        if self.send_semaphore is not None:
+            self.send_semaphore.release()
+        return await self.recv_chan.receive()
+
+    async def aclose(self) -> None:
+        await self.recv_chan.aclose()
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        self.recv_chan.close()
+
+
+def background_with_channel(max_buffer_size: int | None = 0) -> Callable[
     [
         Callable[P, AsyncGenerator[T, None]],
     ],
-    Callable[P, AbstractAsyncContextManager[trio.MemoryReceiveChannel[T]]],
+    Callable[P, AbstractAsyncContextManager[trio.abc.ReceiveChannel[T]]],
 ]:
     """Decorate an async generator function to make it cancellation-safe.
 
@@ -491,42 +520,42 @@ def background_with_channel(max_buffer_size: float = 0) -> Callable[
     the context manager is indispensable for both correctness and for prompt
     cleanup of resources.
 
-    .. note::
-
-        With 'raw' async generators, code in the generator will never run
-        concurrently with that in the body of the ``async for`` loop - the
-        generator is resumed to compute each element on request.
-        Even with ``max_buffer_size=0``, a ``@background_with_channel()``
-        function will 'precompute' each element in a background task, and
-        send it to the internal channel, where it will wait until requested
-        by the loop.
-
-        This is rarely a problem, so we've avoided the performance cost
-        of exactly replicating the behavior of raw generators.  If
-        concurrent execution would cause problems, we recommend using a
-        :class:`trio.Lock` around the critical sections.
+    If you specify ``max_buffer_size>0`` the async generator will run concurrently
+    with your iterator, until the buffer is full.
     """
     # Perhaps a future PEP will adopt `async with for` syntax, like
     # https://coconut.readthedocs.io/en/master/DOCS.html#async-with-for
 
+    if not isinstance(max_buffer_size, int) and max_buffer_size is not None:
+        raise TypeError(
+            "`max_buffer_size` must be int or None, not {type(max_buffer_size)}. "
+            "Did you forget the parentheses in `@background_with_channel()`?"
+        )
+
     def decorator(
         fn: Callable[P, AsyncGenerator[T, None]],
-    ) -> Callable[P, AbstractAsyncContextManager[trio.MemoryReceiveChannel[T]]]:
+    ) -> Callable[P, AbstractAsyncContextManager[trio._channel.RecvChanWrapper[T]]]:
         @asynccontextmanager
         @wraps(fn)
         async def context_manager(
             *args: P.args, **kwargs: P.kwargs
-        ) -> AsyncGenerator[trio.MemoryReceiveChannel[T], None]:
-            send_chan, recv_chan = trio.open_memory_channel[T](max_buffer_size)
+        ) -> AsyncGenerator[trio._channel.RecvChanWrapper[T], None]:
+            max_buf_size_float = inf if max_buffer_size is None else max_buffer_size
+            send_chan, recv_chan = trio.open_memory_channel[T](max_buf_size_float)
             async with trio.open_nursery() as nursery:
                 agen = fn(*args, **kwargs)
+                send_semaphore = (
+                    None if max_buffer_size is None else trio.Semaphore(max_buffer_size)
+                )
                 # `nursery.start` to make sure that we will clean up send_chan & agen
                 # If this errors we don't close `recv_chan`, but the caller
                 # never gets access to it, so that's not a problem.
-                await nursery.start(_move_elems_to_channel, agen, send_chan)
+                await nursery.start(
+                    _move_elems_to_channel, agen, send_chan, send_semaphore
+                )
                 # `async with recv_chan` could eat exceptions, so use sync cm
-                with recv_chan:
-                    yield recv_chan
+                with RecvChanWrapper(recv_chan, send_semaphore) as wrapped_recv_chan:
+                    yield wrapped_recv_chan
                 # User has exited context manager, cancel to immediately close the
                 # abandoned generator if it's still alive.
                 nursery.cancel_scope.cancel()
@@ -536,6 +565,7 @@ def background_with_channel(max_buffer_size: float = 0) -> Callable[
     async def _move_elems_to_channel(
         agen: AsyncGenerator[T, None],
         send_chan: trio.MemorySendChannel[T],
+        send_semaphore: trio.Semaphore | None,
         task_status: trio.TaskStatus,
     ) -> None:
         # `async with send_chan` will eat exceptions,
@@ -543,7 +573,14 @@ def background_with_channel(max_buffer_size: float = 0) -> Callable[
         with send_chan:
             try:
                 task_status.started()
-                async for value in agen:
+                while True:
+                    # wait for send_chan to be unblocked
+                    if send_semaphore is not None:
+                        await send_semaphore.acquire()
+                    try:
+                        value = await agen.__anext__()
+                    except StopAsyncIteration:
+                        return
                     try:
                         # Send the value to the channel
                         await send_chan.send(value)

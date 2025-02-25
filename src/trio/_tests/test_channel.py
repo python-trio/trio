@@ -7,7 +7,7 @@ import pytest
 import trio
 from trio import EndOfChannel, background_with_channel, open_memory_channel
 
-from ..testing import RaisesGroup, assert_checkpoints, wait_all_tasks_blocked
+from ..testing import Matcher, RaisesGroup, assert_checkpoints, wait_all_tasks_blocked
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -511,8 +511,8 @@ async def test_background_with_channel_buffer_size_just_right(
     @background_with_channel(2)
     async def agen() -> AsyncGenerator[int]:
         yield 1
-        yield 2
         event.set()
+        yield 2
 
     async with agen() as recv_chan:
         await event.wait()
@@ -520,3 +520,85 @@ async def test_background_with_channel_buffer_size_just_right(
         assert await recv_chan.__anext__() == 2
         with pytest.raises(StopAsyncIteration):
             await recv_chan.__anext__()
+
+
+async def test_background_with_channel_no_interleave() -> None:
+    @background_with_channel()
+    async def agen() -> AsyncGenerator[int]:
+        yield 1
+        raise AssertionError
+
+    async with agen() as recv_chan:
+        assert await recv_chan.__anext__() == 1
+        await trio.lowlevel.checkpoint()
+
+
+async def test_background_with_channel_multiple_errors() -> None:
+    event = trio.Event()
+
+    @background_with_channel(1)
+    async def agen() -> AsyncGenerator[int]:
+        yield 1
+        event.set()
+        raise ValueError("agen")
+
+    with RaisesGroup(
+        Matcher(ValueError, match="^agen$"),
+        Matcher(TypeError, match="^iterator$"),
+    ):
+        async with agen() as recv_chan:
+            async for i in recv_chan:
+                assert i == 1
+                await event.wait()
+                raise TypeError("iterator")
+
+
+async def test_background_with_channel_genexit_finally() -> None:
+    events: list[str] = []
+
+    @background_with_channel()
+    async def agen(stuff: list[str]) -> AsyncGenerator[int]:
+        try:
+            yield 1
+        except BaseException as e:
+            stuff.append(repr(e))
+            raise
+        finally:
+            stuff.append("finally")
+            raise ValueError("agen")
+
+    with RaisesGroup(
+        Matcher(ValueError, match="^agen$"),
+        Matcher(TypeError, match="^iterator$"),
+    ):
+        async with agen(events) as recv_chan:
+            async for i in recv_chan:
+                assert i == 1
+                raise TypeError("iterator")
+
+    assert events == ["GeneratorExit()", "finally"]
+
+
+async def test_background_with_channel_nested_loop() -> None:
+    @background_with_channel()
+    async def agen() -> AsyncGenerator[int]:
+        for i in range(2):
+            yield i
+
+    ii = 0
+    async with agen() as recv_chan1:
+        async for i in recv_chan1:
+            async with agen() as recv_chan:
+                jj = 0
+                async for j in recv_chan:
+                    assert (i, j) == (ii, jj)
+                    jj += 1
+            ii += 1
+
+
+async def test_background_with_channel_no_parens() -> None:
+    with pytest.raises(TypeError, match="must be int or None"):
+
+        @background_with_channel  # type: ignore[arg-type]
+        async def agen() -> AsyncGenerator[None]:
+            yield  # pragma: no cover
