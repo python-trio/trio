@@ -493,6 +493,11 @@ def background_with_channel(max_buffer_size: int | None = 0) -> Callable[
 ]:
     """Decorate an async generator function to make it cancellation-safe.
 
+    This is mostly a drop-in replacement, except for the fact that it will
+    wrap errors in exception groups due to the internal nursery. Although when
+    using it without a buffer it should be exceedingly rare to get multiple
+    exceptions.
+
     The ``yield`` keyword offers a very convenient way to write iterators...
     which makes it really unfortunate that async generators are so difficult
     to call correctly.  Yielding from the inside of a cancel scope or a nursery
@@ -542,7 +547,7 @@ def background_with_channel(max_buffer_size: int | None = 0) -> Callable[
         ) -> AsyncGenerator[trio._channel.RecvChanWrapper[T], None]:
             max_buf_size_float = inf if max_buffer_size is None else max_buffer_size
             send_chan, recv_chan = trio.open_memory_channel[T](max_buf_size_float)
-            async with trio.open_nursery() as nursery:
+            async with trio.open_nursery(strict_exception_groups=True) as nursery:
                 agen = fn(*args, **kwargs)
                 send_semaphore = (
                     None if max_buffer_size is None else trio.Semaphore(max_buffer_size)
