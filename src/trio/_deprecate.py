@@ -34,11 +34,10 @@ class TrioDeprecationWarning(FutureWarning):
     upcoming deprecations and other backwards compatibility breaking changes.
 
     Despite the name, this class currently inherits from
-    :class:`FutureWarning`, not :class:`DeprecationWarning`, because while
-    we're in young-and-aggressive mode we want these warnings to be visible by
-    default. You can hide them by installing a filter or with the ``-W``
-    switch: see the :mod:`warnings` documentation for details.
-
+    :class:`FutureWarning`, not :class:`DeprecationWarning`, because until a
+    1.0 release, we want these warnings to be visible by default. You can hide
+    them by installing a filter or with the ``-W`` switch: see the
+    :mod:`warnings` documentation for details.
     """
 
 
