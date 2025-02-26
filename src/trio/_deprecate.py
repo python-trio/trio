@@ -26,9 +26,10 @@ RetT = TypeVar("RetT")
 class TrioDeprecationWarning(FutureWarning):
     """Warning emitted if you use deprecated Trio functionality.
 
-    As a young project, Trio is currently quite aggressive about deprecating
-    and/or removing functionality that we realize was a bad idea. If you use
-    Trio, you should subscribe to `issue #1
+    While a relatively mature project, Trio remains committed to refining its
+    design and improving usability. As part of this, we occasionally deprecate
+    or remove functionality that proves suboptimal. If you use Trio, we
+    recommend `subscribing to issue #1
     <https://github.com/python-trio/trio/issues/1>`__ to get information about
     upcoming deprecations and other backwards compatibility breaking changes.
 

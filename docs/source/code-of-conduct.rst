@@ -138,9 +138,9 @@ members. This section covers actual concrete steps.
 Contacting Maintainers
 ~~~~~~~~~~~~~~~~~~~~~~
 
-As a small and young project, we don't yet have a Code of Conduct
-enforcement team. Hopefully that will be addressed as we grow, but for
-now, any issues should be addressed to `Nathaniel J. Smith
+As a small project, we don't have a Code of Conduct enforcement team.
+Hopefully that will be addressed as we grow, but for now, any issues
+should be addressed to `Nathaniel J. Smith
 <https://github.com/njsmith>`__, via `email <mailto:njs@pobox.com>`__
 or any other medium that you feel comfortable with. Using words like
 "Trio code of conduct" in your subject will help make sure your
