@@ -23,6 +23,8 @@ from trio._tools.gen_exports import (
     run_ruff,
 )
 
+from ..._core._tests.tutil import slow
+
 SOURCE = '''from _run import _public
 from collections import Counter
 
@@ -89,6 +91,7 @@ skip_lints = pytest.mark.skipif(
 )
 
 
+@slow
 @skip_lints
 @pytest.mark.parametrize("imports", [IMPORT_1, IMPORT_2, IMPORT_3])
 def test_process(
