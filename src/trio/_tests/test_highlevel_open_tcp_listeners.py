@@ -74,7 +74,7 @@ async def test_open_tcp_listeners_specific_port_specific_host() -> None:
 
 
 @binds_ipv6
-@slow  # turns out failing to connect to a port takes 2 seconds on Windows
+@slow
 async def test_open_tcp_listeners_ipv6_v6only() -> None:
     # Check IPV6_V6ONLY is working properly
     (ipv6_listener,) = await open_tcp_listeners(0, host="::1")
@@ -85,6 +85,8 @@ async def test_open_tcp_listeners_ipv6_v6only() -> None:
             OSError,
             match=r"(Error|all attempts to) connect(ing)* to (\(')*127\.0\.0\.1(', |:)\d+(\): Connection refused| failed)$",
         ):
+            # Windows retries failed connections so this takes seconds
+            # (and that's why this is marked @slow)
             await open_tcp_stream("127.0.0.1", port)
 
 

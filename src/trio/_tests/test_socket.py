@@ -829,7 +829,7 @@ async def test_SocketType_non_blocking_paths() -> None:
 
 
 # This tests the complicated paths through connect
-@slow  # turns out failing to connect to port 2 takes 2 seconds on Windows
+@slow
 async def test_SocketType_connect_paths() -> None:
     with tsocket.socket() as sock:
         with pytest.raises(
@@ -896,11 +896,14 @@ async def test_SocketType_connect_paths() -> None:
             # connect to fail. Really. Also if you use a non-routable
             # address. This way fails instantly though. As long as nothing
             # is listening on port 2.)
+
+            # Windows retries failed connections so this takes seconds
+            # (and that's why this is marked @slow)
             await sock.connect(("127.0.0.1", 2))
 
 
 # Fix issue #1810
-@slow  # turns out failing to connect to port 2 takes 2 seconds on Windows
+@slow
 async def test_address_in_socket_error() -> None:
     address = "127.0.0.1"
     with tsocket.socket() as sock:
@@ -908,6 +911,8 @@ async def test_address_in_socket_error() -> None:
             OSError,
             match=rf"^\[\w+ \d+\] Error connecting to \({address!r}, 2\): (Connection refused|Unknown error)$",
         ):
+            # Windows retries failed connections so this takes seconds
+            # (and that's why this is marked @slow)
             await sock.connect((address, 2))
 
 
