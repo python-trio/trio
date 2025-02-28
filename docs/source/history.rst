@@ -1504,14 +1504,14 @@ Highlights
 Breaking changes and deprecations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Trio is a young and ambitious project, but it also aims to become a
-stable, production-quality foundation for async I/O in Python.
-Therefore, our approach for now is to provide deprecation warnings
-where-ever possible, but on a fairly aggressive cycle as we push
-towards stability. If you use Trio you should `read and subscribe to
-issue #1 <https://github.com/python-trio/trio/issues/1>`__. We'd also
-welcome feedback on how this approach is working, whether our
-deprecation warnings could be more helpful, or anything else.
+Trio has matured into a stable, production-quality foundation for
+async I/O in Python. While we strive to maintain stability, we may
+make occasional breaking changes to improve the library. Whenever
+possible, we provide deprecation warnings on a reasonable timeline to
+ease transitions. If you use Trio, we recommend `subscribing to issue
+#1 <https://github.com/python-trio/trio/issues/1>`__ to stay informed
+about changes. We also welcome feedback on how our deprecation process
+is working and whether it could be improved.
 
 The tl;dr is: stop using ``socket.bind`` if you can, and then fix
 everything your test suite warns you about.

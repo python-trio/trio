@@ -33,13 +33,13 @@ the Python I/O library I always wanted; I find it makes building
 I/O-oriented programs easier, less error-prone, and just plain more
 fun. Perhaps you'll find the same.
 
-This project is young and still somewhat experimental: the overall
-design is solid and the existing features are fully tested and
-documented, but you may encounter missing functionality or rough
-edges. We *do* encourage you do use it, but you should `read and
-subscribe to issue #1
-<https://github.com/python-trio/trio/issues/1>`__ to get warning and a
-chance to give feedback about any compatibility-breaking changes.
+Trio is a mature and well-tested library, though it retains its
+“experimental” classification to allow for occasional breaking API
+changes as we push toward a 1.0 release. In practice, such changes are
+rare and typically minor. It is widely used in production environments,
+and we *do* encourage you do use it, but consider `subscribing to issue
+#1 <https://github.com/python-trio/trio/issues/1>`__ to get a warning
+and a chance to give feedback about any compatibility-breaking changes.
 
 Vital statistics:
 

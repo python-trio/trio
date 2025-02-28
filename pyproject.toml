@@ -14,7 +14,7 @@ keywords = [
     "trio",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Framework :: Trio",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",

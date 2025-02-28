@@ -817,10 +817,10 @@ inside the handler function(s) with the ``nonlocal`` keyword:
 Designing for multiple errors
 +++++++++++++++++++++++++++++
 
-Structured concurrency is still a young design pattern, but there are a few patterns
-we've identified for how you (or your users) might want to handle groups of exceptions.
-Note that the final pattern, simply raising an `ExceptionGroup`, is the most common -
-and nurseries automatically do that for you.
+Structured concurrency is still a relatively new design pattern, but there are a few
+approaches we've identified for how you (or your users) might want to handle groups of
+exceptions. Note that the final pattern, simply raising an `ExceptionGroup`, is the most
+common - and nurseries automatically do that for you.
 
 **First**, you might want to 'defer to' a particular exception type, raising just that if
 there is any such instance in the group.  For example: `KeyboardInterrupt` has a clear
