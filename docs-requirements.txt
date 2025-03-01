@@ -55,7 +55,7 @@ pycparser==2.22 ; os_name == 'nt' or platform_python_implementation != 'PyPy'
     # via cffi
 pygments==2.19.1
     # via sphinx
-pyopenssl==24.3.0
+pyopenssl==25.0.0
     # via -r docs-requirements.in
 requests==2.32.3
     # via sphinx
@@ -105,6 +105,8 @@ sphinxcontrib-trio==1.1.2
 towncrier==24.8.0
     # via -r docs-requirements.in
 typing-extensions==4.12.2
-    # via beautifulsoup4
+    # via
+    #   beautifulsoup4
+    #   pyopenssl
 urllib3==2.3.0
     # via requests
