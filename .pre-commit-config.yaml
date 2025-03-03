@@ -38,7 +38,7 @@ repos:
           # tomli needed on 3.10. tomllib is available in stdlib on 3.11+
           - tomli
   - repo: https://github.com/crate-ci/typos
-    rev: typos-dict-v0.12.6
+    rev: v1.30.0
     hooks:
       - id: typos
   - repo: https://github.com/sphinx-contrib/sphinx-lint
