@@ -417,7 +417,7 @@ async def test_unbuffered() -> None:
 
 
 async def test_background_with_channel() -> None:
-    @background_with_channel()
+    @background_with_channel(1)
     async def agen() -> AsyncGenerator[int]:
         yield 1
         await trio.sleep_forever()  # simulate deadlock
@@ -461,11 +461,11 @@ async def test_background_with_channel_cancelled() -> None:
     with trio.CancelScope() as cs:
 
         @background_with_channel()
-        async def agen() -> AsyncGenerator[int]:
-            yield 1
-            raise AssertionError(  # pragma: no cover
-                "cancel before consumption means generator should not be iteratod"
+        async def agen() -> AsyncGenerator[None]:  # pragma: no cover
+            raise AssertionError(
+                "cancel before consumption means generator should not be iterated"
             )
+            yield  # indicate that we're an iterator
 
         async with agen():
             cs.cancel()
@@ -491,7 +491,6 @@ async def test_background_with_channel_buffer_size_too_small(
     @background_with_channel(0)
     async def agen() -> AsyncGenerator[int]:
         yield 1
-        yield 2
         raise AssertionError(
             "buffer size 0 means we shouldn't be asked for another value"
         )  # pragma: no cover
@@ -526,7 +525,7 @@ async def test_background_with_channel_no_interleave() -> None:
     @background_with_channel()
     async def agen() -> AsyncGenerator[int]:
         yield 1
-        raise AssertionError
+        raise AssertionError  # pragma: no cover
 
     async with agen() as recv_chan:
         assert await recv_chan.__anext__() == 1
@@ -547,7 +546,7 @@ async def test_background_with_channel_multiple_errors() -> None:
         Matcher(TypeError, match="^iterator$"),
     ):
         async with agen() as recv_chan:
-            async for i in recv_chan:
+            async for i in recv_chan:  # pragma: no branch
                 assert i == 1
                 await event.wait()
                 raise TypeError("iterator")
@@ -572,7 +571,7 @@ async def test_background_with_channel_genexit_finally() -> None:
         Matcher(TypeError, match="^iterator$"),
     ):
         async with agen(events) as recv_chan:
-            async for i in recv_chan:
+            async for i in recv_chan:  # pragma: no branch
                 assert i == 1
                 raise TypeError("iterator")
 
@@ -602,3 +601,18 @@ async def test_background_with_channel_no_parens() -> None:
         @background_with_channel  # type: ignore[arg-type]
         async def agen() -> AsyncGenerator[None]:
             yield  # pragma: no cover
+
+
+async def test_background_with_channel_inf_buffer() -> None:
+    event = trio.Event()
+
+    # agen immediately starts yielding numbers
+    # into the buffer upon entering the cm
+    @background_with_channel(None)
+    async def agen() -> AsyncGenerator[int]:
+        for i in range(10):
+            yield i
+        event.set()
+
+    async with agen() as _:
+        await event.wait()
