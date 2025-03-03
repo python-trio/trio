@@ -613,6 +613,8 @@ async def test_background_with_channel_inf_buffer() -> None:
         for i in range(10):
             yield i
         event.set()
+        # keep agen alive to receive values
+        await trio.sleep_forever()
 
     async with agen() as recv_chan:
         await event.wait()
@@ -620,3 +622,5 @@ async def test_background_with_channel_inf_buffer() -> None:
         async for i in recv_chan:
             assert i == j
             j += 1
+            if j == 10:
+                break
