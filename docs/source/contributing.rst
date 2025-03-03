@@ -318,7 +318,7 @@ format all our code to a standard style. While you're editing code you
 can be as sloppy as you like about whitespace; and then before you commit,
 just run:
 
-.. code-block::
+.. code-block:: text
 
     pip install -U pre-commit
     pre-commit
@@ -332,14 +332,14 @@ nicely formatted. (black doesn't reformat comments or docstrings.)
 If you would like, you can even have pre-commit run before you commit by
 running:
 
-.. code-block::
+.. code-block:: text
 
     pre-commit install
 
 and now pre-commit will run before git commits. You can uninstall the
 pre-commit hook at any time by running:
 
-.. code-block::
+.. code-block:: text
 
     pre-commit uninstall
 
@@ -349,7 +349,7 @@ you can can add ``# fmt: off`` and ``# fmt: on`` comments.
 
 If you want to see what changes black will make, you can use:
 
-.. code-block::
+.. code-block:: text
 
     black --diff trio
 
@@ -433,7 +433,7 @@ file to install all of the required packages (possibly using a
 virtualenv). After that, build the docs using ``make html`` in the
 docs directory. The whole process might look something like this:
 
-.. code-block::
+.. code-block:: text
 
     cd path/to/project/checkout/
     pip install -r docs-requirements.txt
