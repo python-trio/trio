@@ -614,5 +614,9 @@ async def test_background_with_channel_inf_buffer() -> None:
             yield i
         event.set()
 
-    async with agen() as _:
+    async with agen() as recv_chan:
         await event.wait()
+        j = 0
+        async for i in recv_chan:
+            assert i == j
+            j += 1
