@@ -471,6 +471,23 @@ async def test_background_with_channel_cancelled() -> None:
             cs.cancel()
 
 
+async def test_background_with_channel_recv_closed(
+    autojump_clock: trio.testing.MockClock,
+) -> None:
+    event = trio.Event()
+
+    @background_with_channel(1)
+    async def agen() -> AsyncGenerator[int]:
+        await event.wait()
+        yield 1
+
+    async with agen() as recv_chan:
+        await recv_chan.aclose()
+        event.set()
+        # wait for agen to try sending on the closed channel
+        await trio.sleep(1)
+
+
 async def test_background_with_channel_no_race() -> None:
     # this previously led to a race condition due to
     # https://github.com/python-trio/trio/issues/1559
