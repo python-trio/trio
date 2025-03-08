@@ -7,7 +7,15 @@ import sys
 import warnings
 from contextlib import ExitStack
 from functools import partial
-from typing import TYPE_CHECKING, Final, Literal, Protocol, Union, overload
+from typing import (
+    TYPE_CHECKING,
+    Final,
+    Literal,
+    Protocol,
+    TypedDict,
+    Union,
+    overload,
+)
 
 import trio
 
@@ -23,10 +31,10 @@ from ._util import NoPublicConstructor, final
 
 if TYPE_CHECKING:
     import signal
-    from collections.abc import Awaitable, Callable, Mapping, Sequence
+    from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
     from io import TextIOWrapper
 
-    from typing_extensions import TypeAlias
+    from typing_extensions import TypeAlias, Unpack
 
     from ._abc import ReceiveStream, SendStream
 
@@ -779,29 +787,46 @@ async def _run_process(
 # There's a lot of duplication here because type checkers don't
 # have a good way to represent overloads that differ only
 # slightly. A cheat sheet:
+#
 # - on Windows, command is Union[str, Sequence[str]];
 #   on Unix, command is str if shell=True and Sequence[str] otherwise
+#
 # - on Windows, there are startupinfo and creationflags options;
-#   on Unix, there are preexec_fn, restore_signals, start_new_session, and pass_fds
+#   on Unix, there are preexec_fn, restore_signals, start_new_session,
+#            pass_fds, group (3.9+), extra_groups (3.9+), user (3.9+),
+#            umask (3.9+), pipesize (3.10+), process_group (3.11+)
+#
 # - run_process() has the signature of open_process() plus arguments
-#   capture_stdout, capture_stderr, check, deliver_cancel, and the ability to pass
-#   bytes as stdin
+#   capture_stdout, capture_stderr, check, deliver_cancel, the ability
+#   to pass bytes as stdin, and the ability to run in `nursery.start`
+
+
+class GeneralProcessArgs(TypedDict, total=False):
+    """Arguments shared between all runs."""
+
+    stdout: int | HasFileno | None
+    stderr: int | HasFileno | None
+    close_fds: bool
+    cwd: StrOrBytesPath | None
+    env: Mapping[str, str] | None
+    executable: StrOrBytesPath | None
+
 
 if TYPE_CHECKING:
     if sys.platform == "win32":
+
+        class WindowsProcessArgs(GeneralProcessArgs, total=False):
+            """Arguments shared between all Windows runs."""
+
+            shell: bool
+            startupinfo: subprocess.STARTUPINFO | None
+            creationflags: int
 
         async def open_process(
             command: StrOrBytesPath | Sequence[StrOrBytesPath],
             *,
             stdin: int | HasFileno | None = None,
-            stdout: int | HasFileno | None = None,
-            stderr: int | HasFileno | None = None,
-            close_fds: bool = True,
-            shell: bool = False,
-            cwd: StrOrBytesPath | None = None,
-            env: Mapping[str, str] | None = None,
-            startupinfo: subprocess.STARTUPINFO | None = None,
-            creationflags: int = 0,
+            **kwargs: Unpack[WindowsProcessArgs],
         ) -> trio.Process:
             r"""Execute a child program in a new process.
 
@@ -864,14 +889,7 @@ if TYPE_CHECKING:
             capture_stderr: bool = False,
             check: bool = True,
             deliver_cancel: Callable[[Process], Awaitable[object]] | None = None,
-            stdout: int | HasFileno | None = None,
-            stderr: int | HasFileno | None = None,
-            close_fds: bool = True,
-            shell: bool = False,
-            cwd: StrOrBytesPath | None = None,
-            env: Mapping[str, str] | None = None,
-            startupinfo: subprocess.STARTUPINFO | None = None,
-            creationflags: int = 0,
+            **kwargs: Unpack[WindowsProcessArgs],
         ) -> subprocess.CompletedProcess[bytes]:
             """Run ``command`` in a subprocess and wait for it to complete.
 
@@ -1067,24 +1085,70 @@ if TYPE_CHECKING:
             ...
 
     else:  # Unix
-        # pyright doesn't give any error about these missing docstrings as they're
+        # pyright doesn't give any error about overloads missing docstrings as they're
         # overloads. But might still be a problem for other static analyzers / docstring
         # readers (?)
+
+        class UnixProcessArgs3_9(GeneralProcessArgs, total=False):
+            """Arguments shared between all Unix runs."""
+
+            preexec_fn: Callable[[], object] | None
+            restore_signals: bool
+            start_new_session: bool
+            pass_fds: Sequence[int]
+
+            # 3.9+
+            group: str | int | None
+            extra_groups: Iterable[str | int] | None
+            user: str | int | None
+            umask: int
+
+        class UnixProcessArgs3_10(UnixProcessArgs3_9, total=False):
+            """Arguments shared between all Unix runs on 3.10+."""
+
+            pipesize: int
+
+        class UnixProcessArgs3_11(UnixProcessArgs3_10, total=False):
+            """Arguments shared between all Unix runs on 3.11+."""
+
+            process_group: int | None
+
+        class UnixRunProcessMixin(TypedDict, total=False):
+            """Arguments unique to run_process on Unix."""
+
+            task_status: TaskStatus[Process]
+            capture_stdout: bool
+            capture_stderr: bool
+            check: bool
+            deliver_cancel: Callable[[Process], Awaitable[None]] | None
+
+        # TODO: once https://github.com/python/mypy/issues/18692 is
+        #       fixed, move the `UnixRunProcessArgs` definition down.
+        if sys.version_info >= (3, 11):
+            UnixProcessArgs = UnixProcessArgs3_11
+
+            class UnixRunProcessArgs(UnixProcessArgs3_11, UnixRunProcessMixin):
+                """Arguments for run_process on Unix with 3.11+"""
+
+        elif sys.version_info >= (3, 10):
+            UnixProcessArgs = UnixProcessArgs3_10
+
+            class UnixRunProcessArgs(UnixProcessArgs3_10, UnixRunProcessMixin):
+                """Arguments for run_process on Unix with 3.10+"""
+
+        else:
+            UnixProcessArgs = UnixProcessArgs3_9
+
+            class UnixRunProcessArgs(UnixProcessArgs3_9, UnixRunProcessMixin):
+                """Arguments for run_process on Unix with 3.9+"""
+
         @overload  # type: ignore[no-overload-impl]
         async def open_process(
             command: StrOrBytesPath,
             *,
             stdin: int | HasFileno | None = None,
-            stdout: int | HasFileno | None = None,
-            stderr: int | HasFileno | None = None,
-            close_fds: bool = True,
             shell: Literal[True],
-            cwd: StrOrBytesPath | None = None,
-            env: Mapping[str, str] | None = None,
-            preexec_fn: Callable[[], object] | None = None,
-            restore_signals: bool = True,
-            start_new_session: bool = False,
-            pass_fds: Sequence[int] = (),
+            **kwargs: Unpack[UnixProcessArgs],
         ) -> trio.Process: ...
 
         @overload
@@ -1092,60 +1156,26 @@ if TYPE_CHECKING:
             command: Sequence[StrOrBytesPath],
             *,
             stdin: int | HasFileno | None = None,
-            stdout: int | HasFileno | None = None,
-            stderr: int | HasFileno | None = None,
-            close_fds: bool = True,
             shell: bool = False,
-            cwd: StrOrBytesPath | None = None,
-            env: Mapping[str, str] | None = None,
-            preexec_fn: Callable[[], object] | None = None,
-            restore_signals: bool = True,
-            start_new_session: bool = False,
-            pass_fds: Sequence[int] = (),
+            **kwargs: Unpack[UnixProcessArgs],
         ) -> trio.Process: ...
 
         @overload  # type: ignore[no-overload-impl]
         async def run_process(
             command: StrOrBytesPath,
             *,
-            task_status: TaskStatus[Process] = trio.TASK_STATUS_IGNORED,
             stdin: bytes | bytearray | memoryview | int | HasFileno | None = None,
-            capture_stdout: bool = False,
-            capture_stderr: bool = False,
-            check: bool = True,
-            deliver_cancel: Callable[[Process], Awaitable[object]] | None = None,
-            stdout: int | HasFileno | None = None,
-            stderr: int | HasFileno | None = None,
-            close_fds: bool = True,
             shell: Literal[True],
-            cwd: StrOrBytesPath | None = None,
-            env: Mapping[str, str] | None = None,
-            preexec_fn: Callable[[], object] | None = None,
-            restore_signals: bool = True,
-            start_new_session: bool = False,
-            pass_fds: Sequence[int] = (),
+            **kwargs: Unpack[UnixRunProcessArgs],
         ) -> subprocess.CompletedProcess[bytes]: ...
 
         @overload
         async def run_process(
             command: Sequence[StrOrBytesPath],
             *,
-            task_status: TaskStatus[Process] = trio.TASK_STATUS_IGNORED,
             stdin: bytes | bytearray | memoryview | int | HasFileno | None = None,
-            capture_stdout: bool = False,
-            capture_stderr: bool = False,
-            check: bool = True,
-            deliver_cancel: Callable[[Process], Awaitable[None]] | None = None,
-            stdout: int | HasFileno | None = None,
-            stderr: int | HasFileno | None = None,
-            close_fds: bool = True,
             shell: bool = False,
-            cwd: StrOrBytesPath | None = None,
-            env: Mapping[str, str] | None = None,
-            preexec_fn: Callable[[], object] | None = None,
-            restore_signals: bool = True,
-            start_new_session: bool = False,
-            pass_fds: Sequence[int] = (),
+            **kwargs: Unpack[UnixRunProcessArgs],
         ) -> subprocess.CompletedProcess[bytes]: ...
 
 else:
