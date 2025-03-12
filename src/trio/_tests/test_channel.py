@@ -417,7 +417,7 @@ async def test_unbuffered() -> None:
 
 
 async def test_background_with_channel() -> None:
-    @background_with_channel(1)
+    @background_with_channel
     async def agen() -> AsyncGenerator[int]:
         yield 1
         await trio.sleep_forever()  # simulate deadlock
@@ -429,7 +429,7 @@ async def test_background_with_channel() -> None:
 
 
 async def test_background_with_channel_exhaust() -> None:
-    @background_with_channel()
+    @background_with_channel
     async def agen() -> AsyncGenerator[int]:
         yield 1
 
@@ -439,7 +439,7 @@ async def test_background_with_channel_exhaust() -> None:
 
 
 async def test_background_with_channel_broken_resource() -> None:
-    @background_with_channel()
+    @background_with_channel
     async def agen() -> AsyncGenerator[int]:
         yield 1
         yield 2
@@ -460,7 +460,7 @@ async def test_background_with_channel_broken_resource() -> None:
 async def test_background_with_channel_cancelled() -> None:
     with trio.CancelScope() as cs:
 
-        @background_with_channel()
+        @background_with_channel
         async def agen() -> AsyncGenerator[None]:  # pragma: no cover
             raise AssertionError(
                 "cancel before consumption means generator should not be iterated"
@@ -476,7 +476,7 @@ async def test_background_with_channel_recv_closed(
 ) -> None:
     event = trio.Event()
 
-    @background_with_channel(1)
+    @background_with_channel
     async def agen() -> AsyncGenerator[int]:
         await event.wait()
         yield 1
@@ -491,7 +491,7 @@ async def test_background_with_channel_recv_closed(
 async def test_background_with_channel_no_race() -> None:
     # this previously led to a race condition due to
     # https://github.com/python-trio/trio/issues/1559
-    @background_with_channel()
+    @background_with_channel
     async def agen() -> AsyncGenerator[int]:
         yield 1
         raise ValueError("oae")
@@ -505,7 +505,7 @@ async def test_background_with_channel_no_race() -> None:
 async def test_background_with_channel_buffer_size_too_small(
     autojump_clock: trio.testing.MockClock,
 ) -> None:
-    @background_with_channel(0)
+    @background_with_channel
     async def agen() -> AsyncGenerator[int]:
         yield 1
         raise AssertionError(
@@ -519,27 +519,8 @@ async def test_background_with_channel_buffer_size_too_small(
                 await trio.sleep_forever()
 
 
-async def test_background_with_channel_buffer_size_just_right(
-    autojump_clock: trio.testing.MockClock,
-) -> None:
-    event = trio.Event()
-
-    @background_with_channel(2)
-    async def agen() -> AsyncGenerator[int]:
-        yield 1
-        event.set()
-        yield 2
-
-    async with agen() as recv_chan:
-        await event.wait()
-        assert await recv_chan.__anext__() == 1
-        assert await recv_chan.__anext__() == 2
-        with pytest.raises(StopAsyncIteration):
-            await recv_chan.__anext__()
-
-
 async def test_background_with_channel_no_interleave() -> None:
-    @background_with_channel()
+    @background_with_channel
     async def agen() -> AsyncGenerator[int]:
         yield 1
         raise AssertionError  # pragma: no cover
@@ -549,30 +530,10 @@ async def test_background_with_channel_no_interleave() -> None:
         await trio.lowlevel.checkpoint()
 
 
-async def test_background_with_channel_multiple_errors() -> None:
-    event = trio.Event()
-
-    @background_with_channel(1)
-    async def agen() -> AsyncGenerator[int]:
-        yield 1
-        event.set()
-        raise ValueError("agen")
-
-    with RaisesGroup(
-        Matcher(ValueError, match="^agen$"),
-        Matcher(TypeError, match="^iterator$"),
-    ):
-        async with agen() as recv_chan:
-            async for i in recv_chan:  # pragma: no branch
-                assert i == 1
-                await event.wait()
-                raise TypeError("iterator")
-
-
 async def test_background_with_channel_genexit_finally() -> None:
     events: list[str] = []
 
-    @background_with_channel()
+    @background_with_channel
     async def agen(stuff: list[str]) -> AsyncGenerator[int]:
         try:
             yield 1
@@ -596,7 +557,7 @@ async def test_background_with_channel_genexit_finally() -> None:
 
 
 async def test_background_with_channel_nested_loop() -> None:
-    @background_with_channel()
+    @background_with_channel
     async def agen() -> AsyncGenerator[int]:
         for i in range(2):
             yield i
@@ -610,34 +571,3 @@ async def test_background_with_channel_nested_loop() -> None:
                     assert (i, j) == (ii, jj)
                     jj += 1
             ii += 1
-
-
-async def test_background_with_channel_no_parens() -> None:
-    with pytest.raises(TypeError, match="must be int or None"):
-
-        @background_with_channel  # type: ignore[arg-type]
-        async def agen() -> AsyncGenerator[None]:
-            yield  # pragma: no cover
-
-
-async def test_background_with_channel_inf_buffer() -> None:
-    event = trio.Event()
-
-    # agen immediately starts yielding numbers
-    # into the buffer upon entering the cm
-    @background_with_channel(None)
-    async def agen() -> AsyncGenerator[int]:
-        for i in range(10):
-            yield i
-        event.set()
-        # keep agen alive to receive values
-        await trio.sleep_forever()
-
-    async with agen() as recv_chan:
-        await event.wait()
-        j = 0
-        async for i in recv_chan:
-            assert i == j
-            j += 1
-            if j == 10:
-                break

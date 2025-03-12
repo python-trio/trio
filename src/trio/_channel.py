@@ -458,16 +458,16 @@ class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstr
 
 class RecvChanWrapper(ReceiveChannel[T]):
     def __init__(
-        self, recv_chan: MemoryReceiveChannel[T], send_semaphore: trio.Semaphore | None
+        self, recv_chan: MemoryReceiveChannel[T], send_semaphore: trio.Semaphore
     ) -> None:
         self.recv_chan = recv_chan
         self.send_semaphore = send_semaphore
 
-    # TODO: should this allow clones?
+    # TODO: should this allow clones? We'd signal that by inheriting from
+    # MemoryReceiveChannel.
 
     async def receive(self) -> T:
-        if self.send_semaphore is not None:
-            self.send_semaphore.release()
+        self.send_semaphore.release()
         return await self.recv_chan.receive()
 
     async def aclose(self) -> None:
@@ -485,12 +485,9 @@ class RecvChanWrapper(ReceiveChannel[T]):
         self.recv_chan.close()
 
 
-def background_with_channel(max_buffer_size: int | None = 0) -> Callable[
-    [
-        Callable[P, AsyncGenerator[T, None]],
-    ],
-    Callable[P, AbstractAsyncContextManager[trio.abc.ReceiveChannel[T]]],
-]:
+def background_with_channel(
+    fn: Callable[P, AsyncGenerator[T, None]],
+) -> Callable[P, AbstractAsyncContextManager[ReceiveChannel[T]]]:
     """Decorate an async generator function to make it cancellation-safe.
 
     This is mostly a drop-in replacement, except for the fact that it will
@@ -511,7 +508,7 @@ def background_with_channel(max_buffer_size: int | None = 0) -> Callable[
     offering only the safe interface, and you can still write your iterables
     with the convenience of ``yield``.  For example::
 
-        @background_with_channel()
+        @background_with_channel
         async def my_async_iterable(arg, *, kwarg=True):
             while ...:
                 item = await ...
@@ -531,46 +528,30 @@ def background_with_channel(max_buffer_size: int | None = 0) -> Callable[
     # Perhaps a future PEP will adopt `async with for` syntax, like
     # https://coconut.readthedocs.io/en/master/DOCS.html#async-with-for
 
-    if not isinstance(max_buffer_size, int) and max_buffer_size is not None:
-        raise TypeError(
-            "`max_buffer_size` must be int or None, not {type(max_buffer_size)}. "
-            "Did you forget the parentheses in `@background_with_channel()`?"
-        )
-
-    def decorator(
-        fn: Callable[P, AsyncGenerator[T, None]],
-    ) -> Callable[P, AbstractAsyncContextManager[trio._channel.RecvChanWrapper[T]]]:
-        @asynccontextmanager
-        @wraps(fn)
-        async def context_manager(
-            *args: P.args, **kwargs: P.kwargs
-        ) -> AsyncGenerator[trio._channel.RecvChanWrapper[T], None]:
-            max_buf_size_float = inf if max_buffer_size is None else max_buffer_size
-            send_chan, recv_chan = trio.open_memory_channel[T](max_buf_size_float)
-            async with trio.open_nursery(strict_exception_groups=True) as nursery:
-                agen = fn(*args, **kwargs)
-                send_semaphore = (
-                    None if max_buffer_size is None else trio.Semaphore(max_buffer_size)
-                )
-                # `nursery.start` to make sure that we will clean up send_chan & agen
-                # If this errors we don't close `recv_chan`, but the caller
-                # never gets access to it, so that's not a problem.
-                await nursery.start(
-                    _move_elems_to_channel, agen, send_chan, send_semaphore
-                )
-                # `async with recv_chan` could eat exceptions, so use sync cm
-                with RecvChanWrapper(recv_chan, send_semaphore) as wrapped_recv_chan:
-                    yield wrapped_recv_chan
-                # User has exited context manager, cancel to immediately close the
-                # abandoned generator if it's still alive.
-                nursery.cancel_scope.cancel()
-
-        return context_manager
+    @asynccontextmanager
+    @wraps(fn)
+    async def context_manager(
+        *args: P.args, **kwargs: P.kwargs
+    ) -> AsyncGenerator[trio._channel.RecvChanWrapper[T], None]:
+        send_chan, recv_chan = trio.open_memory_channel[T](0)
+        async with trio.open_nursery(strict_exception_groups=True) as nursery:
+            agen = fn(*args, **kwargs)
+            send_semaphore = trio.Semaphore(0)
+            # `nursery.start` to make sure that we will clean up send_chan & agen
+            # If this errors we don't close `recv_chan`, but the caller
+            # never gets access to it, so that's not a problem.
+            await nursery.start(_move_elems_to_channel, agen, send_chan, send_semaphore)
+            # `async with recv_chan` could eat exceptions, so use sync cm
+            with RecvChanWrapper(recv_chan, send_semaphore) as wrapped_recv_chan:
+                yield wrapped_recv_chan
+            # User has exited context manager, cancel to immediately close the
+            # abandoned generator if it's still alive.
+            nursery.cancel_scope.cancel()
 
     async def _move_elems_to_channel(
         agen: AsyncGenerator[T, None],
         send_chan: trio.MemorySendChannel[T],
-        send_semaphore: trio.Semaphore | None,
+        send_semaphore: trio.Semaphore,
         task_status: trio.TaskStatus,
     ) -> None:
         # `async with send_chan` will eat exceptions,
@@ -579,22 +560,16 @@ def background_with_channel(max_buffer_size: int | None = 0) -> Callable[
             try:
                 task_status.started()
                 while True:
-                    # wait for send_chan to be unblocked
-                    if send_semaphore is not None:
-                        await send_semaphore.acquire()
+                    # wait for receiver to call next on the aiter
+                    await send_semaphore.acquire()
                     try:
                         value = await agen.__anext__()
                     except StopAsyncIteration:
                         return
-                    try:
-                        # Send the value to the channel
-                        await send_chan.send(value)
-                    except trio.BrokenResourceError:
-                        # Closing the corresponding receive channel should cause
-                        # a clean shutdown of the generator.
-                        return
+                    # Send the value to the channel
+                    await send_chan.send(value)
             finally:
                 # replace try-finally with contextlib.aclosing once python39 is dropped
                 await agen.aclose()
 
-    return decorator
+    return context_manager
