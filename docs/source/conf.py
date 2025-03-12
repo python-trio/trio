@@ -168,7 +168,21 @@ def autodoc_process_signature(
     return signature, return_annotation
 
 
+# currently undocumented things
 logger = getLogger("trio")
+UNDOCUMENTED = {
+    "trio.CancelScope.relative_deadline",
+    "trio.MemorySendChannel",
+    "trio.MemoryReceiveChannel",
+    "trio.MemoryChannelStatistics",
+    "trio.SocketStream.aclose",
+    "trio.SocketStream.receive_some",
+    "trio.SocketStream.send_all",
+    "trio.SocketStream.send_eof",
+    "trio.SocketStream.wait_send_all_might_not_block",
+    "trio._subprocess.HasFileno.fileno",
+    "trio.lowlevel.ParkingLot.broken_by",
+}
 
 
 def autodoc_process_docstring(
@@ -180,7 +194,14 @@ def autodoc_process_docstring(
     lines: list[str],
 ) -> None:
     if not lines:
+        # TODO: document these and remove them from here
+        if name in UNDOCUMENTED:
+            return
+
         logger.warning(f"{name} has no docstring")
+    else:
+        if name in UNDOCUMENTED:
+            logger.warning("outdated list of undocumented things")
 
 
 # XX hack the RTD theme until
