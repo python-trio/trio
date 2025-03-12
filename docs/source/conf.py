@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from sphinx.util.inventory import _InventoryItem
+from sphinx.util.logging import getLogger
 
 if TYPE_CHECKING:
     from sphinx.application import Sphinx
@@ -167,6 +168,21 @@ def autodoc_process_signature(
     return signature, return_annotation
 
 
+logger = getLogger("trio")
+
+
+def autodoc_process_docstring(
+    app: Sphinx,
+    what: str,
+    name: str,
+    obj: object,
+    options: object,
+    lines: list[str],
+) -> None:
+    if not lines:
+        logger.warning(f"{name} has no docstring")
+
+
 # XX hack the RTD theme until
 #   https://github.com/rtfd/sphinx_rtd_theme/pull/382
 # is shipped (should be in the release after 0.2.4)
@@ -175,6 +191,8 @@ def autodoc_process_signature(
 def setup(app: Sphinx) -> None:
     app.add_css_file("hackrtd.css")
     app.connect("autodoc-process-signature", autodoc_process_signature)
+    app.connect("autodoc-process-docstring", autodoc_process_docstring)
+
     # After Intersphinx runs, add additional mappings.
     app.connect("builder-inited", add_intersphinx, priority=1000)
     app.connect("source-read", on_read_source)
