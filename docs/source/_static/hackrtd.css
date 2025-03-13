@@ -23,6 +23,10 @@ pre {
  * thingummy also has an <hr> in it, and putting the ornament on that looks
  * *really weird*. (In particular, the background color is wrong.)
  */
+.rst-content hr {
+    overflow: visible;
+}
+
 .rst-content hr:after {
     /* This .svg gets displayed on top of the middle of the hrule. It has a box
      * behind the logo that's colored to match the RTD theme body background
