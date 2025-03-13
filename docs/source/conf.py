@@ -167,13 +167,9 @@ def autodoc_process_signature(
     return signature, return_annotation
 
 
-# XX hack the RTD theme until
-#   https://github.com/rtfd/sphinx_rtd_theme/pull/382
-# is shipped (should be in the release after 0.2.4)
-# ...note that this has since grown to contain a bunch of other CSS hacks too
-# though.
 def setup(app: Sphinx) -> None:
-    app.add_css_file("hackrtd.css")
+    # Add our custom styling to make our documentation better!
+    app.add_css_file("styles.css")
     app.connect("autodoc-process-signature", autodoc_process_signature)
     # After Intersphinx runs, add additional mappings.
     app.connect("builder-inited", add_intersphinx, priority=1000)
@@ -370,6 +366,7 @@ html_theme_options = {
     "navigation_depth": 4,
     "logo_only": True,
     "prev_next_buttons_location": "both",
+    "style_nav_header_background": "#d2e7fa",
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
