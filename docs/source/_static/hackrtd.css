@@ -54,30 +54,16 @@ pre {
     color: #306998 !important;
 }
 
-.wy-side-nav-search > a.logo {
-    display: block !important;
-    padding-bottom: 0.809em !important;
+/* vertically center version text */
+.wy-side-nav-search > a {
+    display: flex;
+    align-items: center;
+    justify-self: center;
 }
 
 .wy-side-nav-search > a img.logo {
-    display: inline !important;
-    padding: 0 !important;
-}
-
-.trio-version {
-    display: inline;
-    /* I *cannot* figure out how to get the version text vertically centered
-       on the logo. Oh well...
-    height: 32px;
-    line-height: 32px;
-    */
-}
-
-.wy-side-nav-search > a {
-    /* Mostly this is just to simplify things, so we don't have margin/padding
-     * on both the <a> and the <img> inside it */
-    margin: 0 !important;
-    padding: 0 !important;
+    margin-left: 0;
+    margin-right: 5px;
 }
 
 /* Get rid of the weird super dark "Contents" label that wastes vertical space
