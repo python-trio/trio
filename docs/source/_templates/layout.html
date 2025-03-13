@@ -12,7 +12,7 @@ https://stackoverflow.com/questions/25243482/how-to-add-sphinx-generated-index-t
 <a class="logo" href="{{ pathto(root_doc) }}">
   <img class="logo" src="{{ logo_url }}" />
   {%- set nav_version = version %}
-  {% if READTHEDOCS and current_version %}
+  {% if current_version %}
     {%- set nav_version = current_version %}
   {% endif %}
   {# don't show the version on RTD if it's the default #}

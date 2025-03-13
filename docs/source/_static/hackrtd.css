@@ -58,7 +58,8 @@ pre {
 .wy-side-nav-search > a {
     display: flex;
     align-items: center;
-    justify-self: center;
+    margin: auto;
+    width: max-content;
 }
 
 .wy-side-nav-search > a img.logo {
