@@ -1307,7 +1307,7 @@ class Nursery(metaclass=NoPublicConstructor):
         async_fn: Callable[..., Awaitable[object]],
         *args: object,
         name: object = None,
-    ) -> Any | None:
+    ) -> Any:
         r"""Creates and initializes a child task.
 
         Like :meth:`start_soon`, but blocks until the new task has
