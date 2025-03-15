@@ -3,7 +3,10 @@ from __future__ import annotations
 
 import errno
 from contextlib import contextmanager, suppress
-from typing import TYPE_CHECKING, overload
+from os import stat, unlink
+from os.path import exists
+from stat import S_ISSOCK
+from typing import TYPE_CHECKING, Final, overload
 
 import trio
 
@@ -16,7 +19,7 @@ if TYPE_CHECKING:
 
     from typing_extensions import Buffer
 
-    from ._socket import SocketType
+    from ._socket import AddressFormat, SocketType
 
 # XX TODO: this number was picked arbitrarily. We should do experiments to
 # tune it. (Or make it dynamic -- one idea is to start small and increase it
@@ -30,6 +33,8 @@ _closed_stream_errnos = {
     # Windows
     errno.ENOTSOCK,
 }
+
+HAS_UNIX: Final = hasattr(tsocket, "AF_UNIX")
 
 
 @contextmanager
@@ -68,13 +73,15 @@ class SocketStream(HalfCloseableStream):
 
     """
 
+    __slots__ = ("_send_conflict_detector", "socket")
+
     def __init__(self, socket: SocketType) -> None:
         if not isinstance(socket, tsocket.SocketType):
             raise TypeError("SocketStream requires a Trio socket object")
         if socket.type != tsocket.SOCK_STREAM:
             raise ValueError("SocketStream requires a SOCK_STREAM socket")
 
-        self.socket = socket
+        self.socket: SocketType = socket
         self._send_conflict_detector = ConflictDetector(
             "another task is currently sending data on this SocketStream",
         )
@@ -356,7 +363,9 @@ class SocketListener(Listener[SocketStream]):
           and be listening.
 
     Note that the :class:`SocketListener` "takes ownership" of the given
-    socket; closing the :class:`SocketListener` will also close the socket.
+    socket; closing the :class:`SocketListener` will also close the
+    socket, and if it's a Unix socket, it will also unlink the leftover
+    socket file that the Unix socket is bound to.
 
     .. attribute:: socket
 
@@ -364,7 +373,12 @@ class SocketListener(Listener[SocketStream]):
 
     """
 
-    def __init__(self, socket: SocketType) -> None:
+    __slots__ = ("socket",)
+
+    def __init__(
+        self,
+        socket: SocketType,
+    ) -> None:
         if not isinstance(socket, tsocket.SocketType):
             raise TypeError("SocketListener requires a Trio socket object")
         if socket.type != tsocket.SOCK_STREAM:
@@ -378,7 +392,7 @@ class SocketListener(Listener[SocketStream]):
             if not listening:
                 raise ValueError("SocketListener requires a listening socket")
 
-        self.socket = socket
+        self.socket: SocketType = socket
 
     async def accept(self) -> SocketStream:
         """Accept an incoming connection.
@@ -409,6 +423,21 @@ class SocketListener(Listener[SocketStream]):
                 return SocketStream(sock)
 
     async def aclose(self) -> None:
-        """Close this listener and its underlying socket."""
+        """Close this listener, its underlying socket, and for Unix sockets unlink the socket file."""
+        is_unix_socket = self.socket.family == getattr(tsocket, "AF_UNIX", None)
+
+        path: AddressFormat | None = None
+        if is_unix_socket:
+            # If unix socket, need to get path before we close socket
+            # or OS errors
+            path = self.socket.getsockname()
         self.socket.close()
+        # If unix socket, clean up socket file that gets left behind.
+        if (
+            is_unix_socket
+            and path is not None
+            and exists(path)
+            and S_ISSOCK(stat(path).st_mode)
+        ):
+            unlink(path)
         await trio.lowlevel.checkpoint()
