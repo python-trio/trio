@@ -62,7 +62,7 @@ from ._subprocess import open_process as open_process
 # Uses `from x import y as y` for compatibility with `pyright --verifytypes` (#2625)
 
 
-if sys.platform == "win32":
+if sys.platform == "win32" or "sphinx.ext.autodoc" in sys.modules:
     # Windows symbols
     from ._core import (
         current_iocp as current_iocp,
@@ -73,13 +73,15 @@ if sys.platform == "win32":
         write_overlapped as write_overlapped,
     )
     from ._wait_for_object import WaitForSingleObject as WaitForSingleObject
-else:
+
+if sys.platform != "win32" or "sphinx.ext.autodoc" in sys.modules:
     # Unix symbols
-    if _os.name == "posix":
-        from ._unix_pipes import FdStream as FdStream
+    from ._unix_pipes import FdStream as FdStream
 
     # Kqueue-specific symbols
-    if sys.platform != "linux" and (_t.TYPE_CHECKING or not hasattr(_select, "epoll")):
+    if (
+        sys.platform != "linux" and (_t.TYPE_CHECKING or not hasattr(_select, "epoll"))
+    ) or "sphinx.ext.autodoc" in sys.modules:
         from ._core import (
             current_kqueue as current_kqueue,
             monitor_kevent as monitor_kevent,
