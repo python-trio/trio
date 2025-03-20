@@ -255,7 +255,8 @@ class Path(pathlib.PurePath):
         full_match = _wrap_method(pathlib.Path.full_match)
 
 
-Path.relative_to.__doc__ = Path.relative_to.__doc__.replace(" `..` ", " ``..`` ")
+if Path.relative_to.__doc__:
+    Path.relative_to.__doc__ = Path.relative_to.__doc__.replace(" `..` ", " ``..`` ")
 
 
 @final
