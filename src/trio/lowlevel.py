@@ -73,7 +73,7 @@ if sys.platform == "win32" or (
     )
 
     # don't let documentation import the actual implementation
-    if sys.platform == "win32":
+    if sys.platform == "win32":  # pragma: no branch
         from ._wait_for_object import WaitForSingleObject as WaitForSingleObject
 
 if sys.platform != "win32" or (
