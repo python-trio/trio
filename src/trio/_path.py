@@ -255,7 +255,7 @@ class Path(pathlib.PurePath):
         full_match = _wrap_method(pathlib.Path.full_match)
 
 
-if Path.relative_to.__doc__:
+if Path.relative_to.__doc__:  # pragma: no branch
     Path.relative_to.__doc__ = Path.relative_to.__doc__.replace(" `..` ", " ``..`` ")
 
 
