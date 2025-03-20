@@ -72,7 +72,10 @@ if sys.platform == "win32" or "sphinx.ext.autodoc" in sys.modules:
         wait_overlapped as wait_overlapped,
         write_overlapped as write_overlapped,
     )
-    from ._wait_for_object import WaitForSingleObject as WaitForSingleObject
+
+    # don't let documentation import the actual implementation
+    if sys.platform == "win32":
+        from ._wait_for_object import WaitForSingleObject as WaitForSingleObject
 
 if sys.platform != "win32" or "sphinx.ext.autodoc" in sys.modules:
     # Unix symbols
