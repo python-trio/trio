@@ -5,6 +5,7 @@ but useful for extending Trio's functionality.
 
 # imports are renamed with leading underscores to indicate they are not part of the public API
 
+import os as _os
 import select as _select
 
 # static checkers don't understand if importing this as _sys, so it's deleted later
@@ -74,7 +75,8 @@ if sys.platform == "win32":
     from ._wait_for_object import WaitForSingleObject as WaitForSingleObject
 else:
     # Unix symbols
-    from ._unix_pipes import FdStream as FdStream
+    if _os.name == "posix":
+        from ._unix_pipes import FdStream as FdStream
 
     # Kqueue-specific symbols
     if sys.platform != "linux" and (_t.TYPE_CHECKING or not hasattr(_select, "epoll")):
