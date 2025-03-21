@@ -406,6 +406,9 @@ async def to_thread_run_sync(
             result2: _SupportsUnwrap[RetT] = _Error(result.error)
         elif isinstance(result, outcome.Value):
             result2 = _Value(result.value)
+        else:
+            raise RuntimeError("invalid outcome")
+        del result
         if task_register[0] is not None:
             trio.lowlevel.reschedule(task_register[0], outcome.Value(result2))
 
@@ -471,11 +474,11 @@ async def to_thread_run_sync(
 
         while True:
             # wait_task_rescheduled return value cannot be typed
-            msg_from_thread: outcome.Outcome[RetT] | Run[object] | RunSync[object] = (
+            msg_from_thread: _Value[RetT] | _Error | Run[object] | RunSync[object] = (
                 await trio.lowlevel.wait_task_rescheduled(abort)
             )
             try:
-                if isinstance(msg_from_thread, outcome.Outcome):
+                if isinstance(msg_from_thread, (_Value, _Error)):
                     return msg_from_thread.unwrap()
                 elif isinstance(msg_from_thread, Run):
                     await msg_from_thread.run()
