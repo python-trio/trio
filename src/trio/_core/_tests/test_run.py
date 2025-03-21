@@ -33,6 +33,7 @@ from .tutil import (
     create_asyncio_future_in_new_loop,
     gc_collect_harder,
     ignore_coroutine_never_awaited_warnings,
+    no_other_refs,
     restore_unraisablehook,
     slow,
 )
@@ -2800,17 +2801,6 @@ async def test_internal_error_old_nursery_multiple_tasks() -> None:
         with pytest.raises(_core.TrioInternalError) as excinfo:
             await nursery.start(spawn_tasks_in_old_nursery)
     assert RaisesGroup(ValueError, ValueError).matches(excinfo.value.__cause__)
-
-
-if sys.version_info >= (3, 11):
-
-    def no_other_refs() -> list[object]:
-        return []
-
-else:
-
-    def no_other_refs() -> list[object]:
-        return [sys._getframe(1)]
 
 
 @pytest.mark.skipif(

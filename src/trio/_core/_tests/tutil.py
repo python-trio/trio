@@ -115,3 +115,14 @@ skip_if_fbsd_pipes_broken = pytest.mark.skipif(
 def create_asyncio_future_in_new_loop() -> asyncio.Future[object]:
     with closing(asyncio.new_event_loop()) as loop:
         return loop.create_future()
+
+
+if sys.version_info >= (3, 11):
+
+    def no_other_refs() -> list[object]:
+        return []
+
+else:
+
+    def no_other_refs() -> list[object]:
+        return [sys._getframe(1)]
