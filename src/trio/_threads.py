@@ -6,7 +6,7 @@ import inspect
 import queue as stdlib_queue
 import threading
 from itertools import count
-from typing import TYPE_CHECKING, Generic, TypeVar, Protocol, Final, NoReturn
+from typing import TYPE_CHECKING, Final, Generic, NoReturn, Protocol, TypeVar
 
 import attrs
 import outcome
@@ -399,7 +399,6 @@ async def to_thread_run_sync(
             try:
                 return result.unwrap()
             finally:
-                del result
                 limiter.release_on_behalf_of(placeholder)
 
         result = outcome.capture(do_release_then_return_result)
