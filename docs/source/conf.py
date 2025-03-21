@@ -204,13 +204,9 @@ def autodoc_process_docstring(
             logger.warning("outdated list of undocumented things")
 
 
-# XX hack the RTD theme until
-#   https://github.com/rtfd/sphinx_rtd_theme/pull/382
-# is shipped (should be in the release after 0.2.4)
-# ...note that this has since grown to contain a bunch of other CSS hacks too
-# though.
 def setup(app: Sphinx) -> None:
-    app.add_css_file("hackrtd.css")
+    # Add our custom styling to make our documentation better!
+    app.add_css_file("styles.css")
     app.connect("autodoc-process-signature", autodoc_process_signature)
     app.connect("autodoc-process-docstring", autodoc_process_docstring)
 
@@ -219,12 +215,7 @@ def setup(app: Sphinx) -> None:
     app.connect("source-read", on_read_source)
 
 
-# Our docs use the READTHEDOCS variable, so copied from:
-# https://about.readthedocs.com/blog/2024/07/addons-by-default/
-if os.environ.get("READTHEDOCS", "") == "True":
-    if "html_context" not in globals():
-        html_context = {}
-    html_context["READTHEDOCS"] = True
+html_context = {"current_version": os.environ.get("READTHEDOCS_VERSION_NAME")}
 
 # -- General configuration ------------------------------------------------
 
@@ -414,6 +405,7 @@ html_theme_options = {
     "navigation_depth": 4,
     "logo_only": True,
     "prev_next_buttons_location": "both",
+    "style_nav_header_background": "#d2e7fa",
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
