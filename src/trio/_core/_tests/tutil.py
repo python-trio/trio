@@ -117,7 +117,12 @@ def create_asyncio_future_in_new_loop() -> asyncio.Future[object]:
         return loop.create_future()
 
 
-if sys.version_info >= (3, 11):
+if sys.version_info >= (3, 14):
+
+    def no_other_refs() -> list[object]:
+        return [sys._getframe().f_generator]
+
+elif sys.version_info >= (3, 11):
 
     def no_other_refs() -> list[object]:
         return []
