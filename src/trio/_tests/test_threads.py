@@ -1165,7 +1165,6 @@ async def test_run_sync_worker_references() -> None:
     v = await to_thread_run_sync(foo, arg)
 
     cvar.set(Foo())
-    gc_collect_harder()
 
     assert gc.get_referrers(contextval) == no_other_refs()
     assert gc.get_referrers(foo) == no_other_refs()
@@ -1193,7 +1192,5 @@ async def test_run_sync_workerreferences_exc() -> None:
         await to_thread_run_sync(throw)
     except MyException as err:
         e = err
-
-    gc_collect_harder()
 
     assert gc.get_referrers(e) == no_other_refs()
