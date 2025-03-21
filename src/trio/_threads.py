@@ -390,7 +390,7 @@ async def to_thread_run_sync(
 
     # This function gets scheduled into the Trio run loop to deliver the
     # thread's result.
-    def report_back_in_trio_thread_fn(result: outcome.Outcome[RetT]) -> None:
+    def report_back_in_trio_thread_fn(result: _SupportsUnwrap[RetT]) -> None:
         def do_release_then_return_result() -> RetT:
             # release_on_behalf_of is an arbitrary user-defined method, so it
             # might raise an error. If it does, we want that error to
@@ -401,16 +401,15 @@ async def to_thread_run_sync(
             finally:
                 limiter.release_on_behalf_of(placeholder)
 
-        result = outcome.capture(do_release_then_return_result)
+        result: _SupportsUnwrap[RetT] = outcome.capture(do_release_then_return_result)
         if isinstance(result, outcome.Error):
-            result2: _SupportsUnwrap[RetT] = _Error(result.error)
+            result = _Error(result.error)
         elif isinstance(result, outcome.Value):
-            result2 = _Value(result.value)
+            result = _Value(result.value)
         else:
             raise RuntimeError("invalid outcome")
-        del result
         if task_register[0] is not None:
-            trio.lowlevel.reschedule(task_register[0], outcome.Value(result2))
+            trio.lowlevel.reschedule(task_register[0], outcome.Value(result))
 
     current_trio_token = trio.lowlevel.current_trio_token()
 

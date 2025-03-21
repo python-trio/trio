@@ -30,7 +30,7 @@ from .. import (
     sleep_forever,
 )
 from .._core._tests.test_ki import ki_self
-from .._core._tests.tutil import gc_collect_harder, no_other_refs, slow
+from .._core._tests.tutil import no_other_refs, slow
 from .._threads import (
     active_thread_count,
     current_default_thread_limiter,
