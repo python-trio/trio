@@ -6,7 +6,7 @@ import inspect
 import queue as stdlib_queue
 import threading
 from itertools import count
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar, Protocol, Final, NoReturn
 
 import attrs
 import outcome
@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     Ts = TypeVarTuple("Ts")
 
 RetT = TypeVar("RetT")
+T_co = TypeVar("T_co", covariant=True)
 
 
 class _ParentTaskData(threading.local):
@@ -253,6 +254,32 @@ class RunSync(Generic[RetT]):  # type: ignore[explicit-any]
         token.run_sync_soon(self.run_sync)
 
 
+class _SupportsUnwrap(Protocol, Generic[T_co]):
+    def unwrap(self) -> T_co: ...
+
+
+class _Value(_SupportsUnwrap[T_co]):
+    def __init__(self, v: T_co) -> None:
+        self._v: Final = v
+
+    def unwrap(self) -> T_co:
+        try:
+            return self._v
+        finally:
+            del self._v
+
+
+class _Error(_SupportsUnwrap[NoReturn]):
+    def __init__(self, e: BaseException) -> None:
+        self._e: Final = e
+
+    def unwrap(self) -> NoReturn:
+        try:
+            raise self._e
+        finally:
+            del self._e
+
+
 @enable_ki_protection
 async def to_thread_run_sync(
     sync_fn: Callable[[Unpack[Ts]], RetT],
@@ -372,11 +399,15 @@ async def to_thread_run_sync(
             try:
                 return result.unwrap()
             finally:
+                del result
                 limiter.release_on_behalf_of(placeholder)
 
         result = outcome.capture(do_release_then_return_result)
+        if isinstance(result, outcome.Error):
+            result2: _SupportsUnwrap[RetT] = _Error(result.error)
+        result2 = _Value(result.value)
         if task_register[0] is not None:
-            trio.lowlevel.reschedule(task_register[0], outcome.Value(result))
+            trio.lowlevel.reschedule(task_register[0], outcome.Value(result2))
 
     current_trio_token = trio.lowlevel.current_trio_token()
 
