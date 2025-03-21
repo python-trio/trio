@@ -401,7 +401,7 @@ async def to_thread_run_sync(
             finally:
                 limiter.release_on_behalf_of(placeholder)
 
-        result: _SupportsUnwrap[RetT] = outcome.capture(do_release_then_return_result)
+        result = outcome.capture(do_release_then_return_result)
         if isinstance(result, outcome.Error):
             result = _Error(result.error)
         elif isinstance(result, outcome.Value):
