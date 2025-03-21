@@ -404,7 +404,8 @@ async def to_thread_run_sync(
         result = outcome.capture(do_release_then_return_result)
         if isinstance(result, outcome.Error):
             result2: _SupportsUnwrap[RetT] = _Error(result.error)
-        result2 = _Value(result.value)
+        elif isinstance(result, outcome.Value):
+            result2 = _Value(result.value)
         if task_register[0] is not None:
             trio.lowlevel.reschedule(task_register[0], outcome.Value(result2))
 
