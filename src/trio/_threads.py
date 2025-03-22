@@ -406,7 +406,7 @@ async def to_thread_run_sync(
             result = _Error(result.error)
         elif isinstance(result, outcome.Value):
             result = _Value(result.value)
-        else:
+        else:  # pragma: no cover
             raise RuntimeError("invalid outcome")
         if task_register[0] is not None:
             trio.lowlevel.reschedule(task_register[0], outcome.Value(result))
