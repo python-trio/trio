@@ -188,8 +188,6 @@ class WorkerThread(Generic[RetT]):
         except BaseException as e:
             print("Exception while delivering result of thread", file=sys.stderr)
             traceback.print_exception(type(e), e, e.__traceback__)
-        finally:
-            del result
 
     def _work(self) -> None:
         while True:

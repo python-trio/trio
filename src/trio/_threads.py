@@ -6,7 +6,7 @@ import inspect
 import queue as stdlib_queue
 import threading
 from itertools import count
-from typing import TYPE_CHECKING, Final, Generic, NoReturn, Protocol, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 import attrs
 import outcome
@@ -254,32 +254,6 @@ class RunSync(Generic[RetT]):  # type: ignore[explicit-any]
         token.run_sync_soon(self.run_sync)
 
 
-class _SupportsUnwrap(Protocol, Generic[T_co]):
-    def unwrap(self) -> T_co: ...
-
-
-class _Value(_SupportsUnwrap[T_co]):
-    def __init__(self, v: T_co) -> None:
-        self._v: Final = v
-
-    def unwrap(self) -> T_co:
-        try:
-            return self._v
-        finally:
-            del self._v
-
-
-class _Error(_SupportsUnwrap[NoReturn]):
-    def __init__(self, e: BaseException) -> None:
-        self._e: Final = e
-
-    def unwrap(self) -> NoReturn:
-        try:
-            raise self._e
-        finally:
-            del self._e
-
-
 @enable_ki_protection
 async def to_thread_run_sync(
     sync_fn: Callable[[Unpack[Ts]], RetT],
@@ -390,7 +364,7 @@ async def to_thread_run_sync(
 
     # This function gets scheduled into the Trio run loop to deliver the
     # thread's result.
-    def report_back_in_trio_thread_fn(result: _SupportsUnwrap[RetT]) -> None:
+    def report_back_in_trio_thread_fn(result: outcome.Outcome[RetT]) -> None:
         def do_release_then_return_result() -> RetT:
             # release_on_behalf_of is an arbitrary user-defined method, so it
             # might raise an error. If it does, we want that error to
@@ -402,12 +376,6 @@ async def to_thread_run_sync(
                 limiter.release_on_behalf_of(placeholder)
 
         result = outcome.capture(do_release_then_return_result)
-        if isinstance(result, outcome.Error):
-            result = _Error(result.error)
-        elif isinstance(result, outcome.Value):
-            result = _Value(result.value)
-        else:  # pragma: no cover
-            raise RuntimeError("invalid outcome")
         if task_register[0] is not None:
             trio.lowlevel.reschedule(task_register[0], outcome.Value(result))
 
@@ -473,11 +441,11 @@ async def to_thread_run_sync(
 
         while True:
             # wait_task_rescheduled return value cannot be typed
-            msg_from_thread: _Value[RetT] | _Error | Run[object] | RunSync[object] = (
+            msg_from_thread: outcome.Outcome[RetT] | Run[object] | RunSync[object] = (
                 await trio.lowlevel.wait_task_rescheduled(abort)
             )
             try:
-                if isinstance(msg_from_thread, (_Value, _Error)):
+                if isinstance(msg_from_thread, outcome.Outcome):
                     return msg_from_thread.unwrap()
                 elif isinstance(msg_from_thread, Run):
                     await msg_from_thread.run()
