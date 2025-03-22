@@ -164,7 +164,10 @@ def set_custom_socket_factory(
 # getaddrinfo and friends
 ################################################################
 
-_NUMERIC_ONLY = _stdlib_socket.AI_NUMERICHOST | _stdlib_socket.AI_NUMERICSERV
+# AI_NUMERICSERV may be missing on some older platforms, so use it when available.
+# See: https://github.com/python-trio/trio/issues/3133
+_NUMERIC_ONLY = _stdlib_socket.AI_NUMERICHOST
+_NUMERIC_ONLY |= getattr(_stdlib_socket, "AI_NUMERICSERV", 0)
 
 
 # It would be possible to @overload the return value depending on Literal[AddressFamily.INET/6], but should probably be added in typeshed first
