@@ -36,7 +36,6 @@ if TYPE_CHECKING:
     Ts = TypeVarTuple("Ts")
 
 RetT = TypeVar("RetT")
-T_co = TypeVar("T_co", covariant=True)
 
 
 class _ParentTaskData(threading.local):
