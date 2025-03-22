@@ -4,7 +4,7 @@ regular = "hi"
 # attributes in between calling enable_attribute_deprecations and defining
 # __deprecated_attributes__:
 import sys
-import typing
+from typing import TYPE_CHECKING
 
 from .. import _deprecate
 
@@ -12,7 +12,7 @@ this_mod = sys.modules[__name__]
 assert this_mod.regular == "hi"
 assert not hasattr(this_mod, "dep1")
 
-if not typing.TYPE_CHECKING:
+if not TYPE_CHECKING:
     __getattr__ = _deprecate.getattr_for_deprecated_attributes(
         __name__,
         {
