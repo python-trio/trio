@@ -15,6 +15,10 @@ import trio.lowlevel
 from trio._util import final
 
 
+class SuppressDecorator(contextlib.ContextDecorator, contextlib.suppress):
+    pass
+
+
 @final
 class TrioInteractiveConsole(InteractiveConsole):
     # code.InteractiveInterpreter defines locals as Mapping[str, Any]
@@ -24,6 +28,7 @@ class TrioInteractiveConsole(InteractiveConsole):
 
     def __init__(self, repl_locals: dict[str, object] | None = None) -> None:
         super().__init__(locals=repl_locals)
+        self.token: trio.lowlevel.TrioToken | None = None
         self.compile.compiler.flags |= ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
 
     def runcode(self, code: types.CodeType) -> None:
@@ -70,17 +75,26 @@ class TrioInteractiveConsole(InteractiveConsole):
     else:
 
         def raw_input(self, prompt: str = "") -> str:
-            import fcntl
-            import termios
             from signal import SIGINT, signal
 
             interrupted = False
 
+            if self.token is None:
+                self.token = trio.from_thread.run_sync(trio.lowlevel.current_trio_token)
+
+            @SuppressDecorator(KeyboardInterrupt)
+            @trio.lowlevel.disable_ki_protection
+            def newline():
+                import fcntl
+                import termios
+
+                # Fake up a newline char as if user had typed it at
+                fcntl.ioctl(sys.stdin, termios.TIOCSTI, b"\n")
+
             def handler(sig: int, frame: types.FrameType | None) -> None:
                 nonlocal interrupted
                 interrupted = True
-                # Fake up a newline char as if user had typed it at terminal
-                fcntl.ioctl(sys.stdin, termios.TIOCSTI, b"\n")
+                self.token.run_sync_soon(newline, idempotent=True)
 
             prev_handler = trio.from_thread.run_sync(signal, SIGINT, handler)
             try:
