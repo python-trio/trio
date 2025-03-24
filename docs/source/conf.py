@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from sphinx.util.inventory import _InventoryItem
+from sphinx.util.logging import getLogger
 
 if TYPE_CHECKING:
     from sphinx.application import Sphinx
@@ -167,10 +168,48 @@ def autodoc_process_signature(
     return signature, return_annotation
 
 
+# currently undocumented things
+logger = getLogger("trio")
+UNDOCUMENTED = {
+    "trio.CancelScope.relative_deadline",
+    "trio.MemorySendChannel",
+    "trio.MemoryReceiveChannel",
+    "trio.MemoryChannelStatistics",
+    "trio.SocketStream.aclose",
+    "trio.SocketStream.receive_some",
+    "trio.SocketStream.send_all",
+    "trio.SocketStream.send_eof",
+    "trio.SocketStream.wait_send_all_might_not_block",
+    "trio._subprocess.HasFileno.fileno",
+    "trio.lowlevel.ParkingLot.broken_by",
+}
+
+
+def autodoc_process_docstring(
+    app: Sphinx,
+    what: str,
+    name: str,
+    obj: object,
+    options: object,
+    lines: list[str],
+) -> None:
+    if not lines:
+        # TODO: document these and remove them from here
+        if name in UNDOCUMENTED:
+            return
+
+        logger.warning(f"{name} has no docstring")
+    else:
+        if name in UNDOCUMENTED:
+            logger.warning("outdated list of undocumented things")
+
+
 def setup(app: Sphinx) -> None:
     # Add our custom styling to make our documentation better!
     app.add_css_file("styles.css")
     app.connect("autodoc-process-signature", autodoc_process_signature)
+    app.connect("autodoc-process-docstring", autodoc_process_docstring)
+
     # After Intersphinx runs, add additional mappings.
     app.connect("builder-inited", add_intersphinx, priority=1000)
     app.connect("source-read", on_read_source)
