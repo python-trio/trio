@@ -151,7 +151,7 @@ class DeprecatedAttribute:
 
 def deprecate_attributes(
     module_name: str, deprecated_attributes: dict[str, DeprecatedAttribute]
-) -> Callable[[str], object]:
+) -> None:
     def __getattr__(name: str) -> object:
         if name in deprecated_attributes:
             info = deprecated_attributes[name]
@@ -165,4 +165,4 @@ def deprecate_attributes(
         msg = "module '{}' has no attribute '{}'"
         raise AttributeError(msg.format(module_name, name))
 
-    sys.modules[module_name].__getattr__ = __getattr__
+    sys.modules[module_name].__getattr__ = __getattr__  # type: ignore[method-assign]
