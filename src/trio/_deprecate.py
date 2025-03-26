@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 import warnings
 from functools import wraps
 from typing import TYPE_CHECKING, ClassVar, TypeVar
@@ -148,7 +149,7 @@ class DeprecatedAttribute:
     instead: object = _not_set
 
 
-def getattr_for_deprecated_attributes(
+def deprecate_attributes(
     module_name: str, deprecated_attributes: dict[str, DeprecatedAttribute]
 ) -> Callable[[str], object]:
     def __getattr__(name: str) -> object:
@@ -164,4 +165,4 @@ def getattr_for_deprecated_attributes(
         msg = "module '{}' has no attribute '{}'"
         raise AttributeError(msg.format(module_name, name))
 
-    return __getattr__
+    sys.modules[module_name].__getattr__ = __getattr__

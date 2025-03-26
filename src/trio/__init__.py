@@ -112,8 +112,7 @@ if TYPE_CHECKING:
 
 from . import _deprecate as _deprecate
 
-if not TYPE_CHECKING:
-    __getattr__ = _deprecate.getattr_for_deprecated_attributes(__name__, {})
+_deprecate.deprecate_attributes(__name__, {})
 
 # Having the public path in .__module__ attributes is important for:
 # - exception names in printed tracebacks
