@@ -4,9 +4,10 @@ import ast
 import contextlib
 import inspect
 import sys
-import types
 import warnings
 from code import InteractiveConsole
+from types import CodeType, FunctionType, FrameType
+from typing import Callable
 
 import outcome
 
@@ -17,6 +18,16 @@ from trio._util import final
 
 class SuppressDecorator(contextlib.ContextDecorator, contextlib.suppress):
     pass
+
+
+@SuppressDecorator(KeyboardInterrupt)
+@trio.lowlevel.disable_ki_protection
+def terminal_newline() -> None:
+    import fcntl
+    import termios
+
+    # Fake up a newline char as if user had typed it at the terminal
+    fcntl.ioctl(sys.stdin, termios.TIOCSTI, b"\n")
 
 
 @final
@@ -31,8 +42,8 @@ class TrioInteractiveConsole(InteractiveConsole):
         self.token: trio.lowlevel.TrioToken | None = None
         self.compile.compiler.flags |= ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
 
-    def runcode(self, code: types.CodeType) -> None:
-        func = types.FunctionType(code, self.locals)
+    def runcode(self, code: CodeType) -> None:
+        func = FunctionType(code, self.locals)
         if inspect.iscoroutinefunction(func):
             result = trio.from_thread.run(outcome.acapture, func)
         else:
@@ -79,24 +90,19 @@ class TrioInteractiveConsole(InteractiveConsole):
 
             interrupted = False
 
-            if self.token is None:
-                self.token = trio.from_thread.run_sync(trio.lowlevel.current_trio_token)
+            def install_handler() -> (
+                Callable[[int, FrameType | None], None] | int | None
+            ):
+                def handler(sig: int, frame: FrameType | None) -> None:
+                    nonlocal interrupted
+                    interrupted = True
+                    token.run_sync_soon(terminal_newline, idempotent=True)
 
-            @SuppressDecorator(KeyboardInterrupt)
-            @trio.lowlevel.disable_ki_protection
-            def newline():
-                import fcntl
-                import termios
+                token = trio.lowlevel.current_trio_token()
 
-                # Fake up a newline char as if user had typed it at
-                fcntl.ioctl(sys.stdin, termios.TIOCSTI, b"\n")
+                return signal(SIGINT, handler)
 
-            def handler(sig: int, frame: types.FrameType | None) -> None:
-                nonlocal interrupted
-                interrupted = True
-                self.token.run_sync_soon(newline, idempotent=True)
-
-            prev_handler = trio.from_thread.run_sync(signal, SIGINT, handler)
+            prev_handler = trio.from_thread.run_sync(install_handler)
             try:
                 return input(prompt)
             finally:
