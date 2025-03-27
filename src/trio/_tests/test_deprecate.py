@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 import warnings
+from types import ModuleType
 
 import pytest
 
@@ -243,6 +244,8 @@ def test_deprecated_docstring_munging() -> None:
 def test_module_with_deprecations(recwarn_always: pytest.WarningsRecorder) -> None:
     assert module_with_deprecations.regular == "hi"
     assert len(recwarn_always) == 0
+
+    assert type(module_with_deprecations) is ModuleType
 
     filename, lineno = _here()
     assert module_with_deprecations.dep1 == "value1"  # type: ignore[attr-defined]
