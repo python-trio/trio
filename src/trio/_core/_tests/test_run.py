@@ -1509,9 +1509,8 @@ async def test_slow_abort_basic() -> None:
         task = _core.current_task()
         token = _core.current_trio_token()
 
-        def slow_abort(raise_cancel: _core.RaiseCancelT) -> _core.Abort:
-            result = outcome.capture(raise_cancel)
-            token.run_sync_soon(_core.reschedule, task, result)
+        def slow_abort(cancel_exc: BaseException) -> _core.Abort:
+            token.run_sync_soon(_core.reschedule, task, outcome.Error(cancel_exc))
             return _core.Abort.FAILED
 
         with pytest.raises(_core.Cancelled):
@@ -1525,10 +1524,9 @@ async def test_slow_abort_edge_cases() -> None:
         task = _core.current_task()
         token = _core.current_trio_token()
 
-        def slow_abort(raise_cancel: _core.RaiseCancelT) -> _core.Abort:
+        def slow_abort(cancel_exc: BaseException) -> _core.Abort:
             record.append("abort-called")
-            result = outcome.capture(raise_cancel)
-            token.run_sync_soon(_core.reschedule, task, result)
+            token.run_sync_soon(_core.reschedule, task, outcome.Error(cancel_exc))
             return _core.Abort.FAILED
 
         record.append("sleeping")
@@ -2360,7 +2358,7 @@ async def test_detach_and_reattach_coroutine_object() -> None:
 
         task = _core.current_task()
 
-        def abort_fn(_: _core.RaiseCancelT) -> _core.Abort:  # pragma: no cover
+        def abort_fn(_: BaseException) -> _core.Abort:  # pragma: no cover
             return _core.Abort.FAILED
 
         got = await _core.temporarily_detach_coroutine_object(abort_fn)
@@ -2404,7 +2402,7 @@ async def test_detached_coroutine_cancellation() -> None:
         nonlocal task
         task = _core.current_task()
 
-        def abort_fn(_: _core.RaiseCancelT) -> _core.Abort:
+        def abort_fn(_: BaseException) -> _core.Abort:
             nonlocal abort_fn_called
             abort_fn_called = True
             return _core.Abort.FAILED

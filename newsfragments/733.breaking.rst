@@ -1,0 +1,42 @@
+:ref:`Sometimes <ki-handling>`, a Trio program receives an interrupt
+signal (Ctrl+C) at a time when Python's default response (raising
+`KeyboardInterrupt` immediately) might corrupt Trio's internal
+state. Previously, Trio would handle this situation by raising the
+`KeyboardInterrupt` at the next :ref:`checkpoint <checkpoints>` executed
+by the main task (the one running the function you passed to :func:`trio.run`).
+This was responsible for a lot of internal complexity and sometimes led to
+surprising behavior.
+
+With this release, such a "deferred" `KeyboardInterrupt` is handled in a
+different way: Trio will first cancel all running tasks, then raise
+`KeyboardInterrupt` directly out of the call to :func:`trio.run`.
+The difference is relevant if you have code that tries to catch
+`KeyboardInterrupt` within Trio. This was never entirely robust, but it
+previously might have worked in many cases, whereas now it will never
+catch the interrupt.
+
+An example of code that mostly worked on previous releases, but won't
+work on this release::
+
+    async def main():
+        try:
+            await trio.sleep_forever()
+        except KeyboardInterrupt:
+            print("interrupted")
+    trio.run(main)
+
+The fix is to catch `KeyboardInterrupt` outside Trio::
+
+    async def main():
+        await trio.sleep_forever()
+    try:
+        trio.run(main)
+    except KeyboardInterrupt:
+        print("interrupted")
+
+If that doesn't work for you (because you want to respond to
+`KeyboardInterrupt` by doing something other than cancelling all
+tasks), then you can start a task that uses
+`trio.open_signal_receiver` to receive the interrupt signal ``SIGINT``
+directly and handle it however you wish. Such a task takes precedence
+over Trio's default interrupt handling.

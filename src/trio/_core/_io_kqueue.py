@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
     from typing_extensions import TypeAlias
 
-    from .._core import Abort, RaiseCancelT, Task, UnboundedQueue
+    from .._core import Abort, Task, UnboundedQueue
     from .._file_io import _HasFileNo
 
 assert not TYPE_CHECKING or (sys.platform != "linux" and sys.platform != "win32")
@@ -147,7 +147,7 @@ class KqueueIOManager:
         self,
         ident: int,
         filter: int,
-        abort_func: Callable[[RaiseCancelT], Abort],
+        abort_func: Callable[[BaseException], Abort],
     ) -> Abort:
         """TODO: these are implemented, but are currently more of a sketch than
         anything real. See `#26
@@ -160,7 +160,7 @@ class KqueueIOManager:
             )
         self._registered[key] = _core.current_task()
 
-        def abort(raise_cancel: RaiseCancelT) -> Abort:
+        def abort(raise_cancel: BaseException) -> Abort:
             r = abort_func(raise_cancel)
             if r is _core.Abort.SUCCEEDED:  # TODO: test this branch
                 del self._registered[key]
@@ -180,7 +180,7 @@ class KqueueIOManager:
         event = select.kevent(fd, filter, flags)
         self._kqueue.control([event], 0)
 
-        def abort(_: RaiseCancelT) -> Abort:
+        def abort(_: BaseException) -> Abort:
             event = select.kevent(fd, filter, select.KQ_EV_DELETE)
             try:
                 self._kqueue.control([event], 0)

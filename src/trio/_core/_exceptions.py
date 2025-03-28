@@ -1,3 +1,6 @@
+from typing import NoReturn
+
+from trio import _deprecate
 from trio._util import NoPublicConstructor, final
 
 
@@ -62,6 +65,19 @@ class Cancelled(BaseException, metaclass=NoPublicConstructor):
 
     def __str__(self) -> str:
         return "Cancelled"
+
+    def __call__(self) -> NoReturn:
+        # If a Cancelled exception is passed to an old abort_fn that
+        # expects a raise_cancel callback, someone will eventually try
+        # to call the exception instead of raising it. Provide a
+        # deprecation warning and raise it instead.
+        _deprecate.warn_deprecated(
+            "wait_task_rescheduled's abort_fn taking a callback argument",
+            "0.30.0",
+            issue=2649,
+            instead="an exception argument",
+        )
+        raise self
 
 
 class BusyResourceError(Exception):
