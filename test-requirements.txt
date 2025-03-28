@@ -177,6 +177,8 @@ types-docutils==0.21.0.20241128
     # via -r test-requirements.in
 types-pyopenssl==24.1.0.20240722
     # via -r test-requirements.in
+types-pyyaml==6.0.12.20250326
+    # via -r test-requirements.in
 types-setuptools==75.8.0.20250225
     # via types-cffi
 typing-extensions==4.12.2
