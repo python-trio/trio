@@ -25,10 +25,10 @@ except ImportError:
 
 
 def yield_pre_commit_version_data(
-    pre_commit: Path,
+    pre_commit_text: str,
 ) -> Generator[tuple[str, str], None, None]:
     """Yield (name, rev) tuples from pre-commit config file."""
-    pre_commit_config = load_yaml(pre_commit.read_text(encoding="utf-8"), Loader)
+    pre_commit_config = load_yaml(pre_commit_text, Loader)
     for repo in pre_commit_config["repos"]:
         if "repo" not in repo or "rev" not in repo:
             continue
@@ -81,18 +81,19 @@ def main() -> int:
     """Run program."""
 
     source_root = Path.cwd().absolute()
-    while not (source_root / "LICENSE").exists():
-        source_root = source_root.parent
+
     # Double-check we found the right directory
     assert (source_root / "LICENSE").exists()
     pre_commit = source_root / ".pre-commit-config.yaml"
     test_requirements = source_root / "test-requirements.txt"
 
+    pre_commit_text = pre_commit.read_text(encoding="utf-8")
+
     # Get tool versions from pre-commit
     # Get correct names
     pre_commit_versions = {
         name.removesuffix("-mirror").removesuffix("-pre-commit"): version
-        for name, version in yield_pre_commit_version_data(pre_commit)
+        for name, version in yield_pre_commit_version_data(pre_commit_text)
     }
     changed = update_requirements(test_requirements, pre_commit_versions)
     return int(changed)
