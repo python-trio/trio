@@ -353,8 +353,8 @@ async def to_thread_run_sync(
     # for the result – or None if this function was cancelled and we should
     # discard the result.
     task_register: list[trio.lowlevel.Task | None] = [trio.lowlevel.current_task()]
-    # Holds a reference to the raise_cancel function provided if a cancellation
-    # is attempted against this task - or None if no such delivery has happened.
+    # Holds a reference to the exception provided if a cancellation is
+    # attempted against this task - or None if no such delivery has happened.
     cancel_register: list[BaseException | None] = [None]
     name = f"trio.to_thread.run_sync-{next(_thread_counter)}"
     placeholder = ThreadPlaceholder(name)

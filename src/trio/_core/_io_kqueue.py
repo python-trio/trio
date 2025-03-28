@@ -160,8 +160,8 @@ class KqueueIOManager:
             )
         self._registered[key] = _core.current_task()
 
-        def abort(raise_cancel: BaseException) -> Abort:
-            r = abort_func(raise_cancel)
+        def abort(cancel_exc: BaseException) -> Abort:
+            r = abort_func(cancel_exc)
             if r is _core.Abort.SUCCEEDED:  # TODO: test this branch
                 del self._registered[key]
             return r
