@@ -14,9 +14,17 @@ from .abc import HalfCloseableStream, Listener
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-    from typing_extensions import Buffer
-
     from ._socket import SocketType
+
+import sys
+
+if sys.version_info >= (3, 12):
+    # NOTE: this isn't in the `TYPE_CHECKING` since for some reason
+    # sphinx doesn't autoreload this module for SocketStream
+    # (hypothesis: it's our module renaming magic)
+    from collections.abc import Buffer
+elif TYPE_CHECKING:
+    from typing_extensions import Buffer
 
 # XX TODO: this number was picked arbitrarily. We should do experiments to
 # tune it. (Or make it dynamic -- one idea is to start small and increase it
@@ -152,6 +160,7 @@ class SocketStream(HalfCloseableStream):
     @overload
     def setsockopt(self, level: int, option: int, value: None, length: int) -> None: ...
 
+    # TODO: rename `length` to `optlen`
     def setsockopt(
         self,
         level: int,

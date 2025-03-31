@@ -330,7 +330,8 @@ exclude_also = [
    "@overload",
    'class .*\bProtocol\b.*\):',
    "raise NotImplementedError",
-   'TODO: test this line'
+   'TODO: test this line',
+   'if "sphinx.ext.autodoc" in sys.modules:',
 ]
 partial_branches = [
     "pragma: no branch",
