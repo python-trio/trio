@@ -639,7 +639,8 @@ def test_guest_mode_ki() -> None:
 
     with pytest.raises(KeyboardInterrupt) as excinfo:
         trivial_guest_run(trio_main)
-    assert excinfo.value.__context__ is None
+    assert isinstance(excinfo.value.__context__, trio.Cancelled)
+    assert excinfo.value.__context__.__context__ is None
     # Signal handler should be restored properly on exit
     assert signal.getsignal(signal.SIGINT) is signal.default_int_handler
 

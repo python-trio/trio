@@ -1,0 +1,4 @@
+The abort function passed to :func:`~trio.lowlevel.wait_task_rescheduled`
+now directly takes as argument the cancellation exception that should be
+raised after a successful asynchronous cancellation. Previously, it took
+a callable that would raise the exception when called.
