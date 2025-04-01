@@ -58,9 +58,10 @@ def update_requirements(
             # Maintain extra markers if they exist
             old_version = rest.strip()
             extra = "\n"
-            if " " in rest:
-                old_version, extra = rest.split(" ", 1)
-                extra = " " + extra
+            if ";" in rest:
+                old_version, extra = rest.split(";", 1)
+                old_version = old_version.strip()
+                extra = " ;" + extra
             version = version_data.get(name)
             # If does not exist, skip
             if version is None:
