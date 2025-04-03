@@ -427,12 +427,18 @@ jobs:
         run: >-
           echo "version=$(python -V | cut -d' ' -f2 | cut -d'.' -f1,2)"
           >> "${GITHUB_OUTPUT}"
+
+      - run: |
+          coverage combine
+          coverage report
+
       - if: always()
         uses: codecov/codecov-action@v5
         with:
           name: Cython
           flags: Cython,${{ steps.get-version.outputs.version }}
           fail_ci_if_error: false
+          version: 10.2.1
 
   # https://github.com/marketplace/actions/alls-green#why
   check:  # This job does nothing and is only used for the branch protection
