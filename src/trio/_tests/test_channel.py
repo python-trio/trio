@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from typing import Union
 
 import pytest
@@ -8,6 +9,9 @@ import trio
 from trio import EndOfChannel, open_memory_channel
 
 from ..testing import assert_checkpoints, wait_all_tasks_blocked
+
+if sys.version_info < (3, 11):
+    from exceptiongroup import BaseExceptionGroup, ExceptionGroup
 
 
 async def test_channel() -> None:
@@ -411,3 +415,68 @@ async def test_unbuffered() -> None:
             assert await r.receive() == 1
     with pytest.raises(trio.WouldBlock):
         r.receive_nowait()
+
+
+async def test_raise_single_exception_from_group() -> None:
+    excinfo: pytest.ExceptionInfo[BaseException]
+
+    exc = ValueError("foo")
+    cause = SyntaxError("cause")
+    context = TypeError("context")
+    exc.__cause__ = cause
+    exc.__context__ = context
+    cancelled = trio.Cancelled._create()
+
+    with pytest.raises(ValueError, match="foo") as excinfo:
+        trio.raise_single_exception_from_group(ExceptionGroup("", [exc]))
+    assert excinfo.value.__cause__ == cause
+    assert excinfo.value.__context__ == context
+
+    with pytest.raises(ValueError, match="foo") as excinfo:
+        trio.raise_single_exception_from_group(
+            ExceptionGroup("", [ExceptionGroup("", [exc])])
+        )
+    assert excinfo.value.__cause__ == cause
+    assert excinfo.value.__context__ == context
+
+    with pytest.raises(ValueError, match="foo") as excinfo:
+        trio.raise_single_exception_from_group(
+            BaseExceptionGroup(
+                "", [cancelled, BaseExceptionGroup("", [cancelled, exc])]
+            )
+        )
+    assert excinfo.value.__cause__ == cause
+    assert excinfo.value.__context__ == context
+
+    # multiple non-cancelled
+    eg = ExceptionGroup("", [ValueError("foo"), ValueError("bar")])
+    with pytest.raises(
+        AssertionError,
+        match=r"^Attempted to unwrap exceptiongroup with multiple non-cancelled exceptions. This is often caused by a bug in the caller.$",
+    ) as excinfo:
+        trio.raise_single_exception_from_group(eg)
+    assert excinfo.value.__cause__ is eg
+    assert excinfo.value.__context__ is None
+
+    # keyboardinterrupt overrides everything
+    eg_ki = BaseExceptionGroup(
+        "",
+        [
+            ValueError("foo"),
+            ValueError("bar"),
+            KeyboardInterrupt("this exc doesn't get reraised"),
+        ],
+    )
+    with pytest.raises(KeyboardInterrupt, match=r"^$") as excinfo:
+        trio.raise_single_exception_from_group(eg_ki)
+    assert excinfo.value.__cause__ is eg_ki
+    assert excinfo.value.__context__ is None
+
+    # if we only got cancelled, first one is reraised
+    with pytest.raises(trio.Cancelled, match=r"^Cancelled$") as excinfo:
+        trio.raise_single_exception_from_group(
+            BaseExceptionGroup("", [cancelled, trio.Cancelled._create()])
+        )
+    assert excinfo.value is cancelled
+    assert excinfo.value.__cause__ is None
+    assert excinfo.value.__context__ is None
