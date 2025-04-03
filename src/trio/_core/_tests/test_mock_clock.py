@@ -8,6 +8,7 @@ from trio import sleep
 from ... import _core
 from .. import wait_all_tasks_blocked
 from .._mock_clock import MockClock
+from .._run import GLOBAL_RUN_CONTEXT
 from .tutil import slow
 
 
@@ -175,3 +176,18 @@ async def test_mock_clock_autojump_0_and_wait_all_tasks_blocked_nonzero(
         nursery.start_soon(waiter)
 
     assert record == ["waiter done", "yawn"]
+
+
+async def test_initialization_doesnt_mutate_runner() -> None:
+    before = (
+        GLOBAL_RUN_CONTEXT.runner.clock,
+        GLOBAL_RUN_CONTEXT.runner.clock_autojump_threshold,
+    )
+
+    MockClock(autojump_threshold=2, rate=3)
+
+    after = (
+        GLOBAL_RUN_CONTEXT.runner.clock,
+        GLOBAL_RUN_CONTEXT.runner.clock_autojump_threshold,
+    )
+    assert before == after

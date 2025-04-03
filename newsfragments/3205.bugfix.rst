@@ -1,0 +1,1 @@
+Don't mutate the global runner when MockClock is created.
