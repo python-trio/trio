@@ -4,7 +4,6 @@ but useful for extending Trio's functionality.
 """
 
 # imports are renamed with leading underscores to indicate they are not part of the public API
-
 import select as _select
 
 # static checkers don't understand if importing this as _sys, so it's deleted later
@@ -60,8 +59,9 @@ from ._subprocess import open_process as open_process
 
 # Uses `from x import y as y` for compatibility with `pyright --verifytypes` (#2625)
 
-
-if sys.platform == "win32":
+if sys.platform == "win32" or (
+    not _t.TYPE_CHECKING and "sphinx.ext.autodoc" in sys.modules
+):
     # Windows symbols
     from ._core import (
         current_iocp as current_iocp,
@@ -71,13 +71,21 @@ if sys.platform == "win32":
         wait_overlapped as wait_overlapped,
         write_overlapped as write_overlapped,
     )
-    from ._wait_for_object import WaitForSingleObject as WaitForSingleObject
-else:
+
+    # don't let documentation import the actual implementation
+    if sys.platform == "win32":  # pragma: no branch
+        from ._wait_for_object import WaitForSingleObject as WaitForSingleObject
+
+if sys.platform != "win32" or (
+    not _t.TYPE_CHECKING and "sphinx.ext.autodoc" in sys.modules
+):
     # Unix symbols
     from ._unix_pipes import FdStream as FdStream
 
     # Kqueue-specific symbols
-    if sys.platform != "linux" and (_t.TYPE_CHECKING or not hasattr(_select, "epoll")):
+    if (
+        sys.platform != "linux" and (_t.TYPE_CHECKING or not hasattr(_select, "epoll"))
+    ) or (not _t.TYPE_CHECKING and "sphinx.ext.autodoc" in sys.modules):
         from ._core import (
             current_kqueue as current_kqueue,
             monitor_kevent as monitor_kevent,
