@@ -73,13 +73,10 @@ sphinx==8.2.3
     # via
     #   -r docs-requirements.in
     #   sphinx-codeautolink
-    #   sphinx-hoverxref
     #   sphinx-rtd-theme
     #   sphinxcontrib-jquery
     #   sphinxcontrib-trio
 sphinx-codeautolink==0.17.4
-    # via -r docs-requirements.in
-sphinx-hoverxref==1.4.2
     # via -r docs-requirements.in
 sphinx-rtd-theme==3.0.2
     # via -r docs-requirements.in
@@ -92,7 +89,6 @@ sphinxcontrib-htmlhelp==2.1.0
 sphinxcontrib-jquery==4.1
     # via
     #   -r docs-requirements.in
-    #   sphinx-hoverxref
     #   sphinx-rtd-theme
 sphinxcontrib-jsmath==1.0.1
     # via sphinx

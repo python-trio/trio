@@ -7,7 +7,6 @@ sphinx_rtd_theme >= 3
 sphinxcontrib-jquery
 sphinxcontrib-trio
 towncrier
-sphinx-hoverxref
 sphinx-codeautolink
 
 # Trio's own dependencies
