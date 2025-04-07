@@ -28,7 +28,6 @@ from ._channel import (
     MemoryReceiveChannel as MemoryReceiveChannel,
     MemorySendChannel as MemorySendChannel,
     open_memory_channel as open_memory_channel,
-    raise_single_exception_from_group as raise_single_exception_from_group,
 )
 from ._core import (
     BrokenResourceError as BrokenResourceError,
