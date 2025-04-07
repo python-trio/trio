@@ -169,7 +169,7 @@ def check_multiple_exceptions_1() -> None:
     d = a
     d = b
     d = c
-    assert d
+    assert isinstance(d, RaisesGroup)
 
 
 def check_multiple_exceptions_2() -> None:
@@ -182,7 +182,7 @@ def check_multiple_exceptions_2() -> None:
     d = a
     d = b
     d = c
-    assert d
+    assert isinstance(d, RaisesGroup)
 
 
 def check_raisesgroup_overloads() -> None:

@@ -171,7 +171,6 @@ def autodoc_process_signature(
 # currently undocumented things
 logger = getLogger("trio")
 UNDOCUMENTED = {
-    "trio.CancelScope.relative_deadline",
     "trio.MemorySendChannel",
     "trio.MemoryReceiveChannel",
     "trio.MemoryChannelStatistics",
@@ -201,7 +200,9 @@ def autodoc_process_docstring(
         logger.warning(f"{name} has no docstring")
     else:
         if name in UNDOCUMENTED:
-            logger.warning("outdated list of undocumented things")
+            logger.warning(
+                f"outdated list of undocumented things in docs/source/conf.py: {name!r} has a docstring"
+            )
 
 
 def setup(app: Sphinx) -> None:

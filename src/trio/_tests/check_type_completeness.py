@@ -49,7 +49,7 @@ def has_docstring_at_runtime(name: str) -> bool:
     """
     # This assert is solely for stopping isort from removing our imports of trio & trio.testing
     # It could also be done with isort:skip, but that'd also disable import sorting and the like.
-    assert trio.testing
+    assert trio.testing is not None
 
     # figure out what part of the name is the module, so we can "import" it
     name_parts = name.split(".")
@@ -116,7 +116,7 @@ def check_type(
     expected_errors: list[object],
 ) -> list[object]:
     # convince isort we use the trio import
-    assert trio
+    assert trio is not None
 
     # run pyright, load output into json
     res = run_pyright(platform)
