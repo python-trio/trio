@@ -18,7 +18,15 @@ import trio
 
 from ._abc import ReceiveChannel, ReceiveType, SendChannel, SendType, T
 from ._core import Abort, RaiseCancelT, Task, enable_ki_protection
-from ._util import NoPublicConstructor, final, generic_function
+from ._util import (
+    NoPublicConstructor,
+    final,
+    generic_function,
+    raise_single_exception_from_group,
+)
+
+if sys.version_info < (3, 11):
+    from exceptiongroup import BaseExceptionGroup
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -534,19 +542,29 @@ def background_with_channel(
         *args: P.args, **kwargs: P.kwargs
     ) -> AsyncGenerator[trio._channel.RecvChanWrapper[T], None]:
         send_chan, recv_chan = trio.open_memory_channel[T](0)
-        async with trio.open_nursery(strict_exception_groups=True) as nursery:
-            agen = fn(*args, **kwargs)
-            send_semaphore = trio.Semaphore(0)
-            # `nursery.start` to make sure that we will clean up send_chan & agen
-            # If this errors we don't close `recv_chan`, but the caller
-            # never gets access to it, so that's not a problem.
-            await nursery.start(_move_elems_to_channel, agen, send_chan, send_semaphore)
-            # `async with recv_chan` could eat exceptions, so use sync cm
-            with RecvChanWrapper(recv_chan, send_semaphore) as wrapped_recv_chan:
-                yield wrapped_recv_chan
-            # User has exited context manager, cancel to immediately close the
-            # abandoned generator if it's still alive.
-            nursery.cancel_scope.cancel()
+        try:
+            async with trio.open_nursery(strict_exception_groups=True) as nursery:
+                agen = fn(*args, **kwargs)
+                send_semaphore = trio.Semaphore(0)
+                # `nursery.start` to make sure that we will clean up send_chan & agen
+                # If this errors we don't close `recv_chan`, but the caller
+                # never gets access to it, so that's not a problem.
+                await nursery.start(
+                    _move_elems_to_channel, agen, send_chan, send_semaphore
+                )
+                # `async with recv_chan` could eat exceptions, so use sync cm
+                with RecvChanWrapper(recv_chan, send_semaphore) as wrapped_recv_chan:
+                    yield wrapped_recv_chan
+                # User has exited context manager, cancel to immediately close the
+                # abandoned generator if it's still alive.
+                nursery.cancel_scope.cancel()
+        except BaseExceptionGroup as eg:
+            try:
+                raise_single_exception_from_group(eg)
+            except AssertionError:
+                raise RuntimeError(
+                    "Encountered exception during cleanup of generator object, as well as exception in the contextmanager body"
+                ) from eg
 
     async def _move_elems_to_channel(
         agen: AsyncGenerator[T, None],

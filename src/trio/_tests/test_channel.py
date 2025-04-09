@@ -416,18 +416,6 @@ async def test_unbuffered() -> None:
         r.receive_nowait()
 
 
-async def test_background_with_channel() -> None:
-    @background_with_channel
-    async def agen() -> AsyncGenerator[int]:
-        yield 1
-        await trio.sleep_forever()  # simulate deadlock
-
-    async with agen() as recv_chan:
-        async for x in recv_chan:
-            assert x == 1
-            break  # exit, cleanup should be quick
-
-
 async def test_background_with_channel_exhaust() -> None:
     @background_with_channel
     async def agen() -> AsyncGenerator[int]:
@@ -496,7 +484,7 @@ async def test_background_with_channel_no_race() -> None:
         yield 1
         raise ValueError("oae")
 
-    with RaisesGroup(ValueError):
+    with pytest.raises(ValueError, match=r"^oae$"):
         async with agen() as recv_chan:
             async for x in recv_chan:
                 assert x == 1
@@ -544,16 +532,20 @@ async def test_background_with_channel_genexit_finally() -> None:
             stuff.append("finally")
             raise ValueError("agen")
 
-    with RaisesGroup(
-        Matcher(ValueError, match="^agen$"),
-        Matcher(TypeError, match="^iterator$"),
-    ):
+    with pytest.raises(
+        RuntimeError,
+        match=r"^Encountered exception during cleanup of generator object, as well as exception in the contextmanager body.$",
+    ) as excinfo:
         async with agen(events) as recv_chan:
             async for i in recv_chan:  # pragma: no branch
                 assert i == 1
                 raise TypeError("iterator")
 
     assert events == ["GeneratorExit()", "finally"]
+    RaisesGroup(
+        Matcher(ValueError, match="^agen$"),
+        Matcher(TypeError, match="^iterator$"),
+    ).matches(excinfo.value.__cause__)
 
 
 async def test_background_with_channel_nested_loop() -> None:
@@ -571,3 +563,17 @@ async def test_background_with_channel_nested_loop() -> None:
                     assert (i, j) == (ii, jj)
                     jj += 1
             ii += 1
+
+
+async def test_doesnt_leak_cancellation() -> None:
+    @background_with_channel
+    async def agenfn() -> AsyncGenerator[None]:
+        with trio.CancelScope() as cscope:
+            cscope.cancel()
+            yield
+
+    with pytest.raises(AssertionError):
+        async with agenfn() as recv_chan:
+            async for _ in recv_chan:
+                pass
+        raise AssertionError("should be reachable")
