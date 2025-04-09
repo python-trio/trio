@@ -1,13 +1,16 @@
 from __future__ import annotations
 
-from typing import Union
+from typing import TYPE_CHECKING, Union
 
 import pytest
 
 import trio
-from trio import EndOfChannel, open_memory_channel
+from trio import EndOfChannel, background_with_channel, open_memory_channel
 
-from ..testing import assert_checkpoints, wait_all_tasks_blocked
+from ..testing import Matcher, RaisesGroup, assert_checkpoints, wait_all_tasks_blocked
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
 
 
 async def test_channel() -> None:
@@ -411,3 +414,166 @@ async def test_unbuffered() -> None:
             assert await r.receive() == 1
     with pytest.raises(trio.WouldBlock):
         r.receive_nowait()
+
+
+async def test_background_with_channel_exhaust() -> None:
+    @background_with_channel
+    async def agen() -> AsyncGenerator[int]:
+        yield 1
+
+    async with agen() as recv_chan:
+        async for x in recv_chan:
+            assert x == 1
+
+
+async def test_background_with_channel_broken_resource() -> None:
+    @background_with_channel
+    async def agen() -> AsyncGenerator[int]:
+        yield 1
+        yield 2
+
+    async with agen() as recv_chan:
+        assert await recv_chan.__anext__() == 1
+
+        # close the receiving channel
+        await recv_chan.aclose()
+
+        # trying to get the next element errors
+        with pytest.raises(trio.ClosedResourceError):
+            await recv_chan.__anext__()
+
+        # but we don't get an error on exit of the cm
+
+
+async def test_background_with_channel_cancelled() -> None:
+    with trio.CancelScope() as cs:
+
+        @background_with_channel
+        async def agen() -> AsyncGenerator[None]:  # pragma: no cover
+            raise AssertionError(
+                "cancel before consumption means generator should not be iterated"
+            )
+            yield  # indicate that we're an iterator
+
+        async with agen():
+            cs.cancel()
+
+
+async def test_background_with_channel_recv_closed(
+    autojump_clock: trio.testing.MockClock,
+) -> None:
+    event = trio.Event()
+
+    @background_with_channel
+    async def agen() -> AsyncGenerator[int]:
+        await event.wait()
+        yield 1
+
+    async with agen() as recv_chan:
+        await recv_chan.aclose()
+        event.set()
+        # wait for agen to try sending on the closed channel
+        await trio.sleep(1)
+
+
+async def test_background_with_channel_no_race() -> None:
+    # this previously led to a race condition due to
+    # https://github.com/python-trio/trio/issues/1559
+    @background_with_channel
+    async def agen() -> AsyncGenerator[int]:
+        yield 1
+        raise ValueError("oae")
+
+    with pytest.raises(ValueError, match=r"^oae$"):
+        async with agen() as recv_chan:
+            async for x in recv_chan:
+                assert x == 1
+
+
+async def test_background_with_channel_buffer_size_too_small(
+    autojump_clock: trio.testing.MockClock,
+) -> None:
+    @background_with_channel
+    async def agen() -> AsyncGenerator[int]:
+        yield 1
+        raise AssertionError(
+            "buffer size 0 means we shouldn't be asked for another value"
+        )  # pragma: no cover
+
+    with trio.move_on_after(5):
+        async with agen() as recv_chan:
+            async for x in recv_chan:  # pragma: no branch
+                assert x == 1
+                await trio.sleep_forever()
+
+
+async def test_background_with_channel_no_interleave() -> None:
+    @background_with_channel
+    async def agen() -> AsyncGenerator[int]:
+        yield 1
+        raise AssertionError  # pragma: no cover
+
+    async with agen() as recv_chan:
+        assert await recv_chan.__anext__() == 1
+        await trio.lowlevel.checkpoint()
+
+
+async def test_background_with_channel_genexit_finally() -> None:
+    events: list[str] = []
+
+    @background_with_channel
+    async def agen(stuff: list[str]) -> AsyncGenerator[int]:
+        try:
+            yield 1
+        except BaseException as e:
+            stuff.append(repr(e))
+            raise
+        finally:
+            stuff.append("finally")
+            raise ValueError("agen")
+
+    with pytest.raises(
+        RuntimeError,
+        match=r"^Encountered exception during cleanup of generator object, as well as exception in the contextmanager body.$",
+    ) as excinfo:
+        async with agen(events) as recv_chan:
+            async for i in recv_chan:  # pragma: no branch
+                assert i == 1
+                raise TypeError("iterator")
+
+    assert events == ["GeneratorExit()", "finally"]
+    RaisesGroup(
+        Matcher(ValueError, match="^agen$"),
+        Matcher(TypeError, match="^iterator$"),
+    ).matches(excinfo.value.__cause__)
+
+
+async def test_background_with_channel_nested_loop() -> None:
+    @background_with_channel
+    async def agen() -> AsyncGenerator[int]:
+        for i in range(2):
+            yield i
+
+    ii = 0
+    async with agen() as recv_chan1:
+        async for i in recv_chan1:
+            async with agen() as recv_chan:
+                jj = 0
+                async for j in recv_chan:
+                    assert (i, j) == (ii, jj)
+                    jj += 1
+            ii += 1
+
+
+async def test_doesnt_leak_cancellation() -> None:
+    @background_with_channel
+    async def agenfn() -> AsyncGenerator[None]:
+        with trio.CancelScope() as cscope:
+            cscope.cancel()
+            yield
+
+    with pytest.raises(AssertionError):
+        async with agenfn() as recv_chan:
+            async for _ in recv_chan:
+                pass
+        raise AssertionError("should be reachable")
