@@ -4,6 +4,7 @@ from __future__ import annotations
 import collections.abc
 import inspect
 import signal
+import sys
 from abc import ABCMeta
 from collections.abc import Awaitable, Callable, Sequence
 from functools import update_wrapper
@@ -19,6 +20,9 @@ from typing import (
 from sniffio import thread_local as sniffio_loop
 
 import trio
+
+if sys.version_info < (3, 11):
+    from exceptiongroup import BaseExceptionGroup
 
 # Explicit "Any" is not allowed
 CallT = TypeVar("CallT", bound=Callable[..., Any])  # type: ignore[explicit-any]
@@ -353,3 +357,61 @@ if TYPE_CHECKING:
 
 else:
     from functools import wraps  # noqa: F401  # this is re-exported
+
+
+def _raise(exc: BaseException) -> NoReturn:
+    """This helper allows re-raising an exception without __context__ being set."""
+    # cause does not need special handling, we simply avoid using `raise .. from ..`
+    __tracebackhide__ = True
+    context = exc.__context__
+    try:
+        raise exc
+    finally:
+        exc.__context__ = context
+        del exc, context
+
+
+def raise_single_exception_from_group(
+    eg: BaseExceptionGroup[BaseException],
+) -> NoReturn:
+    """This function takes an exception group that is assumed to have at most
+    one non-cancelled exception, which it reraises as a standalone exception.
+
+    If a :exc:`KeyboardInterrupt` is encountered, a new KeyboardInterrupt is immediately
+    raised with the entire group as cause.
+
+    If the group only contains :exc:`Cancelled` it reraises the first one encountered.
+
+    It will retain context and cause of the contained exception, and entirely discard
+    the cause/context of the group(s).
+
+    If multiple non-cancelled exceptions are encountered, it raises
+    :exc:`AssertionError`.
+    """
+    cancelled_exceptions = []
+    noncancelled_exceptions = []
+
+    # subgroup/split retains excgroup structure, so we need to manually traverse
+    def _parse_excg(e: BaseException) -> None:
+        if isinstance(e, (KeyboardInterrupt, SystemExit)):
+            # immediately bail out
+            raise KeyboardInterrupt from eg
+
+        if isinstance(e, trio.Cancelled):
+            cancelled_exceptions.append(e)
+        elif isinstance(e, BaseExceptionGroup):
+            for sub_e in e.exceptions:
+                _parse_excg(sub_e)
+        else:
+            noncancelled_exceptions.append(e)
+
+    _parse_excg(eg)
+
+    if len(noncancelled_exceptions) > 1:
+        raise AssertionError(
+            "Attempted to unwrap exceptiongroup with multiple non-cancelled exceptions. This is often caused by a bug in the caller."
+        ) from eg
+    if len(noncancelled_exceptions) == 1:
+        _raise(noncancelled_exceptions[0])
+    assert cancelled_exceptions, "internal error"
+    _raise(cancelled_exceptions[0])
