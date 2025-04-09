@@ -470,11 +470,18 @@ def setsockopt_tests(sock: SocketType | SocketStream) -> None:
         try:
             sock.setsockopt(tsocket.SOL_SOCKET, tsocket.SO_BINDTODEVICE, None, 0)
         except OSError as e:
-            # some versions of Python have the attribute yet can run on platforms
-            # that do not support it. For instance, MacOS 15 gained support for
-            # SO_BINDTODEVICE and CPython 3.13.1 was built on it (presumably), but
-            # our CI runners ran MacOS 14 and so failed.
-            assert e.errno == 42  # noqa: PT017
+            assert e.errno in [  # noqa: PT017
+                # some versions of Python have the attribute yet can run on
+                # platforms that do not support it. For instance, MacOS 15
+                # gained support for SO_BINDTODEVICE and CPython 3.13.1 was
+                # built on it (presumably), but our CI runners ran MacOS 14 and
+                # so failed.
+                42,
+                # Older Linux kernels (prior to patch
+                # https://lore.kernel.org/netdev/m37drhs1jn.fsf@bernat.ch/t/)
+                # do not support SO_BINDTODEVICE as an unprivileged user.
+                errno.EPERM,
+            ]
 
     # specifying value
     sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, False)

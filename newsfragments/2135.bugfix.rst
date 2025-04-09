@@ -1,0 +1,1 @@
+Allow `trio` to be a `types.ModuleType` and still have deprecated attributes.

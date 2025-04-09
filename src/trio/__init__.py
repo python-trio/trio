@@ -113,9 +113,7 @@ if TYPE_CHECKING:
 
 from . import _deprecate as _deprecate
 
-_deprecate.enable_attribute_deprecations(__name__)
-
-__deprecated_attributes__: dict[str, _deprecate.DeprecatedAttribute] = {}
+_deprecate.deprecate_attributes(__name__, {})
 
 # Having the public path in .__module__ attributes is important for:
 # - exception names in printed tracebacks

@@ -802,6 +802,18 @@ class CancelScope:
 
     @property
     def relative_deadline(self) -> float:
+        """Read-write, :class:`float`. The number of seconds remaining until this
+        scope's deadline, relative to the current time.
+
+        Defaults to :data:`math.inf` ("no deadline"). Must be non-negative.
+
+        When modified
+        Before entering: sets the deadline relative to when the scope enters.
+        After entering: sets a new deadline relative to the current time.
+
+        Raises:
+          RuntimeError: if trying to read or modify an unentered scope with an absolute deadline, i.e. when :attr:`is_relative` is ``False``.
+        """
         if self._has_been_entered:
             return self._deadline - current_time()
         elif self._deadline != inf:
@@ -1307,7 +1319,7 @@ class Nursery(metaclass=NoPublicConstructor):
         async_fn: Callable[..., Awaitable[object]],
         *args: object,
         name: object = None,
-    ) -> Any | None:
+    ) -> Any:
         r"""Creates and initializes a child task.
 
         Like :meth:`start_soon`, but blocks until the new task has

@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from sphinx.util.inventory import _InventoryItem
+from sphinx.util.logging import getLogger
 
 if TYPE_CHECKING:
     from sphinx.application import Sphinx
@@ -167,25 +168,55 @@ def autodoc_process_signature(
     return signature, return_annotation
 
 
-# XX hack the RTD theme until
-#   https://github.com/rtfd/sphinx_rtd_theme/pull/382
-# is shipped (should be in the release after 0.2.4)
-# ...note that this has since grown to contain a bunch of other CSS hacks too
-# though.
+# currently undocumented things
+logger = getLogger("trio")
+UNDOCUMENTED = {
+    "trio.MemorySendChannel",
+    "trio.MemoryReceiveChannel",
+    "trio.MemoryChannelStatistics",
+    "trio.SocketStream.aclose",
+    "trio.SocketStream.receive_some",
+    "trio.SocketStream.send_all",
+    "trio.SocketStream.send_eof",
+    "trio.SocketStream.wait_send_all_might_not_block",
+    "trio._subprocess.HasFileno.fileno",
+    "trio.lowlevel.ParkingLot.broken_by",
+}
+
+
+def autodoc_process_docstring(
+    app: Sphinx,
+    what: str,
+    name: str,
+    obj: object,
+    options: object,
+    lines: list[str],
+) -> None:
+    if not lines:
+        # TODO: document these and remove them from here
+        if name in UNDOCUMENTED:
+            return
+
+        logger.warning(f"{name} has no docstring")
+    else:
+        if name in UNDOCUMENTED:
+            logger.warning(
+                f"outdated list of undocumented things in docs/source/conf.py: {name!r} has a docstring"
+            )
+
+
 def setup(app: Sphinx) -> None:
-    app.add_css_file("hackrtd.css")
+    # Add our custom styling to make our documentation better!
+    app.add_css_file("styles.css")
     app.connect("autodoc-process-signature", autodoc_process_signature)
+    app.connect("autodoc-process-docstring", autodoc_process_docstring)
+
     # After Intersphinx runs, add additional mappings.
     app.connect("builder-inited", add_intersphinx, priority=1000)
     app.connect("source-read", on_read_source)
 
 
-# Our docs use the READTHEDOCS variable, so copied from:
-# https://about.readthedocs.com/blog/2024/07/addons-by-default/
-if os.environ.get("READTHEDOCS", "") == "True":
-    if "html_context" not in globals():
-        html_context = {}
-    html_context["READTHEDOCS"] = True
+html_context = {"current_version": os.environ.get("READTHEDOCS_VERSION_NAME")}
 
 # -- General configuration ------------------------------------------------
 
@@ -375,6 +406,7 @@ html_theme_options = {
     "navigation_depth": 4,
     "logo_only": True,
     "prev_next_buttons_location": "both",
+    "style_nav_header_background": "#d2e7fa",
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,

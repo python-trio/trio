@@ -3,7 +3,6 @@ from __future__ import annotations
 import sys
 import warnings
 from functools import wraps
-from types import ModuleType
 from typing import TYPE_CHECKING, ClassVar, TypeVar
 
 import attrs
@@ -150,28 +149,20 @@ class DeprecatedAttribute:
     instead: object = _not_set
 
 
-class _ModuleWithDeprecations(ModuleType):
-    __deprecated_attributes__: dict[str, DeprecatedAttribute]
-
-    def __getattr__(self, name: str) -> object:
-        if name in self.__deprecated_attributes__:
-            info = self.__deprecated_attributes__[name]
+def deprecate_attributes(
+    module_name: str, deprecated_attributes: dict[str, DeprecatedAttribute]
+) -> None:
+    def __getattr__(name: str) -> object:
+        if name in deprecated_attributes:
+            info = deprecated_attributes[name]
             instead = info.instead
             if instead is DeprecatedAttribute._not_set:
                 instead = info.value
-            thing = f"{self.__name__}.{name}"
+            thing = f"{module_name}.{name}"
             warn_deprecated(thing, info.version, issue=info.issue, instead=instead)
             return info.value
 
         msg = "module '{}' has no attribute '{}'"
-        raise AttributeError(msg.format(self.__name__, name))
+        raise AttributeError(msg.format(module_name, name))
 
-
-def enable_attribute_deprecations(module_name: str) -> None:
-    module = sys.modules[module_name]
-    module.__class__ = _ModuleWithDeprecations
-    assert isinstance(module, _ModuleWithDeprecations)
-    # Make sure that this is always defined so that
-    # _ModuleWithDeprecations.__getattr__ can access it without jumping
-    # through hoops or risking infinite recursion.
-    module.__deprecated_attributes__ = {}
+    sys.modules[module_name].__getattr__ = __getattr__  # type: ignore[method-assign]
