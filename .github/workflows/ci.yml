@@ -438,7 +438,6 @@ jobs:
           name: Cython
           flags: Cython,${{ steps.get-version.outputs.version }}
           fail_ci_if_error: false
-          version: 10.2.1
 
   # https://github.com/marketplace/actions/alls-green#why
   check:  # This job does nothing and is only used for the branch protection
