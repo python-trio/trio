@@ -563,7 +563,7 @@ def background_with_channel(
                 raise_single_exception_from_group(eg)
             except AssertionError:
                 raise RuntimeError(
-                    "Encountered exception during cleanup of generator object, as well as exception in the contextmanager body"
+                    "Encountered exception during cleanup of generator object, as well as exception in the contextmanager body."
                 ) from eg
 
     async def _move_elems_to_channel(
