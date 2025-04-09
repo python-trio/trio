@@ -393,7 +393,7 @@ def raise_single_exception_from_group(
 
     # subgroup/split retains excgroup structure, so we need to manually traverse
     def _parse_excg(e: BaseException) -> None:
-        if isinstance(e, KeyboardInterrupt):
+        if isinstance(e, (KeyboardInterrupt, SystemExit)):
             # immediately bail out
             raise KeyboardInterrupt from eg
 
