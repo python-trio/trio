@@ -427,6 +427,11 @@ jobs:
         run: >-
           echo "version=$(python -V | cut -d' ' -f2 | cut -d'.' -f1,2)"
           >> "${GITHUB_OUTPUT}"
+
+      - run: |
+          coverage combine
+          coverage report
+
       - if: always()
         uses: codecov/codecov-action@v5
         with:

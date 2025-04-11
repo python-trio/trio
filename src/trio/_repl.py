@@ -18,10 +18,6 @@ from trio._util import final
 
 @final
 class TrioInteractiveConsole(InteractiveConsole):
-    # code.InteractiveInterpreter defines locals as Mapping[str, Any]
-    # but when we pass this to FunctionType it expects a dict. So
-    # we make the type more specific on our subclass
-    locals: dict[str, object]
     runner: trio._core._run.Runner | None
 
     def __init__(self, repl_locals: dict[str, object] | None = None) -> None:
@@ -30,7 +26,8 @@ class TrioInteractiveConsole(InteractiveConsole):
         self.runner = None
 
     def runcode(self, code: types.CodeType) -> None:
-        func = types.FunctionType(code, self.locals)
+        # https://github.com/python/typeshed/issues/13768
+        func = types.FunctionType(code, self.locals)  # type: ignore[arg-type]
         if inspect.iscoroutinefunction(func):
             result = trio.from_thread.run(outcome.acapture, func)
         else:
