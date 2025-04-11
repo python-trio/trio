@@ -1502,6 +1502,26 @@ def test_TrioToken_run_sync_soon_late_crash() -> None:
     assert record == ["main exiting", "2nd ran"]
 
 
+async def test_deprecated_abort_fn_semantics() -> None:
+    with _core.CancelScope() as scope:
+        scope.cancel()
+
+        task = _core.current_task()
+        token = _core.current_trio_token()
+
+        def slow_abort(raise_cancel: Callable[[], NoReturn]) -> _core.Abort:
+            with pytest.warns(
+                DeprecationWarning,
+                match="^wait_task_rescheduled's abort_fn taking a callback argument is deprecated since Trio",
+            ):
+                result = outcome.capture(raise_cancel)
+            token.run_sync_soon(_core.reschedule, task, result)
+            return _core.Abort.FAILED
+
+        with pytest.raises(_core.Cancelled):
+            await _core.wait_task_rescheduled(slow_abort)
+
+
 async def test_slow_abort_basic() -> None:
     with _core.CancelScope() as scope:
         scope.cancel()

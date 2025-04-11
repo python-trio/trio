@@ -57,7 +57,7 @@ class TrioInteractiveConsole(InteractiveConsole):
                 else:
                     exc = result.error
 
-        if exc:
+        if exc is not None:
             # Inline our own version of self.showtraceback that can use
             # outcome.Error.error directly to print clean tracebacks.
             # This also means overriding self.showtraceback does nothing.
