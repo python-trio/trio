@@ -4,6 +4,9 @@ import typing
 
 from trio._util import NoPublicConstructor, final
 
+if typing.TYPE_CHECKING:
+    from collections.abc import Callable
+
 
 class TrioInternalError(Exception):
     """Raised by :func:`run` if we encounter a bug in Trio, or (possibly) a
@@ -67,7 +70,7 @@ class Cancelled(BaseException, metaclass=NoPublicConstructor):
     def __str__(self) -> str:
         return "Cancelled"
 
-    def __reduce__(self) -> tuple[typing.Callable[[], Cancelled], tuple[()]]:
+    def __reduce__(self) -> tuple[Callable[[], Cancelled], tuple[()]]:
         return (Cancelled._create, ())
 
 
