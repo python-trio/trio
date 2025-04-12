@@ -1,0 +1,1 @@
+Allow pickling `trio.Cancelled` objects, as they can show up when you want to pickle something else.
