@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+import typing
+
 from trio._util import NoPublicConstructor, final
 
 
@@ -62,6 +66,9 @@ class Cancelled(BaseException, metaclass=NoPublicConstructor):
 
     def __str__(self) -> str:
         return "Cancelled"
+
+    def __reduce__(self) -> tuple[typing.Callable[[], Cancelled], tuple[()]]:
+        return (Cancelled._create, ())
 
 
 class BusyResourceError(Exception):
