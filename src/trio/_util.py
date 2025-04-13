@@ -323,6 +323,20 @@ class NoPublicConstructor(ABCMeta):
     def _create(cls: type[T], *args: object, **kwargs: object) -> T:
         return super().__call__(*args, **kwargs)  # type: ignore
 
+    def __new__(cls, name: str, bases: tuple[type, ...], namespace: dict[str, Any], **kwargs: object) -> type:  # type: ignore[explicit-any]
+        old_reduce = namespace.get("__reduce__")
+
+        def __reduce__(self: object) -> Any:  # type: ignore[explicit-any]
+            if old_reduce is not None:
+                result = old_reduce(self)
+            else:
+                result = super(type(self), self).__reduce__()  # type: ignore[misc]
+
+            return (type(self)._create, *result[1:])  # type: ignore[attr-defined]
+
+        namespace["__reduce__"] = __reduce__
+        return super().__new__(cls, name, bases, namespace, **kwargs)
+
 
 def name_asyncgen(agen: AsyncGeneratorType[object, NoReturn]) -> str:
     """Return the fully-qualified name of the async generator function
