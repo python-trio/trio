@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import typing
+from typing import TYPE_CHECKING
 
 from trio._util import NoPublicConstructor, final
 
-if typing.TYPE_CHECKING:
+if TYPE_CHECKING:
     from collections.abc import Callable
 
 
