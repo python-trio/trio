@@ -22,7 +22,7 @@ from ._util import (
     NoPublicConstructor,
     final,
     generic_function,
-    raise_single_exception_from_group,
+    raise_saving_context,
 )
 
 if sys.version_info < (3, 11):
@@ -468,18 +468,15 @@ class RecvChanWrapper(ReceiveChannel[T]):
     def __init__(
         self, recv_chan: MemoryReceiveChannel[T], send_semaphore: trio.Semaphore
     ) -> None:
-        self.recv_chan = recv_chan
-        self.send_semaphore = send_semaphore
-
-    # TODO: should this allow clones? We'd signal that by inheriting from
-    # MemoryReceiveChannel.
+        self._recv_chan = recv_chan
+        self._send_semaphore = send_semaphore
 
     async def receive(self) -> T:
-        self.send_semaphore.release()
-        return await self.recv_chan.receive()
+        self._send_semaphore.release()
+        return await self._recv_chan.receive()
 
     async def aclose(self) -> None:
-        await self.recv_chan.aclose()
+        await self._recv_chan.aclose()
 
     def __enter__(self) -> Self:
         return self
@@ -490,18 +487,13 @@ class RecvChanWrapper(ReceiveChannel[T]):
         exc_value: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
-        self.recv_chan.close()
+        self._recv_chan.close()
 
 
-def background_with_channel(
+def as_safe_channel(
     fn: Callable[P, AsyncGenerator[T, None]],
 ) -> Callable[P, AbstractAsyncContextManager[ReceiveChannel[T]]]:
     """Decorate an async generator function to make it cancellation-safe.
-
-    This is mostly a drop-in replacement, except for the fact that it will
-    wrap errors in exception groups due to the internal nursery. Although when
-    using it without a buffer it should be exceedingly rare to get multiple
-    exceptions.
 
     The ``yield`` keyword offers a very convenient way to write iterators...
     which makes it really unfortunate that async generators are so difficult
@@ -516,7 +508,7 @@ def background_with_channel(
     offering only the safe interface, and you can still write your iterables
     with the convenience of ``yield``.  For example::
 
-        @background_with_channel
+        @as_safe_channel
         async def my_async_iterable(arg, *, kwarg=True):
             while ...:
                 item = await ...
@@ -529,9 +521,6 @@ def background_with_channel(
     While the combined async-with-async-for can be inconvenient at first,
     the context manager is indispensable for both correctness and for prompt
     cleanup of resources.
-
-    If you specify ``max_buffer_size>0`` the async generator will run concurrently
-    with your iterator, until the buffer is full.
     """
     # Perhaps a future PEP will adopt `async with for` syntax, like
     # https://coconut.readthedocs.io/en/master/DOCS.html#async-with-for
@@ -559,12 +548,15 @@ def background_with_channel(
                 # abandoned generator if it's still alive.
                 nursery.cancel_scope.cancel()
         except BaseExceptionGroup as eg:
-            try:
-                raise_single_exception_from_group(eg)
-            except AssertionError:
-                raise RuntimeError(
-                    "Encountered exception during cleanup of generator object, as well as exception in the contextmanager body."
-                ) from eg
+            first, *rest = eg.exceptions
+            if rest:
+                # In case user has except* we make it possible for them to handle the
+                # exceptions.
+                raise BaseExceptionGroup(
+                    "Encountered exception during cleanup of generator object, as well as exception in the contextmanager body - unable to unwrap.",
+                    [eg],
+                ) from None
+            raise_saving_context(first)
 
     async def _move_elems_to_channel(
         agen: AsyncGenerator[T, None],

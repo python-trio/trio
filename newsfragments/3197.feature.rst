@@ -1,1 +1,1 @@
-Add :func:`@trio.background_with_channel <trio.background_with_channel>`, a wrapper that can be used to make async generators safe. This will be the suggested fix for `ASYNC900 <https://flake8-async.readthedocs.io/en/latest/rules.html#async900>`_.
+Add :func:`@trio.as_safe_channel <trio.as_safe_channel>`, a wrapper that can be used to make async generators safe. This will be the suggested fix for `ASYNC900 <https://flake8-async.readthedocs.io/en/latest/rules.html#async900>`_.

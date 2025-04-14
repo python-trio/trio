@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+import sys
 from typing import TYPE_CHECKING, Union
 
 import pytest
 
 import trio
-from trio import EndOfChannel, background_with_channel, open_memory_channel
+from trio import EndOfChannel, as_safe_channel, open_memory_channel
 
 from ..testing import Matcher, RaisesGroup, assert_checkpoints, wait_all_tasks_blocked
+
+if sys.version_info < (3, 11):
+    from exceptiongroup import ExceptionGroup
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -416,8 +420,8 @@ async def test_unbuffered() -> None:
         r.receive_nowait()
 
 
-async def test_background_with_channel_exhaust() -> None:
-    @background_with_channel
+async def test_as_safe_channel_exhaust() -> None:
+    @as_safe_channel
     async def agen() -> AsyncGenerator[int]:
         yield 1
 
@@ -426,8 +430,8 @@ async def test_background_with_channel_exhaust() -> None:
             assert x == 1
 
 
-async def test_background_with_channel_broken_resource() -> None:
-    @background_with_channel
+async def test_as_safe_channel_broken_resource() -> None:
+    @as_safe_channel
     async def agen() -> AsyncGenerator[int]:
         yield 1
         yield 2
@@ -445,10 +449,10 @@ async def test_background_with_channel_broken_resource() -> None:
         # but we don't get an error on exit of the cm
 
 
-async def test_background_with_channel_cancelled() -> None:
+async def test_as_safe_channel_cancelled() -> None:
     with trio.CancelScope() as cs:
 
-        @background_with_channel
+        @as_safe_channel
         async def agen() -> AsyncGenerator[None]:  # pragma: no cover
             raise AssertionError(
                 "cancel before consumption means generator should not be iterated"
@@ -459,12 +463,12 @@ async def test_background_with_channel_cancelled() -> None:
             cs.cancel()
 
 
-async def test_background_with_channel_recv_closed(
+async def test_as_safe_channel_recv_closed(
     autojump_clock: trio.testing.MockClock,
 ) -> None:
     event = trio.Event()
 
-    @background_with_channel
+    @as_safe_channel
     async def agen() -> AsyncGenerator[int]:
         await event.wait()
         yield 1
@@ -476,10 +480,10 @@ async def test_background_with_channel_recv_closed(
         await trio.sleep(1)
 
 
-async def test_background_with_channel_no_race() -> None:
+async def test_as_safe_channel_no_race() -> None:
     # this previously led to a race condition due to
     # https://github.com/python-trio/trio/issues/1559
-    @background_with_channel
+    @as_safe_channel
     async def agen() -> AsyncGenerator[int]:
         yield 1
         raise ValueError("oae")
@@ -490,10 +494,10 @@ async def test_background_with_channel_no_race() -> None:
                 assert x == 1
 
 
-async def test_background_with_channel_buffer_size_too_small(
+async def test_as_safe_channel_buffer_size_too_small(
     autojump_clock: trio.testing.MockClock,
 ) -> None:
-    @background_with_channel
+    @as_safe_channel
     async def agen() -> AsyncGenerator[int]:
         yield 1
         raise AssertionError(
@@ -507,8 +511,8 @@ async def test_background_with_channel_buffer_size_too_small(
                 await trio.sleep_forever()
 
 
-async def test_background_with_channel_no_interleave() -> None:
-    @background_with_channel
+async def test_as_safe_channel_no_interleave() -> None:
+    @as_safe_channel
     async def agen() -> AsyncGenerator[int]:
         yield 1
         raise AssertionError  # pragma: no cover
@@ -518,10 +522,10 @@ async def test_background_with_channel_no_interleave() -> None:
         await trio.lowlevel.checkpoint()
 
 
-async def test_background_with_channel_genexit_finally() -> None:
+async def test_as_safe_channel_genexit_finally() -> None:
     events: list[str] = []
 
-    @background_with_channel
+    @as_safe_channel
     async def agen(stuff: list[str]) -> AsyncGenerator[int]:
         try:
             yield 1
@@ -532,24 +536,23 @@ async def test_background_with_channel_genexit_finally() -> None:
             stuff.append("finally")
             raise ValueError("agen")
 
-    with pytest.raises(
-        RuntimeError,
-        match=r"^Encountered exception during cleanup of generator object, as well as exception in the contextmanager body.$",
-    ) as excinfo:
+    with RaisesGroup(
+        RaisesGroup(
+            Matcher(ValueError, match="^agen$"),
+            Matcher(TypeError, match="^iterator$"),
+        ),
+        match=r"^Encountered exception during cleanup of generator object, as well as exception in the contextmanager body - unable to unwrap.$",
+    ):
         async with agen(events) as recv_chan:
             async for i in recv_chan:  # pragma: no branch
                 assert i == 1
                 raise TypeError("iterator")
 
     assert events == ["GeneratorExit()", "finally"]
-    RaisesGroup(
-        Matcher(ValueError, match="^agen$"),
-        Matcher(TypeError, match="^iterator$"),
-    ).matches(excinfo.value.__cause__)
 
 
-async def test_background_with_channel_nested_loop() -> None:
-    @background_with_channel
+async def test_as_safe_channel_nested_loop() -> None:
+    @as_safe_channel
     async def agen() -> AsyncGenerator[int]:
         for i in range(2):
             yield i
@@ -565,15 +568,49 @@ async def test_background_with_channel_nested_loop() -> None:
             ii += 1
 
 
-async def test_doesnt_leak_cancellation() -> None:
-    @background_with_channel
-    async def agenfn() -> AsyncGenerator[None]:
+async def test_as_safe_channel_doesnt_leak_cancellation() -> None:
+    @as_safe_channel
+    async def agen() -> AsyncGenerator[None]:
         with trio.CancelScope() as cscope:
             cscope.cancel()
             yield
 
     with pytest.raises(AssertionError):
-        async with agenfn() as recv_chan:
+        async with agen() as recv_chan:
             async for _ in recv_chan:
                 pass
         raise AssertionError("should be reachable")
+
+
+async def test_as_safe_channel_dont_unwrap_user_exceptiongroup() -> None:
+    @as_safe_channel
+    async def agen() -> AsyncGenerator[None]:
+        yield
+
+    with RaisesGroup(Matcher(ValueError, match="bar"), match="foo"):
+        async with agen() as _:
+            raise ExceptionGroup("foo", [ValueError("bar")])
+
+
+async def test_as_safe_channel_multiple_receiver() -> None:
+    event = trio.Event()
+
+    @as_safe_channel
+    async def agen() -> AsyncGenerator[int]:
+        await event.wait()
+        for i in range(2):
+            yield i
+
+    async def handle_value(
+        recv_chan: trio.abc.ReceiveChannel[int],
+        value: int,
+        task_status: trio.TaskStatus,
+    ) -> None:
+        task_status.started()
+        assert await recv_chan.receive() == value
+
+    async with agen() as recv_chan:
+        async with trio.open_nursery() as nursery:
+            await nursery.start(handle_value, recv_chan, 0)
+            await nursery.start(handle_value, recv_chan, 1)
+            event.set()

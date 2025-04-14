@@ -359,9 +359,10 @@ else:
     from functools import wraps  # noqa: F401  # this is re-exported
 
 
-def _raise(exc: BaseException) -> NoReturn:
+def raise_saving_context(exc: BaseException) -> NoReturn:
     """This helper allows re-raising an exception without __context__ being set."""
     # cause does not need special handling, we simply avoid using `raise .. from ..`
+    # __suppress_context__ also does not need handling, it's only set if modifying cause
     __tracebackhide__ = True
     context = exc.__context__
     try:
@@ -412,6 +413,6 @@ def raise_single_exception_from_group(
             "Attempted to unwrap exceptiongroup with multiple non-cancelled exceptions. This is often caused by a bug in the caller."
         ) from eg
     if len(noncancelled_exceptions) == 1:
-        _raise(noncancelled_exceptions[0])
+        raise_saving_context(noncancelled_exceptions[0])
     assert cancelled_exceptions, "internal error"
-    _raise(cancelled_exceptions[0])
+    raise_saving_context(cancelled_exceptions[0])
