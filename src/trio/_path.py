@@ -244,6 +244,9 @@ class Path(pathlib.PurePath):
     if sys.version_info >= (3, 13):
         full_match = _wrap_method(pathlib.Path.full_match)
 
+    def as_uri(self) -> str:
+        return pathlib.Path.as_uri(self)
+
 
 @final
 class PosixPath(Path, pathlib.PurePosixPath):

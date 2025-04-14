@@ -46,6 +46,7 @@ def sync_attrs(path: trio.Path) -> None:
     assert_type(path.suffixes, list[str])
     assert_type(path.stem, str)
     assert_type(path.as_posix(), str)
+    assert_type(path.as_uri(), str)
     assert_type(path.is_absolute(), bool)
     assert_type(path.is_relative_to(path), bool)
     assert_type(path.is_reserved(), bool)

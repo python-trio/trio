@@ -172,12 +172,6 @@ def test_forward_methods_without_rewrap(path: trio.Path) -> None:
     assert "totally-unique-path" in str(path.joinpath("totally-unique-path"))
 
 
-async def test_path_methods_on_trio_path(path: trio.Path) -> None:
-    path = await path.parent.resolve()
-
-    assert pathlib.Path.as_uri(path).startswith("file:///")
-
-
 def test_repr() -> None:
     path = trio.Path(".")
 
@@ -234,6 +228,12 @@ async def test_globmethods(path: trio.Path) -> None:
         entries.add(entry.name)
 
     assert entries == {"_bar.txt", "bar.txt"}
+
+
+async def test_as_uri(path: trio.Path) -> None:
+    path = await path.parent.resolve()
+
+    assert path.as_uri().startswith("file:///")
 
 
 async def test_iterdir(path: trio.Path) -> None:
