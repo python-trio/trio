@@ -598,3 +598,26 @@ async def test_as_safe_channel_multiple_receiver() -> None:
             await nursery.start(handle_value, recv_chan, 0)
             await nursery.start(handle_value, recv_chan, 1)
             event.set()
+
+
+async def test_as_safe_channel_multi_cancel() -> None:
+    @as_safe_channel
+    async def agen() -> AsyncGenerator[None]:
+        try:
+            yield
+        finally:
+            # this will give a warning of ASYNC120, although it's not technically a
+            # problem of swallowing existing exceptions
+            await trio.lowlevel.checkpoint()
+
+    with trio.CancelScope() as cs:
+        with RaisesGroup(
+            RaisesGroup(
+                trio.Cancelled, trio.Cancelled, match="^Exceptions from Trio nursery$"
+            ),
+            match=r"^Encountered exception during cleanup of generator object, as well as exception in the contextmanager body - unable to unwrap.$",
+        ):
+            async with agen() as recv_chan:
+                async for _ in recv_chan:  # pragma: no branch
+                    cs.cancel()
+                    await trio.lowlevel.checkpoint()
