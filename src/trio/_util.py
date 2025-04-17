@@ -326,9 +326,10 @@ class NoPublicConstructor(ABCMeta):
     def __new__(cls, name: str, bases: tuple[type, ...], namespace: dict[str, Any], **kwargs: object) -> type:  # type: ignore[explicit-any]
         old_reduce = namespace.get("__reduce__")
 
-        def __reduce__(self: object) -> Any:  # type: ignore[explicit-any]
+        def __reduce__(self: object) -> str | tuple[Any, ...]:  # type: ignore[explicit-any]
             if old_reduce is not None:
                 result = old_reduce(self)
+                assert not isinstance(result, str)
             else:
                 result = super(type(self), self).__reduce__()  # type: ignore[misc]
 
