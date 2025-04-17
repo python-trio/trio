@@ -506,19 +506,18 @@ async def test_as_safe_channel_no_interleave() -> None:
 
 
 async def test_as_safe_channel_genexit_finally() -> None:
-    events: list[str] = []
-
     @as_safe_channel
-    async def agen(stuff: list[str]) -> AsyncGenerator[int]:
+    async def agen(events: list[str]) -> AsyncGenerator[int]:
         try:
             yield 1
         except BaseException as e:
-            stuff.append(repr(e))
+            events.append(repr(e))
             raise
         finally:
-            stuff.append("finally")
+            events.append("finally")
             raise ValueError("agen")
 
+    events: list[str] = []
     with RaisesGroup(
         RaisesGroup(
             Matcher(ValueError, match="^agen$"),
@@ -569,7 +568,7 @@ async def test_as_safe_channel_dont_unwrap_user_exceptiongroup() -> None:
     @as_safe_channel
     async def agen() -> AsyncGenerator[None]:
         raise NotImplementedError("not entered")
-        yield
+        yield  # pragma: no cover
 
     with RaisesGroup(Matcher(ValueError, match="bar"), match="foo"):
         async with agen() as _:
@@ -602,22 +601,27 @@ async def test_as_safe_channel_multiple_receiver() -> None:
 
 async def test_as_safe_channel_multi_cancel() -> None:
     @as_safe_channel
-    async def agen() -> AsyncGenerator[None]:
+    async def agen(events: list[str]) -> AsyncGenerator[None]:
         try:
             yield
         finally:
             # this will give a warning of ASYNC120, although it's not technically a
             # problem of swallowing existing exceptions
-            await trio.lowlevel.checkpoint()
+            try:
+                await trio.lowlevel.checkpoint()
+            except trio.Cancelled:
+                events.append("agen cancel")
+                raise
 
+    events: list[str] = []
     with trio.CancelScope() as cs:
-        with RaisesGroup(
-            RaisesGroup(
-                trio.Cancelled, trio.Cancelled, match="^Exceptions from Trio nursery$"
-            ),
-            match=r"^Encountered exception during cleanup of generator object, as well as exception in the contextmanager body - unable to unwrap.$",
-        ):
-            async with agen() as recv_chan:
+        with pytest.raises(trio.Cancelled):
+            async with agen(events) as recv_chan:
                 async for _ in recv_chan:  # pragma: no branch
                     cs.cancel()
-                    await trio.lowlevel.checkpoint()
+                    try:
+                        await trio.lowlevel.checkpoint()
+                    except trio.Cancelled:
+                        events.append("body cancel")
+                        raise
+    assert events == ["body cancel", "agen cancel"]

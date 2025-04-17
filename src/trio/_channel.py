@@ -19,10 +19,11 @@ import trio
 from ._abc import ReceiveChannel, ReceiveType, SendChannel, SendType, T
 from ._core import Abort, RaiseCancelT, Task, enable_ki_protection
 from ._util import (
+    MultipleExceptionError,
     NoPublicConstructor,
     final,
     generic_function,
-    raise_saving_context,
+    raise_single_exception_from_group,
 )
 
 if sys.version_info < (3, 11):
@@ -548,15 +549,15 @@ def as_safe_channel(
                 # abandoned generator if it's still alive.
                 nursery.cancel_scope.cancel()
         except BaseExceptionGroup as eg:
-            first, *rest = eg.exceptions
-            if rest:
+            try:
+                raise_single_exception_from_group(eg)
+            except MultipleExceptionError:
                 # In case user has except* we make it possible for them to handle the
                 # exceptions.
                 raise BaseExceptionGroup(
                     "Encountered exception during cleanup of generator object, as well as exception in the contextmanager body - unable to unwrap.",
                     [eg],
                 ) from None
-            raise_saving_context(first)
 
     async def _move_elems_to_channel(
         agen: AsyncGenerator[T, None],

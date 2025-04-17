@@ -4,7 +4,6 @@ from __future__ import annotations
 import collections.abc
 import inspect
 import signal
-import sys
 from abc import ABCMeta
 from collections.abc import Awaitable, Callable, Sequence
 from functools import update_wrapper
@@ -21,18 +20,19 @@ from sniffio import thread_local as sniffio_loop
 
 import trio
 
-if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup
-
 # Explicit "Any" is not allowed
 CallT = TypeVar("CallT", bound=Callable[..., Any])  # type: ignore[explicit-any]
 T = TypeVar("T")
 RetT = TypeVar("RetT")
 
 if TYPE_CHECKING:
+    import sys
     from types import AsyncGeneratorType, TracebackType
 
     from typing_extensions import ParamSpec, Self, TypeVarTuple, Unpack
+
+    if sys.version_info < (3, 11):
+        from exceptiongroup import BaseExceptionGroup
 
     ArgsT = ParamSpec("ArgsT")
     PosArgsT = TypeVarTuple("PosArgsT")
@@ -372,11 +372,18 @@ def raise_saving_context(exc: BaseException) -> NoReturn:
         del exc, context
 
 
+class MultipleExceptionError(Exception):
+    """Raised by raise_single_exception_from_group if encountering multiple
+    non-cancelled exceptions."""
+
+
 def raise_single_exception_from_group(
     eg: BaseExceptionGroup[BaseException],
 ) -> NoReturn:
     """This function takes an exception group that is assumed to have at most
     one non-cancelled exception, which it reraises as a standalone exception.
+
+    This exception may be an exceptiongroup itself, in which case it will not be unwrapped.
 
     If a :exc:`KeyboardInterrupt` is encountered, a new KeyboardInterrupt is immediately
     raised with the entire group as cause.
@@ -389,30 +396,27 @@ def raise_single_exception_from_group(
     If multiple non-cancelled exceptions are encountered, it raises
     :exc:`AssertionError`.
     """
-    cancelled_exceptions = []
-    noncancelled_exceptions = []
-
-    # subgroup/split retains excgroup structure, so we need to manually traverse
-    def _parse_excg(e: BaseException) -> None:
+    # immediately bail out if there's any KI or SystemExit
+    for e in eg.exceptions:
         if isinstance(e, (KeyboardInterrupt, SystemExit)):
-            # immediately bail out
-            raise KeyboardInterrupt from eg
+            raise type(e) from eg
 
+    cancelled_exception: trio.Cancelled | None = None
+    noncancelled_exception: BaseException | None = None
+
+    for e in eg.exceptions:
         if isinstance(e, trio.Cancelled):
-            cancelled_exceptions.append(e)
-        elif isinstance(e, BaseExceptionGroup):
-            for sub_e in e.exceptions:
-                _parse_excg(sub_e)
+            if cancelled_exception is None:
+                cancelled_exception = e
+        elif noncancelled_exception is None:
+            noncancelled_exception = e
         else:
-            noncancelled_exceptions.append(e)
+            raise MultipleExceptionError(
+                "Attempted to unwrap exceptiongroup with multiple non-cancelled exceptions. This is often caused by a bug in the caller."
+            ) from eg
 
-    _parse_excg(eg)
+    if noncancelled_exception is not None:
+        raise_saving_context(noncancelled_exception)
 
-    if len(noncancelled_exceptions) > 1:
-        raise AssertionError(
-            "Attempted to unwrap exceptiongroup with multiple non-cancelled exceptions. This is often caused by a bug in the caller."
-        ) from eg
-    if len(noncancelled_exceptions) == 1:
-        raise_saving_context(noncancelled_exceptions[0])
-    assert cancelled_exceptions, "internal error"
-    raise_saving_context(cancelled_exceptions[0])
+    assert cancelled_exception is not None, "group can't be empty"
+    raise_saving_context(cancelled_exception)
