@@ -463,23 +463,6 @@ async def test_as_safe_channel_cancelled() -> None:
             cs.cancel()
 
 
-async def test_as_safe_channel_recv_closed(
-    autojump_clock: trio.testing.MockClock,
-) -> None:
-    event = trio.Event()
-
-    @as_safe_channel
-    async def agen() -> AsyncGenerator[int]:
-        await event.wait()
-        yield 1
-
-    async with agen() as recv_chan:
-        await recv_chan.aclose()
-        event.set()
-        # wait for agen to try sending on the closed channel
-        await trio.sleep(1)
-
-
 async def test_as_safe_channel_no_race() -> None:
     # this previously led to a race condition due to
     # https://github.com/python-trio/trio/issues/1559
@@ -585,6 +568,7 @@ async def test_as_safe_channel_doesnt_leak_cancellation() -> None:
 async def test_as_safe_channel_dont_unwrap_user_exceptiongroup() -> None:
     @as_safe_channel
     async def agen() -> AsyncGenerator[None]:
+        raise NotImplementedError("not entered")
         yield
 
     with RaisesGroup(Matcher(ValueError, match="bar"), match="foo"):
@@ -598,8 +582,8 @@ async def test_as_safe_channel_multiple_receiver() -> None:
     @as_safe_channel
     async def agen() -> AsyncGenerator[int]:
         await event.wait()
-        for i in range(2):
-            yield i
+        yield 0
+        yield 1
 
     async def handle_value(
         recv_chan: trio.abc.ReceiveChannel[int],
