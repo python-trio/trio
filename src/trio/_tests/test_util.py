@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 import types
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Coroutine, Generator
@@ -198,11 +198,16 @@ def test_no_public_constructor_metaclass() -> None:
             assert a == 8
             assert b == 3.15
 
+        def __reduce__(self) -> tuple[Any, ...]:  # type: ignore[explicit-any]
+            return ("dummy", ())
+
     with pytest.raises(TypeError):
         SpecialClass(8, 3.15)
 
     # Private constructor should not raise, and passes args to __init__.
-    assert isinstance(SpecialClass._create(8, b=3.15), SpecialClass)
+    inst = SpecialClass._create(8, b=3.15)
+    assert isinstance(inst, SpecialClass)
+    assert inst.__reduce__()[0] == SpecialClass._create
 
 
 def test_fixup_module_metadata() -> None:
