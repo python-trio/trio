@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextvars
 import functools
 import gc
+import pickle
 import sys
 import threading
 import time
@@ -2233,6 +2234,13 @@ def test_Cancelled_str() -> None:
 def test_Cancelled_subclass() -> None:
     with pytest.raises(TypeError):
         type("Subclass", (_core.Cancelled,), {})
+
+
+# https://github.com/python-trio/trio/issues/3248
+def test_Cancelled_pickle() -> None:
+    cancelled = _core.Cancelled._create()
+    cancelled = pickle.loads(pickle.dumps(cancelled))
+    assert isinstance(cancelled, _core.Cancelled)
 
 
 def test_CancelScope_subclass() -> None:
