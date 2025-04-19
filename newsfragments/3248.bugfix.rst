@@ -1,1 +1,1 @@
-Allow pickling `trio.Cancelled`, as they can show up when you want to pickle something else. Also enables pickling for other ``NoPublicConstructor`` objects.
+Allow pickling `trio.Cancelled`, as they can show up when you want to pickle something else. This does not rule out pickling other ``NoPublicConstructor`` objects -- create an issue if necessary.
