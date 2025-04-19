@@ -327,9 +327,6 @@ class NoPublicConstructor(ABCMeta):
     def _create(cls: type[T], *args: object, **kwargs: object) -> T:
         return super().__call__(*args, **kwargs)  # type: ignore
 
-    def __new__(cls, name: str, bases: tuple[type, ...], namespace: dict[str, Any], **kwargs: object) -> type:  # type: ignore[explicit-any]
-        return super().__new__(cls, name, bases, namespace, **kwargs)
-
 
 def name_asyncgen(agen: AsyncGeneratorType[object, NoReturn]) -> str:
     """Return the fully-qualified name of the async generator function
