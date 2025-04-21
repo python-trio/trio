@@ -1,2 +1,0 @@
-Add :func:`@trio.as_safe_channel <trio.as_safe_channel>`, a wrapper that can be used to make async generators safe.
-This will be the suggested fix for the flake8-async lint rule `ASYNC900 <https://flake8-async.readthedocs.io/en/latest/rules.html#async900>`_.

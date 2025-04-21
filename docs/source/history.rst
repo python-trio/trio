@@ -5,6 +5,33 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.30.0 (2025-04-20)
+------------------------
+
+Features
+~~~~~~~~
+
+- Add :func:`@trio.as_safe_channel <trio.as_safe_channel>`, a wrapper that can be used to make async generators safe.
+  This will be the suggested fix for the flake8-async lint rule `ASYNC900 <https://flake8-async.readthedocs.io/en/latest/rules.html#async900>`_. (`#3197 <https://github.com/python-trio/trio/issues/3197>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Allow `trio` to be a `types.ModuleType` and still have deprecated attributes. (`#2135 <https://github.com/python-trio/trio/issues/2135>`__)
+- Fixed socket module for some older systems which lack ``socket.AI_NUMERICSERV``.
+  Now trio works on legacy (pre-Lion) macOS. (`#3133 <https://github.com/python-trio/trio/issues/3133>`__)
+- Update type hints for `trio.run_process` and `trio.lowlevel.open_process`. (`#3183 <https://github.com/python-trio/trio/issues/3183>`__)
+- Don't mutate the global runner when MockClock is created. (`#3205 <https://github.com/python-trio/trio/issues/3205>`__)
+- Fix incorrect return type hint for :meth:`Nursery.start() <trio.Nursery.start>`. (`#3224 <https://github.com/python-trio/trio/issues/3224>`__)
+
+
+Improved documentation
+~~~~~~~~~~~~~~~~~~~~~~
+
+- Update wording in documentation to more accurately reflect Trio's maturity. (`#3216 <https://github.com/python-trio/trio/issues/3216>`__)
+
+
 Trio 0.29.0 (2025-02-14)
 ------------------------
 
