@@ -1,2 +1,0 @@
-Fixed socket module for some older systems which lack ``socket.AI_NUMERICSERV``.
-Now trio works on legacy (pre-Lion) macOS.
