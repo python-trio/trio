@@ -32,7 +32,7 @@ def run_pyright(platform: str) -> subprocess.CompletedProcess[bytes]:
             "pyright",
             # Specify a platform and version to keep imported modules consistent.
             f"--pythonplatform={platform}",
-            "--pythonversion=3.8",
+            "--pythonversion=3.9",
             "--verifytypes=trio",
             "--outputjson",
             "--ignoreexternal",
@@ -49,7 +49,7 @@ def has_docstring_at_runtime(name: str) -> bool:
     """
     # This assert is solely for stopping isort from removing our imports of trio & trio.testing
     # It could also be done with isort:skip, but that'd also disable import sorting and the like.
-    assert trio.testing
+    assert trio.testing is not None
 
     # figure out what part of the name is the module, so we can "import" it
     name_parts = name.split(".")
@@ -111,10 +111,12 @@ def has_docstring_at_runtime(name: str) -> bool:
 
 
 def check_type(
-    platform: str, full_diagnostics_file: Path | None, expected_errors: list[object]
+    platform: str,
+    full_diagnostics_file: Path | None,
+    expected_errors: list[object],
 ) -> list[object]:
     # convince isort we use the trio import
-    assert trio
+    assert trio is not None
 
     # run pyright, load output into json
     res = run_pyright(platform)
@@ -144,7 +146,7 @@ def check_type(
                 if message.startswith("No docstring found for"):
                     continue
                 if message.startswith(
-                    "Type is missing type annotation and could be inferred differently by type checkers"
+                    "Type is missing type annotation and could be inferred differently by type checkers",
                 ):
                     continue
 

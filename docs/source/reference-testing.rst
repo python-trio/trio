@@ -231,8 +231,12 @@ ExceptionGroup helpers
 .. autoclass:: RaisesGroup
    :members:
 
+   .. autoattribute:: fail_reason
+
 .. autoclass:: Matcher
    :members:
+
+   .. autoattribute:: fail_reason
 
 .. autoclass:: trio.testing._raises_group._ExceptionInfo
    :members:

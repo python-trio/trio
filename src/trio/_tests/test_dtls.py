@@ -38,7 +38,9 @@ ca.configure_trust(client_ctx)
 
 
 parametrize_ipv6 = pytest.mark.parametrize(
-    "ipv6", [False, pytest.param(True, marks=binds_ipv6)], ids=["ipv4", "ipv6"]
+    "ipv6",
+    [False, pytest.param(True, marks=binds_ipv6)],
+    ids=["ipv4", "ipv6"],
 )
 
 
@@ -51,7 +53,10 @@ def endpoint(**kwargs: int | bool) -> DTLSEndpoint:
 
 @asynccontextmanager
 async def dtls_echo_server(
-    *, autocancel: bool = True, mtu: int | None = None, ipv6: bool = False
+    *,
+    autocancel: bool = True,
+    mtu: int | None = None,
+    ipv6: bool = False,
 ) -> AsyncGenerator[tuple[DTLSEndpoint, tuple[str, int]], None]:
     with endpoint(ipv6=ipv6) as server:
         localhost = "::1" if ipv6 else "127.0.0.1"
@@ -62,7 +67,7 @@ async def dtls_echo_server(
                 print(
                     "echo handler started: "
                     f"server {dtls_channel.endpoint.socket.getsockname()!r} "
-                    f"client {dtls_channel.peer_address!r}"
+                    f"client {dtls_channel.peer_address!r}",
                 )
                 if mtu is not None:
                     dtls_channel.set_ciphertext_mtu(mtu)
@@ -70,7 +75,9 @@ async def dtls_echo_server(
                     print("server starting do_handshake")
                     await dtls_channel.do_handshake()
                     print("server finished do_handshake")
-                    async for packet in dtls_channel:
+                    # no branch for leaving this for loop because we only leave
+                    # a channel by cancellation.
+                    async for packet in dtls_channel:  # pragma: no branch
                         print(f"echoing {packet!r} -> {dtls_channel.peer_address!r}")
                         await dtls_channel.send(packet)
                 except trio.BrokenResourceError:  # pragma: no cover
@@ -86,7 +93,7 @@ async def dtls_echo_server(
 
 @parametrize_ipv6
 async def test_smoke(ipv6: bool) -> None:
-    async with dtls_echo_server(ipv6=ipv6) as (server_endpoint, address):
+    async with dtls_echo_server(ipv6=ipv6) as (_server_endpoint, address):
         with endpoint(ipv6=ipv6) as client_endpoint:
             client_channel = client_endpoint.connect(address, client_ctx)
             with pytest.raises(trio.NeedHandshakeError):
@@ -99,7 +106,8 @@ async def test_smoke(ipv6: bool) -> None:
             assert await client_channel.receive() == b"goodbye"
 
             with pytest.raises(
-                ValueError, match="^openssl doesn't support sending empty DTLS packets$"
+                ValueError,
+                match=r"^openssl doesn't support sending empty DTLS packets$",
             ):
                 await client_channel.send(b"")
 
@@ -165,7 +173,7 @@ async def test_handshake_over_terrible_network(
                         assert op == "deliver"
                         print(
                             f"{packet.source} -> {packet.destination}: delivered"
-                            f" {packet.payload.hex()}"
+                            f" {packet.payload.hex()}",
                         )
                         fn.deliver_packet(packet)
                         break
@@ -225,7 +233,8 @@ async def test_full_duplex() -> None:
             await server_nursery.start(server_endpoint.serve, server_ctx, handler)
 
             client = client_endpoint.connect(
-                server_endpoint.socket.getsockname(), client_ctx
+                server_endpoint.socket.getsockname(),
+                client_ctx,
             )
             async with trio.open_nursery() as nursery:
                 nursery.start_soon(client.send, b"from client")
@@ -253,7 +262,7 @@ async def test_channel_closing() -> None:
 
 
 async def test_serve_exits_cleanly_on_close() -> None:
-    async with dtls_echo_server(autocancel=False) as (server_endpoint, address):
+    async with dtls_echo_server(autocancel=False) as (server_endpoint, _address):
         server_endpoint.close()
         # Testing that the nursery exits even without being cancelled
     # close is idempotent
@@ -290,7 +299,7 @@ async def test_client_multiplex() -> None:
 
 async def test_dtls_over_dgram_only() -> None:
     with trio.socket.socket() as s:
-        with pytest.raises(ValueError, match="^DTLS requires a SOCK_DGRAM socket$"):
+        with pytest.raises(ValueError, match=r"^DTLS requires a SOCK_DGRAM socket$"):
             DTLSEndpoint(s)
 
 
@@ -372,9 +381,9 @@ async def test_server_socket_doesnt_crash_on_garbage(
                     frag_offset=0,
                     frag_len=10,
                     frag=bytes(10),
-                )
+                ),
             ),
-        )
+        ),
     )
 
     client_hello_extended = client_hello + b"\x00"
@@ -397,9 +406,9 @@ async def test_server_socket_doesnt_crash_on_garbage(
                     frag_offset=0,
                     frag_len=10,
                     frag=bytes(10),
-                )
+                ),
             ),
-        )
+        ),
     )
 
     client_hello_trailing_data_in_record = encode_record(
@@ -415,10 +424,10 @@ async def test_server_socket_doesnt_crash_on_garbage(
                     frag_offset=0,
                     frag_len=10,
                     frag=bytes(10),
-                )
+                ),
             )
             + b"\x00",
-        )
+        ),
     )
 
     handshake_empty = encode_record(
@@ -427,7 +436,7 @@ async def test_server_socket_doesnt_crash_on_garbage(
             version=ProtocolVersion.DTLS10,
             epoch_seqno=0,
             payload=b"",
-        )
+        ),
     )
 
     client_hello_truncated_in_cookie = encode_record(
@@ -436,7 +445,7 @@ async def test_server_socket_doesnt_crash_on_garbage(
             version=ProtocolVersion.DTLS10,
             epoch_seqno=0,
             payload=bytes(2 + 32 + 1) + b"\xff",
-        )
+        ),
     )
 
     async with dtls_echo_server() as (_, address):
@@ -620,7 +629,8 @@ async def test_openssl_retransmit_doesnt_break_stuff() -> None:
                 # notices the timeout has expired
                 blackholed = False
                 await server_endpoint.socket.sendto(
-                    b"xxx", client_endpoint.socket.getsockname()
+                    b"xxx",
+                    client_endpoint.socket.getsockname(),
                 )
                 # now the client task should finish connecting and exit cleanly
 
@@ -671,7 +681,7 @@ async def test_explicit_tiny_mtu_is_respected() -> None:
 
     fn.route_packet = route_packet  # type: ignore[assignment]  # TODO add type annotations for FakeNet
 
-    async with dtls_echo_server(mtu=MTU) as (server, address):
+    async with dtls_echo_server(mtu=MTU) as (_server, address):
         with endpoint() as client:
             channel = client.connect(address, client_ctx)
             channel.set_ciphertext_mtu(MTU)
@@ -682,7 +692,8 @@ async def test_explicit_tiny_mtu_is_respected() -> None:
 
 @parametrize_ipv6
 async def test_handshake_handles_minimum_network_mtu(
-    ipv6: bool, autojump_clock: trio.abc.Clock
+    ipv6: bool,
+    autojump_clock: trio.abc.Clock,
 ) -> None:
     # Fake network that has the minimum allowable MTU for whatever protocol we're using.
     fn = FakeNet()
@@ -738,7 +749,7 @@ async def test_system_task_cleaned_up_on_gc() -> None:
         during_tasks = trio.lowlevel.current_statistics().tasks_living
         return during_tasks
 
-    with pytest.warns(ResourceWarning):
+    with pytest.warns(ResourceWarning):  # noqa: PT031
         during_tasks = await start_and_forget_endpoint()
         await trio.testing.wait_all_tasks_blocked()
         gc_collect_harder()
@@ -754,7 +765,7 @@ async def test_system_task_cleaned_up_on_gc() -> None:
 async def test_gc_before_system_task_starts() -> None:
     e = endpoint()
 
-    with pytest.warns(ResourceWarning):
+    with pytest.warns(ResourceWarning):  # noqa: PT031
         del e
         gc_collect_harder()
 
@@ -777,7 +788,7 @@ async def test_gc_as_packet_received() -> None:
     # At this point, the endpoint's receive loop has been marked runnable because it
     # just received a packet; closing the endpoint socket won't interrupt that. But by
     # the time it wakes up to process the packet, the endpoint will be gone.
-    with pytest.warns(ResourceWarning):
+    with pytest.warns(ResourceWarning):  # noqa: PT031
         del e
         gc_collect_harder()
 
@@ -794,7 +805,7 @@ def test_gc_after_trio_exits() -> None:
         return endpoint()
 
     e = trio.run(main)
-    with pytest.warns(ResourceWarning):
+    with pytest.warns(ResourceWarning):  # noqa: PT031
         del e
         gc_collect_harder()
 

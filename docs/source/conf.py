@@ -19,10 +19,14 @@
 from __future__ import annotations
 
 import collections.abc
+import glob
 import os
 import sys
-import types
+from pathlib import Path
 from typing import TYPE_CHECKING, cast
+
+from sphinx.util.inventory import _InventoryItem
+from sphinx.util.logging import getLogger
 
 if TYPE_CHECKING:
     from sphinx.application import Sphinx
@@ -30,25 +34,66 @@ if TYPE_CHECKING:
 
 # For our local_customization module
 sys.path.insert(0, os.path.abspath("."))
-# For trio itself
-sys.path.insert(0, os.path.abspath("../../src"))
 
 # Enable reloading with `typing.TYPE_CHECKING` being True
 os.environ["SPHINX_AUTODOC_RELOAD_MODULES"] = "1"
 
-# https://docs.readthedocs.io/en/stable/builds.html#build-environment
-if "READTHEDOCS" in os.environ:
-    import glob
+# Handle writing newsfragments into the history file.
+# We want to keep files unchanged when testing locally.
+# So immediately revert the contents after running towncrier,
+# then substitute when Sphinx wants to read it in.
+history_file = Path("history.rst")
 
-    if glob.glob("../../newsfragments/*.*.rst"):
-        print("-- Found newsfragments; running towncrier --", flush=True)
-        import subprocess
+history_new: str | None
+if glob.glob("../../newsfragments/*.*.rst"):
+    print("-- Found newsfragments; running towncrier --", flush=True)
+    history_orig = history_file.read_bytes()
+    import subprocess
 
+    # In case changes were staged, preserve indexed version.
+    # This grabs the hash of the current staged version.
+    history_staged = subprocess.run(
+        ["git", "rev-parse", "--verify", ":docs/source/history.rst"],
+        check=True,
+        cwd="../..",
+        stdout=subprocess.PIPE,
+        encoding="ascii",
+    ).stdout.strip()
+    try:
         subprocess.run(
-            ["towncrier", "--yes", "--date", "not released yet"],
+            ["towncrier", "--keep", "--date", "not released yet"],
             cwd="../..",
             check=True,
         )
+        history_new = history_file.read_text("utf8")
+    finally:
+        # Make sure this reverts even if a failure occurred.
+        # Restore whatever was staged.
+        print(f"Restoring history.rst = {history_staged}")
+        subprocess.run(
+            [
+                "git",
+                "update-index",
+                "--cacheinfo",
+                f"100644,{history_staged},docs/source/history.rst",
+            ],
+            cwd="../..",
+            check=False,
+        )
+        # And restore the working copy.
+        history_file.write_bytes(history_orig)
+    del history_orig  # We don't need this any more.
+else:
+    # Leave it as is.
+    history_new = None
+
+
+def on_read_source(app: Sphinx, docname: str, content: list[str]) -> None:
+    """Substitute the modified history file."""
+    if docname == "history" and history_new is not None:
+        # This is a 1-item list with the file contents.
+        content[0] = history_new
+
 
 # Sphinx is very finicky, and somewhat buggy, so we have several different
 # methods to help it resolve links.
@@ -107,14 +152,6 @@ def autodoc_process_signature(
     return_annotation: str,
 ) -> tuple[str, str]:
     """Modify found signatures to fix various issues."""
-    if name == "trio.testing._raises_group._ExceptionInfo.type":
-        # This has the type "type[E]", which gets resolved into the property itself.
-        # That means Sphinx can't resolve it. Fix the issue by overwriting with a fully-qualified
-        # name.
-        assert isinstance(obj, property), obj
-        assert isinstance(obj.fget, types.FunctionType), obj.fget
-        assert obj.fget.__annotations__["return"] == "type[E]", obj.fget.__annotations__
-        obj.fget.__annotations__["return"] = "type[~trio.testing._raises_group.E]"
     if signature is not None:
         signature = signature.replace("~_contextvars.Context", "~contextvars.Context")
         if name == "trio.lowlevel.RunVar":  # Typevar is not useful here.
@@ -123,13 +160,6 @@ def autodoc_process_signature(
             # Strip the type from the union, make it look like = ...
             signature = signature.replace(" | type[trio._core._local._NoValue]", "")
             signature = signature.replace("<class 'trio._core._local._NoValue'>", "...")
-        if (
-            name in ("trio.testing.RaisesGroup", "trio.testing.Matcher")
-            and "+E" in signature
-        ):
-            # This typevar being covariant isn't handled correctly in some cases, strip the +
-            # and insert the fully-qualified name.
-            signature = signature.replace("+E", "~trio.testing._raises_group.E")
         if "DTLS" in name:
             signature = signature.replace("SSL.Context", "OpenSSL.SSL.Context")
         # Don't specify PathLike[str] | PathLike[bytes], this is just for humans.
@@ -138,17 +168,55 @@ def autodoc_process_signature(
     return signature, return_annotation
 
 
-# XX hack the RTD theme until
-#   https://github.com/rtfd/sphinx_rtd_theme/pull/382
-# is shipped (should be in the release after 0.2.4)
-# ...note that this has since grown to contain a bunch of other CSS hacks too
-# though.
+# currently undocumented things
+logger = getLogger("trio")
+UNDOCUMENTED = {
+    "trio.MemorySendChannel",
+    "trio.MemoryReceiveChannel",
+    "trio.MemoryChannelStatistics",
+    "trio.SocketStream.aclose",
+    "trio.SocketStream.receive_some",
+    "trio.SocketStream.send_all",
+    "trio.SocketStream.send_eof",
+    "trio.SocketStream.wait_send_all_might_not_block",
+    "trio._subprocess.HasFileno.fileno",
+    "trio.lowlevel.ParkingLot.broken_by",
+}
+
+
+def autodoc_process_docstring(
+    app: Sphinx,
+    what: str,
+    name: str,
+    obj: object,
+    options: object,
+    lines: list[str],
+) -> None:
+    if not lines:
+        # TODO: document these and remove them from here
+        if name in UNDOCUMENTED:
+            return
+
+        logger.warning(f"{name} has no docstring")
+    else:
+        if name in UNDOCUMENTED:
+            logger.warning(
+                f"outdated list of undocumented things in docs/source/conf.py: {name!r} has a docstring"
+            )
+
+
 def setup(app: Sphinx) -> None:
-    app.add_css_file("hackrtd.css")
+    # Add our custom styling to make our documentation better!
+    app.add_css_file("styles.css")
     app.connect("autodoc-process-signature", autodoc_process_signature)
+    app.connect("autodoc-process-docstring", autodoc_process_docstring)
+
     # After Intersphinx runs, add additional mappings.
     app.connect("builder-inited", add_intersphinx, priority=1000)
+    app.connect("source-read", on_read_source)
 
+
+html_context = {"current_version": os.environ.get("READTHEDOCS_VERSION_NAME")}
 
 # -- General configuration ------------------------------------------------
 
@@ -166,7 +234,6 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinxcontrib_trio",
     "sphinxcontrib.jquery",
-    "hoverxref.extension",
     "sphinx_codeautolink",
     "local_customization",
     "typevars",
@@ -178,24 +245,7 @@ intersphinx_mapping = {
     "pyopenssl": ("https://www.pyopenssl.org/en/stable/", None),
     "sniffio": ("https://sniffio.readthedocs.io/en/latest/", None),
     "trio-util": ("https://trio-util.readthedocs.io/en/latest/", None),
-}
-
-# See https://sphinx-hoverxref.readthedocs.io/en/latest/configuration.html
-hoverxref_auto_ref = True
-hoverxref_domains = ["py"]
-# Set the default style (tooltip) for all types to silence logging.
-# See https://github.com/readthedocs/sphinx-hoverxref/issues/211
-hoverxref_role_types = {
-    "attr": "tooltip",
-    "class": "tooltip",
-    "const": "tooltip",
-    "exc": "tooltip",
-    "func": "tooltip",
-    "meth": "tooltip",
-    "mod": "tooltip",
-    "obj": "tooltip",
-    "ref": "tooltip",
-    "data": "tooltip",
+    "flake8-async": ("https://flake8-async.readthedocs.io/en/latest/", None),
 }
 
 # See https://sphinx-codeautolink.readthedocs.io/en/latest/reference.html#configuration
@@ -230,21 +280,23 @@ def add_intersphinx(app: Sphinx) -> None:
         assert isinstance(inventory, dict)
         inventory = cast("Inventory", inventory)
 
-        inventory[f"py:{reftype}"][f"{target}"] = (
-            "Python",
-            version,
-            f"https://docs.python.org/{url_version}/library/{library}.html/{obj}",
-            "-",
+        inventory[f"py:{reftype}"][f"{target}"] = _InventoryItem(
+            project_name="Python",
+            project_version=version,
+            uri=f"https://docs.python.org/{url_version}/library/{library}.html/{obj}",
+            display_name="-",
         )
 
     # This has been removed in Py3.12, so add a link to the 3.11 version with deprecation warnings.
     add_mapping("method", "pathlib", "Path.link_to", "3.11")
+
     # defined in py:data in objects.inv, but sphinx looks for a py:class
+    # see https://github.com/sphinx-doc/sphinx/issues/10974
+    # to dump the objects.inv for the stdlib, you can run
+    # python -m sphinx.ext.intersphinx http://docs.python.org/3/objects.inv
     add_mapping("class", "math", "inf")
-    # `types.FrameType.__module__` is "builtins", so sphinx looks for
-    # builtins.FrameType.
-    # See https://github.com/sphinx-doc/sphinx/issues/11802
     add_mapping("class", "types", "FrameType")
+
     # new in py3.12, and need target because sphinx is unable to look up
     # the module of the object if compiling on <3.12
     if not hasattr(collections.abc, "Buffer"):
@@ -275,9 +327,9 @@ author = "Nathaniel J. Smith"
 # built documents.
 #
 # The short X.Y version.
-import trio
+import importlib.metadata
 
-version = trio.__version__
+version = importlib.metadata.version("trio")
 # The full version, including alpha/beta/rc tags.
 release = version
 
@@ -320,10 +372,7 @@ suppress_warnings = ["epub.unknown_project_files"]
 # We have to set this ourselves, not only because it's useful for local
 # testing, but also because if we don't then RTD will throw away our
 # html_theme_options.
-import sphinx_rtd_theme
-
 html_theme = "sphinx_rtd_theme"
-html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -338,6 +387,7 @@ html_theme_options = {
     "navigation_depth": 4,
     "logo_only": True,
     "prev_next_buttons_location": "both",
+    "style_nav_header_background": "#d2e7fa",
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,

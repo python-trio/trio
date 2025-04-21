@@ -76,7 +76,8 @@ def test_concat_tb() -> None:
 # Unclear if this can still fail, removing the `del` from _concat_tb.copy_tb does not seem
 # to trigger it (on a platform where the `del` is executed)
 @pytest.mark.skipif(
-    sys.implementation.name != "cpython", reason="Only makes sense with refcounting GC"
+    sys.implementation.name != "cpython",
+    reason="Only makes sense with refcounting GC",
 )
 def test_ExceptionGroup_catch_doesnt_create_cyclic_garbage() -> None:
     # https://github.com/python-trio/trio/pull/2063

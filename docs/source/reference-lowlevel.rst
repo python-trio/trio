@@ -56,6 +56,56 @@ Global statistics
 .. autoclass:: RunStatistics()
 
 
+.. _trio_contexts:
+
+Checking for Trio
+-----------------
+
+If you want to interact with an active Trio run -- perhaps you need to
+know the :func:`~trio.current_time` or the
+:func:`~trio.lowlevel.current_task` -- then Trio needs to have certain
+state available to it or else you will get a
+``RuntimeError("must be called from async context")``.
+This requires that you either be:
+
+* indirectly inside (and on the same thread as) a call to
+  :func:`trio.run`, for run-level information such as the
+  :func:`~trio.current_time` or :func:`~trio.lowlevel.current_clock`;
+  or
+
+* indirectly inside a Trio task, for task-level information such as
+  the :func:`~trio.lowlevel.current_task` or
+  :func:`~trio.current_effective_deadline`.
+
+Internally, this state is provided by thread-local variables tracking
+the current run and the current task. Sometimes, it's useful to know
+in advance whether a call will fail or to have dynamic information for
+safeguards against running something inside or outside Trio. To do so,
+call :func:`trio.lowlevel.in_trio_run` or
+:func:`trio.lowlevel.in_trio_task`, which will provide answers
+according to the following table.
+
+
++--------------------------------------------------------+-----------------------------------+------------------------------------+
+| situation                                              | :func:`trio.lowlevel.in_trio_run` | :func:`trio.lowlevel.in_trio_task` |
++========================================================+===================================+====================================+
+| inside a Trio-flavored async function                  | `True`                            | `True`                             |
++--------------------------------------------------------+-----------------------------------+------------------------------------+
+| in a thread without an active call to :func:`trio.run` | `False`                           | `False`                            |
++--------------------------------------------------------+-----------------------------------+------------------------------------+
+| in a guest run's host loop                             | `True`                            | `False`                            |
++--------------------------------------------------------+-----------------------------------+------------------------------------+
+| inside an instrument call                              | `True`                            | depends                            |
++--------------------------------------------------------+-----------------------------------+------------------------------------+
+| in a thread created by :func:`trio.to_thread.run_sync` | `False`                           | `False`                            |
++--------------------------------------------------------+-----------------------------------+------------------------------------+
+| inside an abort function                               | `True`                            | `True`                             |
++--------------------------------------------------------+-----------------------------------+------------------------------------+
+
+.. autofunction:: in_trio_run
+
+.. autofunction:: in_trio_task
+
 The current clock
 -----------------
 
@@ -377,6 +427,46 @@ These transitions are accomplished using two function decorators:
    poorly-timed :exc:`KeyboardInterrupt` could leave the lock in an
    inconsistent state and cause a deadlock.
 
+   Since KeyboardInterrupt protection is tracked per code object, any attempt to
+   conditionally protect the same block of code in different ways is unlikely to behave
+   how you expect. If you try to conditionally protect a closure, it will be
+   unconditionally protected instead::
+
+       def example(protect: bool) -> bool:
+           def inner() -> bool:
+               return trio.lowlevel.currently_ki_protected()
+           if protect:
+               inner = trio.lowlevel.enable_ki_protection(inner)
+           return inner()
+
+       async def amain():
+           assert example(False) == False
+           assert example(True) == True  # once protected ...
+           assert example(False) == True  # ... always protected
+
+       trio.run(amain)
+
+   If you really need conditional protection, you can achieve it by giving each
+   KI-protected instance of the closure its own code object::
+
+       def example(protect: bool) -> bool:
+           def inner() -> bool:
+               return trio.lowlevel.currently_ki_protected()
+           if protect:
+               inner.__code__ = inner.__code__.replace()
+               inner = trio.lowlevel.enable_ki_protection(inner)
+           return inner()
+
+       async def amain():
+           assert example(False) == False
+           assert example(True) == True
+           assert example(False) == False
+
+       trio.run(amain)
+
+   (This isn't done by default because it carries some memory overhead and reduces
+   the potential for specializing optimizations in recent versions of CPython.)
+
 .. autofunction:: currently_ki_protected
 
 
@@ -392,6 +482,10 @@ Wait queue abstraction
 
 .. autoclass:: ParkingLotStatistics
    :members:
+
+.. autofunction:: add_parking_lot_breaker
+
+.. autofunction:: remove_parking_lot_breaker
 
 Low-level checkpoint functions
 ------------------------------

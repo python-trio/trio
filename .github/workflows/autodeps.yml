@@ -17,26 +17,37 @@ jobs:
       issues: write
       repository-projects: write
       contents: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: true  # credentials are needed to push commits
       - name: Setup python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.8"
+          python-version: "3.9"
+
       - name: Bump dependencies
         run: |
           python -m pip install -U pip pre-commit
           python -m pip install -r test-requirements.txt
-          pip-compile -U test-requirements.in
-          pip-compile -U docs-requirements.in
+          uv pip compile --universal --python-version=3.9 --upgrade test-requirements.in -o test-requirements.txt
+          uv pip compile --universal --python-version=3.11 --upgrade docs-requirements.in -o docs-requirements.txt
           pre-commit autoupdate --jobs 0
+
+      - name: Install new requirements
+        run: python -m pip install -r test-requirements.txt
+
+      # apply newer versions' formatting
       - name: Black
+        run: black src/trio
+
+      - name: uv
         run: |
-          # The new dependencies may contain a new black version.
-          # Commit any changes immediately.
-          python -m pip install -r test-requirements.txt
-          black src/trio
+          uv pip compile --universal --python-version=3.9 test-requirements.in -o test-requirements.txt
+          uv pip compile --universal --python-version=3.11 docs-requirements.in -o docs-requirements.txt
+
       - name: Commit changes and create automerge PR
         env:
           GH_TOKEN: ${{ github.token }}

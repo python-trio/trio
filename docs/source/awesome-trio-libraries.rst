@@ -29,8 +29,8 @@ Web and HTML
 ------------
 * `httpx <https://www.python-httpx.org/>`__ - HTTPX is a fully featured HTTP client for Python 3, which provides sync and async APIs, and support for both HTTP/1.1 and HTTP/2.
 * `trio-websocket <https://github.com/HyperionGray/trio-websocket>`__ - A WebSocket client and server implementation striving for safety, correctness, and ergonomics.
-* `quart-trio <https://gitlab.com/pgjones/quart-trio/>`__ - Like Flask, but for Trio. A simple and powerful framework for building async web applications and REST APIs. Tip: this is an ASGI-based framework, so you'll also need an HTTP server with ASGI support.
-* `hypercorn <https://gitlab.com/pgjones/hypercorn>`__ - An HTTP server for hosting your ASGI apps. Supports HTTP/1.1, HTTP/2, HTTP/3, and Websockets. Can be run as a standalone server, or embedded in a larger Trio app. Use it with ``quart-trio``, or any other Trio-compatible ASGI framework.
+* `quart-trio <https://github.com/pgjones/quart-trio>`__ - Like Flask, but for Trio. A simple and powerful framework for building async web applications and REST APIs. Tip: this is an ASGI-based framework, so you'll also need an HTTP server with ASGI support.
+* `hypercorn <https://github.com/pgjones/hypercorn>`__ - An HTTP server for hosting your ASGI apps. Supports HTTP/1.1, HTTP/2, HTTP/3, and Websockets. Can be run as a standalone server, or embedded in a larger Trio app. Use it with ``quart-trio``, or any other Trio-compatible ASGI framework.
 * `DeFramed <https://github.com/smurfix/deframed>`__ - DeFramed is a Web non-framework that supports a 99%-server-centric approach to Web coding, including support for the `Remi <https://github.com/dddomodossola/remi>`__ GUI library.
 * `pura <https://github.com/groove-x/pura>`__ - A simple web framework for embedding realtime graphical visualization into Trio apps, enabling inspection and manipulation of program state during development.
 * `pyscalpel <https://scalpel.readthedocs.io/en/latest/>`__ - A fast and powerful webscraping library.
@@ -108,6 +108,8 @@ Tools and Utilities
 * `aiometer <https://github.com/florimondmanca/aiometer>`__ - Execute lots of tasks concurrently while controlling concurrency limits
 * `triotp <https://linkdd.github.io/triotp>`__ - OTP framework for Python Trio
 * `aioresult <https://github.com/arthur-tacca/aioresult>`__ - Get the return value of a background async function in Trio or anyio, along with a simple Future class and wait utilities
+* `aiologic <https://github.com/x42005e1f/aiologic>`__ - Thread-safe synchronization and communication primitives: locks, capacity limiters, queues, etc.
+* `culsans <https://github.com/x42005e1f/culsans>`__ - Janus-like sync-async queue with Trio support. Unlike aiologic queues, provides API compatible interfaces.
 
 
 Trio/Asyncio Interoperability

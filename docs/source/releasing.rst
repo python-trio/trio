@@ -35,19 +35,13 @@ Things to do for releasing:
 
 * push to your personal repository
 
-* create pull request to ``python-trio/trio``'s "master" branch
+* create pull request to ``python-trio/trio``'s "main" branch
 
 * verify that all checks succeeded
 
 * tag with vVERSION, push tag on ``python-trio/trio`` (not on your personal repository)
 
-* push to PyPI:
-
-  .. code-block::
-
-    git clean -xdf   # maybe run 'git clean -xdn' first to see what it will delete
-    python3 -m build
-    twine upload dist/*
+* approve the release workflow's publish job
 
 * update version number in the same pull request
 

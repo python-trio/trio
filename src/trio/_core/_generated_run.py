@@ -3,9 +3,9 @@
 # *************************************************************
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from ._ki import LOCALS_KEY_KI_PROTECTION_ENABLED
+from ._ki import enable_ki_protection
 from ._run import _NO_SEND, GLOBAL_RUN_CONTEXT, RunStatistics, Task
 
 if TYPE_CHECKING:
@@ -32,6 +32,7 @@ __all__ = [
 ]
 
 
+@enable_ki_protection
 def current_statistics() -> RunStatistics:
     """Returns ``RunStatistics``, which contains run-loop-level debugging information.
 
@@ -55,13 +56,13 @@ def current_statistics() -> RunStatistics:
       other attributes vary between backends.
 
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.current_statistics()
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
 
 
+@enable_ki_protection
 def current_time() -> float:
     """Returns the current time according to Trio's internal clock.
 
@@ -72,36 +73,36 @@ def current_time() -> float:
         RuntimeError: if not inside a call to :func:`trio.run`.
 
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.current_time()
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
 
 
+@enable_ki_protection
 def current_clock() -> Clock:
     """Returns the current :class:`~trio.abc.Clock`."""
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.current_clock()
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
 
 
+@enable_ki_protection
 def current_root_task() -> Task | None:
     """Returns the current root :class:`Task`.
 
     This is the task that is the ultimate parent of all other tasks.
 
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.current_root_task()
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
 
 
-def reschedule(task: Task, next_send: Outcome[Any] = _NO_SEND) -> None:
+@enable_ki_protection
+def reschedule(task: Task, next_send: Outcome[object] = _NO_SEND) -> None:
     """Reschedule the given task with the given
     :class:`outcome.Outcome`.
 
@@ -119,13 +120,13 @@ def reschedule(task: Task, next_send: Outcome[Any] = _NO_SEND) -> None:
           raise) from :func:`wait_task_rescheduled`.
 
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.reschedule(task, next_send)
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
 
 
+@enable_ki_protection
 def spawn_system_task(
     async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
     *args: Unpack[PosArgT],
@@ -183,7 +184,6 @@ def spawn_system_task(
       Task: the newly spawned task
 
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.spawn_system_task(
             async_fn, *args, name=name, context=context
@@ -192,18 +192,19 @@ def spawn_system_task(
         raise RuntimeError("must be called from async context") from None
 
 
+@enable_ki_protection
 def current_trio_token() -> TrioToken:
     """Retrieve the :class:`TrioToken` for the current call to
     :func:`trio.run`.
 
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return GLOBAL_RUN_CONTEXT.runner.current_trio_token()
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
 
 
+@enable_ki_protection
 async def wait_all_tasks_blocked(cushion: float = 0.0) -> None:
     """Block until there are no runnable tasks.
 
@@ -262,7 +263,6 @@ async def wait_all_tasks_blocked(cushion: float = 0.0) -> None:
                      print("FAIL")
 
     """
-    locals()[LOCALS_KEY_KI_PROTECTION_ENABLED] = True
     try:
         return await GLOBAL_RUN_CONTEXT.runner.wait_all_tasks_blocked(cushion)
     except AttributeError:

@@ -8,7 +8,14 @@ import attrs
 import trio
 
 from . import _core
-from ._core import Abort, ParkingLot, RaiseCancelT, enable_ki_protection
+from ._core import (
+    Abort,
+    ParkingLot,
+    RaiseCancelT,
+    add_parking_lot_breaker,
+    enable_ki_protection,
+    remove_parking_lot_breaker,
+)
 from ._util import final
 
 if TYPE_CHECKING:
@@ -33,7 +40,7 @@ class EventStatistics:
 
 
 @final
-@attrs.define(repr=False, eq=False, hash=False)
+@attrs.define(repr=False, eq=False)
 class Event:
     """A waitable boolean value useful for inter-task synchronization,
     inspired by :class:`threading.Event`.
@@ -213,7 +220,7 @@ class CapacityLimiter(AsyncContextManagerMixin):
     """
 
     # total_tokens would ideally be int|Literal[math.inf] - but that's not valid typing
-    def __init__(self, total_tokens: int | float):  # noqa: PYI041
+    def __init__(self, total_tokens: int | float) -> None:  # noqa: PYI041
         self._lot = ParkingLot()
         self._borrowers: set[Task | object] = set()
         # Maps tasks attempting to acquire -> borrower, to handle on-behalf-of
@@ -297,7 +304,7 @@ class CapacityLimiter(AsyncContextManagerMixin):
         """
         if borrower in self._borrowers:
             raise RuntimeError(
-                "this borrower is already holding one of this CapacityLimiter's tokens"
+                "this borrower is already holding one of this CapacityLimiter's tokens",
             )
         if len(self._borrowers) < self._total_tokens and not self._lot:
             self._borrowers.add(borrower)
@@ -366,7 +373,7 @@ class CapacityLimiter(AsyncContextManagerMixin):
         """
         if borrower not in self._borrowers:
             raise RuntimeError(
-                "this borrower isn't holding any of this CapacityLimiter's tokens"
+                "this borrower isn't holding any of this CapacityLimiter's tokens",
             )
         self._borrowers.remove(borrower)
         self._wake_waiters()
@@ -426,7 +433,7 @@ class Semaphore(AsyncContextManagerMixin):
 
     """
 
-    def __init__(self, initial_value: int, *, max_value: int | None = None):
+    def __init__(self, initial_value: int, *, max_value: int | None = None) -> None:
         if not isinstance(initial_value, int):
             raise TypeError("initial_value must be an int")
         if initial_value < 0:
@@ -538,7 +545,7 @@ class LockStatistics:
     tasks_waiting: int
 
 
-@attrs.define(eq=False, hash=False, repr=False, slots=False)
+@attrs.define(eq=False, repr=False, slots=False)
 class _LockImpl(AsyncContextManagerMixin):
     _lot: ParkingLot = attrs.field(factory=ParkingLot, init=False)
     _owner: Task | None = attrs.field(default=None, init=False)
@@ -576,20 +583,30 @@ class _LockImpl(AsyncContextManagerMixin):
         elif self._owner is None and not self._lot:
             # No-one owns it
             self._owner = task
+            add_parking_lot_breaker(task, self._lot)
         else:
             raise trio.WouldBlock
 
     @enable_ki_protection
     async def acquire(self) -> None:
-        """Acquire the lock, blocking if necessary."""
+        """Acquire the lock, blocking if necessary.
+
+        Raises:
+          BrokenResourceError: if the owner of the lock exits without releasing.
+        """
         await trio.lowlevel.checkpoint_if_cancelled()
         try:
             self.acquire_nowait()
         except trio.WouldBlock:
-            # NOTE: it's important that the contended acquire path is just
-            # "_lot.park()", because that's how Condition.wait() acquires the
-            # lock as well.
-            await self._lot.park()
+            try:
+                # NOTE: it's important that the contended acquire path is just
+                # "_lot.park()", because that's how Condition.wait() acquires the
+                # lock as well.
+                await self._lot.park()
+            except trio.BrokenResourceError:
+                raise trio.BrokenResourceError(
+                    f"Owner of this lock exited without releasing: {self._owner}",
+                ) from None
         else:
             await trio.lowlevel.cancel_shielded_checkpoint()
 
@@ -604,8 +621,10 @@ class _LockImpl(AsyncContextManagerMixin):
         task = trio.lowlevel.current_task()
         if task is not self._owner:
             raise RuntimeError("can't release a Lock you don't own")
+        remove_parking_lot_breaker(self._owner, self._lot)
         if self._lot:
             (self._owner,) = self._lot.unpark(count=1)
+            add_parking_lot_breaker(self._owner, self._lot)
         else:
             self._owner = None
 
@@ -622,7 +641,9 @@ class _LockImpl(AsyncContextManagerMixin):
 
         """
         return LockStatistics(
-            locked=self.locked(), owner=self._owner, tasks_waiting=len(self._lot)
+            locked=self.locked(),
+            owner=self._owner,
+            tasks_waiting=len(self._lot),
         )
 
 
@@ -738,7 +759,7 @@ class Condition(AsyncContextManagerMixin):
 
     """
 
-    def __init__(self, lock: Lock | None = None):
+    def __init__(self, lock: Lock | None = None) -> None:
         if lock is None:
             lock = Lock()
         if type(lock) is not Lock:
@@ -765,7 +786,11 @@ class Condition(AsyncContextManagerMixin):
         return self._lock.acquire_nowait()
 
     async def acquire(self) -> None:
-        """Acquire the underlying lock, blocking if necessary."""
+        """Acquire the underlying lock, blocking if necessary.
+
+        Raises:
+          BrokenResourceError: if the owner of the underlying lock exits without releasing.
+        """
         await self._lock.acquire()
 
     def release(self) -> None:
@@ -794,6 +819,7 @@ class Condition(AsyncContextManagerMixin):
 
         Raises:
           RuntimeError: if the calling task does not hold the lock.
+          BrokenResourceError: if the owner of the lock exits without releasing, when attempting to re-acquire.
 
         """
         if trio.lowlevel.current_task() is not self._lock._owner:
@@ -845,5 +871,6 @@ class Condition(AsyncContextManagerMixin):
 
         """
         return ConditionStatistics(
-            tasks_waiting=len(self._lot), lock_statistics=self._lock.statistics()
+            tasks_waiting=len(self._lot),
+            lock_statistics=self._lock.statistics(),
         )

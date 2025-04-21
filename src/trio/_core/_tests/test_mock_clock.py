@@ -8,6 +8,7 @@ from trio import sleep
 from ... import _core
 from .. import wait_all_tasks_blocked
 from .._mock_clock import MockClock
+from .._run import GLOBAL_RUN_CONTEXT
 from .tutil import slow
 
 
@@ -20,14 +21,14 @@ def test_mock_clock() -> None:
     assert c.current_time() == 0
     c.jump(1.2)
     assert c.current_time() == 1.2
-    with pytest.raises(ValueError, match="^time can't go backwards$"):
+    with pytest.raises(ValueError, match=r"^time can't go backwards$"):
         c.jump(-1)
     assert c.current_time() == 1.2
     assert c.deadline_to_sleep_time(1.1) == 0
     assert c.deadline_to_sleep_time(1.2) == 0
     assert c.deadline_to_sleep_time(1.3) > 999999
 
-    with pytest.raises(ValueError, match="^rate must be >= 0$"):
+    with pytest.raises(ValueError, match=r"^rate must be >= 0$"):
         c.rate = -1
     assert c.rate == 0
 
@@ -92,7 +93,8 @@ async def test_mock_clock_autojump(mock_clock: MockClock) -> None:
     mock_clock.autojump_threshold = 0
     # if the above line didn't take affect immediately, then this would be
     # bad:
-    await sleep(100000)
+    # ignore ASYNC116, not sleep_forever, trying to test a large but finite sleep
+    await sleep(100000)  # noqa: ASYNC116
 
 
 async def test_mock_clock_autojump_interference(mock_clock: MockClock) -> None:
@@ -109,7 +111,8 @@ async def test_mock_clock_autojump_interference(mock_clock: MockClock) -> None:
     await wait_all_tasks_blocked(0.015)
 
     # but the 0.02 limit does apply
-    await sleep(100000)
+    # ignore ASYNC116, not sleep_forever, trying to test a large but finite sleep
+    await sleep(100000)  # noqa: ASYNC116
 
 
 def test_mock_clock_autojump_preset() -> None:
@@ -173,3 +176,18 @@ async def test_mock_clock_autojump_0_and_wait_all_tasks_blocked_nonzero(
         nursery.start_soon(waiter)
 
     assert record == ["waiter done", "yawn"]
+
+
+async def test_initialization_doesnt_mutate_runner() -> None:
+    before = (
+        GLOBAL_RUN_CONTEXT.runner.clock,
+        GLOBAL_RUN_CONTEXT.runner.clock_autojump_threshold,
+    )
+
+    MockClock(autojump_threshold=2, rate=3)
+
+    after = (
+        GLOBAL_RUN_CONTEXT.runner.clock,
+        GLOBAL_RUN_CONTEXT.runner.clock_autojump_threshold,
+    )
+    assert before == after

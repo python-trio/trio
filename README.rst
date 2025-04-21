@@ -18,7 +18,7 @@
    :target: https://anaconda.org/conda-forge/trio
    :alt: Latest conda-forge version
 
-.. image:: https://codecov.io/gh/python-trio/trio/branch/master/graph/badge.svg
+.. image:: https://codecov.io/gh/python-trio/trio/branch/main/graph/badge.svg
    :target: https://codecov.io/gh/python-trio/trio
    :alt: Test coverage
 
@@ -31,7 +31,7 @@ Trio – a friendly Python library for async concurrency and I/O
 
 The Trio project aims to produce a production-quality,
 `permissively licensed
-<https://github.com/python-trio/trio/blob/master/LICENSE>`__,
+<https://github.com/python-trio/trio/blob/main/LICENSE>`__,
 async/await-native I/O library for Python. Like all async libraries,
 its main purpose is to help you write programs that do **multiple
 things at the same time** with **parallelized I/O**. A web spider that
@@ -56,13 +56,13 @@ I/O-oriented programs easier, less error-prone, and just plain more
 fun. `Perhaps you'll find the same
 <https://github.com/python-trio/trio/wiki/Testimonials>`__.
 
-This project is young and still somewhat experimental: the overall
-design is solid, and the existing features are fully tested and
-documented, but you may encounter missing functionality or rough
-edges. We *do* encourage you to use it, but you should `read and
-subscribe to issue #1
-<https://github.com/python-trio/trio/issues/1>`__ to get a warning and a
-chance to give feedback about any compatibility-breaking changes.
+Trio is a mature and well-tested project: the overall design is solid,
+and the existing features are fully documented and widely used in
+production. While we occasionally make minor interface adjustments,
+breaking changes are rare. We encourage you to use Trio with confidence,
+but if you rely on long-term API stability, consider `subscribing to
+issue #1 <https://github.com/python-trio/trio/issues/1>`__ for advance
+notice of any compatibility updates.
 
 
 Where to next?
@@ -92,7 +92,7 @@ demonstration of implementing the "Happy Eyeballs" algorithm in an
 older library versus Trio.
 
 **Cool, but will it work on my system?** Probably! As long as you have
-some kind of Python 3.8-or-better (CPython or `currently maintained versions of
+some kind of Python 3.9-or-better (CPython or `currently maintained versions of
 PyPy3 <https://doc.pypy.org/en/latest/faq.html#which-python-versions-does-pypy-implement>`__
 are both fine), and are using Linux, macOS, Windows, or FreeBSD, then Trio
 will work. Other environments might work too, but those
@@ -134,7 +134,7 @@ choices
 **I want to make sure my company's lawyers won't get angry at me!** No
 worries, Trio is permissively licensed under your choice of MIT or
 Apache 2. See `LICENSE
-<https://github.com/python-trio/trio/blob/master/LICENSE>`__ for details.
+<https://github.com/python-trio/trio/blob/main/LICENSE>`__ for details.
 
 
 Code of conduct

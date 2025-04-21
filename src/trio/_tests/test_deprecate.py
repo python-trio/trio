@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 import warnings
+from types import ModuleType
 
 import pytest
 
@@ -161,7 +162,10 @@ class Alias:
         return "new hotness method"
 
     old_hotness_method = deprecated_alias(
-        "Alias.old_hotness_method", new_hotness_method, "3.21", issue=1
+        "Alias.old_hotness_method",
+        new_hotness_method,
+        "3.21",
+        issue=1,
     )
 
 
@@ -241,6 +245,8 @@ def test_module_with_deprecations(recwarn_always: pytest.WarningsRecorder) -> No
     assert module_with_deprecations.regular == "hi"
     assert len(recwarn_always) == 0
 
+    assert type(module_with_deprecations) is ModuleType
+
     filename, lineno = _here()
     assert module_with_deprecations.dep1 == "value1"  # type: ignore[attr-defined]
     got = recwarn_always.pop(DeprecationWarning)
@@ -267,10 +273,17 @@ def test_warning_class() -> None:
         warn_deprecated("foo", "bar", issue=None, instead=None)
 
     # essentially the same as the above check
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(
+        DeprecationWarning,
+        match="^foo is deprecated since Trio bar with no replacement$",
+    ):
         warn_deprecated("foo", "bar", issue=None, instead=None)
 
     with pytest.warns(TrioDeprecationWarning):
         warn_deprecated(
-            "foo", "bar", issue=None, instead=None, use_triodeprecationwarning=True
+            "foo",
+            "bar",
+            issue=None,
+            instead=None,
+            use_triodeprecationwarning=True,
         )

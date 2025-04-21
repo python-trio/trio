@@ -7,7 +7,15 @@ import sys
 import warnings
 from contextlib import ExitStack
 from functools import partial
-from typing import TYPE_CHECKING, Final, Literal, Protocol, Union, overload
+from typing import (
+    TYPE_CHECKING,
+    Final,
+    Literal,
+    Protocol,
+    TypedDict,
+    Union,
+    overload,
+)
 
 import trio
 
@@ -23,21 +31,16 @@ from ._util import NoPublicConstructor, final
 
 if TYPE_CHECKING:
     import signal
-    from collections.abc import Awaitable, Callable, Mapping, Sequence
+    from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
     from io import TextIOWrapper
 
-    from typing_extensions import TypeAlias
+    from typing_extensions import TypeAlias, Unpack
 
     from ._abc import ReceiveStream, SendStream
 
 
 # Sphinx cannot parse the stringified version
-if sys.version_info >= (3, 9):
-    StrOrBytesPath: TypeAlias = Union[str, bytes, os.PathLike[str], os.PathLike[bytes]]
-else:
-    StrOrBytesPath: TypeAlias = Union[
-        str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"
-    ]
+StrOrBytesPath: TypeAlias = Union[str, bytes, os.PathLike[str], os.PathLike[bytes]]
 
 
 # Linux-specific, but has complex lifetime management stuff so we hard-code it
@@ -238,7 +241,7 @@ class Process(metaclass=NoPublicConstructor):
             if self.poll() is None:
                 if self._pidfd is not None:
                     with contextlib.suppress(
-                        ClosedResourceError
+                        ClosedResourceError,
                     ):  # something else (probably a call to poll) already closed the pidfd
                         await trio.lowlevel.wait_readable(self._pidfd.fileno())
                 else:
@@ -301,7 +304,7 @@ class Process(metaclass=NoPublicConstructor):
 
 
 async def _open_process(
-    command: list[str] | str,
+    command: StrOrBytesPath | Sequence[StrOrBytesPath],
     *,
     stdin: int | HasFileno | None = None,
     stdout: int | HasFileno | None = None,
@@ -326,13 +329,14 @@ async def _open_process(
     want.
 
     Args:
-      command (list or str): The command to run. Typically this is a
-          sequence of strings such as ``['ls', '-l', 'directory with spaces']``,
-          where the first element names the executable to invoke and the other
-          elements specify its arguments. With ``shell=True`` in the
-          ``**options``, or on Windows, ``command`` may alternatively
-          be a string, which will be parsed following platform-dependent
-          :ref:`quoting rules <subprocess-quoting>`.
+      command: The command to run. Typically this is a sequence of strings or
+          bytes such as ``['ls', '-l', 'directory with spaces']``, where the
+          first element names the executable to invoke and the other elements
+          specify its arguments. With ``shell=True`` in the ``**options``, or on
+          Windows, ``command`` can be a string or bytes, which will be parsed
+          following platform-dependent :ref:`quoting rules
+          <subprocess-quoting>`. In all cases ``command`` can be a path or a
+          sequence of paths.
       stdin: Specifies what the child process's standard input
           stream should connect to: output written by the parent
           (``subprocess.PIPE``), nothing (``subprocess.DEVNULL``),
@@ -362,19 +366,20 @@ async def _open_process(
         if options.get(key):
             raise TypeError(
                 "trio.Process only supports communicating over "
-                f"unbuffered byte streams; the '{key}' option is not supported"
+                f"unbuffered byte streams; the '{key}' option is not supported",
             )
 
     if os.name == "posix":
-        if isinstance(command, str) and not options.get("shell"):
+        # TODO: how do paths and sequences thereof play with `shell=True`?
+        if isinstance(command, (str, bytes)) and not options.get("shell"):
             raise TypeError(
-                "command must be a sequence (not a string) if shell=False "
-                "on UNIX systems"
+                "command must be a sequence (not a string or bytes) if "
+                "shell=False on UNIX systems",
             )
-        if not isinstance(command, str) and options.get("shell"):
+        if not isinstance(command, (str, bytes)) and options.get("shell"):
             raise TypeError(
-                "command must be a string (not a sequence) if shell=True "
-                "on UNIX systems"
+                "command must be a string or bytes (not a sequence) if "
+                "shell=True on UNIX systems",
             )
 
     trio_stdin: ClosableSendStream | None = None
@@ -417,7 +422,7 @@ async def _open_process(
                 stdout=stdout,
                 stderr=stderr,
                 **options,
-            )
+            ),
         )
         # We did not fail, so dismiss the stack for the trio ends
         cleanup_on_fail.pop_all()
@@ -425,7 +430,8 @@ async def _open_process(
     return Process._create(popen, trio_stdin, trio_stdout, trio_stderr)
 
 
-async def _windows_deliver_cancel(p: Process) -> None:
+# async function missing await
+async def _windows_deliver_cancel(p: Process) -> None:  # noqa: RUF029
     try:
         p.terminate()
     except OSError as exc:
@@ -443,7 +449,7 @@ async def _posix_deliver_cancel(p: Process) -> None:
             RuntimeWarning(
                 f"process {p!r} ignored SIGTERM for 5 seconds. "
                 "(Maybe you should pass a custom deliver_cancel?) "
-                "Trying SIGKILL."
+                "Trying SIGKILL.",
             ),
             stacklevel=1,
         )
@@ -671,17 +677,17 @@ async def _run_process(
             raise ValueError(
                 "stdout=subprocess.PIPE is only valid with nursery.start, "
                 "since that's the only way to access the pipe; use nursery.start "
-                "or pass the data you want to write directly"
+                "or pass the data you want to write directly",
             )
         if options.get("stdout") is subprocess.PIPE:
             raise ValueError(
                 "stdout=subprocess.PIPE is only valid with nursery.start, "
-                "since that's the only way to access the pipe"
+                "since that's the only way to access the pipe",
             )
         if options.get("stderr") is subprocess.PIPE:
             raise ValueError(
                 "stderr=subprocess.PIPE is only valid with nursery.start, "
-                "since that's the only way to access the pipe"
+                "since that's the only way to access the pipe",
             )
     if isinstance(stdin, (bytes, bytearray, memoryview)):
         input_ = stdin
@@ -768,7 +774,10 @@ async def _run_process(
 
     if proc.returncode and check:
         raise subprocess.CalledProcessError(
-            proc.returncode, proc.args, output=stdout, stderr=stderr
+            proc.returncode,
+            proc.args,
+            output=stdout,
+            stderr=stderr,
         )
     else:
         assert proc.returncode is not None
@@ -778,29 +787,46 @@ async def _run_process(
 # There's a lot of duplication here because type checkers don't
 # have a good way to represent overloads that differ only
 # slightly. A cheat sheet:
+#
 # - on Windows, command is Union[str, Sequence[str]];
 #   on Unix, command is str if shell=True and Sequence[str] otherwise
+#
 # - on Windows, there are startupinfo and creationflags options;
-#   on Unix, there are preexec_fn, restore_signals, start_new_session, and pass_fds
+#   on Unix, there are preexec_fn, restore_signals, start_new_session,
+#            pass_fds, group (3.9+), extra_groups (3.9+), user (3.9+),
+#            umask (3.9+), pipesize (3.10+), process_group (3.11+)
+#
 # - run_process() has the signature of open_process() plus arguments
-#   capture_stdout, capture_stderr, check, deliver_cancel, and the ability to pass
-#   bytes as stdin
+#   capture_stdout, capture_stderr, check, deliver_cancel, the ability
+#   to pass bytes as stdin, and the ability to run in `nursery.start`
+
+
+class GeneralProcessArgs(TypedDict, total=False):
+    """Arguments shared between all runs."""
+
+    stdout: int | HasFileno | None
+    stderr: int | HasFileno | None
+    close_fds: bool
+    cwd: StrOrBytesPath | None
+    env: Mapping[str, str] | None
+    executable: StrOrBytesPath | None
+
 
 if TYPE_CHECKING:
     if sys.platform == "win32":
+
+        class WindowsProcessArgs(GeneralProcessArgs, total=False):
+            """Arguments shared between all Windows runs."""
+
+            shell: bool
+            startupinfo: subprocess.STARTUPINFO | None
+            creationflags: int
 
         async def open_process(
             command: StrOrBytesPath | Sequence[StrOrBytesPath],
             *,
             stdin: int | HasFileno | None = None,
-            stdout: int | HasFileno | None = None,
-            stderr: int | HasFileno | None = None,
-            close_fds: bool = True,
-            shell: bool = False,
-            cwd: StrOrBytesPath | None = None,
-            env: Mapping[str, str] | None = None,
-            startupinfo: subprocess.STARTUPINFO | None = None,
-            creationflags: int = 0,
+            **kwargs: Unpack[WindowsProcessArgs],
         ) -> trio.Process:
             r"""Execute a child program in a new process.
 
@@ -863,14 +889,7 @@ if TYPE_CHECKING:
             capture_stderr: bool = False,
             check: bool = True,
             deliver_cancel: Callable[[Process], Awaitable[object]] | None = None,
-            stdout: int | HasFileno | None = None,
-            stderr: int | HasFileno | None = None,
-            close_fds: bool = True,
-            shell: bool = False,
-            cwd: StrOrBytesPath | None = None,
-            env: Mapping[str, str] | None = None,
-            startupinfo: subprocess.STARTUPINFO | None = None,
-            creationflags: int = 0,
+            **kwargs: Unpack[WindowsProcessArgs],
         ) -> subprocess.CompletedProcess[bytes]:
             """Run ``command`` in a subprocess and wait for it to complete.
 
@@ -1066,24 +1085,70 @@ if TYPE_CHECKING:
             ...
 
     else:  # Unix
-        # pyright doesn't give any error about these missing docstrings as they're
+        # pyright doesn't give any error about overloads missing docstrings as they're
         # overloads. But might still be a problem for other static analyzers / docstring
         # readers (?)
+
+        class UnixProcessArgs3_9(GeneralProcessArgs, total=False):
+            """Arguments shared between all Unix runs."""
+
+            preexec_fn: Callable[[], object] | None
+            restore_signals: bool
+            start_new_session: bool
+            pass_fds: Sequence[int]
+
+            # 3.9+
+            group: str | int | None
+            extra_groups: Iterable[str | int] | None
+            user: str | int | None
+            umask: int
+
+        class UnixProcessArgs3_10(UnixProcessArgs3_9, total=False):
+            """Arguments shared between all Unix runs on 3.10+."""
+
+            pipesize: int
+
+        class UnixProcessArgs3_11(UnixProcessArgs3_10, total=False):
+            """Arguments shared between all Unix runs on 3.11+."""
+
+            process_group: int | None
+
+        class UnixRunProcessMixin(TypedDict, total=False):
+            """Arguments unique to run_process on Unix."""
+
+            task_status: TaskStatus[Process]
+            capture_stdout: bool
+            capture_stderr: bool
+            check: bool
+            deliver_cancel: Callable[[Process], Awaitable[None]] | None
+
+        # TODO: once https://github.com/python/mypy/issues/18692 is
+        #       fixed, move the `UnixRunProcessArgs` definition down.
+        if sys.version_info >= (3, 11):
+            UnixProcessArgs = UnixProcessArgs3_11
+
+            class UnixRunProcessArgs(UnixProcessArgs3_11, UnixRunProcessMixin):
+                """Arguments for run_process on Unix with 3.11+"""
+
+        elif sys.version_info >= (3, 10):
+            UnixProcessArgs = UnixProcessArgs3_10
+
+            class UnixRunProcessArgs(UnixProcessArgs3_10, UnixRunProcessMixin):
+                """Arguments for run_process on Unix with 3.10+"""
+
+        else:
+            UnixProcessArgs = UnixProcessArgs3_9
+
+            class UnixRunProcessArgs(UnixProcessArgs3_9, UnixRunProcessMixin):
+                """Arguments for run_process on Unix with 3.9+"""
+
         @overload  # type: ignore[no-overload-impl]
         async def open_process(
             command: StrOrBytesPath,
             *,
             stdin: int | HasFileno | None = None,
-            stdout: int | HasFileno | None = None,
-            stderr: int | HasFileno | None = None,
-            close_fds: bool = True,
             shell: Literal[True],
-            cwd: StrOrBytesPath | None = None,
-            env: Mapping[str, str] | None = None,
-            preexec_fn: Callable[[], object] | None = None,
-            restore_signals: bool = True,
-            start_new_session: bool = False,
-            pass_fds: Sequence[int] = (),
+            **kwargs: Unpack[UnixProcessArgs],
         ) -> trio.Process: ...
 
         @overload
@@ -1091,60 +1156,26 @@ if TYPE_CHECKING:
             command: Sequence[StrOrBytesPath],
             *,
             stdin: int | HasFileno | None = None,
-            stdout: int | HasFileno | None = None,
-            stderr: int | HasFileno | None = None,
-            close_fds: bool = True,
             shell: bool = False,
-            cwd: StrOrBytesPath | None = None,
-            env: Mapping[str, str] | None = None,
-            preexec_fn: Callable[[], object] | None = None,
-            restore_signals: bool = True,
-            start_new_session: bool = False,
-            pass_fds: Sequence[int] = (),
+            **kwargs: Unpack[UnixProcessArgs],
         ) -> trio.Process: ...
 
         @overload  # type: ignore[no-overload-impl]
         async def run_process(
             command: StrOrBytesPath,
             *,
-            task_status: TaskStatus[Process] = trio.TASK_STATUS_IGNORED,
             stdin: bytes | bytearray | memoryview | int | HasFileno | None = None,
-            capture_stdout: bool = False,
-            capture_stderr: bool = False,
-            check: bool = True,
-            deliver_cancel: Callable[[Process], Awaitable[object]] | None = None,
-            stdout: int | HasFileno | None = None,
-            stderr: int | HasFileno | None = None,
-            close_fds: bool = True,
             shell: Literal[True],
-            cwd: StrOrBytesPath | None = None,
-            env: Mapping[str, str] | None = None,
-            preexec_fn: Callable[[], object] | None = None,
-            restore_signals: bool = True,
-            start_new_session: bool = False,
-            pass_fds: Sequence[int] = (),
+            **kwargs: Unpack[UnixRunProcessArgs],
         ) -> subprocess.CompletedProcess[bytes]: ...
 
         @overload
         async def run_process(
             command: Sequence[StrOrBytesPath],
             *,
-            task_status: TaskStatus[Process] = trio.TASK_STATUS_IGNORED,
             stdin: bytes | bytearray | memoryview | int | HasFileno | None = None,
-            capture_stdout: bool = False,
-            capture_stderr: bool = False,
-            check: bool = True,
-            deliver_cancel: Callable[[Process], Awaitable[None]] | None = None,
-            stdout: int | HasFileno | None = None,
-            stderr: int | HasFileno | None = None,
-            close_fds: bool = True,
             shell: bool = False,
-            cwd: StrOrBytesPath | None = None,
-            env: Mapping[str, str] | None = None,
-            preexec_fn: Callable[[], object] | None = None,
-            restore_signals: bool = True,
-            start_new_session: bool = False,
-            pass_fds: Sequence[int] = (),
+            **kwargs: Unpack[UnixRunProcessArgs],
         ) -> subprocess.CompletedProcess[bytes]: ...
 
 else:

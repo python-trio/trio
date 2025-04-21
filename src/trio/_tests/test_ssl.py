@@ -11,10 +11,6 @@ from ssl import SSLContext
 from typing import (
     TYPE_CHECKING,
     Any,
-    AsyncIterator,
-    Awaitable,
-    Callable,
-    Iterator,
     NoReturn,
 )
 
@@ -56,6 +52,8 @@ from ..testing import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
+
     from typing_extensions import TypeAlias
 
     from trio._core import MockClock
@@ -116,11 +114,15 @@ def client_ctx(request: pytest.FixtureRequest) -> ssl.SSLContext:
 
 # The blocking socket server.
 def ssl_echo_serve_sync(
-    sock: stdlib_socket.socket, *, expect_fail: bool = False
+    sock: stdlib_socket.socket,
+    *,
+    expect_fail: bool = False,
 ) -> None:
     try:
         wrapped = SERVER_CTX.wrap_socket(
-            sock, server_side=True, suppress_ragged_eofs=False
+            sock,
+            server_side=True,
+            suppress_ragged_eofs=False,
         )
         with wrapped:
             wrapped.do_handshake()
@@ -166,8 +168,8 @@ def ssl_echo_serve_sync(
 # Fixture that gives a raw socket connected to a trio-test-1 echo server
 # (running in a thread). Useful for testing making connections with different
 # SSLContexts.
-@asynccontextmanager  # type: ignore[misc]  # decorated contains Any
-async def ssl_echo_server_raw(**kwargs: Any) -> AsyncIterator[SocketStream]:
+@asynccontextmanager
+async def ssl_echo_server_raw(expect_fail: bool = False) -> AsyncIterator[SocketStream]:
     a, b = stdlib_socket.socketpair()
     async with trio.open_nursery() as nursery:
         # Exiting the 'with a, b' context manager closes the sockets, which
@@ -175,7 +177,8 @@ async def ssl_echo_server_raw(**kwargs: Any) -> AsyncIterator[SocketStream]:
         # nursery context manager to exit too.
         with a, b:
             nursery.start_soon(
-                trio.to_thread.run_sync, partial(ssl_echo_serve_sync, b, **kwargs)
+                trio.to_thread.run_sync,
+                partial(ssl_echo_serve_sync, b, expect_fail=expect_fail),
             )
 
             yield SocketStream(tsocket.from_stdlib_socket(a))
@@ -183,11 +186,12 @@ async def ssl_echo_server_raw(**kwargs: Any) -> AsyncIterator[SocketStream]:
 
 # Fixture that gives a properly set up SSLStream connected to a trio-test-1
 # echo server (running in a thread)
-@asynccontextmanager  # type: ignore[misc]  # decorated contains Any
+@asynccontextmanager
 async def ssl_echo_server(
-    client_ctx: SSLContext, **kwargs: Any
+    client_ctx: SSLContext,
+    expect_fail: bool = False,
 ) -> AsyncIterator[SSLStream[Stream]]:
-    async with ssl_echo_server_raw(**kwargs) as sock:
+    async with ssl_echo_server_raw(expect_fail=expect_fail) as sock:
         yield SSLStream(sock, client_ctx, server_hostname="trio-test-1.example.org")
 
 
@@ -197,33 +201,20 @@ async def ssl_echo_server(
 # jakkdl: it seems to implement all the abstract methods (now), so I made it inherit
 #         from Stream for the sake of typechecking.
 class PyOpenSSLEchoStream(Stream):
-    def __init__(self, sleeper: None = None) -> None:
+    def __init__(
+        self,
+        sleeper: Callable[[str], Awaitable[None]] | None = None,
+    ) -> None:
         ctx = SSL.Context(SSL.SSLv23_METHOD)
         # TLS 1.3 removes renegotiation support. Which is great for them, but
         # we still have to support versions before that, and that means we
         # need to test renegotiation support, which means we need to force this
         # to use a lower version where this test server can trigger
-        # renegotiations. Of course TLS 1.3 support isn't released yet, but
-        # I'm told that this will work once it is. (And once it is we can
-        # remove the pragma: no cover too.) Alternatively, we could switch to
-        # using TLSv1_2_METHOD.
-        #
-        # Discussion: https://github.com/pyca/pyopenssl/issues/624
-
-        # This is the right way, but we can't use it until this PR is in a
-        # released:
-        #     https://github.com/pyca/pyopenssl/pull/861
-        #
-        # if hasattr(SSL, "OP_NO_TLSv1_3"):
-        #     ctx.set_options(SSL.OP_NO_TLSv1_3)
-        #
-        # Fortunately pyopenssl uses cryptography under the hood, so we can be
-        # confident that they're using the same version of openssl
+        # renegotiations.
         from cryptography.hazmat.bindings.openssl.binding import Binding
 
         b = Binding()
-        if hasattr(b.lib, "SSL_OP_NO_TLSv1_3"):
-            ctx.set_options(b.lib.SSL_OP_NO_TLSv1_3)
+        ctx.set_options(b.lib.SSL_OP_NO_TLSv1_3)
 
         # Unfortunately there's currently no way to say "use 1.3 or worse", we
         # can only disable specific versions. And if the two sides start
@@ -239,12 +230,13 @@ class PyOpenSSLEchoStream(Stream):
         self._pending_cleartext = bytearray()
 
         self._send_all_conflict_detector = ConflictDetector(
-            "simultaneous calls to PyOpenSSLEchoStream.send_all"
+            "simultaneous calls to PyOpenSSLEchoStream.send_all",
         )
         self._receive_some_conflict_detector = ConflictDetector(
-            "simultaneous calls to PyOpenSSLEchoStream.receive_some"
+            "simultaneous calls to PyOpenSSLEchoStream.receive_some",
         )
 
+        self.sleeper: Callable[[str], Awaitable[None]]
         if sleeper is None:
 
             async def no_op_sleeper(_: object) -> None:
@@ -358,7 +350,10 @@ async def test_PyOpenSSLEchoStream_gives_resource_busy_errors() -> None:
     # PyOpenSSLEchoStream will notice and complain.
 
     async def do_test(
-        func1: str, args1: tuple[object, ...], func2: str, args2: tuple[object, ...]
+        func1: str,
+        args1: tuple[object, ...],
+        func2: str,
+        args2: tuple[object, ...],
     ) -> None:
         s = PyOpenSSLEchoStream()
         with RaisesGroup(Matcher(_core.BusyResourceError, "simultaneous")):
@@ -369,20 +364,24 @@ async def test_PyOpenSSLEchoStream_gives_resource_busy_errors() -> None:
     await do_test("send_all", (b"x",), "send_all", (b"x",))
     await do_test("send_all", (b"x",), "wait_send_all_might_not_block", ())
     await do_test(
-        "wait_send_all_might_not_block", (), "wait_send_all_might_not_block", ()
+        "wait_send_all_might_not_block",
+        (),
+        "wait_send_all_might_not_block",
+        (),
     )
     await do_test("receive_some", (1,), "receive_some", (1,))
 
 
-@contextmanager  # type: ignore[misc]  # decorated contains Any
+@contextmanager
 def virtual_ssl_echo_server(
-    client_ctx: SSLContext, **kwargs: Any
+    client_ctx: SSLContext,
+    sleeper: Callable[[str], Awaitable[None]] | None = None,
 ) -> Iterator[SSLStream[PyOpenSSLEchoStream]]:
-    fakesock = PyOpenSSLEchoStream(**kwargs)
+    fakesock = PyOpenSSLEchoStream(sleeper=sleeper)
     yield SSLStream(fakesock, client_ctx, server_hostname="trio-test-1.example.org")
 
 
-def ssl_wrap_pair(
+def ssl_wrap_pair(  # type: ignore[explicit-any]
     client_ctx: SSLContext,
     client_transport: T_Stream,
     server_transport: T_Stream,
@@ -401,7 +400,10 @@ def ssl_wrap_pair(
         **client_kwargs,
     )
     server_ssl = SSLStream(
-        server_transport, SERVER_CTX, server_side=True, **server_kwargs
+        server_transport,
+        SERVER_CTX,
+        server_side=True,
+        **server_kwargs,
     )
     return client_ssl, server_ssl
 
@@ -409,23 +411,43 @@ def ssl_wrap_pair(
 MemoryStapledStream: TypeAlias = StapledStream[MemorySendStream, MemoryReceiveStream]
 
 
-def ssl_memory_stream_pair(client_ctx: SSLContext, **kwargs: Any) -> tuple[
+def ssl_memory_stream_pair(
+    client_ctx: SSLContext,
+    client_kwargs: dict[str, str | bytes | bool | None] | None = None,
+    server_kwargs: dict[str, str | bytes | bool | None] | None = None,
+) -> tuple[
     SSLStream[MemoryStapledStream],
     SSLStream[MemoryStapledStream],
 ]:
     client_transport, server_transport = memory_stream_pair()
-    return ssl_wrap_pair(client_ctx, client_transport, server_transport, **kwargs)
+    return ssl_wrap_pair(
+        client_ctx,
+        client_transport,
+        server_transport,
+        client_kwargs=client_kwargs,
+        server_kwargs=server_kwargs,
+    )
 
 
 MyStapledStream: TypeAlias = StapledStream[SendStream, ReceiveStream]
 
 
-def ssl_lockstep_stream_pair(client_ctx: SSLContext, **kwargs: Any) -> tuple[
+def ssl_lockstep_stream_pair(
+    client_ctx: SSLContext,
+    client_kwargs: dict[str, str | bytes | bool | None] | None = None,
+    server_kwargs: dict[str, str | bytes | bool | None] | None = None,
+) -> tuple[
     SSLStream[MyStapledStream],
     SSLStream[MyStapledStream],
 ]:
     client_transport, server_transport = lockstep_stream_pair()
-    return ssl_wrap_pair(client_ctx, client_transport, server_transport, **kwargs)
+    return ssl_wrap_pair(
+        client_ctx,
+        client_transport,
+        server_transport,
+        client_kwargs=client_kwargs,
+        server_kwargs=server_kwargs,
+    )
 
 
 # Simple smoke test for handshake/send/receive/shutdown talking to a
@@ -462,13 +484,16 @@ async def test_ssl_server_basics(client_ctx: SSLContext) -> None:
     with a, b:
         server_sock = tsocket.from_stdlib_socket(b)
         server_transport = SSLStream(
-            SocketStream(server_sock), SERVER_CTX, server_side=True
+            SocketStream(server_sock),
+            SERVER_CTX,
+            server_side=True,
         )
         assert server_transport.server_side
 
         def client() -> None:
             with client_ctx.wrap_socket(
-                a, server_hostname="trio-test-1.example.org"
+                a,
+                server_hostname="trio-test-1.example.org",
             ) as client_sock:
                 client_sock.sendall(b"x")
                 assert client_sock.recv(1) == b"y"
@@ -612,7 +637,8 @@ async def test_renegotiation_simple(client_ctx: SSLContext) -> None:
 
 @slow
 async def test_renegotiation_randomized(
-    mock_clock: MockClock, client_ctx: SSLContext
+    mock_clock: MockClock,
+    client_ctx: SSLContext,
 ) -> None:
     # The only blocking things in this function are our random sleeps, so 0 is
     # a good threshold.
@@ -687,7 +713,8 @@ async def test_renegotiation_randomized(
     # Our receive_some() call will get stuck when it hits send_all
     async def sleeper_with_slow_send_all(method: str) -> None:
         if method == "send_all":
-            await trio.sleep(100000)
+            # ignore ASYNC116, not sleep_forever, trying to test a large but finite sleep
+            await trio.sleep(100000)  # noqa: ASYNC116
 
     # And our wait_send_all_might_not_block call will give it time to get
     # stuck, and then start
@@ -711,12 +738,14 @@ async def test_renegotiation_randomized(
 
     async def sleeper_with_slow_wait_writable_and_expect(method: str) -> None:
         if method == "wait_send_all_might_not_block":
-            await trio.sleep(100000)
+            # ignore ASYNC116, not sleep_forever, trying to test a large but finite sleep
+            await trio.sleep(100000)  # noqa: ASYNC116
         elif method == "expect":
             await trio.sleep(1000)
 
     with virtual_ssl_echo_server(
-        client_ctx, sleeper=sleeper_with_slow_wait_writable_and_expect
+        client_ctx,
+        sleeper=sleeper_with_slow_wait_writable_and_expect,
     ) as s:
         await send(b"x")
         s.transport_stream.renegotiate()
@@ -747,7 +776,8 @@ async def test_resource_busy_errors(client_ctx: SSLContext) -> None:
             await s.wait_send_all_might_not_block()
 
     async def do_test(
-        func1: Callable[[S], Awaitable[None]], func2: Callable[[S], Awaitable[None]]
+        func1: Callable[[S], Awaitable[None]],
+        func2: Callable[[S], Awaitable[None]],
     ) -> None:
         s, _ = ssl_lockstep_stream_pair(client_ctx)
         with RaisesGroup(Matcher(_core.BusyResourceError, "another task")):
@@ -835,7 +865,8 @@ async def test_send_all_empty_string(client_ctx: SSLContext) -> None:
 
 @pytest.mark.parametrize("https_compatible", [False, True])
 async def test_SSLStream_generic(
-    client_ctx: SSLContext, https_compatible: bool
+    client_ctx: SSLContext,
+    https_compatible: bool,
 ) -> None:
     async def stream_maker() -> tuple[
         SSLStream[MemoryStapledStream],
@@ -1017,12 +1048,16 @@ async def test_ssl_over_ssl(client_ctx: SSLContext) -> None:
     client_0, server_0 = memory_stream_pair()
 
     client_1 = SSLStream(
-        client_0, client_ctx, server_hostname="trio-test-1.example.org"
+        client_0,
+        client_ctx,
+        server_hostname="trio-test-1.example.org",
     )
     server_1 = SSLStream(server_0, SERVER_CTX, server_side=True)
 
     client_2 = SSLStream(
-        client_1, client_ctx, server_hostname="trio-test-1.example.org"
+        client_1,
+        client_ctx,
+        server_hostname="trio-test-1.example.org",
     )
     server_2 = SSLStream(server_1, SERVER_CTX, server_side=True)
 
@@ -1161,7 +1196,7 @@ async def test_https_mode_eof_before_handshake(client_ctx: SSLContext) -> None:
 
 
 async def test_send_error_during_handshake(client_ctx: SSLContext) -> None:
-    client, server = ssl_memory_stream_pair(client_ctx)
+    client, _server = ssl_memory_stream_pair(client_ctx)
 
     async def bad_hook() -> NoReturn:
         raise KeyError
@@ -1200,7 +1235,7 @@ async def test_receive_error_during_handshake(client_ctx: SSLContext) -> None:
             await client.do_handshake()
 
 
-async def test_selected_alpn_protocol_before_handshake(client_ctx: SSLContext) -> None:
+def test_selected_alpn_protocol_before_handshake(client_ctx: SSLContext) -> None:
     client, server = ssl_memory_stream_pair(client_ctx)
 
     with pytest.raises(NeedHandshakeError):
@@ -1225,7 +1260,7 @@ async def test_selected_alpn_protocol_when_not_set(client_ctx: SSLContext) -> No
     assert client.selected_alpn_protocol() == server.selected_alpn_protocol()
 
 
-async def test_selected_npn_protocol_before_handshake(client_ctx: SSLContext) -> None:
+def test_selected_npn_protocol_before_handshake(client_ctx: SSLContext) -> None:
     client, server = ssl_memory_stream_pair(client_ctx)
 
     with pytest.raises(NeedHandshakeError):
@@ -1254,7 +1289,7 @@ async def test_selected_npn_protocol_when_not_set(client_ctx: SSLContext) -> Non
     assert client.selected_npn_protocol() == server.selected_npn_protocol()
 
 
-async def test_get_channel_binding_before_handshake(client_ctx: SSLContext) -> None:
+def test_get_channel_binding_before_handshake(client_ctx: SSLContext) -> None:
     client, server = ssl_memory_stream_pair(client_ctx)
 
     with pytest.raises(NeedHandshakeError):
@@ -1292,17 +1327,23 @@ async def test_getpeercert(client_ctx: SSLContext) -> None:
 
 async def test_SSLListener(client_ctx: SSLContext) -> None:
     async def setup(
-        **kwargs: Any,
+        https_compatible: bool = False,
     ) -> tuple[tsocket.SocketType, SSLListener[SocketStream], SSLStream[SocketStream]]:
         listen_sock = tsocket.socket()
         await listen_sock.bind(("127.0.0.1", 0))
         listen_sock.listen(1)
         socket_listener = SocketListener(listen_sock)
-        ssl_listener = SSLListener(socket_listener, SERVER_CTX, **kwargs)
+        ssl_listener = SSLListener(
+            socket_listener,
+            SERVER_CTX,
+            https_compatible=https_compatible,
+        )
 
         transport_client = await open_tcp_stream(*listen_sock.getsockname())
         ssl_client = SSLStream(
-            transport_client, client_ctx, server_hostname="trio-test-1.example.org"
+            transport_client,
+            client_ctx,
+            server_hostname="trio-test-1.example.org",
         )
         return listen_sock, ssl_listener, ssl_client
 

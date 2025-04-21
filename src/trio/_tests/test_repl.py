@@ -42,7 +42,7 @@ def test_build_raw_input() -> None:
 
 # In 3.10 or later, types.FunctionType (used internally) will automatically
 # attach __builtins__ to the function objects. However we need to explicitly
-# include it for 3.8 & 3.9
+# include it for 3.9 support
 def build_locals() -> dict[str, object]:
     return {"__builtins__": __builtins__}
 
@@ -76,11 +76,11 @@ async def test_basic_interaction(
             # import works
             "import sys",
             "sys.stdout.write('hello stdout\\n')",
-        ]
+        ],
     )
     monkeypatch.setattr(console, "raw_input", raw_input)
     await trio._repl.run_repl(console)
-    out, err = capsys.readouterr()
+    out, _err = capsys.readouterr()
     assert out.splitlines() == ["x=1", "'hello'", "2", "4", "hello stdout", "13"]
 
 
@@ -89,7 +89,7 @@ async def test_system_exits_quit_interpreter(monkeypatch: pytest.MonkeyPatch) ->
     raw_input = build_raw_input(
         [
             "raise SystemExit",
-        ]
+        ],
     )
     monkeypatch.setattr(console, "raw_input", raw_input)
     with pytest.raises(SystemExit):
@@ -103,19 +103,18 @@ async def test_KI_interrupts(
     console = trio._repl.TrioInteractiveConsole(repl_locals=build_locals())
     raw_input = build_raw_input(
         [
-            "from trio._util import signal_raise",
             "import signal, trio, trio.lowlevel",
             "async def f():",
             "  trio.lowlevel.spawn_system_task("
             "    trio.to_thread.run_sync,"
-            "    signal_raise,signal.SIGINT,"
+            "    signal.raise_signal, signal.SIGINT,"
             "  )",  # just awaiting this kills the test runner?!
             "  await trio.sleep_forever()",
             "  print('should not see this')",
             "",
             "await f()",
             "print('AFTER KeyboardInterrupt')",
-        ]
+        ],
     )
     monkeypatch.setattr(console, "raw_input", raw_input)
     await trio._repl.run_repl(console)
@@ -138,11 +137,11 @@ async def test_system_exits_in_exc_group(
             "",
             "raise BaseExceptionGroup('', [RuntimeError(), SystemExit()])",
             "print('AFTER BaseExceptionGroup')",
-        ]
+        ],
     )
     monkeypatch.setattr(console, "raw_input", raw_input)
     await trio._repl.run_repl(console)
-    out, err = capsys.readouterr()
+    out, _err = capsys.readouterr()
     # assert that raise SystemExit in an exception group
     # doesn't quit
     assert "AFTER BaseExceptionGroup" in out
@@ -162,11 +161,11 @@ async def test_system_exits_in_nested_exc_group(
             "raise BaseExceptionGroup(",
             "  '', [BaseExceptionGroup('', [RuntimeError(), SystemExit()])])",
             "print('AFTER BaseExceptionGroup')",
-        ]
+        ],
     )
     monkeypatch.setattr(console, "raw_input", raw_input)
     await trio._repl.run_repl(console)
-    out, err = capsys.readouterr()
+    out, _err = capsys.readouterr()
     # assert that raise SystemExit in an exception group
     # doesn't quit
     assert "AFTER BaseExceptionGroup" in out
@@ -182,7 +181,7 @@ async def test_base_exception_captured(
             # The statement after raise should still get executed
             "raise BaseException",
             "print('AFTER BaseException')",
-        ]
+        ],
     )
     monkeypatch.setattr(console, "raw_input", raw_input)
     await trio._repl.run_repl(console)
@@ -202,11 +201,11 @@ async def test_exc_group_captured(
             # The statement after raise should still get executed
             "raise ExceptionGroup('', [KeyError()])",
             "print('AFTER ExceptionGroup')",
-        ]
+        ],
     )
     monkeypatch.setattr(console, "raw_input", raw_input)
     await trio._repl.run_repl(console)
-    out, err = capsys.readouterr()
+    out, _err = capsys.readouterr()
     assert "AFTER ExceptionGroup" in out
 
 
@@ -224,7 +223,7 @@ async def test_base_exception_capture_from_coroutine(
             # be executed
             "await async_func_raises_base_exception()",
             "print('AFTER BaseException')",
-        ]
+        ],
     )
     monkeypatch.setattr(console, "raw_input", raw_input)
     await trio._repl.run_repl(console)

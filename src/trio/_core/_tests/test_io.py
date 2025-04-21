@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import random
+import select
 import socket as stdlib_socket
+import sys
+from collections.abc import Awaitable, Callable
 from contextlib import suppress
-from typing import TYPE_CHECKING, Awaitable, Callable, Tuple, TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 import pytest
 
@@ -39,7 +42,7 @@ def drain_socket(sock: stdlib_socket.socket) -> None:
 
 
 WaitSocket = Callable[[stdlib_socket.socket], Awaitable[object]]
-SocketPair = Tuple[stdlib_socket.socket, stdlib_socket.socket]
+SocketPair = tuple[stdlib_socket.socket, stdlib_socket.socket]
 RetT = TypeVar("RetT")
 
 
@@ -91,7 +94,9 @@ notify_closing_test = pytest.mark.parametrize(
 @read_socket_test
 @write_socket_test
 async def test_wait_basic(
-    socketpair: SocketPair, wait_readable: WaitSocket, wait_writable: WaitSocket
+    socketpair: SocketPair,
+    wait_readable: WaitSocket,
+    wait_writable: WaitSocket,
 ) -> None:
     a, b = socketpair
 
@@ -159,7 +164,7 @@ async def test_wait_basic(
 
 @read_socket_test
 async def test_double_read(socketpair: SocketPair, wait_readable: WaitSocket) -> None:
-    a, b = socketpair
+    a, _b = socketpair
 
     # You can't have two tasks trying to read from a socket at the same time
     async with _core.open_nursery() as nursery:
@@ -172,7 +177,7 @@ async def test_double_read(socketpair: SocketPair, wait_readable: WaitSocket) ->
 
 @write_socket_test
 async def test_double_write(socketpair: SocketPair, wait_writable: WaitSocket) -> None:
-    a, b = socketpair
+    a, _b = socketpair
 
     # You can't have two tasks trying to write to a socket at the same time
     fill_socket(a)
@@ -193,7 +198,7 @@ async def test_interrupted_by_close(
     wait_writable: WaitSocket,
     notify_closing: Callable[[stdlib_socket.socket], object],
 ) -> None:
-    a, b = socketpair
+    a, _b = socketpair
 
     async def reader() -> None:
         with pytest.raises(_core.ClosedResourceError):
@@ -215,7 +220,9 @@ async def test_interrupted_by_close(
 @read_socket_test
 @write_socket_test
 async def test_socket_simultaneous_read_write(
-    socketpair: SocketPair, wait_readable: WaitSocket, wait_writable: WaitSocket
+    socketpair: SocketPair,
+    wait_readable: WaitSocket,
+    wait_writable: WaitSocket,
 ) -> None:
     record: list[str] = []
 
@@ -245,7 +252,9 @@ async def test_socket_simultaneous_read_write(
 @read_socket_test
 @write_socket_test
 async def test_socket_actual_streaming(
-    socketpair: SocketPair, wait_readable: WaitSocket, wait_writable: WaitSocket
+    socketpair: SocketPair,
+    wait_readable: WaitSocket,
+    wait_writable: WaitSocket,
 ) -> None:
     a, b = socketpair
 
@@ -336,6 +345,7 @@ async def test_io_manager_statistics() -> None:
             assert iostats.tasks_waiting_write == expected_writers
         else:
             assert iostats.backend == "kqueue"
+            assert iostats.monitors == 0
             assert iostats.tasks_waiting == expected_readers + expected_writers
 
     a1, b1 = stdlib_socket.socketpair()
@@ -372,6 +382,44 @@ async def test_io_manager_statistics() -> None:
 
         # 1 for call_soon_task
         check(expected_readers=1, expected_writers=0)
+
+
+@pytest.mark.filterwarnings("ignore:.*UnboundedQueue:trio.TrioDeprecationWarning")
+async def test_io_manager_kqueue_monitors_statistics() -> None:
+    def check(
+        *,
+        expected_monitors: int,
+        expected_readers: int,
+        expected_writers: int,
+    ) -> None:
+        statistics = _core.current_statistics()
+        print(statistics)
+        iostats = statistics.io_statistics
+        assert iostats.backend == "kqueue"
+        assert iostats.monitors == expected_monitors
+        assert iostats.tasks_waiting == expected_readers + expected_writers
+
+    a1, b1 = stdlib_socket.socketpair()
+    for sock in [a1, b1]:
+        sock.setblocking(False)
+
+    with a1, b1:
+        # let the call_soon_task settle down
+        await wait_all_tasks_blocked()
+
+        if sys.platform != "win32" and sys.platform != "linux":
+            # 1 for call_soon_task
+            check(expected_monitors=0, expected_readers=1, expected_writers=0)
+
+            with _core.monitor_kevent(a1.fileno(), select.KQ_FILTER_READ):
+                with (
+                    pytest.raises(_core.BusyResourceError),
+                    _core.monitor_kevent(a1.fileno(), select.KQ_FILTER_READ),
+                ):
+                    pass  # pragma: no cover
+                check(expected_monitors=1, expected_readers=1, expected_writers=0)
+
+            check(expected_monitors=0, expected_readers=1, expected_writers=0)
 
 
 async def test_can_survive_unnotified_close() -> None:

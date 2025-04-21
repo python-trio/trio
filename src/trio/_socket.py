@@ -9,9 +9,6 @@ from socket import AddressFamily, SocketKind
 from typing import (
     TYPE_CHECKING,
     Any,
-    Awaitable,
-    Callable,
-    Literal,
     SupportsIndex,
     TypeVar,
     Union,
@@ -26,7 +23,7 @@ from trio._util import wraps as _wraps
 from . import _core
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Awaitable, Callable, Iterable
     from types import TracebackType
 
     from typing_extensions import Buffer, Concatenate, ParamSpec, Self, TypeAlias
@@ -49,7 +46,7 @@ T = TypeVar("T")
 # most users, so currently we just specify it as `Any`. Otherwise we would write:
 # `AddressFormat = TypeVar("AddressFormat")`
 # but instead we simply do:
-AddressFormat: TypeAlias = Any
+AddressFormat: TypeAlias = Any  # type: ignore[explicit-any]
 
 
 # Usage:
@@ -62,8 +59,9 @@ AddressFormat: TypeAlias = Any
 #
 class _try_sync:
     def __init__(
-        self, blocking_exc_override: Callable[[BaseException], bool] | None = None
-    ):
+        self,
+        blocking_exc_override: Callable[[BaseException], bool] | None = None,
+    ) -> None:
         self._blocking_exc_override = blocking_exc_override
 
     def _is_blocking_io_error(self, exc: BaseException) -> bool:
@@ -166,7 +164,10 @@ def set_custom_socket_factory(
 # getaddrinfo and friends
 ################################################################
 
-_NUMERIC_ONLY = _stdlib_socket.AI_NUMERICHOST | _stdlib_socket.AI_NUMERICSERV
+# AI_NUMERICSERV may be missing on some older platforms, so use it when available.
+# See: https://github.com/python-trio/trio/issues/3133
+_NUMERIC_ONLY = _stdlib_socket.AI_NUMERICHOST
+_NUMERIC_ONLY |= getattr(_stdlib_socket, "AI_NUMERICSERV", 0)
 
 
 # It would be possible to @overload the return value depending on Literal[AddressFamily.INET/6], but should probably be added in typeshed first
@@ -179,7 +180,11 @@ async def getaddrinfo(
     flags: int = 0,
 ) -> list[
     tuple[
-        AddressFamily, SocketKind, int, str, tuple[str, int] | tuple[str, int, int, int]
+        AddressFamily,
+        SocketKind,
+        int,
+        str,
+        tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes],
     ]
 ]:
     """Look up a numeric address given a name.
@@ -210,7 +215,12 @@ async def getaddrinfo(
 
     async with _try_sync(numeric_only_failure):
         return _stdlib_socket.getaddrinfo(
-            host, port, family, type, proto, flags | _NUMERIC_ONLY
+            host,
+            port,
+            family,
+            type,
+            proto,
+            flags | _NUMERIC_ONLY,
         )
     # That failed; it's a real hostname. We better use a thread.
     #
@@ -245,7 +255,8 @@ async def getaddrinfo(
 
 
 async def getnameinfo(
-    sockaddr: tuple[str, int] | tuple[str, int, int, int], flags: int
+    sockaddr: tuple[str, int] | tuple[str, int, int, int],
+    flags: int,
 ) -> tuple[str, str]:
     """Look up a name given a numeric address.
 
@@ -261,7 +272,10 @@ async def getnameinfo(
         return await hr.getnameinfo(sockaddr, flags)
     else:
         return await trio.to_thread.run_sync(
-            _stdlib_socket.getnameinfo, sockaddr, flags, abandon_on_cancel=True
+            _stdlib_socket.getnameinfo,
+            sockaddr,
+            flags,
+            abandon_on_cancel=True,
         )
 
 
@@ -272,7 +286,9 @@ async def getprotobyname(name: str) -> int:
 
     """
     return await trio.to_thread.run_sync(
-        _stdlib_socket.getprotobyname, name, abandon_on_cancel=True
+        _stdlib_socket.getprotobyname,
+        name,
+        abandon_on_cancel=True,
     )
 
 
@@ -319,7 +335,7 @@ if sys.platform == "win32":
     TypeT: TypeAlias = int
     FamilyDefault = _stdlib_socket.AF_INET
 else:
-    FamilyDefault: Literal[None] = None
+    FamilyDefault: None = None
     FamilyT: TypeAlias = Union[int, AddressFamily, None]
     TypeT: TypeAlias = Union[_stdlib_socket.socket, int]
 
@@ -357,7 +373,10 @@ def socket(
             return sf.socket(family, type, proto)
     else:
         family, type, proto = _sniff_sockopts_for_fileno(  # noqa: A001
-            family, type, proto, fileno
+            family,
+            type,
+            proto,
+            fileno,
         )
     stdlib_socket = _stdlib_socket.socket(family, type, proto, fileno)
     return from_stdlib_socket(stdlib_socket)
@@ -457,7 +476,7 @@ async def _resolve_address_nocp(
     ipv6_v6only: bool | int,
     address: AddressFormat,
     local: bool,
-) -> Any:
+) -> AddressFormat:
     # Do some pre-checking (or exit early for non-IP sockets)
     if family == _stdlib_socket.AF_INET:
         if not isinstance(address, tuple) or not len(address) == 2:
@@ -465,11 +484,11 @@ async def _resolve_address_nocp(
     elif family == _stdlib_socket.AF_INET6:
         if not isinstance(address, tuple) or not 2 <= len(address) <= 4:
             raise ValueError(
-                "address should be a (host, port, [flowinfo, [scopeid]]) tuple"
+                "address should be a (host, port, [flowinfo, [scopeid]]) tuple",
             )
     elif hasattr(_stdlib_socket, "AF_UNIX") and family == _stdlib_socket.AF_UNIX:
         # unwrap path-likes
-        assert isinstance(address, (str, bytes))
+        assert isinstance(address, (str, bytes, os.PathLike))
         return os.fspath(address)
     else:
         return address
@@ -528,10 +547,10 @@ class SocketType:
         # make sure this __init__ works with multiple inheritance
         super().__init__()
         # and only raises error if it's directly constructed
-        if type(self) == SocketType:
+        if type(self) is SocketType:
             raise TypeError(
                 "SocketType is an abstract class; use trio.socket.socket if you "
-                "want to construct a socket object"
+                "want to construct a socket object",
             )
 
     def detach(self) -> int:
@@ -547,27 +566,33 @@ class SocketType:
         raise NotImplementedError
 
     @overload
-    def getsockopt(self, /, level: int, optname: int) -> int: ...
+    def getsockopt(self, level: int, optname: int) -> int: ...
 
     @overload
-    def getsockopt(self, /, level: int, optname: int, buflen: int) -> bytes: ...
+    def getsockopt(self, level: int, optname: int, buflen: int) -> bytes: ...
 
     def getsockopt(
-        self, /, level: int, optname: int, buflen: int | None = None
+        self,
+        level: int,
+        optname: int,
+        buflen: int | None = None,
     ) -> int | bytes:
         raise NotImplementedError
 
     @overload
-    def setsockopt(self, /, level: int, optname: int, value: int | Buffer) -> None: ...
+    def setsockopt(self, level: int, optname: int, value: int | Buffer) -> None: ...
 
     @overload
     def setsockopt(
-        self, /, level: int, optname: int, value: None, optlen: int
+        self,
+        level: int,
+        optname: int,
+        value: None,
+        optlen: int,
     ) -> None: ...
 
     def setsockopt(
         self,
-        /,
         level: int,
         optname: int,
         value: int | Buffer | None,
@@ -575,7 +600,7 @@ class SocketType:
     ) -> None:
         raise NotImplementedError
 
-    def listen(self, /, backlog: int = min(_stdlib_socket.SOMAXCONN, 128)) -> None:
+    def listen(self, backlog: int = min(_stdlib_socket.SOMAXCONN, 128)) -> None:
         raise NotImplementedError
 
     def get_inheritable(self) -> bool:
@@ -588,7 +613,7 @@ class SocketType:
         not TYPE_CHECKING and hasattr(_stdlib_socket.socket, "share")
     ):
 
-        def share(self, /, process_id: int) -> bytes:
+        def share(self, process_id: int) -> bytes:
             raise NotImplementedError
 
     def __enter__(self) -> Self:
@@ -648,24 +673,32 @@ class SocketType:
     async def connect(self, address: AddressFormat) -> None:
         raise NotImplementedError
 
-    # argument names with __ used because of typeshed, see comment for recv in _SocketType
-    def recv(__self, __buflen: int, __flags: int = 0) -> Awaitable[bytes]:
+    def recv(self, buflen: int, flags: int = 0, /) -> Awaitable[bytes]:
         raise NotImplementedError
 
     def recv_into(
-        __self, buffer: Buffer, nbytes: int = 0, flags: int = 0
+        self,
+        buffer: Buffer,
+        nbytes: int = 0,
+        flags: int = 0,
     ) -> Awaitable[int]:
         raise NotImplementedError
 
     # return type of socket.socket.recvfrom in typeshed is tuple[bytes, Any]
     def recvfrom(
-        __self, __bufsize: int, __flags: int = 0
+        self,
+        bufsize: int,
+        flags: int = 0,
+        /,
     ) -> Awaitable[tuple[bytes, AddressFormat]]:
         raise NotImplementedError
 
     # return type of socket.socket.recvfrom_into in typeshed is tuple[bytes, Any]
     def recvfrom_into(
-        __self, buffer: Buffer, nbytes: int = 0, flags: int = 0
+        self,
+        buffer: Buffer,
+        nbytes: int = 0,
+        flags: int = 0,
     ) -> Awaitable[tuple[int, AddressFormat]]:
         raise NotImplementedError
 
@@ -674,11 +707,12 @@ class SocketType:
     ):
 
         def recvmsg(
-            __self,
-            __bufsize: int,
-            __ancbufsize: int = 0,
-            __flags: int = 0,
-        ) -> Awaitable[tuple[bytes, list[tuple[int, int, bytes]], int, Any]]:
+            self,
+            bufsize: int,
+            ancbufsize: int = 0,
+            flags: int = 0,
+            /,
+        ) -> Awaitable[tuple[bytes, list[tuple[int, int, bytes]], int, object]]:
             raise NotImplementedError
 
     if sys.platform != "win32" or (
@@ -686,30 +720,35 @@ class SocketType:
     ):
 
         def recvmsg_into(
-            __self,
-            __buffers: Iterable[Buffer],
-            __ancbufsize: int = 0,
-            __flags: int = 0,
-        ) -> Awaitable[tuple[int, list[tuple[int, int, bytes]], int, Any]]:
+            self,
+            buffers: Iterable[Buffer],
+            ancbufsize: int = 0,
+            flags: int = 0,
+            /,
+        ) -> Awaitable[tuple[int, list[tuple[int, int, bytes]], int, object]]:
             raise NotImplementedError
 
-    def send(__self, __bytes: Buffer, __flags: int = 0) -> Awaitable[int]:
+    def send(self, bytes: Buffer, flags: int = 0, /) -> Awaitable[int]:
         raise NotImplementedError
 
     @overload
     async def sendto(
-        self, __data: Buffer, __address: tuple[object, ...] | str | Buffer
+        self,
+        data: Buffer,
+        address: tuple[object, ...] | str | Buffer,
+        /,
     ) -> int: ...
 
     @overload
     async def sendto(
         self,
-        __data: Buffer,
-        __flags: int,
-        __address: tuple[object, ...] | str | Buffer,
+        data: Buffer,
+        flags: int,
+        address: tuple[object, ...] | str | Buffer,
+        /,
     ) -> int: ...
 
-    async def sendto(self, *args: Any) -> int:
+    async def sendto(self, *args: object) -> int:
         raise NotImplementedError
 
     if sys.platform != "win32" or (
@@ -719,10 +758,11 @@ class SocketType:
         @_wraps(_stdlib_socket.socket.sendmsg, assigned=(), updated=())
         async def sendmsg(
             self,
-            __buffers: Iterable[Buffer],
-            __ancdata: Iterable[tuple[int, int, Buffer]] = (),
-            __flags: int = 0,
-            __address: AddressFormat | None = None,
+            buffers: Iterable[Buffer],
+            ancdata: Iterable[tuple[int, int, Buffer]] = (),
+            flags: int = 0,
+            address: AddressFormat | None = None,
+            /,
         ) -> int:
             raise NotImplementedError
 
@@ -743,12 +783,12 @@ for name, obj in SocketType.__dict__.items():
 
 
 class _SocketType(SocketType):
-    def __init__(self, sock: _stdlib_socket.socket):
+    def __init__(self, sock: _stdlib_socket.socket) -> None:
         if type(sock) is not _stdlib_socket.socket:
             # For example, ssl.SSLSocket subclasses socket.socket, but we
             # certainly don't want to blindly wrap one of those.
             raise TypeError(
-                f"expected object of type 'socket.socket', not '{type(sock).__name__}'"
+                f"expected object of type 'socket.socket', not '{type(sock).__name__}'",
             )
         self._sock = sock
         self._sock.setblocking(False)
@@ -772,29 +812,35 @@ class _SocketType(SocketType):
         return self._sock.getsockname()
 
     @overload
-    def getsockopt(self, /, level: int, optname: int) -> int: ...
+    def getsockopt(self, level: int, optname: int) -> int: ...
 
     @overload
-    def getsockopt(self, /, level: int, optname: int, buflen: int) -> bytes: ...
+    def getsockopt(self, level: int, optname: int, buflen: int) -> bytes: ...
 
     def getsockopt(
-        self, /, level: int, optname: int, buflen: int | None = None
+        self,
+        level: int,
+        optname: int,
+        buflen: int | None = None,
     ) -> int | bytes:
         if buflen is None:
             return self._sock.getsockopt(level, optname)
         return self._sock.getsockopt(level, optname, buflen)
 
     @overload
-    def setsockopt(self, /, level: int, optname: int, value: int | Buffer) -> None: ...
+    def setsockopt(self, level: int, optname: int, value: int | Buffer) -> None: ...
 
     @overload
     def setsockopt(
-        self, /, level: int, optname: int, value: None, optlen: int
+        self,
+        level: int,
+        optname: int,
+        value: None,
+        optlen: int,
     ) -> None: ...
 
     def setsockopt(
         self,
-        /,
         level: int,
         optname: int,
         value: int | Buffer | None,
@@ -803,19 +849,19 @@ class _SocketType(SocketType):
         if optlen is None:
             if value is None:
                 raise TypeError(
-                    "invalid value for argument 'value', must not be None when specifying optlen"
+                    "invalid value for argument 'value', must not be None when specifying optlen",
                 )
             return self._sock.setsockopt(level, optname, value)
         if value is not None:
             raise TypeError(
-                f"invalid value for argument 'value': {value!r}, must be None when specifying optlen"
+                f"invalid value for argument 'value': {value!r}, must be None when specifying optlen",
             )
 
         # Note: PyPy may crash here due to setsockopt only supporting
         # four parameters.
         return self._sock.setsockopt(level, optname, value, optlen)
 
-    def listen(self, /, backlog: int = min(_stdlib_socket.SOMAXCONN, 128)) -> None:
+    def listen(self, backlog: int = min(_stdlib_socket.SOMAXCONN, 128)) -> None:
         return self._sock.listen(backlog)
 
     def get_inheritable(self) -> bool:
@@ -828,7 +874,7 @@ class _SocketType(SocketType):
         not TYPE_CHECKING and hasattr(_stdlib_socket.socket, "share")
     ):
 
-        def share(self, /, process_id: int) -> bytes:
+        def share(self, process_id: int) -> bytes:
             return self._sock.share(process_id)
 
     def __enter__(self) -> Self:
@@ -915,7 +961,8 @@ class _SocketType(SocketType):
     ) -> AddressFormat:
         if self.family == _stdlib_socket.AF_INET6:
             ipv6_v6only = self._sock.getsockopt(
-                _stdlib_socket.IPPROTO_IPV6, _stdlib_socket.IPV6_V6ONLY
+                _stdlib_socket.IPPROTO_IPV6,
+                _stdlib_socket.IPV6_V6ONLY,
             )
         else:
             ipv6_v6only = False
@@ -977,7 +1024,8 @@ class _SocketType(SocketType):
     ################################################################
 
     _accept = _make_simple_sock_method_wrapper(
-        _stdlib_socket.socket.accept, _core.wait_readable
+        _stdlib_socket.socket.accept,
+        _core.wait_readable,
     )
 
     async def accept(self) -> tuple[SocketType, AddressFormat]:
@@ -1069,13 +1117,11 @@ class _SocketType(SocketType):
     # complain about AmbiguousType
     if TYPE_CHECKING:
 
-        def recv(__self, __buflen: int, __flags: int = 0) -> Awaitable[bytes]: ...
+        def recv(self, buflen: int, flags: int = 0, /) -> Awaitable[bytes]: ...
 
-    # _make_simple_sock_method_wrapper is typed, so this checks that the above is correct
-    # this requires that we refrain from using `/` to specify pos-only
-    # args, or mypy thinks the signature differs from typeshed.
     recv = _make_simple_sock_method_wrapper(
-        _stdlib_socket.socket.recv, _core.wait_readable
+        _stdlib_socket.socket.recv,
+        _core.wait_readable,
     )
 
     ################################################################
@@ -1085,11 +1131,16 @@ class _SocketType(SocketType):
     if TYPE_CHECKING:
 
         def recv_into(
-            __self, buffer: Buffer, nbytes: int = 0, flags: int = 0
+            self,
+            /,
+            buffer: Buffer,
+            nbytes: int = 0,
+            flags: int = 0,
         ) -> Awaitable[int]: ...
 
     recv_into = _make_simple_sock_method_wrapper(
-        _stdlib_socket.socket.recv_into, _core.wait_readable
+        _stdlib_socket.socket.recv_into,
+        _core.wait_readable,
     )
 
     ################################################################
@@ -1099,11 +1150,15 @@ class _SocketType(SocketType):
     if TYPE_CHECKING:
         # return type of socket.socket.recvfrom in typeshed is tuple[bytes, Any]
         def recvfrom(
-            __self, __bufsize: int, __flags: int = 0
+            self,
+            bufsize: int,
+            flags: int = 0,
+            /,
         ) -> Awaitable[tuple[bytes, AddressFormat]]: ...
 
     recvfrom = _make_simple_sock_method_wrapper(
-        _stdlib_socket.socket.recvfrom, _core.wait_readable
+        _stdlib_socket.socket.recvfrom,
+        _core.wait_readable,
     )
 
     ################################################################
@@ -1113,11 +1168,16 @@ class _SocketType(SocketType):
     if TYPE_CHECKING:
         # return type of socket.socket.recvfrom_into in typeshed is tuple[bytes, Any]
         def recvfrom_into(
-            __self, buffer: Buffer, nbytes: int = 0, flags: int = 0
+            self,
+            /,
+            buffer: Buffer,
+            nbytes: int = 0,
+            flags: int = 0,
         ) -> Awaitable[tuple[int, AddressFormat]]: ...
 
     recvfrom_into = _make_simple_sock_method_wrapper(
-        _stdlib_socket.socket.recvfrom_into, _core.wait_readable
+        _stdlib_socket.socket.recvfrom_into,
+        _core.wait_readable,
     )
 
     ################################################################
@@ -1130,11 +1190,17 @@ class _SocketType(SocketType):
         if TYPE_CHECKING:
 
             def recvmsg(
-                __self, __bufsize: int, __ancbufsize: int = 0, __flags: int = 0
-            ) -> Awaitable[tuple[bytes, list[tuple[int, int, bytes]], int, Any]]: ...
+                self,
+                bufsize: int,
+                ancbufsize: int = 0,
+                flags: int = 0,
+                /,
+            ) -> Awaitable[tuple[bytes, list[tuple[int, int, bytes]], int, object]]: ...
 
         recvmsg = _make_simple_sock_method_wrapper(
-            _stdlib_socket.socket.recvmsg, _core.wait_readable, maybe_avail=True
+            _stdlib_socket.socket.recvmsg,
+            _core.wait_readable,
+            maybe_avail=True,
         )
 
     ################################################################
@@ -1147,14 +1213,17 @@ class _SocketType(SocketType):
         if TYPE_CHECKING:
 
             def recvmsg_into(
-                __self,
-                __buffers: Iterable[Buffer],
-                __ancbufsize: int = 0,
-                __flags: int = 0,
-            ) -> Awaitable[tuple[int, list[tuple[int, int, bytes]], int, Any]]: ...
+                self,
+                buffers: Iterable[Buffer],
+                ancbufsize: int = 0,
+                flags: int = 0,
+                /,
+            ) -> Awaitable[tuple[int, list[tuple[int, int, bytes]], int, object]]: ...
 
         recvmsg_into = _make_simple_sock_method_wrapper(
-            _stdlib_socket.socket.recvmsg_into, _core.wait_readable, maybe_avail=True
+            _stdlib_socket.socket.recvmsg_into,
+            _core.wait_readable,
+            maybe_avail=True,
         )
 
     ################################################################
@@ -1163,10 +1232,11 @@ class _SocketType(SocketType):
 
     if TYPE_CHECKING:
 
-        def send(__self, __bytes: Buffer, __flags: int = 0) -> Awaitable[int]: ...
+        def send(self, bytes: Buffer, flags: int = 0, /) -> Awaitable[int]: ...
 
     send = _make_simple_sock_method_wrapper(
-        _stdlib_socket.socket.send, _core.wait_writable
+        _stdlib_socket.socket.send,
+        _core.wait_writable,
     )
 
     ################################################################
@@ -1175,16 +1245,23 @@ class _SocketType(SocketType):
 
     @overload
     async def sendto(
-        self, __data: Buffer, __address: tuple[object, ...] | str | Buffer
+        self,
+        data: Buffer,
+        address: tuple[object, ...] | str | Buffer,
+        /,
     ) -> int: ...
 
     @overload
     async def sendto(
-        self, __data: Buffer, __flags: int, __address: tuple[object, ...] | str | Buffer
+        self,
+        data: Buffer,
+        flags: int,
+        address: tuple[object, ...] | str | Buffer,
+        /,
     ) -> int: ...
 
-    @_wraps(_stdlib_socket.socket.sendto, assigned=(), updated=())  # type: ignore[misc]
-    async def sendto(self, *args: Any) -> int:
+    @_wraps(_stdlib_socket.socket.sendto, assigned=(), updated=())
+    async def sendto(self, *args: object) -> int:
         """Similar to :meth:`socket.socket.sendto`, but async."""
         # args is: data[, flags], address
         # and kwargs are not accepted
@@ -1209,10 +1286,11 @@ class _SocketType(SocketType):
         @_wraps(_stdlib_socket.socket.sendmsg, assigned=(), updated=())
         async def sendmsg(
             self,
-            __buffers: Iterable[Buffer],
-            __ancdata: Iterable[tuple[int, int, Buffer]] = (),
-            __flags: int = 0,
-            __address: AddressFormat | None = None,
+            buffers: Iterable[Buffer],
+            ancdata: Iterable[tuple[int, int, Buffer]] = (),
+            flags: int = 0,
+            address: AddressFormat | None = None,
+            /,
         ) -> int:
             """Similar to :meth:`socket.socket.sendmsg`, but async.
 
@@ -1220,15 +1298,15 @@ class _SocketType(SocketType):
             available.
 
             """
-            if __address is not None:
-                __address = await self._resolve_address_nocp(__address, local=False)
+            if address is not None:
+                address = await self._resolve_address_nocp(address, local=False)
             return await self._nonblocking_helper(
                 _core.wait_writable,
                 _stdlib_socket.socket.sendmsg,
-                __buffers,
-                __ancdata,
-                __flags,
-                __address,
+                buffers,
+                ancdata,
+                flags,
+                address,
             )
 
     ################################################################

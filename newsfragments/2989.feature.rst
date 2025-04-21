@@ -1,1 +1,0 @@
-:class:`trio.testing.RaisesGroup` can now catch an unwrapped exception with ``unwrapped=True``. This means that the behaviour of :ref:`except* <except_star>` can be fully replicated in combination with ``flatten_subgroups=True`` (formerly ``strict=False``).

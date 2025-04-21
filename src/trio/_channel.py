@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import sys
 from collections import OrderedDict, deque
+from collections.abc import AsyncGenerator, Callable  # noqa: TC003  # Needed for Sphinx
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from functools import wraps
 from math import inf
 from typing import (
     TYPE_CHECKING,
     Generic,
-    Tuple,  # only needed for typechecking on <3.9
 )
 
 import attrs
@@ -15,12 +18,31 @@ import trio
 
 from ._abc import ReceiveChannel, ReceiveType, SendChannel, SendType, T
 from ._core import Abort, RaiseCancelT, Task, enable_ki_protection
-from ._util import NoPublicConstructor, final, generic_function
+from ._util import (
+    MultipleExceptionError,
+    NoPublicConstructor,
+    final,
+    generic_function,
+    raise_single_exception_from_group,
+)
+
+if sys.version_info < (3, 11):
+    from exceptiongroup import BaseExceptionGroup
 
 if TYPE_CHECKING:
     from types import TracebackType
 
-    from typing_extensions import Self
+    from typing_extensions import ParamSpec, Self
+
+    P = ParamSpec("P")
+elif "sphinx" in sys.modules:
+    # P needs to exist for Sphinx to parse the type hints successfully.
+    try:
+        from typing_extensions import ParamSpec
+    except ImportError:
+        P = ...  # This is valid in Callable, though not correct
+    else:
+        P = ParamSpec("P")
 
 
 def _open_memory_channel(
@@ -93,14 +115,14 @@ def _open_memory_channel(
 # it could replace the normal function header
 if TYPE_CHECKING:
     # written as a class so you can say open_memory_channel[int](5)
-    # Need to use Tuple instead of tuple due to CI check running on 3.8
-    class open_memory_channel(Tuple["MemorySendChannel[T]", "MemoryReceiveChannel[T]"]):
+    class open_memory_channel(tuple["MemorySendChannel[T]", "MemoryReceiveChannel[T]"]):
         def __new__(  # type: ignore[misc]  # "must return a subtype"
-            cls, max_buffer_size: int | float  # noqa: PYI041
+            cls,
+            max_buffer_size: int | float,  # noqa: PYI041
         ) -> tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]:
             return _open_memory_channel(max_buffer_size)
 
-        def __init__(self, max_buffer_size: int | float):  # noqa: PYI041
+        def __init__(self, max_buffer_size: int | float) -> None:  # noqa: PYI041
             ...
 
 else:
@@ -110,7 +132,7 @@ else:
 
 
 @attrs.frozen
-class MemoryChannelStats:
+class MemoryChannelStatistics:
     current_buffer_used: int
     max_buffer_size: int | float
     open_send_channels: int
@@ -131,8 +153,8 @@ class MemoryChannelState(Generic[T]):
     # {task: None}
     receive_tasks: OrderedDict[Task, None] = attrs.Factory(OrderedDict)
 
-    def statistics(self) -> MemoryChannelStats:
-        return MemoryChannelStats(
+    def statistics(self) -> MemoryChannelStatistics:
+        return MemoryChannelStatistics(
             current_buffer_used=len(self.data),
             max_buffer_size=self.max_buffer_size,
             open_send_channels=self.open_send_channels,
@@ -158,7 +180,9 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
     def __repr__(self) -> str:
         return f"<send channel at {id(self):#x}, using buffer at {id(self._state):#x}>"
 
-    def statistics(self) -> MemoryChannelStats:
+    def statistics(self) -> MemoryChannelStatistics:
+        """Returns a `MemoryChannelStatistics` for the memory channel this is
+        associated with."""
         # XX should we also report statistics specific to this object?
         return self._state.statistics()
 
@@ -281,6 +305,9 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
 
     @enable_ki_protection
     async def aclose(self) -> None:
+        """Close this send channel object asynchronously.
+
+        See `MemorySendChannel.close`."""
         self.close()
         await trio.lowlevel.checkpoint()
 
@@ -295,7 +322,9 @@ class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstr
     def __attrs_post_init__(self) -> None:
         self._state.open_receive_channels += 1
 
-    def statistics(self) -> MemoryChannelStats:
+    def statistics(self) -> MemoryChannelStatistics:
+        """Returns a `MemoryChannelStatistics` for the memory channel this is
+        associated with."""
         return self._state.statistics()
 
     def __repr__(self) -> str:
@@ -429,5 +458,129 @@ class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstr
 
     @enable_ki_protection
     async def aclose(self) -> None:
+        """Close this receive channel object asynchronously.
+
+        See `MemoryReceiveChannel.close`."""
         self.close()
         await trio.lowlevel.checkpoint()
+
+
+class RecvChanWrapper(ReceiveChannel[T]):
+    def __init__(
+        self, recv_chan: MemoryReceiveChannel[T], send_semaphore: trio.Semaphore
+    ) -> None:
+        self._recv_chan = recv_chan
+        self._send_semaphore = send_semaphore
+
+    async def receive(self) -> T:
+        self._send_semaphore.release()
+        return await self._recv_chan.receive()
+
+    async def aclose(self) -> None:
+        await self._recv_chan.aclose()
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        self._recv_chan.close()
+
+
+def as_safe_channel(
+    fn: Callable[P, AsyncGenerator[T, None]],
+) -> Callable[P, AbstractAsyncContextManager[ReceiveChannel[T]]]:
+    """Decorate an async generator function to make it cancellation-safe.
+
+    The ``yield`` keyword offers a very convenient way to write iterators...
+    which makes it really unfortunate that async generators are so difficult
+    to call correctly.  Yielding from the inside of a cancel scope or a nursery
+    to the outside `violates structured concurrency <https://xkcd.com/292/>`_
+    with consequences explained in :pep:`789`.  Even then, resource cleanup
+    errors remain common (:pep:`533`) unless you wrap every call in
+    :func:`~contextlib.aclosing`.
+
+    This decorator gives you the best of both worlds: with careful exception
+    handling and a background task we preserve structured concurrency by
+    offering only the safe interface, and you can still write your iterables
+    with the convenience of ``yield``.  For example::
+
+        @as_safe_channel
+        async def my_async_iterable(arg, *, kwarg=True):
+            while ...:
+                item = await ...
+                yield item
+
+        async with my_async_iterable(...) as recv_chan:
+            async for item in recv_chan:
+                ...
+
+    While the combined async-with-async-for can be inconvenient at first,
+    the context manager is indispensable for both correctness and for prompt
+    cleanup of resources.
+    """
+    # Perhaps a future PEP will adopt `async with for` syntax, like
+    # https://coconut.readthedocs.io/en/master/DOCS.html#async-with-for
+
+    @asynccontextmanager
+    @wraps(fn)
+    async def context_manager(
+        *args: P.args, **kwargs: P.kwargs
+    ) -> AsyncGenerator[trio._channel.RecvChanWrapper[T], None]:
+        send_chan, recv_chan = trio.open_memory_channel[T](0)
+        try:
+            async with trio.open_nursery(strict_exception_groups=True) as nursery:
+                agen = fn(*args, **kwargs)
+                send_semaphore = trio.Semaphore(0)
+                # `nursery.start` to make sure that we will clean up send_chan & agen
+                # If this errors we don't close `recv_chan`, but the caller
+                # never gets access to it, so that's not a problem.
+                await nursery.start(
+                    _move_elems_to_channel, agen, send_chan, send_semaphore
+                )
+                # `async with recv_chan` could eat exceptions, so use sync cm
+                with RecvChanWrapper(recv_chan, send_semaphore) as wrapped_recv_chan:
+                    yield wrapped_recv_chan
+                # User has exited context manager, cancel to immediately close the
+                # abandoned generator if it's still alive.
+                nursery.cancel_scope.cancel()
+        except BaseExceptionGroup as eg:
+            try:
+                raise_single_exception_from_group(eg)
+            except MultipleExceptionError:
+                # In case user has except* we make it possible for them to handle the
+                # exceptions.
+                raise BaseExceptionGroup(
+                    "Encountered exception during cleanup of generator object, as well as exception in the contextmanager body - unable to unwrap.",
+                    [eg],
+                ) from None
+
+    async def _move_elems_to_channel(
+        agen: AsyncGenerator[T, None],
+        send_chan: trio.MemorySendChannel[T],
+        send_semaphore: trio.Semaphore,
+        task_status: trio.TaskStatus,
+    ) -> None:
+        # `async with send_chan` will eat exceptions,
+        # see https://github.com/python-trio/trio/issues/1559
+        with send_chan:
+            try:
+                task_status.started()
+                while True:
+                    # wait for receiver to call next on the aiter
+                    await send_semaphore.acquire()
+                    try:
+                        value = await agen.__anext__()
+                    except StopAsyncIteration:
+                        return
+                    # Send the value to the channel
+                    await send_chan.send(value)
+            finally:
+                # replace try-finally with contextlib.aclosing once python39 is dropped
+                await agen.aclose()
+
+    return context_manager

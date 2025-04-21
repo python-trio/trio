@@ -16,6 +16,10 @@ from .abc import Listener, Stream
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
+    from typing_extensions import TypeVarTuple, Unpack
+
+    Ts = TypeVarTuple("Ts")
+
 # General theory of operation:
 #
 # We implement an API that closely mirrors the stdlib ssl module's blocking
@@ -219,7 +223,13 @@ class NeedHandshakeError(Exception):
 
 
 class _Once:
-    def __init__(self, afn: Callable[..., Awaitable[object]], *args: object) -> None:
+    __slots__ = ("_afn", "_args", "_done", "started")
+
+    def __init__(
+        self,
+        afn: Callable[[*Ts], Awaitable[object]],
+        *args: Unpack[Ts],
+    ) -> None:
         self._afn = afn
         self._args = args
         self.started = False
@@ -376,10 +386,10 @@ class SSLStream(Stream, Generic[T_Stream]):
         # multiple concurrent calls to send_all/wait_send_all_might_not_block
         # or to receive_some.
         self._outer_send_conflict_detector = ConflictDetector(
-            "another task is currently sending data on this SSLStream"
+            "another task is currently sending data on this SSLStream",
         )
         self._outer_recv_conflict_detector = ConflictDetector(
-            "another task is currently receiving data on this SSLStream"
+            "another task is currently receiving data on this SSLStream",
         )
 
         self._estimated_receive_size = STARTING_RECEIVE_SIZE
@@ -413,7 +423,10 @@ class SSLStream(Stream, Generic[T_Stream]):
         "version",
     }
 
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(  # type: ignore[explicit-any]
+        self,
+        name: str,
+    ) -> Any:
         if name in self._forwarded:
             if name in self._after_handshake and not self._handshook.done:
                 raise NeedHandshakeError(f"call do_handshake() before calling {name!r}")
@@ -447,8 +460,8 @@ class SSLStream(Stream, Generic[T_Stream]):
     # too.
     async def _retry(
         self,
-        fn: Callable[..., T],
-        *args: object,
+        fn: Callable[[*Ts], T],
+        *args: Unpack[Ts],
         ignore_want_read: bool = False,
         is_handshake: bool = False,
     ) -> T | None:
@@ -615,7 +628,8 @@ class SSLStream(Stream, Generic[T_Stream]):
                             self._incoming.write_eof()
                         else:
                             self._estimated_receive_size = max(
-                                self._estimated_receive_size, len(data)
+                                self._estimated_receive_size,
+                                len(data),
                             )
                             self._incoming.write(data)
                         self._inner_recv_count += 1
@@ -891,6 +905,10 @@ class SSLStream(Stream, Generic[T_Stream]):
                 # wait_send_all_might_not_block only guarantees that it
                 # doesn't return late.
                 await self.transport_stream.wait_send_all_might_not_block()
+
+
+# this is necessary for Sphinx, see also `_abc.py`
+SSLStream.__module__ = SSLStream.__module__.replace("._ssl", "")
 
 
 @final

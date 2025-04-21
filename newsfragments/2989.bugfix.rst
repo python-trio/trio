@@ -1,2 +1,0 @@
-Fixed a bug where :class:`trio.testing.RaisesGroup(..., strict=False) <trio.testing.RaisesGroup>` would check the number of exceptions in the raised `ExceptionGroup` before flattening subgroups, leading to incorrectly failed matches.
-It now properly supports end (``$``) regex markers in the ``match`` message, by no longer including " (x sub-exceptions)" in the string it matches against.

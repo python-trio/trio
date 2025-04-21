@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Container, Iterable, NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 import attrs
 import pytest
@@ -9,10 +9,12 @@ from ... import _abc, _core
 from .tutil import check_sequence_matches
 
 if TYPE_CHECKING:
+    from collections.abc import Container, Iterable
+
     from ...lowlevel import Task
 
 
-@attrs.define(eq=False, hash=False, slots=False)
+@attrs.define(eq=False, slots=False)
 class TaskRecorder(_abc.Instrument):
     record: list[tuple[str, Task | None]] = attrs.Factory(list)
 
@@ -204,7 +206,7 @@ def test_instruments_crash(caplog: pytest.LogCaptureFixture) -> None:
     assert ("after_run", None) in r.record
     # And we got a log message
     assert caplog.records[0].exc_info is not None
-    exc_type, exc_value, exc_traceback = caplog.records[0].exc_info
+    exc_type, exc_value, _exc_traceback = caplog.records[0].exc_info
     assert exc_type is ValueError
     assert str(exc_value) == "oops"
     assert "Instrument has been disabled" in caplog.records[0].message
@@ -255,7 +257,7 @@ def test_instrument_that_raises_on_getattr() -> None:
             raise ValueError("oops")
 
     async def main() -> None:
-        with pytest.raises(ValueError, match="^oops$"):
+        with pytest.raises(ValueError, match=r"^oops$"):
             _core.add_instrument(EvilInstrument())
 
         # Make sure the instrument is fully removed from the per-method lists
@@ -264,3 +266,50 @@ def test_instrument_that_raises_on_getattr() -> None:
         assert "task_exited" not in runner.instruments
 
     _core.run(main)
+
+
+def test_instrument_call_trio_context() -> None:
+    called = set()
+
+    class Instrument(_abc.Instrument):
+        pass
+
+    hooks = {
+        # not run in task context
+        "after_io_wait": (True, False),
+        "before_io_wait": (True, False),
+        "before_run": (True, False),
+        "after_run": (True, False),
+        # run in task context
+        "before_task_step": (True, True),
+        "after_task_step": (True, True),
+        "task_exited": (True, True),
+        # depends
+        "task_scheduled": (True, None),
+        "task_spawned": (True, None),
+    }
+    for hook, val in hooks.items():
+
+        def h(
+            self: Instrument,
+            *args: object,
+            hook: str = hook,
+            val: tuple[bool, bool | None] = val,
+        ) -> None:
+            fail_str = f"failed in {hook}"
+
+            assert _core.in_trio_run() == val[0], fail_str
+            if val[1] is not None:
+                assert _core.in_trio_task() == val[1], fail_str
+            called.add(hook)
+
+        setattr(Instrument, hook, h)
+
+    async def main() -> None:
+        await _core.checkpoint()
+
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(_core.checkpoint)
+
+    _core.run(main, instruments=[Instrument()])
+    assert called == set(hooks)

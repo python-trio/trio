@@ -3,19 +3,15 @@ from __future__ import annotations
 
 import collections.abc
 import inspect
-import os
 import signal
-import threading
 from abc import ABCMeta
+from collections.abc import Awaitable, Callable, Sequence
 from functools import update_wrapper
 from typing import (
     TYPE_CHECKING,
     Any,
-    Awaitable,
-    Callable,
     Generic,
     NoReturn,
-    Sequence,
     TypeVar,
     final as std_final,
 )
@@ -24,71 +20,22 @@ from sniffio import thread_local as sniffio_loop
 
 import trio
 
-CallT = TypeVar("CallT", bound=Callable[..., Any])
+# Explicit "Any" is not allowed
+CallT = TypeVar("CallT", bound=Callable[..., Any])  # type: ignore[explicit-any]
 T = TypeVar("T")
 RetT = TypeVar("RetT")
 
 if TYPE_CHECKING:
+    import sys
     from types import AsyncGeneratorType, TracebackType
 
     from typing_extensions import ParamSpec, Self, TypeVarTuple, Unpack
 
+    if sys.version_info < (3, 11):
+        from exceptiongroup import BaseExceptionGroup
+
     ArgsT = ParamSpec("ArgsT")
     PosArgsT = TypeVarTuple("PosArgsT")
-
-
-if TYPE_CHECKING:
-    # Don't type check the implementation below, pthread_kill does not exist on Windows.
-    def signal_raise(signum: int) -> None: ...
-
-
-# Equivalent to the C function raise(), which Python doesn't wrap
-elif os.name == "nt":
-    # On Windows, os.kill exists but is really weird.
-    #
-    # If you give it CTRL_C_EVENT or CTRL_BREAK_EVENT, it tries to deliver
-    # those using GenerateConsoleCtrlEvent. But I found that when I tried
-    # to run my test normally, it would freeze waiting... unless I added
-    # print statements, in which case the test suddenly worked. So I guess
-    # these signals are only delivered if/when you access the console? I
-    # don't really know what was going on there. From reading the
-    # GenerateConsoleCtrlEvent docs I don't know how it worked at all.
-    #
-    # I later spent a bunch of time trying to make GenerateConsoleCtrlEvent
-    # work for creating synthetic control-C events, and... failed
-    # utterly. There are lots of details in the code and comments
-    # removed/added at this commit:
-    #     https://github.com/python-trio/trio/commit/95843654173e3e826c34d70a90b369ba6edf2c23
-    #
-    # OTOH, if you pass os.kill any *other* signal number... then CPython
-    # just calls TerminateProcess (wtf).
-    #
-    # So, anyway, os.kill is not so useful for testing purposes. Instead,
-    # we use raise():
-    #
-    #   https://msdn.microsoft.com/en-us/library/dwwzkt4c.aspx
-    #
-    # Have to import cffi inside the 'if os.name' block because we don't
-    # depend on cffi on non-Windows platforms. (It would be easy to switch
-    # this to ctypes though if we ever remove the cffi dependency.)
-    #
-    # Some more information:
-    #   https://bugs.python.org/issue26350
-    #
-    # Anyway, we use this for two things:
-    # - redelivering unhandled signals
-    # - generating synthetic signals for tests
-    # and for both of those purposes, 'raise' works fine.
-    import cffi
-
-    _ffi = cffi.FFI()
-    _ffi.cdef("int raise(int);")
-    _lib = _ffi.dlopen("api-ms-win-crt-runtime-l1-1-0.dll")
-    signal_raise = getattr(_lib, "raise")
-else:
-
-    def signal_raise(signum: int) -> None:
-        signal.pthread_kill(threading.get_ident(), signum)
 
 
 # See: #461 as to why this is needed.
@@ -127,9 +74,7 @@ def coroutine_or_error(
         # This janky check catches tornado Futures and twisted Deferreds.
         # By the time we're calling this function, we already know
         # something has gone wrong, so a heuristic is pretty safe.
-        if value.__class__.__name__ in ("Future", "Deferred"):
-            return True
-        return False
+        return value.__class__.__name__ in ("Future", "Deferred")
 
     # Make sure a sync-fn-that-returns-coroutine still sees itself as being
     # in trio context
@@ -156,7 +101,7 @@ def coroutine_or_error(
                 "Instead, you want (notice the parentheses!):\n"
                 "\n"
                 f"  trio.run({async_fn.__name__}, ...)            # correct!\n"
-                f"  nursery.start_soon({async_fn.__name__}, ...)  # correct!"
+                f"  nursery.start_soon({async_fn.__name__}, ...)  # correct!",
             ) from None
 
         # Give good error for: nursery.start_soon(future)
@@ -165,7 +110,7 @@ def coroutine_or_error(
                 "Trio was expecting an async function, but instead it got "
                 f"{async_fn!r} – are you trying to use a library written for "
                 "asyncio/twisted/tornado or similar? That won't work "
-                "without some sort of compatibility shim."
+                "without some sort of compatibility shim.",
             ) from None
 
         raise
@@ -185,19 +130,19 @@ def coroutine_or_error(
             raise TypeError(
                 f"Trio got unexpected {coro!r} – are you trying to use a "
                 "library written for asyncio/twisted/tornado or similar? "
-                "That won't work without some sort of compatibility shim."
+                "That won't work without some sort of compatibility shim.",
             )
 
         if inspect.isasyncgen(coro):
             raise TypeError(
                 "start_soon expected an async function but got an async "
-                f"generator {coro!r}"
+                f"generator {coro!r}",
             )
 
         # Give good error for: nursery.start_soon(some_sync_fn)
         raise TypeError(
             "Trio expected an async function, but {!r} appears to be "
-            "synchronous".format(getattr(async_fn, "__qualname__", async_fn))
+            "synchronous".format(getattr(async_fn, "__qualname__", async_fn)),
         )
 
     return coro
@@ -236,16 +181,16 @@ class ConflictDetector:
         self._held = False
 
 
-def async_wraps(
+def async_wraps(  # type: ignore[explicit-any]
     cls: type[object],
     wrapped_cls: type[object],
     attr_name: str,
 ) -> Callable[[CallT], CallT]:
     """Similar to wraps, but for async wrappers of non-async functions."""
 
-    def decorator(func: CallT) -> CallT:
+    def decorator(func: CallT) -> CallT:  # type: ignore[explicit-any]
         func.__name__ = attr_name
-        func.__qualname__ = ".".join((cls.__qualname__, attr_name))
+        func.__qualname__ = f"{cls.__qualname__}.{attr_name}"
 
         func.__doc__ = f"Like :meth:`~{wrapped_cls.__module__}.{wrapped_cls.__qualname__}.{attr_name}`, but async."
 
@@ -255,7 +200,8 @@ def async_wraps(
 
 
 def fixup_module_metadata(
-    module_name: str, namespace: collections.abc.Mapping[str, object]
+    module_name: str,
+    namespace: collections.abc.Mapping[str, object],
 ) -> None:
     seen_ids: set[int] = set()
 
@@ -290,7 +236,7 @@ def fixup_module_metadata(
 # so don't bother.
 class generic_function(Generic[RetT]):
     """Decorator that makes a function indexable, to communicate
-    non-inferrable generic type parameters to a static type checker.
+    non-inferable generic type parameters to a static type checker.
 
     If you write::
 
@@ -305,11 +251,14 @@ class generic_function(Generic[RetT]):
     but at least it becomes possible to write those.
     """
 
-    def __init__(self, fn: Callable[..., RetT]) -> None:
+    def __init__(  # type: ignore[explicit-any]
+        self,
+        fn: Callable[..., RetT],
+    ) -> None:
         update_wrapper(self, fn)
         self._fn = fn
 
-    def __call__(self, *args: Any, **kwargs: Any) -> RetT:
+    def __call__(self, *args: object, **kwargs: object) -> RetT:
         return self._fn(*args, **kwargs)
 
     def __getitem__(self, subscript: object) -> Self:
@@ -372,7 +321,7 @@ class NoPublicConstructor(ABCMeta):
 
     def __call__(cls, *args: object, **kwargs: object) -> None:
         raise TypeError(
-            f"{cls.__module__}.{cls.__qualname__} has no public constructor"
+            f"{cls.__module__}.{cls.__qualname__} has no public constructor",
         )
 
     def _create(cls: type[T], *args: object, **kwargs: object) -> T:
@@ -398,9 +347,9 @@ def name_asyncgen(agen: AsyncGeneratorType[object, NoReturn]) -> str:
 
 # work around a pyright error
 if TYPE_CHECKING:
-    Fn = TypeVar("Fn", bound=Callable[..., object])
+    Fn = TypeVar("Fn", bound=Callable[..., object])  # type: ignore[explicit-any]
 
-    def wraps(
+    def wraps(  # type: ignore[explicit-any]
         wrapped: Callable[..., object],
         assigned: Sequence[str] = ...,
         updated: Sequence[str] = ...,
@@ -408,3 +357,66 @@ if TYPE_CHECKING:
 
 else:
     from functools import wraps  # noqa: F401  # this is re-exported
+
+
+def raise_saving_context(exc: BaseException) -> NoReturn:
+    """This helper allows re-raising an exception without __context__ being set."""
+    # cause does not need special handling, we simply avoid using `raise .. from ..`
+    # __suppress_context__ also does not need handling, it's only set if modifying cause
+    __tracebackhide__ = True
+    context = exc.__context__
+    try:
+        raise exc
+    finally:
+        exc.__context__ = context
+        del exc, context
+
+
+class MultipleExceptionError(Exception):
+    """Raised by raise_single_exception_from_group if encountering multiple
+    non-cancelled exceptions."""
+
+
+def raise_single_exception_from_group(
+    eg: BaseExceptionGroup[BaseException],
+) -> NoReturn:
+    """This function takes an exception group that is assumed to have at most
+    one non-cancelled exception, which it reraises as a standalone exception.
+
+    This exception may be an exceptiongroup itself, in which case it will not be unwrapped.
+
+    If a :exc:`KeyboardInterrupt` is encountered, a new KeyboardInterrupt is immediately
+    raised with the entire group as cause.
+
+    If the group only contains :exc:`Cancelled` it reraises the first one encountered.
+
+    It will retain context and cause of the contained exception, and entirely discard
+    the cause/context of the group(s).
+
+    If multiple non-cancelled exceptions are encountered, it raises
+    :exc:`AssertionError`.
+    """
+    # immediately bail out if there's any KI or SystemExit
+    for e in eg.exceptions:
+        if isinstance(e, (KeyboardInterrupt, SystemExit)):
+            raise type(e) from eg
+
+    cancelled_exception: trio.Cancelled | None = None
+    noncancelled_exception: BaseException | None = None
+
+    for e in eg.exceptions:
+        if isinstance(e, trio.Cancelled):
+            if cancelled_exception is None:
+                cancelled_exception = e
+        elif noncancelled_exception is None:
+            noncancelled_exception = e
+        else:
+            raise MultipleExceptionError(
+                "Attempted to unwrap exceptiongroup with multiple non-cancelled exceptions. This is often caused by a bug in the caller."
+            ) from eg
+
+    if noncancelled_exception is not None:
+        raise_saving_context(noncancelled_exception)
+
+    assert cancelled_exception is not None, "group can't be empty"
+    raise_saving_context(cancelled_exception)

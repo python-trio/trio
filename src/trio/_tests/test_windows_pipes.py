@@ -28,7 +28,7 @@ async def make_pipe() -> tuple[PipeSendStream, PipeReceiveStream]:
     return PipeSendStream(w), PipeReceiveStream(r)
 
 
-async def test_pipe_typecheck() -> None:
+def test_pipe_typecheck() -> None:
     with pytest.raises(TypeError):
         PipeSendStream(1.0)  # type: ignore[arg-type]
     with pytest.raises(TypeError):
@@ -92,7 +92,7 @@ async def test_async_with() -> None:
 
 
 async def test_close_during_write() -> None:
-    w, r = await make_pipe()
+    w, _r = await make_pipe()
     async with _core.open_nursery() as nursery:
 
         async def write_forever() -> None:

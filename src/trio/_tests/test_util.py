@@ -1,8 +1,11 @@
-import signal
+from __future__ import annotations
+
 import sys
 import types
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator, Coroutine, Generator
 import pytest
 
 import trio
@@ -15,31 +18,24 @@ from .._core._tests.tutil import (
 )
 from .._util import (
     ConflictDetector,
+    MultipleExceptionError,
     NoPublicConstructor,
     coroutine_or_error,
     final,
     fixup_module_metadata,
     generic_function,
     is_main_thread,
-    signal_raise,
+    raise_single_exception_from_group,
 )
 from ..testing import wait_all_tasks_blocked
 
+if sys.version_info < (3, 11):
+    from exceptiongroup import BaseExceptionGroup, ExceptionGroup
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
+
 T = TypeVar("T")
-
-
-def test_signal_raise() -> None:
-    record = []
-
-    def handler(signum: int, _: object) -> None:
-        record.append(signum)
-
-    old = signal.signal(signal.SIGFPE, handler)
-    try:
-        signal_raise(signal.SIGFPE)
-    finally:
-        signal.signal(signal.SIGFPE, old)
-    assert record == [signal.SIGFPE]
 
 
 async def test_ConflictDetector() -> None:
@@ -116,9 +112,11 @@ def test_coroutine_or_error() -> None:
         import asyncio
 
         if sys.version_info < (3, 11):
-            # not bothering to type this one
-            @asyncio.coroutine  # type: ignore[misc]
-            def generator_based_coro() -> Any:  # pragma: no cover
+
+            @asyncio.coroutine
+            def generator_based_coro() -> (
+                Generator[Coroutine[None, None, None], None, None]
+            ):  # pragma: no cover
                 yield from asyncio.sleep(1)
 
             with pytest.raises(TypeError) as excinfo:
@@ -147,12 +145,13 @@ def test_coroutine_or_error() -> None:
 
         assert "appears to be synchronous" in str(excinfo.value)
 
-        async def async_gen(_: object) -> Any:  # pragma: no cover
+        async def async_gen(
+            _: object,
+        ) -> AsyncGenerator[None, None]:  # pragma: no cover
             yield
 
-        # does not give arg-type typing error
         with pytest.raises(TypeError) as excinfo:
-            coroutine_or_error(async_gen, [0])  # type: ignore[unused-coroutine]
+            coroutine_or_error(async_gen, [0])  # type: ignore[arg-type,unused-coroutine]
         msg = "expected an async function but got an async generator"
         assert msg in str(excinfo.value)
 
@@ -198,13 +197,13 @@ def test_no_public_constructor_metaclass() -> None:
         def __init__(self, a: int, b: float) -> None:
             """Check arguments can be passed to __init__."""
             assert a == 8
-            assert b == 3.14
+            assert b == 3.15
 
     with pytest.raises(TypeError):
-        SpecialClass(8, 3.14)
+        SpecialClass(8, 3.15)
 
     # Private constructor should not raise, and passes args to __init__.
-    assert isinstance(SpecialClass._create(8, b=3.14), SpecialClass)
+    assert isinstance(SpecialClass._create(8, b=3.15), SpecialClass)
 
 
 def test_fixup_module_metadata() -> None:
@@ -269,7 +268,88 @@ def test_fixup_module_metadata() -> None:
     assert mod.SomeClass.method.__module__ == "trio.somemodule"  # type: ignore[attr-defined]
     assert mod.SomeClass.method.__qualname__ == "SomeClass.method"  # type: ignore[attr-defined]
     # Make coverage happy.
-    non_trio_module.some_func()  # type: ignore[no-untyped-call]
-    mod.some_func()  # type: ignore[no-untyped-call]
-    mod._private()  # type: ignore[no-untyped-call]
+    non_trio_module.some_func()
+    mod.some_func()
+    mod._private()
     mod.SomeClass().method()
+
+
+async def test_raise_single_exception_from_group() -> None:
+    excinfo: pytest.ExceptionInfo[BaseException]
+
+    exc = ValueError("foo")
+    cause = SyntaxError("cause")
+    context = TypeError("context")
+    exc.__cause__ = cause
+    exc.__context__ = context
+    cancelled = trio.Cancelled._create()
+
+    with pytest.raises(ValueError, match="foo") as excinfo:
+        raise_single_exception_from_group(ExceptionGroup("", [exc]))
+    assert excinfo.value.__cause__ == cause
+    assert excinfo.value.__context__ == context
+
+    # only unwraps one layer of exceptiongroup
+    inner_eg = ExceptionGroup("inner eg", [exc])
+    inner_cause = SyntaxError("inner eg cause")
+    inner_context = TypeError("inner eg context")
+    inner_eg.__cause__ = inner_cause
+    inner_eg.__context__ = inner_context
+    with RaisesGroup(Matcher(ValueError, match="^foo$"), match="^inner eg$") as eginfo:
+        raise_single_exception_from_group(ExceptionGroup("", [inner_eg]))
+    assert eginfo.value.__cause__ == inner_cause
+    assert eginfo.value.__context__ == inner_context
+
+    with pytest.raises(ValueError, match="foo") as excinfo:
+        raise_single_exception_from_group(
+            BaseExceptionGroup("", [cancelled, cancelled, exc])
+        )
+    assert excinfo.value.__cause__ == cause
+    assert excinfo.value.__context__ == context
+
+    # multiple non-cancelled
+    eg = ExceptionGroup("", [ValueError("foo"), ValueError("bar")])
+    with pytest.raises(
+        MultipleExceptionError,
+        match=r"^Attempted to unwrap exceptiongroup with multiple non-cancelled exceptions. This is often caused by a bug in the caller.$",
+    ) as excinfo:
+        raise_single_exception_from_group(eg)
+    assert excinfo.value.__cause__ is eg
+    assert excinfo.value.__context__ is None
+
+    # keyboardinterrupt overrides everything
+    eg_ki = BaseExceptionGroup(
+        "",
+        [
+            ValueError("foo"),
+            ValueError("bar"),
+            KeyboardInterrupt("this exc doesn't get reraised"),
+        ],
+    )
+    with pytest.raises(KeyboardInterrupt, match=r"^$") as excinfo:
+        raise_single_exception_from_group(eg_ki)
+    assert excinfo.value.__cause__ is eg_ki
+    assert excinfo.value.__context__ is None
+
+    # and same for SystemExit
+    systemexit_ki = BaseExceptionGroup(
+        "",
+        [
+            ValueError("foo"),
+            ValueError("bar"),
+            SystemExit("this exc doesn't get reraised"),
+        ],
+    )
+    with pytest.raises(SystemExit, match=r"^$") as excinfo:
+        raise_single_exception_from_group(systemexit_ki)
+    assert excinfo.value.__cause__ is systemexit_ki
+    assert excinfo.value.__context__ is None
+
+    # if we only got cancelled, first one is reraised
+    with pytest.raises(trio.Cancelled, match=r"^Cancelled$") as excinfo:
+        raise_single_exception_from_group(
+            BaseExceptionGroup("", [cancelled, trio.Cancelled._create()])
+        )
+    assert excinfo.value is cancelled
+    assert excinfo.value.__cause__ is None
+    assert excinfo.value.__context__ is None

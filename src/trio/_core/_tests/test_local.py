@@ -57,13 +57,13 @@ def test_runvar_resetting() -> None:
         t2.reset(token2)
         assert t2.get() == "dogfish"
 
-        with pytest.raises(ValueError, match="^token has already been used$"):
+        with pytest.raises(ValueError, match=r"^token has already been used$"):
             t2.reset(token2)
 
         token3 = t3.set("basculin")
         assert t3.get() == "basculin"
 
-        with pytest.raises(ValueError, match="^token is not for us$"):
+        with pytest.raises(ValueError, match=r"^token is not for us$"):
             t1.reset(token3)
 
     run(reset_check)

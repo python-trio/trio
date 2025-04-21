@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import trio
 
-from ._util import ConflictDetector, is_main_thread, signal_raise
+from ._util import ConflictDetector, is_main_thread
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable, Generator, Iterable
@@ -72,13 +72,13 @@ class SignalReceiver:
         self._pending: OrderedDict[int, None] = OrderedDict()
         self._lot = trio.lowlevel.ParkingLot()
         self._conflict_detector = ConflictDetector(
-            "only one task can iterate on a signal receiver at a time"
+            "only one task can iterate on a signal receiver at a time",
         )
         self._closed = False
 
     def _add(self, signum: int) -> None:
         if self._closed:
-            signal_raise(signum)
+            signal.raise_signal(signum)
         else:
             self._pending[signum] = None
             self._lot.unpark()
@@ -95,7 +95,7 @@ class SignalReceiver:
             if self._pending:
                 signum, _ = self._pending.popitem(last=False)
                 try:
-                    signal_raise(signum)
+                    signal.raise_signal(signum)
                 finally:
                     deliver_next()
 
@@ -170,7 +170,7 @@ def open_signal_receiver(
     if not is_main_thread():
         raise RuntimeError(
             "Sorry, open_signal_receiver is only possible when running in "
-            "Python interpreter's main thread"
+            "Python interpreter's main thread",
         )
     token = trio.lowlevel.current_trio_token()
     queue = SignalReceiver()

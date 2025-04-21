@@ -10,7 +10,6 @@ from trio.testing import RaisesGroup
 
 from .. import _core
 from .._signals import _signal_handler, get_pending_signal_count, open_signal_receiver
-from .._util import signal_raise
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -21,16 +20,16 @@ async def test_open_signal_receiver() -> None:
     with open_signal_receiver(signal.SIGILL) as receiver:
         # Raise it a few times, to exercise signal coalescing, both at the
         # call_soon level and at the SignalQueue level
-        signal_raise(signal.SIGILL)
-        signal_raise(signal.SIGILL)
+        signal.raise_signal(signal.SIGILL)
+        signal.raise_signal(signal.SIGILL)
         await _core.wait_all_tasks_blocked()
-        signal_raise(signal.SIGILL)
+        signal.raise_signal(signal.SIGILL)
         await _core.wait_all_tasks_blocked()
         async for signum in receiver:  # pragma: no branch
             assert signum == signal.SIGILL
             break
         assert get_pending_signal_count(receiver) == 0
-        signal_raise(signal.SIGILL)
+        signal.raise_signal(signal.SIGILL)
         async for signum in receiver:  # pragma: no branch
             assert signum == signal.SIGILL
             break
@@ -43,7 +42,8 @@ async def test_open_signal_receiver() -> None:
 async def test_open_signal_receiver_restore_handler_after_one_bad_signal() -> None:
     orig = signal.getsignal(signal.SIGILL)
     with pytest.raises(
-        ValueError, match="(signal number out of range|invalid signal value)$"
+        ValueError,
+        match=r"(signal number out of range|invalid signal value)$",
     ):
         with open_signal_receiver(signal.SIGILL, 1234567):
             pass  # pragma: no cover
@@ -51,7 +51,7 @@ async def test_open_signal_receiver_restore_handler_after_one_bad_signal() -> No
     assert signal.getsignal(signal.SIGILL) is orig
 
 
-async def test_open_signal_receiver_empty_fail() -> None:
+def test_open_signal_receiver_empty_fail() -> None:
     with pytest.raises(TypeError, match="No signals were provided"):
         with open_signal_receiver():
             pass
@@ -100,8 +100,8 @@ async def test_open_signal_receiver_no_starvation() -> None:
             print(signal.getsignal(signal.SIGILL))
             previous = None
             for _ in range(10):
-                signal_raise(signal.SIGILL)
-                signal_raise(signal.SIGFPE)
+                signal.raise_signal(signal.SIGILL)
+                signal.raise_signal(signal.SIGFPE)
                 await wait_run_sync_soon_idempotent_queue_barrier()
                 if previous is None:
                     previous = await receiver.__anext__()
@@ -133,8 +133,8 @@ async def test_catch_signals_race_condition_on_exit() -> None:
     # before we exit the with block:
     with _signal_handler({signal.SIGILL, signal.SIGFPE}, direct_handler):
         with open_signal_receiver(signal.SIGILL, signal.SIGFPE) as receiver:
-            signal_raise(signal.SIGILL)
-            signal_raise(signal.SIGFPE)
+            signal.raise_signal(signal.SIGILL)
+            signal.raise_signal(signal.SIGFPE)
         await wait_run_sync_soon_idempotent_queue_barrier()
     assert delivered_directly == {signal.SIGILL, signal.SIGFPE}
     delivered_directly.clear()
@@ -144,8 +144,8 @@ async def test_catch_signals_race_condition_on_exit() -> None:
     # we exit the with block:
     with _signal_handler({signal.SIGILL, signal.SIGFPE}, direct_handler):
         with open_signal_receiver(signal.SIGILL, signal.SIGFPE) as receiver:
-            signal_raise(signal.SIGILL)
-            signal_raise(signal.SIGFPE)
+            signal.raise_signal(signal.SIGILL)
+            signal.raise_signal(signal.SIGFPE)
             await wait_run_sync_soon_idempotent_queue_barrier()
             assert get_pending_signal_count(receiver) == 2
     assert delivered_directly == {signal.SIGILL, signal.SIGFPE}
@@ -156,14 +156,14 @@ async def test_catch_signals_race_condition_on_exit() -> None:
     print(3)
     with _signal_handler({signal.SIGILL}, signal.SIG_IGN):
         with open_signal_receiver(signal.SIGILL) as receiver:
-            signal_raise(signal.SIGILL)
+            signal.raise_signal(signal.SIGILL)
         await wait_run_sync_soon_idempotent_queue_barrier()
     # test passes if the process reaches this point without dying
 
     print(4)
     with _signal_handler({signal.SIGILL}, signal.SIG_IGN):
         with open_signal_receiver(signal.SIGILL) as receiver:
-            signal_raise(signal.SIGILL)
+            signal.raise_signal(signal.SIGILL)
             await wait_run_sync_soon_idempotent_queue_barrier()
             assert get_pending_signal_count(receiver) == 1
     # test passes if the process reaches this point without dying
@@ -176,8 +176,8 @@ async def test_catch_signals_race_condition_on_exit() -> None:
     with _signal_handler({signal.SIGILL, signal.SIGFPE}, raise_handler):
         with pytest.raises(RuntimeError) as excinfo:
             with open_signal_receiver(signal.SIGILL, signal.SIGFPE) as receiver:
-                signal_raise(signal.SIGILL)
-                signal_raise(signal.SIGFPE)
+                signal.raise_signal(signal.SIGILL)
+                signal.raise_signal(signal.SIGFPE)
                 await wait_run_sync_soon_idempotent_queue_barrier()
                 assert get_pending_signal_count(receiver) == 2
         exc = excinfo.value

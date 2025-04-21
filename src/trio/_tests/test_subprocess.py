@@ -6,18 +6,17 @@ import random
 import signal
 import subprocess
 import sys
-from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator, Callable
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from functools import partial
 from pathlib import Path as SyncPath
 from signal import Signals
 from typing import (
     TYPE_CHECKING,
     Any,
-    AsyncContextManager,
-    AsyncIterator,
-    Callable,
     NoReturn,
 )
+from unittest import mock
 
 import pytest
 
@@ -83,15 +82,11 @@ else:
         return python(f"import time; time.sleep({seconds})")
 
 
-def got_signal(proc: Process, sig: SignalType) -> bool:
-    if (not TYPE_CHECKING and posix) or sys.platform != "win32":
-        return proc.returncode == -sig
-    else:
-        return proc.returncode != 0
-
-
-@asynccontextmanager  # type: ignore[misc]  # Any in decorator
-async def open_process_then_kill(*args: Any, **kwargs: Any) -> AsyncIterator[Process]:
+@asynccontextmanager
+async def open_process_then_kill(  # type: ignore[misc, explicit-any]
+    *args: Any,
+    **kwargs: Any,
+) -> AsyncIterator[Process]:
     proc = await open_process(*args, **kwargs)
     try:
         yield proc
@@ -100,11 +95,16 @@ async def open_process_then_kill(*args: Any, **kwargs: Any) -> AsyncIterator[Pro
         await proc.wait()
 
 
-@asynccontextmanager  # type: ignore[misc]  # Any in decorator
-async def run_process_in_nursery(*args: Any, **kwargs: Any) -> AsyncIterator[Process]:
+@asynccontextmanager
+async def run_process_in_nursery(  # type: ignore[misc, explicit-any]
+    *args: Any,
+    **kwargs: Any,
+) -> AsyncIterator[Process]:
     async with _core.open_nursery() as nursery:
         kwargs.setdefault("check", False)
-        proc: Process = await nursery.start(partial(run_process, *args, **kwargs))
+        value = await nursery.start(partial(run_process, *args, **kwargs))
+        assert isinstance(value, Process)
+        proc: Process = value
         yield proc
         nursery.cancel_scope.cancel()
 
@@ -115,7 +115,10 @@ background_process_param = pytest.mark.parametrize(
     ids=["open_process", "run_process in nursery"],
 )
 
-BackgroundProcessType: TypeAlias = Callable[..., AsyncContextManager[Process]]
+BackgroundProcessType: TypeAlias = Callable[  # type: ignore[explicit-any]
+    ...,
+    AbstractAsyncContextManager[Process],
+]
 
 
 @background_process_param
@@ -131,8 +134,29 @@ async def test_basic(background_process: BackgroundProcessType) -> None:
         await proc.wait()
     assert proc.returncode == 1
     assert repr(proc) == "<trio.Process {!r}: {}>".format(
-        EXIT_FALSE, "exited with status 1"
+        EXIT_FALSE,
+        "exited with status 1",
     )
+
+
+@background_process_param
+async def test_basic_no_pidfd(background_process: BackgroundProcessType) -> None:
+    with mock.patch("trio._subprocess.can_try_pidfd_open", new=False):
+        async with background_process(EXIT_TRUE) as proc:
+            assert proc._pidfd is None
+            await proc.wait()
+        assert isinstance(proc, Process)
+        assert proc._pidfd is None
+        assert proc.returncode == 0
+        assert repr(proc) == f"<trio.Process {EXIT_TRUE}: exited with status 0>"
+
+        async with background_process(EXIT_FALSE) as proc:
+            await proc.wait()
+        assert proc.returncode == 1
+        assert repr(proc) == "<trio.Process {!r}: {}>".format(
+            EXIT_FALSE,
+            "exited with status 1",
+        )
 
 
 @background_process_param
@@ -170,10 +194,31 @@ async def test_multi_wait(background_process: BackgroundProcessType) -> None:
             proc.kill()
 
 
+@background_process_param
+async def test_multi_wait_no_pidfd(background_process: BackgroundProcessType) -> None:
+    with mock.patch("trio._subprocess.can_try_pidfd_open", new=False):
+        async with background_process(SLEEP(10)) as proc:
+            # Check that wait (including multi-wait) tolerates being cancelled
+            async with _core.open_nursery() as nursery:
+                nursery.start_soon(proc.wait)
+                nursery.start_soon(proc.wait)
+                nursery.start_soon(proc.wait)
+                await wait_all_tasks_blocked()
+                nursery.cancel_scope.cancel()
+
+            # Now try waiting for real
+            async with _core.open_nursery() as nursery:
+                nursery.start_soon(proc.wait)
+                nursery.start_soon(proc.wait)
+                nursery.start_soon(proc.wait)
+                await wait_all_tasks_blocked()
+                proc.kill()
+
+
 COPY_STDIN_TO_STDOUT_AND_BACKWARD_TO_STDERR = python(
     "data = sys.stdin.buffer.read(); "
     "sys.stdout.buffer.write(data); "
-    "sys.stderr.buffer.write(data[::-1])"
+    "sys.stderr.buffer.write(data[::-1])",
 )
 
 
@@ -234,7 +279,7 @@ async def test_interactive(background_process: BackgroundProcessType) -> None:
             "    request = int(line.strip())\n"
             "    print(str(idx * 2) * request)\n"
             "    print(str(idx * 2 + 1) * request * 2, file=sys.stderr)\n"
-            "    idx += 1\n"
+            "    idx += 1\n",
         ),
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
@@ -246,7 +291,9 @@ async def test_interactive(background_process: BackgroundProcessType) -> None:
             async with _core.open_nursery() as nursery:
 
                 async def drain_one(
-                    stream: ReceiveStream, count: int, digit: int
+                    stream: ReceiveStream,
+                    count: int,
+                    digit: int,
                 ) -> None:
                     while count > 0:
                         result = await stream.receive_some(count)
@@ -291,7 +338,10 @@ async def test_run() -> None:
     data = bytes(random.randint(0, 255) for _ in range(2**18))
 
     result = await run_process(
-        CAT, stdin=data, capture_stdout=True, capture_stderr=True
+        CAT,
+        stdin=data,
+        capture_stdout=True,
+        capture_stderr=True,
     )
     assert result.args == CAT
     assert result.returncode == 0
@@ -325,17 +375,18 @@ async def test_run() -> None:
     with pytest.raises(ValueError, match=pipe_stdout_error):
         await run_process(CAT, stdout=subprocess.PIPE)
     with pytest.raises(
-        ValueError, match=pipe_stdout_error.replace("stdout", "stderr", 1)
+        ValueError,
+        match=pipe_stdout_error.replace("stdout", "stderr", 1),
     ):
         await run_process(CAT, stderr=subprocess.PIPE)
     with pytest.raises(
         ValueError,
-        match="^can't specify both stdout and capture_stdout$",
+        match=r"^can't specify both stdout and capture_stdout$",
     ):
         await run_process(CAT, capture_stdout=True, stdout=subprocess.DEVNULL)
     with pytest.raises(
         ValueError,
-        match="^can't specify both stderr and capture_stderr$",
+        match=r"^can't specify both stderr and capture_stderr$",
     ):
         await run_process(CAT, capture_stderr=True, stderr=None)
 
@@ -350,7 +401,10 @@ async def test_run_check() -> None:
     assert excinfo.value.stdout is None
 
     result = await run_process(
-        cmd, capture_stdout=True, capture_stderr=True, check=False
+        cmd,
+        capture_stdout=True,
+        capture_stderr=True,
+        check=False,
     )
     assert result.args == cmd
     assert result.stdout == b""
@@ -361,7 +415,8 @@ async def test_run_check() -> None:
 @skip_if_fbsd_pipes_broken
 async def test_run_with_broken_pipe() -> None:
     result = await run_process(
-        [sys.executable, "-c", "import sys; sys.stdin.close()"], stdin=b"x" * 131072
+        [sys.executable, "-c", "import sys; sys.stdin.close()"],
+        stdin=b"x" * 131072,
     )
     assert result.returncode == 0
     assert result.stdout is result.stderr is None
@@ -404,7 +459,9 @@ async def test_stderr_stdout(background_process: BackgroundProcessType) -> None:
     # this one hits the branch where stderr=STDOUT but stdout
     # is not redirected
     async with background_process(
-        CAT, stdin=subprocess.PIPE, stderr=subprocess.STDOUT
+        CAT,
+        stdin=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
     ) as proc:
         assert proc.stdout is None
         assert proc.stderr is None
@@ -452,7 +509,8 @@ async def test_errors() -> None:
 @background_process_param
 async def test_signals(background_process: BackgroundProcessType) -> None:
     async def test_one_signal(
-        send_it: Callable[[Process], None], signum: signal.Signals | None
+        send_it: Callable[[Process], None],
+        signum: signal.Signals | None,
     ) -> None:
         with move_on_after(1.0) as scope:
             async with background_process(SLEEP(3600)) as proc:
@@ -498,6 +556,31 @@ async def test_wait_reapable_fails(background_process: BackgroundProcessType) ->
             assert proc.returncode == 0  # exit status unknowable, so...
     finally:
         signal.signal(signal.SIGCHLD, old_sigchld)
+
+
+@pytest.mark.skipif(not posix, reason="POSIX specific")
+@background_process_param
+async def test_wait_reapable_fails_no_pidfd(
+    background_process: BackgroundProcessType,
+) -> None:
+    if TYPE_CHECKING and sys.platform == "win32":
+        return
+    with mock.patch("trio._subprocess.can_try_pidfd_open", new=False):
+        old_sigchld = signal.signal(signal.SIGCHLD, signal.SIG_IGN)
+        try:
+            # With SIGCHLD disabled, the wait() syscall will wait for the
+            # process to exit but then fail with ECHILD. Make sure we
+            # support this case as the stdlib subprocess module does.
+            async with background_process(SLEEP(3600)) as proc:
+                async with _core.open_nursery() as nursery:
+                    nursery.start_soon(proc.wait)
+                    await wait_all_tasks_blocked()
+                    proc.kill()
+                    nursery.cancel_scope.deadline = _core.current_time() + 1.0
+                assert not nursery.cancel_scope.cancelled_caught
+                assert proc.returncode == 0  # exit status unknowable, so...
+        finally:
+            signal.signal(signal.SIGCHLD, old_sigchld)
 
 
 @slow
@@ -557,7 +640,7 @@ async def test_custom_deliver_cancel() -> None:
 
     async with _core.open_nursery() as nursery:
         nursery.start_soon(
-            partial(run_process, SLEEP(9999), deliver_cancel=custom_deliver_cancel)
+            partial(run_process, SLEEP(9999), deliver_cancel=custom_deliver_cancel),
         )
         await wait_all_tasks_blocked()
         nursery.cancel_scope.cancel()
@@ -573,7 +656,7 @@ def test_bad_deliver_cancel() -> None:
     async def do_stuff() -> None:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(
-                partial(run_process, SLEEP(9999), deliver_cancel=custom_deliver_cancel)
+                partial(run_process, SLEEP(9999), deliver_cancel=custom_deliver_cancel),
             )
             await wait_all_tasks_blocked()
             nursery.cancel_scope.cancel()
@@ -592,7 +675,7 @@ async def test_warn_on_failed_cancel_terminate(monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.setattr(Process, "terminate", broken_terminate)
 
-    with pytest.warns(RuntimeWarning, match=".*whoops.*"):
+    with pytest.warns(RuntimeWarning, match=".*whoops.*"):  # noqa: PT031
         async with _core.open_nursery() as nursery:
             nursery.start_soon(run_process, SLEEP(9999))
             await wait_all_tasks_blocked()
@@ -601,11 +684,12 @@ async def test_warn_on_failed_cancel_terminate(monkeypatch: pytest.MonkeyPatch) 
 
 @pytest.mark.skipif(not posix, reason="posix only")
 async def test_warn_on_cancel_SIGKILL_escalation(
-    autojump_clock: MockClock, monkeypatch: pytest.MonkeyPatch
+    autojump_clock: MockClock,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(Process, "terminate", lambda *args: None)
 
-    with pytest.warns(RuntimeWarning, match=".*ignored SIGTERM.*"):
+    with pytest.warns(RuntimeWarning, match=".*ignored SIGTERM.*"):  # noqa: PT031
         async with _core.open_nursery() as nursery:
             nursery.start_soon(run_process, SLEEP(9999))
             await wait_all_tasks_blocked()
@@ -617,7 +701,9 @@ async def test_warn_on_cancel_SIGKILL_escalation(
 async def test_run_process_background_fail() -> None:
     with RaisesGroup(subprocess.CalledProcessError):
         async with _core.open_nursery() as nursery:
-            proc: Process = await nursery.start(run_process, EXIT_FALSE)
+            value = await nursery.start(run_process, EXIT_FALSE)
+            assert isinstance(value, Process)
+            proc: Process = value
     assert proc.returncode == 1
 
 

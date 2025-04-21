@@ -1,13 +1,14 @@
 ci:
-  autofix_commit_msg: "[pre-commit.ci] auto fixes from pre-commit.com hooks"
-  autofix_prs: false
-  autoupdate_commit_msg: "[pre-commit.ci] pre-commit autoupdate"
+  autofix_prs: true
   autoupdate_schedule: weekly
   submodules: false
+  # pip-compile requires internet, regenerate-files may get cache
+  # issues in CI, so they're run in check.sh
+  skip: [pip-compile, regenerate-files]
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v5.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -19,17 +20,63 @@ repos:
       - id: sort-simple-yaml
         files: .pre-commit-config.yaml
   - repo: https://github.com/psf/black-pre-commit-mirror
-    rev: 24.4.2
+    rev: 25.1.0
     hooks:
       - id: black
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.7
+    rev: v0.11.4
     hooks:
       - id: ruff
         types: [file]
         types_or: [python, pyi, toml]
         args: ["--show-fixes"]
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.3.0
+    rev: v2.4.1
     hooks:
       - id: codespell
+        additional_dependencies:
+          # tomli needed on 3.10. tomllib is available in stdlib on 3.11+
+          - tomli
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.31.1
+    hooks:
+      - id: typos
+  - repo: https://github.com/sphinx-contrib/sphinx-lint
+    rev: v1.0.0
+    hooks:
+      - id: sphinx-lint
+  - repo: https://github.com/woodruffw/zizmor-pre-commit
+    rev: v1.5.2
+    hooks:
+      - id: zizmor
+  - repo: local
+    hooks:
+      - id: regenerate-files
+        name: regenerate generated files
+        language: python
+        entry: python src/trio/_tools/gen_exports.py
+        pass_filenames: false
+        additional_dependencies: ["astor", "attrs", "black", "ruff"]
+        files: ^src\/trio\/_core\/(_run|(_i(o_(common|epoll|kqueue|windows)|nstrumentation)))\.py$
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.6.13
+    hooks:
+      # Compile requirements
+      - id: pip-compile
+        name: uv pip-compile test-requirements.in
+        args: [
+          "--universal",
+          "--python-version=3.9",
+          "test-requirements.in",
+          "-o",
+          "test-requirements.txt"]
+        files: ^test-requirements\.(in|txt)$
+      - id: pip-compile
+        name: uv pip-compile docs-requirements.in
+        args: [
+          "--universal",
+          "--python-version=3.11",
+          "docs-requirements.in",
+          "-o",
+          "docs-requirements.txt"]
+        files: ^docs-requirements\.(in|txt)$

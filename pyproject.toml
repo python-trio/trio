@@ -1,12 +1,14 @@
 [build-system]
-requires = ["setuptools >= 64"]
+# setuptools v77 adds PEP 639 support
+requires = ["setuptools >= 77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "trio"
 description = "A friendly Python library for async concurrency and I/O"
 authors = [{name = "Nathaniel J. Smith", email = "njs@pobox.com"}]
-license = {text = "MIT OR Apache-2.0"}
+license = "MIT OR Apache-2.0"
+license-files = ["LICENSE*"]
 keywords = [
     "async",
     "io",
@@ -14,11 +16,9 @@ keywords = [
     "trio",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Framework :: Trio",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: POSIX :: BSD",
@@ -26,20 +26,20 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: System :: Networking",
     "Typing :: Typed",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
     # attrs 19.2.0 adds `eq` option to decorators
     # attrs 20.1.0 adds @frozen
     # attrs 21.1.0 adds a dataclass transform for type-checkers
-    # attrs 21.3.0 adds `import addrs`
+    # attrs 21.3.0 adds `import attrs`
     "attrs >= 23.2.0",
     "sortedcontainers",
     "idna",
@@ -74,7 +74,6 @@ include-package-data = true
 version = {attr = "trio._version.__version__"}
 
 [tool.black]
-target-version = ['py38']
 force-exclude = '''
 (
   ^/docs/source/reference-.*
@@ -85,13 +84,26 @@ force-exclude = '''
 [tool.codespell]
 ignore-words-list = 'astroid,crasher,asend'
 
+[tool.typos]
+default.extend-ignore-re = [
+    "(?Rm)^.*(#|//)\\s*spellchecker:disable-line$",
+]
+
+[tool.typos.default.extend-identifiers]
+IPPROTO_ND = "IPPROTO_ND"
+
+[tool.typos.default.extend-words]
+astroid = "astroid"
+crasher = "crasher"
+asend = "asend"
+
 [tool.ruff]
 respect-gitignore = true
 fix = true
 
 # The directories to consider when resolving first vs. third-party imports.
 # Does not control what files to include/exclude!
-src = ["src/trio", "notes-to-self"]
+src = ["src/trio"]
 
 include = ["*.py", "*.pyi", "**/pyproject.toml"]
 
@@ -101,36 +113,49 @@ extend-exclude = [
 ]
 
 [tool.ruff.lint]
+preview = true
 allowed-confusables = ["–"]
 
 select = [
     "A",     # flake8-builtins
+    "ANN",   # flake8-annotations
     "ASYNC", # flake8-async
     "B",     # flake8-bugbear
     "C4",    # flake8-comprehensions
+    "COM",   # flake8-commas
     "E",     # Error
+    "EXE",   # flake8-executable
     "F",     # pyflakes
     "FA",    # flake8-future-annotations
+    "FLY",   # flynt
+    "FURB",  # refurb
     "I",     # isort
+    "ICN",   # flake8-import-conventions
     "PERF",  # Perflint
+    "PIE",   # flake8-pie
     "PT",    # flake8-pytest-style
     "PYI",   # flake8-pyi
+    "Q",     # flake8-quotes
     "RUF",   # Ruff-specific rules
     "SIM",   # flake8-simplify
-    "TCH",   # flake8-type-checking
+    "TC",    # flake8-type-checking
     "UP",    # pyupgrade
     "W",     # Warning
     "YTT",   # flake8-2020
 ]
 extend-ignore = [
-    'A002',    # builtin-argument-shadowing
-    'E402',    # module-import-not-at-top-of-file (usually OS-specific)
-    'E501',    # line-too-long
-    'F403',    # undefined-local-with-import-star
-    'F405',    # undefined-local-with-import-star-usage
-    'PERF203', # try-except-in-loop (not always possible to refactor)
-    'PT012',   # multiple statements in pytest.raises block
-    'SIM117',  # multiple-with-statements (messes up lots of context-based stuff and looks bad)
+    "A002",    # builtin-argument-shadowing
+    "ANN401",  # any-type (mypy's `disallow_any_explicit` is better)
+    "E402",    # module-import-not-at-top-of-file (usually OS-specific)
+    "E501",    # line-too-long
+    "F403",    # undefined-local-with-import-star
+    "F405",    # undefined-local-with-import-star-usage
+    "PERF203", # try-except-in-loop (not always possible to refactor)
+    "PT012",   # multiple statements in pytest.raises block
+    "SIM117",  # multiple-with-statements (messes up lots of context-based stuff and looks bad)
+
+    # conflicts with formatter (ruff recommends these be disabled)
+    "COM812",
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -139,10 +164,20 @@ extend-ignore = [
 # to export for public use.
 'src/trio/__init__.py' = ['F401']
 'src/trio/_core/__init__.py' = ['F401']
-'src/trio/abc.py' = ['F401']
+'src/trio/abc.py' = ['F401', 'A005']
 'src/trio/lowlevel.py' = ['F401']
-'src/trio/socket.py' = ['F401']
+'src/trio/socket.py' = ['F401', 'A005']
 'src/trio/testing/__init__.py' = ['F401']
+# RUF029 is ignoring tests that are marked as async functions but
+# do not use an await in their function bodies. There are several
+# places where internal trio synchronous code relies on being
+# called from an async function, where current task is set up.
+'src/trio/_tests/*.py' = ['RUF029']
+'src/trio/_core/_tests/*.py' = ['RUF029']
+# A005 is ignoring modules that shadow stdlib modules.
+'src/trio/_abc.py' = ['A005']
+'src/trio/_socket.py' = ['A005']
+'src/trio/_ssl.py' = ['A005']
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
@@ -151,13 +186,14 @@ combine-as-imports = true
 fixture-parentheses = false
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.10"
 files = ["src/trio/", "docs/source/*.py"]
 
 # Be flexible about dependencies that don't have stubs yet (like pytest)
 ignore_missing_imports = true
 
 # Be strict about use of Mypy
+enable_error_code = ["truthy-bool", "mutable-override"]
 local_partial_types = true
 warn_unused_ignores = true
 warn_unused_configs = true
@@ -166,6 +202,7 @@ warn_return_any = true
 
 # Avoid subtle backsliding
 disallow_any_decorated = true
+disallow_any_explicit = true
 disallow_any_generics = true
 disallow_any_unimported = true
 disallow_incomplete_defs = true
@@ -176,12 +213,12 @@ disallow_untyped_defs = true
 check_untyped_defs = true
 
 [tool.pyright]
-pythonVersion = "3.8"
+pythonVersion = "3.9"
 reportUnnecessaryTypeIgnoreComment = true
 typeCheckingMode = "strict"
 
 [tool.pytest.ini_options]
-addopts = ["--strict-markers", "--strict-config", "-p trio._tests.pytest_plugin"]
+addopts = ["--strict-markers", "--strict-config", "-p trio._tests.pytest_plugin", "--import-mode=importlib"]
 faulthandler_timeout = 60
 filterwarnings = [
   "error",
@@ -248,6 +285,20 @@ directory = "misc"
 name = "Miscellaneous internal changes"
 showcontent = true
 
+[tool.coverage.html]
+show_contexts = true
+skip_covered = false
+
+[tool.coverage.paths]
+_site-packages-to-src-mapping = [
+  "src",
+  "*/src",
+  '*\src',
+  "*/lib/pypy*/site-packages",
+  "*/lib/python*/site-packages",
+  '*\Lib\site-packages',
+]
+
 [tool.coverage.run]
 branch = true
 source_pkgs = ["trio"]
@@ -262,19 +313,26 @@ omit = [
 # The test suite spawns subprocesses to test some stuff, so make sure
 # this doesn't corrupt the coverage files
 parallel = true
+plugins = []
+relative_files = true
+source = ["."]
 
 [tool.coverage.report]
 precision = 1
 skip_covered = true
-exclude_lines = [
-    "pragma: no cover",
-    "abc.abstractmethod",
-    "if TYPE_CHECKING.*:",
-    "if _t.TYPE_CHECKING:",
-    "if t.TYPE_CHECKING:",
-    "@overload",
-    'class .*\bProtocol\b.*\):',
-    "raise NotImplementedError",
+skip_empty = true
+show_missing = true
+exclude_also = [
+  '^\s*@pytest\.mark\.xfail',
+   "abc.abstractmethod",
+   "if TYPE_CHECKING.*:",
+   "if _t.TYPE_CHECKING:",
+   "if t.TYPE_CHECKING:",
+   "@overload",
+   'class .*\bProtocol\b.*\):',
+   "raise NotImplementedError",
+   '.*if "sphinx" in sys.modules:',
+   'TODO: test this line'
 ]
 partial_branches = [
     "pragma: no branch",
@@ -284,4 +342,5 @@ partial_branches = [
     "if .* or not TYPE_CHECKING:",
     "if .* or not _t.TYPE_CHECKING:",
     "if .* or not t.TYPE_CHECKING:",
+   'TODO: test this branch',
 ]

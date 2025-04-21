@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import socket
-from abc import ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Generic, TypeVar
 
 import trio
@@ -16,9 +16,7 @@ if TYPE_CHECKING:
     from .lowlevel import Task
 
 
-# We use ABCMeta instead of ABC, plus set __slots__=(), so as not to force a
-# __dict__ onto subclasses.
-class Clock(metaclass=ABCMeta):
+class Clock(ABC):
     """The interface for custom run loop clocks."""
 
     __slots__ = ()
@@ -68,7 +66,7 @@ class Clock(metaclass=ABCMeta):
         """
 
 
-class Instrument(metaclass=ABCMeta):  # noqa: B024  # conceptually is ABC
+class Instrument(ABC):  # noqa: B024  # conceptually is ABC
     """The interface for run loop instrumentation.
 
     Instruments don't have to inherit from this abstract base class, and all
@@ -155,7 +153,7 @@ class Instrument(metaclass=ABCMeta):  # noqa: B024  # conceptually is ABC
         return
 
 
-class HostnameResolver(metaclass=ABCMeta):
+class HostnameResolver(ABC):
     """If you have a custom hostname resolver, then implementing
     :class:`HostnameResolver` allows you to register this to be used by Trio.
 
@@ -180,7 +178,7 @@ class HostnameResolver(metaclass=ABCMeta):
             socket.SocketKind,
             int,
             str,
-            tuple[str, int] | tuple[str, int, int, int],
+            tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes],
         ]
     ]:
         """A custom implementation of :func:`~trio.socket.getaddrinfo`.
@@ -194,13 +192,13 @@ class HostnameResolver(metaclass=ABCMeta):
         Any required IDNA encoding is handled before calling this function;
         your implementation can assume that it will never see U-labels like
         ``"café.com"``, and only needs to handle A-labels like
-        ``b"xn--caf-dma.com"``.
-
-        """
+        ``b"xn--caf-dma.com"``."""  # spellchecker:disable-line
 
     @abstractmethod
     async def getnameinfo(
-        self, sockaddr: tuple[str, int] | tuple[str, int, int, int], flags: int
+        self,
+        sockaddr: tuple[str, int] | tuple[str, int, int, int],
+        flags: int,
     ) -> tuple[str, str]:
         """A custom implementation of :func:`~trio.socket.getnameinfo`.
 
@@ -209,13 +207,15 @@ class HostnameResolver(metaclass=ABCMeta):
         """
 
 
-class SocketFactory(metaclass=ABCMeta):
+class SocketFactory(ABC):
     """If you write a custom class implementing the Trio socket interface,
     then you can use a :class:`SocketFactory` to get Trio to use it.
 
     See :func:`trio.socket.set_custom_socket_factory`.
 
     """
+
+    __slots__ = ()
 
     @abstractmethod
     def socket(
@@ -240,7 +240,7 @@ class SocketFactory(metaclass=ABCMeta):
         """
 
 
-class AsyncResource(metaclass=ABCMeta):
+class AsyncResource(ABC):
     """A standard interface for resources that needs to be cleaned up, and
     where that cleanup may require blocking operations.
 
@@ -691,6 +691,14 @@ class ReceiveChannel(AsyncResource, Generic[ReceiveType]):
             raise StopAsyncIteration from None
 
 
+# these are necessary for Sphinx's :show-inheritance: with type args.
+# (this should be removed if possible)
+# see: https://github.com/python/cpython/issues/123250
+SendChannel.__module__ = SendChannel.__module__.replace("_abc", "abc")
+ReceiveChannel.__module__ = ReceiveChannel.__module__.replace("_abc", "abc")
+Listener.__module__ = Listener.__module__.replace("_abc", "abc")
+
+
 class Channel(SendChannel[T], ReceiveChannel[T]):
     """A standard interface for interacting with bidirectional channels.
 
@@ -698,3 +706,9 @@ class Channel(SendChannel[T], ReceiveChannel[T]):
     `ReceiveChannel` interfaces, so you can both send and receive objects.
 
     """
+
+    __slots__ = ()
+
+
+# see above
+Channel.__module__ = Channel.__module__.replace("_abc", "abc")

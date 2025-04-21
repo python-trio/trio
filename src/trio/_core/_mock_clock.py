@@ -63,14 +63,14 @@ class MockClock(Clock):
 
     """
 
-    def __init__(self, rate: float = 0.0, autojump_threshold: float = inf):
+    def __init__(self, rate: float = 0.0, autojump_threshold: float = inf) -> None:
         # when the real clock said 'real_base', the virtual time was
         # 'virtual_base', and since then it's advanced at 'rate' virtual
         # seconds per real second.
         self._real_base = 0.0
         self._virtual_base = 0.0
         self._rate = 0.0
-        self._autojump_threshold = 0.0
+
         # kept as an attribute so that our tests can monkeypatch it
         self._real_clock = time.perf_counter
 
@@ -119,7 +119,8 @@ class MockClock(Clock):
         except AttributeError:
             pass
         else:
-            runner.clock_autojump_threshold = self._autojump_threshold
+            if runner.clock is self:
+                runner.clock_autojump_threshold = self._autojump_threshold
 
     # Invoked by the run loop when runner.clock_autojump_threshold is
     # exceeded.

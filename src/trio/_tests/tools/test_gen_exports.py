@@ -23,6 +23,8 @@ from trio._tools.gen_exports import (
     run_ruff,
 )
 
+from ..._core._tests.tutil import slow
+
 SOURCE = '''from _run import _public
 from collections import Counter
 
@@ -89,9 +91,14 @@ skip_lints = pytest.mark.skipif(
 )
 
 
+@slow
 @skip_lints
 @pytest.mark.parametrize("imports", [IMPORT_1, IMPORT_2, IMPORT_3])
-def test_process(tmp_path: Path, imports: str) -> None:
+def test_process(
+    tmp_path: Path,
+    imports: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     try:
         import black  # noqa: F401
     # there's no dedicated CI run that has astor+isort, but lacks black.
@@ -106,7 +113,13 @@ def test_process(tmp_path: Path, imports: str) -> None:
     with pytest.raises(SystemExit) as excinfo:
         process([file], do_test=True)
     assert excinfo.value.code == 1
-    process([file], do_test=False)
+    captured = capsys.readouterr()
+    assert "Generated sources are outdated. Please regenerate." in captured.out
+    with pytest.raises(SystemExit) as excinfo:
+        process([file], do_test=False)
+    assert excinfo.value.code == 1
+    captured = capsys.readouterr()
+    assert "Regenerated sources successfully." in captured.out
     assert genpath.exists()
     process([file], do_test=True)
     # But if we change the lookup path it notices

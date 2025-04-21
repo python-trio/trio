@@ -176,6 +176,24 @@ This keeps us closer to the desired state where each open issue reflects some
 work that still needs to be done.
 
 
+Environment
+~~~~~~~~~~~
+We strongly suggest using a virtual environment for managing dependencies,
+for example with `venv <https://docs.python.org/3/library/venv.html>`__. So to
+set up your environment and install dependencies, you should run something like:
+
+.. code-block:: shell
+
+   cd path/to/trio/checkout/
+   python -m venv .venv # create virtual env in .venv
+   source .venv/bin/activate # activate it
+   pip install -e . # install trio, needed for pytest plugin
+   pip install -r test-requirements.txt # install test requirements
+
+you rarely need to recreate the virtual environment, but you need to re-activate it
+in future terminals. You might also need to re-install from test-requirements.txt if
+the versions in it get updated.
+
 .. _pull-request-tests:
 
 Tests
@@ -186,12 +204,11 @@ locally, you should run:
 
 .. code-block:: shell
 
-   cd path/to/trio/checkout/
-   pip install -r test-requirements.txt  # possibly using a virtualenv
-   pytest trio
+   source .venv/bin/activate # if not already activated
+   pytest src
 
 This doesn't try to be completely exhaustive – it only checks that
-things work on your machine, and it may skip some slow tests. But it's
+things work on your machine, and it will skip some slow tests. But it's
 a good way to quickly check that things seem to be working, and we'll
 automatically run the full test suite when your PR is submitted, so
 you'll have a chance to see and fix any remaining issues then.
@@ -211,8 +228,14 @@ it being merely hard to fix). For example:
 We use Codecov to track coverage, because it makes it easy to combine
 coverage from running in different configurations. Running coverage
 locally can be useful
-(``pytest --cov=PACKAGENAME --cov-report=html``), but don't be
-surprised if you get lower coverage than when looking at Codecov
+
+.. code-block:: shell
+
+   coverage run -m pytest
+   coverage combine
+   coverage report
+
+but don't be surprised if you get lower coverage than when looking at Codecov
 reports, because there are some lines that are only executed on
 Windows, or macOS, or PyPy, or CPython, or... you get the idea. After
 you create a PR, Codecov will automatically report back with the
@@ -295,7 +318,7 @@ format all our code to a standard style. While you're editing code you
 can be as sloppy as you like about whitespace; and then before you commit,
 just run:
 
-.. code-block::
+.. code-block:: text
 
     pip install -U pre-commit
     pre-commit
@@ -309,14 +332,14 @@ nicely formatted. (black doesn't reformat comments or docstrings.)
 If you would like, you can even have pre-commit run before you commit by
 running:
 
-.. code-block::
+.. code-block:: text
 
     pre-commit install
 
 and now pre-commit will run before git commits. You can uninstall the
 pre-commit hook at any time by running:
 
-.. code-block::
+.. code-block:: text
 
     pre-commit uninstall
 
@@ -326,7 +349,7 @@ you can can add ``# fmt: off`` and ``# fmt: on`` comments.
 
 If you want to see what changes black will make, you can use:
 
-.. code-block::
+.. code-block:: text
 
     black --diff trio
 
@@ -350,7 +373,7 @@ Basically, every pull request that has a user
 visible effect should add a short file to the ``newsfragments/``
 directory describing the change, with a name like ``<ISSUE
 NUMBER>.<TYPE>.rst``. See `newsfragments/README.rst
-<https://github.com/python-trio/trio/blob/master/newsfragments/README.rst>`__
+<https://github.com/python-trio/trio/blob/main/newsfragments/README.rst>`__
 for details. This way we can keep a good list of changes as we go,
 which makes the release manager happy, which means we get more
 frequent releases, which means your change gets into users' hands
@@ -410,7 +433,7 @@ file to install all of the required packages (possibly using a
 virtualenv). After that, build the docs using ``make html`` in the
 docs directory. The whole process might look something like this:
 
-.. code-block::
+.. code-block:: text
 
     cd path/to/project/checkout/
     pip install -r docs-requirements.txt
