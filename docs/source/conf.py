@@ -171,7 +171,6 @@ def autodoc_process_signature(
 # currently undocumented things
 logger = getLogger("trio")
 UNDOCUMENTED = {
-    "trio.CancelScope.relative_deadline",
     "trio.MemorySendChannel",
     "trio.MemoryReceiveChannel",
     "trio.MemoryChannelStatistics",
@@ -201,7 +200,9 @@ def autodoc_process_docstring(
         logger.warning(f"{name} has no docstring")
     else:
         if name in UNDOCUMENTED:
-            logger.warning("outdated list of undocumented things")
+            logger.warning(
+                f"outdated list of undocumented things in docs/source/conf.py: {name!r} has a docstring"
+            )
 
 
 def setup(app: Sphinx) -> None:
@@ -233,7 +234,6 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinxcontrib_trio",
     "sphinxcontrib.jquery",
-    "hoverxref.extension",
     "sphinx_codeautolink",
     "local_customization",
     "typevars",
@@ -246,24 +246,6 @@ intersphinx_mapping = {
     "sniffio": ("https://sniffio.readthedocs.io/en/latest/", None),
     "trio-util": ("https://trio-util.readthedocs.io/en/latest/", None),
     "flake8-async": ("https://flake8-async.readthedocs.io/en/latest/", None),
-}
-
-# See https://sphinx-hoverxref.readthedocs.io/en/latest/configuration.html
-hoverxref_auto_ref = True
-hoverxref_domains = ["py"]
-# Set the default style (tooltip) for all types to silence logging.
-# See https://github.com/readthedocs/sphinx-hoverxref/issues/211
-hoverxref_role_types = {
-    "attr": "tooltip",
-    "class": "tooltip",
-    "const": "tooltip",
-    "exc": "tooltip",
-    "func": "tooltip",
-    "meth": "tooltip",
-    "mod": "tooltip",
-    "obj": "tooltip",
-    "ref": "tooltip",
-    "data": "tooltip",
 }
 
 # See https://sphinx-codeautolink.readthedocs.io/en/latest/reference.html#configuration

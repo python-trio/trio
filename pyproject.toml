@@ -193,6 +193,7 @@ files = ["src/trio/", "docs/source/*.py"]
 ignore_missing_imports = true
 
 # Be strict about use of Mypy
+enable_error_code = ["truthy-bool", "mutable-override"]
 local_partial_types = true
 warn_unused_ignores = true
 warn_unused_configs = true
@@ -330,6 +331,7 @@ exclude_also = [
    "@overload",
    'class .*\bProtocol\b.*\):',
    "raise NotImplementedError",
+   '.*if "sphinx" in sys.modules:',
    'TODO: test this line'
 ]
 partial_branches = [
