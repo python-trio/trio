@@ -29,7 +29,11 @@ from ._util import coroutine_or_error
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Generator
 
+    from typing_extensions import TypeVarTuple, Unpack
+
     from trio._core._traps import RaiseCancelT
+
+    Ts = TypeVarTuple("Ts")
 
 RetT = TypeVar("RetT")
 
@@ -146,9 +150,8 @@ class ThreadPlaceholder:
 
 # Types for the to_thread_run_sync message loop
 @attrs.frozen(eq=False, slots=False)
-# Explicit .../"Any" is not allowed
-class Run(Generic[RetT]):  # type: ignore[misc]
-    afn: Callable[..., Awaitable[RetT]]  # type: ignore[misc]
+class Run(Generic[RetT]):  # type: ignore[explicit-any]
+    afn: Callable[..., Awaitable[RetT]]  # type: ignore[explicit-any]
     args: tuple[object, ...]
     context: contextvars.Context = attrs.field(
         init=False,
@@ -206,9 +209,8 @@ class Run(Generic[RetT]):  # type: ignore[misc]
 
 
 @attrs.frozen(eq=False, slots=False)
-# Explicit .../"Any" is not allowed
-class RunSync(Generic[RetT]):  # type: ignore[misc]
-    fn: Callable[..., RetT]  # type: ignore[misc]
+class RunSync(Generic[RetT]):  # type: ignore[explicit-any]
+    fn: Callable[..., RetT]  # type: ignore[explicit-any]
     args: tuple[object, ...]
     context: contextvars.Context = attrs.field(
         init=False,
@@ -251,10 +253,10 @@ class RunSync(Generic[RetT]):  # type: ignore[misc]
         token.run_sync_soon(self.run_sync)
 
 
-@enable_ki_protection  # Decorator used on function with Coroutine[Any, Any, RetT]
-async def to_thread_run_sync(  # type: ignore[misc]
-    sync_fn: Callable[..., RetT],
-    *args: object,
+@enable_ki_protection
+async def to_thread_run_sync(
+    sync_fn: Callable[[Unpack[Ts]], RetT],
+    *args: Unpack[Ts],
     thread_name: str | None = None,
     abandon_on_cancel: bool = False,
     limiter: CapacityLimiter | None = None,
@@ -524,10 +526,9 @@ def _send_message_to_trio(
     return message_to_trio.queue.get().unwrap()
 
 
-# Explicit "Any" is not allowed
-def from_thread_run(  # type: ignore[misc]
-    afn: Callable[..., Awaitable[RetT]],
-    *args: object,
+def from_thread_run(
+    afn: Callable[[Unpack[Ts]], Awaitable[RetT]],
+    *args: Unpack[Ts],
     trio_token: TrioToken | None = None,
 ) -> RetT:
     """Run the given async function in the parent Trio thread, blocking until it
@@ -569,10 +570,9 @@ def from_thread_run(  # type: ignore[misc]
     return _send_message_to_trio(trio_token, Run(afn, args))
 
 
-# Explicit "Any" is not allowed
-def from_thread_run_sync(  # type: ignore[misc]
-    fn: Callable[..., RetT],
-    *args: object,
+def from_thread_run_sync(
+    fn: Callable[[Unpack[Ts]], RetT],
+    *args: Unpack[Ts],
     trio_token: TrioToken | None = None,
 ) -> RetT:
     """Run the given sync function in the parent Trio thread, blocking until it

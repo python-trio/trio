@@ -18,14 +18,19 @@ from .._core._tests.tutil import (
 )
 from .._util import (
     ConflictDetector,
+    MultipleExceptionError,
     NoPublicConstructor,
     coroutine_or_error,
     final,
     fixup_module_metadata,
     generic_function,
     is_main_thread,
+    raise_single_exception_from_group,
 )
 from ..testing import wait_all_tasks_blocked
+
+if sys.version_info < (3, 11):
+    from exceptiongroup import BaseExceptionGroup, ExceptionGroup
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -267,3 +272,84 @@ def test_fixup_module_metadata() -> None:
     mod.some_func()
     mod._private()
     mod.SomeClass().method()
+
+
+async def test_raise_single_exception_from_group() -> None:
+    excinfo: pytest.ExceptionInfo[BaseException]
+
+    exc = ValueError("foo")
+    cause = SyntaxError("cause")
+    context = TypeError("context")
+    exc.__cause__ = cause
+    exc.__context__ = context
+    cancelled = trio.Cancelled._create()
+
+    with pytest.raises(ValueError, match="foo") as excinfo:
+        raise_single_exception_from_group(ExceptionGroup("", [exc]))
+    assert excinfo.value.__cause__ == cause
+    assert excinfo.value.__context__ == context
+
+    # only unwraps one layer of exceptiongroup
+    inner_eg = ExceptionGroup("inner eg", [exc])
+    inner_cause = SyntaxError("inner eg cause")
+    inner_context = TypeError("inner eg context")
+    inner_eg.__cause__ = inner_cause
+    inner_eg.__context__ = inner_context
+    with RaisesGroup(Matcher(ValueError, match="^foo$"), match="^inner eg$") as eginfo:
+        raise_single_exception_from_group(ExceptionGroup("", [inner_eg]))
+    assert eginfo.value.__cause__ == inner_cause
+    assert eginfo.value.__context__ == inner_context
+
+    with pytest.raises(ValueError, match="foo") as excinfo:
+        raise_single_exception_from_group(
+            BaseExceptionGroup("", [cancelled, cancelled, exc])
+        )
+    assert excinfo.value.__cause__ == cause
+    assert excinfo.value.__context__ == context
+
+    # multiple non-cancelled
+    eg = ExceptionGroup("", [ValueError("foo"), ValueError("bar")])
+    with pytest.raises(
+        MultipleExceptionError,
+        match=r"^Attempted to unwrap exceptiongroup with multiple non-cancelled exceptions. This is often caused by a bug in the caller.$",
+    ) as excinfo:
+        raise_single_exception_from_group(eg)
+    assert excinfo.value.__cause__ is eg
+    assert excinfo.value.__context__ is None
+
+    # keyboardinterrupt overrides everything
+    eg_ki = BaseExceptionGroup(
+        "",
+        [
+            ValueError("foo"),
+            ValueError("bar"),
+            KeyboardInterrupt("this exc doesn't get reraised"),
+        ],
+    )
+    with pytest.raises(KeyboardInterrupt, match=r"^$") as excinfo:
+        raise_single_exception_from_group(eg_ki)
+    assert excinfo.value.__cause__ is eg_ki
+    assert excinfo.value.__context__ is None
+
+    # and same for SystemExit
+    systemexit_ki = BaseExceptionGroup(
+        "",
+        [
+            ValueError("foo"),
+            ValueError("bar"),
+            SystemExit("this exc doesn't get reraised"),
+        ],
+    )
+    with pytest.raises(SystemExit, match=r"^$") as excinfo:
+        raise_single_exception_from_group(systemexit_ki)
+    assert excinfo.value.__cause__ is systemexit_ki
+    assert excinfo.value.__context__ is None
+
+    # if we only got cancelled, first one is reraised
+    with pytest.raises(trio.Cancelled, match=r"^Cancelled$") as excinfo:
+        raise_single_exception_from_group(
+            BaseExceptionGroup("", [cancelled, trio.Cancelled._create()])
+        )
+    assert excinfo.value is cancelled
+    assert excinfo.value.__cause__ is None
+    assert excinfo.value.__context__ is None

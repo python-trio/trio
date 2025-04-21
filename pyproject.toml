@@ -1,12 +1,14 @@
 [build-system]
-requires = ["setuptools >= 64"]
+# setuptools v77 adds PEP 639 support
+requires = ["setuptools >= 77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "trio"
 description = "A friendly Python library for async concurrency and I/O"
 authors = [{name = "Nathaniel J. Smith", email = "njs@pobox.com"}]
-license = {text = "MIT OR Apache-2.0"}
+license = "MIT OR Apache-2.0"
+license-files = ["LICENSE*"]
 keywords = [
     "async",
     "io",
@@ -14,11 +16,9 @@ keywords = [
     "trio",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Framework :: Trio",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: POSIX :: BSD",
@@ -186,13 +186,14 @@ combine-as-imports = true
 fixture-parentheses = false
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 files = ["src/trio/", "docs/source/*.py"]
 
 # Be flexible about dependencies that don't have stubs yet (like pytest)
 ignore_missing_imports = true
 
 # Be strict about use of Mypy
+enable_error_code = ["truthy-bool", "mutable-override"]
 local_partial_types = true
 warn_unused_ignores = true
 warn_unused_configs = true
@@ -330,6 +331,7 @@ exclude_also = [
    "@overload",
    'class .*\bProtocol\b.*\):',
    "raise NotImplementedError",
+   '.*if "sphinx" in sys.modules:',
    'TODO: test this line'
 ]
 partial_branches = [

@@ -30,8 +30,7 @@ if TYPE_CHECKING:
     T = TypeVar("T")
 
 
-# Explicit .../"Any" is not allowed
-def _wraps_async(  # type: ignore[misc]
+def _wraps_async(  # type: ignore[explicit-any]
     wrapped: Callable[..., object],
 ) -> Callable[[Callable[P, T]], Callable[P, Awaitable[T]]]:
     def decorator(fn: Callable[P, T]) -> Callable[P, Awaitable[T]]:
@@ -184,7 +183,7 @@ class Path(pathlib.PurePath):
     ) -> AsyncIOWrapper[BinaryIO]: ...
 
     @overload
-    async def open(  # type: ignore[misc]  # Any usage matches builtins.open().
+    async def open(  # type: ignore[misc, explicit-any]  # Any usage matches builtins.open().
         self,
         mode: str,
         buffering: int = -1,
@@ -193,8 +192,8 @@ class Path(pathlib.PurePath):
         newline: str | None = None,
     ) -> AsyncIOWrapper[IO[Any]]: ...
 
-    @_wraps_async(pathlib.Path.open)  # type: ignore[misc]  # Overload return mismatch.
-    def open(self, *args: Any, **kwargs: Any) -> AsyncIOWrapper[IO[Any]]:
+    @_wraps_async(pathlib.Path.open)
+    def open(self, *args: Any, **kwargs: Any) -> AsyncIOWrapper[IO[Any]]:  # type: ignore[misc, explicit-any]  # Overload return mismatch.
         return wrap_file(self._wrapped_cls(self).open(*args, **kwargs))
 
     def __repr__(self) -> str:
@@ -244,6 +243,9 @@ class Path(pathlib.PurePath):
         link_to = _wrap_method(pathlib.Path.link_to)
     if sys.version_info >= (3, 13):
         full_match = _wrap_method(pathlib.Path.full_match)
+
+    def as_uri(self) -> str:
+        return pathlib.Path.as_uri(self)
 
 
 @final

@@ -1,10 +1,3 @@
-/* Temporary hack to work around bug in rtd theme 2.0 through 2.4
-   See https://github.com/rtfd/sphinx_rtd_theme/pull/382
-*/
-pre {
-    line-height: normal !important;
-}
-
 /* Make .. deprecation:: blocks visible
  * (by default they're entirely unstyled)
  */
@@ -23,6 +16,10 @@ pre {
  * thingummy also has an <hr> in it, and putting the ornament on that looks
  * *really weird*. (In particular, the background color is wrong.)
  */
+.rst-content hr {
+    overflow: visible;
+}
+
 .rst-content hr:after {
     /* This .svg gets displayed on top of the middle of the hrule. It has a box
      * behind the logo that's colored to match the RTD theme body background
@@ -41,39 +38,21 @@ pre {
 
 /* Hacks to make the upper-left logo area look nicer */
 
-.wy-side-nav-search {
-    /* Lighter background color to match logo */
-    background-color: #d2e7fa !important;
-}
-
 .wy-side-nav-search > a {
     color: #306998 !important;
 }
 
-.wy-side-nav-search > a.logo {
-    display: block !important;
-    padding-bottom: 0.809em !important;
+/* vertically center version text */
+.wy-side-nav-search > a {
+    display: flex;
+    align-items: center;
+    margin: auto;
+    width: max-content;
 }
 
 .wy-side-nav-search > a img.logo {
-    display: inline !important;
-    padding: 0 !important;
-}
-
-.trio-version {
-    display: inline;
-    /* I *cannot* figure out how to get the version text vertically centered
-       on the logo. Oh well...
-    height: 32px;
-    line-height: 32px;
-    */
-}
-
-.wy-side-nav-search > a {
-    /* Mostly this is just to simplify things, so we don't have margin/padding
-     * on both the <a> and the <img> inside it */
-    margin: 0 !important;
-    padding: 0 !important;
+    margin-left: 0;
+    margin-right: 5px;
 }
 
 /* Get rid of the weird super dark "Contents" label that wastes vertical space

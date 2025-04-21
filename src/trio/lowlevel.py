@@ -37,6 +37,8 @@ from ._core import (
     currently_ki_protected as currently_ki_protected,
     disable_ki_protection as disable_ki_protection,
     enable_ki_protection as enable_ki_protection,
+    in_trio_run as in_trio_run,
+    in_trio_task as in_trio_task,
     notify_closing as notify_closing,
     permanently_detach_coroutine_object as permanently_detach_coroutine_object,
     reattach_detached_coroutine_object as reattach_detached_coroutine_object,

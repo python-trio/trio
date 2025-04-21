@@ -1,5 +1,7 @@
 name: CI
 
+permissions: {}
+
 on:
   push:
     branches-ignore:
@@ -153,7 +155,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.9', '3.10', '3.11', '3.12', '3.13']
+        python: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
         arch: ['x86', 'x64']
         lsp: ['']
         lsp_extract_file: ['']
@@ -235,7 +237,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.10', '3.9', '3.10', '3.11', '3.12', '3.13']
+        python: ['pypy-3.10', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
         check_formatting: ['0']
         no_test_requirements: ['0']
         extra_name: ['']
@@ -274,10 +276,15 @@ jobs:
           python-version: ${{ fromJSON(format('["{0}", "{1}"]', format('{0}.0-alpha - {0}.X', matrix.python), matrix.python))[startsWith(matrix.python, 'pypy')] }}
           cache: pip
           cache-dependency-path: test-requirements.txt
+      - name: Check Formatting
+        if: matrix.check_formatting == '1'
+        run:
+          python -m pip install tox &&
+          tox -m check
       - name: Run tests
+        if: matrix.check_formatting == '0'
         run: ./ci.sh
         env:
-          CHECK_FORMATTING: '${{ matrix.check_formatting }}'
           NO_TEST_REQUIREMENTS: '${{ matrix.no_test_requirements }}'
       - if: >-
           always()
@@ -299,7 +306,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.10', '3.9', '3.10', '3.11', '3.12', '3.13']
+        python: ['pypy-3.10', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
     continue-on-error: >-
       ${{
         (
@@ -420,6 +427,11 @@ jobs:
         run: >-
           echo "version=$(python -V | cut -d' ' -f2 | cut -d'.' -f1,2)"
           >> "${GITHUB_OUTPUT}"
+
+      - run: |
+          coverage combine
+          coverage report
+
       - if: always()
         uses: codecov/codecov-action@v5
         with:
