@@ -21,14 +21,18 @@ from sniffio import thread_local as sniffio_loop
 import trio
 
 # Explicit "Any" is not allowed
-CallT = TypeVar("CallT", bound=Callable[..., Any])  # type: ignore[misc]
+CallT = TypeVar("CallT", bound=Callable[..., Any])  # type: ignore[explicit-any]
 T = TypeVar("T")
 RetT = TypeVar("RetT")
 
 if TYPE_CHECKING:
+    import sys
     from types import AsyncGeneratorType, TracebackType
 
     from typing_extensions import ParamSpec, Self, TypeVarTuple, Unpack
+
+    if sys.version_info < (3, 11):
+        from exceptiongroup import BaseExceptionGroup
 
     ArgsT = ParamSpec("ArgsT")
     PosArgsT = TypeVarTuple("PosArgsT")
@@ -177,16 +181,14 @@ class ConflictDetector:
         self._held = False
 
 
-# Explicit "Any" is not allowed
-def async_wraps(  # type: ignore[misc]
+def async_wraps(  # type: ignore[explicit-any]
     cls: type[object],
     wrapped_cls: type[object],
     attr_name: str,
 ) -> Callable[[CallT], CallT]:
     """Similar to wraps, but for async wrappers of non-async functions."""
 
-    # Explicit "Any" is not allowed
-    def decorator(func: CallT) -> CallT:  # type: ignore[misc]
+    def decorator(func: CallT) -> CallT:  # type: ignore[explicit-any]
         func.__name__ = attr_name
         func.__qualname__ = f"{cls.__qualname__}.{attr_name}"
 
@@ -249,8 +251,7 @@ class generic_function(Generic[RetT]):
     but at least it becomes possible to write those.
     """
 
-    # Explicit .../"Any" is not allowed
-    def __init__(  # type: ignore[misc]
+    def __init__(  # type: ignore[explicit-any]
         self,
         fn: Callable[..., RetT],
     ) -> None:
@@ -346,11 +347,9 @@ def name_asyncgen(agen: AsyncGeneratorType[object, NoReturn]) -> str:
 
 # work around a pyright error
 if TYPE_CHECKING:
-    # Explicit .../"Any" is not allowed
-    Fn = TypeVar("Fn", bound=Callable[..., object])  # type: ignore[misc]
+    Fn = TypeVar("Fn", bound=Callable[..., object])  # type: ignore[explicit-any]
 
-    # Explicit .../"Any" is not allowed
-    def wraps(  # type: ignore[misc]
+    def wraps(  # type: ignore[explicit-any]
         wrapped: Callable[..., object],
         assigned: Sequence[str] = ...,
         updated: Sequence[str] = ...,
@@ -358,3 +357,66 @@ if TYPE_CHECKING:
 
 else:
     from functools import wraps  # noqa: F401  # this is re-exported
+
+
+def raise_saving_context(exc: BaseException) -> NoReturn:
+    """This helper allows re-raising an exception without __context__ being set."""
+    # cause does not need special handling, we simply avoid using `raise .. from ..`
+    # __suppress_context__ also does not need handling, it's only set if modifying cause
+    __tracebackhide__ = True
+    context = exc.__context__
+    try:
+        raise exc
+    finally:
+        exc.__context__ = context
+        del exc, context
+
+
+class MultipleExceptionError(Exception):
+    """Raised by raise_single_exception_from_group if encountering multiple
+    non-cancelled exceptions."""
+
+
+def raise_single_exception_from_group(
+    eg: BaseExceptionGroup[BaseException],
+) -> NoReturn:
+    """This function takes an exception group that is assumed to have at most
+    one non-cancelled exception, which it reraises as a standalone exception.
+
+    This exception may be an exceptiongroup itself, in which case it will not be unwrapped.
+
+    If a :exc:`KeyboardInterrupt` is encountered, a new KeyboardInterrupt is immediately
+    raised with the entire group as cause.
+
+    If the group only contains :exc:`Cancelled` it reraises the first one encountered.
+
+    It will retain context and cause of the contained exception, and entirely discard
+    the cause/context of the group(s).
+
+    If multiple non-cancelled exceptions are encountered, it raises
+    :exc:`AssertionError`.
+    """
+    # immediately bail out if there's any KI or SystemExit
+    for e in eg.exceptions:
+        if isinstance(e, (KeyboardInterrupt, SystemExit)):
+            raise type(e) from eg
+
+    cancelled_exception: trio.Cancelled | None = None
+    noncancelled_exception: BaseException | None = None
+
+    for e in eg.exceptions:
+        if isinstance(e, trio.Cancelled):
+            if cancelled_exception is None:
+                cancelled_exception = e
+        elif noncancelled_exception is None:
+            noncancelled_exception = e
+        else:
+            raise MultipleExceptionError(
+                "Attempted to unwrap exceptiongroup with multiple non-cancelled exceptions. This is often caused by a bug in the caller."
+            ) from eg
+
+    if noncancelled_exception is not None:
+        raise_saving_context(noncancelled_exception)
+
+    assert cancelled_exception is not None, "group can't be empty"
+    raise_saving_context(cancelled_exception)

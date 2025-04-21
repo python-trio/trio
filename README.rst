@@ -56,13 +56,13 @@ I/O-oriented programs easier, less error-prone, and just plain more
 fun. `Perhaps you'll find the same
 <https://github.com/python-trio/trio/wiki/Testimonials>`__.
 
-This project is young and still somewhat experimental: the overall
-design is solid, and the existing features are fully tested and
-documented, but you may encounter missing functionality or rough
-edges. We *do* encourage you to use it, but you should `read and
-subscribe to issue #1
-<https://github.com/python-trio/trio/issues/1>`__ to get a warning and a
-chance to give feedback about any compatibility-breaking changes.
+Trio is a mature and well-tested project: the overall design is solid,
+and the existing features are fully documented and widely used in
+production. While we occasionally make minor interface adjustments,
+breaking changes are rare. We encourage you to use Trio with confidence,
+but if you rely on long-term API stability, consider `subscribing to
+issue #1 <https://github.com/python-trio/trio/issues/1>`__ for advance
+notice of any compatibility updates.
 
 
 Where to next?

@@ -61,7 +61,6 @@ if TYPE_CHECKING:
     from collections.abc import (
         Awaitable,
         Callable,
-        Coroutine,
         Generator,
         Iterator,
         Sequence,
@@ -76,6 +75,7 @@ if TYPE_CHECKING:
     PosArgT = TypeVarTuple("PosArgT")
     StatusT = TypeVar("StatusT", default=None)
     StatusT_contra = TypeVar("StatusT_contra", contravariant=True, default=None)
+    BaseExcT = TypeVar("BaseExcT", bound=BaseException)
 else:
     from typing import TypeVar
 
@@ -122,6 +122,21 @@ def _hypothesis_plugin_setup() -> None:  # pragma: no cover
     global _ALLOW_DETERMINISTIC_SCHEDULING
     _ALLOW_DETERMINISTIC_SCHEDULING = True  # type: ignore
     register_random(_r)
+
+    # monkeypatch repr_callable to make repr's way better
+    # requires importing hypothesis (in the test file or in conftest.py)
+    try:
+        from hypothesis.internal.reflection import get_pretty_function_description
+
+        import trio.testing._raises_group
+
+        def repr_callable(fun: Callable[[BaseExcT], bool]) -> str:
+            # add quotes around the signature
+            return repr(get_pretty_function_description(fun))
+
+        trio.testing._raises_group.repr_callable = repr_callable
+    except ImportError:
+        pass
 
 
 def _count_context_run_tb_frames() -> int:
@@ -378,7 +393,7 @@ class CancelStatus:
         return self._parent
 
     @parent.setter
-    def parent(self, parent: CancelStatus) -> None:
+    def parent(self, parent: CancelStatus | None) -> None:
         if self._parent is not None:
             self._parent._children.remove(self)
         self._parent = parent
@@ -787,6 +802,18 @@ class CancelScope:
 
     @property
     def relative_deadline(self) -> float:
+        """Read-write, :class:`float`. The number of seconds remaining until this
+        scope's deadline, relative to the current time.
+
+        Defaults to :data:`math.inf` ("no deadline"). Must be non-negative.
+
+        When modified
+        Before entering: sets the deadline relative to when the scope enters.
+        After entering: sets a new deadline relative to the current time.
+
+        Raises:
+          RuntimeError: if trying to read or modify an unentered scope with an absolute deadline, i.e. when :attr:`is_relative` is ``False``.
+        """
         if self._has_been_entered:
             return self._deadline - current_time()
         elif self._deadline != inf:
@@ -1287,13 +1314,12 @@ class Nursery(metaclass=NoPublicConstructor):
         GLOBAL_RUN_CONTEXT.runner.spawn_impl(async_fn, args, self, name)
 
     # Typing changes blocked by https://github.com/python/mypy/pull/17512
-    # Explicit "Any" is not allowed
-    async def start(  # type: ignore[misc]
+    async def start(  # type: ignore[explicit-any]
         self,
         async_fn: Callable[..., Awaitable[object]],
         *args: object,
         name: object = None,
-    ) -> Any | None:
+    ) -> Any:
         r"""Creates and initializes a child task.
 
         Like :meth:`start_soon`, but blocks until the new task has
@@ -1388,10 +1414,9 @@ class Nursery(metaclass=NoPublicConstructor):
 
 @final
 @attrs.define(eq=False, repr=False)
-class Task(metaclass=NoPublicConstructor):  # type: ignore[misc]
+class Task(metaclass=NoPublicConstructor):  # type: ignore[explicit-any]
     _parent_nursery: Nursery | None
-    # Explicit "Any" is not allowed
-    coro: Coroutine[Any, Outcome[object], Any]  # type: ignore[misc]
+    coro: types.CoroutineType[Any, Outcome[object], Any]  # type: ignore[explicit-any]
     _runner: Runner
     name: str
     context: contextvars.Context
@@ -1409,11 +1434,10 @@ class Task(metaclass=NoPublicConstructor):  # type: ignore[misc]
     #   tracebacks with extraneous frames.
     # - for scheduled tasks, custom_sleep_data is None
     # Tasks start out unscheduled.
-    # Explicit "Any" is not allowed
-    _next_send_fn: Callable[[Any], object] | None = None  # type: ignore[misc]
-    _next_send: Outcome[Any] | BaseException | None = None  # type: ignore[misc]
+    _next_send_fn: Callable[[Any], object] | None = None  # type: ignore[explicit-any]
+    _next_send: Outcome[Any] | BaseException | None = None  # type: ignore[explicit-any]
     _abort_func: Callable[[_core.RaiseCancelT], Abort] | None = None
-    custom_sleep_data: Any = None  # type: ignore[misc]
+    custom_sleep_data: Any = None  # type: ignore[explicit-any]
 
     # For introspection and nursery.start()
     _child_nurseries: list[Nursery] = attrs.Factory(list)
@@ -1481,7 +1505,7 @@ class Task(metaclass=NoPublicConstructor):  # type: ignore[misc]
 
         """
         # Ignore static typing as we're doing lots of dynamic introspection
-        coro: Any = self.coro  # type: ignore[misc]
+        coro: Any = self.coro  # type: ignore[explicit-any]
         while coro is not None:
             if hasattr(coro, "cr_frame"):
                 # A real coroutine
@@ -1626,16 +1650,13 @@ class RunStatistics:
 
 
 @attrs.define(eq=False)
-# Explicit "Any" is not allowed
-class GuestState:  # type: ignore[misc]
+class GuestState:  # type: ignore[explicit-any]
     runner: Runner
     run_sync_soon_threadsafe: Callable[[Callable[[], object]], object]
     run_sync_soon_not_threadsafe: Callable[[Callable[[], object]], object]
-    # Explicit "Any" is not allowed
-    done_callback: Callable[[Outcome[Any]], object]  # type: ignore[misc]
+    done_callback: Callable[[Outcome[Any]], object]  # type: ignore[explicit-any]
     unrolled_run_gen: Generator[float, EventResult, None]
-    # Explicit "Any" is not allowed
-    unrolled_run_next_send: Outcome[Any] = attrs.Factory(lambda: Value(None))  # type: ignore[misc]
+    unrolled_run_next_send: Outcome[Any] = attrs.Factory(lambda: Value(None))  # type: ignore[explicit-any]
 
     def guest_tick(self) -> None:
         prev_library, sniffio_library.name = sniffio_library.name, "trio"
@@ -1680,8 +1701,7 @@ class GuestState:  # type: ignore[misc]
 
 
 @attrs.define(eq=False)
-# Explicit "Any" is not allowed
-class Runner:  # type: ignore[misc]
+class Runner:  # type: ignore[explicit-any]
     clock: Clock
     instruments: Instruments
     io_manager: TheIOManager
@@ -1689,8 +1709,7 @@ class Runner:  # type: ignore[misc]
     strict_exception_groups: bool
 
     # Run-local values, see _local.py
-    # Explicit "Any" is not allowed
-    _locals: dict[_core.RunVar[Any], object] = attrs.Factory(dict)  # type: ignore[misc]
+    _locals: dict[_core.RunVar[Any], object] = attrs.Factory(dict)  # type: ignore[explicit-any]
 
     runq: deque[Task] = attrs.Factory(deque)
     tasks: set[Task] = attrs.Factory(set)
@@ -1879,7 +1898,7 @@ class Runner:  # type: ignore[misc]
                 return await orig_coro
 
             coro = python_wrapper(coro)
-        assert coro.cr_frame is not None, "Coroutine frame should exist"
+        assert coro.cr_frame is not None, "Coroutine frame should exist"  # type: ignore[attr-defined]
 
         ######
         # Set up the Task object
@@ -2117,8 +2136,7 @@ class Runner:  # type: ignore[misc]
 
     # sortedcontainers doesn't have types, and is reportedly very hard to type:
     # https://github.com/grantjenks/python-sortedcontainers/issues/68
-    # Explicit "Any" is not allowed
-    waiting_for_idle: Any = attrs.Factory(SortedDict)  # type: ignore[misc]
+    waiting_for_idle: Any = attrs.Factory(SortedDict)  # type: ignore[explicit-any]
 
     @_public
     async def wait_all_tasks_blocked(self, cushion: float = 0.0) -> None:
@@ -2267,7 +2285,7 @@ def setup_runner(
     # It wouldn't be *hard* to support nested calls to run(), but I can't
     # think of a single good reason for it, so let's be conservative for
     # now:
-    if hasattr(GLOBAL_RUN_CONTEXT, "runner"):
+    if in_trio_run():
         raise RuntimeError("Attempted to call run() from inside a run()")
 
     if clock is None:
@@ -2419,8 +2437,7 @@ def run(
         raise AssertionError(runner.main_task_outcome)
 
 
-# Explicit .../"Any" not allowed
-def start_guest_run(  # type: ignore[misc]
+def start_guest_run(  # type: ignore[explicit-any]
     async_fn: Callable[..., Awaitable[RetT]],
     *args: object,
     run_sync_soon_threadsafe: Callable[[Callable[[], object]], object],
@@ -2816,8 +2833,9 @@ def unrolled_run(
     except BaseException as exc:
         raise TrioInternalError("internal error in Trio - please file a bug!") from exc
     finally:
-        GLOBAL_RUN_CONTEXT.__dict__.clear()
         runner.close()
+        GLOBAL_RUN_CONTEXT.__dict__.clear()
+
         # Have to do this after runner.close() has disabled KI protection,
         # because otherwise there's a race where ki_pending could get set
         # after we check it.
@@ -2934,6 +2952,24 @@ async def checkpoint_if_cancelled() -> None:
         await _core.checkpoint()
         raise AssertionError("this should never happen")  # pragma: no cover
     task._cancel_points += 1
+
+
+def in_trio_run() -> bool:
+    """Check whether we are in a Trio run.
+    This returns `True` if and only if :func:`~trio.current_time` will succeed.
+
+    See also the discussion of differing ways of :ref:`detecting Trio <trio_contexts>`.
+    """
+    return hasattr(GLOBAL_RUN_CONTEXT, "runner")
+
+
+def in_trio_task() -> bool:
+    """Check whether we are in a Trio task.
+    This returns `True` if and only if :func:`~trio.lowlevel.current_task` will succeed.
+
+    See also the discussion of differing ways of :ref:`detecting Trio <trio_contexts>`.
+    """
+    return hasattr(GLOBAL_RUN_CONTEXT, "task")
 
 
 if sys.platform == "win32":

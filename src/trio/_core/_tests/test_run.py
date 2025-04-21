@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextvars
 import functools
 import gc
+import pickle
 import sys
 import threading
 import time
@@ -1658,8 +1659,7 @@ async def test_spawn_name() -> None:
     async def func2() -> None:  # pragma: no cover
         pass
 
-    # Explicit .../"Any" is not allowed
-    async def check(  # type: ignore[misc]
+    async def check(  # type: ignore[explicit-any]
         spawn_fn: Callable[..., object],
     ) -> None:
         spawn_fn(func1, "func1")
@@ -1696,14 +1696,13 @@ async def test_current_effective_deadline(mock_clock: _core.MockClock) -> None:
 
 
 def test_nice_error_on_bad_calls_to_run_or_spawn() -> None:
-    # Explicit .../"Any" is not allowed
-    def bad_call_run(  # type: ignore[misc]
+    def bad_call_run(  # type: ignore[explicit-any]
         func: Callable[..., Awaitable[object]],
         *args: tuple[object, ...],
     ) -> None:
         _core.run(func, *args)
 
-    def bad_call_spawn(  # type: ignore[misc]
+    def bad_call_spawn(  # type: ignore[explicit-any]
         func: Callable[..., Awaitable[object]],
         *args: tuple[object, ...],
     ) -> None:
@@ -2235,6 +2234,13 @@ def test_Cancelled_str() -> None:
 def test_Cancelled_subclass() -> None:
     with pytest.raises(TypeError):
         type("Subclass", (_core.Cancelled,), {})
+
+
+# https://github.com/python-trio/trio/issues/3248
+def test_Cancelled_pickle() -> None:
+    cancelled = _core.Cancelled._create()
+    cancelled = pickle.loads(pickle.dumps(cancelled))
+    assert isinstance(cancelled, _core.Cancelled)
 
 
 def test_CancelScope_subclass() -> None:
@@ -2819,6 +2825,10 @@ else:
     sys.implementation.name != "cpython",
     reason="Only makes sense with refcounting GC",
 )
+@pytest.mark.xfail(
+    sys.version_info >= (3, 14),
+    reason="https://github.com/python/cpython/issues/125603",
+)
 async def test_ki_protection_doesnt_leave_cyclic_garbage() -> None:
     class MyException(Exception):
         pass
@@ -2855,3 +2865,34 @@ def test_context_run_tb_frames() -> None:
 
     with mock.patch("trio._core._run.copy_context", return_value=Context()):
         assert _count_context_run_tb_frames() == 1
+
+
+@restore_unraisablehook()
+def test_trio_context_detection() -> None:
+    assert not _core.in_trio_run()
+    assert not _core.in_trio_task()
+
+    def inner() -> None:
+        assert _core.in_trio_run()
+        assert _core.in_trio_task()
+
+    def sync_inner() -> None:
+        assert not _core.in_trio_run()
+        assert not _core.in_trio_task()
+
+    def inner_abort(_: object) -> _core.Abort:
+        assert _core.in_trio_run()
+        assert _core.in_trio_task()
+        return _core.Abort.SUCCEEDED
+
+    async def main() -> None:
+        assert _core.in_trio_run()
+        assert _core.in_trio_task()
+
+        inner()
+
+        await to_thread_run_sync(sync_inner)
+        with _core.CancelScope(deadline=_core.current_time() - 1):
+            await _core.wait_task_rescheduled(inner_abort)
+
+    _core.run(main)

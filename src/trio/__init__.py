@@ -1,5 +1,4 @@
-"""Trio - A friendly Python library for async concurrency and I/O
-"""
+"""Trio - A friendly Python library for async concurrency and I/O"""
 
 from __future__ import annotations
 
@@ -28,6 +27,7 @@ from ._channel import (
     MemoryChannelStatistics as MemoryChannelStatistics,
     MemoryReceiveChannel as MemoryReceiveChannel,
     MemorySendChannel as MemorySendChannel,
+    as_safe_channel as as_safe_channel,
     open_memory_channel as open_memory_channel,
 )
 from ._core import (
@@ -104,10 +104,7 @@ from ._timeouts import (
     sleep_forever as sleep_forever,
     sleep_until as sleep_until,
 )
-
-# pyright explicitly does not care about `__version__`
-# see https://github.com/microsoft/pyright/blob/main/docs/typed-libraries.md#type-completeness
-from ._version import __version__
+from ._version import __version__ as __version__
 
 # Not imported by default, but mentioned here so static analysis tools like
 # pylint will know that it exists.
@@ -116,9 +113,7 @@ if TYPE_CHECKING:
 
 from . import _deprecate as _deprecate
 
-_deprecate.enable_attribute_deprecations(__name__)
-
-__deprecated_attributes__: dict[str, _deprecate.DeprecatedAttribute] = {}
+_deprecate.deprecate_attributes(__name__, {})
 
 # Having the public path in .__module__ attributes is important for:
 # - exception names in printed tracebacks

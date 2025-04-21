@@ -165,7 +165,7 @@ async def test_generator_based_context_manager_throw() -> None:
 async def test_async_generator_agen_protection() -> None:
     @_core.enable_ki_protection
     @async_generator  # type: ignore[misc] # untyped generator
-    async def agen_protected1() -> None:
+    async def agen_protected1() -> None:  # type: ignore[misc] # untyped generator
         assert _core.currently_ki_protected()
         try:
             await yield_()
@@ -174,7 +174,7 @@ async def test_async_generator_agen_protection() -> None:
 
     @_core.disable_ki_protection
     @async_generator  # type: ignore[misc] # untyped generator
-    async def agen_unprotected1() -> None:
+    async def agen_unprotected1() -> None:  # type: ignore[misc] # untyped generator
         assert not _core.currently_ki_protected()
         try:
             await yield_()
@@ -184,7 +184,7 @@ async def test_async_generator_agen_protection() -> None:
     # Swap the order of the decorators:
     @async_generator  # type: ignore[misc] # untyped generator
     @_core.enable_ki_protection
-    async def agen_protected2() -> None:
+    async def agen_protected2() -> None:  # type: ignore[misc] # untyped generator
         assert _core.currently_ki_protected()
         try:
             await yield_()
@@ -193,7 +193,7 @@ async def test_async_generator_agen_protection() -> None:
 
     @async_generator  # type: ignore[misc] # untyped generator
     @_core.disable_ki_protection
-    async def agen_unprotected2() -> None:
+    async def agen_unprotected2() -> None:  # type: ignore[misc] # untyped generator
         assert not _core.currently_ki_protected()
         try:
             await yield_()
@@ -677,9 +677,8 @@ async def _consume_async_generator(agen: AsyncGenerator[None, None]) -> None:
         await agen.aclose()
 
 
-# Explicit .../"Any" is not allowed
-def _consume_function_for_coverage(  # type: ignore[misc]
-    fn: Callable[..., object],
+def _consume_function_for_coverage(
+    fn: Callable[[], object],
 ) -> None:
     result = fn()
     if inspect.isasyncgen(result):

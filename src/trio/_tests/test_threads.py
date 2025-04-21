@@ -55,8 +55,7 @@ T = TypeVar("T")
 async def test_do_in_trio_thread() -> None:
     trio_thread = threading.current_thread()
 
-    # Explicit "Any" is not allowed
-    async def check_case(  # type: ignore[misc]
+    async def check_case(  # type: ignore[explicit-any]
         do_in_trio_thread: Callable[..., threading.Thread],
         fn: Callable[..., T | Awaitable[T]],
         expected: tuple[str, T],
@@ -207,7 +206,7 @@ async def test_named_thread() -> None:
         assert threading.current_thread().name == name
         return threading.current_thread()
 
-    def f(name: str) -> Callable[[None], threading.Thread]:
+    def f(name: str) -> Callable[[], threading.Thread]:
         return partial(inner, name)
 
     # test defaults
@@ -285,7 +284,7 @@ async def test_named_thread_os() -> None:
 
         return threading.current_thread()
 
-    def f(name: str) -> Callable[[None], threading.Thread]:
+    def f(name: str) -> Callable[[], threading.Thread]:
         return partial(inner, name)
 
     # test defaults
@@ -344,7 +343,7 @@ async def test_run_in_worker_thread() -> None:
 async def test_run_in_worker_thread_cancellation() -> None:
     register: list[str | None] = [None]
 
-    def f(q: stdlib_queue.Queue[str]) -> None:
+    def f(q: stdlib_queue.Queue[None]) -> None:
         # Make the thread block for a controlled amount of time
         register[0] = "blocking"
         q.get()
@@ -731,7 +730,7 @@ async def test_trio_from_thread_run() -> None:
         pass
 
     with pytest.raises(TypeError, match="appears to be synchronous"):
-        await to_thread_run_sync(from_thread_run, sync_fn)
+        await to_thread_run_sync(from_thread_run, sync_fn)  # type: ignore[arg-type]
 
 
 async def test_trio_from_thread_token() -> None:
@@ -930,8 +929,7 @@ async def test_recursive_to_thread() -> None:
     def get_tid_then_reenter() -> int:
         nonlocal tid
         tid = threading.get_ident()
-        # The nesting of wrapper functions loses the return value of threading.get_ident
-        return from_thread_run(to_thread_run_sync, threading.get_ident)  # type: ignore[no-any-return]
+        return from_thread_run(to_thread_run_sync, threading.get_ident)
 
     assert tid != await to_thread_run_sync(get_tid_then_reenter)
 

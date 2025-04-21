@@ -3,7 +3,6 @@ from __future__ import annotations
 import sys
 import warnings
 from functools import wraps
-from types import ModuleType
 from typing import TYPE_CHECKING, ClassVar, TypeVar
 
 import attrs
@@ -26,18 +25,18 @@ RetT = TypeVar("RetT")
 class TrioDeprecationWarning(FutureWarning):
     """Warning emitted if you use deprecated Trio functionality.
 
-    As a young project, Trio is currently quite aggressive about deprecating
-    and/or removing functionality that we realize was a bad idea. If you use
-    Trio, you should subscribe to `issue #1
+    While a relatively mature project, Trio remains committed to refining its
+    design and improving usability. As part of this, we occasionally deprecate
+    or remove functionality that proves suboptimal. If you use Trio, we
+    recommend `subscribing to issue #1
     <https://github.com/python-trio/trio/issues/1>`__ to get information about
     upcoming deprecations and other backwards compatibility breaking changes.
 
     Despite the name, this class currently inherits from
-    :class:`FutureWarning`, not :class:`DeprecationWarning`, because while
-    we're in young-and-aggressive mode we want these warnings to be visible by
-    default. You can hide them by installing a filter or with the ``-W``
-    switch: see the :mod:`warnings` documentation for details.
-
+    :class:`FutureWarning`, not :class:`DeprecationWarning`, because until a
+    1.0 release, we want these warnings to be visible by default. You can hide
+    them by installing a filter or with the ``-W`` switch: see the
+    :mod:`warnings` documentation for details.
     """
 
 
@@ -150,28 +149,20 @@ class DeprecatedAttribute:
     instead: object = _not_set
 
 
-class _ModuleWithDeprecations(ModuleType):
-    __deprecated_attributes__: dict[str, DeprecatedAttribute]
-
-    def __getattr__(self, name: str) -> object:
-        if name in self.__deprecated_attributes__:
-            info = self.__deprecated_attributes__[name]
+def deprecate_attributes(
+    module_name: str, deprecated_attributes: dict[str, DeprecatedAttribute]
+) -> None:
+    def __getattr__(name: str) -> object:
+        if name in deprecated_attributes:
+            info = deprecated_attributes[name]
             instead = info.instead
             if instead is DeprecatedAttribute._not_set:
                 instead = info.value
-            thing = f"{self.__name__}.{name}"
+            thing = f"{module_name}.{name}"
             warn_deprecated(thing, info.version, issue=info.issue, instead=instead)
             return info.value
 
         msg = "module '{}' has no attribute '{}'"
-        raise AttributeError(msg.format(self.__name__, name))
+        raise AttributeError(msg.format(module_name, name))
 
-
-def enable_attribute_deprecations(module_name: str) -> None:
-    module = sys.modules[module_name]
-    module.__class__ = _ModuleWithDeprecations
-    assert isinstance(module, _ModuleWithDeprecations)
-    # Make sure that this is always defined so that
-    # _ModuleWithDeprecations.__getattr__ can access it without jumping
-    # through hoops or risking infinite recursion.
-    module.__deprecated_attributes__ = {}
+    sys.modules[module_name].__getattr__ = __getattr__  # type: ignore[method-assign]

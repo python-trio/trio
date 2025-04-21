@@ -4,6 +4,7 @@ import contextlib
 import sys
 import weakref
 from math import inf
+from types import AsyncGeneratorType
 from typing import TYPE_CHECKING, NoReturn
 
 import pytest
@@ -42,7 +43,7 @@ def test_asyncgen_basics() -> None:
 
     async def async_main() -> None:
         # GC'ed before exhausted
-        with pytest.warns(
+        with pytest.warns(  # noqa: PT031
             ResourceWarning,
             match="Async generator.*collected before.*exhausted",
         ):
@@ -88,6 +89,7 @@ def test_asyncgen_basics() -> None:
     _core.run(async_main)
     assert collected.pop() == "outlived run"
     for agen in saved:
+        assert isinstance(agen, AsyncGeneratorType)
         assert agen.ag_frame is None  # all should now be exhausted
 
 
@@ -301,9 +303,11 @@ def test_delegation_to_existing_hooks() -> None:
     record = []
 
     def my_firstiter(agen: AsyncGenerator[object, NoReturn]) -> None:
+        assert isinstance(agen, AsyncGeneratorType)
         record.append("firstiter " + agen.ag_frame.f_locals["arg"])
 
     def my_finalizer(agen: AsyncGenerator[object, NoReturn]) -> None:
+        assert isinstance(agen, AsyncGeneratorType)
         record.append("finalizer " + agen.ag_frame.f_locals["arg"])
 
     async def example(arg: str) -> AsyncGenerator[int, None]:

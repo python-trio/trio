@@ -287,9 +287,9 @@ class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
         SocketKind,
         int,
         str,
-        tuple[str, int, int, int] | tuple[str, int],
+        tuple[str, int, int, int] | tuple[str, int] | tuple[int, bytes],
     ]:
-        sockaddr: tuple[str, int] | tuple[str, int, int, int]
+        sockaddr: tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes]
         if ":" in ip:
             family = trio.socket.AF_INET6
             sockaddr = (ip, self.port, 0, 0)
@@ -312,7 +312,7 @@ class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
             SocketKind,
             int,
             str,
-            tuple[str, int, int, int] | tuple[str, int],
+            tuple[str, int, int, int] | tuple[str, int] | tuple[int, bytes],
         ]
     ]:
         assert host == b"test.example.com"
