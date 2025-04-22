@@ -994,7 +994,7 @@ async def test_from_thread_host_cancelled() -> None:
 
 
 async def test_from_thread_check_cancelled() -> None:
-    q: stdlib_queue.Queue[str] = stdlib_queue.Queue()
+    q: stdlib_queue.Queue[str | BaseException] = stdlib_queue.Queue()
 
     async def child(abandon_on_cancel: bool, scope: CancelScope) -> None:
         with scope:
@@ -1053,6 +1053,10 @@ async def test_from_thread_check_cancelled() -> None:
             from_thread_check_cancelled()
         except _core.Cancelled:
             q.put("Cancelled")
+        except BaseException as e:  # pragma: no cover, test failure path
+            # abandon_on_cancel=True will eat exceptions, so we pass it
+            # through the queue in order to be able to debug any exceptions
+            q.put(e)
         else:  # pragma: no cover, test failure path
             q.put("Not Cancelled")
 
@@ -1068,7 +1072,11 @@ async def test_from_thread_check_cancelled() -> None:
     assert scope.cancelled_caught
     assert "cancel" in record
     assert record[-1] == "exit"
-    assert q.get(timeout=1) == "Cancelled"
+    res = q.get(timeout=1)
+    if isinstance(res, BaseException):  # pragma: no cover  # for debugging
+        raise res
+    else:
+        assert res == "Cancelled"
 
 
 def test_from_thread_check_cancelled_raises_in_foreign_threads() -> None:

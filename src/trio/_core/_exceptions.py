@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from functools import partial
+from typing import TYPE_CHECKING, Literal
+
+import attrs
 
 from trio._util import NoPublicConstructor, final
 
@@ -34,6 +37,7 @@ class WouldBlock(Exception):
 
 
 @final
+@attrs.define(eq=False, kw_only=True)
 class Cancelled(BaseException, metaclass=NoPublicConstructor):
     """Raised by blocking calls if the surrounding scope has been cancelled.
 
@@ -67,11 +71,30 @@ class Cancelled(BaseException, metaclass=NoPublicConstructor):
 
     """
 
+    source: Literal["deadline", "nursery", "explicit"]
+    source_task: str | None = None
+    reason: str | None = None
+
     def __str__(self) -> str:
-        return "Cancelled"
+        return (
+            f"Cancelled due to {self.source}"
+            + (f" with reason {self.reason!r}" if self.reason is not None else "")
+            + f" from task {self.source_task}"
+        )
 
     def __reduce__(self) -> tuple[Callable[[], Cancelled], tuple[()]]:
-        return (Cancelled._create, ())
+        # the `__reduce__` tuple does not support kwargs, so we must use partial
+        # for non-default args
+        # or switch to allow posarg (?)
+        return (
+            partial(
+                Cancelled._create,
+                source=self.source,
+                source_task=self.source_task,
+                reason=self.reason,
+            ),
+            (),
+        )
 
 
 class BusyResourceError(Exception):

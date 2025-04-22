@@ -18,6 +18,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Final,
+    Literal,
     NoReturn,
     Protocol,
     cast,
@@ -314,6 +315,14 @@ class Deadlines:
         return did_something
 
 
+@attrs.define
+class CancelReason:
+    # TODO: loren ipsum
+    source: Literal["deadline", "nursery", "explicit", "KeyboardInterrupt"]
+    source_task: str | None = None
+    reason: str | None = None
+
+
 @attrs.define(eq=False)
 class CancelStatus:
     """Tracks the cancellation status for a contiguous extent
@@ -380,6 +389,10 @@ class CancelStatus:
     # recovery from misnested cancel scopes (well, at least enough
     # recovery to show a useful traceback).
     abandoned_by_misnesting: bool = attrs.field(default=False, init=False, repr=False)
+
+    _cancel_reason: CancelReason | None = attrs.field(
+        default=None, init=False, repr=True, alias="cancel_reason"
+    )
 
     def __attrs_post_init__(self) -> None:
         if self._parent is not None:
@@ -468,10 +481,25 @@ class CancelStatus:
                 or current.parent_cancellation_is_visible_to_us
             )
             if new_state != current.effectively_cancelled:
+                if (
+                    current._scope._cancel_reason is not None
+                    and current._cancel_reason is None
+                ):
+                    current._cancel_reason = current._scope._cancel_reason
+                if (
+                    current._cancel_reason is None
+                    and current.parent_cancellation_is_visible_to_us
+                ):
+                    assert current._parent is not None
+                    current._cancel_reason = current._parent._cancel_reason
                 current.effectively_cancelled = new_state
                 if new_state:
                     for task in current._tasks:
                         task._attempt_delivery_of_any_pending_cancel()
+                    # current._cancel_reason will not be None, unless there's misnesting
+                    for child in current._children:
+                        if child._cancel_reason is None:
+                            child._cancel_reason = current._cancel_reason
                 todo.extend(current._children)
 
     def _mark_abandoned(self) -> None:
@@ -558,6 +586,12 @@ class CancelScope:
     _cancel_called: bool = attrs.field(default=False, init=False)
     cancelled_caught: bool = attrs.field(default=False, init=False)
 
+    # necessary as cancel_status might be None
+    # TODO: but maybe cancel_status doesn't need it?
+    _cancel_reason: CancelReason | None = attrs.field(
+        default=None, init=False, repr=True
+    )
+
     # Constructor arguments:
     _relative_deadline: float = attrs.field(
         default=inf,
@@ -594,9 +628,12 @@ class CancelScope:
             self._relative_deadline = inf
 
         if current_time() >= self._deadline:
+            self._cancel_reason = CancelReason(source="deadline")
             self.cancel()
         with self._might_change_registered_deadline():
             self._cancel_status = CancelStatus(scope=self, parent=task._cancel_status)
+            if self._cancel_reason is not None:
+                self._cancel_status._cancel_reason = self._cancel_reason
             task._activate_cancel_status(self._cancel_status)
         return self
 
@@ -883,7 +920,7 @@ class CancelScope:
             self._cancel_status.recalculate()
 
     @enable_ki_protection
-    def cancel(self) -> None:
+    def cancel(self, *, reason: str | None = None) -> None:
         """Cancels this scope immediately.
 
         This method is idempotent, i.e., if the scope was already
@@ -893,7 +930,17 @@ class CancelScope:
             return
         with self._might_change_registered_deadline():
             self._cancel_called = True
+        if self._cancel_reason is None:
+            try:
+                current_task = repr(_core.current_task())
+            except RuntimeError:
+                current_task = None
+            self._cancel_reason = CancelReason(
+                reason=reason, source="explicit", source_task=current_task
+            )
         if self._cancel_status is not None:
+            # idk if strictly required
+            self._cancel_status._cancel_reason = self._cancel_reason
             self._cancel_status.recalculate()
 
     @property
@@ -1210,6 +1257,10 @@ class Nursery(metaclass=NoPublicConstructor):
     ) -> None:
         self._children.remove(task)
         if isinstance(outcome, Error):
+            if self.cancel_scope._cancel_reason is None:
+                self.cancel_scope._cancel_reason = CancelReason(
+                    source="nursery", source_task=repr(task)
+                )
             self._add_exc(outcome.error)
         self._check_nursery_closed()
 
@@ -1576,7 +1627,18 @@ class Task(metaclass=NoPublicConstructor):  # type: ignore[explicit-any]
             return
 
         def raise_cancel() -> NoReturn:
-            raise Cancelled._create()
+            if (
+                self._cancel_status is None
+                or self._cancel_status._cancel_reason is None
+            ):
+                # self._cancel_status is None when using abandon_on_cancel=True (TODO: why?)
+                # _cancel_status._cancel_reason is None when misnesting
+                raise Cancelled._create(source="unknown")
+            raise Cancelled._create(
+                source=self._cancel_status._cancel_reason.source,
+                reason=self._cancel_status._cancel_reason.reason,
+                source_task=self._cancel_status._cancel_reason.source_task,
+            )
 
         self._attempt_abort(raise_cancel)
 
@@ -2926,7 +2988,18 @@ async def checkpoint() -> None:
     if task._cancel_status.effectively_cancelled or (
         task is task._runner.main_task and task._runner.ki_pending
     ):
-        with CancelScope(deadline=-inf):
+        cs = CancelScope(deadline=inf)
+        if (
+            task._cancel_status._cancel_reason is None
+            and task is task._runner.main_task
+            and task._runner.ki_pending
+        ):
+            task._cancel_status._cancel_reason = CancelReason(
+                source="KeyboardInterrupt"
+            )
+        assert task._cancel_status._cancel_reason is not None
+        cs._cancel_reason = task._cancel_status._cancel_reason
+        with cs:
             await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
 
 

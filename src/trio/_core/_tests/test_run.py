@@ -4,6 +4,7 @@ import contextvars
 import functools
 import gc
 import pickle
+import re
 import sys
 import threading
 import time
@@ -781,7 +782,9 @@ async def test_cancel_scope_misnesting() -> None:
     # Even if inside another cancel scope
     async def task2() -> None:
         with _core.CancelScope():
-            with pytest.raises(_core.Cancelled):
+            with pytest.raises(
+                _core.Cancelled, match=r"^Cancelled due to unknown from task None$"
+            ):
                 await sleep_forever()
 
     with ExitStack() as stack:
@@ -2216,19 +2219,40 @@ def test_Nursery_subclass() -> None:
 
 
 def test_Cancelled_init() -> None:
-    with pytest.raises(TypeError):
-        raise _core.Cancelled
+    with pytest.raises(TypeError, match=r"^trio.Cancelled has no public constructor$"):
+        raise _core.Cancelled  # type: ignore[call-arg]
 
-    with pytest.raises(TypeError):
-        _core.Cancelled()
+    with pytest.raises(TypeError, match=r"^trio.Cancelled has no public constructor$"):
+        _core.Cancelled(source="explicit")
 
     # private constructor should not raise
-    _core.Cancelled._create()
+    _core.Cancelled._create(source="explicit")
 
 
-def test_Cancelled_str() -> None:
-    cancelled = _core.Cancelled._create()
-    assert str(cancelled) == "Cancelled"
+async def test_Cancelled_str() -> None:
+    cancelled = _core.Cancelled._create(source="foo")
+    assert str(cancelled) == "Cancelled due to foo from task None"
+    assert re.fullmatch(
+        r"Cancelled due to bar from task "
+        r"<Task 'trio._core._tests.test_run.test_Cancelled_str' at 0x\w*>",
+        str(
+            _core.Cancelled._create(
+                source="bar",
+                source_task=_core.current_task(),
+            )
+        ),
+    )
+    assert re.fullmatch(
+        r"Cancelled due to bar with reason 'pigs flying' from task "
+        r"<Task 'trio._core._tests.test_run.test_Cancelled_str' at 0x\w*>",
+        str(
+            _core.Cancelled._create(
+                source="bar",
+                source_task=_core.current_task(),
+                reason="pigs flying",
+            )
+        ),
+    )
 
 
 def test_Cancelled_subclass() -> None:
@@ -2238,7 +2262,7 @@ def test_Cancelled_subclass() -> None:
 
 # https://github.com/python-trio/trio/issues/3248
 def test_Cancelled_pickle() -> None:
-    cancelled = _core.Cancelled._create()
+    cancelled = _core.Cancelled._create(source="foo")
     cancelled = pickle.loads(pickle.dumps(cancelled))
     assert isinstance(cancelled, _core.Cancelled)
 
