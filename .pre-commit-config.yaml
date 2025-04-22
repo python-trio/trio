@@ -37,7 +37,7 @@ repos:
         additional_dependencies:
           # tomli needed on 3.10. tomllib is available in stdlib on 3.11+
           - tomli
-  - repo: https://github.com/crate-ci/typos
+  - repo: https://github.com/adhtruong/mirrors-typos
     rev: v1.31.1
     hooks:
       - id: typos
