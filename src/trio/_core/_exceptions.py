@@ -1,7 +1,12 @@
-from typing import NoReturn
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, NoReturn
 
 from trio import _deprecate
 from trio._util import NoPublicConstructor, final
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class TrioInternalError(Exception):
@@ -78,6 +83,9 @@ class Cancelled(BaseException, metaclass=NoPublicConstructor):
             instead="an exception argument",
         )
         raise self
+
+    def __reduce__(self) -> tuple[Callable[[], Cancelled], tuple[()]]:
+        return (Cancelled._create, ())
 
 
 class BusyResourceError(Exception):
