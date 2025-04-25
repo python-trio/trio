@@ -1001,8 +1001,8 @@ async def test_from_thread_check_cancelled() -> None:
             record.append("start")
             try:
                 return await to_thread_run_sync(f, abandon_on_cancel=abandon_on_cancel)
-            except _core.Cancelled:
-                record.append("cancel")
+            except _core.Cancelled as e:
+                record.append(str(e))
                 raise
             finally:
                 record.append("exit")
@@ -1010,8 +1010,8 @@ async def test_from_thread_check_cancelled() -> None:
     def f() -> None:
         try:
             from_thread_check_cancelled()
-        except _core.Cancelled:  # pragma: no cover, test failure path
-            q.put("Cancelled")
+        except _core.Cancelled as e:  # pragma: no cover, test failure path
+            q.put(str(e))
         else:
             q.put("Not Cancelled")
         ev.wait()
@@ -1042,8 +1042,13 @@ async def test_from_thread_check_cancelled() -> None:
         scope.cancel()
         ev.set()
     assert scope.cancelled_caught
-    assert "cancel" in record
-    assert record[-1] == "exit"
+    assert re.fullmatch(
+        r"cancelled due to explicit from task "
+        r"<Task 'trio._tests.test_threads.test_from_thread_check_cancelled' at 0x\w*>",
+        record[1],
+    ), record[1]
+    assert record[2] == "exit"
+    assert len(record) == 3
 
     # abandon_on_cancel=True case: slightly different thread behavior needed
     # check thread is cancelled "soon" after abandonment
@@ -1051,8 +1056,8 @@ async def test_from_thread_check_cancelled() -> None:
         ev.wait()
         try:
             from_thread_check_cancelled()
-        except _core.Cancelled:
-            q.put("Cancelled")
+        except _core.Cancelled as e:
+            q.put(str(e))
         except BaseException as e:  # pragma: no cover, test failure path
             # abandon_on_cancel=True will eat exceptions, so we pass it
             # through the queue in order to be able to debug any exceptions
@@ -1070,13 +1075,21 @@ async def test_from_thread_check_cancelled() -> None:
         scope.cancel()
         ev.set()
     assert scope.cancelled_caught
-    assert "cancel" in record
+    assert re.fullmatch(
+        r"cancelled due to explicit from task "
+        r"<Task 'trio._tests.test_threads.test_from_thread_check_cancelled' at 0x\w*>",
+        record[1],
+    ), record[1]
     assert record[-1] == "exit"
     res = q.get(timeout=1)
     if isinstance(res, BaseException):  # pragma: no cover  # for debugging
         raise res
     else:
-        assert res == "Cancelled"
+        assert re.fullmatch(
+            r"cancelled due to explicit from task "
+            r"<Task 'trio._tests.test_threads.test_from_thread_check_cancelled' at 0x\w*>",
+            res,
+        ), res
 
 
 def test_from_thread_check_cancelled_raises_in_foreign_threads() -> None:

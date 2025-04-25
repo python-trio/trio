@@ -15,20 +15,19 @@ async def test_cancel_reason() -> None:
         cs.cancel(reason="hello")
         with pytest.raises(
             Cancelled,
-            match=rf"^Cancelled due to explicit with reason 'hello' from task {current_task()!r}$",
+            match=rf"^cancelled due to explicit with reason 'hello' from task {current_task()!r}$",
         ):
             await trio.lowlevel.checkpoint()
 
     with trio.CancelScope(deadline=-inf) as cs:
-        with pytest.raises(Cancelled, match=r"^Cancelled due to deadline"):
+        with pytest.raises(Cancelled, match=r"^cancelled due to deadline"):
             await trio.lowlevel.checkpoint()
 
     with trio.CancelScope() as cs:
         cs.deadline = -inf
         with pytest.raises(
             Cancelled,
-            # FIXME: ??
-            match=r"^Cancelled due to explicit from task None",
+            match=r"^cancelled due to deadline",
         ):
             await trio.lowlevel.checkpoint()
 
@@ -43,7 +42,7 @@ async def test_cancel_reason_nursery() -> None:
     ) -> None:
         task_status.started()
         with pytest.raises(
-            Cancelled, match=rf"^Cancelled due to nursery from task {fail_task!r}$"
+            Cancelled, match=rf"^cancelled due to nursery from task {fail_task!r}$"
         ):
             await trio.sleep_forever()
         raise TypeError
@@ -67,7 +66,7 @@ async def test_cancel_reason_nursery2() -> None:
     ) -> None:
         task_status.started()
         with pytest.raises(
-            Cancelled, match=rf"^Cancelled due to nursery from task {fail_task!r}$"
+            Cancelled, match=rf"^cancelled due to nursery from task {fail_task!r}$"
         ):
             await trio.sleep_forever()
         raise TypeError
@@ -83,19 +82,24 @@ async def test_cancel_reason_nursery2() -> None:
 async def test_cancel_reason_not_overwritten() -> None:
     with trio.CancelScope() as cs:
         cs.cancel()
-        with pytest.raises(Cancelled, match=r"^Cancelled due to explicit"):
+        with pytest.raises(
+            Cancelled,
+            match=rf"^cancelled due to explicit from task {current_task()!r}$",
+        ):
             await trio.lowlevel.checkpoint()
         cs.deadline = -inf
-        with pytest.raises(Cancelled, match=r"^Cancelled due to explicit"):
+        with pytest.raises(
+            Cancelled,
+            match=rf"^cancelled due to explicit from task {current_task()!r}$",
+        ):
             await trio.lowlevel.checkpoint()
 
 
 async def test_cancel_reason_not_overwritten_2() -> None:
-    # TODO: broken, see earlier test
     with trio.CancelScope() as cs:
         cs.deadline = -inf
-        with pytest.raises(Cancelled, match=r"^Cancelled due to explicit"):
+        with pytest.raises(Cancelled, match=r"^cancelled due to deadline$"):
             await trio.lowlevel.checkpoint()
         cs.cancel()
-        with pytest.raises(Cancelled, match=r"^Cancelled due to explicit"):
+        with pytest.raises(Cancelled, match=r"^cancelled due to deadline$"):
             await trio.lowlevel.checkpoint()

@@ -10,6 +10,8 @@ from trio._util import NoPublicConstructor, final
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from typing_extensions import Self
+
 
 class TrioInternalError(Exception):
     """Raised by :func:`run` if we encounter a bug in Trio, or (possibly) a
@@ -71,15 +73,21 @@ class Cancelled(BaseException, metaclass=NoPublicConstructor):
 
     """
 
-    source: Literal["deadline", "nursery", "explicit"]
+    source: Literal["deadline", "nursery", "explicit", "unknown", "KeyboardInterrupt"]
+    # TODO: this should probably be a Task?
     source_task: str | None = None
     reason: str | None = None
 
     def __str__(self) -> str:
+        def repr_if_not_none(lead: str, s: str | None, trail: str = "") -> str:
+            if s is None:
+                return ""
+            return lead + s + trail
+
         return (
-            f"Cancelled due to {self.source}"
-            + (f" with reason {self.reason!r}" if self.reason is not None else "")
-            + f" from task {self.source_task}"
+            f"cancelled due to {self.source}"
+            + repr_if_not_none(" with reason '", self.reason, "'")
+            + repr_if_not_none(" from task ", self.source_task)
         )
 
     def __reduce__(self) -> tuple[Callable[[], Cancelled], tuple[()]]:
@@ -95,6 +103,19 @@ class Cancelled(BaseException, metaclass=NoPublicConstructor):
             ),
             (),
         )
+
+    if TYPE_CHECKING:
+        # for type checking on internal code
+        @classmethod
+        def _create(
+            cls,
+            *,
+            source: Literal[
+                "deadline", "nursery", "explicit", "unknown", "KeyboardInterrupt"
+            ],
+            source_task: str | None = None,
+            reason: str | None = None,
+        ) -> Self: ...
 
 
 class BusyResourceError(Exception):

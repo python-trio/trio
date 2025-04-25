@@ -783,7 +783,8 @@ async def test_cancel_scope_misnesting() -> None:
     async def task2() -> None:
         with _core.CancelScope():
             with pytest.raises(
-                _core.Cancelled, match=r"^Cancelled due to unknown from task None$"
+                _core.Cancelled,
+                match=r"^cancelled due to unknown with reason 'misnesting'$",
             ):
                 await sleep_forever()
 
@@ -2230,25 +2231,26 @@ def test_Cancelled_init() -> None:
 
 
 async def test_Cancelled_str() -> None:
-    cancelled = _core.Cancelled._create(source="foo")
-    assert str(cancelled) == "Cancelled due to foo from task None"
+    cancelled = _core.Cancelled._create(source="explicit")
+    assert str(cancelled) == "cancelled due to explicit"
     assert re.fullmatch(
-        r"Cancelled due to bar from task "
+        r"cancelled due to deadline from task "
         r"<Task 'trio._core._tests.test_run.test_Cancelled_str' at 0x\w*>",
         str(
             _core.Cancelled._create(
-                source="bar",
-                source_task=_core.current_task(),
+                source="deadline",
+                source_task=repr(_core.current_task()),
             )
         ),
     )
+
     assert re.fullmatch(
-        r"Cancelled due to bar with reason 'pigs flying' from task "
+        r"cancelled due to nursery with reason 'pigs flying' from task "
         r"<Task 'trio._core._tests.test_run.test_Cancelled_str' at 0x\w*>",
         str(
             _core.Cancelled._create(
-                source="bar",
-                source_task=_core.current_task(),
+                source="nursery",
+                source_task=repr(_core.current_task()),
                 reason="pigs flying",
             )
         ),
@@ -2262,9 +2264,12 @@ def test_Cancelled_subclass() -> None:
 
 # https://github.com/python-trio/trio/issues/3248
 def test_Cancelled_pickle() -> None:
-    cancelled = _core.Cancelled._create(source="foo")
-    cancelled = pickle.loads(pickle.dumps(cancelled))
-    assert isinstance(cancelled, _core.Cancelled)
+    cancelled = _core.Cancelled._create(source="KeyboardInterrupt")
+    pickled_cancelled = pickle.loads(pickle.dumps(cancelled))
+    assert isinstance(pickled_cancelled, _core.Cancelled)
+    assert cancelled.source == pickled_cancelled.source
+    assert cancelled.source_task == pickled_cancelled.source_task
+    assert cancelled.reason == pickled_cancelled.reason
 
 
 def test_CancelScope_subclass() -> None:

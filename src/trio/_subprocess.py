@@ -766,6 +766,7 @@ async def _run_process(
 
                 nursery.start_soon(killer)
                 await proc.wait()
+                # TODO: source/reason?
                 killer_cscope.cancel()
                 raise
 

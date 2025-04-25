@@ -282,7 +282,7 @@ async def test_raise_single_exception_from_group() -> None:
     context = TypeError("context")
     exc.__cause__ = cause
     exc.__context__ = context
-    cancelled = trio.Cancelled._create(source="foo")
+    cancelled = trio.Cancelled._create(source="deadline")
 
     with pytest.raises(ValueError, match="foo") as excinfo:
         raise_single_exception_from_group(ExceptionGroup("", [exc]))
@@ -346,11 +346,11 @@ async def test_raise_single_exception_from_group() -> None:
     assert excinfo.value.__context__ is None
 
     # if we only got cancelled, first one is reraised
-    with pytest.raises(
-        trio.Cancelled, match=r"^Cancelled due to foo from task None$"
-    ) as excinfo:
+    with pytest.raises(trio.Cancelled, match=r"^cancelled due to deadline$") as excinfo:
         raise_single_exception_from_group(
-            BaseExceptionGroup("", [cancelled, trio.Cancelled._create(source="bar")])
+            BaseExceptionGroup(
+                "", [cancelled, trio.Cancelled._create(source="explicit")]
+            )
         )
     assert excinfo.value is cancelled
     assert excinfo.value.__cause__ is None
