@@ -73,27 +73,30 @@ class Cancelled(BaseException, metaclass=NoPublicConstructor):
 
     """
 
-    source: Literal["deadline", "nursery", "explicit", "unknown", "KeyboardInterrupt"]
-    # TODO: this should probably be a Task?
+    source: Literal[
+        "KeyboardInterrupt", "deadline", "explicit", "nursery", "shutdown", "unknown"
+    ]
+    # repr(Task), so as to avoid gc troubles from holding a reference
     source_task: str | None = None
     reason: str | None = None
 
     def __str__(self) -> str:
-        def repr_if_not_none(lead: str, s: str | None, trail: str = "") -> str:
+        def repr_if_not_none(lead: str, s: str | None, do_repr: bool = False) -> str:
             if s is None:
                 return ""
-            return lead + s + trail
+            if do_repr:
+                return lead + repr(s)
+            return lead + s
 
         return (
             f"cancelled due to {self.source}"
-            + repr_if_not_none(" with reason '", self.reason, "'")
+            + repr_if_not_none(" with reason ", self.reason, True)
             + repr_if_not_none(" from task ", self.source_task)
         )
 
     def __reduce__(self) -> tuple[Callable[[], Cancelled], tuple[()]]:
         # the `__reduce__` tuple does not support kwargs, so we must use partial
         # for non-default args
-        # or switch to allow posarg (?)
         return (
             partial(
                 Cancelled._create,
@@ -111,7 +114,12 @@ class Cancelled(BaseException, metaclass=NoPublicConstructor):
             cls,
             *,
             source: Literal[
-                "deadline", "nursery", "explicit", "unknown", "KeyboardInterrupt"
+                "KeyboardInterrupt",
+                "deadline",
+                "explicit",
+                "nursery",
+                "shutdown",
+                "unknown",
             ],
             source_task: str | None = None,
             reason: str | None = None,

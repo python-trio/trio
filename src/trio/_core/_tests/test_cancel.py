@@ -9,6 +9,8 @@ from trio import Cancelled
 from trio.lowlevel import current_task
 from trio.testing import RaisesGroup
 
+from .test_ki import ki_self
+
 
 async def test_cancel_reason() -> None:
     with trio.CancelScope() as cs:
@@ -42,7 +44,8 @@ async def test_cancel_reason_nursery() -> None:
     ) -> None:
         task_status.started()
         with pytest.raises(
-            Cancelled, match=rf"^cancelled due to nursery from task {fail_task!r}$"
+            Cancelled,
+            match=rf"^cancelled due to nursery with reason 'child task raised exception ValueError\(\)' from task {fail_task!r}$",
         ):
             await trio.sleep_forever()
         raise TypeError
@@ -66,7 +69,8 @@ async def test_cancel_reason_nursery2() -> None:
     ) -> None:
         task_status.started()
         with pytest.raises(
-            Cancelled, match=rf"^cancelled due to nursery from task {fail_task!r}$"
+            Cancelled,
+            match=rf"^cancelled due to nursery with reason 'child task raised exception ValueError\(\)' from task {fail_task!r}$",
         ):
             await trio.sleep_forever()
         raise TypeError
@@ -103,3 +107,45 @@ async def test_cancel_reason_not_overwritten_2() -> None:
         cs.cancel()
         with pytest.raises(Cancelled, match=r"^cancelled due to deadline$"):
             await trio.lowlevel.checkpoint()
+
+
+async def test_nested_child_source() -> None:
+    ev = trio.Event()
+    parent_task = current_task()
+
+    async def child() -> None:
+        ev.set()
+        with pytest.raises(
+            Cancelled,
+            match=rf"^cancelled due to nursery with reason 'Code block inside nursery contextmanager raised exception ValueError\(\)' from task {parent_task!r}$",
+        ):
+            await trio.sleep_forever()
+
+    with RaisesGroup(ValueError):
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(child)
+            await ev.wait()
+            raise ValueError
+
+
+async def test_reason_delayed_ki() -> None:
+    # simplified version of test_ki.test_ki_protection_works check #2
+    parent_task = current_task()
+
+    async def sleeper(name: str) -> None:
+        with pytest.raises(
+            Cancelled,
+            match=rf"^cancelled due to KeyboardInterrupt from task {parent_task!r}$",
+        ):
+            while True:
+                await trio.lowlevel.checkpoint()
+
+    async def raiser(name: str) -> None:
+        ki_self()
+
+    with RaisesGroup(KeyboardInterrupt):
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(sleeper, "s1")
+            nursery.start_soon(sleeper, "s2")
+            nursery.start_soon(trio.lowlevel.enable_ki_protection(raiser), "r1")
+            # __aexit__ blocks, and then receives the KI

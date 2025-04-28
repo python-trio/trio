@@ -318,8 +318,14 @@ class Deadlines:
 
 @attrs.define
 class CancelReason:
-    # TODO: loren ipsum
-    source: Literal["deadline", "nursery", "explicit", "KeyboardInterrupt"]
+    """Attached to a :class:`CancelScope` upon cancellation with details of the source of the
+    cancellation, which is then used to construct the string in a :exc:`Cancelled`.
+    Users can pass a ``reason`` str to :meth:`CancelScope.cancel` to set it.
+    """
+
+    source: Literal[
+        "KeyboardInterrupt", "deadline", "explicit", "nursery", "shutdown", "unknown"
+    ]
     source_task: str | None = None
     reason: str | None = None
 
@@ -580,8 +586,6 @@ class CancelScope:
     _cancel_called: bool = attrs.field(default=False, init=False)
     cancelled_caught: bool = attrs.field(default=False, init=False)
 
-    # necessary as cancel_status might be None
-    # TODO: but maybe cancel_status doesn't need it?
     _cancel_reason: CancelReason | None = attrs.field(
         default=None, init=False, repr=True
     )
@@ -1230,9 +1234,10 @@ class Nursery(metaclass=NoPublicConstructor):
         "(`~trio.lowlevel.Task`):  The Task that opened this nursery."
         return self._parent_task
 
-    def _add_exc(self, exc: BaseException) -> None:
+    def _add_exc(self, exc: BaseException, reason: CancelReason | None) -> None:
         self._pending_excs.append(exc)
-        # TODO: source/reason?
+        if self.cancel_scope._cancel_reason is None:
+            self.cancel_scope._cancel_reason = reason
         self.cancel_scope.cancel()
 
     def _check_nursery_closed(self) -> None:
@@ -1249,11 +1254,14 @@ class Nursery(metaclass=NoPublicConstructor):
     ) -> None:
         self._children.remove(task)
         if isinstance(outcome, Error):
-            if self.cancel_scope._cancel_reason is None:
-                self.cancel_scope._cancel_reason = CancelReason(
-                    source="nursery", source_task=repr(task)
-                )
-            self._add_exc(outcome.error)
+            self._add_exc(
+                outcome.error,
+                CancelReason(
+                    source="nursery",
+                    source_task=repr(task),
+                    reason=f"child task raised exception {outcome.error!r}",
+                ),
+            )
         self._check_nursery_closed()
 
     async def _nested_child_finished(
@@ -1263,7 +1271,14 @@ class Nursery(metaclass=NoPublicConstructor):
         # Returns ExceptionGroup instance (or any exception if the nursery is in loose mode
         # and there is just one contained exception) if there are pending exceptions
         if nested_child_exc is not None:
-            self._add_exc(nested_child_exc)
+            self._add_exc(
+                nested_child_exc,
+                reason=CancelReason(
+                    source="nursery",
+                    source_task=repr(self._parent_task),
+                    reason=f"Code block inside nursery contextmanager raised exception {nested_child_exc!r}",
+                ),
+            )
         self._nested_child_running = False
         self._check_nursery_closed()
 
@@ -1274,7 +1289,13 @@ class Nursery(metaclass=NoPublicConstructor):
             def aborted(raise_cancel: _core.RaiseCancelT) -> Abort:
                 exn = capture(raise_cancel).error
                 if not isinstance(exn, Cancelled):
-                    self._add_exc(exn)
+                    self._add_exc(
+                        exn,
+                        CancelReason(
+                            source="KeyboardInterrupt",
+                            source_task=repr(self._parent_task),
+                        ),
+                    )
                 # see test_cancel_scope_exit_doesnt_create_cyclic_garbage
                 del exn  # prevent cyclic garbage creation
                 return Abort.FAILED
@@ -1288,7 +1309,8 @@ class Nursery(metaclass=NoPublicConstructor):
             try:
                 await cancel_shielded_checkpoint()
             except BaseException as exc:
-                self._add_exc(exc)
+                # there's no children to cancel, so don't need to supply cancel reason
+                self._add_exc(exc, reason=None)
 
         popped = self._parent_task._child_nurseries.pop()
         assert popped is self
@@ -2134,6 +2156,12 @@ class Runner:  # type: ignore[explicit-any]
 
                 # Main task is done; start shutting down system tasks
                 # TODO: source/reason?
+                self.system_nursery.cancel_scope._cancel_reason = CancelReason(
+                    source="shutdown",
+                    reason="main task done, shutting down system tasks",
+                    source_task=repr(self.init_task),
+                )
+
                 self.system_nursery.cancel_scope.cancel()
 
             # System nursery is closed; finalize remaining async generators
