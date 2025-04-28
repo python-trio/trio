@@ -62,15 +62,7 @@ repos:
     rev: 0.6.13
     hooks:
       # Compile requirements
-      - id: pip-compile
-        name: uv pip-compile test-requirements.in
-        args: [
-          "--universal",
-          "--python-version=3.9",
-          "test-requirements.in",
-          "-o",
-          "test-requirements.txt"]
-        files: ^test-requirements\.(in|txt)$
+      - id: uv-lock
       - id: pip-compile
         name: uv pip-compile docs-requirements.in
         args: [

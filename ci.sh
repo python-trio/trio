@@ -37,30 +37,49 @@ python -c "import sys, struct, ssl; print('python:', sys.version); print('versio
 echo "::endgroup::"
 
 echo "::group::Install dependencies"
-python -m pip install -U pip uv -c test-requirements.txt
+python -m pip install -U pip tomli
 python -m pip --version
+UV_VERSION=$(python -c 'import tomli; from pathlib import Path; print({p["name"]:p for p in tomli.loads(Path("uv.lock").read_text())["package"]}["uv"]["version"])')
+python -m pip install uv==$UV_VERSION
 python -m uv --version
 
-python -m uv pip install build
+UV_VENV_SEED="pip"
+python -m uv venv --seed --allow-existing
 
-python -m build
-wheel_package=$(ls dist/*.whl)
-python -m uv pip install "trio @ $wheel_package" -c test-requirements.txt
+# Determine platform and activate virtual environment accordingly
+case "$OSTYPE" in
+  linux-gnu*|linux-musl*|darwin*)
+    source .venv/bin/activate
+    ;;
+  cygwin*|msys*)
+    source .venv/Scripts/activate
+    ;;
+  *)
+    echo "::error:: Unknown OS. Please add an activation method for '$OSTYPE'."
+    exit 1
+    ;;
+esac
+
+# Install uv in virtual environment
+python -m pip install uv==$UV_VERSION
 
 # Actual tests
 # expands to 0 != 1 if NO_TEST_REQUIREMENTS is not set, if set the `-0` has no effect
 # https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_06_02
 if [ "${NO_TEST_REQUIREMENTS-0}" == 1 ]; then
-    python -m uv pip install pytest coverage -c test-requirements.txt
+    python -m uv sync --locked --extra base_tests
     flags="--skip-optional-imports"
 else
-    python -m uv pip install -r test-requirements.txt
+    python -m uv sync --locked --extra base_tests --extra tests
     flags=""
 fi
 
-# So we can run the test for our apport/excepthook interaction working
-if [ -e /etc/lsb-release ] && grep -q Ubuntu /etc/lsb-release; then
-    sudo apt install -q python3-apport
+# If linux runner on Github Actions (not on local machines)
+if [[ "${RUNNER_OS:-}" == "Linux" ]]; then
+    # So we can run the test for our apport/excepthook interaction working
+    if [ -e /etc/lsb-release ] && grep -q Ubuntu /etc/lsb-release; then
+        sudo apt install -q python3-apport
+    fi
 fi
 
 # If we're testing with a LSP installed, then it might break network

@@ -675,7 +675,7 @@ async def test_warn_on_failed_cancel_terminate(monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.setattr(Process, "terminate", broken_terminate)
 
-    with pytest.warns(RuntimeWarning, match=".*whoops.*"):  # noqa: PT031
+    with pytest.warns(RuntimeWarning, match=".*whoops.*"):
         async with _core.open_nursery() as nursery:
             nursery.start_soon(run_process, SLEEP(9999))
             await wait_all_tasks_blocked()
@@ -689,7 +689,7 @@ async def test_warn_on_cancel_SIGKILL_escalation(
 ) -> None:
     monkeypatch.setattr(Process, "terminate", lambda *args: None)
 
-    with pytest.warns(RuntimeWarning, match=".*ignored SIGTERM.*"):  # noqa: PT031
+    with pytest.warns(RuntimeWarning, match=".*ignored SIGTERM.*"):
         async with _core.open_nursery() as nursery:
             nursery.start_soon(run_process, SLEEP(9999))
             await wait_all_tasks_blocked()

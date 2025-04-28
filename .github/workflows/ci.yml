@@ -61,10 +61,10 @@ jobs:
           VERSION: ${{ steps.dist-version.outputs.version }}
 
       - name: Install build
-        run: python -Im pip install build
+        run: python -Im pip install uv
 
       - name: Build dists
-        run: python -Im build
+        run: python -Im uv build
       - name: Verify that the artifacts with expected names got created
         run: >-
           ls -1
@@ -113,7 +113,7 @@ jobs:
           Smoke-test: install test requirements from the Git repo
         run: >-
           python -Im
-          pip install -c test-requirements.txt -r test-requirements.txt
+          uv sync --locked --extra base_tests --extra tests
         shell: bash -eEuo pipefail {0}
         working-directory: git-src
 
@@ -122,7 +122,7 @@ jobs:
         env:
           PYTHONPATH: src/
         run: >-
-          pytest --collect-only -qq .
+          python -Im pytest --collect-only -qq .
           | sort
           | tee collected-tests
         shell: bash -eEuo pipefail {0}
@@ -133,7 +133,7 @@ jobs:
         env:
           PYTHONPATH: src/
         run: >-
-          pytest --collect-only -qq .
+          python -Im pytest --collect-only -qq .
           | sort
           | tee collected-tests
         shell: bash -eEuo pipefail {0}
