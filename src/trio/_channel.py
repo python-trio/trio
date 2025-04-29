@@ -17,7 +17,8 @@ from outcome import Error, Value
 import trio
 
 from ._abc import ReceiveChannel, ReceiveType, SendChannel, SendType, T
-from ._core import Abort, RaiseCancelT, Task, enable_ki_protection
+from ._core import Abort, RaiseCancelT, Task, current_task, enable_ki_protection
+from ._core._run import CancelReason
 from ._util import (
     MultipleExceptionError,
     NoPublicConstructor,
@@ -547,7 +548,12 @@ def as_safe_channel(
                     yield wrapped_recv_chan
                 # User has exited context manager, cancel to immediately close the
                 # abandoned generator if it's still alive.
-                nursery.cancel_scope.cancel(reason="user exited context manager")
+                nursery.cancel_scope._cancel_reason = CancelReason(
+                    reason="exited _as_safe_channel context manager",
+                    source="shutdown",
+                    source_task=repr(current_task),
+                )
+                nursery.cancel_scope.cancel()
         except BaseExceptionGroup as eg:
             try:
                 raise_single_exception_from_group(eg)

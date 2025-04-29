@@ -231,7 +231,7 @@ class AsyncGenerators:
             # is cancelled so there's no deadlock risk.
             with _core.CancelScope(shield=True) as cancel_scope:
                 cancel_scope.cancel(
-                    reason="internal trio cancellation during finalization"
+                    reason="disallow async work when closing async generators during trio shutdown"
                 )
                 await agen.aclose()
         except BaseException:

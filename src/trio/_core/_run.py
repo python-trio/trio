@@ -321,6 +321,8 @@ class CancelReason:
     """Attached to a :class:`CancelScope` upon cancellation with details of the source of the
     cancellation, which is then used to construct the string in a :exc:`Cancelled`.
     Users can pass a ``reason`` str to :meth:`CancelScope.cancel` to set it.
+
+    Not publicly exported or documented.
     """
 
     source: Literal[
@@ -916,8 +918,12 @@ class CancelScope:
             self._cancel_status.recalculate()
 
     @enable_ki_protection
-    def cancel(self, *, reason: str | None = None) -> None:
+    def cancel(self, reason: str | None = None) -> None:
         """Cancels this scope immediately.
+
+        The optional ``reason`` argument accepts a string, which will be attached to
+        any resulting :exc:`Cancelled` exception to help you understand where that
+        cancellation is coming from and why it happened.
 
         This method is idempotent, i.e., if the scope was already
         cancelled then this method silently does nothing.
