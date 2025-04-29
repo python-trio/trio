@@ -1640,25 +1640,7 @@ class Task(metaclass=NoPublicConstructor):  # type: ignore[explicit-any]
         if not self._cancel_status.effectively_cancelled:
             return
 
-        # FIXME: I haven't quite figured out how to get the cancel reason to stay
-        # alive for passing into other threads, but also not cause any cyclic garbage.
-        if (
-            self._cancel_status is None
-            or self._cancel_status._scope._cancel_reason is None
-        ):
-            # _cancel_status._cancel_reason is None when misnesting
-            cancelled = Cancelled._create(source="unknown", reason="misnesting")
-        else:
-            cancelled = Cancelled._create(
-                source=self._cancel_status._scope._cancel_reason.source,
-                reason=self._cancel_status._scope._cancel_reason.reason,
-                source_task=self._cancel_status._scope._cancel_reason.source_task,
-            )
-
-        def raise_cancel() -> NoReturn:
-            raise cancelled
-
-        self._attempt_abort(raise_cancel)
+        self._attempt_abort(RaiseCancel(self._cancel_status._scope._cancel_reason))
 
     def _attempt_delivery_of_pending_ki(self) -> None:
         assert self._runner.ki_pending
@@ -1670,6 +1652,24 @@ class Task(metaclass=NoPublicConstructor):  # type: ignore[explicit-any]
             raise KeyboardInterrupt
 
         self._attempt_abort(raise_cancel)
+
+
+class RaiseCancel:
+    def __init__(self, reason: CancelReason | None) -> None:
+        if reason is None:
+            self.cancelled = Cancelled._create(source="unknown", reason="misnesting")
+        else:
+            self.cancelled = Cancelled._create(
+                source=reason.source,
+                reason=reason.reason,
+                source_task=reason.source_task,
+            )
+
+    def __call__(self) -> NoReturn:
+        try:
+            raise self.cancelled
+        finally:
+            del self.cancelled
 
 
 ################################################################

@@ -430,7 +430,9 @@ async def to_thread_run_sync(
 
         def abort(raise_cancel: RaiseCancelT) -> trio.lowlevel.Abort:
             # fill so from_thread_check_cancelled can raise
-            cancel_register[0] = raise_cancel
+            import copy
+
+            cancel_register[0] = copy.copy(raise_cancel)
             if abandon_bool:
                 # empty so report_back_in_trio_thread_fn cannot reschedule
                 task_register[0] = None
