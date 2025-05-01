@@ -911,6 +911,11 @@ class CancelScope:
 
     @enable_ki_protection
     def _cancel(self, cancel_reason: CancelReason | None) -> None:
+        """Internal sources of cancellation should use this instead of :meth:`cancel`
+        in order to set a more detailed :class:`CancelReason`
+        Helper or high-level functions can use `cancel`.
+        """
+
         if self._cancel_called:
             return
 
