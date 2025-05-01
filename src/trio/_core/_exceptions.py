@@ -81,22 +81,16 @@ class Cancelled(BaseException, metaclass=NoPublicConstructor):
     reason: str | None = None
 
     def __str__(self) -> str:
-        def repr_if_not_none(lead: str, s: str | None, do_repr: bool = False) -> str:
-            if s is None:
-                return ""
-            if do_repr:
-                return lead + repr(s)
-            return lead + s
-
         return (
             f"cancelled due to {self.source}"
-            + repr_if_not_none(" with reason ", self.reason, True)
-            + repr_if_not_none(" from task ", self.source_task)
+            + ("" if self.reason is None else f" with reason {self.reason!r}")
+            + ("" if self.source_task is None else f" from task {self.source_task}")
         )
 
     def __reduce__(self) -> tuple[Callable[[], Cancelled], tuple[()]]:
-        # the `__reduce__` tuple does not support kwargs, so we must use partial
-        # for non-default args
+        # The `__reduce__` tuple does not support directly passing kwargs, and the
+        # kwargs are required so we can't use the third item for adding to __dict__,
+        # so we use partial.
         return (
             partial(
                 Cancelled._create,
