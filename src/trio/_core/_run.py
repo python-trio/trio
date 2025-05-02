@@ -18,7 +18,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Final,
-    Literal,
     NoReturn,
     Protocol,
     cast,
@@ -37,7 +36,12 @@ from .._util import NoPublicConstructor, coroutine_or_error, final
 from ._asyncgens import AsyncGenerators
 from ._concat_tb import concat_tb
 from ._entry_queue import EntryQueue, TrioToken
-from ._exceptions import Cancelled, RunFinishedError, TrioInternalError
+from ._exceptions import (
+    Cancelled,
+    CancelReasonLiteral,
+    RunFinishedError,
+    TrioInternalError,
+)
 from ._instrumentation import Instruments
 from ._ki import KIManager, enable_ki_protection
 from ._parking_lot import GLOBAL_PARKING_LOT_BREAKER
@@ -324,9 +328,7 @@ class CancelReason:
     Not publicly exported or documented.
     """
 
-    source: Literal[
-        "KeyboardInterrupt", "deadline", "explicit", "nursery", "shutdown", "unknown"
-    ]
+    source: CancelReasonLiteral
     source_task: str | None = None
     reason: str | None = None
 
@@ -915,7 +917,6 @@ class CancelScope:
         in order to set a more detailed :class:`CancelReason`
         Helper or high-level functions can use `cancel`.
         """
-
         if self._cancel_called:
             return
 

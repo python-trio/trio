@@ -10,7 +10,16 @@ from trio._util import NoPublicConstructor, final
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from typing_extensions import Self
+    from typing_extensions import Self, TypeAlias
+
+CancelReasonLiteral: TypeAlias = Literal[
+    "KeyboardInterrupt",
+    "deadline",
+    "explicit",
+    "nursery",
+    "shutdown",
+    "unknown",
+]
 
 
 class TrioInternalError(Exception):
@@ -73,9 +82,7 @@ class Cancelled(BaseException, metaclass=NoPublicConstructor):
 
     """
 
-    source: Literal[
-        "KeyboardInterrupt", "deadline", "explicit", "nursery", "shutdown", "unknown"
-    ]
+    source: CancelReasonLiteral
     # repr(Task), so as to avoid gc troubles from holding a reference
     source_task: str | None = None
     reason: str | None = None
@@ -107,14 +114,7 @@ class Cancelled(BaseException, metaclass=NoPublicConstructor):
         def _create(
             cls,
             *,
-            source: Literal[
-                "KeyboardInterrupt",
-                "deadline",
-                "explicit",
-                "nursery",
-                "shutdown",
-                "unknown",
-            ],
+            source: CancelReasonLiteral,
             source_task: str | None = None,
             reason: str | None = None,
         ) -> Self: ...
