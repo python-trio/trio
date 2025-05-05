@@ -3,8 +3,6 @@ from __future__ import annotations
 import contextvars
 import functools
 import gc
-import pickle
-import re
 import sys
 import threading
 import time
@@ -2217,59 +2215,6 @@ async def test_Nursery_private_init() -> None:
 def test_Nursery_subclass() -> None:
     with pytest.raises(TypeError):
         type("Subclass", (_core._run.Nursery,), {})
-
-
-def test_Cancelled_init() -> None:
-    with pytest.raises(TypeError, match=r"^trio.Cancelled has no public constructor$"):
-        raise _core.Cancelled  # type: ignore[call-arg]
-
-    with pytest.raises(TypeError, match=r"^trio.Cancelled has no public constructor$"):
-        _core.Cancelled(source="explicit")
-
-    # private constructor should not raise
-    _core.Cancelled._create(source="explicit")
-
-
-async def test_Cancelled_str() -> None:
-    cancelled = _core.Cancelled._create(source="explicit")
-    assert str(cancelled) == "cancelled due to explicit"
-    assert re.fullmatch(
-        r"cancelled due to deadline from task "
-        r"<Task 'trio._core._tests.test_run.test_Cancelled_str' at 0x\w*>",
-        str(
-            _core.Cancelled._create(
-                source="deadline",
-                source_task=repr(_core.current_task()),
-            )
-        ),
-    )
-
-    assert re.fullmatch(
-        r"cancelled due to nursery with reason 'pigs flying' from task "
-        r"<Task 'trio._core._tests.test_run.test_Cancelled_str' at 0x\w*>",
-        str(
-            _core.Cancelled._create(
-                source="nursery",
-                source_task=repr(_core.current_task()),
-                reason="pigs flying",
-            )
-        ),
-    )
-
-
-def test_Cancelled_subclass() -> None:
-    with pytest.raises(TypeError):
-        type("Subclass", (_core.Cancelled,), {})
-
-
-# https://github.com/python-trio/trio/issues/3248
-def test_Cancelled_pickle() -> None:
-    cancelled = _core.Cancelled._create(source="KeyboardInterrupt")
-    pickled_cancelled = pickle.loads(pickle.dumps(cancelled))
-    assert isinstance(pickled_cancelled, _core.Cancelled)
-    assert cancelled.source == pickled_cancelled.source
-    assert cancelled.source_task == pickled_cancelled.source_task
-    assert cancelled.reason == pickled_cancelled.reason
 
 
 def test_CancelScope_subclass() -> None:

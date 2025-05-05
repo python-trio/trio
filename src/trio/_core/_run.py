@@ -2180,7 +2180,7 @@ class Runner:  # type: ignore[explicit-any]
             run_sync_soon_nursery.cancel_scope._cancel(
                 CancelReason(
                     source="shutdown",
-                    reason="main task done, shut down run_sync_soon callbacks",
+                    reason="main task done, shutting down run_sync_soon callbacks",
                     source_task=repr(self.init_task),
                 )
             )
