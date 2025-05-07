@@ -24,7 +24,7 @@ repos:
     hooks:
       - id: black
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.4
+    rev: v0.11.8
     hooks:
       - id: ruff
         types: [file]
@@ -37,8 +37,8 @@ repos:
         additional_dependencies:
           # tomli needed on 3.10. tomllib is available in stdlib on 3.11+
           - tomli
-  - repo: https://github.com/crate-ci/typos
-    rev: v1.31.1
+  - repo: https://github.com/adhtruong/mirrors-typos
+    rev: v1.32.0
     hooks:
       - id: typos
   - repo: https://github.com/sphinx-contrib/sphinx-lint
@@ -46,7 +46,7 @@ repos:
     hooks:
       - id: sphinx-lint
   - repo: https://github.com/woodruffw/zizmor-pre-commit
-    rev: v1.5.2
+    rev: v1.6.0
     hooks:
       - id: zizmor
   - repo: local
@@ -66,7 +66,7 @@ repos:
         additional_dependencies: ["pyyaml"]
         files: ^(test-requirements\.txt)|(\.pre-commit-config\.yaml)$
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.6.13
+    rev: 0.7.2
     hooks:
       # Compile requirements
       - id: pip-compile
