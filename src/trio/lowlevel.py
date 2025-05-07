@@ -16,7 +16,7 @@ from ._core import (
     Abort as Abort,
     ParkingLot as ParkingLot,
     ParkingLotStatistics as ParkingLotStatistics,
-    RaiseCancelT as _RaiseCancelT,
+    RaiseCancelT as RaiseCancelT,
     RunStatistics as RunStatistics,
     RunVar as RunVar,
     RunVarToken as RunVarToken,
@@ -84,15 +84,4 @@ else:
             wait_kevent as wait_kevent,
         )
 
-from ._deprecate import DeprecatedAttribute, deprecate_attributes
-
-deprecate_attributes(
-    __name__,
-    {
-        "RaiseCancelT": DeprecatedAttribute(
-            _RaiseCancelT, "0.30.0", issue=2649, instead="an exception argument"
-        )
-    },
-)
-
-del sys, deprecate_attributes, DeprecatedAttribute
+del sys

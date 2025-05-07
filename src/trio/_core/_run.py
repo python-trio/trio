@@ -1228,10 +1228,12 @@ class Nursery(metaclass=NoPublicConstructor):
             # If we have a KeyboardInterrupt injected, we want to save it in
             # the nursery's final exceptions list. But if it's just a
             # Cancelled, then we don't -- see gh-1457.
-            def aborted(exn: BaseException) -> Abort:
-                # TODO: when do we abort with something other than Cancelled?
+            def aborted(raise_cancel: _core.RaiseCancelT) -> Abort:
+                exn = capture(raise_cancel).error
                 if not isinstance(exn, Cancelled):
                     self._add_exc(exn)
+                # see test_cancel_scope_exit_doesnt_create_cyclic_garbage
+                del exn  # prevent cyclic garbage creation
                 return Abort.FAILED
 
             self._parent_waiting_in_aexit = True
@@ -1434,7 +1436,7 @@ class Task(metaclass=NoPublicConstructor):  # type: ignore[explicit-any]
     # Tasks start out unscheduled.
     _next_send_fn: Callable[[Any], object] | None = None  # type: ignore[explicit-any]
     _next_send: Outcome[Any] | BaseException | None = None  # type: ignore[explicit-any]
-    _abort_func: Callable[[BaseException], Abort] | None = None
+    _abort_func: Callable[[_core.RaiseCancelT], Abort] | None = None
     custom_sleep_data: Any = None  # type: ignore[explicit-any]
 
     # For introspection and nursery.start()
@@ -1548,24 +1550,24 @@ class Task(metaclass=NoPublicConstructor):  # type: ignore[explicit-any]
             if self._cancel_status.effectively_cancelled:
                 self._attempt_delivery_of_any_pending_cancel()
 
-    def _attempt_abort(self, cancel_exc: BaseException) -> None:
+    def _attempt_abort(self, raise_cancel: _core.RaiseCancelT) -> None:
         # Either the abort succeeds, in which case we will reschedule the
         # task, or else it fails, in which case it will worry about
-        # rescheduling itself (hopefully eventually calling raising
+        # rescheduling itself (hopefully eventually calling reraise to raise
         # the given exception, but not necessarily).
 
         # This is only called by the functions immediately below, which both check
         # `self.abort_func is not None`.
         assert self._abort_func is not None, "FATAL INTERNAL ERROR"
 
-        success = self._abort_func(cancel_exc)
+        success = self._abort_func(raise_cancel)
         if type(success) is not Abort:
             raise TrioInternalError("abort function must return Abort enum")
         # We only attempt to abort once per blocking call, regardless of
         # whether we succeeded or failed.
         self._abort_func = None
         if success is Abort.SUCCEEDED:
-            self._runner.reschedule(self, Error(cancel_exc))
+            self._runner.reschedule(self, capture(raise_cancel))
 
     def _attempt_delivery_of_any_pending_cancel(self) -> None:
         if self._abort_func is None:
@@ -1573,7 +1575,21 @@ class Task(metaclass=NoPublicConstructor):  # type: ignore[explicit-any]
         if not self._cancel_status.effectively_cancelled:
             return
 
-        self._attempt_abort(Cancelled._create())
+        def raise_cancel() -> NoReturn:
+            raise Cancelled._create()
+
+        self._attempt_abort(raise_cancel)
+
+    def _attempt_delivery_of_pending_ki(self) -> None:
+        assert self._runner.ki_pending
+        if self._abort_func is None:
+            return
+
+        def raise_cancel() -> NoReturn:
+            self._runner.ki_pending = False
+            raise KeyboardInterrupt
+
+        self._attempt_abort(raise_cancel)
 
 
 ################################################################
@@ -2169,7 +2185,7 @@ class Runner:  # type: ignore[explicit-any]
         key = (cushion, id(task))
         self.waiting_for_idle[key] = task
 
-        def abort(_: BaseException) -> Abort:
+        def abort(_: _core.RaiseCancelT) -> Abort:
             del self.waiting_for_idle[key]
             return Abort.SUCCEEDED
 

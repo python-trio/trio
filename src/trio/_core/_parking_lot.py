@@ -183,7 +183,7 @@ class ParkingLot:
         self._parked[task] = None
         task.custom_sleep_data = self
 
-        def abort_fn(_: BaseException) -> _core.Abort:
+        def abort_fn(_: _core.RaiseCancelT) -> _core.Abort:
             del task.custom_sleep_data._parked[task]
             return _core.Abort.SUCCEEDED
 

@@ -16,7 +16,7 @@ from ._wakeup_socketpair import WakeupSocketpair
 if TYPE_CHECKING:
     from typing_extensions import TypeAlias
 
-    from .._core import Abort
+    from .._core import Abort, RaiseCancelT
     from .._file_io import _HasFileNo
 
 
@@ -303,7 +303,7 @@ class EpollIOManager:
         setattr(waiters, attr_name, _core.current_task())
         self._update_registrations(fd)
 
-        def abort(_: BaseException) -> Abort:
+        def abort(_: RaiseCancelT) -> Abort:
             setattr(waiters, attr_name, None)
             self._update_registrations(fd)
             return _core.Abort.SUCCEEDED

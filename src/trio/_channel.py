@@ -17,7 +17,7 @@ from outcome import Error, Value
 import trio
 
 from ._abc import ReceiveChannel, ReceiveType, SendChannel, SendType, T
-from ._core import Abort, Task, enable_ki_protection
+from ._core import Abort, RaiseCancelT, Task, enable_ki_protection
 from ._util import (
     MultipleExceptionError,
     NoPublicConstructor,
@@ -227,7 +227,7 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
         self._state.send_tasks[task] = value
         task.custom_sleep_data = self
 
-        def abort_fn(_: BaseException) -> Abort:
+        def abort_fn(_: RaiseCancelT) -> Abort:
             self._tasks.remove(task)
             del self._state.send_tasks[task]
             return trio.lowlevel.Abort.SUCCEEDED
@@ -375,7 +375,7 @@ class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstr
         self._state.receive_tasks[task] = None
         task.custom_sleep_data = self
 
-        def abort_fn(_: BaseException) -> Abort:
+        def abort_fn(_: RaiseCancelT) -> Abort:
             self._tasks.remove(task)
             del self._state.receive_tasks[task]
             return trio.lowlevel.Abort.SUCCEEDED

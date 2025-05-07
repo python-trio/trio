@@ -31,6 +31,8 @@ if TYPE_CHECKING:
 
     from typing_extensions import TypeVarTuple, Unpack
 
+    from trio._core._traps import RaiseCancelT
+
     Ts = TypeVarTuple("Ts")
 
 RetT = TypeVar("RetT")
@@ -42,7 +44,7 @@ class _ParentTaskData(threading.local):
 
     token: TrioToken
     abandon_on_cancel: bool
-    cancel_register: list[BaseException | None]
+    cancel_register: list[RaiseCancelT | None]
     task_register: list[trio.lowlevel.Task | None]
 
 
@@ -349,13 +351,15 @@ async def to_thread_run_sync(
     if limiter is None:
         limiter = current_default_thread_limiter()
 
+    # TODO: cancel_register can probably be a single element tuple for typing reasons
+
     # Holds a reference to the task that's blocked in this function waiting
     # for the result – or None if this function was cancelled and we should
     # discard the result.
     task_register: list[trio.lowlevel.Task | None] = [trio.lowlevel.current_task()]
-    # Holds a reference to the exception provided if a cancellation is
-    # attempted against this task - or None if no such delivery has happened.
-    cancel_register: list[BaseException | None] = [None]
+    # Holds a reference to the raise_cancel function provided if a cancellation
+    # is attempted against this task - or None if no such delivery has happened.
+    cancel_register: list[RaiseCancelT | None] = [None]  # type: ignore[assignment]
     name = f"trio.to_thread.run_sync-{next(_thread_counter)}"
     placeholder = ThreadPlaceholder(name)
 
@@ -426,9 +430,9 @@ async def to_thread_run_sync(
             limiter.release_on_behalf_of(placeholder)
             raise
 
-        def abort(cancel_exc: BaseException) -> trio.lowlevel.Abort:
+        def abort(raise_cancel: RaiseCancelT) -> trio.lowlevel.Abort:
             # fill so from_thread_check_cancelled can raise
-            cancel_register[0] = cancel_exc
+            cancel_register[0] = raise_cancel
             if abandon_bool:
                 # empty so report_back_in_trio_thread_fn cannot reschedule
                 task_register[0] = None
@@ -482,13 +486,13 @@ def from_thread_check_cancelled() -> None:
        for completeness.
     """
     try:
-        cancel_exc = PARENT_TASK_DATA.cancel_register[0]
+        raise_cancel = PARENT_TASK_DATA.cancel_register[0]
     except AttributeError:
         raise RuntimeError(
             "this thread wasn't created by Trio, can't check for cancellation",
         ) from None
-    if cancel_exc is not None:
-        raise cancel_exc
+    if raise_cancel is not None:
+        raise_cancel()
 
 
 def _send_message_to_trio(

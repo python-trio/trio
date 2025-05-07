@@ -41,7 +41,7 @@ async def wait_child_exiting(process: _subprocess.Process) -> None:
         # in Chromium it seems we should still keep the check.
         return
 
-    def abort(_: BaseException) -> _core.Abort:
+    def abort(_: _core.RaiseCancelT) -> _core.Abort:
         kqueue.control([make_event(select.KQ_EV_DELETE)], 0)
         return _core.Abort.SUCCEEDED
 

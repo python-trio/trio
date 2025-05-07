@@ -65,7 +65,6 @@ def test_core_is_properly_reexported() -> None:
     # Each export from _core should be re-exported by exactly one of these
     # three modules:
     sources = [trio, trio.lowlevel, trio.testing]
-    hit_RaiseCancelT = False
     for symbol in dir(_core):
         if symbol.startswith("_"):
             continue
@@ -77,14 +76,7 @@ def test_core_is_properly_reexported() -> None:
             ):
                 found += 1
         print(symbol, found)
-        if symbol == "RaiseCancelT":
-            # deprecated
-            hit_RaiseCancelT = True
-            continue
-
         assert found == 1
-
-    assert hit_RaiseCancelT
 
 
 def class_is_final(cls: type) -> bool:

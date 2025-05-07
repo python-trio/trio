@@ -45,7 +45,7 @@ if TYPE_CHECKING:
     from typing_extensions import Buffer, TypeAlias
 
     from .._file_io import _HasFileNo
-    from ._traps import Abort
+    from ._traps import Abort, RaiseCancelT
     from ._unbounded_queue import UnboundedQueue
 
 EventResult: TypeAlias = int
@@ -752,7 +752,7 @@ class WindowsIOManager:
         # we let it escape.
         self._refresh_afd(base_handle)
 
-        def abort_fn(_: BaseException) -> Abort:
+        def abort_fn(_: RaiseCancelT) -> Abort:
             setattr(waiters, mode, None)
             self._refresh_afd(base_handle)
             return _core.Abort.SUCCEEDED
@@ -864,11 +864,11 @@ class WindowsIOManager:
             )
         task = _core.current_task()
         self._overlapped_waiters[lpOverlapped] = task
-        cancel_exc = None
+        raise_cancel = None
 
-        def abort(cancel_exc_: BaseException) -> Abort:
-            nonlocal cancel_exc
-            cancel_exc = cancel_exc_
+        def abort(raise_cancel_: RaiseCancelT) -> Abort:
+            nonlocal raise_cancel
+            raise_cancel = raise_cancel_
             try:
                 _check(kernel32.CancelIoEx(handle, lpOverlapped))
             except OSError as exc:
@@ -914,8 +914,8 @@ class WindowsIOManager:
             # it will produce the right sorts of exceptions
             code = ntdll.RtlNtStatusToDosError(lpOverlappedTyped.Internal)
             if code == ErrorCodes.ERROR_OPERATION_ABORTED:
-                if cancel_exc is not None:
-                    raise cancel_exc
+                if raise_cancel is not None:
+                    raise_cancel()
                 else:
                     # We didn't request this cancellation, so assume
                     # it happened due to the underlying handle being

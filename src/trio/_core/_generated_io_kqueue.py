@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
     from .. import _core
     from .._file_io import _HasFileNo
-    from ._traps import Abort
+    from ._traps import Abort, RaiseCancelT
 
 assert not TYPE_CHECKING or sys.platform == "darwin"
 
@@ -59,7 +59,7 @@ def monitor_kevent(
 
 @enable_ki_protection
 async def wait_kevent(
-    ident: int, filter: int, abort_func: Callable[[BaseException], Abort]
+    ident: int, filter: int, abort_func: Callable[[RaiseCancelT], Abort]
 ) -> Abort:
     """TODO: these are implemented, but are currently more of a sketch than
     anything real. See `#26

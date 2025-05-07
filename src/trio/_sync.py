@@ -11,6 +11,7 @@ from . import _core
 from ._core import (
     Abort,
     ParkingLot,
+    RaiseCancelT,
     add_parking_lot_breaker,
     enable_ki_protection,
     remove_parking_lot_breaker,
@@ -94,7 +95,7 @@ class Event:
             task = _core.current_task()
             self._tasks.add(task)
 
-            def abort_fn(_: BaseException) -> Abort:
+            def abort_fn(_: RaiseCancelT) -> Abort:
                 self._tasks.remove(task)
                 return _core.Abort.SUCCEEDED
 

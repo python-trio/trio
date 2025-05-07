@@ -382,7 +382,7 @@ if TYPE_CHECKING:
 
     from .. import _core
     from .._file_io import _HasFileNo
-    from ._traps import Abort
+    from ._traps import Abort, RaiseCancelT
 """
 
 IMPORTS_WINDOWS = """\

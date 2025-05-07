@@ -36,7 +36,7 @@ if TYPE_CHECKING:
         Iterator,
     )
 
-    from ..._core import Abort
+    from ..._core import Abort, RaiseCancelT
 
 
 def ki_self() -> None:
@@ -407,7 +407,7 @@ def test_ki_protection_works() -> None:
         ki_self()
         task = _core.current_task()
 
-        def abort(_: BaseException) -> Abort:
+        def abort(_: RaiseCancelT) -> Abort:
             _core.reschedule(task, outcome.Value(1))
             return _core.Abort.FAILED
 
@@ -427,8 +427,9 @@ def test_ki_protection_works() -> None:
         ki_self()
         task = _core.current_task()
 
-        def abort(cancel_exc: BaseException) -> Abort:
-            _core.reschedule(task, outcome.Error(cancel_exc))
+        def abort(raise_cancel: RaiseCancelT) -> Abort:
+            result = outcome.capture(raise_cancel)
+            _core.reschedule(task, result)
             return _core.Abort.FAILED
 
         with pytest.raises(_core.Cancelled):
