@@ -1648,7 +1648,18 @@ class Task(metaclass=NoPublicConstructor):  # type: ignore[explicit-any]
         if not self._cancel_status.effectively_cancelled:
             return
 
-        self._attempt_abort(RaiseCancel(self._cancel_status._scope._cancel_reason))
+        def raise_cancel() -> NoReturn:
+            reason = self._cancel_status._scope._cancel_reason
+            if reason is None:
+                raise Cancelled._create(source="unknown", reason="misnesting")
+
+            raise Cancelled._create(
+                source=reason.source,
+                reason=reason.reason,
+                source_task=reason.source_task,
+            )
+
+        self._attempt_abort(raise_cancel)
 
     def _attempt_delivery_of_pending_ki(self) -> None:
         assert self._runner.ki_pending
@@ -1660,24 +1671,6 @@ class Task(metaclass=NoPublicConstructor):  # type: ignore[explicit-any]
             raise KeyboardInterrupt
 
         self._attempt_abort(raise_cancel)
-
-
-class RaiseCancel:
-    def __init__(self, reason: CancelReason | None) -> None:
-        if reason is None:
-            self.cancelled = Cancelled._create(source="unknown", reason="misnesting")
-        else:
-            self.cancelled = Cancelled._create(
-                source=reason.source,
-                reason=reason.reason,
-                source_task=reason.source_task,
-            )
-
-    def __call__(self) -> NoReturn:
-        try:
-            raise self.cancelled
-        finally:
-            del self.cancelled
 
 
 ################################################################
@@ -3026,7 +3019,7 @@ async def checkpoint() -> None:
     if task._cancel_status.effectively_cancelled or (
         task is task._runner.main_task and task._runner.ki_pending
     ):
-        cs = CancelScope(deadline=inf)
+        cs = CancelScope(deadline=-inf)
         if (
             task._cancel_status._scope._cancel_reason is None
             and task is task._runner.main_task
