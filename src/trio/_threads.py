@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import contextvars
+import copy
 import inspect
 import queue as stdlib_queue
 import threading
@@ -432,7 +433,7 @@ async def to_thread_run_sync(
             # fill so from_thread_check_cancelled can raise
             # 'raise_cancel' will immediately delete its reason object, so we make
             # a copy in each thread
-            cancel_register[0] = raise_cancel
+            cancel_register[0] = copy.copy(raise_cancel)
             if abandon_bool:
                 # empty so report_back_in_trio_thread_fn cannot reschedule
                 task_register[0] = None
