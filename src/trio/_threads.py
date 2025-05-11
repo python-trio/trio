@@ -351,6 +351,8 @@ async def to_thread_run_sync(
     if limiter is None:
         limiter = current_default_thread_limiter()
 
+    # TODO: cancel_register can probably be a single element tuple for typing reasons
+
     # Holds a reference to the task that's blocked in this function waiting
     # for the result – or None if this function was cancelled and we should
     # discard the result.
