@@ -35,6 +35,7 @@ if TYPE_CHECKING:
         from exceptiongroup import BaseExceptionGroup
 
     ArgsT = ParamSpec("ArgsT")
+    P = ParamSpec("P")
     PosArgsT = TypeVarTuple("PosArgsT")
 
 
@@ -324,8 +325,9 @@ class NoPublicConstructor(ABCMeta):
             f"{cls.__module__}.{cls.__qualname__} has no public constructor",
         )
 
-    def _create(cls: type[T], *args: object, **kwargs: object) -> T:
-        return super().__call__(*args, **kwargs)  # type: ignore
+    def _create(cls: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
+        # misc = unsupported argument 2 for "super" (??)
+        return super().__call__(*args, **kwargs)  # type: ignore[misc,no-any-return]
 
 
 def name_asyncgen(agen: AsyncGeneratorType[object, NoReturn]) -> str:
