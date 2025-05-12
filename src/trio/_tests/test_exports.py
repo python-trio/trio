@@ -117,9 +117,9 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
 # won't be reflected in trio.socket, and this shouldn't cause downstream test
 # runs to start failing.
 @pytest.mark.redistributors_should_skip
-@pytest.mark.xfail(
-    sys.version_info[:2] == (3, 14),
-    strict=True,
+@pytest.mark.skipif(
+    sys.version_info == (3, 14, 0, "beta", 1),
+    # 12 pass, 16 fail
     reason="several tools don't support 3.14.0b1",
 )
 # Static analysis tools often have trouble with alpha releases, where Python's
@@ -248,9 +248,9 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
 @slow
 # see comment on test_static_tool_sees_all_symbols
 @pytest.mark.redistributors_should_skip
-@pytest.mark.xfail(
-    sys.version_info[:2] == (3, 14),
-    strict=True,
+@pytest.mark.skipif(
+    sys.version_info == (3, 14, 0, "beta", 1),
+    # 2 passes, 12 fails
     reason="several tools don't support 3.14.0b1",
 )
 # Static analysis tools often have trouble with alpha releases, where Python's

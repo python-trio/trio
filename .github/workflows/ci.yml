@@ -187,7 +187,7 @@ jobs:
           endsWith(matrix.python, '-dev')
           || endsWith(matrix.python, '-nightly')
           # 3.14+windows has very broken cffi
-          || matrix.python == '3.14'
+          || endsWith(matrix.python, '3.14')
         )
         && true
         || false
