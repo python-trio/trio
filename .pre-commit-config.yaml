@@ -58,6 +58,13 @@ repos:
         pass_filenames: false
         additional_dependencies: ["astor", "attrs", "black", "ruff"]
         files: ^src\/trio\/_core\/(_run|(_i(o_(common|epoll|kqueue|windows)|nstrumentation)))\.py$
+      - id: sync-test-requirements
+        name: synchronize test requirements
+        language: python
+        entry: python src/trio/_tools/sync_requirements.py
+        pass_filenames: false
+        additional_dependencies: ["pyyaml"]
+        files: ^(test-requirements\.txt)|(\.pre-commit-config\.yaml)$
   - repo: https://github.com/astral-sh/uv-pre-commit
     rev: 0.7.2
     hooks:
