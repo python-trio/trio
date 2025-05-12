@@ -155,7 +155,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+        python: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14-dev']
         arch: ['x86', 'x64']
         lsp: ['']
         lsp_extract_file: ['']
@@ -387,11 +387,13 @@ jobs:
           - python: '3.9'  # We support running on cython 2 and 3 for 3.9
             cython: '<3'   # cython 2
           - python: '3.9'
-            cython: '>=3'  # cython 3 (or greater)
+    # cython 3.1.0 broke stuff https://github.com/cython/cython/issues/6865
+            cython: '>=3,<3.1'  # cython 3 (or greater)
           - python: '3.11' # 3.11 is the last version Cy2 supports
             cython: '<3'   # cython 2
           - python: '3.13' # We support running cython3 on 3.13
-            cython: '>=3'  # cython 3 (or greater)
+    # cython 3.1.0 broke stuff https://github.com/cython/cython/issues/6865
+            cython: '>=3,<3.1'  # cython 3 (or greater)
     steps:
       - name: Retrieve the project source from an sdist inside the GHA artifact
         uses: re-actors/checkout-python-sdist@release/v2
