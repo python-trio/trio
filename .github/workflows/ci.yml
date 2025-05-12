@@ -155,7 +155,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14-dev']
+        python: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
         arch: ['x86', 'x64']
         lsp: ['']
         lsp_extract_file: ['']
@@ -186,6 +186,8 @@ jobs:
         (
           endsWith(matrix.python, '-dev')
           || endsWith(matrix.python, '-nightly')
+          # 3.14+windows has very broken cffi
+          || matrix.python == '3.14'
         )
         && true
         || false
