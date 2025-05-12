@@ -1648,7 +1648,19 @@ class Task(metaclass=NoPublicConstructor):  # type: ignore[explicit-any]
         if not self._cancel_status.effectively_cancelled:
             return
 
-        self._attempt_abort(RaiseCancel(self._cancel_status._scope._cancel_reason))
+        if (reason := self._cancel_status._scope._cancel_reason) is not None:
+            cancelled = Cancelled._create(
+                source=reason.source,
+                reason=reason.reason,
+                source_task=reason.source_task,
+            )
+        else:
+            cancelled = Cancelled._create(source="unknown", reason="misnesting")
+
+        self._attempt_abort(RaiseCancel(cancelled))
+        # Clear reference to pass gc tests. `RaiseCancel` keeps the `Cancelled`
+        # alive until it's used.
+        del cancelled
 
     def _attempt_delivery_of_pending_ki(self) -> None:
         assert self._runner.ki_pending
@@ -1663,15 +1675,8 @@ class Task(metaclass=NoPublicConstructor):  # type: ignore[explicit-any]
 
 
 class RaiseCancel:
-    def __init__(self, reason: CancelReason | None) -> None:
-        if reason is None:
-            self.cancelled = Cancelled._create(source="unknown", reason="misnesting")
-        else:
-            self.cancelled = Cancelled._create(
-                source=reason.source,
-                reason=reason.reason,
-                source_task=reason.source_task,
-            )
+    def __init__(self, cancelled: Cancelled) -> None:
+        self.cancelled = cancelled
 
     def __call__(self) -> NoReturn:
         try:
