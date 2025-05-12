@@ -78,6 +78,7 @@ force-exclude = '''
 (
   ^/docs/source/reference-.*
   | ^/docs/source/tutorial
+  | ^/src/trio/_core/_generated_windows_ffi.py
 )
 '''
 
@@ -110,6 +111,7 @@ include = ["*.py", "*.pyi", "**/pyproject.toml"]
 extend-exclude = [
   "docs/source/reference-*",
   "docs/source/tutorial/*",
+  "src/trio/_core/_generated_windows_ffi.py"
 ]
 
 [tool.ruff.lint]
@@ -188,6 +190,7 @@ fixture-parentheses = false
 [tool.mypy]
 python_version = "3.10"
 files = ["src/trio/", "docs/source/*.py"]
+exclude = ["^src/trio/_core/_generated_windows_ffi\\.py$"]
 
 # Be flexible about dependencies that don't have stubs yet (like pytest)
 ignore_missing_imports = true
