@@ -39,17 +39,10 @@ if on_windows:
 def test_winerror(monkeypatch: pytest.MonkeyPatch) -> None:
     # this is unfortunately needed as the generated ffi is read-only
     class FFIWrapper:
-        def __init__(self, ffi: object) -> None:
-            self.ffi = ffi
-
-        def getwinerror(self) -> None:
-            pass
-
-        def __getattr__(self, name: str) -> object:
-            return getattr(self.ffi, name)
+        pass
 
     mock = create_autospec(ffi.getwinerror)
-    monkeypatch.setattr("trio._core._windows_cffi.ffi", FFIWrapper(ffi))
+    monkeypatch.setattr("trio._core._windows_cffi.ffi", FFIWrapper)
     monkeypatch.setattr("trio._core._windows_cffi.ffi.getwinerror", mock)
 
     # Returning none = no error, should not happen.
