@@ -208,6 +208,8 @@ LIB = re.sub(r"\bFAR\b", " ", LIB)
 # - PASCAL is apparently an alias for __stdcall (on modern compilers - modern
 #   being _MSC_VER >= 800)
 LIB = re.sub(r"\bPASCAL\b", "__stdcall", LIB)
+# - Linux doesn't like UCHAR
+LIB = re.sub(r"\bUCHAR\b", "unsigned char", LIB)
 
 ffibuilder = cffi.FFI()
 # a bit hacky but, it works
