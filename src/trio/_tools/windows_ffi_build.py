@@ -8,6 +8,7 @@ LIB = """
 // https://msdn.microsoft.com/en-us/library/windows/desktop/aa383751(v=vs.85).aspx
 typedef int BOOL;
 typedef unsigned char BYTE;
+typedef unsigned char UCHAR;
 typedef BYTE BOOLEAN;
 typedef void* PVOID;
 typedef PVOID HANDLE;
@@ -19,6 +20,7 @@ typedef ULONG *PULONG;
 typedef const void *LPCVOID;
 typedef void *LPVOID;
 typedef const wchar_t *LPCWSTR;
+typedef DWORD* LPDWORD;
 
 typedef uintptr_t ULONG_PTR;
 typedef uintptr_t UINT_PTR;
@@ -208,8 +210,6 @@ LIB = re.sub(r"\bFAR\b", " ", LIB)
 # - PASCAL is apparently an alias for __stdcall (on modern compilers - modern
 #   being _MSC_VER >= 800)
 LIB = re.sub(r"\bPASCAL\b", "__stdcall", LIB)
-# - Linux doesn't like UCHAR
-LIB = re.sub(r"\bUCHAR\b", "unsigned char", LIB)
 
 ffibuilder = cffi.FFI()
 # a bit hacky but, it works
