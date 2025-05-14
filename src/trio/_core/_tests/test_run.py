@@ -7,11 +7,10 @@ import pickle
 import sys
 import threading
 import time
-import types
 import weakref
 from contextlib import ExitStack, contextmanager, suppress
 from math import inf, nan
-from typing import TYPE_CHECKING, NoReturn, TypeVar
+from typing import TYPE_CHECKING, Generic, NoReturn, TypeVar
 from unittest import mock
 
 import outcome
@@ -2295,9 +2294,14 @@ async def test_Task_custom_sleep_data() -> None:
     assert task.custom_sleep_data is None
 
 
-@types.coroutine
-def async_yield(value: T) -> Generator[T, None, None]:
-    yield value
+class AsyncYield(Generic[T]):
+    """Yields a value when awaited."""
+
+    def __init__(self, value: T) -> None:
+        self.value = value
+
+    def __await__(self) -> Generator[T, None, None]:
+        yield self.value
 
 
 async def test_permanently_detach_coroutine_object() -> None:
@@ -2316,7 +2320,7 @@ async def test_permanently_detach_coroutine_object() -> None:
             _core.permanently_detach_coroutine_object,
             task_outcome,
         )
-        await async_yield(yield_value)
+        await AsyncYield(yield_value)
 
     async with _core.open_nursery() as nursery:
         nursery.start_soon(detachable_coroutine, outcome.Value(None), "I'm free!")
@@ -2374,8 +2378,8 @@ async def test_detach_and_reattach_coroutine_object() -> None:
         got = await _core.temporarily_detach_coroutine_object(abort_fn)
         assert got == "not trio!"
 
-        await async_yield(1)
-        await async_yield(2)
+        await AsyncYield(1)
+        await AsyncYield(2)
 
         with pytest.raises(RuntimeError) as excinfo:
             await _core.reattach_detached_coroutine_object(
