@@ -181,7 +181,8 @@ jobs:
           #  lsp: 'http://download.pctools.com/mirror/updates/9.0.0.2308-SDavfree-lite_en.exe'
           #  lsp_extract_file: ''
           #  extra_name: ', with non-IFS LSP'
-    # 3.14+windows has very broken cffi
+
+    # ***REMEMBER*** to remove the 3.14 line once windows+cffi works again
     continue-on-error: >-
       ${{
         (
