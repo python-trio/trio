@@ -27,6 +27,8 @@ types-pyOpenSSL
 # annotations in doc files
 types-docutils
 sphinx
+# sync-requirements
+types-PyYAML
 
 # Trio's own dependencies
 cffi; os_name == "nt"
