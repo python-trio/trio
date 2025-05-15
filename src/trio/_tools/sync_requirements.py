@@ -78,9 +78,7 @@ def update_requirements(
     return changed
 
 
-def main() -> int:
-    """Run program."""
-
+if __name__ == "__main__":
     source_root = Path.cwd().absolute()
 
     # Double-check we found the right directory
@@ -97,8 +95,4 @@ def main() -> int:
         for name, version in yield_pre_commit_version_data(pre_commit_text)
     }
     changed = update_requirements(test_requirements, pre_commit_versions)
-    return int(changed)
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(int(changed))
