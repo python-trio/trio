@@ -132,7 +132,7 @@ requests==2.32.3
     # via sphinx
 roman-numerals-py==3.1.0 ; python_full_version >= '3.11'
     # via sphinx
-ruff==0.11.8
+ruff==0.11.9
     # via -r test-requirements.in
 setuptools==80.1.0
     # via types-setuptools
@@ -194,7 +194,7 @@ typing-extensions==4.13.2
     #   pyright
 urllib3==2.4.0
     # via requests
-uv==0.7.2
+uv==0.7.3
     # via -r test-requirements.in
 virtualenv==20.30.0
     # via pre-commit
