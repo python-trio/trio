@@ -27,6 +27,7 @@ repos:
     rev: v0.11.0
   - repo: https://github.com/psf/black-pre-commit-mirror
     rev: 25.1.0
+  - bad: data
 """
     results = tuple(yield_pre_commit_version_data(text))
     assert results == (

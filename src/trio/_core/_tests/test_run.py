@@ -3,7 +3,6 @@ from __future__ import annotations
 import contextvars
 import functools
 import gc
-import pickle
 import sys
 import threading
 import time
@@ -781,7 +780,10 @@ async def test_cancel_scope_misnesting() -> None:
     # Even if inside another cancel scope
     async def task2() -> None:
         with _core.CancelScope():
-            with pytest.raises(_core.Cancelled):
+            with pytest.raises(
+                _core.Cancelled,
+                match=r"^cancelled due to unknown with reason 'misnesting'$",
+            ):
                 await sleep_forever()
 
     with ExitStack() as stack:
@@ -922,7 +924,13 @@ def test_broken_abort() -> None:
     gc_collect_harder()
 
 
+# This segfaults, so we need to skipif. Remember to remove the skipif once
+# the upstream issue is resolved.
 @restore_unraisablehook()
+@pytest.mark.skipif(
+    sys.version_info[:3] == (3, 14, 0),
+    reason="https://github.com/python/cpython/issues/133932",
+)
 def test_error_in_run_loop() -> None:
     # Blow stuff up real good to check we at least get a TrioInternalError
     async def main() -> None:
@@ -2213,34 +2221,6 @@ async def test_Nursery_private_init() -> None:
 def test_Nursery_subclass() -> None:
     with pytest.raises(TypeError):
         type("Subclass", (_core._run.Nursery,), {})
-
-
-def test_Cancelled_init() -> None:
-    with pytest.raises(TypeError):
-        raise _core.Cancelled
-
-    with pytest.raises(TypeError):
-        _core.Cancelled()
-
-    # private constructor should not raise
-    _core.Cancelled._create()
-
-
-def test_Cancelled_str() -> None:
-    cancelled = _core.Cancelled._create()
-    assert str(cancelled) == "Cancelled"
-
-
-def test_Cancelled_subclass() -> None:
-    with pytest.raises(TypeError):
-        type("Subclass", (_core.Cancelled,), {})
-
-
-# https://github.com/python-trio/trio/issues/3248
-def test_Cancelled_pickle() -> None:
-    cancelled = _core.Cancelled._create()
-    cancelled = pickle.loads(pickle.dumps(cancelled))
-    assert isinstance(cancelled, _core.Cancelled)
 
 
 def test_CancelScope_subclass() -> None:
