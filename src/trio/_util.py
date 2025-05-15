@@ -29,12 +29,11 @@ if TYPE_CHECKING:
     import sys
     from types import AsyncGeneratorType, TracebackType
 
-    from typing_extensions import ParamSpec, Self, TypeVarTuple, Unpack
+    from typing_extensions import Self, TypeVarTuple, Unpack
 
     if sys.version_info < (3, 11):
         from exceptiongroup import BaseExceptionGroup
 
-    ArgsT = ParamSpec("ArgsT")
     PosArgsT = TypeVarTuple("PosArgsT")
 
 

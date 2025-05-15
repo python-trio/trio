@@ -357,7 +357,7 @@ async def open_tcp_stream(
             # Success! Save the winning socket and cancel all outstanding
             # connection attempts.
             winning_socket = sock
-            nursery.cancel_scope.cancel()
+            nursery.cancel_scope.cancel(reason="successfully found a socket")
         except OSError as exc:
             # This connection attempt failed, but the next one might
             # succeed. Save the error for later so we can report it if
