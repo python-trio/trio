@@ -1,0 +1,1 @@
+:exc:`Cancelled` strings can now display the source and reason for a cancellation. Trio-internal sources of cancellation will set this string, and :meth:`CancelScope.cancel` now has a ``reason`` string parameter that can be used to attach info to any :exc:`Cancelled` to help in debugging.

@@ -766,7 +766,7 @@ async def _run_process(
 
                 nursery.start_soon(killer)
                 await proc.wait()
-                killer_cscope.cancel()
+                killer_cscope.cancel(reason="trio internal implementation detail")
                 raise
 
     stdout = b"".join(stdout_chunks) if capture_stdout else None
