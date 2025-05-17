@@ -329,7 +329,7 @@ def _get_underlying_socket(
     base_ptr = ffi.new("HANDLE *")
     out_size = ffi.new("DWORD *")
     failed = ws2_32.WSAIoctl(
-        ffi.cast("SOCKET", sock),
+        ffi.cast("SOCKET", sock),  # type: ignore[arg-type]
         which,
         ffi.NULL,
         0,
@@ -714,9 +714,9 @@ class WindowsIOManager:
                     kernel32.DeviceIoControl(
                         afd_group.handle,
                         IoControlCodes.IOCTL_AFD_POLL,
-                        cast("CType", poll_info),
+                        cast("CType", poll_info),  # type: ignore[arg-type]
                         ffi.sizeof("AFD_POLL_INFO"),
-                        cast("CType", poll_info),
+                        cast("CType", poll_info),  # type: ignore[arg-type]
                         ffi.sizeof("AFD_POLL_INFO"),
                         ffi.NULL,
                         lpOverlapped,
@@ -857,7 +857,7 @@ class WindowsIOManager:
         """
         handle = _handle(handle_)
         if isinstance(lpOverlapped, int):  # TODO: test this line
-            lpOverlapped = ffi.cast("LPOVERLAPPED", lpOverlapped)
+            lpOverlapped = ffi.cast("LPOVERLAPPED", lpOverlapped)  # type: ignore[arg-type]
         if lpOverlapped in self._overlapped_waiters:  # TODO: test this line
             raise _core.BusyResourceError(
                 "another task is already waiting on that lpOverlapped",

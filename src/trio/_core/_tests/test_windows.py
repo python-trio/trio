@@ -37,8 +37,14 @@ if on_windows:
 
 
 def test_winerror(monkeypatch: pytest.MonkeyPatch) -> None:
+    # this is unfortunately needed as the generated ffi is read-only
+    class FFIWrapper:
+        def getwinerror(self) -> None:
+            raise NotImplementedError("this is a fake implementation")
+
     mock = create_autospec(ffi.getwinerror)
-    monkeypatch.setattr(ffi, "getwinerror", mock)
+    monkeypatch.setattr("trio._core._windows_cffi.ffi", FFIWrapper)
+    monkeypatch.setattr("trio._core._windows_cffi.ffi.getwinerror", mock)
 
     # Returning none = no error, should not happen.
     mock.return_value = None
@@ -87,7 +93,7 @@ async def test_completion_key_listen() -> None:
     from .. import _io_windows
 
     async def post(key: int) -> None:
-        iocp = Handle(ffi.cast("HANDLE", _core.current_iocp()))
+        iocp = Handle(ffi.cast("HANDLE", _core.current_iocp()))  # type: ignore[arg-type]
         for i in range(10):
             print("post", i)
             if i % 3 == 0:
@@ -172,8 +178,8 @@ def pipe_with_overlapped_read() -> Generator[tuple[BufferedWriter, int], None, N
         write_fd = msvcrt.open_osfhandle(write_handle, 0)
         yield os.fdopen(write_fd, "wb", closefd=False), read_handle
     finally:
-        kernel32.CloseHandle(Handle(ffi.cast("HANDLE", read_handle)))
-        kernel32.CloseHandle(Handle(ffi.cast("HANDLE", write_handle)))
+        kernel32.CloseHandle(Handle(ffi.cast("HANDLE", read_handle)))  # type: ignore[arg-type]
+        kernel32.CloseHandle(Handle(ffi.cast("HANDLE", write_handle)))  # type: ignore[arg-type]
 
 
 @restore_unraisablehook()
