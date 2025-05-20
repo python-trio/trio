@@ -14,7 +14,7 @@ from .test_ki import ki_self
 
 def test_Cancelled_init() -> None:
     with pytest.raises(TypeError, match=r"^trio.Cancelled has no public constructor$"):
-        raise Cancelled  # type: ignore[call-arg]
+        raise Cancelled
 
     with pytest.raises(TypeError, match=r"^trio.Cancelled has no public constructor$"):
         Cancelled(source="explicit")
