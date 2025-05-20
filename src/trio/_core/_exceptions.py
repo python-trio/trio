@@ -82,7 +82,7 @@ class Cancelled(BaseException, metaclass=NoPublicConstructor):
 
     """
 
-    source: CancelReasonLiteral
+    source: CancelReasonLiteral = "unknown"
     # repr(Task), so as to avoid gc troubles from holding a reference
     source_task: str | None = None
     reason: str | None = None
@@ -114,7 +114,7 @@ class Cancelled(BaseException, metaclass=NoPublicConstructor):
         def _create(
             cls,
             *,
-            source: CancelReasonLiteral,
+            source: CancelReasonLiteral = "unknown",
             source_task: str | None = None,
             reason: str | None = None,
         ) -> Self: ...
