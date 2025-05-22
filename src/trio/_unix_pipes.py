@@ -15,11 +15,6 @@ if TYPE_CHECKING:
 
 assert not TYPE_CHECKING or sys.platform != "win32"
 
-if os.name != "posix":
-    # We raise an error here rather than gating the import in lowlevel.py
-    # in order to keep jedi static analysis happy.
-    raise ImportError
-
 # XX TODO: is this a good number? who knows... it does match the default Linux
 # pipe capacity though.
 DEFAULT_RECEIVE_SIZE: FinalType = 65536

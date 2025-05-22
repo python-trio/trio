@@ -22,9 +22,6 @@ assert not TYPE_CHECKING or sys.platform == "unix"
 
 if posix:
     from .._unix_pipes import FdStream
-else:
-    with pytest.raises(ImportError):
-        from .._unix_pipes import FdStream
 
 
 async def make_pipe() -> tuple[FdStream, FdStream]:
