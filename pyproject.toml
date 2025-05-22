@@ -331,7 +331,7 @@ exclude_also = [
    "@overload",
    'class .*\bProtocol\b.*\):',
    "raise NotImplementedError",
-   'if "sphinx.ext.autodoc" in sys.modules:',
+   '.*if "sphinx.ext.autodoc" in sys.modules:',
    'TODO: test this line',
    'if __name__ == "__main__":',
 ]
