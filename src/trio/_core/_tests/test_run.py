@@ -2130,16 +2130,11 @@ async def test_traceback_frame_removal() -> None:
         assert tb is not None
         return tb.tb_frame.f_code is my_child_task.__code__
 
-    expected_exception = Matcher(KeyError, check=check_traceback)
-
-    with RaisesGroup(expected_exception, expected_exception):
-        # Trick: For now cancel/nursery scopes still leave a bunch of tb gunk
-        # behind. But if there's an ExceptionGroup, they leave it on the group,
-        # which lets us get a clean look at the KeyError itself. Someday I
-        # guess this will always be an ExceptionGroup (#611), but for now we can
-        # force it by raising two exceptions.
+    with RaisesGroup(Matcher(KeyError, check=check_traceback)):
+        # For now cancel/nursery scopes still leave a bunch of tb gunk behind.
+        # But if there's an Exceptiongroup, they leave it on the group,
+        # which lets us get a clean look at the KeyError itself.
         async with _core.open_nursery() as nursery:
-            nursery.start_soon(my_child_task)
             nursery.start_soon(my_child_task)
 
 
