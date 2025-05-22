@@ -254,6 +254,9 @@ class Path(pathlib.PurePath):
     if sys.version_info >= (3, 13):
         full_match = _wrap_method(pathlib.Path.full_match)
 
+    def as_uri(self) -> str:
+        return pathlib.Path.as_uri(self)
+
 
 if Path.relative_to.__doc__:  # pragma: no branch
     Path.relative_to.__doc__ = Path.relative_to.__doc__.replace(" `..` ", " ``..`` ")

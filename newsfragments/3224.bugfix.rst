@@ -1,1 +1,0 @@
-Fix incorrect return type hint for :meth:`Nursery.start() <trio.Nursery.start>`.
