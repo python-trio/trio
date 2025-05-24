@@ -465,8 +465,6 @@ def test_static_tool_sees_class_members(
             trio.Process: {"args", "pid", "stderr", "stdin", "stdio", "stdout"},
             trio.SSLListener: {"transport_listener"},
             trio.SSLStream: {"transport_stream"},
-            trio.SocketListener: {"socket"},
-            trio.SocketStream: {"socket"},
             trio.testing.MemoryReceiveStream: {"close_hook", "receive_some_hook"},
             trio.testing.MemorySendStream: {
                 "close_hook",
@@ -535,6 +533,12 @@ def test_static_tool_sees_class_members(
 
         print(f"\n{tool} can't see the following symbols in {module_name}:")
         pprint(errors)
+        print(
+            f"""
+If there are extra attributes listed, try checking to make sure this test
+isn't ignoring them. If there are missing attributes, try looking for why
+{tool} isn't seeing them compared to `inspect.getmembers`."""
+        )
     assert not errors
 
 
