@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import enum
-import types
 
 # Jedi gets mad in test_static_tool_sees_class_members if we use collections Callable
-from typing import TYPE_CHECKING, Any, Callable, NoReturn, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, NoReturn, Union
 
 import attrs
 import outcome
@@ -14,7 +13,7 @@ import outcome
 from . import _run
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Generator
+    from collections.abc import Generator
 
     from typing_extensions import TypeAlias
 
@@ -45,30 +44,31 @@ MessageType: TypeAlias = Union[
     type[CancelShieldedCheckpoint],
     WaitTaskRescheduled,
     PermanentlyDetachCoroutineObject,
-    object,
+    object,  # For reattach_detached_coroutine_object(), a foreign loop's value.
 ]
 
 
-# Helper for the bottommost 'yield'. You can't use 'yield' inside an async
-# function, but you can inside a generator, and if you decorate your generator
-# with @types.coroutine, then it's even awaitable. However, it's still not a
-# real async function: in particular, it isn't recognized by
-# inspect.iscoroutinefunction, and it doesn't trigger the unawaited coroutine
-# tracking machinery. Since our traps are public APIs, we make them real async
-# functions, and then this helper takes care of the actual yield:
-@types.coroutine
-def _real_async_yield(
-    obj: MessageType,
-) -> Generator[MessageType, None, None]:
-    return (yield obj)
+class _AsyncYield:
+    """Helper for the bottommost 'yield'.
 
+    You can't use 'yield' inside an async function, so implement an awaitable object to do so.
+    Since this isn't a real async function, it isn't recognized by inspect.iscoroutinefunction,
+    and it doesn't trigger the unawaited coroutine tracking machinery. Since our traps are public
+    APIs, we make them real async functions, and then this helper takes care of the actual yield.
+    """
 
-# Real yield value is from trio's main loop, but type checkers can't
-# understand that, so we cast it to make type checkers understand.
-_async_yield = cast(
-    "Callable[[MessageType], Awaitable[outcome.Outcome[object]]]",
-    _real_async_yield,
-)
+    def __init__(self, message: MessageType) -> None:
+        self.message = message
+
+    def __await__(
+        self,
+    ) -> Generator[MessageType, outcome.Outcome[object], outcome.Outcome[object]]:
+        """To suspend we yield one of several messages.
+
+        The event loop sends back an outcome, which we return to our awaiter (a trap function)
+        to handle.
+        """
+        return (yield self.message)
 
 
 async def cancel_shielded_checkpoint() -> None:
@@ -84,7 +84,7 @@ async def cancel_shielded_checkpoint() -> None:
             await trio.lowlevel.checkpoint()
 
     """
-    (await _async_yield(CancelShieldedCheckpoint)).unwrap()
+    (await _AsyncYield(CancelShieldedCheckpoint)).unwrap()
 
 
 # Return values for abort functions
@@ -205,7 +205,7 @@ async def wait_task_rescheduled(  # type: ignore[explicit-any]
        above about how you should use a higher-level API if at all possible?
 
     """
-    return (await _async_yield(WaitTaskRescheduled(abort_func))).unwrap()
+    return (await _AsyncYield(WaitTaskRescheduled(abort_func))).unwrap()
 
 
 async def permanently_detach_coroutine_object(
@@ -238,7 +238,7 @@ async def permanently_detach_coroutine_object(
         raise RuntimeError(
             "can't permanently detach a coroutine object with open nurseries",
         )
-    return await _async_yield(PermanentlyDetachCoroutineObject(final_outcome))
+    return await _AsyncYield(PermanentlyDetachCoroutineObject(final_outcome))
 
 
 async def temporarily_detach_coroutine_object(
@@ -276,7 +276,7 @@ async def temporarily_detach_coroutine_object(
     uses to resume the coroutine.
 
     """
-    return await _async_yield(WaitTaskRescheduled(abort_func))
+    return await _AsyncYield(WaitTaskRescheduled(abort_func))
 
 
 async def reattach_detached_coroutine_object(task: Task, yield_value: object) -> None:
@@ -306,5 +306,5 @@ async def reattach_detached_coroutine_object(task: Task, yield_value: object) ->
     if not task.coro.cr_running:
         raise RuntimeError("given task does not match calling coroutine")
     _run.reschedule(task, outcome.Value("reattaching"))
-    value = await _async_yield(yield_value)
+    value = await _AsyncYield(yield_value)
     assert value == outcome.Value("reattaching")
