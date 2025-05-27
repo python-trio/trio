@@ -786,9 +786,8 @@ async def test_shells_killed_by_default() -> None:
 
         with trio.fail_after(1):
             with trio.open_signal_receiver(signal.SIGHUP) as signal_aiter:  # type: ignore[attr-defined,unused-ignore]
-                async for signum in signal_aiter:  # pragma: no branch
-                    assert signum == signal.SIGHUP  # type: ignore[attr-defined,unused-ignore]
-                    break
+                signum = await signal_aiter.__anext__()
+                assert signum == signal.SIGHUP  # type: ignore[attr-defined,unused-ignore]
 
         nursery.cancel_scope.cancel()
 
@@ -807,10 +806,14 @@ async def test_shells_killed_by_default() -> None:
         # won't reap zombie children, so we have to work around that
         with pytest.raises(FileNotFoundError):
             with open(f"/proc/{child_pid}/status") as f:  # noqa: ASYNC230
-                for line in f:  # pragma: no branch
+                hit_zombie = False
+                for line in f:
                     if line.startswith("State:"):
                         assert "Z" in line
-                        raise FileNotFoundError
+                        hit_zombie = True
+
+                if hit_zombie:
+                    raise FileNotFoundError
     else:
         with pytest.raises(OSError, match="No such process"):
             os.kill(child_pid, 0)
@@ -842,8 +845,7 @@ async def test_process_group_SIGKILL_escalation(mock_clock: MockClock) -> None:
 
             with trio.fail_after(1):
                 with trio.open_signal_receiver(signal.SIGHUP) as signal_aiter:  # type: ignore[attr-defined,unused-ignore]
-                    async for signum in signal_aiter:  # pragma: no branch
-                        assert signum == signal.SIGHUP  # type: ignore[attr-defined,unused-ignore]
-                        break
+                    signum = await signal_aiter.__anext__()
+                    assert signum == signal.SIGHUP  # type: ignore[attr-defined,unused-ignore]
 
             nursery.cancel_scope.cancel()
