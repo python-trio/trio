@@ -733,7 +733,7 @@ async def test_run_process_internal_error(monkeypatch: pytest.MonkeyPatch) -> No
     async def very_broken_open(*args: object, **kwargs: object) -> str:
         return "oops"
 
-    monkeypatch.setattr(trio._subprocess, "open_process", very_broken_open)
+    monkeypatch.setattr(trio._subprocess, "_open_process", very_broken_open)
     with RaisesGroup(AttributeError, AttributeError):
         await run_process(EXIT_TRUE, capture_stdout=True)
 
