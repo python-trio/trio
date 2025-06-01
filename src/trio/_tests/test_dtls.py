@@ -737,6 +737,7 @@ async def test_handshake_handles_minimum_network_mtu(
     ipv6: bool,
     autojump_clock: trio.abc.Clock,
     server_ctx: SSL.Context,
+    client_ctx: SSL.Context,
 ) -> None:
     # Fake network that has the minimum allowable MTU for whatever protocol we're using.
     fn = FakeNet()
@@ -758,8 +759,7 @@ async def test_handshake_handles_minimum_network_mtu(
     # smaller until it succeeds.
     async with dtls_echo_server(ipv6=ipv6, server_ctx=server_ctx) as (_, address):
         with endpoint(ipv6=ipv6) as client_endpoint:
-            # TODO: why is making a new client context necessary here?
-            client = client_endpoint.connect(address, client_ctx_fn())
+            client = client_endpoint.connect(address, client_ctx)
             # the handshake mtu backoff shouldn't affect the return value from
             # get_cleartext_mtu, b/c that's under the user's control via
             # set_ciphertext_mtu
