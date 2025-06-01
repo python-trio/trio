@@ -12,7 +12,7 @@ import sys
 import types
 from pathlib import Path, PurePath
 from types import ModuleType
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 import attrs
 import pytest
