@@ -43,9 +43,11 @@ def client_ctx_fn() -> SSL.Context:
     ca.configure_trust(ctx)
     return ctx
 
+
 @pytest.fixture
 def client_ctx() -> SSL.Context:
     return client_ctx_fn()
+
 
 parametrize_ipv6 = pytest.mark.parametrize(
     "ipv6",
@@ -293,9 +295,7 @@ async def test_serve_exits_cleanly_on_close(server_ctx: SSL.Context) -> None:
     server_endpoint.close()
 
 
-async def test_client_multiplex(
-    server_ctx: SSL.Context
-) -> None:
+async def test_client_multiplex(server_ctx: SSL.Context) -> None:
     async with (
         dtls_echo_server(server_ctx=server_ctx) as (_, address1),
         dtls_echo_server(server_ctx=server_ctx) as (_, address2),
@@ -366,7 +366,10 @@ async def test_connect_to_non_server(
 
 @pytest.mark.parametrize("buffer_size", [10, 20])
 async def test_incoming_buffer_overflow(
-    autojump_clock: trio.abc.Clock, server_ctx: SSL.Context, client_ctx: SSL.Context, buffer_size: int
+    autojump_clock: trio.abc.Clock,
+    server_ctx: SSL.Context,
+    client_ctx: SSL.Context,
+    buffer_size: int,
 ) -> None:
     fn = FakeNet()
     fn.enable()
@@ -588,9 +591,7 @@ async def test_client_cancels_handshake_and_starts_new_one(
             nursery.cancel_scope.cancel()
 
 
-async def test_swap_client_server(
-    server_ctx: SSL.Context
-) -> None:
+async def test_swap_client_server(server_ctx: SSL.Context) -> None:
     with endpoint() as a, endpoint() as b:
         await a.socket.bind(("127.0.0.1", 0))
         await b.socket.bind(("127.0.0.1", 0))
@@ -913,7 +914,7 @@ async def test_association_replaced_while_handshake_running(
 
 
 async def test_association_replaced_before_handshake_starts(
-    server_ctx: SSL.Context
+    server_ctx: SSL.Context,
 ) -> None:
     fn = FakeNet()
     fn.enable()
@@ -933,9 +934,7 @@ async def test_association_replaced_before_handshake_starts(
                 await c1.do_handshake()
 
 
-async def test_send_to_closed_local_port(
-    server_ctx: SSL.Context
-) -> None:
+async def test_send_to_closed_local_port(server_ctx: SSL.Context) -> None:
     # On Windows, sending a UDP packet to a closed local port can cause a weird
     # ECONNRESET error later, inside the receive task. Make sure we're handling it
     # properly.
