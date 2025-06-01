@@ -1376,6 +1376,7 @@ class DTLSEndpoint:
         self._streams[address] = channel
         return channel
 
+
 def set_ssl_context_options(ctx: SSL.Context) -> None:
     # These are mandatory for all DTLS connections. OP_NO_QUERY_MTU is required to
     # stop openssl from trying to query the memory BIO's MTU and then breaking, and
