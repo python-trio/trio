@@ -301,7 +301,7 @@ def test_static_tool_sees_class_members(
 
         # skip a bunch of file-system activity (probably can un-memoize?)
         @functools.lru_cache
-        def lookup_symbol(symbol: str) -> dict[str, Any]:
+        def lookup_symbol(symbol: str) -> dict[str, Any]:  # type: ignore[misc, explicit-any]
             topname, *modname, name = symbol.split(".")
             version = next(cache.glob("3.*/"))
             mod_cache = version / topname
