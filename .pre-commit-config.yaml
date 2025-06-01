@@ -26,7 +26,7 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.11.12
     hooks:
-      - id: ruff
+      - id: ruff-check
         types: [file]
         types_or: [python, pyi, toml]
         args: ["--show-fixes"]
