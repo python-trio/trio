@@ -30,11 +30,13 @@ if TYPE_CHECKING:
 ca = trustme.CA()
 server_cert = ca.issue_cert("example.com")
 
+
 @pytest.fixture
 def server_ctx() -> SSL.Context:
     ctx = SSL.Context(SSL.DTLS_METHOD)
     server_cert.configure_cert(ctx)
     return ctx
+
 
 @pytest.fixture
 def client_ctx() -> SSL.Context:
@@ -99,8 +101,13 @@ async def dtls_echo_server(
 
 
 @parametrize_ipv6
-async def test_smoke(ipv6: bool, server_ctx: SSL.Context, client_ctx: SSL.Context) -> None:
-    async with dtls_echo_server(ipv6=ipv6, server_ctx=server_ctx) as (_server_endpoint, address):
+async def test_smoke(
+    ipv6: bool, server_ctx: SSL.Context, client_ctx: SSL.Context
+) -> None:
+    async with dtls_echo_server(ipv6=ipv6, server_ctx=server_ctx) as (
+        _server_endpoint,
+        address,
+    ):
         with endpoint(ipv6=ipv6) as client_endpoint:
             client_channel = client_endpoint.connect(address, client_ctx)
             with pytest.raises(trio.NeedHandshakeError):
@@ -128,7 +135,9 @@ async def test_smoke(ipv6: bool, server_ctx: SSL.Context, client_ctx: SSL.Contex
 
 @slow
 async def test_handshake_over_terrible_network(
-    autojump_clock: trio.testing.MockClock, server_ctx: SSL.Context, client_ctx: SSL.Context
+    autojump_clock: trio.testing.MockClock,
+    server_ctx: SSL.Context,
+    client_ctx: SSL.Context,
 ) -> None:
     HANDSHAKES = 100
     r = random.Random(0)
@@ -215,7 +224,9 @@ async def test_handshake_over_terrible_network(
                             break
 
 
-async def test_implicit_handshake(server_ctx: SSL.Context, client_ctx: SSL.Context) -> None:
+async def test_implicit_handshake(
+    server_ctx: SSL.Context, client_ctx: SSL.Context
+) -> None:
     async with dtls_echo_server(server_ctx=server_ctx) as (_, address):
         with endpoint() as client_endpoint:
             client = client_endpoint.connect(address, client_ctx)
@@ -250,7 +261,9 @@ async def test_full_duplex(server_ctx: SSL.Context, client_ctx: SSL.Context) -> 
             server_nursery.cancel_scope.cancel()
 
 
-async def test_channel_closing(server_ctx: SSL.Context, client_ctx: SSL.Context) -> None:
+async def test_channel_closing(
+    server_ctx: SSL.Context, client_ctx: SSL.Context
+) -> None:
     async with dtls_echo_server(server_ctx=server_ctx) as (_, address):
         with endpoint() as client_endpoint:
             client = client_endpoint.connect(address, client_ctx)
@@ -269,15 +282,23 @@ async def test_channel_closing(server_ctx: SSL.Context, client_ctx: SSL.Context)
 
 
 async def test_serve_exits_cleanly_on_close(server_ctx: SSL.Context) -> None:
-    async with dtls_echo_server(autocancel=False, server_ctx=server_ctx) as (server_endpoint, _address):
+    async with dtls_echo_server(autocancel=False, server_ctx=server_ctx) as (
+        server_endpoint,
+        _address,
+    ):
         server_endpoint.close()
         # Testing that the nursery exits even without being cancelled
     # close is idempotent
     server_endpoint.close()
 
 
-async def test_client_multiplex(server_ctx: SSL.Context, client_ctx: SSL.Context) -> None:
-    async with dtls_echo_server(server_ctx=server_ctx) as (_, address1), dtls_echo_server(server_ctx=server_ctx) as (_, address2):
+async def test_client_multiplex(
+    server_ctx: SSL.Context, client_ctx: SSL.Context
+) -> None:
+    async with (
+        dtls_echo_server(server_ctx=server_ctx) as (_, address1),
+        dtls_echo_server(server_ctx=server_ctx) as (_, address2),
+    ):
         with endpoint() as client_endpoint:
             client1 = client_endpoint.connect(address1, client_ctx)
             client2 = client_endpoint.connect(address2, client_ctx)
@@ -328,7 +349,9 @@ async def test_double_serve(server_ctx: SSL.Context) -> None:
             nursery.cancel_scope.cancel()
 
 
-async def test_connect_to_non_server(autojump_clock: trio.abc.Clock, client_ctx: SSL.Context) -> None:
+async def test_connect_to_non_server(
+    autojump_clock: trio.abc.Clock, client_ctx: SSL.Context
+) -> None:
     fn = FakeNet()
     fn.enable()
     with endpoint() as client1, endpoint() as client2:
@@ -340,7 +363,9 @@ async def test_connect_to_non_server(autojump_clock: trio.abc.Clock, client_ctx:
         assert cscope.cancelled_caught
 
 
-async def test_incoming_buffer_overflow(autojump_clock: trio.abc.Clock, server_ctx: SSL.Context, client_ctx: SSL.Context) -> None:
+async def test_incoming_buffer_overflow(
+    autojump_clock: trio.abc.Clock, server_ctx: SSL.Context, client_ctx: SSL.Context
+) -> None:
     fn = FakeNet()
     fn.enable()
     for buffer_size in [10, 20]:
@@ -473,7 +498,9 @@ async def test_server_socket_doesnt_crash_on_garbage(
                 await trio.sleep(1)
 
 
-async def test_invalid_cookie_rejected(autojump_clock: trio.abc.Clock, server_ctx: SSL.Context, client_ctx: SSL.Context) -> None:
+async def test_invalid_cookie_rejected(
+    autojump_clock: trio.abc.Clock, server_ctx: SSL.Context, client_ctx: SSL.Context
+) -> None:
     fn = FakeNet()
     fn.enable()
 
@@ -560,7 +587,9 @@ async def test_client_cancels_handshake_and_starts_new_one(
             nursery.cancel_scope.cancel()
 
 
-async def test_swap_client_server(server_ctx: SSL.Context, client_ctx: SSL.Context) -> None:
+async def test_swap_client_server(
+    server_ctx: SSL.Context, client_ctx: SSL.Context
+) -> None:
     with endpoint() as a, endpoint() as b:
         await a.socket.bind(("127.0.0.1", 0))
         await b.socket.bind(("127.0.0.1", 0))
@@ -592,7 +621,9 @@ async def test_swap_client_server(server_ctx: SSL.Context, client_ctx: SSL.Conte
 
 
 @slow
-async def test_openssl_retransmit_doesnt_break_stuff(server_ctx: SSL.Context, client_ctx: SSL.Context) -> None:
+async def test_openssl_retransmit_doesnt_break_stuff(
+    server_ctx: SSL.Context, client_ctx: SSL.Context
+) -> None:
     # can't use autojump_clock here, because the point of the test is to wait for
     # openssl's built-in retransmit timer to expire, which is hard-coded to use
     # wall-clock time.
@@ -672,7 +703,9 @@ async def test_initial_retransmit_timeout_configuration(
                 assert after - before == t
 
 
-async def test_explicit_tiny_mtu_is_respected(server_ctx: SSL.Context, client_ctx: SSL.Context) -> None:
+async def test_explicit_tiny_mtu_is_respected(
+    server_ctx: SSL.Context, client_ctx: SSL.Context
+) -> None:
     # ClientHello is ~240 bytes, and it can't be fragmented, so our mtu has to
     # be larger than that. (300 is still smaller than any real network though.)
     MTU = 300
@@ -701,7 +734,8 @@ async def test_explicit_tiny_mtu_is_respected(server_ctx: SSL.Context, client_ct
 async def test_handshake_handles_minimum_network_mtu(
     ipv6: bool,
     autojump_clock: trio.abc.Clock,
-    server_ctx: SSL.Context, client_ctx: SSL.Context
+    server_ctx: SSL.Context,
+    client_ctx: SSL.Context,
 ) -> None:
     # Fake network that has the minimum allowable MTU for whatever protocol we're using.
     fn = FakeNet()
@@ -876,7 +910,9 @@ async def test_association_replaced_while_handshake_running(
                 client_endpoint.connect(address, client_ctx)
 
 
-async def test_association_replaced_before_handshake_starts(server_ctx: SSL.Context, client_ctx: SSL.Context) -> None:
+async def test_association_replaced_before_handshake_starts(
+    server_ctx: SSL.Context, client_ctx: SSL.Context
+) -> None:
     fn = FakeNet()
     fn.enable()
 
@@ -894,7 +930,9 @@ async def test_association_replaced_before_handshake_starts(server_ctx: SSL.Cont
                 await c1.do_handshake()
 
 
-async def test_send_to_closed_local_port(server_ctx: SSL.Context, client_ctx: SSL.Context) -> None:
+async def test_send_to_closed_local_port(
+    server_ctx: SSL.Context, client_ctx: SSL.Context
+) -> None:
     # On Windows, sending a UDP packet to a closed local port can cause a weird
     # ECONNRESET error later, inside the receive task. Make sure we're handling it
     # properly.
