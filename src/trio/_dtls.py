@@ -786,8 +786,7 @@ async def dtls_receive_loop(
                         await stream._resend_final_volley()
                     else:
                         try:
-                            # mypy for some reason cannot determine type of _q
-                            stream._q.s.send_nowait(packet)  # type:ignore[has-type]
+                            stream._q.s.send_nowait(packet)
                         except trio.WouldBlock:
                             stream._packets_dropped_in_trio += 1
                 else:
