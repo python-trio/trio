@@ -427,7 +427,7 @@ def _afd_helper_handle() -> Handle:
 
 @attrs.frozen(slots=False)
 class CompletionKeyEventInfo:
-    lpOverlapped: CData
+    lpOverlapped: CData | int
     dwNumberOfBytesTransferred: int
 
 
