@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     from typing_extensions import ParamSpec, Self
 
     P = ParamSpec("P")
-elif "sphinx" in sys.modules:
+elif "sphinx.ext.autodoc" in sys.modules:
     # P needs to exist for Sphinx to parse the type hints successfully.
     try:
         from typing_extensions import ParamSpec
