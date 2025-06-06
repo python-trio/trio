@@ -398,10 +398,7 @@ def raise_single_exception_from_group(
     # immediately bail out if there's any KI or SystemExit
     for e in eg.exceptions:
         if isinstance(e, (KeyboardInterrupt, SystemExit)):
-            new_exc = type(e)(e.args)
-            if isinstance(e, SystemExit):
-                new_exc.code = e.code  # code can't be set in SystemExit constructor
-            raise new_exc from eg
+            raise type(e)(*e.args) from eg
 
     cancelled_exception: trio.Cancelled | None = None
     noncancelled_exception: BaseException | None = None

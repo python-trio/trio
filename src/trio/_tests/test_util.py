@@ -323,12 +323,12 @@ async def test_raise_single_exception_from_group() -> None:
         [
             ValueError("foo"),
             ValueError("bar"),
-            KeyboardInterrupt("is not reraised but preserve error msg"),
+            KeyboardInterrupt("preserve error msg"),
         ],
     )
     with pytest.raises(
         KeyboardInterrupt,
-        match=r"is not reraised but preserve error msg",
+        match=r"^preserve error msg$",
     ) as excinfo:
         raise_single_exception_from_group(eg_ki)
 
@@ -336,20 +336,18 @@ async def test_raise_single_exception_from_group() -> None:
     assert excinfo.value.__context__ is None
 
     # and same for SystemExit but verify code too
-    sysexit_exc = SystemExit("preserve error code")
-    sysexit_exc.code = 1  # can't set it in constructor
-
     systemexit_ki = BaseExceptionGroup(
         "",
         [
             ValueError("foo"),
             ValueError("bar"),
-            sysexit_exc,
+            SystemExit(2),
         ],
     )
 
     with pytest.raises(
-        SystemExit, check=lambda e: e.code == 1, match=r"preserve error code"
+        SystemExit,
+        check=lambda e: e.code == 2
     ) as excinfo:
         raise_single_exception_from_group(systemexit_ki)
 
