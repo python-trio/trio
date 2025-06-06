@@ -2836,6 +2836,9 @@ def unrolled_run(
                 next_send = task._next_send
                 task._next_send_fn = task._next_send = None
                 final_outcome: Outcome[object] | None = None
+
+                assert next_send_fn is not None
+
                 try:
                     # We used to unwrap the Outcome object here and send/throw
                     # its contents in directly, but it turns out that .throw()

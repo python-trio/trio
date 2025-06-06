@@ -786,8 +786,7 @@ async def dtls_receive_loop(
                         await stream._resend_final_volley()
                     else:
                         try:
-                            # mypy for some reason cannot determine type of _q
-                            stream._q.s.send_nowait(packet)  # type:ignore[has-type]
+                            stream._q.s.send_nowait(packet)
                         except trio.WouldBlock:
                             stream._packets_dropped_in_trio += 1
                 else:
@@ -851,14 +850,6 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
         self._packets_dropped_in_trio = 0
         self._client_hello = None
         self._did_handshake = False
-        # These are mandatory for all DTLS connections. OP_NO_QUERY_MTU is required to
-        # stop openssl from trying to query the memory BIO's MTU and then breaking, and
-        # OP_NO_RENEGOTIATION disables renegotiation, which is too complex for us to
-        # support and isn't useful anyway -- especially for DTLS where it's equivalent
-        # to just performing a new handshake.
-        ctx.set_options(
-            SSL.OP_NO_QUERY_MTU | SSL.OP_NO_RENEGOTIATION,  # type: ignore[attr-defined]
-        )
         self._ssl = SSL.Connection(ctx)
         self._handshake_mtu = 0
         # This calls self._ssl.set_ciphertext_mtu, which is important, because if you
@@ -1334,6 +1325,7 @@ class DTLSEndpoint:
         # We do cookie verification ourselves, so tell OpenSSL not to worry about it.
         # (See also _inject_client_hello_untrusted.)
         ssl_context.set_cookie_verify_callback(lambda *_: True)
+        set_ssl_context_options(ssl_context)
         try:
             self._listening_context = ssl_context
             task_status.started()
@@ -1374,6 +1366,7 @@ class DTLSEndpoint:
         # loopback connection), because that can't work
         # but I don't see how to do it reliably
         self._check_closed()
+        set_ssl_context_options(ssl_context)
         channel = DTLSChannel._create(self, address, ssl_context)
         channel._ssl.set_connect_state()
         old_channel = self._streams.get(address)
@@ -1381,3 +1374,14 @@ class DTLSEndpoint:
             old_channel._set_replaced()
         self._streams[address] = channel
         return channel
+
+
+def set_ssl_context_options(ctx: SSL.Context) -> None:
+    # These are mandatory for all DTLS connections. OP_NO_QUERY_MTU is required to
+    # stop openssl from trying to query the memory BIO's MTU and then breaking, and
+    # OP_NO_RENEGOTIATION disables renegotiation, which is too complex for us to
+    # support and isn't useful anyway -- especially for DTLS where it's equivalent
+    # to just performing a new handshake.
+    ctx.set_options(
+        SSL.OP_NO_QUERY_MTU | SSL.OP_NO_RENEGOTIATION,  # type: ignore[attr-defined]
+    )

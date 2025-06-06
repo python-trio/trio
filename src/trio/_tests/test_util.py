@@ -248,7 +248,7 @@ def test_fixup_module_metadata() -> None:
         },
     )
     # Reference loop is fine.
-    mod.SomeClass.recursion = mod.SomeClass  # type: ignore[attr-defined]
+    mod.SomeClass.recursion = mod.SomeClass
 
     fixup_module_metadata("trio.somemodule", vars(mod))
     assert mod.some_func.__name__ == "some_func"
@@ -264,9 +264,9 @@ def test_fixup_module_metadata() -> None:
     assert mod.only_has_name.__module__ == "trio.somemodule"
     assert not hasattr(mod.only_has_name, "__qualname__")
 
-    assert mod.SomeClass.method.__name__ == "method"  # type: ignore[attr-defined]
-    assert mod.SomeClass.method.__module__ == "trio.somemodule"  # type: ignore[attr-defined]
-    assert mod.SomeClass.method.__qualname__ == "SomeClass.method"  # type: ignore[attr-defined]
+    assert mod.SomeClass.method.__name__ == "method"
+    assert mod.SomeClass.method.__module__ == "trio.somemodule"
+    assert mod.SomeClass.method.__qualname__ == "SomeClass.method"
     # Make coverage happy.
     non_trio_module.some_func()
     mod.some_func()

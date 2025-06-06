@@ -98,7 +98,7 @@ def lookup_reference(
     new_node["reftitle"] = f"{paren}{typevar_type}, {reftitle.lstrip('(')}"
     # Add a CSS class, for restyling.
     new_node["classes"].append("typevarref")
-    return new_node
+    return new_node  # type: ignore[no-any-return]
 
 
 def setup(app: Sphinx) -> None:
