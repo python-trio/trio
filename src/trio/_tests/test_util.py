@@ -345,12 +345,10 @@ async def test_raise_single_exception_from_group() -> None:
         ],
     )
 
-    with pytest.raises(
-        SystemExit,
-        check=lambda e: e.code == 2
-    ) as excinfo:
+    with pytest.raises(SystemExit) as excinfo:
         raise_single_exception_from_group(systemexit_ki)
 
+    assert excinfo.value.code == 2
     assert excinfo.value.__cause__ is systemexit_ki
     assert excinfo.value.__context__ is None
 

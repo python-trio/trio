@@ -1,2 +1,1 @@
-Handle unwrapping SystemExit exception gracefully in utility function ``raise_single_exception_from_group`` that reraises last exception from group.
-Tests require pytest upgrade to 8.5.0.
+Handle unwrapping SystemExit/KeyboardInterrupt exception gracefully in utility function ``raise_single_exception_from_group`` that reraises last exception from group.
