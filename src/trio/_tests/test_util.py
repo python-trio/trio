@@ -349,9 +349,7 @@ async def test_raise_single_exception_from_group() -> None:
     )
 
     with pytest.raises(
-        SystemExit,
-        check=lambda e: e.code == 1,
-        match=r"preserve error code"
+        SystemExit, check=lambda e: e.code == 1, match=r"preserve error code"
     ) as excinfo:
         raise_single_exception_from_group(systemexit_ki)
 
