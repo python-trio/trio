@@ -1,5 +1,5 @@
 # For tests
-pytest >= 5.0         # for faulthandler in core
+pytest >= 8.4.0         # for faulthandler in core - > 5, for pytest.raises feature need 8.4
 coverage >= 7.2.5
 async_generator >= 1.9
 pyright

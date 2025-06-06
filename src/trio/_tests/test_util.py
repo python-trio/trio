@@ -274,6 +274,7 @@ def test_fixup_module_metadata() -> None:
     mod.SomeClass().method()
 
 
+@slow  # 1-2 seconds
 async def test_raise_single_exception_from_group() -> None:
     excinfo: pytest.ExceptionInfo[BaseException]
 
@@ -323,25 +324,38 @@ async def test_raise_single_exception_from_group() -> None:
         [
             ValueError("foo"),
             ValueError("bar"),
-            KeyboardInterrupt("this exc doesn't get reraised"),
+            KeyboardInterrupt("is not reraised but preserve error msg"),
         ],
     )
-    with pytest.raises(KeyboardInterrupt, match=r"^$") as excinfo:
+    with pytest.raises(
+        KeyboardInterrupt,
+        match=r"is not reraised but preserve error msg",
+    ) as excinfo:
         raise_single_exception_from_group(eg_ki)
+
     assert excinfo.value.__cause__ is eg_ki
     assert excinfo.value.__context__ is None
 
-    # and same for SystemExit
+    # and same for SystemExit but verify code too
+    sysexit_exc = SystemExit("preserve error code")
+    sysexit_exc.code = 1  # can't set it in constructor
+
     systemexit_ki = BaseExceptionGroup(
         "",
         [
             ValueError("foo"),
             ValueError("bar"),
-            SystemExit("this exc doesn't get reraised"),
+            sysexit_exc,
         ],
     )
-    with pytest.raises(SystemExit, match=r"^$") as excinfo:
+
+    with pytest.raises(
+        SystemExit,
+        check=lambda e: e.code == 1,
+        match=r"preserve error code"
+    ) as excinfo:
         raise_single_exception_from_group(systemexit_ki)
+
     assert excinfo.value.__cause__ is systemexit_ki
     assert excinfo.value.__context__ is None
 
