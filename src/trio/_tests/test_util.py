@@ -274,7 +274,6 @@ def test_fixup_module_metadata() -> None:
     mod.SomeClass().method()
 
 
-@slow  # 1-2 seconds
 async def test_raise_single_exception_from_group() -> None:
     excinfo: pytest.ExceptionInfo[BaseException]
 
