@@ -329,7 +329,7 @@ def _get_underlying_socket(
     base_ptr = ffi.new("HANDLE *")
     out_size = ffi.new("DWORD *")
     failed = ws2_32.WSAIoctl(
-        ffi.cast("SOCKET", sock),  # type: ignore[arg-type]
+        ffi.cast("SOCKET", sock),
         which,
         ffi.NULL,
         0,
@@ -857,7 +857,7 @@ class WindowsIOManager:
         """
         handle = _handle(handle_)
         if isinstance(lpOverlapped, int):  # TODO: test this line
-            lpOverlapped = ffi.cast("LPOVERLAPPED", lpOverlapped)  # type: ignore[arg-type]
+            lpOverlapped = ffi.cast("LPOVERLAPPED", lpOverlapped)
         if lpOverlapped in self._overlapped_waiters:  # TODO: test this line
             raise _core.BusyResourceError(
                 "another task is already waiting on that lpOverlapped",

@@ -213,7 +213,7 @@ LIB = re.sub(r"\bPASCAL\b", "__stdcall", LIB)
 
 ffibuilder = cffi.FFI()
 # a bit hacky but, it works
-ffibuilder.set_source("trio._core._generated_windows_ffi", None)  # type: ignore[arg-type]
+ffibuilder.set_source("trio._core._generated_windows_ffi", None)
 ffibuilder.cdef(LIB)
 
 if __name__ == "__main__":

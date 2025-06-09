@@ -201,7 +201,7 @@ ws2_32 = cast("_Ws2", ffi.dlopen("ws2_32.dll"))
 #   https://www.magnumdb.com
 # (Tip: check the box to see "Hex value")
 
-INVALID_HANDLE_VALUE = Handle(ffi.cast("HANDLE", -1))  # type: ignore[arg-type]
+INVALID_HANDLE_VALUE = Handle(ffi.cast("HANDLE", -1))
 
 
 class ErrorCodes(enum.IntEnum):
@@ -281,7 +281,7 @@ def _handle(obj: int | CData) -> Handle:
     # matter, Python never allocates an fd. So let's wait until we actually
     # encounter the problem before worrying about it.
     if isinstance(obj, int):
-        return Handle(ffi.cast("HANDLE", obj))  # type: ignore[arg-type]
+        return Handle(ffi.cast("HANDLE", obj))
     return Handle(obj)
 
 

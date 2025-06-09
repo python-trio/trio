@@ -214,10 +214,6 @@ disallow_untyped_decorators = true
 disallow_untyped_defs = true
 check_untyped_defs = true
 
-[[tool.mypy.overrides]]
-module = "trio._core._generated_windows_ffi"
-disable_error_code = ["arg-type"]
-
 [tool.pyright]
 pythonVersion = "3.9"
 reportUnnecessaryTypeIgnoreComment = true
