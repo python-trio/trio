@@ -58,6 +58,13 @@ repos:
         pass_filenames: false
         additional_dependencies: ["astor", "attrs", "black", "ruff"]
         files: ^src\/trio\/_core\/(_run|(_i(o_(common|epoll|kqueue|windows)|nstrumentation)))\.py$
+      - id: regenerate-windows-cffi
+        name: regenerate windows CFFI
+        language: python
+        entry: python src/trio/_tools/windows_ffi_build.py
+        pass_filenames: false
+        additional_dependencies: ["cffi"]
+        files: ^src\/trio\/_tools\/windows_ffi_build\.py$
       - id: sync-test-requirements
         name: synchronize test requirements
         language: python

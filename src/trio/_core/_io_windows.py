@@ -714,9 +714,9 @@ class WindowsIOManager:
                     kernel32.DeviceIoControl(
                         afd_group.handle,
                         IoControlCodes.IOCTL_AFD_POLL,
-                        cast("CType", poll_info),
+                        cast("CType", poll_info),  # type: ignore[arg-type]
                         ffi.sizeof("AFD_POLL_INFO"),
-                        cast("CType", poll_info),
+                        cast("CType", poll_info),  # type: ignore[arg-type]
                         ffi.sizeof("AFD_POLL_INFO"),
                         ffi.NULL,
                         lpOverlapped,
