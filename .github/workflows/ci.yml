@@ -357,8 +357,8 @@ jobs:
         # `python3-dev` (rather than `python:alpine`) for some ctypes reason,
         # `nodejs` for pyright (`node-env` pulls in nodejs but that takes a while and can time out the test).
         # `perl` for a platform independent `sed -i` alternative
-        # `git` for codecov
-        run: apk update && apk add python3-dev bash nodejs perl git
+        # `git`, `curl`, `gpg` for codecov
+        run: apk update && apk add python3-dev bash nodejs perl git curl gpg
 
       - name: Retrieve the project source from an sdist inside the GHA artifact
         # must be after `apk add` because it relies on `bash` existing
