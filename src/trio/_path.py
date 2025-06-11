@@ -183,7 +183,7 @@ class Path(pathlib.PurePath):
     ) -> AsyncIOWrapper[BinaryIO]: ...
 
     @overload
-    async def open(  # type: ignore[misc, explicit-any]  # Any usage matches builtins.open().
+    async def open(  # type: ignore[explicit-any]  # Any usage matches builtins.open().
         self,
         mode: str,
         buffering: int = -1,

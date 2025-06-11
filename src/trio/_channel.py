@@ -547,7 +547,9 @@ def as_safe_channel(
                     yield wrapped_recv_chan
                 # User has exited context manager, cancel to immediately close the
                 # abandoned generator if it's still alive.
-                nursery.cancel_scope.cancel()
+                nursery.cancel_scope.cancel(
+                    "exited trio.as_safe_channel context manager"
+                )
         except BaseExceptionGroup as eg:
             try:
                 raise_single_exception_from_group(eg)

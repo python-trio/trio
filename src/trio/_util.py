@@ -29,12 +29,11 @@ if TYPE_CHECKING:
     import sys
     from types import AsyncGeneratorType, TracebackType
 
-    from typing_extensions import ParamSpec, Self, TypeVarTuple, Unpack
+    from typing_extensions import Self, TypeVarTuple, Unpack
 
     if sys.version_info < (3, 11):
         from exceptiongroup import BaseExceptionGroup
 
-    ArgsT = ParamSpec("ArgsT")
     PosArgsT = TypeVarTuple("PosArgsT")
 
 
@@ -399,7 +398,7 @@ def raise_single_exception_from_group(
     # immediately bail out if there's any KI or SystemExit
     for e in eg.exceptions:
         if isinstance(e, (KeyboardInterrupt, SystemExit)):
-            raise type(e) from eg
+            raise type(e)(*e.args) from eg
 
     cancelled_exception: trio.Cancelled | None = None
     noncancelled_exception: BaseException | None = None

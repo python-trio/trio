@@ -78,6 +78,7 @@ force-exclude = '''
 (
   ^/docs/source/reference-.*
   | ^/docs/source/tutorial
+  | ^/src/trio/_core/_generated_windows_ffi.py
 )
 '''
 
@@ -110,6 +111,7 @@ include = ["*.py", "*.pyi", "**/pyproject.toml"]
 extend-exclude = [
   "docs/source/reference-*",
   "docs/source/tutorial/*",
+  "src/trio/_core/_generated_windows_ffi.py"
 ]
 
 [tool.ruff.lint]
@@ -309,6 +311,8 @@ omit = [
     "*/type_tests/*",
     # Script used to check type completeness that isn't run in tests
     "*/trio/_tests/check_type_completeness.py",
+    # Script to generate a CFFI interface for the Windows kernel
+    "*/trio/_tools/windows_ffi_build.py",
 ]
 # The test suite spawns subprocesses to test some stuff, so make sure
 # this doesn't corrupt the coverage files
@@ -332,7 +336,8 @@ exclude_also = [
    'class .*\bProtocol\b.*\):',
    "raise NotImplementedError",
    '.*if "sphinx" in sys.modules:',
-   'TODO: test this line'
+   'TODO: test this line',
+   'if __name__ == "__main__":',
 ]
 partial_branches = [
     "pragma: no branch",
