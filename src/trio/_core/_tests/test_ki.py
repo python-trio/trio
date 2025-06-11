@@ -329,7 +329,8 @@ def test_ki_protection_works() -> None:
     with pytest.raises(KeyboardInterrupt) as excinfo:
         _core.run(check_protected_kill)
 
-    # TODO: be consistent about providing Cancelled tree as __context__
+    # TODO: consider ensuring `__context__` is `None` in all cases above
+    # and below if the tree of `Cancelled`s is very spammy.
     assert excinfo.value.__context__ is None
     assert record_set == {"s1 ok", "s2 ok", "r1 cancel ok"}
 

@@ -1662,17 +1662,6 @@ class Task(metaclass=NoPublicConstructor):  # type: ignore[explicit-any]
 
         self._attempt_abort(raise_cancel)
 
-    def _attempt_delivery_of_pending_ki(self) -> None:
-        assert self._runner.ki_pending
-        if self._abort_func is None:
-            return
-
-        def raise_cancel() -> NoReturn:
-            self._runner.ki_pending = False
-            raise KeyboardInterrupt
-
-        self._attempt_abort(raise_cancel)
-
 
 ################################################################
 # The central Runner object
