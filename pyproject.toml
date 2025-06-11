@@ -293,7 +293,7 @@ skip_covered = false
 
 [tool.coverage.paths]
 source = [
-  "src/",
+  "src",
   "**/site-packages"
 ]
 
