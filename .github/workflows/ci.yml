@@ -217,7 +217,7 @@ jobs:
           LSP: '${{ matrix.lsp }}'
           LSP_EXTRACT_FILE: '${{ matrix.lsp_extract_file }}'
       - if: always()
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           directory: empty
           name: Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})
@@ -289,7 +289,7 @@ jobs:
       - if: >-
           always()
           && matrix.check_formatting != '1'
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           directory: empty
           name: Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})
@@ -332,7 +332,7 @@ jobs:
       - name: Run tests
         run: ./ci.sh
       - if: always()
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           directory: empty
           name: macOS (${{ matrix.python }})
@@ -378,7 +378,7 @@ jobs:
             f.write("\n")
 
       - if: always()
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           directory: empty
           name: Alpine
