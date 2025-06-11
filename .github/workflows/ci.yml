@@ -381,9 +381,6 @@ jobs:
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
             f.write("version=" + ".".join(map(str, sys.version_info[:2])))
             f.write("\n")
-      - run: |
-          ls 
-          ls src/trio
 
       - if: always()
         uses: codecov/codecov-action@v5
