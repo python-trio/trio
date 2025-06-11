@@ -383,8 +383,7 @@ jobs:
             f.write("\n")
       - run: |
           ls 
-          ls src
-          ls trio  
+          ls src/trio
 
       - if: always()
         uses: codecov/codecov-action@v5
