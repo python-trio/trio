@@ -282,7 +282,7 @@ jobs:
           python -m pip install tox &&
           tox -m check
       - name: Install python3-apport
-        run:
+        run: |
           sudo apt update
           sudo apt install -q python3-apport
       - name: Run tests
