@@ -137,7 +137,7 @@ echo "::endgroup::"
 echo "::group::Coverage"
 
 coverage combine --rcfile ../pyproject.toml
-coverage report -m --rcfile ../pyproject.toml
+coverage report -m --rcfile ../pyproject.toml --debug=pathmap
 coverage xml --rcfile ../pyproject.toml
 
 # Remove the LSP again; again we want to do this ASAP to avoid
