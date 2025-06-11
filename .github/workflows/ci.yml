@@ -281,6 +281,10 @@ jobs:
         run:
           python -m pip install tox &&
           tox -m check
+      - name: Install python3-apport
+        run:
+          sudo apt update
+          sudo apt install -q python3-apport
       - name: Run tests
         if: matrix.check_formatting == '0'
         run: ./ci.sh

@@ -58,11 +58,6 @@ else
     flags=""
 fi
 
-# So we can run the test for our apport/excepthook interaction working
-if [ -e /etc/lsb-release ] && grep -q Ubuntu /etc/lsb-release; then
-    sudo apt install -q python3-apport
-fi
-
 # If we're testing with a LSP installed, then it might break network
 # stuff, so wait until after we've finished setting everything else
 # up.
