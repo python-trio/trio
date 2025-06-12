@@ -176,6 +176,11 @@ jobs:
             lsp: ''
             lsp_extract_file: ''
             extra_name: ''
+          - python: 'pypy-3.11'
+            arch: 'x64'
+            lsp: ''
+            lsp_extract_file: ''
+            extra_name: ''
           #- python: '3.9'
           #  arch: 'x64'
           #  lsp: 'http://download.pctools.com/mirror/updates/9.0.0.2308-SDavfree-lite_en.exe'
@@ -231,7 +236,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.10', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+        python: ['pypy-3.10', 'pypy-3.11', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
         check_formatting: ['0']
         no_test_requirements: ['0']
         extra_name: ['']
@@ -276,6 +281,10 @@ jobs:
         run:
           python -m pip install tox &&
           tox -m check
+      - name: Install python3-apport
+        run: |
+          sudo apt update
+          sudo apt install -q python3-apport
       - name: Run tests
         if: matrix.check_formatting == '0'
         run: ./ci.sh
@@ -301,7 +310,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.10', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+        python: ['pypy-3.10', 'pypy-3.11', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
     continue-on-error: >-
       ${{
         (
