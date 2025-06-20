@@ -10,7 +10,7 @@ babel==2.17.0
     # via sphinx
 beautifulsoup4==4.13.4
     # via sphinx-codeautolink
-certifi==2025.4.26
+certifi==2025.6.15
     # via requests
 cffi==1.17.1 ; os_name == 'nt' or platform_python_implementation != 'PyPy'
     # via
@@ -24,7 +24,7 @@ colorama==0.4.6 ; sys_platform == 'win32'
     # via
     #   click
     #   sphinx
-cryptography==45.0.3
+cryptography==45.0.4
     # via pyopenssl
 docutils==0.21.2
     # via
@@ -57,7 +57,7 @@ pygments==2.19.1
     # via sphinx
 pyopenssl==25.1.0
     # via -r docs-requirements.in
-requests==2.32.3
+requests==2.32.4
     # via sphinx
 roman-numerals-py==3.1.0
     # via sphinx
@@ -100,10 +100,10 @@ sphinxcontrib-trio==1.1.2
     # via -r docs-requirements.in
 towncrier==24.8.0
     # via -r docs-requirements.in
-typing-extensions==4.13.2
+typing-extensions==4.14.0
     # via
     #   beautifulsoup4
     #   exceptiongroup
     #   pyopenssl
-urllib3==2.4.0
+urllib3==2.5.0
     # via requests
