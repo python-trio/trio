@@ -20,7 +20,7 @@ from trio.abc import HostnameResolver, SendStream, SocketFactory
 from trio.testing import open_stream_to_socket_listener
 
 from .. import socket as tsocket
-from .._core._tests.tutil import binds_ipv6
+from .._core._tests.tutil import binds_ipv6, slow
 
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
@@ -74,6 +74,7 @@ async def test_open_tcp_listeners_specific_port_specific_host() -> None:
 
 
 @binds_ipv6
+@slow
 async def test_open_tcp_listeners_ipv6_v6only() -> None:
     # Check IPV6_V6ONLY is working properly
     (ipv6_listener,) = await open_tcp_listeners(0, host="::1")
@@ -84,6 +85,8 @@ async def test_open_tcp_listeners_ipv6_v6only() -> None:
             OSError,
             match=r"(Error|all attempts to) connect(ing)* to (\(')*127\.0\.0\.1(', |:)\d+(\): Connection refused| failed)$",
         ):
+            # Windows retries failed connections so this takes seconds
+            # (and that's why this is marked @slow)
             await open_tcp_stream("127.0.0.1", port)
 
 

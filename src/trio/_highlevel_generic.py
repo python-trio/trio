@@ -43,7 +43,7 @@ async def aclose_forcefully(resource: AsyncResource) -> None:
 
     """
     with trio.CancelScope() as cs:
-        cs.cancel()
+        cs.cancel(reason="cancelled during aclose_forcefully")
         await resource.aclose()
 
 

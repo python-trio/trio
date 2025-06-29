@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 import sys
 from types import TracebackType
-from typing import TYPE_CHECKING
 
 import pytest
 
@@ -14,9 +13,6 @@ from trio.testing._raises_group import repr_callable
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup, ExceptionGroup
 
-if TYPE_CHECKING:
-    from _pytest.python_api import RaisesContext
-
 
 def wrap_escape(s: str) -> str:
     return "^" + re.escape(s) + "$"
@@ -24,7 +20,7 @@ def wrap_escape(s: str) -> str:
 
 def fails_raises_group(
     msg: str, add_prefix: bool = True
-) -> RaisesContext[AssertionError]:
+) -> pytest.RaisesExc[AssertionError]:
     assert (
         msg[-1] != "\n"
     ), "developer error, expected string should not end with newline"

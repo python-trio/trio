@@ -14,7 +14,7 @@ import attrs
 import pytest
 
 from .. import _core, socket as tsocket
-from .._core._tests.tutil import binds_ipv6, can_create_ipv6, creates_ipv6
+from .._core._tests.tutil import binds_ipv6, can_create_ipv6, creates_ipv6, slow
 from .._socket import _NUMERIC_ONLY, AddressFormat, SocketType, _SocketType, _try_sync
 from ..testing import assert_checkpoints, wait_all_tasks_blocked
 
@@ -470,11 +470,18 @@ def setsockopt_tests(sock: SocketType | SocketStream) -> None:
         try:
             sock.setsockopt(tsocket.SOL_SOCKET, tsocket.SO_BINDTODEVICE, None, 0)
         except OSError as e:
-            # some versions of Python have the attribute yet can run on platforms
-            # that do not support it. For instance, MacOS 15 gained support for
-            # SO_BINDTODEVICE and CPython 3.13.1 was built on it (presumably), but
-            # our CI runners ran MacOS 14 and so failed.
-            assert e.errno == 42  # noqa: PT017
+            assert e.errno in [  # noqa: PT017
+                # some versions of Python have the attribute yet can run on
+                # platforms that do not support it. For instance, MacOS 15
+                # gained support for SO_BINDTODEVICE and CPython 3.13.1 was
+                # built on it (presumably), but our CI runners ran MacOS 14 and
+                # so failed.
+                42,
+                # Older Linux kernels (prior to patch
+                # https://lore.kernel.org/netdev/m37drhs1jn.fsf@bernat.ch/t/)
+                # do not support SO_BINDTODEVICE as an unprivileged user.
+                errno.EPERM,
+            ]
 
     # specifying value
     sock.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NODELAY, False)
@@ -829,6 +836,7 @@ async def test_SocketType_non_blocking_paths() -> None:
 
 
 # This tests the complicated paths through connect
+@slow
 async def test_SocketType_connect_paths() -> None:
     with tsocket.socket() as sock:
         with pytest.raises(
@@ -895,10 +903,14 @@ async def test_SocketType_connect_paths() -> None:
             # connect to fail. Really. Also if you use a non-routable
             # address. This way fails instantly though. As long as nothing
             # is listening on port 2.)
+
+            # Windows retries failed connections so this takes seconds
+            # (and that's why this is marked @slow)
             await sock.connect(("127.0.0.1", 2))
 
 
 # Fix issue #1810
+@slow
 async def test_address_in_socket_error() -> None:
     address = "127.0.0.1"
     with tsocket.socket() as sock:
@@ -906,6 +918,8 @@ async def test_address_in_socket_error() -> None:
             OSError,
             match=rf"^\[\w+ \d+\] Error connecting to \({address!r}, 2\): (Connection refused|Unknown error)$",
         ):
+            # Windows retries failed connections so this takes seconds
+            # (and that's why this is marked @slow)
             await sock.connect((address, 2))
 
 
@@ -1215,7 +1229,7 @@ async def test_interrupted_by_close() -> None:
 
 
 async def test_many_sockets() -> None:
-    total = 5000  # Must be more than MAX_AFD_GROUP_SIZE
+    total = 1000  # Must be more than MAX_AFD_GROUP_SIZE
     sockets = []
     # Open at most <total> socket pairs
     for opened in range(0, total, 2):

@@ -183,7 +183,7 @@ class Path(pathlib.PurePath):
     ) -> AsyncIOWrapper[BinaryIO]: ...
 
     @overload
-    async def open(  # type: ignore[misc, explicit-any]  # Any usage matches builtins.open().
+    async def open(  # type: ignore[explicit-any]  # Any usage matches builtins.open().
         self,
         mode: str,
         buffering: int = -1,
@@ -243,6 +243,9 @@ class Path(pathlib.PurePath):
         link_to = _wrap_method(pathlib.Path.link_to)
     if sys.version_info >= (3, 13):
         full_match = _wrap_method(pathlib.Path.full_match)
+
+    def as_uri(self) -> str:
+        return pathlib.Path.as_uri(self)
 
 
 @final

@@ -32,18 +32,14 @@ def terminal_newline() -> None:
 
 @final
 class TrioInteractiveConsole(InteractiveConsole):
-    # code.InteractiveInterpreter defines locals as Mapping[str, Any]
-    # but when we pass this to FunctionType it expects a dict. So
-    # we make the type more specific on our subclass
-    locals: dict[str, object]
-
     def __init__(self, repl_locals: dict[str, object] | None = None) -> None:
         super().__init__(locals=repl_locals)
         self.token: trio.lowlevel.TrioToken | None = None
         self.compile.compiler.flags |= ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
 
     def runcode(self, code: CodeType) -> None:
-        func = FunctionType(code, self.locals)
+        # https://github.com/python/typeshed/issues/13768
+        func = FunctionType(code, self.locals)  # type: ignore[arg-type]
         if inspect.iscoroutinefunction(func):
             result = trio.from_thread.run(outcome.acapture, func)
         else:

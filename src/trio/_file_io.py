@@ -428,7 +428,7 @@ async def open_file(
 
 
 @overload
-async def open_file(  # type: ignore[explicit-any, misc]  # Any usage matches builtins.open().
+async def open_file(  # type: ignore[explicit-any]  # Any usage matches builtins.open().
     file: _OpenFile,
     mode: str,
     buffering: int = -1,

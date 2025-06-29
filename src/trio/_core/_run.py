@@ -36,7 +36,12 @@ from .._util import NoPublicConstructor, coroutine_or_error, final
 from ._asyncgens import AsyncGenerators
 from ._concat_tb import concat_tb
 from ._entry_queue import EntryQueue, TrioToken
-from ._exceptions import Cancelled, RunFinishedError, TrioInternalError
+from ._exceptions import (
+    Cancelled,
+    CancelReasonLiteral,
+    RunFinishedError,
+    TrioInternalError,
+)
 from ._instrumentation import Instruments
 from ._ki import KIManager, enable_ki_protection
 from ._parking_lot import GLOBAL_PARKING_LOT_BREAKER
@@ -305,13 +310,27 @@ class Deadlines:
                 did_something = True
                 # This implicitly calls self.remove(), so we don't need to
                 # decrement _active here
-                cancel_scope.cancel()
+                cancel_scope._cancel(CancelReason(source="deadline"))
         # If we've accumulated too many stale entries, then prune the heap to
         # keep it under control. (We only do this occasionally in a batch, to
         # keep the amortized cost down)
         if len(self._heap) > self._active * 2 + DEADLINE_HEAP_MIN_PRUNE_THRESHOLD:
             self._prune()
         return did_something
+
+
+@attrs.define
+class CancelReason:
+    """Attached to a :class:`CancelScope` upon cancellation with details of the source of the
+    cancellation, which is then used to construct the string in a :exc:`Cancelled`.
+    Users can pass a ``reason`` str to :meth:`CancelScope.cancel` to set it.
+
+    Not publicly exported or documented.
+    """
+
+    source: CancelReasonLiteral
+    source_task: str | None = None
+    reason: str | None = None
 
 
 @attrs.define(eq=False)
@@ -468,6 +487,14 @@ class CancelStatus:
                 or current.parent_cancellation_is_visible_to_us
             )
             if new_state != current.effectively_cancelled:
+                if (
+                    current._scope._cancel_reason is None
+                    and current.parent_cancellation_is_visible_to_us
+                ):
+                    assert current._parent is not None
+                    current._scope._cancel_reason = (
+                        current._parent._scope._cancel_reason
+                    )
                 current.effectively_cancelled = new_state
                 if new_state:
                     for task in current._tasks:
@@ -558,6 +585,8 @@ class CancelScope:
     _cancel_called: bool = attrs.field(default=False, init=False)
     cancelled_caught: bool = attrs.field(default=False, init=False)
 
+    _cancel_reason: CancelReason | None = attrs.field(default=None, init=False)
+
     # Constructor arguments:
     _relative_deadline: float = attrs.field(
         default=inf,
@@ -594,7 +623,7 @@ class CancelScope:
             self._relative_deadline = inf
 
         if current_time() >= self._deadline:
-            self.cancel()
+            self._cancel(CancelReason(source="deadline"))
         with self._might_change_registered_deadline():
             self._cancel_status = CancelStatus(scope=self, parent=task._cancel_status)
             task._activate_cancel_status(self._cancel_status)
@@ -802,6 +831,18 @@ class CancelScope:
 
     @property
     def relative_deadline(self) -> float:
+        """Read-write, :class:`float`. The number of seconds remaining until this
+        scope's deadline, relative to the current time.
+
+        Defaults to :data:`math.inf` ("no deadline"). Must be non-negative.
+
+        When modified
+        Before entering: sets the deadline relative to when the scope enters.
+        After entering: sets a new deadline relative to the current time.
+
+        Raises:
+          RuntimeError: if trying to read or modify an unentered scope with an absolute deadline, i.e. when :attr:`is_relative` is ``False``.
+        """
         if self._has_been_entered:
             return self._deadline - current_time()
         elif self._deadline != inf:
@@ -871,18 +912,41 @@ class CancelScope:
             self._cancel_status.recalculate()
 
     @enable_ki_protection
-    def cancel(self) -> None:
+    def _cancel(self, cancel_reason: CancelReason | None) -> None:
+        """Internal sources of cancellation should use this instead of :meth:`cancel`
+        in order to set a more detailed :class:`CancelReason`
+        Helper or high-level functions can use `cancel`.
+        """
+        if self._cancel_called:
+            return
+
+        if self._cancel_reason is None:
+            self._cancel_reason = cancel_reason
+
+        with self._might_change_registered_deadline():
+            self._cancel_called = True
+
+        if self._cancel_status is not None:
+            self._cancel_status.recalculate()
+
+    @enable_ki_protection
+    def cancel(self, reason: str | None = None) -> None:
         """Cancels this scope immediately.
+
+        The optional ``reason`` argument accepts a string, which will be attached to
+        any resulting :exc:`Cancelled` exception to help you understand where that
+        cancellation is coming from and why it happened.
 
         This method is idempotent, i.e., if the scope was already
         cancelled then this method silently does nothing.
         """
-        if self._cancel_called:
-            return
-        with self._might_change_registered_deadline():
-            self._cancel_called = True
-        if self._cancel_status is not None:
-            self._cancel_status.recalculate()
+        try:
+            current_task = repr(_core.current_task())
+        except RuntimeError:
+            current_task = None
+        self._cancel(
+            CancelReason(reason=reason, source="explicit", source_task=current_task)
+        )
 
     @property
     def cancel_called(self) -> bool:
@@ -912,7 +976,7 @@ class CancelScope:
             # but it makes the value returned by cancel_called more
             # closely match expectations.
             if not self._cancel_called and current_time() >= self._deadline:
-                self.cancel()
+                self._cancel(CancelReason(source="deadline"))
         return self._cancel_called
 
 
@@ -1180,9 +1244,9 @@ class Nursery(metaclass=NoPublicConstructor):
         "(`~trio.lowlevel.Task`):  The Task that opened this nursery."
         return self._parent_task
 
-    def _add_exc(self, exc: BaseException) -> None:
+    def _add_exc(self, exc: BaseException, reason: CancelReason | None) -> None:
         self._pending_excs.append(exc)
-        self.cancel_scope.cancel()
+        self.cancel_scope._cancel(reason)
 
     def _check_nursery_closed(self) -> None:
         if not any([self._nested_child_running, self._children, self._pending_starts]):
@@ -1198,7 +1262,14 @@ class Nursery(metaclass=NoPublicConstructor):
     ) -> None:
         self._children.remove(task)
         if isinstance(outcome, Error):
-            self._add_exc(outcome.error)
+            self._add_exc(
+                outcome.error,
+                CancelReason(
+                    source="nursery",
+                    source_task=repr(task),
+                    reason=f"child task raised exception {outcome.error!r}",
+                ),
+            )
         self._check_nursery_closed()
 
     async def _nested_child_finished(
@@ -1208,7 +1279,14 @@ class Nursery(metaclass=NoPublicConstructor):
         # Returns ExceptionGroup instance (or any exception if the nursery is in loose mode
         # and there is just one contained exception) if there are pending exceptions
         if nested_child_exc is not None:
-            self._add_exc(nested_child_exc)
+            self._add_exc(
+                nested_child_exc,
+                reason=CancelReason(
+                    source="nursery",
+                    source_task=repr(self._parent_task),
+                    reason=f"Code block inside nursery contextmanager raised exception {nested_child_exc!r}",
+                ),
+            )
         self._nested_child_running = False
         self._check_nursery_closed()
 
@@ -1219,7 +1297,13 @@ class Nursery(metaclass=NoPublicConstructor):
             def aborted(raise_cancel: _core.RaiseCancelT) -> Abort:
                 exn = capture(raise_cancel).error
                 if not isinstance(exn, Cancelled):
-                    self._add_exc(exn)
+                    self._add_exc(
+                        exn,
+                        CancelReason(
+                            source="KeyboardInterrupt",
+                            source_task=repr(self._parent_task),
+                        ),
+                    )
                 # see test_cancel_scope_exit_doesnt_create_cyclic_garbage
                 del exn  # prevent cyclic garbage creation
                 return Abort.FAILED
@@ -1233,7 +1317,8 @@ class Nursery(metaclass=NoPublicConstructor):
             try:
                 await cancel_shielded_checkpoint()
             except BaseException as exc:
-                self._add_exc(exc)
+                # there's no children to cancel, so don't need to supply cancel reason
+                self._add_exc(exc, reason=None)
 
         popped = self._parent_task._child_nurseries.pop()
         assert popped is self
@@ -1307,7 +1392,7 @@ class Nursery(metaclass=NoPublicConstructor):
         async_fn: Callable[..., Awaitable[object]],
         *args: object,
         name: object = None,
-    ) -> Any | None:
+    ) -> Any:
         r"""Creates and initializes a child task.
 
         Like :meth:`start_soon`, but blocks until the new task has
@@ -1563,8 +1648,17 @@ class Task(metaclass=NoPublicConstructor):  # type: ignore[explicit-any]
         if not self._cancel_status.effectively_cancelled:
             return
 
+        reason = self._cancel_status._scope._cancel_reason
+
         def raise_cancel() -> NoReturn:
-            raise Cancelled._create()
+            if reason is None:
+                raise Cancelled._create(source="unknown", reason="misnesting")
+            else:
+                raise Cancelled._create(
+                    source=reason.source,
+                    reason=reason.reason,
+                    source_task=reason.source_task,
+                )
 
         self._attempt_abort(raise_cancel)
 
@@ -2063,7 +2157,13 @@ class Runner:  # type: ignore[explicit-any]
                     )
 
                 # Main task is done; start shutting down system tasks
-                self.system_nursery.cancel_scope.cancel()
+                self.system_nursery.cancel_scope._cancel(
+                    CancelReason(
+                        source="shutdown",
+                        reason="main task done, shutting down system tasks",
+                        source_task=repr(self.init_task),
+                    )
+                )
 
             # System nursery is closed; finalize remaining async generators
             await self.asyncgens.finalize_remaining(self)
@@ -2071,7 +2171,13 @@ class Runner:  # type: ignore[explicit-any]
             # There are no more asyncgens, which means no more user-provided
             # code except possibly run_sync_soon callbacks. It's finally safe
             # to stop the run_sync_soon task and exit run().
-            run_sync_soon_nursery.cancel_scope.cancel()
+            run_sync_soon_nursery.cancel_scope._cancel(
+                CancelReason(
+                    source="shutdown",
+                    reason="main task done, shutting down run_sync_soon callbacks",
+                    source_task=repr(self.init_task),
+                )
+            )
 
     ################
     # Outside context problems
@@ -2730,6 +2836,9 @@ def unrolled_run(
                 next_send = task._next_send
                 task._next_send_fn = task._next_send = None
                 final_outcome: Outcome[object] | None = None
+
+                assert next_send_fn is not None
+
                 try:
                     # We used to unwrap the Outcome object here and send/throw
                     # its contents in directly, but it turns out that .throw()
@@ -2914,7 +3023,18 @@ async def checkpoint() -> None:
     if task._cancel_status.effectively_cancelled or (
         task is task._runner.main_task and task._runner.ki_pending
     ):
-        with CancelScope(deadline=-inf):
+        cs = CancelScope(deadline=-inf)
+        if (
+            task._cancel_status._scope._cancel_reason is None
+            and task is task._runner.main_task
+            and task._runner.ki_pending
+        ):
+            task._cancel_status._scope._cancel_reason = CancelReason(
+                source="KeyboardInterrupt"
+            )
+        assert task._cancel_status._scope._cancel_reason is not None
+        cs._cancel_reason = task._cancel_status._scope._cancel_reason
+        with cs:
             await _core.wait_task_rescheduled(lambda _: _core.Abort.SUCCEEDED)
 
 

@@ -817,10 +817,10 @@ inside the handler function(s) with the ``nonlocal`` keyword:
 Designing for multiple errors
 +++++++++++++++++++++++++++++
 
-Structured concurrency is still a young design pattern, but there are a few patterns
-we've identified for how you (or your users) might want to handle groups of exceptions.
-Note that the final pattern, simply raising an `ExceptionGroup`, is the most common -
-and nurseries automatically do that for you.
+Structured concurrency is still a relatively new design pattern, but there are a few
+approaches we've identified for how you (or your users) might want to handle groups of
+exceptions. Note that the final pattern, simply raising an `ExceptionGroup`, is the most
+common - and nurseries automatically do that for you.
 
 **First**, you might want to 'defer to' a particular exception type, raising just that if
 there is any such instance in the group.  For example: `KeyboardInterrupt` has a clear
@@ -1607,7 +1607,14 @@ the numbers 0 through 9 with a 1-second delay before each one:
 
     trio.run(use_it)
 
-Trio supports async generators, with some caveats described in this section.
+Trio supports async generators, but there's several caveats and it's very
+hard to handle them properly. Therefore Trio bundles a helper,
+`trio.as_safe_channel` that does it for you.
+
+
+.. autofunction:: trio.as_safe_channel
+
+The details behind the problems are described in the following sections.
 
 Finalization
 ~~~~~~~~~~~~
@@ -1737,7 +1744,8 @@ so sometimes you'll get an unhelpful `TrioInternalError`. (And
 sometimes it will seem to work, which is probably the worst outcome of
 all, since then you might not notice the issue until you perform some
 minor refactoring of the generator or the code that's iterating it, or
-just get unlucky. There is a `proposed Python enhancement
+just get unlucky. There is a draft :pep:`789` with accompanying
+`discussion thread
 <https://discuss.python.org/t/preventing-yield-inside-certain-context-managers/1091>`__
 that would at least make it fail consistently.)
 
@@ -1752,12 +1760,6 @@ scopes plus a number of problems of their own: for example, when
 the generator is suspended, what should the background tasks do?
 There's no good way to suspend them, but if they keep running and throw
 an exception, where can that exception be reraised?
-
-If you have an async generator that wants to ``yield`` from within a nursery
-or cancel scope, your best bet is to refactor it to be a separate task
-that communicates over memory channels.  The ``trio_util`` package offers a
-`decorator that does this for you transparently
-<https://trio-util.readthedocs.io/en/latest/#trio_util.trio_async_generator>`__.
 
 For more discussion, see
 Trio issues `264 <https://github.com/python-trio/trio/issues/264>`__
