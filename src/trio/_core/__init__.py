@@ -5,6 +5,7 @@ are publicly available in either trio, trio.lowlevel, or trio.testing.
 """
 
 import sys
+import typing as _t
 
 from ._entry_queue import TrioToken
 from ._exceptions import (
@@ -73,7 +74,9 @@ from ._traps import (
 from ._unbounded_queue import UnboundedQueue, UnboundedQueueStatistics
 
 # Windows imports
-if sys.platform == "win32":
+if sys.platform == "win32" or (
+    not _t.TYPE_CHECKING and "sphinx.ext.autodoc" in sys.modules
+):
     from ._run import (
         current_iocp,
         monitor_completion_key,
@@ -83,7 +86,9 @@ if sys.platform == "win32":
         write_overlapped,
     )
 # Kqueue imports
-elif sys.platform != "linux" and sys.platform != "win32":
+if (sys.platform != "linux" and sys.platform != "win32") or (
+    not _t.TYPE_CHECKING and "sphinx.ext.autodoc" in sys.modules
+):
     from ._run import current_kqueue, monitor_kevent, wait_kevent
 
 del sys  # It would be better to import sys as _sys, but mypy does not understand it
