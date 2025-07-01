@@ -120,7 +120,7 @@ pre-commit==4.2.0
     # via -r test-requirements.in
 pycparser==2.22 ; os_name == 'nt' or platform_python_implementation != 'PyPy'
     # via cffi
-pygments==2.19.1
+pygments==2.19.2
     # via
     #   pytest
     #   sphinx
