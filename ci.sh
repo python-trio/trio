@@ -137,8 +137,10 @@ echo "::endgroup::"
 echo "::group::Coverage"
 
 coverage combine --rcfile ../pyproject.toml
-coverage report -m --rcfile ../pyproject.toml
-coverage xml --rcfile ../pyproject.toml
+cd ..  # coverage needs to be in the folder containing src/trio
+cp empty/.coverage .
+coverage report -m --rcfile ./pyproject.toml
+coverage xml --rcfile ./pyproject.toml
 
 # Remove the LSP again; again we want to do this ASAP to avoid
 # accidentally breaking other stuff.
