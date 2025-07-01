@@ -53,7 +53,7 @@ packaging==25.0
     # via sphinx
 pycparser==2.22 ; os_name == 'nt' or platform_python_implementation != 'PyPy'
     # via cffi
-pygments==2.19.1
+pygments==2.19.2
     # via sphinx
 pyopenssl==25.1.0
     # via -r docs-requirements.in
