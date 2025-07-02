@@ -36,6 +36,7 @@ class TrioInteractiveConsole(InteractiveConsole):
         super().__init__(locals=repl_locals)
         self.token: trio.lowlevel.TrioToken | None = None
         self.compile.compiler.flags |= ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
+        self.interrupted = False
 
     def runcode(self, code: CodeType) -> None:
         # https://github.com/python/typeshed/issues/13768
@@ -84,14 +85,13 @@ class TrioInteractiveConsole(InteractiveConsole):
         def raw_input(self, prompt: str = "") -> str:
             from signal import SIGINT, signal
 
-            interrupted = False
+            assert not self.interrupted
 
             def install_handler() -> (
                 Callable[[int, FrameType | None], None] | int | None
             ):
                 def handler(sig: int, frame: FrameType | None) -> None:
-                    nonlocal interrupted
-                    interrupted = True
+                    self.interrupted = True
                     token.run_sync_soon(terminal_newline, idempotent=True)
 
                 token = trio.lowlevel.current_trio_token()
@@ -103,8 +103,16 @@ class TrioInteractiveConsole(InteractiveConsole):
                 return input(prompt)
             finally:
                 trio.from_thread.run_sync(signal, SIGINT, prev_handler)
-                if interrupted:
+                if self.interrupted:
                     raise KeyboardInterrupt
+
+        def write(self, output: str) -> None:
+            if self.interrupted:
+                assert output == "\nKeyboardInterrupt\n"
+                sys.stderr.write(output[1:])
+                self.interrupted = False
+            else:
+                sys.stderr.write(output)
 
 
 async def run_repl(console: TrioInteractiveConsole) -> None:
