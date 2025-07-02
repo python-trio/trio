@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import os
+import pty
+import signal
 import subprocess
 import sys
+from functools import partial
 from typing import Protocol
 
 import pytest
@@ -239,3 +243,131 @@ def test_main_entrypoint() -> None:
     """
     repl = subprocess.run([sys.executable, "-m", "trio"], input=b"exit()")
     assert repl.returncode == 0
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="uses PTYs")
+def test_ki_newline_injection() -> None:
+    # NOTE: this cannot be subprocess.Popen because pty.fork
+    #       does some magic to set the controlling terminal.
+    # (which I don't know how to replicate... so I copied this
+    # structure from pty.spawn...)
+    pid, pty_fd = pty.fork()
+    if pid == 0:
+        os.execlp(sys.executable, *[sys.executable, "-u", "-m", "trio"])
+
+    # setup:
+    buffer = b""
+    while not buffer.endswith(b"import trio\r\n>>> "):
+        buffer += os.read(pty_fd, 4096)
+
+    # sanity check:
+    print(buffer.decode())
+    buffer = b""
+    os.write(pty_fd, b'print("hello!")\n')
+    while not buffer.endswith(b">>> "):
+        buffer += os.read(pty_fd, 4096)
+
+    assert buffer.count(b"hello!") == 2
+
+    # press ctrl+c
+    print(buffer.decode())
+    buffer = b""
+    os.kill(pid, signal.SIGINT)
+    while not buffer.endswith(b">>> "):
+        buffer += os.read(pty_fd, 4096)
+
+    assert b"KeyboardInterrupt" in buffer
+
+    # press ctrl+c later
+    print(buffer.decode())
+    buffer = b""
+    os.write(pty_fd, b'print("hello!")')
+    os.kill(pid, signal.SIGINT)
+    while not buffer.endswith(b">>> "):
+        buffer += os.read(pty_fd, 4096)
+
+    assert b"KeyboardInterrupt" in buffer
+    print(buffer.decode())
+    os.close(pty_fd)
+    os.waitpid(pid, 0)[1]
+
+
+async def test_ki_in_repl() -> None:
+    async with trio.open_nursery() as nursery:
+        proc = await nursery.start(
+            partial(
+                trio.run_process,
+                [sys.executable, "-u", "-m", "trio"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                stdin=subprocess.PIPE,
+            )
+        )
+
+        async with proc.stdout:
+            # setup
+            buffer = b""
+            async for part in proc.stdout:
+                buffer += part
+                if buffer.endswith(b"import trio\n>>> "):
+                    break
+
+            # ensure things work
+            buffer = b""
+            await proc.stdin.send_all(b'print("hello!")\n')
+            async for part in proc.stdout:
+                buffer += part
+                if buffer.endswith(b">>> "):
+                    break
+
+            assert b"hello!" in buffer
+
+            # ensure that ctrl+c on a prompt works
+            os.kill(proc.pid, signal.SIGINT)
+            if sys.platform != "win32":
+                # we test injection separately
+                await proc.stdin.send_all(b"\n")
+
+            buffer = b""
+            async for part in proc.stdout:
+                buffer += part
+                if buffer.endswith(b">>> "):
+                    break
+
+            assert b"KeyboardInterrupt" in buffer
+
+            # ensure ctrl+c while a command runs works
+            await proc.stdin.send_all(b'print("READY"); await trio.sleep_forever()\n')
+            killed = False
+            buffer = b""
+            async for part in proc.stdout:
+                buffer += part
+                if buffer.endswith(b"READY\n") and not killed:
+                    os.kill(proc.pid, signal.SIGINT)
+                    killed = True
+                if buffer.endswith(b">>> "):
+                    break
+
+            assert b"trio" in buffer
+            assert b"KeyboardInterrupt" in buffer
+
+            # make sure it works for sync commands too
+            # (though this would be hard to break)
+            await proc.stdin.send_all(
+                b'import time; print("READY"); time.sleep(99999)\n'
+            )
+            killed = False
+            buffer = b""
+            async for part in proc.stdout:
+                buffer += part
+                if buffer.endswith(b"READY\n") and not killed:
+                    os.kill(proc.pid, signal.SIGINT)
+                    killed = True
+                if buffer.endswith(b">>> "):
+                    break
+
+            assert b"Traceback" in buffer
+            assert b"KeyboardInterrupt" in buffer
+
+        # kill the process
+        nursery.cancel_scope.cancel()
