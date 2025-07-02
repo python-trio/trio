@@ -346,6 +346,18 @@ async def test_ki_in_repl() -> None:
 
                 print(buffer.decode())
 
+            # try to decrease flakiness...
+            buffer = b""
+            await proc.stdin.send_all(
+                b"import coverage; trio.lowlevel.enable_ki_protection(coverage.pytracer.PyTracer._trace)\n"
+            )
+            async for part in proc.stdout:
+                buffer += part
+                if buffer.endswith(b">>> "):
+                    break
+
+            print(buffer.decode())
+
             # ensure that ctrl+c on a prompt works
             # NOTE: for some reason, signal.SIGINT doesn't work for this test.
             # Using CTRL_C_EVENT is also why we need subprocess.CREATE_NEW_PROCESS_GROUP
