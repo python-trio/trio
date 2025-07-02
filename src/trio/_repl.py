@@ -29,7 +29,7 @@ def terminal_newline() -> None:
     # Fake up a newline char as if user had typed it at the terminal
     # on a best-effort basis
     with contextlib.suppress(OSError):
-        fcntl.ioctl(sys.stdin, termios.TIOCSTI, b"\n")
+        fcntl.ioctl(sys.stdin, termios.TIOCSTI, b"\n")  # type: ignore[attr-defined, unused-ignore]
 
 
 @final

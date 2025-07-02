@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import pty
 import signal
 import subprocess
 import sys
@@ -247,11 +246,15 @@ def test_main_entrypoint() -> None:
 
 @pytest.mark.skipif(sys.platform == "win32", reason="uses PTYs")
 def test_ki_newline_injection() -> None:
+    assert sys.platform != "win32"
+
+    import pty
+
     # NOTE: this cannot be subprocess.Popen because pty.fork
     #       does some magic to set the controlling terminal.
     # (which I don't know how to replicate... so I copied this
     # structure from pty.spawn...)
-    pid, pty_fd = pty.fork()
+    pid, pty_fd = pty.fork()  # type: ignore[attr-defined,unused-ignore]
     if pid == 0:
         os.execlp(sys.executable, *[sys.executable, "-u", "-m", "trio"])
 
