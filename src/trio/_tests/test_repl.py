@@ -307,6 +307,7 @@ async def test_ki_in_repl() -> None:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 stdin=subprocess.PIPE,
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == "win32" else 0,  # type: ignore[attr-defined,unused-ignore]
             )
         )
 
@@ -315,10 +316,12 @@ async def test_ki_in_repl() -> None:
             buffer = b""
             async for part in proc.stdout:
                 buffer += part
-                if buffer.endswith(b"import trio\n>>> "):
+                # TODO: consider making run_process stdout have some universal newlines thing
+                if buffer.replace(b"\r\n", b"\n").endswith(b"import trio\n>>> "):
                     break
 
             # ensure things work
+            print(buffer.decode())
             buffer = b""
             await proc.stdin.send_all(b'print("hello!")\n')
             async for part in proc.stdout:
@@ -327,10 +330,32 @@ async def test_ki_in_repl() -> None:
                     break
 
             assert b"hello!" in buffer
+            print(buffer.decode())
+
+            # this seems to be necessary on Windows for reasons
+            # (the parents of process groups ignore ctrl+c by default...)
+            if sys.platform == "win32":
+                buffer = b""
+                await proc.stdin.send_all(
+                    b"import ctypes; ctypes.windll.kernel32.SetConsoleCtrlHandler(None, False)\n"
+                )
+                async for part in proc.stdout:
+                    buffer += part
+                    if buffer.endswith(b">>> "):
+                        break
+
+                print(buffer.decode())
 
             # ensure that ctrl+c on a prompt works
-            os.kill(proc.pid, signal.SIGINT)
-            if sys.platform != "win32":
+            # NOTE: for some reason, signal.SIGINT doesn't work for this test.
+            # Using CTRL_C_EVENT is also why we need subprocess.CREATE_NEW_PROCESS_GROUP
+            signal_sent = signal.CTRL_C_EVENT if sys.platform == "win32" else signal.SIGINT  # type: ignore[attr-defined,unused-ignore]
+            os.kill(proc.pid, signal_sent)
+            if sys.platform == "win32":
+                # we rely on EOFError which... doesn't happen with pipes.
+                # I'm not sure how to fix it...
+                await proc.stdin.send_all(b"\n")
+            else:
                 # we test injection separately
                 await proc.stdin.send_all(b"\n")
 
@@ -343,13 +368,14 @@ async def test_ki_in_repl() -> None:
             assert b"KeyboardInterrupt" in buffer
 
             # ensure ctrl+c while a command runs works
+            print(buffer.decode())
             await proc.stdin.send_all(b'print("READY"); await trio.sleep_forever()\n')
             killed = False
             buffer = b""
             async for part in proc.stdout:
                 buffer += part
-                if buffer.endswith(b"READY\n") and not killed:
-                    os.kill(proc.pid, signal.SIGINT)
+                if buffer.replace(b"\r\n", b"\n").endswith(b"READY\n") and not killed:
+                    os.kill(proc.pid, signal_sent)
                     killed = True
                 if buffer.endswith(b">>> "):
                     break
@@ -359,6 +385,7 @@ async def test_ki_in_repl() -> None:
 
             # make sure it works for sync commands too
             # (though this would be hard to break)
+            print(buffer.decode())
             await proc.stdin.send_all(
                 b'import time; print("READY"); time.sleep(99999)\n'
             )
@@ -366,14 +393,16 @@ async def test_ki_in_repl() -> None:
             buffer = b""
             async for part in proc.stdout:
                 buffer += part
-                if buffer.endswith(b"READY\n") and not killed:
-                    os.kill(proc.pid, signal.SIGINT)
+                if buffer.replace(b"\r\n", b"\n").endswith(b"READY\n") and not killed:
+                    os.kill(proc.pid, signal_sent)
                     killed = True
                 if buffer.endswith(b">>> "):
                     break
 
             assert b"Traceback" in buffer
             assert b"KeyboardInterrupt" in buffer
+
+            print(buffer.decode())
 
         # kill the process
         nursery.cancel_scope.cancel()
