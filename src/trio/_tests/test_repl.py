@@ -244,8 +244,11 @@ def test_main_entrypoint() -> None:
     assert repl.returncode == 0
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="uses PTYs")
+# TODO: skip this based on sysctls? Or Linux version?
+@pytest.mark.skipif(True, reason="the ioctl we use is disabled in CI")
 def test_ki_newline_injection() -> None:
+    # TODO: we want to remove this functionality, eg by using vendored
+    #       pyrepls.
     assert sys.platform != "win32"
 
     import pty
