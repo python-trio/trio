@@ -1082,8 +1082,7 @@ issue #649 <https://github.com/python-trio/trio/issues/649>`__. For
 more details on how coroutines work, we recommend André Caron's `A
 tale of event loops
 <https://github.com/AndreLouisCaron/a-tale-of-event-loops>`__, or
-going straight to `PEP 492
-<https://www.python.org/dev/peps/pep-0492/>`__ for the full details.
+going straight to :pep:`492`__ for the full details.
 
 .. autofunction:: permanently_detach_coroutine_object
 
