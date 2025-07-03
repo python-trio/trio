@@ -125,7 +125,7 @@ Removals without deprecations
 Miscellaneous internal changes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Switch to using PEP570 for positional-only arguments for `~trio.socket.SocketType`'s methods. (`#3094 <https://github.com/python-trio/trio/issues/3094>`__)
+- Switch to using :pep:`570` for positional-only arguments for `~trio.socket.SocketType`'s methods. (`#3094 <https://github.com/python-trio/trio/issues/3094>`__)
 - Improve type annotations in several places by removing `Any` usage. (`#3121 <https://github.com/python-trio/trio/issues/3121>`__)
 - Get and enforce 100% coverage (`#3159 <https://github.com/python-trio/trio/issues/3159>`__)
 
@@ -1070,7 +1070,7 @@ Features
   to make the task scheduler reproducible and avoid flaky tests. (`#890 <https://github.com/python-trio/trio/issues/890>`__)
 - :class:`~trio.abc.SendChannel`, :class:`~trio.abc.ReceiveChannel`, :class:`~trio.abc.Listener`,
   and :func:`~trio.open_memory_channel` can now be referenced using a generic type parameter
-  (the type of object sent over the channel or produced by the listener) using PEP 484 syntax:
+  (the type of object sent over the channel or produced by the listener) using :pep:`484` syntax:
   ``trio.abc.SendChannel[bytes]``, ``trio.abc.Listener[trio.SocketStream]``,
   ``trio.open_memory_channel[MyMessage](5)``, etc. The added type information does not change
   the runtime semantics, but permits better integration with external static type checkers. (`#908 <https://github.com/python-trio/trio/issues/908>`__)
