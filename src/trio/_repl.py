@@ -27,9 +27,10 @@ def terminal_newline() -> None:
     import termios
 
     # Fake up a newline char as if user had typed it at the terminal
-    # on a best-effort basis
-    with contextlib.suppress(OSError):
+    try:
         fcntl.ioctl(sys.stdin, termios.TIOCSTI, b"\n")  # type: ignore[attr-defined, unused-ignore]
+    except OSError as e:
+        print(f"\nPress enter! Newline injection failed: {e}", end="", flush=True)
 
 
 @final

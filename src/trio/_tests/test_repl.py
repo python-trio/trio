@@ -246,7 +246,7 @@ def test_main_entrypoint() -> None:
 
 # TODO: skip this based on sysctls? Or Linux version?
 @pytest.mark.skipif(True, reason="the ioctl we use is disabled in CI")
-def test_ki_newline_injection() -> None:
+def test_ki_newline_injection() -> None:  # TODO: test this line
     # TODO: we want to remove this functionality, eg by using vendored
     #       pyrepls.
     assert sys.platform != "win32"
@@ -314,7 +314,7 @@ async def test_ki_in_repl() -> None:
         async with proc.stdout:
             # setup
             buffer = b""
-            async for part in proc.stdout:
+            async for part in proc.stdout:  # pragma: no branch
                 buffer += part
                 # TODO: consider making run_process stdout have some universal newlines thing
                 if buffer.replace(b"\r\n", b"\n").endswith(b"import trio\n>>> "):
@@ -324,7 +324,7 @@ async def test_ki_in_repl() -> None:
             print(buffer.decode())
             buffer = b""
             await proc.stdin.send_all(b'print("hello!")\n')
-            async for part in proc.stdout:
+            async for part in proc.stdout:  # pragma: no branch
                 buffer += part
                 if buffer.endswith(b">>> "):
                     break
@@ -339,7 +339,7 @@ async def test_ki_in_repl() -> None:
                 await proc.stdin.send_all(
                     b"import ctypes; ctypes.windll.kernel32.SetConsoleCtrlHandler(None, False)\n"
                 )
-                async for part in proc.stdout:
+                async for part in proc.stdout:  # pragma: no branch
                     buffer += part
                     if buffer.endswith(b">>> "):
                         break
@@ -351,7 +351,7 @@ async def test_ki_in_repl() -> None:
             await proc.stdin.send_all(
                 b"import coverage; trio.lowlevel.enable_ki_protection(coverage.pytracer.PyTracer._trace)\n"
             )
-            async for part in proc.stdout:
+            async for part in proc.stdout:  # pragma: no branch
                 buffer += part
                 if buffer.endswith(b">>> "):
                     break
@@ -372,7 +372,7 @@ async def test_ki_in_repl() -> None:
                 await proc.stdin.send_all(b"\n")
 
             buffer = b""
-            async for part in proc.stdout:
+            async for part in proc.stdout:  # pragma: no branch
                 buffer += part
                 if buffer.endswith(b">>> "):
                     break
@@ -384,7 +384,7 @@ async def test_ki_in_repl() -> None:
             await proc.stdin.send_all(b'print("READY"); await trio.sleep_forever()\n')
             killed = False
             buffer = b""
-            async for part in proc.stdout:
+            async for part in proc.stdout:  # pragma: no branch
                 buffer += part
                 if buffer.replace(b"\r\n", b"\n").endswith(b"READY\n") and not killed:
                     os.kill(proc.pid, signal_sent)
@@ -403,7 +403,7 @@ async def test_ki_in_repl() -> None:
             )
             killed = False
             buffer = b""
-            async for part in proc.stdout:
+            async for part in proc.stdout:  # pragma: no branch
                 buffer += part
                 if buffer.replace(b"\r\n", b"\n").endswith(b"READY\n") and not killed:
                     os.kill(proc.pid, signal_sent)
