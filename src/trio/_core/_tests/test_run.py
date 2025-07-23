@@ -8,7 +8,13 @@ import threading
 import time
 import types
 import weakref
-from contextlib import ExitStack, contextmanager, suppress
+from contextlib import (
+    AsyncExitStack,
+    ExitStack,
+    asynccontextmanager,
+    contextmanager,
+    suppress,
+)
 from math import inf, nan
 from typing import TYPE_CHECKING, NoReturn, TypeVar
 from unittest import mock
@@ -761,7 +767,7 @@ async def test_cancel_unbound() -> None:
     assert scope.cancel_called  # never become un-cancelled
 
 
-async def test_cancel_scope_misnesting() -> None:
+async def test_cancel_scope_misnesting_1() -> None:
     outer = _core.CancelScope()
     inner = _core.CancelScope()
     with ExitStack() as stack:
@@ -771,6 +777,8 @@ async def test_cancel_scope_misnesting() -> None:
                 stack.close()
         # No further error is raised when exiting the inner context
 
+
+async def test_cancel_scope_misnesting_2() -> None:
     # If there are other tasks inside the abandoned part of the cancel tree,
     # they get cancelled when the misnesting is detected
     async def task1() -> None:
@@ -828,6 +836,8 @@ async def test_cancel_scope_misnesting() -> None:
     )
     assert group.matches(exc_info.value.__context__)
 
+
+async def test_cancel_scope_misnesting_3() -> None:
     # Trying to exit a cancel scope from an unrelated task raises an error
     # without affecting any state
     async def task3(task_status: _core.TaskStatus[_core.CancelScope]) -> None:
@@ -842,6 +852,42 @@ async def test_cancel_scope_misnesting() -> None:
         with pytest.raises(RuntimeError, match="from unrelated"):
             scope.__exit__(None, None, None)
         scope.cancel()
+
+
+async def test_nursery_misnest() -> None:
+    # See https://github.com/python-trio/trio/issues/3298
+    async def inner_func() -> None:
+        inner_nursery = await inner_cm.__aenter__()
+        inner_nursery.start_soon(sleep, 1)
+
+    with pytest.RaisesGroup(
+        pytest.RaisesExc(RuntimeError, match="Cancel scope stack corrupted")
+    ):
+        async with _core.open_nursery() as outer_nursery:
+            inner_cm = _core.open_nursery()
+            outer_nursery.start_soon(inner_func)
+
+
+async def test_asyncexitstack_nursery_misnest() -> None:
+    @asynccontextmanager
+    async def asynccontextmanager_that_creates_a_nursery_internally() -> (
+        AsyncGenerator[None]
+    ):
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(
+                print_sleep_print, "task_in_asynccontextmanager_nursery", 2.0
+            )
+            yield
+
+    async def print_sleep_print(name: str, sleep_time: float) -> None:
+        await sleep(sleep_time)
+
+    async with AsyncExitStack() as stack, _core.open_nursery() as nursery:
+        # The asynccontextmanager is going to create a nursery that outlives this nursery!
+        nursery.start_soon(
+            stack.enter_async_context,
+            asynccontextmanager_that_creates_a_nursery_internally(),
+        )
 
 
 @slow

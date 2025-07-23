@@ -2017,7 +2017,7 @@ class Runner:  # type: ignore[explicit-any]
             task._cancel_status is not None
             and task._cancel_status.abandoned_by_misnesting
             and task._cancel_status.parent is None
-        ):
+        ) or any(not nursery._closed for nursery in task._child_nurseries):
             # The cancel scope surrounding this task's nursery was closed
             # before the task exited. Force the task to exit with an error,
             # since the error might not have been caught elsewhere. See the
