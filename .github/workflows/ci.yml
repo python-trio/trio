@@ -217,9 +217,8 @@ jobs:
           LSP: '${{ matrix.lsp }}'
           LSP_EXTRACT_FILE: '${{ matrix.lsp_extract_file }}'
       - if: always()
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
-          directory: empty
           name: Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})
           # multiple flags is marked as an error in codecov UI, but is actually fine
           # https://github.com/codecov/feedback/issues/567
@@ -293,9 +292,8 @@ jobs:
       - if: >-
           always()
           && matrix.check_formatting != '1'
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
-          directory: empty
           name: Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})
           flags: Ubuntu,${{ matrix.python }}
           fail_ci_if_error: false
@@ -336,9 +334,8 @@ jobs:
       - name: Run tests
         run: ./ci.sh
       - if: always()
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
-          directory: empty
           name: macOS (${{ matrix.python }})
           flags: macOS,${{ matrix.python }}
           fail_ci_if_error: false
@@ -357,7 +354,8 @@ jobs:
         # `python3-dev` (rather than `python:alpine`) for some ctypes reason,
         # `nodejs` for pyright (`node-env` pulls in nodejs but that takes a while and can time out the test).
         # `perl` for a platform independent `sed -i` alternative
-        run: apk update && apk add python3-dev bash nodejs perl
+        # `git`, `curl`, `gpg` for codecov
+        run: apk update && apk add python3-dev bash nodejs perl git curl gpg
 
       - name: Retrieve the project source from an sdist inside the GHA artifact
         # must be after `apk add` because it relies on `bash` existing
@@ -382,9 +380,8 @@ jobs:
             f.write("\n")
 
       - if: always()
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
-          directory: empty
           name: Alpine
           flags: Alpine,${{ steps.get-version.outputs.version }}
           fail_ci_if_error: false
