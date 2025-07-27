@@ -34,7 +34,10 @@ class TrioInteractiveConsole(InteractiveConsole):
             if hasattr(self.rl, "rl_catch_signals"):
                 ctypes.c_int.in_dll(self.rl, "rl_catch_signals").value = 0
             self.rlcallbacktype = ctypes.CFUNCTYPE(None, ctypes.c_char_p)
-            self.rl.rl_callback_handler_install.argtypes = [ctypes.c_char_p, self.rlcallbacktype]
+            self.rl.rl_callback_handler_install.argtypes = [
+                ctypes.c_char_p,
+                self.rlcallbacktype,
+            ]
         else:
             self.rl = None
             self.linebuffer = ""
