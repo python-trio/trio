@@ -103,8 +103,14 @@ packaging==25.0
     #   black
     #   pytest
     #   sphinx
-parso==0.8.4 ; implementation_name == 'cpython'
-    # via jedi
+parso==0.8.4 ; python_full_version < '3.14' and implementation_name == 'cpython'
+    # via
+    #   -r test-requirements.in
+    #   jedi
+parso @ git+https://github.com/davidhalter/parso.git@a73af5c709a292cbb789bf6cab38b20559f166c0 ; python_full_version >= '3.14'
+    # via
+    #   -r test-requirements.in
+    #   jedi
 pathspec==0.12.1
     # via
     #   black
