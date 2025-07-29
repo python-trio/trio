@@ -2018,12 +2018,18 @@ class Runner:  # type: ignore[explicit-any]
             # avoid internal errors.
             runner = GLOBAL_RUN_CONTEXT.runner
             for nursery in task._child_nurseries:
-                nursery.cancel_scope.cancel()
-                for child in nursery._children:
+                for child in nursery._children.copy():
                     if child in runner.runq:
                         runner.runq.remove(child)
-                        runner.tasks.remove(child)
-                nursery._children.clear()
+                        self.task_exited(
+                            child,
+                            Error(
+                                RuntimeError(
+                                    f"Task {child} aborted after nursery was destroyed due to misnesting."
+                                )
+                            ),
+                        )
+                assert not nursery._children
             try:
                 # Raise this, rather than just constructing it, to get a
                 # traceback frame included

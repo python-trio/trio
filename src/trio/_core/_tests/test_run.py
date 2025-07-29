@@ -885,24 +885,32 @@ async def test_asyncexitstack_nursery_misnest() -> None:
     async def unstarted_task() -> None:
         raise AssertionError("this should not even get a chance to run")
 
-    async with AsyncExitStack() as stack:
-        manager = _core.open_nursery()
-        nursery = await manager.__aenter__()
-        # The asynccontextmanager is going to create a nursery that outlives this nursery!
-        nursery.start_soon(
-            stack.enter_async_context,
-            asynccontextmanager_that_creates_a_nursery_internally(),
-        )
-        with pytest.RaisesGroup(
+    with pytest.RaisesGroup(
+        pytest.RaisesExc(
+            RuntimeError,
+            match="Task .*unstarted_task.* aborted after nursery was destroyed due to misnesting.",
+        ),
+        pytest.RaisesExc(
+            RuntimeError,
+            match="Task .*started_sleeper.* aborted after nursery was destroyed due to misnesting.",
+        ),
+        pytest.RaisesGroup(
             pytest.RaisesExc(RuntimeError, match="Nursery stack corrupted")
-        ):
-            await manager.__aexit__(None, None, None)
+        ),
+    ):
+        async with AsyncExitStack() as stack, _core.open_nursery() as nursery:
+            # The asynccontextmanager is going to create a nursery that outlives this nursery!
+            nursery.start_soon(
+                stack.enter_async_context,
+                asynccontextmanager_that_creates_a_nursery_internally(),
+            )
 
     # The outer nursery forcefully aborts the inner nursery and stops `unstarted_task`
     # from ever being started.
+    # `started_sleeper` is awaited, but not the internal `sleep`
     with pytest.warns(
         RuntimeWarning,
-        match="^coroutine 'test_asyncexitstack_nursery_misnest.<locals>.unstarted_task' was never awaited$",
+        match="^coroutine '(test_asyncexitstack_nursery_misnest.<locals>.unstarted_task|sleep)' was never awaited$",
     ):
         gc_collect_harder()
 
