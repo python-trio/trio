@@ -861,7 +861,7 @@ async def test_nursery_misnest() -> None:
         inner_nursery.start_soon(sleep, 1)
 
     with pytest.RaisesGroup(
-        pytest.RaisesExc(RuntimeError, match="Cancel scope stack corrupted")
+        pytest.RaisesExc(RuntimeError, match="Nursery stack corrupted")
     ):
         async with _core.open_nursery() as outer_nursery:
             inner_cm = _core.open_nursery()
@@ -874,20 +874,37 @@ async def test_asyncexitstack_nursery_misnest() -> None:
         AsyncGenerator[None]
     ):
         async with _core.open_nursery() as nursery:
-            nursery.start_soon(
-                print_sleep_print, "task_in_asynccontextmanager_nursery", 2.0
-            )
+            await nursery.start(started_sleeper)
+            nursery.start_soon(unstarted_task)
             yield
 
-    async def print_sleep_print(name: str, sleep_time: float) -> None:
-        await sleep(sleep_time)
+    async def started_sleeper(task_status: _core.TaskStatus[None]) -> None:
+        task_status.started()
+        await sleep_forever()
 
-    async with AsyncExitStack() as stack, _core.open_nursery() as nursery:
+    async def unstarted_task() -> None:
+        raise AssertionError("this should not even get a chance to run")
+
+    async with AsyncExitStack() as stack:
+        manager = _core.open_nursery()
+        nursery = await manager.__aenter__()
         # The asynccontextmanager is going to create a nursery that outlives this nursery!
         nursery.start_soon(
             stack.enter_async_context,
             asynccontextmanager_that_creates_a_nursery_internally(),
         )
+        with pytest.RaisesGroup(
+            pytest.RaisesExc(RuntimeError, match="Nursery stack corrupted")
+        ):
+            await manager.__aexit__(None, None, None)
+
+    # The outer nursery forcefully aborts the inner nursery and stops `unstarted_task`
+    # from ever being started.
+    with pytest.warns(
+        RuntimeWarning,
+        match="^coroutine 'test_asyncexitstack_nursery_misnest.<locals>.unstarted_task' was never awaited$",
+    ):
+        gc_collect_harder()
 
 
 @slow

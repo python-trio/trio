@@ -2013,11 +2013,33 @@ class Runner:  # type: ignore[explicit-any]
                 lot.break_lot(task)
             del GLOBAL_PARKING_LOT_BREAKER[task]
 
-        if (
+        if task._child_nurseries:
+            # Forcefully abort any tasks spawned by the misnested nursery to
+            # avoid internal errors.
+            runner = GLOBAL_RUN_CONTEXT.runner
+            for nursery in task._child_nurseries:
+                nursery.cancel_scope.cancel()
+                for child in nursery._children:
+                    if child in runner.runq:
+                        runner.runq.remove(child)
+                        runner.tasks.remove(child)
+                nursery._children.clear()
+            try:
+                # Raise this, rather than just constructing it, to get a
+                # traceback frame included
+                raise RuntimeError(
+                    "Nursery stack corrupted: nurseries spawned by "
+                    f"{task!r} was still live when the task exited\n{MISNESTING_ADVICE}",
+                )
+            except RuntimeError as new_exc:
+                if isinstance(outcome, Error):
+                    new_exc.__context__ = outcome.error
+                outcome = Error(new_exc)
+        elif (
             task._cancel_status is not None
             and task._cancel_status.abandoned_by_misnesting
             and task._cancel_status.parent is None
-        ) or any(not nursery._closed for nursery in task._child_nurseries):
+        ):
             # The cancel scope surrounding this task's nursery was closed
             # before the task exited. Force the task to exit with an error,
             # since the error might not have been caught elsewhere. See the
