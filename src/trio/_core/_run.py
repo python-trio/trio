@@ -1261,6 +1261,9 @@ class Nursery(metaclass=NoPublicConstructor):
         outcome: Outcome[object],
     ) -> None:
         self._children.remove(task)
+        if self._closed and not hasattr(self, "_pending_excs"):
+            # We're abandoned by misnested nurseries, the result of the task is lost.
+            return
         if isinstance(outcome, Error):
             self._add_exc(
                 outcome.error,
@@ -2007,45 +2010,24 @@ class Runner:  # type: ignore[explicit-any]
         return task
 
     def task_exited(self, task: Task, outcome: Outcome[object]) -> None:
+        if task._child_nurseries:
+            for nursery in task._child_nurseries:
+                nursery.cancel_scope.cancel()  # TODO: add reason
+                nursery._parent_waiting_in_aexit = False
+                nursery._closed = True
+
         # break parking lots associated with the exiting task
         if task in GLOBAL_PARKING_LOT_BREAKER:
             for lot in GLOBAL_PARKING_LOT_BREAKER[task]:
                 lot.break_lot(task)
             del GLOBAL_PARKING_LOT_BREAKER[task]
 
-        if task._child_nurseries:
-            # Forcefully abort any tasks spawned by the misnested nursery to
-            # avoid internal errors.
-            runner = GLOBAL_RUN_CONTEXT.runner
-            for nursery in task._child_nurseries:
-                for child in nursery._children.copy():
-                    if child in runner.runq:
-                        runner.runq.remove(child)
-                        self.task_exited(
-                            child,
-                            Error(
-                                RuntimeError(
-                                    f"Task {child} aborted after nursery was destroyed due to misnesting."
-                                )
-                            ),
-                        )
-                assert not nursery._children
-            try:
-                # Raise this, rather than just constructing it, to get a
-                # traceback frame included
-                raise RuntimeError(
-                    "Nursery stack corrupted: nurseries spawned by "
-                    f"{task!r} was still live when the task exited\n{MISNESTING_ADVICE}",
-                )
-            except RuntimeError as new_exc:
-                if isinstance(outcome, Error):
-                    new_exc.__context__ = outcome.error
-                outcome = Error(new_exc)
-        elif (
+        if (
             task._cancel_status is not None
             and task._cancel_status.abandoned_by_misnesting
             and task._cancel_status.parent is None
-        ):
+        ) or task._child_nurseries:
+            reason = "Nursery" if task._child_nurseries else "Cancel scope"
             # The cancel scope surrounding this task's nursery was closed
             # before the task exited. Force the task to exit with an error,
             # since the error might not have been caught elsewhere. See the
@@ -2054,7 +2036,7 @@ class Runner:  # type: ignore[explicit-any]
                 # Raise this, rather than just constructing it, to get a
                 # traceback frame included
                 raise RuntimeError(
-                    "Cancel scope stack corrupted: cancel scope surrounding "
+                    f"{reason} stack corrupted: {reason} surrounding "
                     f"{task!r} was closed before the task exited\n{MISNESTING_ADVICE}",
                 )
             except RuntimeError as new_exc:
