@@ -520,7 +520,7 @@ def test_static_tool_sees_class_members(
 
         if sys.version_info >= (3, 13) and attrs.has(class_):
             missing.remove("__replace__")
-        
+
         if sys.version_info >= (3, 14) and issubclass(class_, Protocol):
             missing.remove("__annotate_func__")
             missing.remove("__annotations_cache__")
