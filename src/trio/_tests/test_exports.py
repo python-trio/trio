@@ -522,8 +522,10 @@ def test_static_tool_sees_class_members(
             missing.remove("__replace__")
 
         if sys.version_info >= (3, 14):
-            missing.remove("__annotate_func__")
-            missing.remove("__annotations_cache__")
+            # these depend on whether a class has processed deferred annotations.
+            # (which might or might not happen and we don't know)
+            missing.discard("__annotate_func__")
+            missing.discard("__annotations_cache__")
 
         if missing or extra:  # pragma: no cover
             errors[f"{module_name}.{class_name}"] = {
