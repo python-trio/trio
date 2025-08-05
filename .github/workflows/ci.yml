@@ -207,8 +207,6 @@ jobs:
         with:
           python-version: '${{ matrix.python }}'
           architecture: '${{ matrix.arch }}'
-          cache: pip
-          cache-dependency-path: test-requirements.txt
           allow-prereleases: true
       - name: Run tests
         run: ./ci.sh
