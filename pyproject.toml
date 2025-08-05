@@ -1,12 +1,14 @@
 [build-system]
-requires = ["setuptools >= 64"]
+# setuptools v77 adds PEP 639 support
+requires = ["setuptools >= 77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "trio"
 description = "A friendly Python library for async concurrency and I/O"
 authors = [{name = "Nathaniel J. Smith", email = "njs@pobox.com"}]
-license = {text = "MIT OR Apache-2.0"}
+license = "MIT OR Apache-2.0"
+license-files = ["LICENSE*"]
 keywords = [
     "async",
     "io",
@@ -14,11 +16,9 @@ keywords = [
     "trio",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Framework :: Trio",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: POSIX :: BSD",
@@ -78,6 +78,7 @@ force-exclude = '''
 (
   ^/docs/source/reference-.*
   | ^/docs/source/tutorial
+  | ^/src/trio/_core/_generated_windows_ffi.py
 )
 '''
 
@@ -110,6 +111,7 @@ include = ["*.py", "*.pyi", "**/pyproject.toml"]
 extend-exclude = [
   "docs/source/reference-*",
   "docs/source/tutorial/*",
+  "src/trio/_core/_generated_windows_ffi.py"
 ]
 
 [tool.ruff.lint]
@@ -186,13 +188,14 @@ combine-as-imports = true
 fixture-parentheses = false
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 files = ["src/trio/", "docs/source/*.py"]
 
 # Be flexible about dependencies that don't have stubs yet (like pytest)
 ignore_missing_imports = true
 
 # Be strict about use of Mypy
+enable_error_code = ["truthy-bool", "mutable-override"]
 local_partial_types = true
 warn_unused_ignores = true
 warn_unused_configs = true
@@ -308,6 +311,8 @@ omit = [
     "*/type_tests/*",
     # Script used to check type completeness that isn't run in tests
     "*/trio/_tests/check_type_completeness.py",
+    # Script to generate a CFFI interface for the Windows kernel
+    "*/trio/_tools/windows_ffi_build.py",
 ]
 # The test suite spawns subprocesses to test some stuff, so make sure
 # this doesn't corrupt the coverage files
@@ -330,7 +335,9 @@ exclude_also = [
    "@overload",
    'class .*\bProtocol\b.*\):',
    "raise NotImplementedError",
-   'TODO: test this line'
+   '.*if "sphinx.ext.autodoc" in sys.modules:',
+   'TODO: test this line',
+   'if __name__ == "__main__":',
 ]
 partial_branches = [
     "pragma: no branch",

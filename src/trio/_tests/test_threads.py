@@ -55,8 +55,7 @@ T = TypeVar("T")
 async def test_do_in_trio_thread() -> None:
     trio_thread = threading.current_thread()
 
-    # Explicit "Any" is not allowed
-    async def check_case(  # type: ignore[misc]
+    async def check_case(  # type: ignore[explicit-any]
         do_in_trio_thread: Callable[..., threading.Thread],
         fn: Callable[..., T | Awaitable[T]],
         expected: tuple[str, T],
@@ -207,7 +206,7 @@ async def test_named_thread() -> None:
         assert threading.current_thread().name == name
         return threading.current_thread()
 
-    def f(name: str) -> Callable[[None], threading.Thread]:
+    def f(name: str) -> Callable[[], threading.Thread]:
         return partial(inner, name)
 
     # test defaults
@@ -285,7 +284,7 @@ async def test_named_thread_os() -> None:
 
         return threading.current_thread()
 
-    def f(name: str) -> Callable[[None], threading.Thread]:
+    def f(name: str) -> Callable[[], threading.Thread]:
         return partial(inner, name)
 
     # test defaults
@@ -344,7 +343,7 @@ async def test_run_in_worker_thread() -> None:
 async def test_run_in_worker_thread_cancellation() -> None:
     register: list[str | None] = [None]
 
-    def f(q: stdlib_queue.Queue[str]) -> None:
+    def f(q: stdlib_queue.Queue[None]) -> None:
         # Make the thread block for a controlled amount of time
         register[0] = "blocking"
         q.get()
@@ -731,7 +730,7 @@ async def test_trio_from_thread_run() -> None:
         pass
 
     with pytest.raises(TypeError, match="appears to be synchronous"):
-        await to_thread_run_sync(from_thread_run, sync_fn)
+        await to_thread_run_sync(from_thread_run, sync_fn)  # type: ignore[arg-type]
 
 
 async def test_trio_from_thread_token() -> None:
@@ -930,8 +929,7 @@ async def test_recursive_to_thread() -> None:
     def get_tid_then_reenter() -> int:
         nonlocal tid
         tid = threading.get_ident()
-        # The nesting of wrapper functions loses the return value of threading.get_ident
-        return from_thread_run(to_thread_run_sync, threading.get_ident)  # type: ignore[no-any-return]
+        return from_thread_run(to_thread_run_sync, threading.get_ident)
 
     assert tid != await to_thread_run_sync(get_tid_then_reenter)
 
@@ -995,82 +993,113 @@ async def test_from_thread_host_cancelled() -> None:
     assert cancel_scope.cancelled_caught
 
 
-async def test_from_thread_check_cancelled() -> None:
-    q: stdlib_queue.Queue[str] = stdlib_queue.Queue()
+async def child(
+    abandon_on_cancel: bool,
+    scope: CancelScope,
+    record: list[str],
+    f: Callable[[], None],
+) -> None:
+    with scope:
+        record.append("start")
+        try:
+            return await to_thread_run_sync(f, abandon_on_cancel=abandon_on_cancel)
+        except _core.Cancelled as e:
+            record.append(str(e))
+            raise
+        finally:
+            record.append("exit")
 
-    async def child(abandon_on_cancel: bool, scope: CancelScope) -> None:
-        with scope:
-            record.append("start")
-            try:
-                return await to_thread_run_sync(f, abandon_on_cancel=abandon_on_cancel)
-            except _core.Cancelled:
-                record.append("cancel")
-                raise
-            finally:
-                record.append("exit")
+
+@pytest.mark.parametrize("cancel_the_scope", [False, True])
+async def test_from_thread_check_cancelled_no_abandon(cancel_the_scope: bool) -> None:
+    q: stdlib_queue.Queue[str | BaseException] = stdlib_queue.Queue()
 
     def f() -> None:
         try:
             from_thread_check_cancelled()
-        except _core.Cancelled:  # pragma: no cover, test failure path
-            q.put("Cancelled")
+        except _core.Cancelled as e:  # pragma: no cover, test failure path
+            q.put(str(e))
         else:
             q.put("Not Cancelled")
         ev.wait()
         return from_thread_check_cancelled()
 
-    # Base case: nothing cancelled so we shouldn't see cancels anywhere
     record: list[str] = []
     ev = threading.Event()
-    async with _core.open_nursery() as nursery:
-        nursery.start_soon(child, False, _core.CancelScope())
-        await wait_all_tasks_blocked()
-        assert record[0] == "start"
-        assert q.get(timeout=1) == "Not Cancelled"
-        ev.set()
-    # implicit assertion, Cancelled not raised via nursery
-    assert record[1] == "exit"
-
-    # abandon_on_cancel=False case: a cancel will pop out but be handled by
-    # the appropriate cancel scope
-    record = []
-    ev = threading.Event()
     scope = _core.CancelScope()  # Nursery cancel scope gives false positives
+
     async with _core.open_nursery() as nursery:
-        nursery.start_soon(child, False, scope)
+        nursery.start_soon(child, False, scope, record, f)
         await wait_all_tasks_blocked()
         assert record[0] == "start"
         assert q.get(timeout=1) == "Not Cancelled"
-        scope.cancel()
+        if cancel_the_scope:
+            scope.cancel()
         ev.set()
-    assert scope.cancelled_caught
-    assert "cancel" in record
-    assert record[-1] == "exit"
+    # Base case: nothing cancelled so we shouldn't see cancels anywhere
+    if not cancel_the_scope:
+        # implicit assertion, Cancelled not raised via nursery
+        assert record[1] == "exit"
+    else:
+        # abandon_on_cancel=False case: a cancel will pop out but be handled by
+        # the appropriate cancel scope
 
+        assert scope.cancelled_caught
+        assert re.fullmatch(
+            r"cancelled due to explicit from task "
+            r"<Task 'trio._tests.test_threads.test_from_thread_check_cancelled_no_abandon' at 0x\w*>",
+            record[1],
+        ), record[1]
+        assert record[2] == "exit"
+        assert len(record) == 3
+
+
+async def test_from_thread_check_cancelled_abandon_on_cancel() -> None:
+    q: stdlib_queue.Queue[str | BaseException] = stdlib_queue.Queue()
     # abandon_on_cancel=True case: slightly different thread behavior needed
     # check thread is cancelled "soon" after abandonment
-    def f() -> None:  # type: ignore[no-redef] # noqa: F811
+
+    def f() -> None:
         ev.wait()
         try:
             from_thread_check_cancelled()
-        except _core.Cancelled:
-            q.put("Cancelled")
+        except _core.Cancelled as e:
+            q.put(str(e))
+        except BaseException as e:  # pragma: no cover, test failure path
+            # abandon_on_cancel=True will eat exceptions, so we pass it
+            # through the queue in order to be able to debug any exceptions
+            q.put(e)
         else:  # pragma: no cover, test failure path
             q.put("Not Cancelled")
 
-    record = []
+    record: list[str] = []
     ev = threading.Event()
     scope = _core.CancelScope()
     async with _core.open_nursery() as nursery:
-        nursery.start_soon(child, True, scope)
+        nursery.start_soon(child, True, scope, record, f)
         await wait_all_tasks_blocked()
         assert record[0] == "start"
         scope.cancel()
-        ev.set()
+    # In the worst case the nursery fully exits before the threaded function
+    # checks for cancellation.
+    ev.set()
+
     assert scope.cancelled_caught
-    assert "cancel" in record
+    assert re.fullmatch(
+        r"cancelled due to explicit from task "
+        r"<Task 'trio._tests.test_threads.test_from_thread_check_cancelled_abandon_on_cancel' at 0x\w*>",
+        record[1],
+    ), record[1]
     assert record[-1] == "exit"
-    assert q.get(timeout=1) == "Cancelled"
+    res = q.get(timeout=1)
+    if isinstance(res, BaseException):  # pragma: no cover  # for debugging
+        raise res
+    else:
+        assert re.fullmatch(
+            r"cancelled due to explicit from task "
+            r"<Task 'trio._tests.test_threads.test_from_thread_check_cancelled_abandon_on_cancel' at 0x\w*>",
+            res,
+        ), res
 
 
 def test_from_thread_check_cancelled_raises_in_foreign_threads() -> None:

@@ -5,6 +5,66 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.30.0 (2025-04-20)
+------------------------
+
+Features
+~~~~~~~~
+
+- Add :func:`@trio.as_safe_channel <trio.as_safe_channel>`, a wrapper that can be used to make async generators safe.
+  This will be the suggested fix for the flake8-async lint rule `ASYNC900 <https://flake8-async.readthedocs.io/en/latest/rules.html#async900>`_. (`#3197 <https://github.com/python-trio/trio/issues/3197>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Allow `trio` to be a `types.ModuleType` and still have deprecated attributes. (`#2135 <https://github.com/python-trio/trio/issues/2135>`__)
+- Fixed socket module for some older systems which lack ``socket.AI_NUMERICSERV``.
+  Now trio works on legacy (pre-Lion) macOS. (`#3133 <https://github.com/python-trio/trio/issues/3133>`__)
+- Update type hints for `trio.run_process` and `trio.lowlevel.open_process`. (`#3183 <https://github.com/python-trio/trio/issues/3183>`__)
+- Don't mutate the global runner when MockClock is created. (`#3205 <https://github.com/python-trio/trio/issues/3205>`__)
+- Fix incorrect return type hint for :meth:`Nursery.start() <trio.Nursery.start>`. (`#3224 <https://github.com/python-trio/trio/issues/3224>`__)
+
+
+Improved documentation
+~~~~~~~~~~~~~~~~~~~~~~
+
+- Update wording in documentation to more accurately reflect Trio's maturity. (`#3216 <https://github.com/python-trio/trio/issues/3216>`__)
+
+
+Trio 0.29.0 (2025-02-14)
+------------------------
+
+Features
+~~~~~~~~
+
+- Add :func:`trio.lowlevel.in_trio_run` and :func:`trio.lowlevel.in_trio_task` and document the semantics (and differences) thereof. See :ref:`the documentation <trio_contexts>`. (`#2757 <https://github.com/python-trio/trio/issues/2757>`__)
+- If `trio.testing.RaisesGroup` does not get the expected exceptions it now raises an `AssertionError` with a helpful message, instead of letting the raised exception/group fall through. The raised exception is available in the ``__context__`` of the `AssertionError` and can be seen in the traceback. (`#3145 <https://github.com/python-trio/trio/issues/3145>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Clear Trio's cache of worker threads upon `os.fork`. (`#2764 <https://github.com/python-trio/trio/issues/2764>`__)
+
+
+Miscellaneous internal changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Stop using ctypes to mutate tracebacks for ``strict_exception_groups=False``'s exception collapsing. (`#405 <https://github.com/python-trio/trio/issues/405>`__)
+- Fixed spelling error in Windows error code enum for ``ERROR_INVALID_PARAMETER``. (`#3166 <https://github.com/python-trio/trio/issues/3166>`__)
+- Publicly re-export ``__version__`` for type checking purposes. (`#3186 <https://github.com/python-trio/trio/issues/3186>`__)
+- The typing of :func:`trio.abc.HostnameResolver.getaddrinfo` has been corrected to
+  match that of the stdlib `socket.getaddrinfo`, which was updated in mypy 1.15 (via
+  a typeshed update) to include the possibility of ``tuple[int, bytes]`` for the
+  ``sockaddr`` field of the result. This happens in situations where Python was compiled
+  with ``--disable-ipv6``.
+
+  Additionally, the static typing of :func:`trio.to_thread.run_sync`,
+  :func:`trio.from_thread.run` and :func:`trio.from_thread.run_sync` has been
+  improved and should reflect the underlying function being run. (`#3201 <https://github.com/python-trio/trio/issues/3201>`__)
+
+
 Trio 0.28.0 (2024-12-25)
 ------------------------
 
@@ -65,7 +125,7 @@ Removals without deprecations
 Miscellaneous internal changes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Switch to using PEP570 for positional-only arguments for `~trio.socket.SocketType`'s methods. (`#3094 <https://github.com/python-trio/trio/issues/3094>`__)
+- Switch to using :pep:`570` for positional-only arguments for `~trio.socket.SocketType`'s methods. (`#3094 <https://github.com/python-trio/trio/issues/3094>`__)
 - Improve type annotations in several places by removing `Any` usage. (`#3121 <https://github.com/python-trio/trio/issues/3121>`__)
 - Get and enforce 100% coverage (`#3159 <https://github.com/python-trio/trio/issues/3159>`__)
 
@@ -1010,7 +1070,7 @@ Features
   to make the task scheduler reproducible and avoid flaky tests. (`#890 <https://github.com/python-trio/trio/issues/890>`__)
 - :class:`~trio.abc.SendChannel`, :class:`~trio.abc.ReceiveChannel`, :class:`~trio.abc.Listener`,
   and :func:`~trio.open_memory_channel` can now be referenced using a generic type parameter
-  (the type of object sent over the channel or produced by the listener) using PEP 484 syntax:
+  (the type of object sent over the channel or produced by the listener) using :pep:`484` syntax:
   ``trio.abc.SendChannel[bytes]``, ``trio.abc.Listener[trio.SocketStream]``,
   ``trio.open_memory_channel[MyMessage](5)``, etc. The added type information does not change
   the runtime semantics, but permits better integration with external static type checkers. (`#908 <https://github.com/python-trio/trio/issues/908>`__)
@@ -1471,14 +1531,14 @@ Highlights
 Breaking changes and deprecations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Trio is a young and ambitious project, but it also aims to become a
-stable, production-quality foundation for async I/O in Python.
-Therefore, our approach for now is to provide deprecation warnings
-where-ever possible, but on a fairly aggressive cycle as we push
-towards stability. If you use Trio you should `read and subscribe to
-issue #1 <https://github.com/python-trio/trio/issues/1>`__. We'd also
-welcome feedback on how this approach is working, whether our
-deprecation warnings could be more helpful, or anything else.
+Trio has matured into a stable, production-quality foundation for
+async I/O in Python. While we strive to maintain stability, we may
+make occasional breaking changes to improve the library. Whenever
+possible, we provide deprecation warnings on a reasonable timeline to
+ease transitions. If you use Trio, we recommend `subscribing to issue
+#1 <https://github.com/python-trio/trio/issues/1>`__ to stay informed
+about changes. We also welcome feedback on how our deprecation process
+is working and whether it could be improved.
 
 The tl;dr is: stop using ``socket.bind`` if you can, and then fix
 everything your test suite warns you about.

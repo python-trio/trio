@@ -20,22 +20,25 @@ repos:
       - id: sort-simple-yaml
         files: .pre-commit-config.yaml
   - repo: https://github.com/psf/black-pre-commit-mirror
-    rev: 24.10.0
+    rev: 25.1.0
     hooks:
       - id: black
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.9.2
+    rev: v0.12.7
     hooks:
-      - id: ruff
+      - id: ruff-check
         types: [file]
         types_or: [python, pyi, toml]
         args: ["--show-fixes"]
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.3.0
+    rev: v2.4.1
     hooks:
       - id: codespell
-  - repo: https://github.com/crate-ci/typos
-    rev: dictgen-v0.3.1
+        additional_dependencies:
+          # tomli needed on 3.10. tomllib is available in stdlib on 3.11+
+          - tomli
+  - repo: https://github.com/adhtruong/mirrors-typos
+    rev: v1.34.0
     hooks:
       - id: typos
   - repo: https://github.com/sphinx-contrib/sphinx-lint
@@ -43,7 +46,7 @@ repos:
     hooks:
       - id: sphinx-lint
   - repo: https://github.com/woodruffw/zizmor-pre-commit
-    rev: v1.2.2
+    rev: v1.11.0
     hooks:
       - id: zizmor
   - repo: local
@@ -55,8 +58,22 @@ repos:
         pass_filenames: false
         additional_dependencies: ["astor", "attrs", "black", "ruff"]
         files: ^src\/trio\/_core\/(_run|(_i(o_(common|epoll|kqueue|windows)|nstrumentation)))\.py$
+      - id: regenerate-windows-cffi
+        name: regenerate windows CFFI
+        language: python
+        entry: python src/trio/_tools/windows_ffi_build.py
+        pass_filenames: false
+        additional_dependencies: ["cffi"]
+        files: ^src\/trio\/_tools\/windows_ffi_build\.py$
+      - id: sync-test-requirements
+        name: synchronize test requirements
+        language: python
+        entry: python src/trio/_tools/sync_requirements.py
+        pass_filenames: false
+        additional_dependencies: ["pyyaml"]
+        files: ^(test-requirements\.txt)|(\.pre-commit-config\.yaml)$
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.5.21
+    rev: 0.8.4
     hooks:
       # Compile requirements
       - id: pip-compile

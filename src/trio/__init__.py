@@ -1,5 +1,4 @@
-"""Trio - A friendly Python library for async concurrency and I/O
-"""
+"""Trio - A friendly Python library for async concurrency and I/O"""
 
 from __future__ import annotations
 
@@ -28,6 +27,7 @@ from ._channel import (
     MemoryChannelStatistics as MemoryChannelStatistics,
     MemoryReceiveChannel as MemoryReceiveChannel,
     MemorySendChannel as MemorySendChannel,
+    as_safe_channel as as_safe_channel,
     open_memory_channel as open_memory_channel,
 )
 from ._core import (
@@ -113,9 +113,7 @@ if TYPE_CHECKING:
 
 from . import _deprecate as _deprecate
 
-_deprecate.enable_attribute_deprecations(__name__)
-
-__deprecated_attributes__: dict[str, _deprecate.DeprecatedAttribute] = {}
+_deprecate.deprecate_attributes(__name__, {})
 
 # Having the public path in .__module__ attributes is important for:
 # - exception names in printed tracebacks

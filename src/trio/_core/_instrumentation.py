@@ -2,27 +2,27 @@ from __future__ import annotations
 
 import logging
 import types
-from collections.abc import Callable, Sequence
-from typing import TypeVar
+from collections import UserDict
+from typing import TYPE_CHECKING, TypeVar
 
 from .._abc import Instrument
 
 # Used to log exceptions in instruments
 INSTRUMENT_LOGGER = logging.getLogger("trio.abc.Instrument")
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
-# Explicit "Any" is not allowed
-F = TypeVar("F", bound=Callable[..., object])  # type: ignore[misc]
+    T = TypeVar("T")
 
 
 # Decorator to mark methods public. This does nothing by itself, but
 # trio/_tools/gen_exports.py looks for it.
-# Explicit "Any" is not allowed
-def _public(fn: F) -> F:  # type: ignore[misc]
+def _public(fn: T) -> T:
     return fn
 
 
-class Instruments(dict[str, dict[Instrument, None]]):
+class Instruments(UserDict[str, dict[Instrument, None]]):
     """A collection of `trio.abc.Instrument` organized by hook.
 
     Instrumentation calls are rather expensive, and we don't want a
@@ -35,7 +35,7 @@ class Instruments(dict[str, dict[Instrument, None]]):
     __slots__ = ()
 
     def __init__(self, incoming: Sequence[Instrument]) -> None:
-        self["_all"] = {}
+        super().__init__({"_all": {}})
         for instrument in incoming:
             self.add_instrument(instrument)
 
@@ -49,9 +49,9 @@ class Instruments(dict[str, dict[Instrument, None]]):
         If ``instrument`` is already active, does nothing.
 
         """
-        if instrument in self["_all"]:
+        if instrument in self.data["_all"]:
             return
-        self["_all"][instrument] = None
+        self.data["_all"][instrument] = None
         try:
             for name in dir(instrument):
                 if name.startswith("_"):
@@ -64,7 +64,7 @@ class Instruments(dict[str, dict[Instrument, None]]):
                 if isinstance(impl, types.MethodType) and impl.__func__ is prototype:
                     # Inherited unchanged from _abc.Instrument
                     continue
-                self.setdefault(name, {})[instrument] = None
+                self.data.setdefault(name, {})[instrument] = None
         except:
             self.remove_instrument(instrument)
             raise
@@ -84,12 +84,12 @@ class Instruments(dict[str, dict[Instrument, None]]):
 
         """
         # If instrument isn't present, the KeyError propagates out
-        self["_all"].pop(instrument)
-        for hookname, instruments in list(self.items()):
+        self.data["_all"].pop(instrument)
+        for hookname, instruments in list(self.data.items()):
             if instrument in instruments:
                 del instruments[instrument]
                 if not instruments:
-                    del self[hookname]
+                    del self.data[hookname]
 
     def call(
         self,
@@ -104,7 +104,7 @@ class Instruments(dict[str, dict[Instrument, None]]):
             if "before_task_step" in instruments:
                 instruments.call("before_task_step", task)
         """
-        for instrument in list(self[hookname]):
+        for instrument in list(self.data[hookname]):
             try:
                 getattr(instrument, hookname)(*args)
             except BaseException:

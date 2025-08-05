@@ -12,7 +12,7 @@ import sys
 import types
 from pathlib import Path, PurePath
 from types import ModuleType
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 import attrs
 import pytest
@@ -117,6 +117,11 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
 # won't be reflected in trio.socket, and this shouldn't cause downstream test
 # runs to start failing.
 @pytest.mark.redistributors_should_skip
+@pytest.mark.skipif(
+    sys.version_info[:4] == (3, 14, 0, "beta"),
+    # 12 pass, 16 fail
+    reason="several tools don't support 3.14",
+)
 # Static analysis tools often have trouble with alpha releases, where Python's
 # internals are in flux, grammar may not have settled down, etc.
 @pytest.mark.skipif(
@@ -243,6 +248,11 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
 @slow
 # see comment on test_static_tool_sees_all_symbols
 @pytest.mark.redistributors_should_skip
+@pytest.mark.skipif(
+    sys.version_info[:4] == (3, 14, 0, "beta"),
+    # 2 passes, 12 fails
+    reason="several tools don't support 3.14.0",
+)
 # Static analysis tools often have trouble with alpha releases, where Python's
 # internals are in flux, grammar may not have settled down, etc.
 @pytest.mark.skipif(
@@ -291,7 +301,7 @@ def test_static_tool_sees_class_members(
 
         # skip a bunch of file-system activity (probably can un-memoize?)
         @functools.lru_cache
-        def lookup_symbol(symbol: str) -> dict[str, str]:
+        def lookup_symbol(symbol: str) -> dict[str, Any]:  # type: ignore[misc, explicit-any]
             topname, *modname, name = symbol.split(".")
             version = next(cache.glob("3.*/"))
             mod_cache = version / topname
@@ -318,8 +328,11 @@ def test_static_tool_sees_class_members(
         if module_name == "trio.socket" and class_name in dir(stdlib_socket):
             continue
 
-        # ignore class that does dirty tricks
-        if class_ is trio.testing.RaisesGroup:
+        # Ignore classes that don't use attrs, they only define their members once
+        # __init__ is called (and reason they don't use attrs is because they're going
+        # to be reimplemented in pytest).
+        # Not 100% that's the case, and it works locally, so whatever /shrug
+        if class_ is trio.testing.RaisesGroup or class_ is trio.testing.Matcher:
             continue
 
         # dir() and inspect.getmembers doesn't display properties from the metaclass
@@ -430,13 +443,13 @@ def test_static_tool_sees_class_members(
             extra = {e for e in extra if not e.endswith("AttrsAttributes__")}
             assert len(extra) == before - 1
 
-        # mypy does not see these attributes in Enum subclasses
+        # dir does not see `__signature__` on enums until 3.14
         if (
             tool == "mypy"
             and enum.Enum in class_.__mro__
             and sys.version_info >= (3, 12)
+            and sys.version_info < (3, 14)
         ):
-            # Another attribute, in 3.12+ only.
             extra.remove("__signature__")
 
         # TODO: this *should* be visible via `dir`!!
@@ -459,11 +472,6 @@ def test_static_tool_sees_class_members(
                 "close_hook",
                 "send_all_hook",
                 "wait_send_all_might_not_block_hook",
-            },
-            trio.testing.Matcher: {
-                "exception_type",
-                "match",
-                "check",
             },
         }
         if tool == "mypy" and class_ in EXTRAS:
@@ -503,16 +511,21 @@ def test_static_tool_sees_class_members(
                 extra -= {"owner", "is_mount", "group"}
 
         # not sure why jedi in particular ignores this (static?) method in 3.13
-        # (especially given the method is from 3.12....)
         if (
             tool == "jedi"
-            and sys.version_info >= (3, 13)
+            and sys.version_info[:2] == (3, 13)
             and class_ in (trio.Path, trio.WindowsPath, trio.PosixPath)
         ):
             missing.remove("with_segments")
 
         if sys.version_info >= (3, 13) and attrs.has(class_):
             missing.remove("__replace__")
+
+        if sys.version_info >= (3, 14):
+            # these depend on whether a class has processed deferred annotations.
+            # (which might or might not happen and we don't know)
+            missing.discard("__annotate_func__")
+            missing.discard("__annotations_cache__")
 
         if missing or extra:  # pragma: no cover
             errors[f"{module_name}.{class_name}"] = {

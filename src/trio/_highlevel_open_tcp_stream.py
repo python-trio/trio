@@ -8,7 +8,7 @@ import trio
 from trio.socket import SOCK_STREAM, SocketType, getaddrinfo, socket
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Generator, MutableSequence
     from socket import AddressFamily, SocketKind
 
     from trio._socket import AddressFormat
@@ -134,9 +134,8 @@ def close_all() -> Generator[set[SocketType], None, None]:
             raise BaseExceptionGroup("", errs)
 
 
-# Explicit "Any" is not allowed
-def reorder_for_rfc_6555_section_5_4(  # type: ignore[misc]
-    targets: list[tuple[AddressFamily, SocketKind, int, str, Any]],
+def reorder_for_rfc_6555_section_5_4(  # type: ignore[explicit-any]
+    targets: MutableSequence[tuple[AddressFamily, SocketKind, int, str, Any]],
 ) -> None:
     # RFC 6555 section 5.4 says that if getaddrinfo returns multiple address
     # families (e.g. IPv4 and IPv6), then you should make sure that your first
@@ -358,7 +357,7 @@ async def open_tcp_stream(
             # Success! Save the winning socket and cancel all outstanding
             # connection attempts.
             winning_socket = sock
-            nursery.cancel_scope.cancel()
+            nursery.cancel_scope.cancel(reason="successfully found a socket")
         except OSError as exc:
             # This connection attempt failed, but the next one might
             # succeed. Save the error for later so we can report it if
@@ -375,14 +374,6 @@ async def open_tcp_stream(
                 # create an event to indicate connection failure,
                 # allowing the next target to be tried early
                 attempt_failed = trio.Event()
-
-                # workaround to check types until typing of nursery.start_soon improved
-                if TYPE_CHECKING:
-                    await attempt_connect(
-                        (address_family, socket_type, proto),
-                        addr,
-                        attempt_failed,
-                    )
 
                 nursery.start_soon(
                     attempt_connect,

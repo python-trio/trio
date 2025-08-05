@@ -1,4 +1,25 @@
+from __future__ import annotations
+
+from functools import partial
+from typing import TYPE_CHECKING, Literal
+
+import attrs
+
 from trio._util import NoPublicConstructor, final
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from typing_extensions import Self, TypeAlias
+
+CancelReasonLiteral: TypeAlias = Literal[
+    "KeyboardInterrupt",
+    "deadline",
+    "explicit",
+    "nursery",
+    "shutdown",
+    "unknown",
+]
 
 
 class TrioInternalError(Exception):
@@ -27,6 +48,7 @@ class WouldBlock(Exception):
 
 
 @final
+@attrs.define(eq=False, kw_only=True)
 class Cancelled(BaseException, metaclass=NoPublicConstructor):
     """Raised by blocking calls if the surrounding scope has been cancelled.
 
@@ -60,8 +82,42 @@ class Cancelled(BaseException, metaclass=NoPublicConstructor):
 
     """
 
+    source: CancelReasonLiteral = "unknown"
+    # repr(Task), so as to avoid gc troubles from holding a reference
+    source_task: str | None = None
+    reason: str | None = None
+
     def __str__(self) -> str:
-        return "Cancelled"
+        return (
+            f"cancelled due to {self.source}"
+            + ("" if self.reason is None else f" with reason {self.reason!r}")
+            + ("" if self.source_task is None else f" from task {self.source_task}")
+        )
+
+    def __reduce__(self) -> tuple[Callable[[], Cancelled], tuple[()]]:
+        # The `__reduce__` tuple does not support directly passing kwargs, and the
+        # kwargs are required so we can't use the third item for adding to __dict__,
+        # so we use partial.
+        return (
+            partial(
+                Cancelled._create,
+                source=self.source,
+                source_task=self.source_task,
+                reason=self.reason,
+            ),
+            (),
+        )
+
+    if TYPE_CHECKING:
+        # for type checking on internal code
+        @classmethod
+        def _create(
+            cls,
+            *,
+            source: CancelReasonLiteral = "unknown",
+            source_task: str | None = None,
+            reason: str | None = None,
+        ) -> Self: ...
 
 
 class BusyResourceError(Exception):

@@ -46,8 +46,7 @@ T = TypeVar("T")
 # most users, so currently we just specify it as `Any`. Otherwise we would write:
 # `AddressFormat = TypeVar("AddressFormat")`
 # but instead we simply do:
-# Explicit "Any" is not allowed
-AddressFormat: TypeAlias = Any  # type: ignore[misc]
+AddressFormat: TypeAlias = Any  # type: ignore[explicit-any]
 
 
 # Usage:
@@ -165,7 +164,10 @@ def set_custom_socket_factory(
 # getaddrinfo and friends
 ################################################################
 
-_NUMERIC_ONLY = _stdlib_socket.AI_NUMERICHOST | _stdlib_socket.AI_NUMERICSERV
+# AI_NUMERICSERV may be missing on some older platforms, so use it when available.
+# See: https://github.com/python-trio/trio/issues/3133
+_NUMERIC_ONLY = _stdlib_socket.AI_NUMERICHOST
+_NUMERIC_ONLY |= getattr(_stdlib_socket, "AI_NUMERICSERV", 0)
 
 
 # It would be possible to @overload the return value depending on Literal[AddressFamily.INET/6], but should probably be added in typeshed first
@@ -182,7 +184,7 @@ async def getaddrinfo(
         SocketKind,
         int,
         str,
-        tuple[str, int] | tuple[str, int, int, int],
+        tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes],
     ]
 ]:
     """Look up a numeric address given a name.

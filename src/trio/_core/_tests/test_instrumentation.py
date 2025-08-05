@@ -266,3 +266,50 @@ def test_instrument_that_raises_on_getattr() -> None:
         assert "task_exited" not in runner.instruments
 
     _core.run(main)
+
+
+def test_instrument_call_trio_context() -> None:
+    called = set()
+
+    class Instrument(_abc.Instrument):
+        pass
+
+    hooks = {
+        # not run in task context
+        "after_io_wait": (True, False),
+        "before_io_wait": (True, False),
+        "before_run": (True, False),
+        "after_run": (True, False),
+        # run in task context
+        "before_task_step": (True, True),
+        "after_task_step": (True, True),
+        "task_exited": (True, True),
+        # depends
+        "task_scheduled": (True, None),
+        "task_spawned": (True, None),
+    }
+    for hook, val in hooks.items():
+
+        def h(
+            self: Instrument,
+            *args: object,
+            hook: str = hook,
+            val: tuple[bool, bool | None] = val,
+        ) -> None:
+            fail_str = f"failed in {hook}"
+
+            assert _core.in_trio_run() == val[0], fail_str
+            if val[1] is not None:
+                assert _core.in_trio_task() == val[1], fail_str
+            called.add(hook)
+
+        setattr(Instrument, hook, h)
+
+    async def main() -> None:
+        await _core.checkpoint()
+
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(_core.checkpoint)
+
+    _core.run(main, instruments=[Instrument()])
+    assert called == set(hooks)

@@ -423,8 +423,7 @@ class SSLStream(Stream, Generic[T_Stream]):
         "version",
     }
 
-    # Explicit "Any" is not allowed
-    def __getattr__(  # type: ignore[misc]
+    def __getattr__(  # type: ignore[explicit-any]
         self,
         name: str,
     ) -> Any:

@@ -12,12 +12,11 @@ if sys.version_info < (3, 11):
 # split into functions to isolate the different scopes
 
 
-def check_matcher_typevar_default(e: Matcher) -> object:
+def check_matcher_typevar_default(e: Matcher) -> None:
     assert e.exception_type is not None
-    exc: type[BaseException] = e.exception_type
+    _exc: type[BaseException] = e.exception_type
     # this would previously pass, as the type would be `Any`
     e.exception_type().blah()  # type: ignore
-    return exc  # Silence Pyright unused var warning
 
 
 def check_basic_contextmanager() -> None:
@@ -77,10 +76,7 @@ def check_matcher_init() -> None:
 
 def raisesgroup_check_type_narrowing() -> None:
     """Check type narrowing on the `check` argument to `RaisesGroup`.
-    All `type: ignore`s are correctly pointing out type errors, except
-    where otherwise noted.
-
-
+    All `type: ignore`s are correctly pointing out type errors.
     """
 
     def handle_exc(e: BaseExceptionGroup[BaseException]) -> bool:
@@ -173,7 +169,7 @@ def check_multiple_exceptions_1() -> None:
     d = a
     d = b
     d = c
-    assert d
+    assert isinstance(d, RaisesGroup)
 
 
 def check_multiple_exceptions_2() -> None:
@@ -186,7 +182,7 @@ def check_multiple_exceptions_2() -> None:
     d = a
     d = b
     d = c
-    assert d
+    assert isinstance(d, RaisesGroup)
 
 
 def check_raisesgroup_overloads() -> None:
@@ -223,17 +219,11 @@ def check_triple_nested_raisesgroup() -> None:
 
 
 def check_check_typing() -> None:
-    # mypy issue is https://github.com/python/mypy/issues/18185
-
-    # fmt: off
-    # mypy raises an error on `assert_type`
-    # pyright raises an error on `RaisesGroup(ValueError).check`
-    # to satisfy both, need to disable formatting and put it on one line
-    assert_type(RaisesGroup(ValueError).check,  # type: ignore
+    # `BaseExceptiongroup` should perhaps be `ExceptionGroup`, but close enough
+    assert_type(
+        RaisesGroup(ValueError).check,
         Union[
-            Callable[[BaseExceptionGroup[ValueError]], None],
-            Callable[[ExceptionGroup[ValueError]], None],
+            Callable[[BaseExceptionGroup[ValueError]], bool],
             None,
         ],
     )
-    # fmt: on

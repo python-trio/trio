@@ -155,7 +155,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.9', '3.10', '3.11', '3.12', '3.13']
+        python: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
         arch: ['x86', 'x64']
         lsp: ['']
         lsp_extract_file: ['']
@@ -176,11 +176,17 @@ jobs:
             lsp: ''
             lsp_extract_file: ''
             extra_name: ''
+          - python: 'pypy-3.11'
+            arch: 'x64'
+            lsp: ''
+            lsp_extract_file: ''
+            extra_name: ''
           #- python: '3.9'
           #  arch: 'x64'
           #  lsp: 'http://download.pctools.com/mirror/updates/9.0.0.2308-SDavfree-lite_en.exe'
           #  lsp_extract_file: ''
           #  extra_name: ', with non-IFS LSP'
+
     continue-on-error: >-
       ${{
         (
@@ -199,18 +205,11 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@v5
         with:
-          # This allows the matrix to specify just the major.minor version while still
-          # expanding it to get the latest patch version including alpha releases.
-          # This avoids the need to update for each new alpha, beta, release candidate,
-          # and then finally an actual release version.  actions/setup-python doesn't
-          # support this for PyPy presently so we get no help there.
-          #
-          # 'CPython' -> '3.9.0-alpha - 3.9.X'
-          # 'PyPy'    -> 'pypy-3.9'
-          python-version: ${{ fromJSON(format('["{0}", "{1}"]', format('{0}.0-alpha - {0}.X', matrix.python), matrix.python))[startsWith(matrix.python, 'pypy')] }}
+          python-version: '${{ matrix.python }}'
           architecture: '${{ matrix.arch }}'
           cache: pip
           cache-dependency-path: test-requirements.txt
+          allow-prereleases: true
       - name: Run tests
         run: ./ci.sh
         shell: bash
@@ -237,7 +236,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.10', '3.9', '3.10', '3.11', '3.12', '3.13']
+        python: ['pypy-3.10', 'pypy-3.11', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
         check_formatting: ['0']
         no_test_requirements: ['0']
         extra_name: ['']
@@ -273,13 +272,23 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ fromJSON(format('["{0}", "{1}"]', format('{0}.0-alpha - {0}.X', matrix.python), matrix.python))[startsWith(matrix.python, 'pypy')] }}
+          python-version: '${{ matrix.python }}'
           cache: pip
           cache-dependency-path: test-requirements.txt
+          allow-prereleases: true
+      - name: Check Formatting
+        if: matrix.check_formatting == '1'
+        run:
+          python -m pip install tox &&
+          tox -m check
+      - name: Install python3-apport
+        run: |
+          sudo apt update
+          sudo apt install -q python3-apport
       - name: Run tests
+        if: matrix.check_formatting == '0'
         run: ./ci.sh
         env:
-          CHECK_FORMATTING: '${{ matrix.check_formatting }}'
           NO_TEST_REQUIREMENTS: '${{ matrix.no_test_requirements }}'
       - if: >-
           always()
@@ -301,7 +310,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.10', '3.9', '3.10', '3.11', '3.12', '3.13']
+        python: ['pypy-3.10', 'pypy-3.11', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
     continue-on-error: >-
       ${{
         (
@@ -320,9 +329,10 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ fromJSON(format('["{0}", "{1}"]', format('{0}.0-alpha - {0}.X', matrix.python), matrix.python))[startsWith(matrix.python, 'pypy')] }}
+          python-version: '${{ matrix.python }}'
           cache: pip
           cache-dependency-path: test-requirements.txt
+          allow-prereleases: true
       - name: Run tests
         run: ./ci.sh
       - if: always()
@@ -349,19 +359,29 @@ jobs:
         # `nodejs` for pyright (`node-env` pulls in nodejs but that takes a while and can time out the test).
         # `perl` for a platform independent `sed -i` alternative
         run: apk update && apk add python3-dev bash curl gpg git jq nodejs perl
+
       - name: Retrieve the project source from an sdist inside the GHA artifact
         # must be after `apk add` because it relies on `bash` existing
         uses: re-actors/checkout-python-sdist@release/v2
         with:
           source-tarball-name: ${{ needs.build.outputs.sdist-artifact-name }}
           workflow-artifact-name: ${{ env.dists-artifact-name }}
+
       - name: Enter virtual environment
         run: python -m venv .venv
+
       - name: Run tests
         run: source .venv/bin/activate && ./ci.sh
+
       - name: Get Python version for codecov flag
         id: get-version
-        run: echo "version=$(python -V | cut -d' ' -f2 | cut -d'.' -f1,2)" >> "${GITHUB_OUTPUT}"
+        shell: python
+        run: |
+          import sys, os
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+            f.write("version=" + ".".join(map(str, sys.version_info[:2])))
+            f.write("\n")
+
       - if: always()
         uses: codecov/codecov-action@v5
         with:
@@ -418,11 +438,19 @@ jobs:
       - name: import & run module
         run: coverage run -m tests.cython.run_test_cython
 
-      - name: get Python version for codecov flag
+      - name: Get Python version for codecov flag
         id: get-version
-        run: >-
-          echo "version=$(python -V | cut -d' ' -f2 | cut -d'.' -f1,2)"
-          >> "${GITHUB_OUTPUT}"
+        shell: python
+        run: |
+          import sys, os
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+            f.write("version=" + ".".join(map(str, sys.version_info[:2])))
+            f.write("\n")
+
+      - run: |
+          coverage combine
+          coverage report
+
       - if: always()
         uses: codecov/codecov-action@v5
         with:
