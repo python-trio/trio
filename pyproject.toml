@@ -292,7 +292,7 @@ show_contexts = true
 skip_covered = false
 
 [tool.coverage.paths]
-source = ['**/site-packages']
+source = ["src", "**/site-packages"]
 
 [tool.coverage.run]
 branch = true
