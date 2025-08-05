@@ -219,7 +219,6 @@ jobs:
       - if: always()
         uses: codecov/codecov-action@v5
         with:
-          directory: empty
           name: Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})
           # multiple flags is marked as an error in codecov UI, but is actually fine
           # https://github.com/codecov/feedback/issues/567
@@ -295,7 +294,6 @@ jobs:
           && matrix.check_formatting != '1'
         uses: codecov/codecov-action@v5
         with:
-          directory: empty
           name: Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})
           flags: Ubuntu,${{ matrix.python }}
           fail_ci_if_error: true
@@ -338,7 +336,6 @@ jobs:
       - if: always()
         uses: codecov/codecov-action@v5
         with:
-          directory: empty
           name: macOS (${{ matrix.python }})
           flags: macOS,${{ matrix.python }}
           fail_ci_if_error: true
@@ -385,7 +382,6 @@ jobs:
       - if: always()
         uses: codecov/codecov-action@v5
         with:
-          directory: empty
           name: Alpine
           flags: Alpine,${{ steps.get-version.outputs.version }}
           fail_ci_if_error: true
