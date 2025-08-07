@@ -311,7 +311,7 @@ omit = [
 parallel = true
 plugins = []
 relative_files = true
-source = ["trio"]
+source = ["trio", "tests/"]
 
 [tool.coverage.report]
 precision = 1
