@@ -215,14 +215,13 @@ jobs:
           LSP: '${{ matrix.lsp }}'
           LSP_EXTRACT_FILE: '${{ matrix.lsp_extract_file }}'
       - if: always()
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
-          directory: empty
           name: Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})
           # multiple flags is marked as an error in codecov UI, but is actually fine
           # https://github.com/codecov/feedback/issues/567
           flags: Windows,${{ matrix.python }}
-          fail_ci_if_error: false  # change to true when using codecov action v5
+          fail_ci_if_error: true
 
   Ubuntu:
     name: 'Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})'
@@ -291,12 +290,11 @@ jobs:
       - if: >-
           always()
           && matrix.check_formatting != '1'
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
-          directory: empty
           name: Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})
           flags: Ubuntu,${{ matrix.python }}
-          fail_ci_if_error: false
+          fail_ci_if_error: true
 
   macOS:
     name: 'macOS (${{ matrix.python }})'
@@ -334,12 +332,11 @@ jobs:
       - name: Run tests
         run: ./ci.sh
       - if: always()
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
-          directory: empty
           name: macOS (${{ matrix.python }})
           flags: macOS,${{ matrix.python }}
-          fail_ci_if_error: false
+          fail_ci_if_error: true
 
   # run CI on a musl linux
   Alpine:
@@ -353,9 +350,10 @@ jobs:
       - name: Install necessary packages
         # can't use setup-python because that python doesn't seem to work;
         # `python3-dev` (rather than `python:alpine`) for some ctypes reason,
+        # `curl`, `gpg`, `git` for codecov-action v4/v5 to work (https://github.com/codecov/codecov-action/issues/1320).
         # `nodejs` for pyright (`node-env` pulls in nodejs but that takes a while and can time out the test).
         # `perl` for a platform independent `sed -i` alternative
-        run: apk update && apk add python3-dev bash nodejs perl
+        run: apk update && apk add python3-dev bash curl gpg git nodejs perl
 
       - name: Retrieve the project source from an sdist inside the GHA artifact
         # must be after `apk add` because it relies on `bash` existing
@@ -380,12 +378,11 @@ jobs:
             f.write("\n")
 
       - if: always()
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
-          directory: empty
           name: Alpine
           flags: Alpine,${{ steps.get-version.outputs.version }}
-          fail_ci_if_error: false
+          fail_ci_if_error: true
 
   Cython:
     name: "Cython"
@@ -453,7 +450,7 @@ jobs:
         with:
           name: Cython
           flags: Cython,${{ steps.get-version.outputs.version }}
-          fail_ci_if_error: false
+          fail_ci_if_error: true
 
   # https://github.com/marketplace/actions/alls-green#why
   check:  # This job does nothing and is only used for the branch protection
