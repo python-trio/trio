@@ -854,6 +854,11 @@ async def test_cancel_scope_misnesting_3() -> None:
         scope.cancel()
 
 
+# helper to check we're not outputting overly verbose tracebacks
+def no_cause_or_context(e: BaseException) -> bool:
+    return e.__cause__ is None and e.__context__ is None
+
+
 async def test_nursery_misnest() -> None:
     # See https://github.com/python-trio/trio/issues/3298
     async def inner_func() -> None:
@@ -861,7 +866,10 @@ async def test_nursery_misnest() -> None:
         inner_nursery.start_soon(sleep, 1)
 
     with pytest.RaisesGroup(
-        pytest.RaisesExc(RuntimeError, match="Nursery stack corrupted")
+        pytest.RaisesExc(
+            RuntimeError, match="Nursery stack corrupted", check=no_cause_or_context
+        ),
+        check=no_cause_or_context,
     ):
         async with _core.open_nursery() as outer_nursery:
             inner_cm = _core.open_nursery()
@@ -869,14 +877,21 @@ async def test_nursery_misnest() -> None:
 
 
 def test_nursery_nested_child_misnest() -> None:
-    # TODO: check context as well for the AssertionError (that will be a RuntimeError)
     async def main() -> None:
         async with _core.open_nursery():
             inner_cm = _core.open_nursery()
             await inner_cm.__aenter__()
 
-    with pytest.raises(RuntimeError, match="Nursery stack corrupted"):
+    with pytest.raises(RuntimeError, match="Nursery stack corrupted") as excinfo:
         _core.run(main)
+    assert excinfo.value.__cause__ is None
+    # This AssertionError is kind of redundant, but I don't think we want to remove
+    # the assertion and don't think we care enough to suppress it in this specific case.
+    assert pytest.RaisesExc(
+        AssertionError, match="^Nursery misnesting detected!$"
+    ).matches(excinfo.value.__context__)
+    assert excinfo.value.__context__.__cause__ is None
+    assert excinfo.value.__context__.__context__ is None
 
 
 async def test_asyncexitstack_nursery_misnest() -> None:
@@ -897,11 +912,13 @@ async def test_asyncexitstack_nursery_misnest() -> None:
         await _core.checkpoint()
 
     with pytest.RaisesGroup(
-        _core.Cancelled,  # this leaks out, likely the scope supposed to handle it is gone
-        # but one of them is handled, or lost, not sure (TODO).
         pytest.RaisesGroup(
-            pytest.RaisesExc(RuntimeError, match="Nursery stack corrupted")
+            pytest.RaisesExc(
+                RuntimeError, match="Nursery stack corrupted", check=no_cause_or_context
+            ),
+            check=no_cause_or_context,
         ),
+        check=no_cause_or_context,
     ):
         async with AsyncExitStack() as stack, _core.open_nursery() as nursery:
             # The asynccontextmanager is going to create a nursery that outlives this nursery!
