@@ -292,18 +292,10 @@ show_contexts = true
 skip_covered = false
 
 [tool.coverage.paths]
-_site-packages-to-src-mapping = [
-  "src",
-  "*/src",
-  '*\src',
-  "*/lib/pypy*/site-packages",
-  "*/lib/python*/site-packages",
-  '*\Lib\site-packages',
-]
+source = ["src", "**/site-packages"]
 
 [tool.coverage.run]
 branch = true
-source_pkgs = ["trio"]
 omit = [
     # Omit the generated files in trio/_core starting with _generated_
     "*/trio/_core/_generated_*",
@@ -319,7 +311,7 @@ omit = [
 parallel = true
 plugins = []
 relative_files = true
-source = ["."]
+source = ["trio"]
 
 [tool.coverage.report]
 precision = 1

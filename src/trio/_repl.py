@@ -22,8 +22,7 @@ class TrioInteractiveConsole(InteractiveConsole):
         self.compile.compiler.flags |= ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
 
     def runcode(self, code: types.CodeType) -> None:
-        # https://github.com/python/typeshed/issues/13768
-        func = types.FunctionType(code, self.locals)  # type: ignore[arg-type]
+        func = types.FunctionType(code, self.locals)
         if inspect.iscoroutinefunction(func):
             result = trio.from_thread.run(outcome.acapture, func)
         else:
