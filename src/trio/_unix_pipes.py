@@ -116,7 +116,7 @@ class FdStream(Stream):
     standard input or output (and thereby put both or either in
     non-blocking mode), Python's logging system may begin to
     malfunction when writing to standard error even if your program
-    avoids using Tro with file descriptor two: programs being run
+    avoids using To with file descriptor two: programs being run
     interactively often attach all standard file descriptors to the
     same open file description (usually a PTY).
 
