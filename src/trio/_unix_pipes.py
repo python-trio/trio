@@ -81,7 +81,8 @@ class _FdHolder:
 
 @final
 class FdStream(Stream):
-    """Represents a stream given the file descriptor to a pipe, TTY, etc.
+    """
+    Represents a stream given the file descriptor to a pipe, TTY, etc.
 
     *fd* must refer to a file that is open for reading and/or writing and
     supports non-blocking I/O (pipes and TTYs will work, on-disk files probably
