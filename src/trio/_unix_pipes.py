@@ -81,8 +81,7 @@ class _FdHolder:
 
 @final
 class FdStream(Stream):
-    """
-    Represents a stream given the file descriptor to a pipe, TTY, etc.
+    """Represents a stream given the file descriptor to a pipe, TTY, etc.
 
     *fd* must refer to a file that is open for reading and/or writing and
     supports non-blocking I/O (pipes and TTYs will work, on-disk files probably
@@ -105,6 +104,20 @@ class FdStream(Stream):
     `FdStream` is closed. See `issue #174
     <https://github.com/python-trio/trio/issues/174>`__ for a discussion of the
     challenges involved in relaxing this restriction.
+
+    N.B. one consequence of the principle above is that when you build
+    an `FdStream` for a file descriptor, the entire `open file
+    description
+    <https://pubs.opengroup.org/onlinepubs/007904875/functions/open.html>`
+    to which that file descriptor refers is put into non-blocking
+    mode, _not_ just that one file descriptor. One consequence of this
+    principle is that if you use `FdStream` to wrap your program's
+    standard input or output (and thereby put both or either in
+    non-blocking mode), Python's logging system may begin to
+    malfunction when writing to standard error even if your program
+    avoids using Tro with file descriptor two: programs being run
+    interactively often attach all standard file descriptors to the
+    same open file description (usually a PTY).
 
     Args:
       fd (int): The fd to be wrapped.
