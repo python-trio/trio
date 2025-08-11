@@ -81,8 +81,7 @@ class _FdHolder:
 
 @final
 class FdStream(Stream):
-    """
-    Represents a stream given the file descriptor to a pipe, TTY, etc.
+    """Represents a stream given the file descriptor to a pipe, TTY, etc.
 
     *fd* must refer to a file that is open for reading and/or writing and
     supports non-blocking I/O (pipes and TTYs will work, on-disk files probably
@@ -106,19 +105,24 @@ class FdStream(Stream):
     <https://github.com/python-trio/trio/issues/174>`__ for a discussion of the
     challenges involved in relaxing this restriction.
 
-    N.B. one consequence of the principle above is that when you build
-    an `FdStream` for a file descriptor, the entire `open file
-    description
-    <https://pubs.opengroup.org/onlinepubs/007904875/functions/open.html>`
-    to which that file descriptor refers is put into non-blocking
-    mode, _not_ just that one file descriptor. One consequence of this
-    principle is that if you use `FdStream` to wrap your program's
-    standard input or output (and thereby put both or either in
-    non-blocking mode), Python's logging system may begin to
-    malfunction when writing to standard error even if your program
-    avoids using To with file descriptor two: programs being run
-    interactively often attach all standard file descriptors to the
-    same open file description (usually a PTY).
+    .. warning:: one consequence of non-blocking mode applying to the
+      the entire `open file description
+      <https://pubs.opengroup.org/onlinepubs/007904875/functions/open.html>`
+      to which a file descriptor refers instead of just one file
+      descriptor is that if your program is launched with standard
+      file descriptors (standard input, output, and error) pointing to
+      the same file (as is typical when running a shell command), then
+      setting non-blocking mode on one stream sets it on all three,
+      which is unlikely to be what you want. For example, if you make
+      an `FdStream(os.dup(0))`, thinking that you're fine with
+      standard input being non-blocking, you might by side effect make
+      standard error non-blocking and observe subsequent logs from a
+      `logger.getLogger()` logger failing with `BlockingIOError`.
+
+      In addition, you may cause unrelated programs using the same file
+      (say, shell commands the user is running concurrently in the background)
+      to misbehave when they unexpected get non-blocking semantics on their
+      standard streams.
 
     Args:
       fd (int): The fd to be wrapped.
