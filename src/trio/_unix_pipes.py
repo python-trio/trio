@@ -105,24 +105,14 @@ class FdStream(Stream):
     <https://github.com/python-trio/trio/issues/174>`__ for a discussion of the
     challenges involved in relaxing this restriction.
 
-    .. warning:: one consequence of non-blocking mode applying to the
-      the entire `open file description
-      <https://pubs.opengroup.org/onlinepubs/007904875/functions/open.html>`
-      to which a file descriptor refers instead of just one file
-      descriptor is that if your program is launched with standard
-      file descriptors (standard input, output, and error) pointing to
-      the same file (as is typical when running a shell command), then
-      setting non-blocking mode on one stream sets it on all three,
-      which is unlikely to be what you want. For example, if you make
-      an `FdStream(os.dup(0))`, thinking that you're fine with
-      standard input being non-blocking, you might by side effect make
-      standard error non-blocking and observe subsequent logs from a
-      `logger.getLogger()` logger failing with `BlockingIOError`.
-
-      In addition, you may cause unrelated programs using the same file
-      (say, shell commands the user is running concurrently in the background)
-      to misbehave when they unexpected get non-blocking semantics on their
-      standard streams.
+    .. warning:: one specific consequence of non-blocking mode
+      applying to the the entire open file description is that when
+      your program is run with multiple standard streams connected to
+      a TTY (as in a terminal emulator), all of the streams become
+      non-blocking when you construct an `FdStream` for any of them.
+      For example, if you construct an `FdStream` for standard input,
+      you might observe Python loggers begin to fail with
+      `BlockingIOError`.
 
     Args:
       fd (int): The fd to be wrapped.
