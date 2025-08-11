@@ -877,6 +877,7 @@ async def test_nursery_misnest() -> None:
 
 
 def test_nursery_nested_child_misnest() -> None:
+    # Note that this example does *not* raise an exception group.
     async def main() -> None:
         async with _core.open_nursery():
             inner_cm = _core.open_nursery()
@@ -895,6 +896,9 @@ def test_nursery_nested_child_misnest() -> None:
 
 
 async def test_asyncexitstack_nursery_misnest() -> None:
+    # This example is trickier than the above ones, and is the one that requires
+    # special logic of abandoned nurseries to avoid nasty internal errors that masks
+    # the RuntimeError.
     @asynccontextmanager
     async def asynccontextmanager_that_creates_a_nursery_internally() -> (
         AsyncGenerator[None]
@@ -926,6 +930,52 @@ async def test_asyncexitstack_nursery_misnest() -> None:
                 stack.enter_async_context,
                 asynccontextmanager_that_creates_a_nursery_internally(),
             )
+
+
+def test_asyncexitstack_nursery_misnest_cleanup() -> None:
+    # We guarantee that abandoned tasks get to do cleanup *eventually*, but exceptions
+    # are lost. With more effort it's possible we could reschedule child tasks to exit
+    # promptly.
+    finally_entered = []
+
+    async def main() -> None:
+        async def unstarted_task() -> None:
+            try:
+                await _core.checkpoint()
+            finally:
+                finally_entered.append(True)
+                raise ValueError("this exception is lost")
+
+        # rest of main() is ~identical to the above test
+        @asynccontextmanager
+        async def asynccontextmanager_that_creates_a_nursery_internally() -> (
+            AsyncGenerator[None]
+        ):
+            async with _core.open_nursery() as nursery:
+                nursery.start_soon(unstarted_task)
+                yield
+
+        with pytest.RaisesGroup(
+            pytest.RaisesGroup(
+                pytest.RaisesExc(
+                    RuntimeError,
+                    match="Nursery stack corrupted",
+                    check=no_cause_or_context,
+                ),
+                check=no_cause_or_context,
+            ),
+            check=no_cause_or_context,
+        ):
+            async with AsyncExitStack() as stack, _core.open_nursery() as nursery:
+                # The asynccontextmanager is going to create a nursery that outlives this nursery!
+                nursery.start_soon(
+                    stack.enter_async_context,
+                    asynccontextmanager_that_creates_a_nursery_internally(),
+                )
+        assert not finally_entered  # abandoned task still hasn't been cleaned up
+
+    _core.run(main)
+    assert finally_entered  # now it has
 
 
 @slow
