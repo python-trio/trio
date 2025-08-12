@@ -313,8 +313,8 @@ def test_ki_protection_works() -> None:
         _core.run(check_unprotected_kill)
     assert record_set == {"s1 ok", "s2 ok", "r1 raise ok"}
 
-    # simulated control-C during raiser, which is *protected*, so the KI gets
-    # delivered to the main task instead
+    # simulated control-C during raiser, which is *protected*, so the run
+    # gets cancelled instead.
     print("check 2")
     record_set = set()
 
@@ -325,9 +325,13 @@ def test_ki_protection_works() -> None:
             nursery.start_soon(_core.enable_ki_protection(raiser), "r1", record_set)
             # __aexit__ blocks, and then receives the KI
 
-    # raises inside a nursery, so the KeyboardInterrupt is wrapped in an ExceptionGroup
-    with RaisesGroup(KeyboardInterrupt):
+    # KeyboardInterrupt is inserted from the trio.run
+    with pytest.raises(KeyboardInterrupt) as excinfo:
         _core.run(check_protected_kill)
+
+    # TODO: consider ensuring `__context__` is `None` in all cases above
+    # and below if the tree of `Cancelled`s is very spammy.
+    assert excinfo.value.__context__ is None
     assert record_set == {"s1 ok", "s2 ok", "r1 cancel ok"}
 
     # kill at last moment still raises (run_sync_soon until it raises an
@@ -373,10 +377,11 @@ def test_ki_protection_works() -> None:
     async def main_2() -> None:
         assert _core.currently_ki_protected()
         ki_self()
-        with pytest.raises(KeyboardInterrupt):
+        with pytest.raises(_core.Cancelled):
             await _core.checkpoint_if_cancelled()
 
-    _core.run(main_2)
+    with pytest.raises(KeyboardInterrupt):
+        _core.run(main_2)
 
     # KI arrives while main task is not abortable, b/c already scheduled
     print("check 6")
@@ -388,10 +393,11 @@ def test_ki_protection_works() -> None:
         await _core.cancel_shielded_checkpoint()
         await _core.cancel_shielded_checkpoint()
         await _core.cancel_shielded_checkpoint()
-        with pytest.raises(KeyboardInterrupt):
+        with pytest.raises(_core.Cancelled):
             await _core.checkpoint()
 
-    _core.run(main_3)
+    with pytest.raises(KeyboardInterrupt):
+        _core.run(main_3)
 
     # KI arrives while main task is not abortable, b/c refuses to be aborted
     print("check 7")
@@ -407,10 +413,11 @@ def test_ki_protection_works() -> None:
             return _core.Abort.FAILED
 
         assert await _core.wait_task_rescheduled(abort) == 1
-        with pytest.raises(KeyboardInterrupt):
+        with pytest.raises(_core.Cancelled):
             await _core.checkpoint()
 
-    _core.run(main_4)
+    with pytest.raises(KeyboardInterrupt):
+        _core.run(main_4)
 
     # KI delivered via slow abort
     print("check 8")
@@ -426,11 +433,12 @@ def test_ki_protection_works() -> None:
             _core.reschedule(task, result)
             return _core.Abort.FAILED
 
-        with pytest.raises(KeyboardInterrupt):
+        with pytest.raises(_core.Cancelled):
             assert await _core.wait_task_rescheduled(abort)
         await _core.checkpoint()
 
-    _core.run(main_5)
+    with pytest.raises(KeyboardInterrupt):
+        _core.run(main_5)
 
     # KI arrives just before main task exits, so the run_sync_soon machinery
     # is still functioning and will accept the callback to deliver the KI, but
@@ -457,10 +465,11 @@ def test_ki_protection_works() -> None:
         # ...but even after the KI, we keep running uninterrupted...
         record_list.append("ok")
         # ...until we hit a checkpoint:
-        with pytest.raises(KeyboardInterrupt):
+        with pytest.raises(_core.Cancelled):
             await sleep(10)
 
-    _core.run(main_7, restrict_keyboard_interrupt_to_checkpoints=True)
+    with pytest.raises(KeyboardInterrupt):
+        _core.run(main_7, restrict_keyboard_interrupt_to_checkpoints=True)
     assert record_list == ["ok"]
     record_list = []
     # Exact same code raises KI early if we leave off the argument, doesn't
@@ -468,25 +477,6 @@ def test_ki_protection_works() -> None:
     with pytest.raises(KeyboardInterrupt):
         _core.run(main_7)
     assert record_list == []
-
-    # KI arrives while main task is inside a cancelled cancellation scope
-    # the KeyboardInterrupt should take priority
-    print("check 11")
-
-    @_core.enable_ki_protection
-    async def main_8() -> None:
-        assert _core.currently_ki_protected()
-        with _core.CancelScope() as cancel_scope:
-            cancel_scope.cancel()
-            with pytest.raises(_core.Cancelled):
-                await _core.checkpoint()
-            ki_self()
-            with pytest.raises(KeyboardInterrupt):
-                await _core.checkpoint()
-            with pytest.raises(_core.Cancelled):
-                await _core.checkpoint()
-
-    _core.run(main_8)
 
 
 def test_ki_is_good_neighbor() -> None:

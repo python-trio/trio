@@ -12,14 +12,18 @@ import outcome
 
 import trio
 import trio.lowlevel
+from trio._core._run_context import GLOBAL_RUN_CONTEXT
 from trio._util import final
 
 
 @final
 class TrioInteractiveConsole(InteractiveConsole):
+    runner: trio._core._run.Runner | None
+
     def __init__(self, repl_locals: dict[str, object] | None = None) -> None:
         super().__init__(locals=repl_locals)
         self.compile.compiler.flags |= ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
+        self.runner = None
 
     def runcode(self, code: types.CodeType) -> None:
         func = types.FunctionType(code, self.locals)
@@ -27,6 +31,17 @@ class TrioInteractiveConsole(InteractiveConsole):
             result = trio.from_thread.run(outcome.acapture, func)
         else:
             result = trio.from_thread.run_sync(outcome.capture, func)
+
+        # clear ki_pending
+        assert self.runner is not None
+        ki_pending = self.runner.ki_pending
+        self.runner.ki_pending = False
+
+        if ki_pending:
+            exc: BaseException | None = KeyboardInterrupt()
+        else:
+            exc = None
+
         if isinstance(result, outcome.Error):
             # If it is SystemExit, quit the repl. Otherwise, print the traceback.
             # If there is a SystemExit inside a BaseExceptionGroup, it probably isn't
@@ -36,21 +51,28 @@ class TrioInteractiveConsole(InteractiveConsole):
             if isinstance(result.error, SystemExit):
                 raise result.error
             else:
-                # Inline our own version of self.showtraceback that can use
-                # outcome.Error.error directly to print clean tracebacks.
-                # This also means overriding self.showtraceback does nothing.
-                sys.last_type, sys.last_value = type(result.error), result.error
-                sys.last_traceback = result.error.__traceback__
-                # see https://docs.python.org/3/library/sys.html#sys.last_exc
-                if sys.version_info >= (3, 12):
-                    sys.last_exc = result.error
+                if exc:
+                    exc.__context__ = result.error
+                else:
+                    exc = result.error
 
-                # We always use sys.excepthook, unlike other implementations.
-                # This means that overriding self.write also does nothing to tbs.
-                sys.excepthook(sys.last_type, sys.last_value, sys.last_traceback)
+        if exc is not None:
+            # Inline our own version of self.showtraceback that can use
+            # outcome.Error.error directly to print clean tracebacks.
+            # This also means overriding self.showtraceback does nothing.
+            sys.last_type, sys.last_value = type(exc), exc
+            sys.last_traceback = exc.__traceback__
+            # see https://docs.python.org/3/library/sys.html#sys.last_exc
+            if sys.version_info >= (3, 12):
+                sys.last_exc = exc
+
+            # We always use sys.excepthook, unlike other implementations.
+            # This means that overriding self.write also does nothing to tbs.
+            sys.excepthook(sys.last_type, sys.last_value, sys.last_traceback)
 
 
 async def run_repl(console: TrioInteractiveConsole) -> None:
+    console.runner = GLOBAL_RUN_CONTEXT.runner
     banner = (
         f"trio REPL {sys.version} on {sys.platform}\n"
         f'Use "await" directly instead of "trio.run()".\n'
