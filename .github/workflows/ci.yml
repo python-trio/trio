@@ -282,8 +282,6 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -q python3-apport
-      - name: Enable TIOCSTI
-        run: sudo sysctl dev.tty.legacy_tiocsti=1
       - name: Run tests
         if: matrix.check_formatting == '0'
         run: ./ci.sh
