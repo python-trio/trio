@@ -106,7 +106,7 @@ class FdStream(Stream):
     challenges involved in relaxing this restriction.
 
     .. warning:: one specific consequence of non-blocking mode
-      applying to the the entire open file description is that when
+      applying to the entire open file description is that when
       your program is run with multiple standard streams connected to
       a TTY (as in a terminal emulator), all of the streams become
       non-blocking when you construct an `FdStream` for any of them.
