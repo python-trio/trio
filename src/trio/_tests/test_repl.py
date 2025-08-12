@@ -246,7 +246,7 @@ def test_main_entrypoint() -> None:
 
 
 def should_try_newline_injection() -> bool:
-    if sys.platform == "win32":
+    if sys.platform != "linux":
         return False
 
     sysctl = pathlib.Path("/proc/sys/dev/tty/legacy_tiocsti")
