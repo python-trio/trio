@@ -6,7 +6,7 @@ import inspect
 import sys
 import warnings
 from code import InteractiveConsole
-from types import CodeType, FrameType, FunctionType
+from types import FrameType
 from typing import Callable
 
 import outcome
