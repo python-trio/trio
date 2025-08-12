@@ -246,6 +246,9 @@ def test_main_entrypoint() -> None:
 
 
 def should_try_newline_injection() -> bool:
+    if sys.platform == "win32":
+        return False
+
     sysctl = pathlib.Path("/proc/sys/dev/tty/legacy_tiocsti")
     if not sysctl.exists():
         return True
@@ -255,7 +258,7 @@ def should_try_newline_injection() -> bool:
 
 
 @pytest.mark.skipif(
-    not should_try_newline_injection() and sys.platform != "win32",
+    not should_try_newline_injection(),
     reason="the ioctl we use is disabled in CI",
 )
 def test_ki_newline_injection() -> None:  # TODO: test this line
