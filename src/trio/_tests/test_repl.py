@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import pathlib
 import signal
 import subprocess
 import sys
@@ -244,8 +245,18 @@ def test_main_entrypoint() -> None:
     assert repl.returncode == 0
 
 
-# TODO: skip this based on sysctls? Or Linux version?
-@pytest.mark.skipif(True, reason="the ioctl we use is disabled in CI")
+def should_try_newline_injection() -> bool:
+    sysctl = pathlib.Path("/proc/sys/dev/tty/legacy_tiocsti")
+    if not sysctl.exists():
+        return True
+
+    else:
+        return sysctl.read_text() == "1"
+
+
+@pytest.mark.skipif(
+    not should_try_newline_injection(), reason="the ioctl we use is disabled in CI"
+)
 def test_ki_newline_injection() -> None:  # TODO: test this line
     # TODO: we want to remove this functionality, eg by using vendored
     #       pyrepls.
