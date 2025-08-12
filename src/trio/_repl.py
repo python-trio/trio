@@ -22,7 +22,7 @@ class SuppressDecorator(contextlib.ContextDecorator, contextlib.suppress):
 
 @SuppressDecorator(KeyboardInterrupt)
 @trio.lowlevel.disable_ki_protection
-def terminal_newline() -> None:
+def terminal_newline() -> None:  # TODO: test this line
     import fcntl
     import termios
 
@@ -72,7 +72,7 @@ class TrioInteractiveConsole(InteractiveConsole):
         trio.from_thread.run(trio.lowlevel.checkpoint_if_cancelled)
         # trio.from_thread.check_cancelled() has too long of a memory
 
-    if sys.platform == "win32":
+    if sys.platform == "win32":  # TODO: test this line
 
         def raw_input(self, prompt: str = "") -> str:
             try:
@@ -92,7 +92,9 @@ class TrioInteractiveConsole(InteractiveConsole):
             def install_handler() -> (
                 Callable[[int, FrameType | None], None] | int | None
             ):
-                def handler(sig: int, frame: FrameType | None) -> None:
+                def handler(
+                    sig: int, frame: FrameType | None
+                ) -> None:  # TODO: test this line
                     self.interrupted = True
                     token.run_sync_soon(terminal_newline, idempotent=True)
 
@@ -105,11 +107,11 @@ class TrioInteractiveConsole(InteractiveConsole):
                 return input(prompt)
             finally:
                 trio.from_thread.run_sync(signal, SIGINT, prev_handler)
-                if self.interrupted:
+                if self.interrupted:  # TODO: test this line
                     raise KeyboardInterrupt
 
         def write(self, output: str) -> None:
-            if self.interrupted:
+            if self.interrupted:  # TODO: test this line
                 assert output == "\nKeyboardInterrupt\n"
                 sys.stderr.write(output[1:])
                 self.interrupted = False

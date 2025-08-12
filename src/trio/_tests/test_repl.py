@@ -250,7 +250,7 @@ def should_try_newline_injection() -> bool:
         return False
 
     sysctl = pathlib.Path("/proc/sys/dev/tty/legacy_tiocsti")
-    if not sysctl.exists():
+    if not sysctl.exists():  # pragma: no cover
         return True
 
     else:
