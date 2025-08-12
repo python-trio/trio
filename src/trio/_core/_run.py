@@ -3080,6 +3080,12 @@ def in_trio_task() -> bool:
     return hasattr(GLOBAL_RUN_CONTEXT, "task")
 
 
+# export everything for the documentation
+if "sphinx.ext.autodoc" in sys.modules:
+    from ._generated_io_epoll import *
+    from ._generated_io_kqueue import *
+    from ._generated_io_windows import *
+
 if sys.platform == "win32":
     from ._generated_io_windows import *
     from ._io_windows import (
@@ -3105,7 +3111,7 @@ else:  # pragma: no cover
     _patchers = sorted({"eventlet", "gevent"}.intersection(sys.modules))
     if _patchers:
         raise NotImplementedError(
-            "unsupported platform or primitives trio depends on are monkey-patched out by "
+            "unsupported platform or primitives Trio depends on are monkey-patched out by "
             + ", ".join(_patchers),
         )
 

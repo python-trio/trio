@@ -443,13 +443,13 @@ def test_static_tool_sees_class_members(
             extra = {e for e in extra if not e.endswith("AttrsAttributes__")}
             assert len(extra) == before - 1
 
-        # mypy does not see these attributes in Enum subclasses
+        # dir does not see `__signature__` on enums until 3.14
         if (
             tool == "mypy"
             and enum.Enum in class_.__mro__
             and sys.version_info >= (3, 12)
+            and sys.version_info < (3, 14)
         ):
-            # Another attribute, in 3.12+ only.
             extra.remove("__signature__")
 
         # TODO: this *should* be visible via `dir`!!
@@ -511,16 +511,21 @@ def test_static_tool_sees_class_members(
                 extra -= {"owner", "is_mount", "group"}
 
         # not sure why jedi in particular ignores this (static?) method in 3.13
-        # (especially given the method is from 3.12....)
         if (
             tool == "jedi"
-            and sys.version_info >= (3, 13)
+            and sys.version_info[:2] == (3, 13)
             and class_ in (trio.Path, trio.WindowsPath, trio.PosixPath)
         ):
             missing.remove("with_segments")
 
         if sys.version_info >= (3, 13) and attrs.has(class_):
             missing.remove("__replace__")
+
+        if sys.version_info >= (3, 14):
+            # these depend on whether a class has processed deferred annotations.
+            # (which might or might not happen and we don't know)
+            missing.discard("__annotate_func__")
+            missing.discard("__annotations_cache__")
 
         if missing or extra:  # pragma: no cover
             errors[f"{module_name}.{class_name}"] = {
