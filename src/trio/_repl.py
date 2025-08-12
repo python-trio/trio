@@ -6,7 +6,7 @@ import inspect
 import sys
 import warnings
 from code import InteractiveConsole
-from types import FrameType
+from types import CodeType, FrameType, FunctionType
 from typing import Callable
 
 import outcome
@@ -41,8 +41,8 @@ class TrioInteractiveConsole(InteractiveConsole):
         self.compile.compiler.flags |= ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
         self.interrupted = False
 
-    def runcode(self, code: types.CodeType) -> None:
-        func = types.FunctionType(code, self.locals)
+    def runcode(self, code: CodeType) -> None:
+        func = FunctionType(code, self.locals)
         if inspect.iscoroutinefunction(func):
             result = trio.from_thread.run(outcome.acapture, func)
         else:
