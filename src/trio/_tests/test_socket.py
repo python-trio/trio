@@ -469,7 +469,7 @@ def setsockopt_tests(sock: SocketType | SocketStream) -> None:
     if hasattr(tsocket, "SO_BINDTODEVICE"):
         try:
             sock.setsockopt(tsocket.SOL_SOCKET, tsocket.SO_BINDTODEVICE, None, 0)
-        except OSError as e:  # pragma: no cov  # all CI runners support SO_BINDTODEVICE
+        except OSError as e:  # pragma: no cover  # all CI runners support SO_BINDTODEVICE
             assert e.errno in [  # noqa: PT017
                 # some versions of Python have the attribute yet can run on
                 # platforms that do not support it. For instance, MacOS 15
