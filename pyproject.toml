@@ -292,7 +292,7 @@ show_contexts = true
 skip_covered = false
 
 [tool.coverage.paths]
-source = ["src", "**/site-packages", "."]
+source = ["src", "**/site-packages", "tests"]
 
 [tool.coverage.run]
 branch = true
@@ -311,7 +311,7 @@ omit = [
 parallel = true
 plugins = []
 relative_files = true
-source = ["trio", "tests"]
+source = ["trio", "tests/", "_trio_check_attrs_aliases"]
 
 [tool.coverage.report]
 precision = 1
