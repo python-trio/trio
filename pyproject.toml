@@ -305,8 +305,6 @@ omit = [
     "*/trio/_tests/check_type_completeness.py",
     # Script to generate a CFFI interface for the Windows kernel
     "*/trio/_tools/windows_ffi_build.py",
-    # pytest plugin (I'm not sure why this doesn't work)
-    "tests/_trio_check_attrs_aliases.py",
 ]
 # The test suite spawns subprocesses to test some stuff, so make sure
 # this doesn't corrupt the coverage files

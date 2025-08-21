@@ -222,6 +222,6 @@ def test_clear_thread_cache_after_fork() -> None:
         os.waitpid(child_pid, 0)
     else:  # pragma: no cover  # coverage is shut down by os._exit(0)
         # we would *want* to allow coverage to take a snapshot here. check
-        # git glame for how to do that. however, that times out for some
+        # git blame for how to do that. however, that times out for some
         # reason when having `tests/` in `source` for coverage.py.
         os._exit(0)
