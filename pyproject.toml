@@ -315,8 +315,8 @@ source = ["trio", "tests/", "_trio_check_attrs_aliases"]
 
 [tool.coverage.report]
 precision = 1
-skip_covered = false
-skip_empty = false
+skip_covered = true
+skip_empty = true
 show_missing = true
 exclude_also = [
   '^\s*@pytest\.mark\.xfail',
