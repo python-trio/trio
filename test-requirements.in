@@ -12,7 +12,7 @@ cryptography>=41.0.0  # cryptography<41 segfaults on pypy3.10
 # Tools
 black; implementation_name == "cpython"
 mypy  # Would use mypy[faster-cache], but orjson has build issues on pypy
-orjson; implementation_name == "cpython" and python_version < "3.14"    # orjson does not yet install on 3.14
+orjson; implementation_name == "cpython"  # orjson does not yet install on 3.14
 ruff >= 0.8.0
 astor          # code generation
 uv >= 0.2.24
