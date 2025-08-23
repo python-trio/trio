@@ -8,13 +8,11 @@ trustme               # for the ssl + DTLS tests
 pylint                # for pylint finding all symbols tests
 jedi; implementation_name == "cpython"                  # for jedi code completion tests
 cryptography>=41.0.0  # cryptography<41 segfaults on pypy3.10
-# Temp workaround until parso makes a new release
-git+https://github.com/davidhalter/parso.git; python_version >= "3.14"
 
 # Tools
 black; implementation_name == "cpython"
 mypy  # Would use mypy[faster-cache], but orjson has build issues on pypy
-orjson; implementation_name == "cpython" and python_version < "3.14"    # orjson does not yet install on 3.14
+orjson; implementation_name == "cpython"  # orjson does not yet install on 3.14
 ruff >= 0.8.0
 astor          # code generation
 uv >= 0.2.24
