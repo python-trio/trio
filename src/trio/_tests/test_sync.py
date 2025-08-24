@@ -49,9 +49,10 @@ async def test_Event() -> None:
 
 
 async def test_CapacityLimiter() -> None:
+    assert CapacityLimiter(0).total_tokens == 0
     with pytest.raises(TypeError):
         CapacityLimiter(1.0)
-    with pytest.raises(ValueError, match=r"^total_tokens must be >= 1$"):
+    with pytest.raises(ValueError, match=r"^total_tokens must be >= 0$"):
         CapacityLimiter(-1)
     c = CapacityLimiter(2)
     repr(c)  # smoke test
@@ -139,10 +140,10 @@ async def test_CapacityLimiter_change_total_tokens() -> None:
     with pytest.raises(TypeError):
         c.total_tokens = 1.0
 
-    with pytest.raises(ValueError, match=r"^total_tokens must be >= 1$"):
-        c.total_tokens = 0
+    with pytest.raises(ValueError, match=r"^total_tokens must be >= 0$"):
+        c.total_tokens = -1
 
-    with pytest.raises(ValueError, match=r"^total_tokens must be >= 1$"):
+    with pytest.raises(ValueError, match=r"^total_tokens must be >= 0$"):
         c.total_tokens = -10
 
     assert c.total_tokens == 2
