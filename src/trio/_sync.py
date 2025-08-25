@@ -16,7 +16,7 @@ from ._core import (
     enable_ki_protection,
     remove_parking_lot_breaker,
 )
-from ._depreciate import warn_deprecated
+from ._deprecate import warn_deprecated
 from ._util import final
 
 if TYPE_CHECKING:
@@ -120,7 +120,6 @@ class Event:
             "0.30.1",
             issue=3238,
             instead=self.is_set,
-            use_triodeprecationwarning=True,
         )
         return True
 
