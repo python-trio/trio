@@ -113,7 +113,7 @@ class Event:
         """
         return EventStatistics(tasks_waiting=len(self._tasks))
 
-    def __bool__(self) -> True:
+    def __bool__(self) -> Literal[True]:
         """Return True and raise warning."""
         warn_deprecated(
             self.__bool__,

@@ -1,1 +1,1 @@
-Implement `trio.Event.__bool__` and have it raise a `DeprecationWarning` and tell users to use `trio.Event.is_set` instead. Would be caught earlier with `mypy --enable-error-code=truthy-bool`, this is for users who don't use mypy.
+Implement ``bool(trio.Event)`` and have it raise a `DeprecationWarning` and tell users to use `trio.Event.is_set` instead. This is an alternative to ``mypy --enable-error-code=truthy-bool`` for users who don't use type checking.
