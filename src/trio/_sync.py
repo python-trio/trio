@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Literal, Protocol
 
 import attrs
 
@@ -16,6 +16,7 @@ from ._core import (
     enable_ki_protection,
     remove_parking_lot_breaker,
 )
+from ._deprecate import warn_deprecated
 from ._util import final
 
 if TYPE_CHECKING:
@@ -111,6 +112,16 @@ class Event:
 
         """
         return EventStatistics(tasks_waiting=len(self._tasks))
+
+    def __bool__(self) -> Literal[True]:
+        """Return True and raise warning."""
+        warn_deprecated(
+            self.__bool__,
+            "0.30.1",
+            issue=3238,
+            instead=self.is_set,
+        )
+        return True
 
 
 class _HasAcquireRelease(Protocol):
