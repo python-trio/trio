@@ -114,7 +114,10 @@ class Event:
         """
         return EventStatistics(tasks_waiting=len(self._tasks))
 
-    @deprecated
+    @deprecated(
+        "trio.Event.__bool__ is deprecated since Trio 0.31.0, use trio.Event.is_set instead (https://github.com/python-trio/trio/issues/3238)",
+        stacklevel=2,
+    )
     def __bool__(self) -> Literal[True]:
         """Return True and raise warning."""
         warn_deprecated(
