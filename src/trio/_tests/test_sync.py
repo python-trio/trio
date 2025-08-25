@@ -25,7 +25,7 @@ async def test_Event() -> None:
 
     with pytest.warns(
         DeprecationWarning,
-        match=r"trio\.Event\.__bool__ is deprecated since Trio 0\.30\.1; use trio\.Event\.is_set instead \(https://github.com/python-trio/trio/issues/3238\)",
+        match=r"trio\.Event\.__bool__ is deprecated since Trio 0\.31\.0; use trio\.Event\.is_set instead \(https://github.com/python-trio/trio/issues/3238\)",
     ):
         e.__bool__()
 

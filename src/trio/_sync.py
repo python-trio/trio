@@ -113,15 +113,17 @@ class Event:
         """
         return EventStatistics(tasks_waiting=len(self._tasks))
 
-    def __bool__(self) -> Literal[True]:
-        """Return True and raise warning."""
-        warn_deprecated(
-            self.__bool__,
-            "0.30.1",
-            issue=3238,
-            instead=self.is_set,
-        )
-        return True
+    if not TYPE_CHECKING:
+
+        def __bool__(self) -> Literal[True]:
+            """Return True and raise warning."""
+            warn_deprecated(
+                self.__bool__,
+                "0.31.0",
+                issue=3238,
+                instead=self.is_set,
+            )
+            return True
 
 
 class _HasAcquireRelease(Protocol):
