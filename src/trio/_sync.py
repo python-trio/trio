@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, NoReturn, Protocol
 
 import attrs
 
@@ -111,6 +111,14 @@ class Event:
 
         """
         return EventStatistics(tasks_waiting=len(self._tasks))
+
+    if not TYPE_CHECKING:
+
+        def __bool__(self) -> NoReturn:
+            """Raise NotImplementedError."""
+            raise NotImplementedError(
+                "Trio events cannot be treated as bools; consider using 'event.is_set()'"
+            )
 
 
 class _HasAcquireRelease(Protocol):
