@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, Literal
 
 import attrs
 
