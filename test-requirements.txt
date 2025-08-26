@@ -187,7 +187,7 @@ types-pyyaml==6.0.12.20250822
     # via -r test-requirements.in
 types-setuptools==80.9.0.20250822
     # via types-cffi
-typing-extensions==4.14.1
+typing-extensions==4.15.0
     # via
     #   -r test-requirements.in
     #   astroid
