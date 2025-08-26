@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Literal, Protocol
+from typing import TYPE_CHECKING, Literal, Protocol, TypeVar
 
 import attrs
-from typing_extensions import deprecated
 
 import trio
 
@@ -21,10 +20,27 @@ from ._deprecate import warn_deprecated
 from ._util import final
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from types import TracebackType
+
+    from typing_extensions import deprecated
 
     from ._core import Task
     from ._core._parking_lot import ParkingLotStatistics
+else:
+    T = TypeVar("T")
+
+    def deprecated(
+        message: str,
+        /,
+        *,
+        category: type[Warning] | None = DeprecationWarning,
+        stacklevel: int = 1,
+    ) -> Callable[[T], T]:
+        def wrapper(f: T) -> T:
+            return f
+
+        return wrapper
 
 
 @attrs.frozen

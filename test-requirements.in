@@ -39,4 +39,3 @@ outcome
 sniffio
 # 1.2.1 fixes types
 exceptiongroup >= 1.2.1; python_version < "3.11"
-typing_extensions >= 4.15.0

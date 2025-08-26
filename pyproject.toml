@@ -50,8 +50,6 @@ dependencies = [
     # cffi is required on Windows, except on PyPy where it is built-in
     "cffi>=1.14; os_name == 'nt' and implementation_name != 'pypy'",
     "exceptiongroup; python_version < '3.11'",
-    # using typing_extensions.depreciated in _sync.py
-    "typing_extensions >= 4.15.0",
 ]
 dynamic = ["version"]
 
