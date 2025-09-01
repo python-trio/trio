@@ -8,7 +8,7 @@ attrs==25.3.0
     #   outcome
 babel==2.17.0
     # via sphinx
-beautifulsoup4==4.13.4
+beautifulsoup4==4.13.5
     # via sphinx-codeautolink
 certifi==2025.8.3
     # via requests
@@ -67,7 +67,7 @@ snowballstemmer==3.0.1
     # via sphinx
 sortedcontainers==2.4.0
     # via -r docs-requirements.in
-soupsieve==2.7
+soupsieve==2.8
     # via beautifulsoup4
 sphinx==8.2.3
     # via
@@ -98,9 +98,9 @@ sphinxcontrib-serializinghtml==2.0.0
     # via sphinx
 sphinxcontrib-trio==1.1.2
     # via -r docs-requirements.in
-towncrier==24.8.0
+towncrier==25.8.0
     # via -r docs-requirements.in
-typing-extensions==4.14.1
+typing-extensions==4.15.0
     # via
     #   beautifulsoup4
     #   exceptiongroup
