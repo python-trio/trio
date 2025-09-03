@@ -570,6 +570,8 @@ def as_safe_channel(
         # `async with send_chan` will eat exceptions,
         # see https://github.com/python-trio/trio/issues/1559
         with send_chan:
+            # replace try-finally with contextlib.aclosing once python39 is
+            # dropped:
             try:
                 task_status.started()
                 while True:
@@ -582,7 +584,14 @@ def as_safe_channel(
                     # Send the value to the channel
                     await send_chan.send(value)
             finally:
-                # replace try-finally with contextlib.aclosing once python39 is dropped
-                await agen.aclose()
+                # work around `.aclose()` not suppressing GeneratorExit in an
+                # ExceptionGroup:
+                # TODO: make an issue on CPython about this
+                try:
+                    await agen.aclose()
+                except BaseExceptionGroup as eg:
+                    _, eg = eg.split(GeneratorExit)
+                    if eg is not None:
+                        raise eg
 
     return context_manager
