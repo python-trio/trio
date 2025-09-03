@@ -648,7 +648,8 @@ async def test_as_safe_channel_does_not_suppress_nested_genexit() -> None:
         yield
 
     with pytest.RaisesGroup(GeneratorExit):
-        async with agen(), trio.open_nursery():
+        async with agen() as g, trio.open_nursery():
+            await g.receive()  # this is for coverage reasons
             raise GeneratorExit
 
 
