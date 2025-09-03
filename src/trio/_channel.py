@@ -589,9 +589,9 @@ def as_safe_channel(
                 # TODO: make an issue on CPython about this
                 try:
                     await agen.aclose()
-                except BaseExceptionGroup as eg:
-                    _, eg = eg.split(GeneratorExit)
-                    if eg is not None:
-                        raise eg
+                except BaseExceptionGroup as exceptions:
+                    _, narrowed_exceptions = exceptions.split(GeneratorExit)
+                    if narrowed_exceptions is not None:
+                        raise narrowed_exceptions from None
 
     return context_manager
