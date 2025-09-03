@@ -678,6 +678,9 @@ class CancelScope:
             exc is not None
             and self._cancel_status.effectively_cancelled
             and not self._cancel_status.parent_cancellation_is_visible_to_us
+        ) or (
+            scope_task._cancel_status is not self._cancel_status
+            and self._cancel_status.abandoned_by_misnesting
         ):
             if isinstance(exc, Cancelled):
                 self.cancelled_caught = True
@@ -1261,6 +1264,9 @@ class Nursery(metaclass=NoPublicConstructor):
         outcome: Outcome[object],
     ) -> None:
         self._children.remove(task)
+        if self._closed and not hasattr(self, "_pending_excs"):
+            # We're abandoned by misnested nurseries, the result of the task is lost.
+            return
         if isinstance(outcome, Error):
             self._add_exc(
                 outcome.error,
@@ -1321,7 +1327,7 @@ class Nursery(metaclass=NoPublicConstructor):
                 self._add_exc(exc, reason=None)
 
         popped = self._parent_task._child_nurseries.pop()
-        assert popped is self
+        assert popped is self, "Nursery misnesting detected!"
         if self._pending_excs:
             try:
                 if not self._strict_exception_groups and len(self._pending_excs) == 1:
@@ -2007,6 +2013,17 @@ class Runner:  # type: ignore[explicit-any]
         return task
 
     def task_exited(self, task: Task, outcome: Outcome[object]) -> None:
+        if task._child_nurseries:
+            for nursery in task._child_nurseries:
+                nursery.cancel_scope._cancel(
+                    CancelReason(
+                        source="nursery",
+                        reason="Parent Task exited prematurely, abandoning this nursery without exiting it properly.",
+                        source_task=repr(task),
+                    )
+                )
+                nursery._closed = True
+
         # break parking lots associated with the exiting task
         if task in GLOBAL_PARKING_LOT_BREAKER:
             for lot in GLOBAL_PARKING_LOT_BREAKER[task]:
@@ -2017,7 +2034,8 @@ class Runner:  # type: ignore[explicit-any]
             task._cancel_status is not None
             and task._cancel_status.abandoned_by_misnesting
             and task._cancel_status.parent is None
-        ):
+        ) or task._child_nurseries:
+            reason = "Nursery" if task._child_nurseries else "Cancel scope"
             # The cancel scope surrounding this task's nursery was closed
             # before the task exited. Force the task to exit with an error,
             # since the error might not have been caught elsewhere. See the
@@ -2026,7 +2044,7 @@ class Runner:  # type: ignore[explicit-any]
                 # Raise this, rather than just constructing it, to get a
                 # traceback frame included
                 raise RuntimeError(
-                    "Cancel scope stack corrupted: cancel scope surrounding "
+                    f"{reason} stack corrupted: {reason} surrounding "
                     f"{task!r} was closed before the task exited\n{MISNESTING_ADVICE}",
                 )
             except RuntimeError as new_exc:
