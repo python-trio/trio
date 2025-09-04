@@ -590,7 +590,31 @@ def as_safe_channel(
                 try:
                     await agen.aclose()
                 except BaseExceptionGroup as exceptions:
-                    _, narrowed_exceptions = exceptions.split(GeneratorExit)
+                    removed, narrowed_exceptions = exceptions.split(GeneratorExit)
+
+                    # TODO: extract a helper to flatten exception groups
+                    removed_exceptions = [removed]
+                    for e in removed_exceptions:
+                        if isinstance(e, BaseExceptionGroup):
+                            removed_exceptions.extend(e.exceptions)  # noqa: B909
+
+                    if (
+                        len(
+                            [
+                                e
+                                for e in removed_exceptions
+                                if isinstance(e, GeneratorExit)
+                            ]
+                        )
+                        > 1
+                    ):
+                        exc = AssertionError("More than one GeneratorExit found.")
+                        if narrowed_exceptions is None:
+                            narrowed_exceptions = exceptions.derive([exc])
+                        else:
+                            narrowed_exceptions = narrowed_exceptions.derive(
+                                [*narrowed_exceptions.exceptions, exc]
+                            )
                     if narrowed_exceptions is not None:
                         raise narrowed_exceptions from None
 

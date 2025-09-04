@@ -11,7 +11,7 @@ from trio import EndOfChannel, as_safe_channel, open_memory_channel
 from ..testing import Matcher, RaisesGroup, assert_checkpoints, wait_all_tasks_blocked
 
 if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup, ExceptionGroup
+    from exceptiongroup import ExceptionGroup
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -634,7 +634,7 @@ async def test_as_safe_channel_genexit_exception_group() -> None:
             async with trio.open_nursery():
                 yield
         except BaseException as e:
-            assert isinstance(e, BaseExceptionGroup)  # noqa: PT017  # we reraise
+            assert pytest.RaisesGroup(GeneratorExit).matches(e)  # noqa: PT017
             raise
 
     async with agen() as g:
@@ -667,6 +667,25 @@ async def test_as_safe_channel_genexit_filter() -> None:
             yield
 
     with pytest.RaisesGroup(ValueError):
+        async with agen() as g:
+            async for _ in g:
+                break
+
+
+async def test_as_safe_channel_swallowing_extra_exceptions() -> None:
+    async def wait_then_raise() -> None:
+        try:
+            await trio.sleep_forever()
+        except trio.Cancelled:
+            raise GeneratorExit from None
+
+    @as_safe_channel
+    async def agen() -> AsyncGenerator[None]:
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(wait_then_raise)
+            yield
+
+    with pytest.RaisesGroup(AssertionError):
         async with agen() as g:
             async for _ in g:
                 break
