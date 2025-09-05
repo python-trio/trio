@@ -593,21 +593,15 @@ def as_safe_channel(
                     removed, narrowed_exceptions = exceptions.split(GeneratorExit)
 
                     # TODO: extract a helper to flatten exception groups
-                    removed_exceptions = [removed]
+                    removed_exceptions: list[BaseException | None] = [removed]
+                    genexits_seen = 0
                     for e in removed_exceptions:
                         if isinstance(e, BaseExceptionGroup):
                             removed_exceptions.extend(e.exceptions)  # noqa: B909
+                        else:
+                            genexits_seen += 1
 
-                    if (
-                        len(
-                            [
-                                e
-                                for e in removed_exceptions
-                                if isinstance(e, GeneratorExit)
-                            ]
-                        )
-                        > 1
-                    ):
+                    if genexits_seen > 1:
                         exc = AssertionError("More than one GeneratorExit found.")
                         if narrowed_exceptions is None:
                             narrowed_exceptions = exceptions.derive([exc])
