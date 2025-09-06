@@ -625,3 +625,73 @@ async def test_as_safe_channel_multi_cancel() -> None:
                         events.append("body cancel")
                         raise
     assert events == ["body cancel", "agen cancel"]
+
+
+async def test_as_safe_channel_genexit_exception_group() -> None:
+    @as_safe_channel
+    async def agen() -> AsyncGenerator[None]:
+        try:
+            async with trio.open_nursery():
+                yield
+        except BaseException as e:
+            assert pytest.RaisesGroup(GeneratorExit).matches(e)  # noqa: PT017
+            raise
+
+    async with agen() as g:
+        async for _ in g:
+            break
+
+
+async def test_as_safe_channel_does_not_suppress_nested_genexit() -> None:
+    @as_safe_channel
+    async def agen() -> AsyncGenerator[None]:
+        yield
+
+    with pytest.RaisesGroup(GeneratorExit):
+        async with agen() as g, trio.open_nursery():
+            await g.receive()  # this is for coverage reasons
+            raise GeneratorExit
+
+
+async def test_as_safe_channel_genexit_filter() -> None:
+    async def wait_then_raise() -> None:
+        try:
+            await trio.sleep_forever()
+        except trio.Cancelled:
+            raise ValueError from None
+
+    @as_safe_channel
+    async def agen() -> AsyncGenerator[None]:
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(wait_then_raise)
+            yield
+
+    with pytest.RaisesGroup(ValueError):
+        async with agen() as g:
+            async for _ in g:
+                break
+
+
+async def test_as_safe_channel_swallowing_extra_exceptions() -> None:
+    async def wait_then_raise(ex: type[BaseException]) -> None:
+        try:
+            await trio.sleep_forever()
+        except trio.Cancelled:
+            raise ex from None
+
+    @as_safe_channel
+    async def agen(ex: type[BaseException]) -> AsyncGenerator[None]:
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(wait_then_raise, ex)
+            nursery.start_soon(wait_then_raise, GeneratorExit)
+            yield
+
+    with pytest.RaisesGroup(AssertionError):
+        async with agen(GeneratorExit) as g:
+            async for _ in g:
+                break
+
+    with pytest.RaisesGroup(ValueError, AssertionError):
+        async with agen(ValueError) as g:
+            async for _ in g:
+                break
