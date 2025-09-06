@@ -673,19 +673,25 @@ async def test_as_safe_channel_genexit_filter() -> None:
 
 
 async def test_as_safe_channel_swallowing_extra_exceptions() -> None:
-    async def wait_then_raise() -> None:
+    async def wait_then_raise(ex: type[BaseException]) -> None:
         try:
             await trio.sleep_forever()
         except trio.Cancelled:
-            raise GeneratorExit from None
+            raise ex from None
 
     @as_safe_channel
-    async def agen() -> AsyncGenerator[None]:
+    async def agen(ex: type[BaseException]) -> AsyncGenerator[None]:
         async with trio.open_nursery() as nursery:
-            nursery.start_soon(wait_then_raise)
+            nursery.start_soon(wait_then_raise, ex)
+            nursery.start_soon(wait_then_raise, GeneratorExit)
             yield
 
     with pytest.RaisesGroup(AssertionError):
-        async with agen() as g:
+        async with agen(GeneratorExit) as g:
+            async for _ in g:
+                break
+
+    with pytest.RaisesGroup(ValueError, AssertionError):
+        async with agen(ValueError) as g:
             async for _ in g:
                 break
