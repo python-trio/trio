@@ -1,0 +1,1 @@
+Allow ``CapacityLimiter`` to have zero total_tokens.
