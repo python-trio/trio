@@ -185,6 +185,41 @@ async def test_CapacityLimiter_memleak_548() -> None:
     assert len(limiter._pending_borrowers) == 0
 
 
+async def test_CapacityLimiter_zero_limit_tokens() -> None:
+    c = CapacityLimiter(5)
+
+    assert c.total_tokens == 5
+
+    async with _core.open_nursery() as nursery:
+        c.total_tokens = 0
+
+        for i in range(6):
+            nursery.start_soon(c.acquire_on_behalf_of, i)
+            await wait_all_tasks_blocked()
+
+        assert set(c.statistics().borrowers) == set()
+
+        c.total_tokens = 5
+
+        assert set(c.statistics().borrowers) == {0, 1, 2, 3, 4}
+
+        for i in range(6):
+            c.release_on_behalf_of(i)
+
+        # making sure that zero limit capacity limiter doesn't let any tasks through
+
+        c.total_tokens = 0
+
+        with pytest.raises(_core.WouldBlock):
+            c.acquire_nowait()
+
+        nursery.cancel_scope.cancel()
+
+    assert c.total_tokens == 0
+    assert c.statistics().borrowers == []
+    assert c._pending_borrowers == {}
+
+
 async def test_Semaphore() -> None:
     with pytest.raises(TypeError):
         Semaphore(1.0)  # type: ignore[arg-type]
