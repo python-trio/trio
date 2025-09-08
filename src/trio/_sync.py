@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Literal, Protocol, TypeVar
 
 import attrs
 
@@ -16,13 +16,31 @@ from ._core import (
     enable_ki_protection,
     remove_parking_lot_breaker,
 )
+from ._deprecate import warn_deprecated
 from ._util import final
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from types import TracebackType
+
+    from typing_extensions import deprecated
 
     from ._core import Task
     from ._core._parking_lot import ParkingLotStatistics
+else:
+    T = TypeVar("T")
+
+    def deprecated(
+        message: str,
+        /,
+        *,
+        category: type[Warning] | None = DeprecationWarning,
+        stacklevel: int = 1,
+    ) -> Callable[[T], T]:
+        def wrapper(f: T) -> T:
+            return f
+
+        return wrapper
 
 
 @attrs.frozen
@@ -111,6 +129,20 @@ class Event:
 
         """
         return EventStatistics(tasks_waiting=len(self._tasks))
+
+    @deprecated(
+        "trio.Event.__bool__ is deprecated since Trio 0.31.0; use trio.Event.is_set instead (https://github.com/python-trio/trio/issues/3238)",
+        stacklevel=2,
+    )
+    def __bool__(self) -> Literal[True]:
+        """Return True and raise warning."""
+        warn_deprecated(
+            self.__bool__,
+            "0.31.0",
+            issue=3238,
+            instead=self.is_set,
+        )
+        return True
 
 
 class _HasAcquireRelease(Protocol):

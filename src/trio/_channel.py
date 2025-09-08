@@ -570,6 +570,8 @@ def as_safe_channel(
         # `async with send_chan` will eat exceptions,
         # see https://github.com/python-trio/trio/issues/1559
         with send_chan:
+            # replace try-finally with contextlib.aclosing once python39 is
+            # dropped:
             try:
                 task_status.started()
                 while True:
@@ -582,7 +584,32 @@ def as_safe_channel(
                     # Send the value to the channel
                     await send_chan.send(value)
             finally:
-                # replace try-finally with contextlib.aclosing once python39 is dropped
-                await agen.aclose()
+                # work around `.aclose()` not suppressing GeneratorExit in an
+                # ExceptionGroup:
+                # TODO: make an issue on CPython about this
+                try:
+                    await agen.aclose()
+                except BaseExceptionGroup as exceptions:
+                    removed, narrowed_exceptions = exceptions.split(GeneratorExit)
+
+                    # TODO: extract a helper to flatten exception groups
+                    removed_exceptions: list[BaseException | None] = [removed]
+                    genexits_seen = 0
+                    for e in removed_exceptions:
+                        if isinstance(e, BaseExceptionGroup):
+                            removed_exceptions.extend(e.exceptions)  # noqa: B909
+                        else:
+                            genexits_seen += 1
+
+                    if genexits_seen > 1:
+                        exc = AssertionError("More than one GeneratorExit found.")
+                        if narrowed_exceptions is None:
+                            narrowed_exceptions = exceptions.derive([exc])
+                        else:
+                            narrowed_exceptions = narrowed_exceptions.derive(
+                                [*narrowed_exceptions.exceptions, exc]
+                            )
+                    if narrowed_exceptions is not None:
+                        raise narrowed_exceptions from None
 
     return context_manager
