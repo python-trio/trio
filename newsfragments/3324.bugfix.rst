@@ -1,2 +1,0 @@
-Avoid having `trio.as_safe_channel` raise if closing the generator wrapped
-`GeneratorExit` in a `BaseExceptionGroup`.
