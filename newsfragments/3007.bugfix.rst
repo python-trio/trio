@@ -1,1 +1,0 @@
-Make ctrl+c work in more situations in the Trio REPL (``python -m trio``).

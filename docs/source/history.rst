@@ -5,6 +5,39 @@ Release history
 
 .. towncrier release notes start
 
+Trio 0.31.0 (2025-09-09)
+------------------------
+
+Features
+~~~~~~~~
+
+- :exc:`Cancelled` strings can now display the source and reason for a cancellation. Trio-internal sources of cancellation will set this string, and :meth:`CancelScope.cancel` now has a ``reason`` string parameter that can be used to attach info to any :exc:`Cancelled` to help in debugging. (`#3232 <https://github.com/python-trio/trio/issues/3232>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Make ctrl+c work in more situations in the Trio REPL (``python -m trio``). (`#3007 <https://github.com/python-trio/trio/issues/3007>`__)
+- Allow pickling `trio.Cancelled`, as they can show up when you want to pickle something else. This does not rule out pickling other ``NoPublicConstructor`` objects -- create an issue if necessary. (`#3248 <https://github.com/python-trio/trio/issues/3248>`__)
+- Decrease import time on Windows by around 10%. (`#3263 <https://github.com/python-trio/trio/issues/3263>`__)
+- Handle unwrapping SystemExit/KeyboardInterrupt exception gracefully in utility function ``raise_single_exception_from_group`` that reraises last exception from group. (`#3275 <https://github.com/python-trio/trio/issues/3275>`__)
+- Ensure that the DTLS server does not mutate SSL context. (`#3277 <https://github.com/python-trio/trio/issues/3277>`__)
+- Avoid having `trio.as_safe_channel` raise if closing the generator wrapped
+  `GeneratorExit` in a `BaseExceptionGroup`. (`#3324 <https://github.com/python-trio/trio/issues/3324>`__)
+
+
+Deprecations and removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Implement ``bool(trio.Event)`` and have it raise a `DeprecationWarning` and tell users to use `trio.Event.is_set` instead. This is an alternative to ``mypy --enable-error-code=truthy-bool`` for users who don't use type checking. (`#3322 <https://github.com/python-trio/trio/issues/3322>`__)
+
+
+Miscellaneous internal changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- When misnesting nurseries you now get a helpful :exc:`RuntimeError` instead of a catastrophic :exc:`TrioInternalError`. (`#3307 <https://github.com/python-trio/trio/issues/3307>`__)
+
+
 Trio 0.30.0 (2025-04-20)
 ------------------------
 

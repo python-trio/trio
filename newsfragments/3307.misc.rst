@@ -1,1 +1,0 @@
-When misnesting nurseries you now get a helpful :exc:`RuntimeError` instead of a catastrophic :exc:`TrioInternalError`.

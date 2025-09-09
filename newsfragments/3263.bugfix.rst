@@ -1,1 +1,0 @@
-Decrease import time on Windows by around 10%.
