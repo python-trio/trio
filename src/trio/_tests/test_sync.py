@@ -199,18 +199,27 @@ async def test_CapacityLimiter_zero_limit_tokens() -> None:
     async with _core.open_nursery() as nursery:
         c.total_tokens = 0
 
-        for i in range(6):
+        for i in range(5):
             nursery.start_soon(c.acquire_on_behalf_of, i)
             await wait_all_tasks_blocked()
 
         assert set(c.statistics().borrowers) == set()
+        assert c.statistics().tasks_waiting == 5
 
         c.total_tokens = 5
 
         assert set(c.statistics().borrowers) == {0, 1, 2, 3, 4}
 
-        for i in range(6):
+        nursery.start_soon(c.acquire_on_behalf_of, 5)
+        await wait_all_tasks_blocked()
+
+        assert c.statistics().tasks_waiting == 1
+
+        for i in range(5):
             c.release_on_behalf_of(i)
+
+        assert c.statistics().tasks_waiting == 0
+        c.release_on_behalf_of(5)
 
         # making sure that zero limit capacity limiter doesn't let any tasks through
 
@@ -218,6 +227,19 @@ async def test_CapacityLimiter_zero_limit_tokens() -> None:
 
         with pytest.raises(_core.WouldBlock):
             c.acquire_nowait()
+
+        nursery.start_soon(c.acquire_on_behalf_of, 6)
+        await wait_all_tasks_blocked()
+
+        assert c.statistics().tasks_waiting == 1
+        assert c.statistics().borrowers == []
+
+        c.total_tokens = 1
+        assert c.statistics().tasks_waiting == 0
+        assert c.statistics().borrowers == [6]
+
+        c.release_on_behalf_of(6)
+        c.total_tokens = 0
 
         nursery.cancel_scope.cancel()
 
