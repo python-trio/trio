@@ -55,9 +55,10 @@ async def test_Event() -> None:
 
 
 async def test_CapacityLimiter() -> None:
+    assert CapacityLimiter(0).total_tokens == 0
     with pytest.raises(TypeError):
         CapacityLimiter(1.0)
-    with pytest.raises(ValueError, match=r"^total_tokens must be >= 1$"):
+    with pytest.raises(ValueError, match=r"^total_tokens must be >= 0$"):
         CapacityLimiter(-1)
     c = CapacityLimiter(2)
     repr(c)  # smoke test
@@ -145,10 +146,10 @@ async def test_CapacityLimiter_change_total_tokens() -> None:
     with pytest.raises(TypeError):
         c.total_tokens = 1.0
 
-    with pytest.raises(ValueError, match=r"^total_tokens must be >= 1$"):
-        c.total_tokens = 0
+    with pytest.raises(ValueError, match=r"^total_tokens must be >= 0$"):
+        c.total_tokens = -1
 
-    with pytest.raises(ValueError, match=r"^total_tokens must be >= 1$"):
+    with pytest.raises(ValueError, match=r"^total_tokens must be >= 0$"):
         c.total_tokens = -10
 
     assert c.total_tokens == 2
@@ -188,6 +189,83 @@ async def test_CapacityLimiter_memleak_548() -> None:
     # if this is 1, the acquire call (despite being killed) is still there in the task, and will
     # leak memory all the while the limiter is active
     assert len(limiter._pending_borrowers) == 0
+
+
+async def test_CapacityLimiter_zero_limit_tokens() -> None:
+    c = CapacityLimiter(5)
+
+    assert c.total_tokens == 5
+
+    async with _core.open_nursery() as nursery:
+        c.total_tokens = 0
+
+        for i in range(5):
+            nursery.start_soon(c.acquire_on_behalf_of, i)
+            await wait_all_tasks_blocked()
+
+        assert set(c.statistics().borrowers) == set()
+        assert c.statistics().tasks_waiting == 5
+
+        c.total_tokens = 5
+
+        assert set(c.statistics().borrowers) == {0, 1, 2, 3, 4}
+
+        nursery.start_soon(c.acquire_on_behalf_of, 5)
+        await wait_all_tasks_blocked()
+
+        assert c.statistics().tasks_waiting == 1
+
+        for i in range(5):
+            c.release_on_behalf_of(i)
+
+        assert c.statistics().tasks_waiting == 0
+        c.release_on_behalf_of(5)
+
+        # making sure that zero limit capacity limiter doesn't let any tasks through
+
+        c.total_tokens = 0
+
+        with pytest.raises(_core.WouldBlock):
+            c.acquire_nowait()
+
+        nursery.start_soon(c.acquire_on_behalf_of, 6)
+        await wait_all_tasks_blocked()
+
+        assert c.statistics().tasks_waiting == 1
+        assert c.statistics().borrowers == []
+
+        c.total_tokens = 1
+        assert c.statistics().tasks_waiting == 0
+        assert c.statistics().borrowers == [6]
+        c.release_on_behalf_of(6)
+
+        await c.acquire_on_behalf_of(0)  # total_tokens is 1
+
+        nursery.start_soon(c.acquire_on_behalf_of, 1)
+        await wait_all_tasks_blocked()
+        c.total_tokens = 0
+
+        assert c.statistics().borrowers == [0]
+
+        c.release_on_behalf_of(0)
+        await wait_all_tasks_blocked()
+        assert c.statistics().borrowers == []
+        assert c.statistics().tasks_waiting == 1
+
+        c.total_tokens = 1
+        await wait_all_tasks_blocked()
+        assert c.statistics().borrowers == [1]
+        assert c.statistics().tasks_waiting == 0
+
+        c.release_on_behalf_of(1)
+
+        c.total_tokens = 0
+
+        nursery.cancel_scope.cancel()
+
+    assert c.total_tokens == 0
+    assert c.statistics().borrowers == []
+    assert c._pending_borrowers == {}
 
 
 async def test_Semaphore() -> None:
