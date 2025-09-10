@@ -242,17 +242,20 @@ async def test_CapacityLimiter_zero_limit_tokens() -> None:
         await c.acquire_on_behalf_of(0)  # total_tokens is 1
 
         nursery.start_soon(c.acquire_on_behalf_of, 1)
+        await wait_all_tasks_blocked()
         c.total_tokens = 0
 
         assert c.statistics().borrowers == [0]
 
         c.release_on_behalf_of(0)
+        await wait_all_tasks_blocked()
         assert c.statistics().borrowers == []
-        assert c.statistics().tasks_waiting == 0
+        assert c.statistics().tasks_waiting == 1
 
         c.total_tokens = 1
         await wait_all_tasks_blocked()
         assert c.statistics().borrowers == [1]
+        assert c.statistics().tasks_waiting == 0
 
         c.release_on_behalf_of(1)
 
