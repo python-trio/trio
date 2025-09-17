@@ -434,7 +434,7 @@ async def test_as_safe_channel_broken_resource() -> None:
     @as_safe_channel
     async def agen() -> AsyncGenerator[int]:
         yield 1
-        yield 2
+        yield 2  # pragma: no cover
 
     async with agen() as recv_chan:
         assert await recv_chan.__anext__() == 1
@@ -695,3 +695,47 @@ async def test_as_safe_channel_swallowing_extra_exceptions() -> None:
         async with agen(ValueError) as g:
             async for _ in g:
                 break
+
+
+async def test_as_safe_channel_close_between_iteration() -> None:
+    @as_safe_channel
+    async def agen() -> AsyncGenerator[None]:
+        while True:
+            yield
+
+    async with agen() as chan, trio.open_nursery() as nursery:
+
+        async def close_channel() -> None:
+            await trio.lowlevel.checkpoint()
+            await chan.aclose()
+
+        nursery.start_soon(close_channel)
+        with pytest.raises(trio.ClosedResourceError):
+            async for _ in chan:
+                pass
+
+
+async def test_as_safe_channel_close_before_iteration() -> None:
+    @as_safe_channel
+    async def agen() -> AsyncGenerator[None]:
+        raise AssertionError("should be unreachable")  # pragma: no cover
+        yield  # pragma: no cover
+
+    async with agen() as chan:
+        await chan.aclose()
+        with pytest.raises(trio.ClosedResourceError):
+            await chan.receive()
+
+
+async def test_as_safe_channel_close_during_iteration() -> None:
+    @as_safe_channel
+    async def agen() -> AsyncGenerator[None]:
+        await chan.aclose()
+        while True:
+            yield
+
+    for _ in range(10):  # 20% missed-alarm rate, so run ten times
+        async with agen() as chan:
+            with pytest.raises(trio.ClosedResourceError):
+                async for _ in chan:
+                    pass
