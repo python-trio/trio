@@ -17,7 +17,7 @@ from outcome import Error, Value
 import trio
 
 from ._abc import ReceiveChannel, ReceiveType, SendChannel, SendType, T
-from ._core import Abort, RaiseCancelT, Task, enable_ki_protection
+from ._core import Abort, BrokenResourceError, RaiseCancelT, Task, enable_ki_protection
 from ._util import (
     MultipleExceptionError,
     NoPublicConstructor,
@@ -577,12 +577,19 @@ def as_safe_channel(
                 while True:
                     # wait for receiver to call next on the aiter
                     await send_semaphore.acquire()
+                    if not send_chan._state.open_receive_channels:
+                        # skip the possibly-expensive computation in the generator,
+                        # if we know it will be impossible to send the result.
+                        break
                     try:
                         value = await agen.__anext__()
                     except StopAsyncIteration:
                         return
                     # Send the value to the channel
-                    await send_chan.send(value)
+                    try:
+                        await send_chan.send(value)
+                    except BrokenResourceError:
+                        break  # closed since we checked above
             finally:
                 # work around `.aclose()` not suppressing GeneratorExit in an
                 # ExceptionGroup:
