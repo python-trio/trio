@@ -519,16 +519,19 @@ async def test_as_safe_channel_genexit_finally() -> None:
 
     events: list[str] = []
     with RaisesGroup(
-        RaisesGroup(
-            Matcher(ValueError, match="^agen$"),
-            Matcher(TypeError, match="^iterator$"),
-        ),
-        match=r"^Encountered exception during cleanup of generator object, as well as exception in the contextmanager body - unable to unwrap.$",
-    ):
+        Matcher(ValueError, match="^agen$"),
+        Matcher(TypeError, match="^iterator$"),
+    ) as g:
         async with agen(events) as recv_chan:
             async for i in recv_chan:  # pragma: no branch
                 assert i == 1
                 raise TypeError("iterator")
+
+    if sys.version_info >= (3, 11):
+        assert g.value.__notes__ == [
+            "Encountered exception during cleanup of generator object, as "
+            "well as exception in the contextmanager body - unable to unwrap."
+        ]
 
     assert events == ["GeneratorExit()", "finally"]
 
@@ -734,8 +737,12 @@ async def test_as_safe_channel_close_during_iteration() -> None:
         while True:
             yield
 
-    for _ in range(10):  # 20% missed-alarm rate, so run ten times
-        async with agen() as chan:
-            with pytest.raises(trio.ClosedResourceError):
-                async for _ in chan:
-                    pass
+    async with agen() as chan:
+        with pytest.raises(trio.ClosedResourceError):
+            async for _ in chan:
+                pass
+
+        # This is necessary to ensure that `chan` has been sent
+        # to. Otherwise, this test sometimes passes on a broken
+        # version of trio.
+        await trio.testing.wait_all_tasks_blocked()
