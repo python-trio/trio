@@ -556,10 +556,13 @@ def as_safe_channel(
             except MultipleExceptionError:
                 # In case user has except* we make it possible for them to handle the
                 # exceptions.
-                raise BaseExceptionGroup(
-                    "Encountered exception during cleanup of generator object, as well as exception in the contextmanager body - unable to unwrap.",
-                    [eg],
-                ) from None
+                if sys.version_info >= (3, 11):
+                    eg.add_note(
+                        "Encountered exception during cleanup of generator object, as "
+                        "well as exception in the contextmanager body - unable to unwrap."
+                    )
+
+                raise eg from None
 
     async def _move_elems_to_channel(
         agen: AsyncGenerator[T, None],
