@@ -132,6 +132,8 @@ pyright==1.1.404
     # via -r test-requirements.in
 pytest==8.4.1
     # via -r test-requirements.in
+pytokens==0.1.10 ; implementation_name == 'cpython'
+    # via black
 pyyaml==6.0.2
     # via pre-commit
 requests==2.32.5
