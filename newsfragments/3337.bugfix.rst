@@ -1,0 +1,3 @@
+`trio.lowlevel.Task.iter_await_frames` now works on completed tasks, by
+returning an empty list of frames if the underlying coroutine has been closed.
+Previously, it raised an internal error.

@@ -1588,11 +1588,13 @@ class Task(metaclass=NoPublicConstructor):  # type: ignore[explicit-any]
         while coro is not None:
             if hasattr(coro, "cr_frame"):
                 # A real coroutine
-                yield coro.cr_frame, coro.cr_frame.f_lineno
+                if cr_frame := coro.cr_frame:  # None if the task has finished
+                    yield cr_frame, cr_frame.f_lineno
                 coro = coro.cr_await
             elif hasattr(coro, "gi_frame"):
                 # A generator decorated with @types.coroutine
-                yield coro.gi_frame, coro.gi_frame.f_lineno
+                if gi_frame := coro.gi_frame:  # pragma: no branch
+                    yield gi_frame, gi_frame.f_lineno  # pragma: no cover
                 coro = coro.gi_yieldfrom
             elif coro.__class__.__name__ in [
                 "async_generator_athrow",
