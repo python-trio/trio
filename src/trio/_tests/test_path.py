@@ -254,7 +254,7 @@ async def test_classmethods() -> None:
     assert isinstance(await trio.Path.home(), trio.Path)
 
     # pathlib.Path has only two classmethods
-    assert str(await trio.Path.home()) == os.path.expanduser("~")
+    assert str(await trio.Path.home()) == os.path.expanduser("~")  # noqa: ASYNC240
     assert str(await trio.Path.cwd()) == os.getcwd()
 
     # Wrapped method has docstring
