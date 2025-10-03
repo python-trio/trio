@@ -20,7 +20,7 @@ black==25.9.0 ; implementation_name == 'cpython'
     # via -r test-requirements.in
 certifi==2025.8.3
     # via requests
-cffi==1.17.1 ; os_name == 'nt' or platform_python_implementation != 'PyPy'
+cffi==2.0.0 ; os_name == 'nt' or platform_python_implementation != 'PyPy'
     # via
     #   -r test-requirements.in
     #   cryptography
@@ -30,7 +30,7 @@ charset-normalizer==3.4.3
     # via requests
 click==8.1.8 ; python_full_version < '3.10' and implementation_name == 'cpython'
     # via black
-click==8.2.1 ; python_full_version >= '3.10' and implementation_name == 'cpython'
+click==8.3.0 ; python_full_version >= '3.10' and implementation_name == 'cpython'
     # via black
 codespell==2.4.1
     # via -r test-requirements.in
@@ -40,9 +40,9 @@ colorama==0.4.6 ; sys_platform == 'win32'
     #   pylint
     #   pytest
     #   sphinx
-coverage==7.10.6
+coverage==7.10.7
     # via -r test-requirements.in
-cryptography==45.0.6
+cryptography==46.0.1
     # via
     #   -r test-requirements.in
     #   pyopenssl
@@ -60,7 +60,7 @@ exceptiongroup==1.3.0 ; python_full_version < '3.11'
     #   pytest
 filelock==3.19.1
     # via virtualenv
-identify==2.6.13
+identify==2.6.14
     # via pre-commit
 idna==3.10
     # via
@@ -79,11 +79,11 @@ jedi==0.19.2 ; implementation_name == 'cpython'
     # via -r test-requirements.in
 jinja2==3.1.6
     # via sphinx
-markupsafe==3.0.2
+markupsafe==3.0.3
     # via jinja2
 mccabe==0.7.0
     # via pylint
-mypy==1.17.1
+mypy==1.18.2
     # via -r test-requirements.in
 mypy-extensions==1.1.0
     # via
@@ -118,7 +118,7 @@ pluggy==1.6.0
     # via pytest
 pre-commit==4.3.0
     # via -r test-requirements.in
-pycparser==2.22 ; os_name == 'nt' or platform_python_implementation != 'PyPy'
+pycparser==2.23 ; (implementation_name != 'PyPy' and os_name == 'nt') or (implementation_name != 'PyPy' and platform_python_implementation != 'PyPy')
     # via cffi
 pygments==2.19.2
     # via
@@ -126,15 +126,15 @@ pygments==2.19.2
     #   sphinx
 pylint==3.3.8
     # via -r test-requirements.in
-pyopenssl==25.1.0
+pyopenssl==25.3.0
     # via -r test-requirements.in
-pyright==1.1.404
+pyright==1.1.405
     # via -r test-requirements.in
-pytest==8.4.1
+pytest==8.4.2
     # via -r test-requirements.in
 pytokens==0.1.10 ; implementation_name == 'cpython'
     # via black
-pyyaml==6.0.2
+pyyaml==6.0.3
     # via pre-commit
 requests==2.32.5
     # via sphinx
@@ -177,15 +177,15 @@ tomlkit==0.13.3
     # via pylint
 trustme==1.2.1
     # via -r test-requirements.in
-types-cffi==1.17.0.20250822
+types-cffi==1.17.0.20250915
     # via
     #   -r test-requirements.in
     #   types-pyopenssl
-types-docutils==0.22.0.20250822
+types-docutils==0.22.2.20250924
     # via -r test-requirements.in
 types-pyopenssl==24.1.0.20240722
     # via -r test-requirements.in
-types-pyyaml==6.0.12.20250822
+types-pyyaml==6.0.12.20250915
     # via -r test-requirements.in
 types-setuptools==80.9.0.20250822
     # via types-cffi
@@ -194,6 +194,7 @@ typing-extensions==4.15.0
     #   -r test-requirements.in
     #   astroid
     #   black
+    #   cryptography
     #   exceptiongroup
     #   mypy
     #   pylint
