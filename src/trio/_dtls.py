@@ -21,7 +21,6 @@ from typing import (
     TYPE_CHECKING,
     Generic,
     TypeVar,
-    Union,
 )
 from weakref import ReferenceType, WeakValueDictionary
 
@@ -34,10 +33,11 @@ from ._util import NoPublicConstructor, final
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Iterable, Iterator
     from types import TracebackType
+    from typing import TypeAlias
 
     # See DTLSEndpoint.__init__ for why this is imported here
     from OpenSSL import SSL  # noqa: TC004
-    from typing_extensions import Self, TypeAlias, TypeVarTuple, Unpack
+    from typing_extensions import Self, TypeVarTuple, Unpack
 
     from trio._socket import AddressFormat
     from trio.socket import SocketType
@@ -349,11 +349,9 @@ class OpaqueHandshakeMessage:
     record: Record
 
 
-_AnyHandshakeMessage: TypeAlias = Union[
-    HandshakeMessage,
-    PseudoHandshakeMessage,
-    OpaqueHandshakeMessage,
-]
+_AnyHandshakeMessage: TypeAlias = (
+    HandshakeMessage | PseudoHandshakeMessage | OpaqueHandshakeMessage
+)
 
 
 # This takes a raw outgoing handshake volley that openssl generated, and

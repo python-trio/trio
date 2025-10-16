@@ -6,8 +6,8 @@ import signal
 import sys
 import threading
 import weakref
-from collections.abc import AsyncIterator, Iterator
-from typing import TYPE_CHECKING, Callable, TypeVar
+from collections.abc import AsyncIterator, Callable, Iterator
+from typing import TYPE_CHECKING, TypeVar
 
 import outcome
 import pytest

@@ -18,7 +18,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     NoReturn,
-    Union,
     overload,
 )
 
@@ -32,12 +31,13 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from socket import AddressFamily, SocketKind
     from types import TracebackType
+    from typing import TypeAlias
 
-    from typing_extensions import Buffer, Self, TypeAlias
+    from typing_extensions import Buffer, Self
 
     from trio._socket import AddressFormat
 
-IPAddress: TypeAlias = Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
+IPAddress: TypeAlias = ipaddress.IPv4Address | ipaddress.IPv6Address
 
 
 def _family_for(ip: IPAddress) -> int:

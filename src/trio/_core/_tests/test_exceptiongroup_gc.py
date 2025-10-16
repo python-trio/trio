@@ -3,13 +3,14 @@ from __future__ import annotations
 import gc
 import sys
 from traceback import extract_tb
-from typing import TYPE_CHECKING, Callable, NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 import pytest
 
 from .._concat_tb import concat_tb
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from types import TracebackType
 
 if sys.version_info < (3, 11):

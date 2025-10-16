@@ -41,8 +41,9 @@ from ._windows_cffi import (
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
+    from typing import TypeAlias
 
-    from typing_extensions import Buffer, TypeAlias
+    from typing_extensions import Buffer
 
     from .._file_io import _HasFileNo
     from ._traps import Abort, RaiseCancelT

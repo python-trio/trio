@@ -21,6 +21,8 @@ from ._util import async_wraps
 from .abc import AsyncResource
 
 if TYPE_CHECKING:
+    from typing import Literal
+
     from _typeshed import (
         OpenBinaryMode,
         OpenBinaryModeReading,
@@ -29,7 +31,6 @@ if TYPE_CHECKING:
         OpenTextMode,
         StrOrBytesPath,
     )
-    from typing_extensions import Literal
 
     from ._sync import CapacityLimiter
 

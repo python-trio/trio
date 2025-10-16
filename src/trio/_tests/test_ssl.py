@@ -53,8 +53,7 @@ from ..testing import (
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
-
-    from typing_extensions import TypeAlias
+    from typing import TypeAlias
 
     from trio._core import MockClock
     from trio._ssl import T_Stream

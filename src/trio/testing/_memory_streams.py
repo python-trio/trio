@@ -9,7 +9,7 @@ from .._highlevel_generic import StapledStream
 from ..abc import ReceiveStream, SendStream
 
 if TYPE_CHECKING:
-    from typing_extensions import TypeAlias
+    from typing import TypeAlias
 
 
 AsyncHook: TypeAlias = Callable[[], Awaitable[object]]

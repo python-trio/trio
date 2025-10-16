@@ -32,7 +32,7 @@ from trio.abc import Clock, Instrument
 from .tutil import gc_collect_harder, restore_unraisablehook
 
 if TYPE_CHECKING:
-    from typing_extensions import TypeAlias
+    from typing import TypeAlias
 
     from trio._channel import MemorySendChannel
 
@@ -507,8 +507,8 @@ def aiotrio_run(
         return (await trio_done_fut).unwrap()
 
     try:
-        # can't use asyncio.run because that fails on Windows (3.8, x64, with
-        # Komodia LSP) and segfaults on Windows (3.9, x64, with Komodia LSP)
+        # can't use asyncio.run because that fails on Windows (3.10, x64, with
+        # Komodia LSP)
         return loop.run_until_complete(aio_main())
     finally:
         loop.close()

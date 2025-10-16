@@ -18,8 +18,9 @@ from ._checkpoints import assert_checkpoints
 
 if TYPE_CHECKING:
     from types import TracebackType
+    from typing import TypeAlias
 
-    from typing_extensions import ParamSpec, TypeAlias
+    from typing_extensions import ParamSpec
 
     ArgsT = ParamSpec("ArgsT")
 

@@ -137,14 +137,14 @@ async def test_move_on_after_moves_on_even_if_shielded() -> None:
 @slow
 async def test_fail_after_fails_even_if_shielded() -> None:
     async def task() -> None:
-        # fmt: off
-        # Remove after 3.9 unsupported, black formats in a way that breaks if
-        # you do `-X oldparser`
-        with pytest.raises(TooSlowError), _core.CancelScope() as outer, fail_after(
-            TARGET,
-            shield=True,
+        with (
+            pytest.raises(TooSlowError),
+            _core.CancelScope() as outer,
+            fail_after(
+                TARGET,
+                shield=True,
+            ),
         ):
-            # fmt: on
             outer.cancel()
             # The outer scope is cancelled, but this task is protected by the
             # shield, so it manages to get to sleep until deadline is met

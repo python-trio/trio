@@ -22,9 +22,10 @@ if TYPE_CHECKING:
     # *inside* TYPE_CHECKING. No other combination works.....
     import types
     from collections.abc import Callable, Sequence
+    from typing import TypeGuard
 
     from _pytest._code.code import ExceptionChainRepr, ReprExceptionInfo, Traceback
-    from typing_extensions import TypeGuard, TypeVar
+    from typing_extensions import TypeVar
 
     # this conditional definition is because we want to allow a TypeVar default
     MatchE = TypeVar(

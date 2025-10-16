@@ -10,7 +10,7 @@ from trio._util import final
 from .abc import AsyncResource, HalfCloseableStream, ReceiveStream, SendStream
 
 if TYPE_CHECKING:
-    from typing_extensions import TypeGuard
+    from typing import TypeGuard
 
 
 SendStreamT = TypeVar("SendStreamT", bound=SendStream)

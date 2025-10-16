@@ -22,7 +22,6 @@ from ._util import (
     MultipleExceptionError,
     NoPublicConstructor,
     final,
-    generic_function,
     raise_single_exception_from_group,
 )
 
@@ -48,6 +47,20 @@ elif "sphinx.ext.autodoc" in sys.modules:
 def _open_memory_channel(
     max_buffer_size: int | float,  # noqa: PYI041
 ) -> tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]:
+    if max_buffer_size != inf and not isinstance(max_buffer_size, int):
+        raise TypeError("max_buffer_size must be an integer or math.inf")
+    if max_buffer_size < 0:
+        raise ValueError("max_buffer_size must be >= 0")
+    state: MemoryChannelState[T] = MemoryChannelState(max_buffer_size)
+    return (
+        MemorySendChannel[T]._create(state),
+        MemoryReceiveChannel[T]._create(state),
+    )
+
+
+# written as a class so you can say open_memory_channel[int](5)
+@final
+class open_memory_channel(tuple["MemorySendChannel[T]", "MemoryReceiveChannel[T]"]):
     """Open a channel for passing objects between tasks within a process.
 
     Memory channels are lightweight, cheap to allocate, and entirely
@@ -99,36 +112,15 @@ def _open_memory_channel(
       this channel (summing over all clones).
 
     """
-    if max_buffer_size != inf and not isinstance(max_buffer_size, int):
-        raise TypeError("max_buffer_size must be an integer or math.inf")
-    if max_buffer_size < 0:
-        raise ValueError("max_buffer_size must be >= 0")
-    state: MemoryChannelState[T] = MemoryChannelState(max_buffer_size)
-    return (
-        MemorySendChannel[T]._create(state),
-        MemoryReceiveChannel[T]._create(state),
-    )
 
+    def __new__(  # type: ignore[misc]  # "must return a subtype"
+        cls,
+        max_buffer_size: int | float,  # noqa: PYI041
+    ) -> tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]:
+        return _open_memory_channel(max_buffer_size)
 
-# This workaround requires python3.9+, once older python versions are not supported
-# or there's a better way of achieving type-checking on a generic factory function,
-# it could replace the normal function header
-if TYPE_CHECKING:
-    # written as a class so you can say open_memory_channel[int](5)
-    class open_memory_channel(tuple["MemorySendChannel[T]", "MemoryReceiveChannel[T]"]):
-        def __new__(  # type: ignore[misc]  # "must return a subtype"
-            cls,
-            max_buffer_size: int | float,  # noqa: PYI041
-        ) -> tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]:
-            return _open_memory_channel(max_buffer_size)
-
-        def __init__(self, max_buffer_size: int | float) -> None:  # noqa: PYI041
-            ...
-
-else:
-    # apply the generic_function decorator to make open_memory_channel indexable
-    # so it's valid to say e.g. ``open_memory_channel[bytes](5)`` at runtime
-    open_memory_channel = generic_function(_open_memory_channel)
+    def __init__(self, max_buffer_size: int | float) -> None:  # noqa: PYI041
+        ...
 
 
 @attrs.frozen

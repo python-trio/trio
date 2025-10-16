@@ -14,8 +14,9 @@ from ._run_context import GLOBAL_RUN_CONTEXT
 if TYPE_CHECKING:
     import types
     from collections.abc import Callable
+    from typing import TypeGuard
 
-    from typing_extensions import Self, TypeGuard
+    from typing_extensions import Self
 # In ordinary single-threaded Python code, when you hit control-C, it raises
 # an exception and automatically does all the regular unwinding stuff.
 #

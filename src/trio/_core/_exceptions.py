@@ -9,8 +9,9 @@ from trio._util import NoPublicConstructor, final
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from typing import TypeAlias
 
-    from typing_extensions import Self, TypeAlias
+    from typing_extensions import Self
 
 CancelReasonLiteral: TypeAlias = Literal[
     "KeyboardInterrupt",

@@ -14,6 +14,7 @@ from trio.to_thread import run_sync
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Iterable
     from io import BufferedRandom, BufferedReader, BufferedWriter, FileIO, TextIOWrapper
+    from typing import Concatenate, Literal
 
     from _typeshed import (
         OpenBinaryMode,
@@ -22,7 +23,7 @@ if TYPE_CHECKING:
         OpenBinaryModeWriting,
         OpenTextMode,
     )
-    from typing_extensions import Concatenate, Literal, ParamSpec, Self
+    from typing_extensions import ParamSpec, Self
 
     P = ParamSpec("P")
 
@@ -238,8 +239,7 @@ class Path(pathlib.PurePath):
     resolve = _wrap_method_path(pathlib.Path.resolve)
     rmdir = _wrap_method(pathlib.Path.rmdir)
     symlink_to = _wrap_method(pathlib.Path.symlink_to)
-    if sys.version_info >= (3, 10):
-        hardlink_to = _wrap_method(pathlib.Path.hardlink_to)
+    hardlink_to = _wrap_method(pathlib.Path.hardlink_to)
     touch = _wrap_method(pathlib.Path.touch)
     unlink = _wrap_method(pathlib.Path.unlink)
     absolute = _wrap_method_path(pathlib.Path.absolute)

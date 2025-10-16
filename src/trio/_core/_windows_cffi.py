@@ -4,8 +4,9 @@ import enum
 from typing import TYPE_CHECKING, NewType, NoReturn, Protocol, cast
 
 if TYPE_CHECKING:
+    from typing import TypeAlias
+
     import cffi
-    from typing_extensions import TypeAlias
 
     CData: TypeAlias = cffi.api.FFI.CData
     CType: TypeAlias = cffi.api.FFI.CType

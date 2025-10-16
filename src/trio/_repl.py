@@ -4,16 +4,19 @@ import ast
 import contextlib
 import inspect
 import sys
+import typing
 import warnings
 from code import InteractiveConsole
 from types import CodeType, FrameType, FunctionType
-from typing import Callable
 
 import outcome
 
 import trio
 import trio.lowlevel
 from trio._util import final
+
+if typing.TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class SuppressDecorator(contextlib.ContextDecorator, contextlib.suppress):
