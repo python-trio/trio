@@ -556,6 +556,7 @@ async def test_as_safe_channel_nested_loop() -> None:
 async def test_as_safe_channel_doesnt_leak_cancellation() -> None:
     @as_safe_channel
     async def agen() -> AsyncGenerator[None]:
+        yield
         with trio.CancelScope() as cscope:
             cscope.cancel()
             yield
