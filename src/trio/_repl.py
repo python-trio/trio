@@ -4,7 +4,7 @@ import ast
 import contextlib
 import inspect
 import sys
-import typing
+from typing import TYPE_CHECKING
 import warnings
 from code import InteractiveConsole
 from types import CodeType, FrameType, FunctionType
@@ -15,7 +15,7 @@ import trio
 import trio.lowlevel
 from trio._util import final
 
-if typing.TYPE_CHECKING:
+if TYPE_CHECKING:
     from collections.abc import Callable
 
 
