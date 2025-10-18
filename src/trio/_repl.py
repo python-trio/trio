@@ -4,10 +4,10 @@ import ast
 import contextlib
 import inspect
 import sys
-from typing import TYPE_CHECKING
 import warnings
 from code import InteractiveConsole
 from types import CodeType, FrameType, FunctionType
+from typing import TYPE_CHECKING
 
 import outcome
 
