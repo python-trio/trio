@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import enum
 import types
-from collections.abc import Callable
 
 # typing.Callable is necessary because collections.abc.Callable breaks
 # test_static_tool_sees_all_symbols in 3.10.
-from typing import (
+from typing import (  # noqa: UP035
     TYPE_CHECKING,
     Any,
+    Callable,
     NoReturn,
     TypeAlias,
     cast,
