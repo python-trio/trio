@@ -330,6 +330,7 @@ exclude_also = [
    '.*if "sphinx.ext.autodoc" in sys.modules:',
    'TODO: test this line',
    'if __name__ == "__main__":',
+   'pass',
 ]
 partial_branches = [
     "pragma: no branch",
