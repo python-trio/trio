@@ -8,7 +8,7 @@ import sys
 import tempfile
 from pathlib import Path
 from socket import AddressFamily, SocketKind
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, TypeAlias, cast
 
 import attrs
 import pytest
@@ -20,7 +20,6 @@ from ..testing import assert_checkpoints, wait_all_tasks_blocked
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from typing import TypeAlias
 
     from .._highlevel_socket import SocketStream
 

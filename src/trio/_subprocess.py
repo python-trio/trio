@@ -12,6 +12,7 @@ from typing import (
     Final,
     Literal,
     Protocol,
+    TypeAlias,
     TypedDict,
     overload,
 )
@@ -32,7 +33,6 @@ if TYPE_CHECKING:
     import signal
     from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
     from io import TextIOWrapper
-    from typing import TypeAlias
 
     from typing_extensions import Unpack
 

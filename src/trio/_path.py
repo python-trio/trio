@@ -5,7 +5,17 @@ import pathlib
 import sys
 from functools import partial, update_wrapper
 from inspect import cleandoc
-from typing import IO, TYPE_CHECKING, Any, BinaryIO, ClassVar, TypeVar, overload
+from typing import (
+    IO,
+    TYPE_CHECKING,
+    Any,
+    BinaryIO,
+    ClassVar,
+    Concatenate,
+    Literal,
+    TypeVar,
+    overload,
+)
 
 from trio._file_io import AsyncIOWrapper, wrap_file
 from trio._util import final
@@ -14,7 +24,6 @@ from trio.to_thread import run_sync
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Iterable
     from io import BufferedRandom, BufferedReader, BufferedWriter, FileIO, TextIOWrapper
-    from typing import Concatenate, Literal
 
     from _typeshed import (
         OpenBinaryMode,

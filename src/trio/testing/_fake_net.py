@@ -14,12 +14,7 @@ import ipaddress
 import os
 import socket
 import sys
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    NoReturn,
-    overload,
-)
+from typing import TYPE_CHECKING, Any, NoReturn, TypeAlias, overload
 
 import attrs
 
@@ -31,7 +26,6 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from socket import AddressFamily, SocketKind
     from types import TracebackType
-    from typing import TypeAlias
 
     from typing_extensions import Buffer, Self
 

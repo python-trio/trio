@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import signal
 import sys
-import types
 import weakref
-from typing import TYPE_CHECKING, Generic, Protocol, TypeVar
+from typing import TYPE_CHECKING, Generic, Protocol, TypeGuard, TypeVar
 
 import attrs
 
@@ -14,7 +13,6 @@ from ._run_context import GLOBAL_RUN_CONTEXT
 if TYPE_CHECKING:
     import types
     from collections.abc import Callable
-    from typing import TypeGuard
 
     from typing_extensions import Self
 # In ordinary single-threaded Python code, when you hit control-C, it raises

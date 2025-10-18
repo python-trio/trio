@@ -4,10 +4,17 @@ from __future__ import annotations
 
 import enum
 import types
+from collections.abc import Callable
 
 # typing.Callable is necessary because collections.abc.Callable breaks
 # test_static_tool_sees_all_symbols in 3.10.
-from typing import TYPE_CHECKING, Any, Callable, NoReturn, cast  # noqa: UP035
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    NoReturn,
+    TypeAlias,
+    cast,
+)
 
 import attrs
 import outcome
@@ -16,7 +23,6 @@ from . import _run
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Generator
-    from typing import TypeAlias
 
     from ._run import Task
 

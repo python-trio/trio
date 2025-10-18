@@ -5,13 +5,7 @@ import sys
 from abc import ABC, abstractmethod
 from re import Pattern
 from textwrap import indent
-from typing import (
-    TYPE_CHECKING,
-    Generic,
-    Literal,
-    cast,
-    overload,
-)
+from typing import TYPE_CHECKING, Generic, Literal, TypeGuard, cast, overload
 
 from trio._util import final
 
@@ -22,7 +16,6 @@ if TYPE_CHECKING:
     # *inside* TYPE_CHECKING. No other combination works.....
     import types
     from collections.abc import Callable, Sequence
-    from typing import TypeGuard
 
     from _pytest._code.code import ExceptionChainRepr, ReprExceptionInfo, Traceback
     from typing_extensions import TypeVar

@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import enum
-from typing import TYPE_CHECKING, NewType, NoReturn, Protocol, cast
+from typing import TYPE_CHECKING, NewType, NoReturn, Protocol, TypeAlias, cast
 
 if TYPE_CHECKING:
-    from typing import TypeAlias
-
     import cffi
 
     CData: TypeAlias = cffi.api.FFI.CData

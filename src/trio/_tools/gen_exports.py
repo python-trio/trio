@@ -12,13 +12,12 @@ import subprocess
 import sys
 from pathlib import Path
 from textwrap import indent
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeGuard
 
 import attrs
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
-    from typing import TypeGuard
 
 # keep these imports up to date with conditional imports in test_gen_exports
 # isort: split

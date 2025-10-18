@@ -15,6 +15,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     NoReturn,
+    TypeAlias,
 )
 from unittest import mock
 
@@ -39,7 +40,6 @@ from ..testing import MockClock, assert_no_checkpoints, wait_all_tasks_blocked
 
 if TYPE_CHECKING:
     from types import FrameType
-    from typing import TypeAlias
 
     from .._abc import ReceiveStream
 

@@ -9,7 +9,9 @@ from socket import AddressFamily, SocketKind
 from typing import (
     TYPE_CHECKING,
     Any,
+    Concatenate,
     SupportsIndex,
+    TypeAlias,
     TypeVar,
     overload,
 )
@@ -24,7 +26,6 @@ from . import _core
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Iterable
     from types import TracebackType
-    from typing import Concatenate, TypeAlias
 
     from typing_extensions import Buffer, ParamSpec, Self
 

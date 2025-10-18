@@ -17,6 +17,7 @@ from math import inf
 from typing import (
     TYPE_CHECKING,
     NoReturn,
+    TypeAlias,
     TypeVar,
     cast,
 )
@@ -32,8 +33,6 @@ from trio.abc import Clock, Instrument
 from .tutil import gc_collect_harder, restore_unraisablehook
 
 if TYPE_CHECKING:
-    from typing import TypeAlias
-
     from trio._channel import MemorySendChannel
 
 T = TypeVar("T")

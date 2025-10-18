@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import weakref
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import TypeAlias
 
 import pytest
 
@@ -14,9 +14,6 @@ from .._core._parking_lot import GLOBAL_PARKING_LOT_BREAKER
 from .._sync import *
 from .._timeouts import sleep_forever
 from ..testing import assert_checkpoints, wait_all_tasks_blocked
-
-if TYPE_CHECKING:
-    from typing import TypeAlias
 
 
 async def test_Event() -> None:

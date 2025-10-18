@@ -3,15 +3,12 @@ from __future__ import annotations
 import errno
 import os
 import sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final as FinalType
 
 import trio
 
 from ._abc import Stream
 from ._util import ConflictDetector, final
-
-if TYPE_CHECKING:
-    from typing import Final as FinalType
 
 assert not TYPE_CHECKING or sys.platform != "win32"
 

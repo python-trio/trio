@@ -734,6 +734,7 @@ async def test_as_safe_channel_close_before_iteration() -> None:
 async def test_as_safe_channel_close_during_iteration() -> None:
     @as_safe_channel
     async def agen() -> AsyncGenerator[None]:
+        yield
         await chan.aclose()
         while True:
             yield

@@ -8,6 +8,7 @@ from contextlib import contextmanager, suppress
 from typing import (
     TYPE_CHECKING,
     Generic,
+    TypeAlias,
     TypeVar,
 )
 
@@ -18,7 +19,6 @@ from ._checkpoints import assert_checkpoints
 
 if TYPE_CHECKING:
     from types import TracebackType
-    from typing import TypeAlias
 
     from typing_extensions import ParamSpec
 

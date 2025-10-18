@@ -17,11 +17,7 @@ import struct
 import warnings
 import weakref
 from itertools import count
-from typing import (
-    TYPE_CHECKING,
-    Generic,
-    TypeVar,
-)
+from typing import TYPE_CHECKING, Generic, TypeAlias, TypeVar
 from weakref import ReferenceType, WeakValueDictionary
 
 import attrs
@@ -33,7 +29,6 @@ from ._util import NoPublicConstructor, final
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Iterable, Iterator
     from types import TracebackType
-    from typing import TypeAlias
 
     # See DTLSEndpoint.__init__ for why this is imported here
     from OpenSSL import SSL  # noqa: TC004
