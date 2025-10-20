@@ -92,7 +92,7 @@ demonstration of implementing the "Happy Eyeballs" algorithm in an
 older library versus Trio.
 
 **Cool, but will it work on my system?** Probably! As long as you have
-some kind of Python 3.9-or-better (CPython or `currently maintained versions of
+some kind of Python 3.10-or-better (CPython or `currently maintained versions of
 PyPy3 <https://doc.pypy.org/en/latest/faq.html#which-python-versions-does-pypy-implement>`__
 are both fine), and are using Linux, macOS, Windows, or FreeBSD, then Trio
 will work. Other environments might work too, but those

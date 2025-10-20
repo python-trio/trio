@@ -3,15 +3,12 @@ from __future__ import annotations
 import errno
 import os
 import sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final as FinalType
 
 import trio
 
 from ._abc import Stream
 from ._util import ConflictDetector, final
-
-if TYPE_CHECKING:
-    from typing import Final as FinalType
 
 assert not TYPE_CHECKING or sys.platform != "win32"
 
@@ -159,12 +156,7 @@ class FdStream(Stream):
         with self._send_conflict_detector:
             if self._fd_holder.closed:
                 raise trio.ClosedResourceError("file was already closed")
-            try:
-                await trio.lowlevel.wait_writable(self._fd_holder.fd)
-            except BrokenPipeError as e:
-                # kqueue: raises EPIPE on wait_writable instead
-                # of sending, which is annoying
-                raise trio.BrokenResourceError from e
+            await trio.lowlevel.wait_writable(self._fd_holder.fd)
 
     async def receive_some(self, max_bytes: int | None = None) -> bytes:
         with self._receive_conflict_detector:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import pathlib
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -51,8 +51,8 @@ def test_magic() -> None:
     assert bytes(path) == b"test"
 
 
-EitherPathType = Union[type[trio.Path], type[pathlib.Path]]
-PathOrStrType = Union[EitherPathType, type[str]]
+EitherPathType = type[trio.Path] | type[pathlib.Path]
+PathOrStrType = EitherPathType | type[str]
 cls_pairs: list[tuple[EitherPathType, EitherPathType]] = [
     (trio.Path, pathlib.Path),
     (pathlib.Path, trio.Path),

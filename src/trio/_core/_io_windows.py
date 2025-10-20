@@ -5,13 +5,7 @@ import itertools
 import socket
 import sys
 from contextlib import contextmanager
-from typing import (
-    TYPE_CHECKING,
-    Literal,
-    Protocol,
-    TypeVar,
-    cast,
-)
+from typing import TYPE_CHECKING, Literal, Protocol, TypeAlias, TypeVar, cast
 
 import attrs
 from outcome import Value
@@ -42,7 +36,7 @@ from ._windows_cffi import (
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
-    from typing_extensions import Buffer, TypeAlias
+    from typing_extensions import Buffer
 
     from .._file_io import _HasFileNo
     from ._traps import Abort, RaiseCancelT

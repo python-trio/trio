@@ -4,7 +4,7 @@ import contextlib
 import select
 import sys
 from collections import defaultdict
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, TypeAlias
 
 import attrs
 
@@ -14,8 +14,6 @@ from ._run import Task, _public
 from ._wakeup_socketpair import WakeupSocketpair
 
 if TYPE_CHECKING:
-    from typing_extensions import TypeAlias
-
     from .._core import Abort, RaiseCancelT
     from .._file_io import _HasFileNo
 

@@ -1293,7 +1293,7 @@ async def test_exc_info_after_throw_suppressed() -> None:
 #   https://bugs.python.org/issue25612 (Example 2)
 #   https://bugs.python.org/issue25683
 #   https://bugs.python.org/issue29587 (Example 1)
-# This is fixed in CPython >= 3.9.
+# This is fixed in CPython >= 3.9, but kept as a regression test.
 async def test_exception_chaining_after_throw() -> None:
     child_task: _core.Task | None = None
 
@@ -2644,13 +2644,12 @@ async def test_cancel_scope_exit_doesnt_create_cyclic_garbage() -> None:
 
     old_flags = gc.get_debug()
     try:
-        # fmt: off
-        # Remove after 3.9 unsupported, black formats in a way that breaks if
-        # you do `-X oldparser`
-        with RaisesGroup(
-            Matcher(ValueError, "^this is a crash$"),
-        ), _core.CancelScope() as outer:
-            # fmt: on
+        with (
+            RaisesGroup(
+                Matcher(ValueError, "^this is a crash$"),
+            ),
+            _core.CancelScope() as outer,
+        ):
             async with _core.open_nursery() as nursery:
                 gc.collect()
                 gc.set_debug(gc.DEBUG_SAVEALL)

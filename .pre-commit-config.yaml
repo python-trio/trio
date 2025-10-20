@@ -80,7 +80,7 @@ repos:
         name: uv pip-compile test-requirements.in
         args: [
           "--universal",
-          "--python-version=3.9",
+          "--python-version=3.10",
           "test-requirements.in",
           "-o",
           "test-requirements.txt"]

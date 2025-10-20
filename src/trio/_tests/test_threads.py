@@ -12,7 +12,6 @@ from typing import (
     TYPE_CHECKING,
     NoReturn,
     TypeVar,
-    Union,
 )
 
 import pytest
@@ -48,7 +47,7 @@ if TYPE_CHECKING:
 
     from ..lowlevel import Task
 
-RecordType = list[tuple[str, Union[threading.Thread, type[BaseException]]]]
+RecordType = list[tuple[str, threading.Thread | type[BaseException]]]
 T = TypeVar("T")
 
 
