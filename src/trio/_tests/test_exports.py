@@ -509,7 +509,7 @@ def test_static_tool_sees_class_members(
                 missing -= {"owner", "is_mount", "group"}
             if tool == "jedi" and sys.platform == "win32":
                 extra -= {"owner", "is_mount", "group"}
-        
+
         if tool == "jedi" and attrs.has(class_):
             # jedi is missing a new attrs attribute?
             missing.remove("__attrs_props__")
