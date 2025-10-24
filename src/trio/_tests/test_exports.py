@@ -442,6 +442,10 @@ def test_static_tool_sees_class_members(
             before = len(extra)
             extra = {e for e in extra if not e.endswith("AttrsAttributes__")}
             assert len(extra) == before - 1
+        
+        if attrs.has(class_):
+            # dynamically created attribute by attrs?
+            missing.remove("__attrs_props__")
 
         # dir does not see `__signature__` on enums until 3.14
         if (
@@ -509,10 +513,6 @@ def test_static_tool_sees_class_members(
                 missing -= {"owner", "is_mount", "group"}
             if tool == "jedi" and sys.platform == "win32":
                 extra -= {"owner", "is_mount", "group"}
-
-        if tool == "jedi" and attrs.has(class_):
-            # jedi is missing a new attrs attribute?
-            missing.remove("__attrs_props__")
 
         # not sure why jedi in particular ignores this (static?) method in 3.13
         if (
