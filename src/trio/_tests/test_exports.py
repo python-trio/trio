@@ -443,6 +443,10 @@ def test_static_tool_sees_class_members(
             extra = {e for e in extra if not e.endswith("AttrsAttributes__")}
             assert len(extra) == before - 1
 
+        if attrs.has(class_):
+            # dynamically created attribute by attrs?
+            missing.remove("__attrs_props__")
+
         # dir does not see `__signature__` on enums until 3.14
         if (
             tool == "mypy"
