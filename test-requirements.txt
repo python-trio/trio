@@ -4,9 +4,7 @@ alabaster==1.0.0
     # via sphinx
 astor==0.8.1
     # via -r test-requirements.in
-astroid==3.3.11 ; python_full_version < '3.10'
-    # via pylint
-astroid==4.0.1 ; python_full_version >= '3.10'
+astroid==4.0.1
     # via pylint
 async-generator==1.10
     # via -r test-requirements.in
@@ -38,9 +36,7 @@ colorama==0.4.6 ; sys_platform == 'win32'
     #   pylint
     #   pytest
     #   sphinx
-coverage==7.10.7 ; python_full_version < '3.10'
-    # via -r test-requirements.in
-coverage==7.11.0 ; python_full_version >= '3.10'
+coverage==7.11.0
     # via -r test-requirements.in
 cryptography==46.0.3
     # via
@@ -58,9 +54,7 @@ exceptiongroup==1.3.0 ; python_full_version < '3.11'
     # via
     #   -r test-requirements.in
     #   pytest
-filelock==3.19.1 ; python_full_version < '3.10'
-    # via virtualenv
-filelock==3.20.0 ; python_full_version >= '3.10'
+filelock==3.20.0
     # via virtualenv
 identify==2.6.15
     # via pre-commit
@@ -73,9 +67,7 @@ imagesize==1.4.1
     # via sphinx
 iniconfig==2.3.0
     # via pytest
-isort==6.1.0 ; python_full_version < '3.10'
-    # via pylint
-isort==7.0.0 ; python_full_version >= '3.10'
+isort==7.0.0
     # via pylint
 jedi==0.19.2 ; implementation_name == 'cpython'
     # via -r test-requirements.in
@@ -111,12 +103,7 @@ pathspec==0.12.1
     # via
     #   black
     #   mypy
-platformdirs==4.4.0 ; python_full_version < '3.10'
-    # via
-    #   black
-    #   pylint
-    #   virtualenv
-platformdirs==4.5.0 ; python_full_version >= '3.10'
+platformdirs==4.5.0
     # via
     #   black
     #   pylint
@@ -131,9 +118,7 @@ pygments==2.19.2
     # via
     #   pytest
     #   sphinx
-pylint==3.3.9 ; python_full_version < '3.10'
-    # via -r test-requirements.in
-pylint==4.0.2 ; python_full_version >= '3.10'
+pylint==4.0.2
     # via -r test-requirements.in
 pyopenssl==25.3.0
     # via -r test-requirements.in
