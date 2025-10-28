@@ -311,7 +311,7 @@ omit = [
 parallel = true
 plugins = []
 relative_files = true
-source = ["trio"]
+source = ["trio", "tests/", "_trio_check_attrs_aliases"]
 
 [tool.coverage.report]
 precision = 1
