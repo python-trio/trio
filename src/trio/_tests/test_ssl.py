@@ -8,11 +8,7 @@ import threading
 from contextlib import asynccontextmanager, contextmanager, suppress
 from functools import partial
 from ssl import SSLContext
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    NoReturn,
-)
+from typing import TYPE_CHECKING, Any, NoReturn, TypeAlias
 
 import pytest
 
@@ -53,8 +49,6 @@ from ..testing import (
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
-
-    from typing_extensions import TypeAlias
 
     from trio._core import MockClock
     from trio._ssl import T_Stream

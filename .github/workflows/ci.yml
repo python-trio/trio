@@ -155,18 +155,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+        python: ['3.10', '3.11', '3.12', '3.13', '3.14']
         arch: ['x86', 'x64']
         lsp: ['']
         lsp_extract_file: ['']
         extra_name: ['']
         include:
-          - python: '3.9'
+          - python: '3.10'
             arch: 'x64'
             lsp: 'https://raw.githubusercontent.com/python-trio/trio-ci-assets/master/komodia-based-vpn-setup.zip'
             lsp_extract_file: 'komodia-based-vpn-setup.exe'
             extra_name: ', with Komodia LSP'
-          - python: '3.9'
+          - python: '3.10'
             arch: 'x64'
             lsp: 'https://www.proxifier.com/download/legacy/ProxifierSetup342.exe'
             lsp_extract_file: ''
@@ -176,7 +176,7 @@ jobs:
             lsp: ''
             lsp_extract_file: ''
             extra_name: ''
-          #- python: '3.9'
+          #- python: '3.10'
           #  arch: 'x64'
           #  lsp: 'http://download.pctools.com/mirror/updates/9.0.0.2308-SDavfree-lite_en.exe'
           #  lsp_extract_file: ''
@@ -228,7 +228,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.11', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+        python: ['pypy-3.11', '3.10', '3.11', '3.12', '3.13', '3.14']
         check_formatting: ['0']
         no_test_requirements: ['0']
         extra_name: ['']
@@ -237,7 +237,7 @@ jobs:
             check_formatting: '1'
             extra_name: ', check formatting'
           # separate test run that doesn't install test-requirements.txt
-          - python: '3.9'
+          - python: '3.10'
             no_test_requirements: '1'
             extra_name: ', no test-requirements'
     continue-on-error: >-
@@ -301,7 +301,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.11', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+        python: ['pypy-3.11', '3.10', '3.11', '3.12', '3.13', '3.14']
     continue-on-error: >-
       ${{
         (
@@ -389,14 +389,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - python: '3.9'  # We support running on cython 2 and 3 for 3.9
-            cython: '<3'   # cython 2
-          - python: '3.9'
-            cython: '>=3'  # cython 3 (or greater)
-          - python: '3.11' # 3.11 is the last version Cy2 supports
-            cython: '<3'   # cython 2
-          - python: '3.13' # We support running cython3 on 3.13
-            cython: '>=3'  # cython 3 (or greater)
+          # Cython 2 supports 3.10 and 3.11 and Cython 3 supports all versions we do,
+          # so test both the lowest and higher version for both
+          - python: '3.10'
+            cython: '<3'
+          - python: '3.11'
+            cython: '<3'
+          # TODO: technically we should pin cython versions
+          - python: '3.10'
+            cython: '>=3'
+          - python: '3.14'
+            cython: '>=3'
     steps:
       - name: Retrieve the project source from an sdist inside the GHA artifact
         uses: re-actors/checkout-python-sdist@release/v2

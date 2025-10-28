@@ -104,8 +104,7 @@ async def async_attrs(path: trio.Path) -> None:
     assert_type(await path.rmdir(), None)
     assert_type(await path.samefile("something_else"), bool)
     assert_type(await path.symlink_to("somewhere"), None)
-    if sys.version_info >= (3, 10):
-        assert_type(await path.hardlink_to("elsewhere"), None)
+    assert_type(await path.hardlink_to("elsewhere"), None)
     assert_type(await path.touch(), None)
     assert_type(await path.unlink(missing_ok=True), None)
     assert_type(await path.write_bytes(b"123"), int)

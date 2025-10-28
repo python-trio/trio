@@ -9,9 +9,10 @@ from socket import AddressFamily, SocketKind
 from typing import (
     TYPE_CHECKING,
     Any,
+    Concatenate,
     SupportsIndex,
+    TypeAlias,
     TypeVar,
-    Union,
     overload,
 )
 
@@ -26,7 +27,7 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Iterable
     from types import TracebackType
 
-    from typing_extensions import Buffer, Concatenate, ParamSpec, Self, TypeAlias
+    from typing_extensions import Buffer, ParamSpec, Self
 
     from ._abc import HostnameResolver, SocketFactory
 
@@ -336,8 +337,8 @@ if sys.platform == "win32":
     FamilyDefault = _stdlib_socket.AF_INET
 else:
     FamilyDefault: None = None
-    FamilyT: TypeAlias = Union[int, AddressFamily, None]
-    TypeT: TypeAlias = Union[_stdlib_socket.socket, int]
+    FamilyT: TypeAlias = int | AddressFamily | None
+    TypeT: TypeAlias = _stdlib_socket.socket | int
 
 
 @_wraps(_stdlib_socket.socketpair, assigned=(), updated=())

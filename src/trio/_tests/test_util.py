@@ -23,7 +23,6 @@ from .._util import (
     coroutine_or_error,
     final,
     fixup_module_metadata,
-    generic_function,
     is_main_thread,
     raise_single_exception_from_group,
 )
@@ -157,20 +156,6 @@ def test_coroutine_or_error() -> None:
 
         # Make sure no references are kept around to keep anything alive
         del excinfo
-
-
-def test_generic_function() -> None:
-    @generic_function  # Decorated function contains "Any".
-    def test_func(arg: T) -> T:  # type: ignore[misc]
-        """Look, a docstring!"""
-        return arg
-
-    assert test_func is test_func[int] is test_func[int, str]
-    assert test_func(42) == test_func[int](42) == 42
-    assert test_func.__doc__ == "Look, a docstring!"
-    assert test_func.__qualname__ == "test_generic_function.<locals>.test_func"  # type: ignore[attr-defined]
-    assert test_func.__name__ == "test_func"  # type: ignore[attr-defined]
-    assert test_func.__module__ == __name__
 
 
 def test_final_decorator() -> None:

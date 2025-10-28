@@ -5,8 +5,16 @@ from __future__ import annotations
 import enum
 import types
 
-# Jedi gets mad in test_static_tool_sees_class_members if we use collections Callable
-from typing import TYPE_CHECKING, Any, Callable, NoReturn, Union, cast
+# typing.Callable is necessary because collections.abc.Callable breaks
+# test_static_tool_sees_all_symbols in 3.10.
+from typing import (  # noqa: UP035
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    NoReturn,
+    TypeAlias,
+    cast,
+)
 
 import attrs
 import outcome
@@ -15,8 +23,6 @@ from . import _run
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Generator
-
-    from typing_extensions import TypeAlias
 
     from ._run import Task
 
@@ -41,12 +47,12 @@ class PermanentlyDetachCoroutineObject:
     final_outcome: outcome.Outcome[object]
 
 
-MessageType: TypeAlias = Union[
-    type[CancelShieldedCheckpoint],
-    WaitTaskRescheduled,
-    PermanentlyDetachCoroutineObject,
-    object,
-]
+MessageType: TypeAlias = (
+    type[CancelShieldedCheckpoint]
+    | WaitTaskRescheduled
+    | PermanentlyDetachCoroutineObject
+    | object
+)
 
 
 # Helper for the bottommost 'yield'. You can't use 'yield' inside an async
