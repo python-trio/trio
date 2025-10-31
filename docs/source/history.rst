@@ -5,6 +5,38 @@ Release history
 
 .. towncrier release notes start
 
+trio 0.32.0 (2025-10-31)
+------------------------
+
+Features
+~~~~~~~~
+
+- Allow `trio.CapacityLimiter` to have zero total_tokens. (`#3321 <https://github.com/python-trio/trio/issues/3321>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Fixed a bug where iterating over an ``@as_safe_channel``-derived ``ReceiveChannel``
+  would raise `~trio.BrokenResourceError` if the channel was closed by another task.
+  It now shuts down cleanly. (`#3331 <https://github.com/python-trio/trio/issues/3331>`__)
+- `trio.lowlevel.Task.iter_await_frames` now works on completed tasks, by
+  returning an empty list of frames if the underlying coroutine has been closed.
+  Previously, it raised an internal error. (`#3337 <https://github.com/python-trio/trio/issues/3337>`__)
+
+
+Removals without deprecations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Drop support for Python 3.9. (`#3345 <https://github.com/python-trio/trio/issues/3345>`__)
+
+
+Miscellaneous internal changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Decrease indentation for exception groups raised in `trio.as_safe_channel`. (`#3332 <https://github.com/python-trio/trio/issues/3332>`__)
+
+
 Trio 0.31.0 (2025-09-09)
 ------------------------
 
