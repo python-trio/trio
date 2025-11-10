@@ -158,33 +158,11 @@ jobs:
         run: diff --unified sdist-src/collected-tests git-src/collected-tests
         shell: bash -eEuo pipefail {0}
 
-      - name: >-
-          Smoke-test:
-          retrieve the wheel from the GHA artifact
-        uses: actions/download-artifact@v5
-        with:
-          name: ${{ env.dists-artifact-name }}
-          path: dist
-
-      - name: >-
-          Smoke-test: install the wheel
-        run: >-
-          python -Im pip install
-          dist/${{ needs.build.outputs.wheel-artifact-name }}
-
-      - name: >-
-          Smoke-test: verify trio can be imported from the wheel
-        run: python -c "import trio; print(f'Successfully imported trio {trio.__version__}')"
-
-      - name: >-
-          Smoke-test: run basic trio functionality test
-        run: >-
-          python -c "import trio; async def main(): print('Trio async execution works!'); trio.run(main)"
-
   Windows:
     name: 'Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})'
     needs:
       - build
+      - smoke-tests
 
     timeout-minutes: 20
     runs-on: 'windows-latest'
@@ -258,6 +236,7 @@ jobs:
     name: 'Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})'
     needs:
       - build
+      - smoke-tests
 
     timeout-minutes: 10
     runs-on: 'ubuntu-latest'
@@ -331,6 +310,7 @@ jobs:
     name: 'macOS (${{ matrix.python }})'
     needs:
       - build
+      - smoke-tests
 
     timeout-minutes: 15
     runs-on: 'macos-latest'
@@ -374,6 +354,7 @@ jobs:
     name: "Alpine"
     needs:
       - build
+      - smoke-tests
 
     runs-on: ubuntu-latest
     container: alpine
@@ -419,6 +400,7 @@ jobs:
     name: "Cython"
     needs:
       - build
+      - smoke-tests
 
     runs-on: ubuntu-latest
     strategy:
