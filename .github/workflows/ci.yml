@@ -179,7 +179,7 @@ jobs:
       - name: >-
           Smoke-test: run basic trio functionality test
         run: >-
-          python -c "import trio; trio.run(lambda: print('Trio async execution works!'))"
+          python -c "import trio; async def main(): print('Trio async execution works!'); trio.run(main)"
 
   Windows:
     name: 'Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})'
