@@ -86,12 +86,25 @@ jobs:
             dist/${{ steps.artifact-name.outputs.wheel }}
           retention-days: 5
 
+  smoke-tests:
+    name: Smoke tests
+    needs:
+      - build
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Switch to using Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3.11
+
       - name: >-
           Smoke-test:
           retrieve the project source from an sdist inside the GHA artifact
         uses: re-actors/checkout-python-sdist@release/v2
         with:
-          source-tarball-name: ${{ steps.artifact-name.outputs.sdist }}
+          source-tarball-name: ${{ needs.build.outputs.sdist-artifact-name }}
           workflow-artifact-name: ${{ env.dists-artifact-name }}
 
       - name: >-
@@ -144,6 +157,29 @@ jobs:
           verify that all the tests from Git are included in the sdist
         run: diff --unified sdist-src/collected-tests git-src/collected-tests
         shell: bash -eEuo pipefail {0}
+
+      - name: >-
+          Smoke-test:
+          retrieve the wheel from the GHA artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: ${{ env.dists-artifact-name }}
+          path: dist
+
+      - name: >-
+          Smoke-test: install the wheel
+        run: >-
+          python -Im pip install
+          dist/${{ needs.build.outputs.wheel-artifact-name }}
+
+      - name: >-
+          Smoke-test: verify trio can be imported from the wheel
+        run: python -c "import trio; print(f'Successfully imported trio {trio.__version__}')"
+
+      - name: >-
+          Smoke-test: run basic trio functionality test
+        run: >-
+          python -c "import trio; trio.run(lambda: print('Trio async execution works!'))"
 
   Windows:
     name: 'Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})'
@@ -456,6 +492,7 @@ jobs:
     if: always()
 
     needs:
+      - smoke-tests
       - Windows
       - Ubuntu
       - macOS
