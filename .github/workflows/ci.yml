@@ -162,7 +162,6 @@ jobs:
     name: 'Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})'
     needs:
       - build
-      - smoke-tests
 
     timeout-minutes: 20
     runs-on: 'windows-latest'
@@ -236,7 +235,6 @@ jobs:
     name: 'Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})'
     needs:
       - build
-      - smoke-tests
 
     timeout-minutes: 10
     runs-on: 'ubuntu-latest'
@@ -310,7 +308,6 @@ jobs:
     name: 'macOS (${{ matrix.python }})'
     needs:
       - build
-      - smoke-tests
 
     timeout-minutes: 15
     runs-on: 'macos-latest'
@@ -354,7 +351,6 @@ jobs:
     name: "Alpine"
     needs:
       - build
-      - smoke-tests
 
     runs-on: ubuntu-latest
     container: alpine
@@ -400,7 +396,6 @@ jobs:
     name: "Cython"
     needs:
       - build
-      - smoke-tests
 
     runs-on: ubuntu-latest
     strategy:
