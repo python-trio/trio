@@ -86,12 +86,25 @@ jobs:
             dist/${{ steps.artifact-name.outputs.wheel }}
           retention-days: 5
 
+  smoke-tests:
+    name: Smoke tests
+    needs:
+      - build
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Switch to using Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3.11
+
       - name: >-
           Smoke-test:
           retrieve the project source from an sdist inside the GHA artifact
         uses: re-actors/checkout-python-sdist@release/v2
         with:
-          source-tarball-name: ${{ steps.artifact-name.outputs.sdist }}
+          source-tarball-name: ${{ needs.build.outputs.sdist-artifact-name }}
           workflow-artifact-name: ${{ env.dists-artifact-name }}
 
       - name: >-
@@ -456,6 +469,7 @@ jobs:
     if: always()
 
     needs:
+      - smoke-tests
       - Windows
       - Ubuntu
       - macOS
