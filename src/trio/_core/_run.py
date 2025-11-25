@@ -3113,7 +3113,11 @@ if sys.platform == "win32":
         WindowsIOManager as TheIOManager,
         _WindowsStatistics as IOStatistics,
     )
-elif sys.platform == "linux" or (not TYPE_CHECKING and hasattr(select, "epoll")):
+elif (
+    sys.platform == "linux"
+    or sys.platform == "android"
+    or (not TYPE_CHECKING and hasattr(select, "epoll"))
+):
     from ._generated_io_epoll import *
     from ._io_epoll import (
         EpollIOManager as TheIOManager,
