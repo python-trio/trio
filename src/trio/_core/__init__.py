@@ -86,9 +86,9 @@ if sys.platform == "win32" or (
         write_overlapped,
     )
 # Kqueue imports
-if (sys.platform != "linux" and sys.platform != "win32") or (
-    not _t.TYPE_CHECKING and "sphinx.ext.autodoc" in sys.modules
-):
+if (
+    sys.platform != "linux" and sys.platform != "win32" and sys.platform != "android"
+) or (not _t.TYPE_CHECKING and "sphinx.ext.autodoc" in sys.modules):
     from ._run import current_kqueue, monitor_kevent, wait_kevent
 
 del sys  # It would be better to import sys as _sys, but mypy does not understand it
