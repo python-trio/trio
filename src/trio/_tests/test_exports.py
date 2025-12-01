@@ -275,7 +275,7 @@ def test_static_tool_sees_class_members(
 
     if tool == "jedi" and sys.implementation.name != "cpython":
         pytest.skip("jedi does not support pypy")
-    
+
     if tool == "mypy" and sys.implementation.name != "cpython":
         # https://github.com/python/mypy/issues/20329
         pytest.skip("mypy does not support pypy")
