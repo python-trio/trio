@@ -175,6 +175,10 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
         completions = script.complete()
         static_names = no_underscores(c.name for c in completions)
     elif tool == "mypy":
+        if sys.implementation.name != "cpython":
+            # https://github.com/python/mypy/issues/20329
+            pytest.skip("mypy does not support pypy")
+
         if not RUN_SLOW:  # pragma: no cover
             pytest.skip("use --run-slow to check against mypy")
 
@@ -271,6 +275,10 @@ def test_static_tool_sees_class_members(
 
     if tool == "jedi" and sys.implementation.name != "cpython":
         pytest.skip("jedi does not support pypy")
+    
+    if tool == "mypy" and sys.implementation.name != "cpython":
+        # https://github.com/python/mypy/issues/20329
+        pytest.skip("mypy does not support pypy")
 
     if tool == "mypy":
         cache = Path.cwd() / ".mypy_cache"
