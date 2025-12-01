@@ -11,7 +11,7 @@ cryptography>=41.0.0  # cryptography<41 segfaults on pypy3.10
 
 # Tools
 black; implementation_name == "cpython"
-mypy
+mypy; implementation_name == "cpython"
 ruff >= 0.8.0
 astor          # code generation
 uv >= 0.2.24

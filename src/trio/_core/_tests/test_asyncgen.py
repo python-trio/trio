@@ -227,7 +227,7 @@ def test_last_minute_gc_edge_case() -> None:
     # (if the run_sync_soon task runs before init on one tick and after init
     # on the next tick); if we try enough times, we can make the chance of
     # failure as small as we want.
-    for _attempt in range(50):
+    for attempt in range(50):
         needs_retry = False
         record.clear()
         saved.clear()
@@ -240,7 +240,7 @@ def test_last_minute_gc_edge_case() -> None:
     else:  # pragma: no cover
         pytest.fail(
             "Didn't manage to hit the trailing_finalizer_asyncgens case "
-            f"despite trying {_attempt} times",
+            f"despite trying {attempt} times",
         )
 
 

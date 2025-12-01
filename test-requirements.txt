@@ -75,13 +75,13 @@ jedi==0.19.2 ; implementation_name == 'cpython'
     # via -r test-requirements.in
 jinja2==3.1.6
     # via sphinx
-librt==0.6.3
+librt==0.6.3 ; implementation_name == 'cpython'
     # via mypy
 markupsafe==3.0.3
     # via jinja2
 mccabe==0.7.0
     # via pylint
-mypy==1.19.0
+mypy==1.19.0 ; implementation_name == 'cpython'
     # via -r test-requirements.in
 mypy-extensions==1.1.0
     # via
