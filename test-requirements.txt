@@ -101,7 +101,7 @@ packaging==25.0
     #   sphinx
 parso==0.8.5 ; implementation_name == 'cpython'
     # via jedi
-pathspec==0.12.1
+pathspec==0.12.1 ; implementation_name == 'cpython'
     # via
     #   black
     #   mypy
