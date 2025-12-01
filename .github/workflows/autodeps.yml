@@ -40,7 +40,7 @@ jobs:
         run: python -m pip install -r test-requirements.txt
 
       - name: Pre-commit fixes
-        run: pre-commit run -a
+        run: pre-commit run -a || true
 
       - name: Commit changes and create automerge PR
         env:
