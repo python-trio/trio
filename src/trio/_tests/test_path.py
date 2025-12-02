@@ -210,16 +210,16 @@ async def test_globmethods(path: trio.Path) -> None:
     await (path / "bar.dat").write_bytes(b"")
 
     # Path.glob
-    for _pattern, _results in {
+    for pattern, results in {
         "*.txt": {"bar.txt"},
         "**/*.txt": {"_bar.txt", "bar.txt"},
     }.items():
         entries = set()
-        for entry in await path.glob(_pattern):
+        for entry in await path.glob(pattern):
             assert isinstance(entry, trio.Path)
             entries.add(entry.name)
 
-        assert entries == _results
+        assert entries == results
 
     # Path.rglob
     entries = set()
