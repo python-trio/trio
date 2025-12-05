@@ -1062,7 +1062,7 @@ def test_broken_abort() -> None:
 # the upstream issue is resolved.
 @restore_unraisablehook()
 @pytest.mark.skipif(
-    sys.version_info[:3] == (3, 14, 0),
+    sys.version_info[:2] == (3, 14),
     reason="https://github.com/python/cpython/issues/133932",
 )
 def test_error_in_run_loop() -> None:
