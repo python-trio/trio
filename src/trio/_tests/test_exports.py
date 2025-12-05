@@ -365,17 +365,6 @@ def test_static_tool_sees_class_members(
             ignore_names.add("__firstlineno__")
             ignore_names.add("__static_attributes__")
 
-        # pypy seems to have some additional dunders that differ
-        if sys.implementation.name == "pypy":
-            ignore_names |= {
-                "__basicsize__",
-                "__dictoffset__",
-                "__itemsize__",
-                "__sizeof__",
-                "__weakrefoffset__",
-                "__unicode__",
-            }
-
         # inspect.getmembers sees `name` and `value` in Enums, otherwise
         # it behaves the same way as `dir`
         # runtime_names = no_underscores(dir(class_))
