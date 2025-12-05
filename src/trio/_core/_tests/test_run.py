@@ -1060,7 +1060,6 @@ def test_broken_abort() -> None:
 
 # This segfaults, so we need to skipif. Remember to remove the skipif once
 # the upstream issue is resolved.
-# TODO: point out this still segfaults
 @restore_unraisablehook()
 @pytest.mark.skipif(
     sys.version_info[:2] == (3, 14),
