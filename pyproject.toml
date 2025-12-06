@@ -293,6 +293,10 @@ skip_covered = false
 
 [tool.coverage.paths]
 source = ["src", "**/site-packages"]
+attrs-plugin = [
+  "tests/_trio_check_attrs_aliases.py",
+  "_trio_check_attrs_aliases.py",
+]
 
 [tool.coverage.run]
 branch = true
@@ -311,7 +315,8 @@ omit = [
 parallel = true
 plugins = []
 relative_files = true
-source = ["trio", "tests/", "_trio_check_attrs_aliases"]
+source = ["."]
+source_pkgs = ["trio", "_trio_check_attrs_aliases"]
 
 [tool.coverage.report]
 precision = 1
