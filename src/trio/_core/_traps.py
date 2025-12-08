@@ -66,7 +66,9 @@ MessageType: TypeAlias = (
 def _real_async_yield(
     obj: MessageType,
 ) -> Generator[MessageType, None, None]:
-    return (yield obj)
+    # "Using `yield` and `return {value}` in a generator function can
+    # lead to confusing behavior"
+    return (yield obj)  # noqa: B901
 
 
 # Real yield value is from trio's main loop, but type checkers can't
