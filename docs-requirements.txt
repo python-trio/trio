@@ -105,5 +105,5 @@ typing-extensions==4.15.0
     #   beautifulsoup4
     #   exceptiongroup
     #   pyopenssl
-urllib3==2.5.0
+urllib3==2.6.1
     # via requests

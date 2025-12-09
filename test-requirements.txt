@@ -36,7 +36,7 @@ colorama==0.4.6 ; sys_platform == 'win32'
     #   pylint
     #   pytest
     #   sphinx
-coverage==7.12.0
+coverage==7.13.0
     # via -r test-requirements.in
 cryptography==46.0.3
     # via
@@ -75,7 +75,7 @@ jedi==0.19.2 ; implementation_name == 'cpython'
     # via -r test-requirements.in
 jinja2==3.1.6
     # via sphinx
-librt==0.6.3 ; implementation_name == 'cpython'
+librt==0.7.3 ; implementation_name == 'cpython'
     # via mypy
 markupsafe==3.0.3
     # via jinja2
@@ -105,7 +105,7 @@ pathspec==0.12.1 ; implementation_name == 'cpython'
     # via
     #   black
     #   mypy
-platformdirs==4.5.0
+platformdirs==4.5.1
     # via
     #   black
     #   pylint
@@ -126,7 +126,7 @@ pyopenssl==25.3.0
     # via -r test-requirements.in
 pyright==1.1.407
     # via -r test-requirements.in
-pytest==9.0.1
+pytest==9.0.2
     # via -r test-requirements.in
 pytokens==0.3.0 ; implementation_name == 'cpython'
     # via black
@@ -146,7 +146,7 @@ sortedcontainers==2.4.0
     # via -r test-requirements.in
 sphinx==8.1.3 ; python_full_version < '3.11'
     # via -r test-requirements.in
-sphinx==9.0.1 ; python_full_version >= '3.11'
+sphinx==9.0.4 ; python_full_version >= '3.11'
     # via -r test-requirements.in
 sphinxcontrib-applehelp==2.0.0
     # via sphinx
@@ -194,7 +194,7 @@ typing-extensions==4.15.0
     #   pyopenssl
     #   pyright
     #   virtualenv
-urllib3==2.5.0
+urllib3==2.6.1
     # via requests
 uv==0.9.16
     # via -r test-requirements.in
