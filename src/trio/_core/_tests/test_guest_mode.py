@@ -187,13 +187,6 @@ def test_guest_is_initialized_when_start_returns() -> None:
         def deadline_to_sleep_time(self, deadline: float) -> float:
             raise NotImplementedError()
 
-        @property
-        def autojump_threshold(self) -> float:
-            raise NotImplementedError()
-
-        def autojump(self) -> None:
-            raise NotImplementedError()
-
     def after_start_never_runs() -> None:  # pragma: no cover
         pytest.fail("shouldn't get here")
 

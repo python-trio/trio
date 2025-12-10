@@ -204,8 +204,8 @@ class SystemClock(Clock):
     def current_time(self) -> float:
         return self.offset + perf_counter()
 
-    def deadline_to_sleep_time(self, deadline: float) -> float:
-        return deadline - self.current_time()
+    def deadline_to_sleep_time(self, timeout: float) -> float:
+        return timeout
 
 
 class IdlePrimedTypes(enum.Enum):
@@ -2739,36 +2739,38 @@ def unrolled_run(
         # You know how people talk about "event loops"? This 'while' loop right
         # here is our event loop:
         while runner.tasks:
+            now = runner.clock.current_time()
+
             if runner.runq:
-                timeout: float = 0
+                virtual_timeout: float = 0
             else:
                 deadline = runner.deadlines.next_deadline()
-                timeout = runner.clock.deadline_to_sleep_time(deadline)
-            timeout = min(max(0, timeout), _MAX_TIMEOUT)
+                virtual_timeout = max(0, deadline - now)
 
             idle_primed = None
             if runner.waiting_for_idle:
                 cushion, _ = runner.waiting_for_idle.keys()[0]
-                if cushion < timeout:
-                    timeout = cushion
+                if cushion < virtual_timeout:
+                    virtual_timeout = cushion
                     idle_primed = IdlePrimedTypes.WAITING_FOR_IDLE
-            # We use 'elif' here because if there are tasks in
-            # wait_all_tasks_blocked, then those tasks will wake up without
-            # jumping the clock, so we don't need to autojump.
-            elif runner.clock.autojump_threshold < timeout:
-                timeout = runner.clock.autojump_threshold
-                idle_primed = IdlePrimedTypes.AUTOJUMP_CLOCK
+
+            virtual_timeout = min(max(0, virtual_timeout), _MAX_TIMEOUT)
+            real_timeout = runner.clock.deadline_to_sleep_time(virtual_timeout)
 
             if "before_io_wait" in runner.instruments:
-                runner.instruments.call("before_io_wait", timeout)
+                runner.instruments.call("before_io_wait", real_timeout)
 
             # Driver will call io_manager.get_events(timeout) and pass it back
             # in through the yield
-            events = yield timeout
+            events = yield real_timeout
+
+            new_now = runner.clock.current_time()
+            runner.clock.propagate(new_now - now, virtual_timeout)
+
             runner.io_manager.process_events(events)
 
             if "after_io_wait" in runner.instruments:
-                runner.instruments.call("after_io_wait", timeout)
+                runner.instruments.call("after_io_wait", real_timeout)
 
             # Process cancellations due to deadline expiry
             now = runner.clock.current_time()
@@ -2805,9 +2807,6 @@ def unrolled_run(
                             runner.reschedule(task)
                         else:
                             break
-                else:
-                    assert idle_primed is IdlePrimedTypes.AUTOJUMP_CLOCK
-                    runner.clock.autojump()
 
             # Process all runnable tasks, but only the ones that are already
             # runnable now. Anything that becomes runnable during this cycle

@@ -113,13 +113,11 @@ class MockClock(Clock):
         except AttributeError:
             pass
 
-    # Invoked by the run loop when runner.clock_autojump_threshold is
-    # exceeded.
-    def autojump(self) -> None:
-        statistics = _core.current_statistics()
-        jump = statistics.seconds_to_next_deadline
-        if 0 < jump < inf:
-            self.jump(jump)
+    def propagate(self, real_time_passed: float, virtual_timeout: float) -> None:
+        if self._rate > 0:
+            self.jump(real_time_passed * self._rate)
+        else:
+            self.jump(virtual_timeout)
 
     def _real_to_virtual(self, real: float) -> float:
         real_offset = real - self._real_base
@@ -132,14 +130,20 @@ class MockClock(Clock):
     def current_time(self) -> float:
         return self._real_to_virtual(self._real_clock())
 
-    def deadline_to_sleep_time(self, deadline: float) -> float:
-        virtual_timeout = deadline - self.current_time()
-        if virtual_timeout <= 0:
-            return 0
-        elif self._rate > 0:
-            return virtual_timeout / self._rate
-        else:
-            return 999999999
+    def deadline_to_sleep_time(self, timeout: float) -> float:
+        virtual_timeout = max(0.0, timeout)
+
+        real_timeout = virtual_timeout
+
+        if self._rate > 0:
+            real_timeout /= self._rate
+        elif real_timeout > 0 and self._rate == 0:
+            real_timeout = 999999999.0
+
+        if real_timeout > self.autojump_threshold:
+            real_timeout = self.autojump_threshold
+
+        return real_timeout
 
     def jump(self, seconds: float) -> None:
         """Manually advance the clock by the given number of seconds.

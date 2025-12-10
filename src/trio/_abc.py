@@ -43,7 +43,7 @@ class Clock(ABC):
         """
 
     @abstractmethod
-    def deadline_to_sleep_time(self, deadline: float) -> float:
+    def deadline_to_sleep_time(self, timeout: float) -> float:
         """Compute the real time until the given deadline.
 
         This is called before we enter a system-specific wait function like
@@ -66,14 +66,8 @@ class Clock(ABC):
 
         """
 
-    @property
-    def autojump_threshold(self) -> float:
-        return inf
-
-    def autojump(self) -> None:
-        # If `autojump_threshold()` has the default implementation (returning `inf`),
-        # this will never be called.
-        raise NotImplementedError
+    def propagate(self, real_time_passed: float, virtual_timeout: float) -> None:
+        pass
 
 
 class Instrument(ABC):  # noqa: B024  # conceptually is ABC
