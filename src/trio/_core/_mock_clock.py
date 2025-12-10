@@ -105,12 +105,6 @@ class MockClock(Clock):
         self._autojump_threshold = float(new_autojump_threshold)
         self._try_resync_autojump_threshold()
 
-    # runner.clock_autojump_threshold is an internal API that isn't easily
-    # usable by custom third-party Clock objects. If you need access to this
-    # functionality, let us know, and we'll figure out how to make a public
-    # API. Discussion:
-    #
-    #     https://github.com/python-trio/trio/issues/1587
     def _try_resync_autojump_threshold(self) -> None:
         try:
             runner = GLOBAL_RUN_CONTEXT.runner
@@ -118,13 +112,10 @@ class MockClock(Clock):
                 runner.force_guest_tick_asap()
         except AttributeError:
             pass
-        else:
-            if runner.clock is self:
-                runner.clock_autojump_threshold = self._autojump_threshold
 
     # Invoked by the run loop when runner.clock_autojump_threshold is
     # exceeded.
-    def _autojump(self) -> None:
+    def autojump(self) -> None:
         statistics = _core.current_statistics()
         jump = statistics.seconds_to_next_deadline
         if 0 < jump < inf:
@@ -136,7 +127,7 @@ class MockClock(Clock):
         return self._virtual_base + virtual_offset
 
     def start_clock(self) -> None:
-        self._try_resync_autojump_threshold()
+        pass
 
     def current_time(self) -> float:
         return self._real_to_virtual(self._real_clock())

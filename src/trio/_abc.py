@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from math import inf
 import socket
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Generic, TypeVar
@@ -64,6 +65,15 @@ class Clock(ABC):
             deadline. May be :data:`math.inf`.
 
         """
+
+    @property
+    def autojump_threshold(self) -> float:
+        return inf
+
+    def autojump(self) -> None:
+        # If `autojump_threshold()` has the default implementation (returning `inf`),
+        # this will never be called.
+        raise NotImplementedError
 
 
 class Instrument(ABC):  # noqa: B024  # conceptually is ABC

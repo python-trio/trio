@@ -1816,9 +1816,6 @@ class Runner:  # type: ignore[explicit-any]
     trio_token: TrioToken | None = None
     asyncgens: AsyncGenerators = attrs.Factory(AsyncGenerators)
 
-    # If everything goes idle for this long, we call clock._autojump()
-    clock_autojump_threshold: float = inf
-
     # Guest mode stuff
     is_guest: bool = False
     guest_tick_scheduled: bool = False
@@ -2758,8 +2755,8 @@ def unrolled_run(
             # We use 'elif' here because if there are tasks in
             # wait_all_tasks_blocked, then those tasks will wake up without
             # jumping the clock, so we don't need to autojump.
-            elif runner.clock_autojump_threshold < timeout:
-                timeout = runner.clock_autojump_threshold
+            elif runner.clock.autojump_threshold < timeout:
+                timeout = runner.clock.autojump_threshold
                 idle_primed = IdlePrimedTypes.AUTOJUMP_CLOCK
 
             if "before_io_wait" in runner.instruments:
@@ -2810,8 +2807,7 @@ def unrolled_run(
                             break
                 else:
                     assert idle_primed is IdlePrimedTypes.AUTOJUMP_CLOCK
-                    assert isinstance(runner.clock, _core.MockClock)
-                    runner.clock._autojump()
+                    runner.clock.autojump()
 
             # Process all runnable tasks, but only the ones that are already
             # runnable now. Anything that becomes runnable during this cycle
