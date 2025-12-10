@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from math import inf
 import socket
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Generic, TypeVar

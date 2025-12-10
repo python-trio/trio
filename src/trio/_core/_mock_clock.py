@@ -1,7 +1,6 @@
 import time
 from math import inf
 
-from .. import _core
 from .._abc import Clock
 from .._util import final
 from ._run import GLOBAL_RUN_CONTEXT
