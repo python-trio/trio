@@ -2662,9 +2662,12 @@ async def test_cancel_scope_exit_doesnt_create_cyclic_garbage() -> None:
 
     old_flags = gc.get_debug()
     try:
-        with pytest.RaisesGroup(
-            pytest.RaisesExc(ValueError, match="^this is a crash$"),
-        ), _core.CancelScope() as outer:
+        with (
+            pytest.RaisesGroup(
+                pytest.RaisesExc(ValueError, match="^this is a crash$"),
+            ),
+            _core.CancelScope() as outer,
+        ):
             async with _core.open_nursery() as nursery:
                 gc.collect()
                 gc.set_debug(gc.DEBUG_SAVEALL)
