@@ -29,7 +29,7 @@ from ._memory_streams import (
     memory_stream_pump as memory_stream_pump,
 )
 from ._network import open_stream_to_socket_listener as open_stream_to_socket_listener
-from ._raises_group import Matcher as Matcher, RaisesGroup as _RaisesGroup
+from ._raises_group import Matcher as _Matcher, RaisesGroup as _RaisesGroup
 from ._sequencer import Sequencer as Sequencer
 from ._trio_test import trio_test as trio_test
 
@@ -47,6 +47,12 @@ deprecate_attributes(
             version="0.32.0",
             issue=3326,
             instead="See https://docs.pytest.org/en/stable/reference/reference.html#pytest.RaisesGroup",
-        )
+        ),
+        "Matcher": DeprecatedAttribute(
+            _Matcher,
+            version="0.32.0",
+            issue=3326,
+            instead="See https://docs.pytest.org/en/stable/reference/reference.html#pytest.RaisesExc",
+        ),
     },
 )
