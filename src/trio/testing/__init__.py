@@ -44,13 +44,13 @@ deprecate_attributes(
     {
         "RaisesGroup": DeprecatedAttribute(
             _RaisesGroup,
-            version="0.32.0",
+            version="0.33.0",
             issue=3326,
             instead="See https://docs.pytest.org/en/stable/reference/reference.html#pytest.RaisesGroup",
         ),
         "Matcher": DeprecatedAttribute(
             _Matcher,
-            version="0.32.0",
+            version="0.33.0",
             issue=3326,
             instead="See https://docs.pytest.org/en/stable/reference/reference.html#pytest.RaisesExc",
         ),
