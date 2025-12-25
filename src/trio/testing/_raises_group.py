@@ -15,8 +15,6 @@ from typing import (
 
 from trio._util import final
 
-from .._deprecate import warn_deprecated
-
 if TYPE_CHECKING:
     import builtins
 
@@ -533,13 +531,6 @@ class RaisesGroup(AbstractMatcher[BaseExceptionGroup[BaseExcT_co]]):
             | None
         ) = None,
     ):
-        warn_deprecated(
-            "RaisesGroup",
-            version="0.31.0",
-            issue=3326,
-            instead="See https://docs.pytest.org/en/stable/reference/reference.html#pytest.RaisesGroup",
-            use_triodeprecationwarning=True,
-        )
         # The type hint on the `self` and `check` parameters uses different formats
         # that are *very* hard to reconcile while adhering to the overloads, so we cast
         # it to avoid an error when passing it to super().__init__
