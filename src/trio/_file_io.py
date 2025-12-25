@@ -10,6 +10,7 @@ from typing import (
     AnyStr,
     BinaryIO,
     Generic,
+    Literal,
     TypeVar,
     Union,
     overload,
@@ -29,7 +30,6 @@ if TYPE_CHECKING:
         OpenTextMode,
         StrOrBytesPath,
     )
-    from typing_extensions import Literal
 
     from ._sync import CapacityLimiter
 

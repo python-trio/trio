@@ -17,7 +17,7 @@ async def wait_child_exiting(process: _subprocess.Process) -> None:
         # pypy doesn't define KQ_NOTE_EXIT:
         # https://bitbucket.org/pypy/pypy/issues/2921/
         # I verified this value against both Darwin and FreeBSD
-        KQ_NOTE_EXIT = 0x80000000
+        KQ_NOTE_EXIT = 0x80000000  # type: ignore[misc]
 
     def make_event(flags: int) -> select.kevent:
         return select.kevent(

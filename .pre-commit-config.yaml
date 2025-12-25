@@ -20,11 +20,11 @@ repos:
       - id: sort-simple-yaml
         files: .pre-commit-config.yaml
   - repo: https://github.com/psf/black-pre-commit-mirror
-    rev: 25.9.0
+    rev: 25.12.0
     hooks:
       - id: black
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.13.1
+    rev: v0.14.10
     hooks:
       - id: ruff-check
         types: [file]
@@ -38,15 +38,15 @@ repos:
           # tomli needed on 3.10. tomllib is available in stdlib on 3.11+
           - tomli
   - repo: https://github.com/adhtruong/mirrors-typos
-    rev: v1.36.2
+    rev: v1.40.0
     hooks:
       - id: typos
   - repo: https://github.com/sphinx-contrib/sphinx-lint
-    rev: v1.0.0
+    rev: v1.0.2
     hooks:
       - id: sphinx-lint
   - repo: https://github.com/woodruffw/zizmor-pre-commit
-    rev: v1.13.0
+    rev: v1.19.0
     hooks:
       - id: zizmor
   - repo: local
@@ -73,14 +73,14 @@ repos:
         additional_dependencies: ["pyyaml"]
         files: ^(test-requirements\.txt)|(\.pre-commit-config\.yaml)$
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.8.19
+    rev: 0.9.18
     hooks:
       # Compile requirements
       - id: pip-compile
         name: uv pip-compile test-requirements.in
         args: [
           "--universal",
-          "--python-version=3.9",
+          "--python-version=3.10",
           "test-requirements.in",
           "-o",
           "test-requirements.txt"]

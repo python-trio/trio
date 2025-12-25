@@ -5,13 +5,7 @@ import sys
 from abc import ABC, abstractmethod
 from re import Pattern
 from textwrap import indent
-from typing import (
-    TYPE_CHECKING,
-    Generic,
-    Literal,
-    cast,
-    overload,
-)
+from typing import TYPE_CHECKING, Generic, Literal, TypeGuard, cast, overload
 
 from trio._util import final
 
@@ -24,7 +18,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
     from _pytest._code.code import ExceptionChainRepr, ReprExceptionInfo, Traceback
-    from typing_extensions import TypeGuard, TypeVar
+    from typing_extensions import TypeVar
 
     # this conditional definition is because we want to allow a TypeVar default
     MatchE = TypeVar(

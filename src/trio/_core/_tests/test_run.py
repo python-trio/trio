@@ -1060,7 +1060,7 @@ def test_broken_abort() -> None:
 # the upstream issue is resolved.
 @restore_unraisablehook()
 @pytest.mark.skipif(
-    sys.version_info[:3] == (3, 14, 0),
+    sys.version_info[:2] == (3, 14),
     reason="https://github.com/python/cpython/issues/133932",
 )
 def test_error_in_run_loop() -> None:
@@ -1299,7 +1299,7 @@ async def test_exc_info_after_throw_suppressed() -> None:
 #   https://bugs.python.org/issue25612 (Example 2)
 #   https://bugs.python.org/issue25683
 #   https://bugs.python.org/issue29587 (Example 1)
-# This is fixed in CPython >= 3.9.
+# This is fixed in CPython >= 3.9, but kept as a regression test.
 async def test_exception_chaining_after_throw() -> None:
     child_task: _core.Task | None = None
 
@@ -2662,13 +2662,9 @@ async def test_cancel_scope_exit_doesnt_create_cyclic_garbage() -> None:
 
     old_flags = gc.get_debug()
     try:
-        # fmt: off
-        # Remove after 3.9 unsupported, black formats in a way that breaks if
-        # you do `-X oldparser`
         with pytest.RaisesGroup(
             pytest.RaisesExc(ValueError, match="^this is a crash$"),
         ), _core.CancelScope() as outer:
-            # fmt: on
             async with _core.open_nursery() as nursery:
                 gc.collect()
                 gc.set_debug(gc.DEBUG_SAVEALL)

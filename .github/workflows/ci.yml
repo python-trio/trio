@@ -33,12 +33,12 @@ jobs:
 
     steps:
       - name: Switch to using Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: 3.11
 
       - name: Grab the source from Git
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           persist-credentials: false
 
@@ -74,7 +74,7 @@ jobs:
           SDIST: ${{ steps.artifact-name.outputs.sdist }}
           WHEEL: ${{ steps.artifact-name.outputs.wheel }}
       - name: Store the distribution packages
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ env.dists-artifact-name }}
           # NOTE: Exact expected file names are specified here
@@ -86,12 +86,25 @@ jobs:
             dist/${{ steps.artifact-name.outputs.wheel }}
           retention-days: 5
 
+  smoke-tests:
+    name: Smoke tests
+    needs:
+      - build
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Switch to using Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3.11
+
       - name: >-
           Smoke-test:
           retrieve the project source from an sdist inside the GHA artifact
         uses: re-actors/checkout-python-sdist@release/v2
         with:
-          source-tarball-name: ${{ steps.artifact-name.outputs.sdist }}
+          source-tarball-name: ${{ needs.build.outputs.sdist-artifact-name }}
           workflow-artifact-name: ${{ env.dists-artifact-name }}
 
       - name: >-
@@ -104,7 +117,7 @@ jobs:
 
       - name: >-
           Smoke-test: grab the source from Git into git-src
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: git-src
           persist-credentials: false
@@ -155,18 +168,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+        python: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.14t']
         arch: ['x86', 'x64']
         lsp: ['']
         lsp_extract_file: ['']
         extra_name: ['']
         include:
-          - python: '3.9'
+          - python: '3.10'
             arch: 'x64'
             lsp: 'https://raw.githubusercontent.com/python-trio/trio-ci-assets/master/komodia-based-vpn-setup.zip'
             lsp_extract_file: 'komodia-based-vpn-setup.exe'
             extra_name: ', with Komodia LSP'
-          - python: '3.9'
+          - python: '3.10'
             arch: 'x64'
             lsp: 'https://www.proxifier.com/download/legacy/ProxifierSetup342.exe'
             lsp_extract_file: ''
@@ -176,7 +189,7 @@ jobs:
             lsp: ''
             lsp_extract_file: ''
             extra_name: ''
-          #- python: '3.9'
+          #- python: '3.10'
           #  arch: 'x64'
           #  lsp: 'http://download.pctools.com/mirror/updates/9.0.0.2308-SDavfree-lite_en.exe'
           #  lsp_extract_file: ''
@@ -197,8 +210,8 @@ jobs:
         with:
           source-tarball-name: ${{ needs.build.outputs.sdist-artifact-name }}
           workflow-artifact-name: ${{ env.dists-artifact-name }}
-      - name: Setup python
-        uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v6
         with:
           python-version: '${{ matrix.python }}'
           architecture: '${{ matrix.arch }}'
@@ -228,7 +241,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.11', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+        python: ['pypy-3.11', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t']
         check_formatting: ['0']
         no_test_requirements: ['0']
         extra_name: ['']
@@ -237,7 +250,7 @@ jobs:
             check_formatting: '1'
             extra_name: ', check formatting'
           # separate test run that doesn't install test-requirements.txt
-          - python: '3.9'
+          - python: '3.10'
             no_test_requirements: '1'
             extra_name: ', no test-requirements'
     continue-on-error: >-
@@ -261,8 +274,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Setup python
-        uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v6
         with:
           python-version: '${{ matrix.python }}'
           cache: pip
@@ -301,7 +314,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.11', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+        python: ['pypy-3.11', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t']
     continue-on-error: >-
       ${{
         (
@@ -317,8 +330,8 @@ jobs:
         with:
           source-tarball-name: ${{ needs.build.outputs.sdist-artifact-name }}
           workflow-artifact-name: ${{ env.dists-artifact-name }}
-      - name: Setup python
-        uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v6
         with:
           python-version: '${{ matrix.python }}'
           cache: pip
@@ -389,22 +402,25 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - python: '3.9'  # We support running on cython 2 and 3 for 3.9
-            cython: '<3'   # cython 2
-          - python: '3.9'
-            cython: '>=3'  # cython 3 (or greater)
-          - python: '3.11' # 3.11 is the last version Cy2 supports
-            cython: '<3'   # cython 2
-          - python: '3.13' # We support running cython3 on 3.13
-            cython: '>=3'  # cython 3 (or greater)
+          # Cython 2 supports 3.10 and 3.11 and Cython 3 supports all versions we do,
+          # so test both the lowest and higher version for both
+          - python: '3.10'
+            cython: '<3'
+          - python: '3.11'
+            cython: '<3'
+          # TODO: technically we should pin cython versions
+          - python: '3.10'
+            cython: '>=3'
+          - python: '3.14'
+            cython: '>=3'
     steps:
       - name: Retrieve the project source from an sdist inside the GHA artifact
         uses: re-actors/checkout-python-sdist@release/v2
         with:
           source-tarball-name: ${{ needs.build.outputs.sdist-artifact-name }}
           workflow-artifact-name: ${{ env.dists-artifact-name }}
-      - name: Setup python
-        uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v6
         with:
             python-version: '${{ matrix.python }}'
             cache: pip
@@ -453,6 +469,7 @@ jobs:
     if: always()
 
     needs:
+      - smoke-tests
       - Windows
       - Ubuntu
       - macOS

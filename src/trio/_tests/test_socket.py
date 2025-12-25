@@ -8,7 +8,7 @@ import sys
 import tempfile
 from pathlib import Path
 from socket import AddressFamily, SocketKind
-from typing import TYPE_CHECKING, Union, cast
+from typing import TYPE_CHECKING, TypeAlias, cast
 
 import attrs
 import pytest
@@ -21,8 +21,6 @@ from ..testing import assert_checkpoints, wait_all_tasks_blocked
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from typing_extensions import TypeAlias
-
     from .._highlevel_socket import SocketStream
 
     GaiTuple: TypeAlias = tuple[
@@ -30,12 +28,12 @@ if TYPE_CHECKING:
         SocketKind,
         int,
         str,
-        Union[tuple[str, int], tuple[str, int, int, int], tuple[int, bytes]],
+        tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes],
     ]
     GetAddrInfoResponse: TypeAlias = list[GaiTuple]
     GetAddrInfoArgs: TypeAlias = tuple[
-        Union[str, bytes, None],
-        Union[str, bytes, int, None],
+        str | bytes | None,
+        str | bytes | int | None,
         int,
         int,
         int,
@@ -669,7 +667,7 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
                     local=local,  # noqa: B023  # local is not bound in function definition
                 )
                 assert isinstance(value, tuple)
-                return cast("tuple[Union[str, int], ...]", value)
+                return cast("tuple[str | int, ...]", value)
 
             assert_eq(await res((addrs.arbitrary, "http")), (addrs.arbitrary, 80))
             if v6:

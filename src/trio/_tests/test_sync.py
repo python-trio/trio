@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import re
 import weakref
-from typing import TYPE_CHECKING, Callable, Union
+from collections.abc import Callable
+from typing import TypeAlias
 
 import pytest
 
@@ -11,9 +12,6 @@ from .._core._parking_lot import GLOBAL_PARKING_LOT_BREAKER
 from .._sync import *
 from .._timeouts import sleep_forever
 from ..testing import assert_checkpoints, wait_all_tasks_blocked
-
-if TYPE_CHECKING:
-    from typing_extensions import TypeAlias
 
 
 async def test_Event() -> None:
@@ -585,15 +583,15 @@ generic_lock_test = pytest.mark.parametrize(
     ids=lock_factory_names,
 )
 
-LockLike: TypeAlias = Union[
-    CapacityLimiter,
-    Semaphore,
-    Lock,
-    StrictFIFOLock,
-    ChannelLock1,
-    ChannelLock2,
-    ChannelLock3,
-]
+LockLike: TypeAlias = (
+    CapacityLimiter
+    | Semaphore
+    | Lock
+    | StrictFIFOLock
+    | ChannelLock1
+    | ChannelLock2
+    | ChannelLock3
+)
 LockFactory: TypeAlias = Callable[[], LockLike]
 
 

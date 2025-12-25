@@ -1,1 +1,0 @@
-Decrease indentation for exception groups raised in `trio.as_safe_channel`.

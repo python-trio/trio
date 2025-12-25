@@ -44,13 +44,6 @@ def test_build_raw_input() -> None:
         raw_input()
 
 
-# In 3.10 or later, types.FunctionType (used internally) will automatically
-# attach __builtins__ to the function objects. However we need to explicitly
-# include it for 3.9 support
-def build_locals() -> dict[str, object]:
-    return {"__builtins__": __builtins__}
-
-
 async def test_basic_interaction(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
@@ -59,7 +52,7 @@ async def test_basic_interaction(
     Run some basic commands through the interpreter while capturing stdout.
     Ensure that the interpreted prints the expected results.
     """
-    console = trio._repl.TrioInteractiveConsole(repl_locals=build_locals())
+    console = trio._repl.TrioInteractiveConsole()
     raw_input = build_raw_input(
         [
             # evaluate simple expression and recall the value
@@ -89,7 +82,7 @@ async def test_basic_interaction(
 
 
 async def test_system_exits_quit_interpreter(monkeypatch: pytest.MonkeyPatch) -> None:
-    console = trio._repl.TrioInteractiveConsole(repl_locals=build_locals())
+    console = trio._repl.TrioInteractiveConsole()
     raw_input = build_raw_input(
         [
             "raise SystemExit",
@@ -104,7 +97,7 @@ async def test_KI_interrupts(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    console = trio._repl.TrioInteractiveConsole(repl_locals=build_locals())
+    console = trio._repl.TrioInteractiveConsole()
     raw_input = build_raw_input(
         [
             "import signal, trio, trio.lowlevel",
@@ -132,7 +125,7 @@ async def test_system_exits_in_exc_group(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    console = trio._repl.TrioInteractiveConsole(repl_locals=build_locals())
+    console = trio._repl.TrioInteractiveConsole()
     raw_input = build_raw_input(
         [
             "import sys",
@@ -155,7 +148,7 @@ async def test_system_exits_in_nested_exc_group(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    console = trio._repl.TrioInteractiveConsole(repl_locals=build_locals())
+    console = trio._repl.TrioInteractiveConsole()
     raw_input = build_raw_input(
         [
             "import sys",
@@ -179,7 +172,7 @@ async def test_base_exception_captured(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    console = trio._repl.TrioInteractiveConsole(repl_locals=build_locals())
+    console = trio._repl.TrioInteractiveConsole()
     raw_input = build_raw_input(
         [
             # The statement after raise should still get executed
@@ -199,7 +192,7 @@ async def test_exc_group_captured(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    console = trio._repl.TrioInteractiveConsole(repl_locals=build_locals())
+    console = trio._repl.TrioInteractiveConsole()
     raw_input = build_raw_input(
         [
             # The statement after raise should still get executed
@@ -217,7 +210,7 @@ async def test_base_exception_capture_from_coroutine(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    console = trio._repl.TrioInteractiveConsole(repl_locals=build_locals())
+    console = trio._repl.TrioInteractiveConsole()
     raw_input = build_raw_input(
         [
             "async def async_func_raises_base_exception():",

@@ -5,7 +5,17 @@ import pathlib
 import sys
 from functools import partial, update_wrapper
 from inspect import cleandoc
-from typing import IO, TYPE_CHECKING, Any, BinaryIO, ClassVar, TypeVar, overload
+from typing import (
+    IO,
+    TYPE_CHECKING,
+    Any,
+    BinaryIO,
+    ClassVar,
+    Concatenate,
+    Literal,
+    TypeVar,
+    overload,
+)
 
 from trio._file_io import AsyncIOWrapper, wrap_file
 from trio._util import final
@@ -22,7 +32,7 @@ if TYPE_CHECKING:
         OpenBinaryModeWriting,
         OpenTextMode,
     )
-    from typing_extensions import Concatenate, Literal, ParamSpec, Self
+    from typing_extensions import ParamSpec, Self
 
     P = ParamSpec("P")
 
@@ -238,8 +248,7 @@ class Path(pathlib.PurePath):
     resolve = _wrap_method_path(pathlib.Path.resolve)
     rmdir = _wrap_method(pathlib.Path.rmdir)
     symlink_to = _wrap_method(pathlib.Path.symlink_to)
-    if sys.version_info >= (3, 10):
-        hardlink_to = _wrap_method(pathlib.Path.hardlink_to)
+    hardlink_to = _wrap_method(pathlib.Path.hardlink_to)
     touch = _wrap_method(pathlib.Path.touch)
     unlink = _wrap_method(pathlib.Path.unlink)
     absolute = _wrap_method_path(pathlib.Path.absolute)

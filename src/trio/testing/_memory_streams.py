@@ -2,15 +2,11 @@ from __future__ import annotations
 
 import operator
 from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING, TypeVar
+from typing import TypeAlias, TypeVar
 
 from .. import _core, _util
 from .._highlevel_generic import StapledStream
 from ..abc import ReceiveStream, SendStream
-
-if TYPE_CHECKING:
-    from typing_extensions import TypeAlias
-
 
 AsyncHook: TypeAlias = Callable[[], Awaitable[object]]
 # Would be nice to exclude awaitable here, but currently not possible.

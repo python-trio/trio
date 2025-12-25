@@ -33,7 +33,7 @@ mypy_cache_updated = False
 try:  # If installed, check both versions of this class.
     from typing_extensions import Protocol as Protocol_ext
 except ImportError:  # pragma: no cover
-    Protocol_ext = Protocol  # type: ignore[assignment]
+    Protocol_ext = Protocol
 
 
 def _ensure_mypy_cache_updated() -> None:
@@ -175,6 +175,10 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
         completions = script.complete()
         static_names = no_underscores(c.name for c in completions)
     elif tool == "mypy":
+        if sys.implementation.name != "cpython":
+            # https://github.com/python/mypy/issues/20329
+            pytest.skip("mypy does not support pypy")
+
         if not RUN_SLOW:  # pragma: no cover
             pytest.skip("use --run-slow to check against mypy")
 
@@ -243,16 +247,9 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
         raise AssertionError()
 
 
-# this could be sped up by only invoking mypy once per module, or even once for all
-# modules, instead of once per class.
 @slow
 # see comment on test_static_tool_sees_all_symbols
 @pytest.mark.redistributors_should_skip
-@pytest.mark.skipif(
-    sys.version_info[:4] == (3, 14, 0, "beta"),
-    # 2 passes, 12 fails
-    reason="several tools don't support 3.14.0",
-)
 # Static analysis tools often have trouble with alpha releases, where Python's
 # internals are in flux, grammar may not have settled down, etc.
 @pytest.mark.skipif(
@@ -278,6 +275,10 @@ def test_static_tool_sees_class_members(
 
     if tool == "jedi" and sys.implementation.name != "cpython":
         pytest.skip("jedi does not support pypy")
+
+    if tool == "mypy" and sys.implementation.name != "cpython":
+        # https://github.com/python/mypy/issues/20329
+        pytest.skip("mypy does not support pypy")
 
     if tool == "mypy":
         cache = Path.cwd() / ".mypy_cache"
@@ -364,17 +365,6 @@ def test_static_tool_sees_class_members(
             ignore_names.add("__firstlineno__")
             ignore_names.add("__static_attributes__")
 
-        # pypy seems to have some additional dunders that differ
-        if sys.implementation.name == "pypy":
-            ignore_names |= {
-                "__basicsize__",
-                "__dictoffset__",
-                "__itemsize__",
-                "__sizeof__",
-                "__weakrefoffset__",
-                "__unicode__",
-            }
-
         # inspect.getmembers sees `name` and `value` in Enums, otherwise
         # it behaves the same way as `dir`
         # runtime_names = no_underscores(dir(class_))
@@ -442,6 +432,10 @@ def test_static_tool_sees_class_members(
             before = len(extra)
             extra = {e for e in extra if not e.endswith("AttrsAttributes__")}
             assert len(extra) == before - 1
+
+        if attrs.has(class_):
+            # dynamically created attribute by attrs?
+            missing.remove("__attrs_props__")
 
         # dir does not see `__signature__` on enums until 3.14
         if (
@@ -517,6 +511,11 @@ def test_static_tool_sees_class_members(
             and class_ in (trio.Path, trio.WindowsPath, trio.PosixPath)
         ):
             missing.remove("with_segments")
+
+        # tuple subclasses are weird
+        if issubclass(class_, tuple):
+            extra.remove("__reversed__")
+            missing.remove("__getnewargs__")
 
         if sys.version_info >= (3, 13) and attrs.has(class_):
             missing.remove("__replace__")

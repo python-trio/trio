@@ -26,9 +26,9 @@ if sys.platform == "win32":
 # have:
 globals().update(
     {
-        _name: getattr(_stdlib_socket, _name)
-        for _name in _stdlib_socket.__all__
-        if _name.isupper() and _name not in _bad_symbols
+        name: getattr(_stdlib_socket, name)
+        for name in _stdlib_socket.__all__
+        if name.isupper() and name not in _bad_symbols
     },
 )
 

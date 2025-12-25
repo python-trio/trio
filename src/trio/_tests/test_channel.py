@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -23,7 +23,7 @@ async def test_channel() -> None:
     with pytest.raises(ValueError, match=r"^max_buffer_size must be >= 0$"):
         open_memory_channel(-1)
 
-    s, r = open_memory_channel[Union[int, str, None]](2)
+    s, r = open_memory_channel[int | str | None](2)
     repr(s)  # smoke test
     repr(r)  # smoke test
 
@@ -362,7 +362,7 @@ async def test_statistics() -> None:
 async def test_channel_fairness() -> None:
     # We can remove an item we just sent, and send an item back in after, if
     # no-one else is waiting.
-    s, r = open_memory_channel[Union[int, None]](1)
+    s, r = open_memory_channel[int | None](1)
     s.send_nowait(1)
     assert r.receive_nowait() == 1
     s.send_nowait(2)
@@ -388,7 +388,7 @@ async def test_channel_fairness() -> None:
     # And the analogous situation for send: if we free up a space, we can't
     # immediately send something in it if someone is already waiting to do
     # that
-    s, r = open_memory_channel[Union[int, None]](1)
+    s, r = open_memory_channel[int | None](1)
     s.send_nowait(1)
     with pytest.raises(trio.WouldBlock):
         s.send_nowait(None)
@@ -556,6 +556,7 @@ async def test_as_safe_channel_nested_loop() -> None:
 async def test_as_safe_channel_doesnt_leak_cancellation() -> None:
     @as_safe_channel
     async def agen() -> AsyncGenerator[None]:
+        yield
         with trio.CancelScope() as cscope:
             cscope.cancel()
             yield
@@ -733,6 +734,7 @@ async def test_as_safe_channel_close_before_iteration() -> None:
 async def test_as_safe_channel_close_during_iteration() -> None:
     @as_safe_channel
     async def agen() -> AsyncGenerator[None]:
+        yield
         await chan.aclose()
         while True:
             yield

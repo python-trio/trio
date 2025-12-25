@@ -1,3 +1,0 @@
-Fixed a bug where iterating over an ``@as_safe_channel``-derived ``ReceiveChannel``
-would raise `~trio.BrokenResourceError` if the channel was closed by another task.
-It now shuts down cleanly.

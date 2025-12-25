@@ -303,7 +303,9 @@ def start_thread_soon(
     THREAD_CACHE.start_thread_soon(fn, deliver, name)
 
 
-def clear_worker_threads() -> None:
+def clear_worker_threads() -> (
+    None
+):  # pragma: no cover # see test_clear_thread_cache_after_fork
     # This is OK because the child process does not actually have any
     # worker threads. Additionally, while WorkerThread keeps a strong
     # reference and so would get affected, the only place those are
