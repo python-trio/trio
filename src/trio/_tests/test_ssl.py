@@ -19,12 +19,7 @@ import pytest
 from trio import StapledStream
 from trio._tests.pytest_plugin import skip_if_optional_else_raise
 from trio.abc import ReceiveStream, SendStream
-from trio.testing import (
-    Matcher,
-    MemoryReceiveStream,
-    MemorySendStream,
-    RaisesGroup,
-)
+from trio.testing import MemoryReceiveStream, MemorySendStream
 
 try:
     import trustme
@@ -356,7 +351,9 @@ async def test_PyOpenSSLEchoStream_gives_resource_busy_errors() -> None:
         args2: tuple[object, ...],
     ) -> None:
         s = PyOpenSSLEchoStream()
-        with RaisesGroup(Matcher(_core.BusyResourceError, "simultaneous")):
+        with pytest.RaisesGroup(
+            pytest.RaisesExc(_core.BusyResourceError, match="simultaneous")
+        ):
             async with _core.open_nursery() as nursery:
                 nursery.start_soon(getattr(s, func1), *args1)
                 nursery.start_soon(getattr(s, func2), *args2)
@@ -780,7 +777,9 @@ async def test_resource_busy_errors(client_ctx: SSLContext) -> None:
         func2: Callable[[S], Awaitable[None]],
     ) -> None:
         s, _ = ssl_lockstep_stream_pair(client_ctx)
-        with RaisesGroup(Matcher(_core.BusyResourceError, "another task")):
+        with pytest.RaisesGroup(
+            pytest.RaisesExc(_core.BusyResourceError, match="another task")
+        ):
             async with _core.open_nursery() as nursery:
                 nursery.start_soon(func1, s)
                 nursery.start_soon(func2, s)

@@ -8,7 +8,7 @@ import pytest
 import trio
 from trio import EndOfChannel, as_safe_channel, open_memory_channel
 
-from ..testing import Matcher, RaisesGroup, assert_checkpoints, wait_all_tasks_blocked
+from ..testing import assert_checkpoints, wait_all_tasks_blocked
 
 if sys.version_info < (3, 11):
     from exceptiongroup import ExceptionGroup
@@ -518,9 +518,9 @@ async def test_as_safe_channel_genexit_finally() -> None:
             raise ValueError("agen")
 
     events: list[str] = []
-    with RaisesGroup(
-        Matcher(ValueError, match="^agen$"),
-        Matcher(TypeError, match="^iterator$"),
+    with pytest.RaisesGroup(
+        pytest.RaisesExc(ValueError, match="^agen$"),
+        pytest.RaisesExc(TypeError, match="^iterator$"),
     ) as g:
         async with agen(events) as recv_chan:
             async for i in recv_chan:  # pragma: no branch
@@ -573,7 +573,7 @@ async def test_as_safe_channel_dont_unwrap_user_exceptiongroup() -> None:
         raise NotImplementedError("not entered")
         yield  # pragma: no cover
 
-    with RaisesGroup(Matcher(ValueError, match="bar"), match="foo"):
+    with pytest.RaisesGroup(pytest.RaisesExc(ValueError, match="bar"), match="foo"):
         async with agen() as _:
             raise ExceptionGroup("foo", [ValueError("bar")])
 

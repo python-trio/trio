@@ -6,8 +6,6 @@ from typing import TYPE_CHECKING, Callable, Union
 
 import pytest
 
-from trio.testing import Matcher, RaisesGroup
-
 from .. import _core
 from .._core._parking_lot import GLOBAL_PARKING_LOT_BREAKER
 from .._sync import *
@@ -698,8 +696,8 @@ async def test_lock_multiple_acquire() -> None:
     see https://github.com/python-trio/trio/issues/3035"""
     assert not GLOBAL_PARKING_LOT_BREAKER
     lock = trio.Lock()
-    with RaisesGroup(
-        Matcher(
+    with pytest.RaisesGroup(
+        pytest.RaisesExc(
             trio.BrokenResourceError,
             match="^Owner of this lock exited without releasing: ",
         ),
