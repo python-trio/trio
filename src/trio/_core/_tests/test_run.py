@@ -1872,7 +1872,7 @@ def test_nice_error_on_bad_calls_to_run_or_spawn() -> None:
     async def async_gen(arg: T) -> AsyncGenerator[T, None]:  # pragma: no cover
         yield arg
 
-    # If/when pytest.RaisesGroup/Matcher is added to pytest in some form this test can be
+    # If/when RaisesGroup/Matcher is added to pytest in some form this test can be
     # rewritten to use a loop again, and avoid specifying the exceptions twice in
     # different ways
     with pytest.raises(
