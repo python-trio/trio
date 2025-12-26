@@ -1,10 +1,10 @@
 # Uses `from x import y as y` for compatibility with `pyright --verifytypes` (#2625)
 
+from .. import _deprecate as _deprecate
 from .._core import (
     MockClock as MockClock,
     wait_all_tasks_blocked as wait_all_tasks_blocked,
 )
-from .._deprecate import DeprecatedAttribute, deprecate_attributes
 from .._threads import (
     active_thread_count as active_thread_count,
     wait_all_threads_completed as wait_all_threads_completed,
@@ -36,19 +36,16 @@ from ._trio_test import trio_test as trio_test
 ################################################################
 
 
-fixup_module_metadata(__name__, globals())
-del fixup_module_metadata
-
-deprecate_attributes(
+_deprecate.deprecate_attributes(
     __name__,
     {
-        "RaisesGroup": DeprecatedAttribute(
+        "RaisesGroup": _deprecate.DeprecatedAttribute(
             _RaisesGroup,
             version="0.33.0",
             issue=3326,
             instead="See https://docs.pytest.org/en/stable/reference/reference.html#pytest.RaisesGroup",
         ),
-        "Matcher": DeprecatedAttribute(
+        "Matcher": _deprecate.DeprecatedAttribute(
             _Matcher,
             version="0.33.0",
             issue=3326,
@@ -56,3 +53,6 @@ deprecate_attributes(
         ),
     },
 )
+
+fixup_module_metadata(__name__, globals())
+del fixup_module_metadata
