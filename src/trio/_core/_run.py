@@ -1835,6 +1835,7 @@ class Runner:  # type: ignore[explicit-any]
         self.asyncgens.close()
         if "after_run" in self.instruments:
             self.instruments.call("after_run")
+        self.system_nursery = None
         # This is where KI protection gets disabled, so we do it last
         self.ki_manager.close()
 
@@ -2057,6 +2058,7 @@ class Runner:  # type: ignore[explicit-any]
         task._activate_cancel_status(None)
         self.tasks.remove(task)
         if task is self.init_task:
+            self.init_task = None
             # If the init task crashed, then something is very wrong and we
             # let the error propagate. (It'll eventually be wrapped in a
             # TrioInternalError.)
@@ -2067,6 +2069,7 @@ class Runner:  # type: ignore[explicit-any]
                 raise TrioInternalError
         else:
             if task is self.main_task:
+                self.main_task = None
                 self.main_task_outcome = outcome
                 outcome = Value(None)
             assert task._parent_nursery is not None, task
@@ -2234,14 +2237,14 @@ class Runner:  # type: ignore[explicit-any]
     def _deliver_ki_cb(self) -> None:
         if not self.ki_pending:
             return
-        # Can't happen because main_task and run_sync_soon_task are created at
-        # the same time -- so even if KI arrives before main_task is created,
-        # we won't get here until afterwards.
-        assert self.main_task is not None
         if self.main_task_outcome is not None:
             # We're already in the process of exiting -- leave ki_pending set
             # and we'll check it again on our way out of run().
             return
+        # Can't happen because main_task and run_sync_soon_task are created at
+        # the same time -- so even if KI arrives before main_task is created,
+        # we won't get here until afterwards.
+        assert self.main_task is not None
         self.main_task._attempt_delivery_of_pending_ki()
 
     ################
@@ -2543,12 +2546,15 @@ def run(
         sniffio_library.name = prev_library
     # Inlined copy of runner.main_task_outcome.unwrap() to avoid
     # cluttering every single Trio traceback with an extra frame.
-    if isinstance(runner.main_task_outcome, Value):
-        return cast("RetT", runner.main_task_outcome.value)
-    elif isinstance(runner.main_task_outcome, Error):
-        raise runner.main_task_outcome.error
-    else:  # pragma: no cover
-        raise AssertionError(runner.main_task_outcome)
+    try:
+        if isinstance(runner.main_task_outcome, Value):
+            return cast("RetT", runner.main_task_outcome.value)
+        elif isinstance(runner.main_task_outcome, Error):
+            raise runner.main_task_outcome.error
+        else:  # pragma: no cover
+            raise AssertionError(runner.main_task_outcome)
+    finally:
+        del runner
 
 
 def start_guest_run(  # type: ignore[explicit-any]
@@ -2961,6 +2967,7 @@ def unrolled_run(
             if isinstance(runner.main_task_outcome, Error):
                 ki.__context__ = runner.main_task_outcome.error
             runner.main_task_outcome = Error(ki)
+        del runner
 
 
 ################################################################
