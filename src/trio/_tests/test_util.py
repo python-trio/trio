@@ -9,7 +9,9 @@ if TYPE_CHECKING:
 import pytest
 
 import trio
-from trio.testing import Matcher, RaisesGroup
+
+with pytest.deprecated_call():
+    from trio.testing import Matcher, RaisesGroup
 
 from .. import _core
 from .._core._tests.tutil import (
