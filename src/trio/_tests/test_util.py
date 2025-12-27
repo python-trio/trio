@@ -11,7 +11,7 @@ import pytest
 import trio
 
 with pytest.deprecated_call():
-    from trio.testing import Matcher, RaisesGroup
+    from trio.testing import _Matcher as Matcher, _RaisesGroup as RaisesGroup
 
 from .. import _core
 from .._core._tests.tutil import (

@@ -9,7 +9,7 @@ import pytest
 import trio
 
 with pytest.deprecated_call():
-    from trio.testing import Matcher, RaisesGroup
+    from trio.testing import _Matcher as Matcher, _RaisesGroup as RaisesGroup
 from trio.testing._raises_group import repr_callable
 
 if sys.version_info < (3, 11):
