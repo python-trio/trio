@@ -45,10 +45,6 @@
         "No docstring found for class \"trio.socket.herror\"",
         "No docstring found for function \"trio._core._mock_clock.MockClock.start_clock\"",
         "No docstring found for function \"trio._core._mock_clock.MockClock.current_time\"",
-        "No docstring found for function \"trio._core._mock_clock.MockClock.deadline_to_sleep_time\"",
-        "No docstring found for function \"trio.testing._raises_group._ExceptionInfo.exconly\"",
-        "No docstring found for function \"trio.testing._raises_group._ExceptionInfo.errisinstance\"",
-        "No docstring found for function \"trio.testing._raises_group._ExceptionInfo.getrepr\"",
-        "No docstring found for function \"trio.testing._raises_group.RaisesGroup.expected_type\""
+        "No docstring found for function \"trio._core._mock_clock.MockClock.deadline_to_sleep_time\""
     ]
 }

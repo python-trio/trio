@@ -7,7 +7,7 @@ import pytest
 import trio
 from trio import Cancelled
 from trio.lowlevel import current_task
-from trio.testing import RaisesGroup, wait_all_tasks_blocked
+from trio.testing import wait_all_tasks_blocked
 
 from .test_ki import ki_self
 
@@ -108,7 +108,7 @@ async def test_cancel_reason_nursery() -> None:
         task_status.started(current_task())
         raise ValueError
 
-    with RaisesGroup(ValueError, TypeError):
+    with pytest.RaisesGroup(ValueError, TypeError):
         async with trio.open_nursery() as nursery:
             fail_task = await nursery.start(failing_task)
             with pytest.raises(Cancelled, match=match_str.format(fail_task)):
@@ -123,7 +123,7 @@ async def test_cancel_reason_nursery2() -> None:
         await wait_all_tasks_blocked()
         raise ValueError
 
-    with RaisesGroup(ValueError, TypeError):
+    with pytest.RaisesGroup(ValueError, TypeError):
         async with trio.open_nursery() as nursery:
             fail_task = await nursery.start(failing_task)
             await nursery.start(cancelled_task, fail_task)
@@ -147,7 +147,7 @@ async def test_cancel_reason_nursery3() -> None:
         ):
             await trio.sleep_forever()
 
-    with RaisesGroup(ValueError):
+    with pytest.RaisesGroup(ValueError):
         async with trio.open_nursery() as nursery:
             nursery.start_soon(cancelled_task)
             await wait_all_tasks_blocked()
@@ -192,7 +192,7 @@ async def test_nested_child_source() -> None:
         ):
             await trio.sleep_forever()
 
-    with RaisesGroup(ValueError):
+    with pytest.RaisesGroup(ValueError):
         async with trio.open_nursery() as nursery:
             nursery.start_soon(child)
             await ev.wait()
@@ -214,7 +214,7 @@ async def test_reason_delayed_ki() -> None:
     async def raiser(name: str) -> None:
         ki_self()
 
-    with RaisesGroup(KeyboardInterrupt):
+    with pytest.RaisesGroup(KeyboardInterrupt):
         async with trio.open_nursery() as nursery:
             nursery.start_soon(sleeper, "s1")
             nursery.start_soon(sleeper, "s2")

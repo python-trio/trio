@@ -333,7 +333,7 @@ def test_static_tool_sees_class_members(
         # __init__ is called (and reason they don't use attrs is because they're going
         # to be reimplemented in pytest).
         # Not 100% that's the case, and it works locally, so whatever /shrug
-        if class_ is trio.testing.RaisesGroup or class_ is trio.testing.Matcher:
+        if module_name == "trio.testing" and class_name in ("_RaisesGroup", "_Matcher"):
             continue
 
         # dir() and inspect.getmembers doesn't display properties from the metaclass

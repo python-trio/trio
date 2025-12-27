@@ -16,7 +16,6 @@ from trio._highlevel_open_tcp_stream import (
     reorder_for_rfc_6555_section_5_4,
 )
 from trio.socket import AF_INET, AF_INET6, IPPROTO_TCP, SOCK_STREAM, SocketType
-from trio.testing import Matcher, RaisesGroup
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -550,8 +549,8 @@ async def test_all_fail(autojump_clock: MockClock) -> None:
     )
     assert isinstance(exc, OSError)
 
-    subexceptions = (Matcher(OSError, match="^sorry$"),) * 4
-    assert RaisesGroup(
+    subexceptions = (pytest.RaisesExc(OSError, match="^sorry$"),) * 4
+    assert pytest.RaisesGroup(
         *subexceptions,
         match="all attempts to connect to test.example.com:80 failed",
     ).matches(exc.__cause__)

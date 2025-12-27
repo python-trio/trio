@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, ClassVar, TypeVar
 
 import attrs
 
+from ._util import final
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -139,6 +141,7 @@ def deprecated_alias(
     return wrapper
 
 
+@final
 @attrs.frozen(slots=False)
 class DeprecatedAttribute:
     _not_set: ClassVar[object] = object()
