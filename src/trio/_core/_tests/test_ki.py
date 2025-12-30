@@ -12,8 +12,6 @@ from typing import TYPE_CHECKING, TypeVar
 import outcome
 import pytest
 
-from trio.testing import RaisesGroup
-
 from .tutil import gc_collect_harder
 
 try:
@@ -309,7 +307,7 @@ def test_ki_protection_works() -> None:
             nursery.start_soon(raiser, "r1", record_set)
 
     # raises inside a nursery, so the KeyboardInterrupt is wrapped in an ExceptionGroup
-    with RaisesGroup(KeyboardInterrupt):
+    with pytest.RaisesGroup(KeyboardInterrupt):
         _core.run(check_unprotected_kill)
     assert record_set == {"s1 ok", "s2 ok", "r1 raise ok"}
 
@@ -326,7 +324,7 @@ def test_ki_protection_works() -> None:
             # __aexit__ blocks, and then receives the KI
 
     # raises inside a nursery, so the KeyboardInterrupt is wrapped in an ExceptionGroup
-    with RaisesGroup(KeyboardInterrupt):
+    with pytest.RaisesGroup(KeyboardInterrupt):
         _core.run(check_protected_kill)
     assert record_set == {"s1 ok", "s2 ok", "r1 cancel ok"}
 

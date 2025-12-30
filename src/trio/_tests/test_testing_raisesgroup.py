@@ -7,7 +7,7 @@ from types import TracebackType
 import pytest
 
 import trio
-from trio.testing import Matcher, RaisesGroup
+from trio.testing import _Matcher as Matcher, _RaisesGroup as RaisesGroup
 from trio.testing._raises_group import repr_callable
 
 if sys.version_info < (3, 11):
@@ -1107,8 +1107,22 @@ def test__ExceptionInfo(monkeypatch: pytest.MonkeyPatch) -> None:
         "ExceptionInfo",
         trio.testing._raises_group._ExceptionInfo,
     )
-    with trio.testing.RaisesGroup(ValueError) as excinfo:
+    with RaisesGroup(ValueError) as excinfo:
         raise ExceptionGroup("", (ValueError("hello"),))
     assert excinfo.type is ExceptionGroup
     assert excinfo.value.exceptions[0].args == ("hello",)
     assert isinstance(excinfo.tb, TracebackType)
+
+
+def test_raisesgroup_matcher_deprecation() -> None:
+    with pytest.deprecated_call():
+        trio.testing.Matcher  # type: ignore # noqa: B018
+
+    with pytest.deprecated_call():
+        trio.testing.RaisesGroup  # type: ignore # noqa: B018
+
+    with pytest.deprecated_call():
+        from trio.testing import Matcher  # type: ignore # noqa: F401
+
+    with pytest.deprecated_call():
+        from trio.testing import RaisesGroup  # type: ignore # noqa: F401

@@ -22,7 +22,6 @@ from unittest import mock
 import pytest
 
 import trio
-from trio.testing import Matcher, RaisesGroup
 
 from .. import (
     Event,
@@ -661,7 +660,9 @@ def test_bad_deliver_cancel() -> None:
             nursery.cancel_scope.cancel()
 
     # double wrap from our nursery + the internal nursery
-    with RaisesGroup(RaisesGroup(Matcher(ValueError, "^foo$"))):
+    with pytest.RaisesGroup(
+        pytest.RaisesGroup(pytest.RaisesExc(ValueError, match="^foo$"))
+    ):
         _core.run(do_stuff, strict_exception_groups=True)
 
 
@@ -698,7 +699,7 @@ async def test_warn_on_cancel_SIGKILL_escalation(
 # the background_process_param exercises a lot of run_process cases, but it uses
 # check=False, so lets have a test that uses check=True as well
 async def test_run_process_background_fail() -> None:
-    with RaisesGroup(subprocess.CalledProcessError):
+    with pytest.RaisesGroup(subprocess.CalledProcessError):
         async with _core.open_nursery() as nursery:
             value = await nursery.start(run_process, EXIT_FALSE)
             assert isinstance(value, Process)
@@ -733,7 +734,7 @@ async def test_run_process_internal_error(monkeypatch: pytest.MonkeyPatch) -> No
         return "oops"
 
     monkeypatch.setattr(trio._subprocess, "_open_process", very_broken_open)
-    with RaisesGroup(AttributeError, AttributeError):
+    with pytest.RaisesGroup(AttributeError, AttributeError):
         await run_process(EXIT_TRUE, capture_stdout=True)
 
 

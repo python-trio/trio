@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 import pytest
 
 import trio
-from trio.testing import Matcher, RaisesGroup
+from trio.testing import _Matcher as Matcher, _RaisesGroup as RaisesGroup
 
 from .. import _core
 from .._core._tests.tutil import (
