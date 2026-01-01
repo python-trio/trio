@@ -36,7 +36,7 @@ colorama==0.4.6 ; sys_platform == 'win32'
     #   pylint
     #   pytest
     #   sphinx
-coverage==7.13.0
+coverage==7.13.1
     # via -r test-requirements.in
 cryptography==46.0.3
     # via
@@ -50,13 +50,13 @@ distlib==0.4.0
     # via virtualenv
 docutils==0.21.2 ; python_full_version < '3.11'
     # via sphinx
-docutils==0.22.3 ; python_full_version >= '3.11'
+docutils==0.22.4 ; python_full_version >= '3.11'
     # via sphinx
 exceptiongroup==1.3.1 ; python_full_version < '3.11'
     # via
     #   -r test-requirements.in
     #   pytest
-filelock==3.20.0
+filelock==3.20.1
     # via virtualenv
 identify==2.6.15
     # via pre-commit
@@ -75,20 +75,20 @@ jedi==0.19.2 ; implementation_name == 'cpython'
     # via -r test-requirements.in
 jinja2==3.1.6
     # via sphinx
-librt==0.7.3 ; implementation_name == 'cpython'
+librt==0.7.5 ; implementation_name == 'cpython' and platform_python_implementation != 'PyPy'
     # via mypy
 markupsafe==3.0.3
     # via jinja2
 mccabe==0.7.0
     # via pylint
-mypy==1.19.0 ; implementation_name == 'cpython'
+mypy==1.19.1 ; implementation_name == 'cpython'
     # via -r test-requirements.in
 mypy-extensions==1.1.0
     # via
     #   -r test-requirements.in
     #   black
     #   mypy
-nodeenv==1.9.1
+nodeenv==1.10.0
     # via
     #   pre-commit
     #   pyright
@@ -112,7 +112,7 @@ platformdirs==4.5.1
     #   virtualenv
 pluggy==1.6.0
     # via pytest
-pre-commit==4.5.0
+pre-commit==4.5.1
     # via -r test-requirements.in
 pycparser==2.23 ; (implementation_name != 'PyPy' and os_name == 'nt') or (implementation_name != 'PyPy' and platform_python_implementation != 'PyPy')
     # via cffi
@@ -134,7 +134,7 @@ pyyaml==6.0.3
     # via pre-commit
 requests==2.32.5
     # via sphinx
-roman-numerals==3.1.0 ; python_full_version >= '3.11'
+roman-numerals==4.1.0 ; python_full_version >= '3.11'
     # via sphinx
 ruff==0.14.10
     # via -r test-requirements.in
@@ -146,7 +146,9 @@ sortedcontainers==2.4.0
     # via -r test-requirements.in
 sphinx==8.1.3 ; python_full_version < '3.11'
     # via -r test-requirements.in
-sphinx==9.0.4 ; python_full_version >= '3.11'
+sphinx==9.0.4 ; python_full_version == '3.11.*'
+    # via -r test-requirements.in
+sphinx==9.1.0 ; python_full_version >= '3.12'
     # via -r test-requirements.in
 sphinxcontrib-applehelp==2.0.0
     # via sphinx
@@ -181,7 +183,7 @@ types-pyopenssl==24.1.0.20240722
     # via -r test-requirements.in
 types-pyyaml==6.0.12.20250915
     # via -r test-requirements.in
-types-setuptools==80.9.0.20250822
+types-setuptools==80.9.0.20251223
     # via types-cffi
 typing-extensions==4.15.0
     # via
@@ -194,9 +196,9 @@ typing-extensions==4.15.0
     #   pyopenssl
     #   pyright
     #   virtualenv
-urllib3==2.6.1
+urllib3==2.6.2
     # via requests
-uv==0.9.18
+uv==0.9.21
     # via -r test-requirements.in
 virtualenv==20.35.4
     # via pre-commit
