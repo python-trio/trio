@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-if sys.version_info >= (3, 12):
+if sys.version_info >= (3, 11):
     from sphinx.util.inventory import InventoryItem
 
 from sphinx.util.logging import getLogger
@@ -282,19 +282,19 @@ def add_intersphinx(app: Sphinx) -> None:
         assert isinstance(inventory, dict)
         inventory = cast("Inventory", inventory)
 
-        if sys.version_info < (3, 11):
-            inventory[f"py:{reftype}"][f"{target}"] = (
-                "Python",
-                version,
-                f"https://docs.python.org/{url_version}/library/{library}.html/{obj}",
-                "-",
-            )
-        else:
+        if sys.version_info >= (3, 11):
             inventory[f"py:{reftype}"][f"{target}"] = InventoryItem(
                 project_name="Python",
                 project_version=version,
                 uri=f"https://docs.python.org/{url_version}/library/{library}.html/{obj}",
                 display_name="-",
+            )
+        else:
+            inventory[f"py:{reftype}"][f"{target}"] = (
+                "Python",
+                version,
+                f"https://docs.python.org/{url_version}/library/{library}.html/{obj}",
+                "-",
             )
 
     # This has been removed in Py3.12, so add a link to the 3.11 version with deprecation warnings.
