@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-if sys.version_info < (3, 11):
+if sys.version_info >= (3, 12):
     from sphinx.util.inventory import InventoryItem
 
 from sphinx.util.logging import getLogger
