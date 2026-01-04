@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 if sys.version_info >= (3, 11):
-    from sphinx.util.inventory import InventoryItem
+    from sphinx.util.inventory import _InventoryItem
 
 from sphinx.util.logging import getLogger
 
@@ -283,7 +283,7 @@ def add_intersphinx(app: Sphinx) -> None:
         inventory = cast("Inventory", inventory)
 
         if sys.version_info >= (3, 11):
-            inventory[f"py:{reftype}"][f"{target}"] = InventoryItem(
+            inventory[f"py:{reftype}"][f"{target}"] = _InventoryItem(
                 project_name="Python",
                 project_version=version,
                 uri=f"https://docs.python.org/{url_version}/library/{library}.html/{obj}",
