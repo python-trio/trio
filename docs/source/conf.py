@@ -25,7 +25,11 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-from sphinx.util.inventory import _InventoryItem
+if sys.version_info < (3,11):
+    from sphinx.util.inventory import InventoryItem
+else:
+    from sphinx.util.inventory import _InventoryItem
+
 from sphinx.util.logging import getLogger
 
 if TYPE_CHECKING:
@@ -280,12 +284,20 @@ def add_intersphinx(app: Sphinx) -> None:
         assert isinstance(inventory, dict)
         inventory = cast("Inventory", inventory)
 
-        inventory[f"py:{reftype}"][f"{target}"] = _InventoryItem(
-            project_name="Python",
-            project_version=version,
-            uri=f"https://docs.python.org/{url_version}/library/{library}.html/{obj}",
-            display_name="-",
-        )
+        if sys.version_info < (3, 11):
+            inventory[f"py:{reftype}"][f"{target}"] = (
+                "Python",
+                version,
+                f"https://docs.python.org/{url_version}/library/{library}.html/{obj}",
+                "-",
+            )
+        else:
+            inventory[f"py:{reftype}"][f"{target}"] = InventoryItem(
+                project_name="Python",
+                project_version=version,
+                uri=f"https://docs.python.org/{url_version}/library/{library}.html/{obj}",
+                display_name="-",
+            )
 
     # This has been removed in Py3.12, so add a link to the 3.11 version with deprecation warnings.
     add_mapping("method", "pathlib", "Path.link_to", "3.11")
