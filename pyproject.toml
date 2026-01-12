@@ -155,6 +155,7 @@ extend-ignore = [
     "PERF203", # try-except-in-loop (not always possible to refactor)
     "PT012",   # multiple statements in pytest.raises block
     "SIM117",  # multiple-with-statements (messes up lots of context-based stuff and looks bad)
+    "RUF067",  # non-empty-init-module, since we need lots of logic in our __init__
 
     # conflicts with formatter (ruff recommends these be disabled)
     "COM812",
