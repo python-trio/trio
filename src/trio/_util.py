@@ -32,7 +32,6 @@ if TYPE_CHECKING:
     if sys.version_info < (3, 11):
         from exceptiongroup import BaseExceptionGroup
 
-    ArgsT = ParamSpec("ArgsT")
     P = ParamSpec("P")
     PosArgsT = TypeVarTuple("PosArgsT")
 
