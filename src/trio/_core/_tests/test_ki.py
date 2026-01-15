@@ -6,13 +6,11 @@ import signal
 import sys
 import threading
 import weakref
-from collections.abc import AsyncIterator, Iterator
-from typing import TYPE_CHECKING, Callable, TypeVar
+from collections.abc import AsyncIterator, Callable, Iterator
+from typing import TYPE_CHECKING, TypeVar
 
 import outcome
 import pytest
-
-from trio.testing import RaisesGroup
 
 from .tutil import gc_collect_harder
 
@@ -164,7 +162,7 @@ async def test_generator_based_context_manager_throw() -> None:
 @pytest.mark.skipif(async_generator is None, reason="async_generator not installed")
 async def test_async_generator_agen_protection() -> None:
     @_core.enable_ki_protection
-    @async_generator  # type: ignore[misc] # untyped generator
+    @async_generator  # type: ignore[untyped-decorator]
     async def agen_protected1() -> None:  # type: ignore[misc] # untyped generator
         assert _core.currently_ki_protected()
         try:
@@ -173,7 +171,7 @@ async def test_async_generator_agen_protection() -> None:
             assert _core.currently_ki_protected()
 
     @_core.disable_ki_protection
-    @async_generator  # type: ignore[misc] # untyped generator
+    @async_generator  # type: ignore[untyped-decorator]
     async def agen_unprotected1() -> None:  # type: ignore[misc] # untyped generator
         assert not _core.currently_ki_protected()
         try:
@@ -182,7 +180,7 @@ async def test_async_generator_agen_protection() -> None:
             assert not _core.currently_ki_protected()
 
     # Swap the order of the decorators:
-    @async_generator  # type: ignore[misc] # untyped generator
+    @async_generator  # type: ignore[untyped-decorator]
     @_core.enable_ki_protection
     async def agen_protected2() -> None:  # type: ignore[misc] # untyped generator
         assert _core.currently_ki_protected()
@@ -191,7 +189,7 @@ async def test_async_generator_agen_protection() -> None:
         finally:
             assert _core.currently_ki_protected()
 
-    @async_generator  # type: ignore[misc] # untyped generator
+    @async_generator  # type: ignore[untyped-decorator]
     @_core.disable_ki_protection
     async def agen_unprotected2() -> None:  # type: ignore[misc] # untyped generator
         assert not _core.currently_ki_protected()
@@ -309,7 +307,7 @@ def test_ki_protection_works() -> None:
             nursery.start_soon(raiser, "r1", record_set)
 
     # raises inside a nursery, so the KeyboardInterrupt is wrapped in an ExceptionGroup
-    with RaisesGroup(KeyboardInterrupt):
+    with pytest.RaisesGroup(KeyboardInterrupt):
         _core.run(check_unprotected_kill)
     assert record_set == {"s1 ok", "s2 ok", "r1 raise ok"}
 
@@ -326,7 +324,7 @@ def test_ki_protection_works() -> None:
             # __aexit__ blocks, and then receives the KI
 
     # raises inside a nursery, so the KeyboardInterrupt is wrapped in an ExceptionGroup
-    with RaisesGroup(KeyboardInterrupt):
+    with pytest.RaisesGroup(KeyboardInterrupt):
         _core.run(check_protected_kill)
     assert record_set == {"s1 ok", "s2 ok", "r1 cancel ok"}
 

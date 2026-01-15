@@ -15,13 +15,13 @@ from typing import (
     TYPE_CHECKING,
     Any,
     NoReturn,
+    TypeAlias,
 )
 from unittest import mock
 
 import pytest
 
 import trio
-from trio.testing import Matcher, RaisesGroup
 
 from .. import (
     Event,
@@ -39,8 +39,6 @@ from ..testing import MockClock, assert_no_checkpoints, wait_all_tasks_blocked
 
 if TYPE_CHECKING:
     from types import FrameType
-
-    from typing_extensions import TypeAlias
 
     from .._abc import ReceiveStream
 
@@ -662,7 +660,9 @@ def test_bad_deliver_cancel() -> None:
             nursery.cancel_scope.cancel()
 
     # double wrap from our nursery + the internal nursery
-    with RaisesGroup(RaisesGroup(Matcher(ValueError, "^foo$"))):
+    with pytest.RaisesGroup(
+        pytest.RaisesGroup(pytest.RaisesExc(ValueError, match="^foo$"))
+    ):
         _core.run(do_stuff, strict_exception_groups=True)
 
 
@@ -699,7 +699,7 @@ async def test_warn_on_cancel_SIGKILL_escalation(
 # the background_process_param exercises a lot of run_process cases, but it uses
 # check=False, so lets have a test that uses check=True as well
 async def test_run_process_background_fail() -> None:
-    with RaisesGroup(subprocess.CalledProcessError):
+    with pytest.RaisesGroup(subprocess.CalledProcessError):
         async with _core.open_nursery() as nursery:
             value = await nursery.start(run_process, EXIT_FALSE)
             assert isinstance(value, Process)
@@ -714,17 +714,17 @@ async def test_run_process_background_fail() -> None:
 async def test_for_leaking_fds() -> None:
     gc.collect()  # address possible flakiness on PyPy
 
-    starting_fds = set(SyncPath("/dev/fd").iterdir())
+    starting_fds = set(SyncPath("/dev/fd").iterdir())  # noqa: ASYNC240
     await run_process(EXIT_TRUE)
-    assert set(SyncPath("/dev/fd").iterdir()) == starting_fds
+    assert set(SyncPath("/dev/fd").iterdir()) == starting_fds  # noqa: ASYNC240
 
     with pytest.raises(subprocess.CalledProcessError):
         await run_process(EXIT_FALSE)
-    assert set(SyncPath("/dev/fd").iterdir()) == starting_fds
+    assert set(SyncPath("/dev/fd").iterdir()) == starting_fds  # noqa: ASYNC240
 
     with pytest.raises(PermissionError):
         await run_process(["/dev/fd/0"])
-    assert set(SyncPath("/dev/fd").iterdir()) == starting_fds
+    assert set(SyncPath("/dev/fd").iterdir()) == starting_fds  # noqa: ASYNC240
 
 
 async def test_run_process_internal_error(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -733,8 +733,8 @@ async def test_run_process_internal_error(monkeypatch: pytest.MonkeyPatch) -> No
     async def very_broken_open(*args: object, **kwargs: object) -> str:
         return "oops"
 
-    monkeypatch.setattr(trio._subprocess, "open_process", very_broken_open)
-    with RaisesGroup(AttributeError, AttributeError):
+    monkeypatch.setattr(trio._subprocess, "_open_process", very_broken_open)
+    with pytest.RaisesGroup(AttributeError, AttributeError):
         await run_process(EXIT_TRUE, capture_stdout=True)
 
 

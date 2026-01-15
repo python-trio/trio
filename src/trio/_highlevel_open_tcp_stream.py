@@ -375,14 +375,6 @@ async def open_tcp_stream(
                 # allowing the next target to be tried early
                 attempt_failed = trio.Event()
 
-                # workaround to check types until typing of nursery.start_soon improved
-                if TYPE_CHECKING:
-                    await attempt_connect(
-                        (address_family, socket_type, proto),
-                        addr,
-                        attempt_failed,
-                    )
-
                 nursery.start_soon(
                     attempt_connect,
                     (address_family, socket_type, proto),

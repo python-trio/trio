@@ -5,7 +5,17 @@ import pathlib
 import sys
 from functools import partial, update_wrapper
 from inspect import cleandoc
-from typing import IO, TYPE_CHECKING, Any, BinaryIO, ClassVar, TypeVar, overload
+from typing import (
+    IO,
+    TYPE_CHECKING,
+    Any,
+    BinaryIO,
+    ClassVar,
+    Concatenate,
+    Literal,
+    TypeVar,
+    overload,
+)
 
 from trio._file_io import AsyncIOWrapper, wrap_file
 from trio._util import final
@@ -22,7 +32,7 @@ if TYPE_CHECKING:
         OpenBinaryModeWriting,
         OpenTextMode,
     )
-    from typing_extensions import Concatenate, Literal, ParamSpec, Self
+    from typing_extensions import ParamSpec, Self
 
     P = ParamSpec("P")
 
@@ -39,8 +49,18 @@ def _wraps_async(  # type: ignore[explicit-any]
 
         update_wrapper(wrapper, wrapped)
         if wrapped.__doc__:
+            module = wrapped.__module__
+            # these are exported specially from CPython's intersphinx inventory
+            module = module.replace("pathlib._local", "pathlib")
+            module = module.replace("pathlib._abc", "pathlib")
+
+            name = wrapped.__qualname__
+            name = name.replace(
+                "PathBase", "Path"
+            )  # I'm not sure why this is necessary
+
             wrapper.__doc__ = (
-                f"Like :meth:`~{wrapped.__module__}.{wrapped.__qualname__}`, but async.\n"
+                f"Like :meth:`~{module}.{name}`, but async.\n"
                 f"\n"
                 f"{cleandoc(wrapped.__doc__)}\n"
             )
@@ -183,7 +203,7 @@ class Path(pathlib.PurePath):
     ) -> AsyncIOWrapper[BinaryIO]: ...
 
     @overload
-    async def open(  # type: ignore[misc, explicit-any]  # Any usage matches builtins.open().
+    async def open(  # type: ignore[explicit-any]  # Any usage matches builtins.open().
         self,
         mode: str,
         buffering: int = -1,
@@ -228,8 +248,7 @@ class Path(pathlib.PurePath):
     resolve = _wrap_method_path(pathlib.Path.resolve)
     rmdir = _wrap_method(pathlib.Path.rmdir)
     symlink_to = _wrap_method(pathlib.Path.symlink_to)
-    if sys.version_info >= (3, 10):
-        hardlink_to = _wrap_method(pathlib.Path.hardlink_to)
+    hardlink_to = _wrap_method(pathlib.Path.hardlink_to)
     touch = _wrap_method(pathlib.Path.touch)
     unlink = _wrap_method(pathlib.Path.unlink)
     absolute = _wrap_method_path(pathlib.Path.absolute)
@@ -246,6 +265,10 @@ class Path(pathlib.PurePath):
 
     def as_uri(self) -> str:
         return pathlib.Path.as_uri(self)
+
+
+if Path.relative_to.__doc__:  # pragma: no branch
+    Path.relative_to.__doc__ = Path.relative_to.__doc__.replace(" `..` ", " ``..`` ")
 
 
 @final

@@ -274,17 +274,20 @@ TODO: these are implemented, but are currently more of a sketch than
 anything real. See `#26
 <https://github.com/python-trio/trio/issues/26>`__.
 
-.. function:: current_kqueue()
+.. autofunction:: current_kqueue()
 
-.. function:: wait_kevent(ident, filter, abort_func)
+.. autofunction:: wait_kevent(ident, filter, abort_func)
    :async:
 
-.. function:: monitor_kevent(ident, filter)
+.. autofunction:: monitor_kevent(ident, filter)
    :with: queue
 
 
 Windows-specific API
 --------------------
+
+.. note: this is a function and not `autofunction` since it relies on cffi
+   compiling some things.
 
 .. function:: WaitForSingleObject(handle)
     :async:
@@ -304,20 +307,20 @@ anything real. See `#26
 <https://github.com/python-trio/trio/issues/26>`__ and `#52
 <https://github.com/python-trio/trio/issues/52>`__.
 
-.. function:: register_with_iocp(handle)
+.. autofunction:: register_with_iocp(handle)
 
-.. function:: wait_overlapped(handle, lpOverlapped)
+.. autofunction:: wait_overlapped(handle, lpOverlapped)
    :async:
 
-.. function:: write_overlapped(handle, data)
+.. autofunction:: write_overlapped(handle, data)
    :async:
 
-.. function:: readinto_overlapped(handle, data)
+.. autofunction:: readinto_overlapped(handle, data)
    :async:
 
-.. function:: current_iocp()
+.. autofunction:: current_iocp()
 
-.. function:: monitor_completion_key()
+.. autofunction:: monitor_completion_key()
    :with: queue
 
 
@@ -1079,8 +1082,7 @@ issue #649 <https://github.com/python-trio/trio/issues/649>`__. For
 more details on how coroutines work, we recommend André Caron's `A
 tale of event loops
 <https://github.com/AndreLouisCaron/a-tale-of-event-loops>`__, or
-going straight to `PEP 492
-<https://www.python.org/dev/peps/pep-0492/>`__ for the full details.
+going straight to :pep:`492` for the full details.
 
 .. autofunction:: permanently_detach_coroutine_object
 

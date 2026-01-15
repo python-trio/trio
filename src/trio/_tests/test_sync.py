@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import re
 import weakref
-from typing import TYPE_CHECKING, Callable, Union
+from collections.abc import Callable
+from typing import TypeAlias
 
 import pytest
-
-from trio.testing import Matcher, RaisesGroup
 
 from .. import _core
 from .._core._parking_lot import GLOBAL_PARKING_LOT_BREAKER
@@ -14,14 +13,17 @@ from .._sync import *
 from .._timeouts import sleep_forever
 from ..testing import assert_checkpoints, wait_all_tasks_blocked
 
-if TYPE_CHECKING:
-    from typing_extensions import TypeAlias
-
 
 async def test_Event() -> None:
     e = Event()
     assert not e.is_set()
     assert e.statistics().tasks_waiting == 0
+
+    with pytest.warns(
+        DeprecationWarning,
+        match=r"trio\.Event\.__bool__ is deprecated since Trio 0\.31\.0; use trio\.Event\.is_set instead \(https://github.com/python-trio/trio/issues/3238\)",
+    ):
+        e.__bool__()
 
     e.set()
     assert e.is_set()
@@ -49,9 +51,10 @@ async def test_Event() -> None:
 
 
 async def test_CapacityLimiter() -> None:
+    assert CapacityLimiter(0).total_tokens == 0
     with pytest.raises(TypeError):
         CapacityLimiter(1.0)
-    with pytest.raises(ValueError, match=r"^total_tokens must be >= 1$"):
+    with pytest.raises(ValueError, match=r"^total_tokens must be >= 0$"):
         CapacityLimiter(-1)
     c = CapacityLimiter(2)
     repr(c)  # smoke test
@@ -139,10 +142,10 @@ async def test_CapacityLimiter_change_total_tokens() -> None:
     with pytest.raises(TypeError):
         c.total_tokens = 1.0
 
-    with pytest.raises(ValueError, match=r"^total_tokens must be >= 1$"):
-        c.total_tokens = 0
+    with pytest.raises(ValueError, match=r"^total_tokens must be >= 0$"):
+        c.total_tokens = -1
 
-    with pytest.raises(ValueError, match=r"^total_tokens must be >= 1$"):
+    with pytest.raises(ValueError, match=r"^total_tokens must be >= 0$"):
         c.total_tokens = -10
 
     assert c.total_tokens == 2
@@ -182,6 +185,83 @@ async def test_CapacityLimiter_memleak_548() -> None:
     # if this is 1, the acquire call (despite being killed) is still there in the task, and will
     # leak memory all the while the limiter is active
     assert len(limiter._pending_borrowers) == 0
+
+
+async def test_CapacityLimiter_zero_limit_tokens() -> None:
+    c = CapacityLimiter(5)
+
+    assert c.total_tokens == 5
+
+    async with _core.open_nursery() as nursery:
+        c.total_tokens = 0
+
+        for i in range(5):
+            nursery.start_soon(c.acquire_on_behalf_of, i)
+            await wait_all_tasks_blocked()
+
+        assert set(c.statistics().borrowers) == set()
+        assert c.statistics().tasks_waiting == 5
+
+        c.total_tokens = 5
+
+        assert set(c.statistics().borrowers) == {0, 1, 2, 3, 4}
+
+        nursery.start_soon(c.acquire_on_behalf_of, 5)
+        await wait_all_tasks_blocked()
+
+        assert c.statistics().tasks_waiting == 1
+
+        for i in range(5):
+            c.release_on_behalf_of(i)
+
+        assert c.statistics().tasks_waiting == 0
+        c.release_on_behalf_of(5)
+
+        # making sure that zero limit capacity limiter doesn't let any tasks through
+
+        c.total_tokens = 0
+
+        with pytest.raises(_core.WouldBlock):
+            c.acquire_nowait()
+
+        nursery.start_soon(c.acquire_on_behalf_of, 6)
+        await wait_all_tasks_blocked()
+
+        assert c.statistics().tasks_waiting == 1
+        assert c.statistics().borrowers == []
+
+        c.total_tokens = 1
+        assert c.statistics().tasks_waiting == 0
+        assert c.statistics().borrowers == [6]
+        c.release_on_behalf_of(6)
+
+        await c.acquire_on_behalf_of(0)  # total_tokens is 1
+
+        nursery.start_soon(c.acquire_on_behalf_of, 1)
+        await wait_all_tasks_blocked()
+        c.total_tokens = 0
+
+        assert c.statistics().borrowers == [0]
+
+        c.release_on_behalf_of(0)
+        await wait_all_tasks_blocked()
+        assert c.statistics().borrowers == []
+        assert c.statistics().tasks_waiting == 1
+
+        c.total_tokens = 1
+        await wait_all_tasks_blocked()
+        assert c.statistics().borrowers == [1]
+        assert c.statistics().tasks_waiting == 0
+
+        c.release_on_behalf_of(1)
+
+        c.total_tokens = 0
+
+        nursery.cancel_scope.cancel()
+
+    assert c.total_tokens == 0
+    assert c.statistics().borrowers == []
+    assert c._pending_borrowers == {}
 
 
 async def test_Semaphore() -> None:
@@ -503,15 +583,15 @@ generic_lock_test = pytest.mark.parametrize(
     ids=lock_factory_names,
 )
 
-LockLike: TypeAlias = Union[
-    CapacityLimiter,
-    Semaphore,
-    Lock,
-    StrictFIFOLock,
-    ChannelLock1,
-    ChannelLock2,
-    ChannelLock3,
-]
+LockLike: TypeAlias = (
+    CapacityLimiter
+    | Semaphore
+    | Lock
+    | StrictFIFOLock
+    | ChannelLock1
+    | ChannelLock2
+    | ChannelLock3
+)
 LockFactory: TypeAlias = Callable[[], LockLike]
 
 
@@ -614,8 +694,8 @@ async def test_lock_multiple_acquire() -> None:
     see https://github.com/python-trio/trio/issues/3035"""
     assert not GLOBAL_PARKING_LOT_BREAKER
     lock = trio.Lock()
-    with RaisesGroup(
-        Matcher(
+    with pytest.RaisesGroup(
+        pytest.RaisesExc(
             trio.BrokenResourceError,
             match="^Owner of this lock exited without releasing: ",
         ),

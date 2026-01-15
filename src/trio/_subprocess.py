@@ -14,8 +14,8 @@ from typing import (
     Final,
     Literal,
     Protocol,
+    TypeAlias,
     TypedDict,
-    Union,
     overload,
 )
 
@@ -35,13 +35,13 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
     from io import TextIOWrapper
 
-    from typing_extensions import TypeAlias, Unpack
+    from typing_extensions import Unpack
 
     from ._abc import ReceiveStream, SendStream
 
 
 # Sphinx cannot parse the stringified version
-StrOrBytesPath: TypeAlias = Union[str, bytes, os.PathLike[str], os.PathLike[bytes]]
+StrOrBytesPath: TypeAlias = str | bytes | os.PathLike[str] | os.PathLike[bytes]
 
 
 # Linux-specific, but has complex lifetime management stuff so we hard-code it
@@ -786,8 +786,7 @@ async def _run_process(
 
     # Opening the process does not need to be inside the nursery, so we put it outside
     # so any exceptions get directly seen by users.
-    # options needs a complex TypedDict. The overload error only occurs on Unix.
-    proc = await open_process(command, **options)  # type: ignore[arg-type, call-overload, unused-ignore]
+    proc = await _open_process(command, **options)  # type: ignore[arg-type]
     async with trio.open_nursery() as nursery:
         try:
             if input_ is not None:
@@ -1139,7 +1138,7 @@ if TYPE_CHECKING:
         # overloads. But might still be a problem for other static analyzers / docstring
         # readers (?)
 
-        class UnixProcessArgs3_9(GeneralProcessArgs, total=False):
+        class UnixProcessArgs3_10(GeneralProcessArgs, total=False):
             """Arguments shared between all Unix runs."""
 
             preexec_fn: Callable[[], object] | None
@@ -1153,9 +1152,7 @@ if TYPE_CHECKING:
             user: str | int | None
             umask: int
 
-        class UnixProcessArgs3_10(UnixProcessArgs3_9, total=False):
-            """Arguments shared between all Unix runs on 3.10+."""
-
+            # 3.10+
             pipesize: int
 
         class UnixProcessArgs3_11(UnixProcessArgs3_10, total=False):
@@ -1180,17 +1177,11 @@ if TYPE_CHECKING:
             class UnixRunProcessArgs(UnixProcessArgs3_11, UnixRunProcessMixin):
                 """Arguments for run_process on Unix with 3.11+"""
 
-        elif sys.version_info >= (3, 10):
+        else:
             UnixProcessArgs = UnixProcessArgs3_10
 
             class UnixRunProcessArgs(UnixProcessArgs3_10, UnixRunProcessMixin):
                 """Arguments for run_process on Unix with 3.10+"""
-
-        else:
-            UnixProcessArgs = UnixProcessArgs3_9
-
-            class UnixRunProcessArgs(UnixProcessArgs3_9, UnixRunProcessMixin):
-                """Arguments for run_process on Unix with 3.9+"""
 
         @overload  # type: ignore[no-overload-impl]
         async def open_process(
@@ -1214,7 +1205,7 @@ if TYPE_CHECKING:
         async def run_process(
             command: StrOrBytesPath,
             *,
-            stdin: bytes | bytearray | memoryview | int | HasFileno | None = None,
+            stdin: bytes | bytearray | memoryview | int | HasFileno | None = b"",
             shell: Literal[True],
             **kwargs: Unpack[UnixRunProcessArgs],
         ) -> subprocess.CompletedProcess[bytes]: ...
@@ -1223,7 +1214,7 @@ if TYPE_CHECKING:
         async def run_process(
             command: Sequence[StrOrBytesPath],
             *,
-            stdin: bytes | bytearray | memoryview | int | HasFileno | None = None,
+            stdin: bytes | bytearray | memoryview | int | HasFileno | None = b"",
             shell: bool = False,
             **kwargs: Unpack[UnixRunProcessArgs],
         ) -> subprocess.CompletedProcess[bytes]: ...

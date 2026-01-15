@@ -12,14 +12,12 @@ import subprocess
 import sys
 from pathlib import Path
 from textwrap import indent
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeGuard
 
 import attrs
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
-
-    from typing_extensions import TypeGuard
 
 # keep these imports up to date with conditional imports in test_gen_exports
 # isort: split
@@ -290,8 +288,7 @@ def process(files: Iterable[File], *, do_test: bool) -> None:
             print("Generated sources are up to date.")
     else:
         for new_path, new_source in new_files.items():
-            with open(new_path, "w", encoding="utf-8", newline="\n") as fp:
-                fp.write(new_source)
+            Path(new_path).write_text(new_source, encoding="utf-8", newline="\n")
         print("Regenerated sources successfully.")
         if not matches_disk:  # TODO: test this branch
             # With pre-commit integration, show that we edited files.

@@ -54,13 +54,8 @@ if [ "${NO_TEST_REQUIREMENTS-0}" == 1 ]; then
     python -m uv pip install pytest coverage -c test-requirements.txt
     flags="--skip-optional-imports"
 else
-    python -m uv pip install -r test-requirements.txt
+    python -m uv pip install -r test-requirements.txt --no-deps
     flags=""
-fi
-
-# So we can run the test for our apport/excepthook interaction working
-if [ -e /etc/lsb-release ] && grep -q Ubuntu /etc/lsb-release; then
-    sudo apt install -q python3-apport
 fi
 
 # If we're testing with a LSP installed, then it might break network
@@ -142,8 +137,10 @@ echo "::endgroup::"
 echo "::group::Coverage"
 
 coverage combine --rcfile ../pyproject.toml
-coverage report -m --rcfile ../pyproject.toml
-coverage xml --rcfile ../pyproject.toml
+cd ..  # coverage needs to be in the folder containing src/trio
+cp empty/.coverage .
+coverage report -m --rcfile ./pyproject.toml
+coverage xml --rcfile ./pyproject.toml
 
 # Remove the LSP again; again we want to do this ASAP to avoid
 # accidentally breaking other stuff.
