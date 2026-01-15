@@ -6,11 +6,9 @@ import inspect
 import signal
 from abc import ABCMeta
 from collections.abc import Awaitable, Callable, Sequence
-from functools import update_wrapper
 from typing import (
     TYPE_CHECKING,
     Any,
-    Generic,
     NoReturn,
     TypeVar,
     final as std_final,
@@ -29,7 +27,7 @@ if TYPE_CHECKING:
     import sys
     from types import AsyncGeneratorType, TracebackType
 
-    from typing_extensions import ParamSpec, Self, TypeVarTuple, Unpack
+    from typing_extensions import TypeVarTuple, Unpack
 
     if sys.version_info < (3, 11):
         from exceptiongroup import BaseExceptionGroup
@@ -232,40 +230,6 @@ def fixup_module_metadata(
             fix_one(objname, objname, obj)
 
 
-# We need ParamSpec to type this "properly", but that requires a runtime typing_extensions import
-# to use as a class base. This is only used at runtime and isn't correct for type checkers anyway,
-# so don't bother.
-class generic_function(Generic[RetT]):
-    """Decorator that makes a function indexable, to communicate
-    non-inferable generic type parameters to a static type checker.
-
-    If you write::
-
-        @generic_function
-        def open_memory_channel(max_buffer_size: int) -> Tuple[
-            SendChannel[T], ReceiveChannel[T]
-        ]: ...
-
-    it is valid at runtime to say ``open_memory_channel[bytes](5)``.
-    This behaves identically to ``open_memory_channel(5)`` at runtime,
-    and currently won't type-check without a mypy plugin or clever stubs,
-    but at least it becomes possible to write those.
-    """
-
-    def __init__(  # type: ignore[explicit-any]
-        self,
-        fn: Callable[..., RetT],
-    ) -> None:
-        update_wrapper(self, fn)
-        self._fn = fn
-
-    def __call__(self, *args: object, **kwargs: object) -> RetT:
-        return self._fn(*args, **kwargs)
-
-    def __getitem__(self, subscript: object) -> Self:
-        return self
-
-
 def _init_final_cls(cls: type[object]) -> NoReturn:
     """Raises an exception when a final class is subclassed."""
     raise TypeError(f"{cls.__module__}.{cls.__qualname__} does not support subclassing")
@@ -401,7 +365,7 @@ def raise_single_exception_from_group(
     # immediately bail out if there's any KI or SystemExit
     for e in eg.exceptions:
         if isinstance(e, (KeyboardInterrupt, SystemExit)):
-            raise type(e) from eg
+            raise type(e)(*e.args) from eg
 
     cancelled_exception: trio.Cancelled | None = None
     noncancelled_exception: BaseException | None = None

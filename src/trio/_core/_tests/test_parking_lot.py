@@ -11,7 +11,6 @@ from trio.lowlevel import (
     current_task,
     remove_parking_lot_breaker,
 )
-from trio.testing import Matcher, RaisesGroup
 
 from ... import _core
 from ...testing import wait_all_tasks_blocked
@@ -267,8 +266,8 @@ async def test_parking_lot_break_parking_tasks() -> None:
     cs = _core.CancelScope()
 
     # check that parked task errors
-    with RaisesGroup(
-        Matcher(_core.BrokenResourceError, match="^Parking lot broken by"),
+    with pytest.RaisesGroup(
+        pytest.RaisesExc(_core.BrokenResourceError, match="^Parking lot broken by"),
     ):
         async with _core.open_nursery() as nursery:
             nursery.start_soon(bad_parker, lot, cs)
@@ -382,8 +381,8 @@ async def test_parking_lot_break_itself() -> None:
         await lot.park()
 
     lot = ParkingLot()
-    with RaisesGroup(
-        Matcher(_core.BrokenResourceError, match="^Parking lot broken by"),
+    with pytest.RaisesGroup(
+        pytest.RaisesExc(_core.BrokenResourceError, match="^Parking lot broken by"),
     ):
         async with _core.open_nursery() as nursery:
             child_task = await nursery.start(return_me_and_park, lot)

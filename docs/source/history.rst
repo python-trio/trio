@@ -5,6 +5,71 @@ Release history
 
 .. towncrier release notes start
 
+trio 0.32.0 (2025-10-31)
+------------------------
+
+Features
+~~~~~~~~
+
+- Allow `trio.CapacityLimiter` to have zero total_tokens. (`#3321 <https://github.com/python-trio/trio/issues/3321>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Fixed a bug where iterating over an ``@as_safe_channel``-derived ``ReceiveChannel``
+  would raise `~trio.BrokenResourceError` if the channel was closed by another task.
+  It now shuts down cleanly. (`#3331 <https://github.com/python-trio/trio/issues/3331>`__)
+- `trio.lowlevel.Task.iter_await_frames` now works on completed tasks, by
+  returning an empty list of frames if the underlying coroutine has been closed.
+  Previously, it raised an internal error. (`#3337 <https://github.com/python-trio/trio/issues/3337>`__)
+
+
+Removals without deprecations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Drop support for Python 3.9. (`#3345 <https://github.com/python-trio/trio/issues/3345>`__)
+
+
+Miscellaneous internal changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Decrease indentation for exception groups raised in `trio.as_safe_channel`. (`#3332 <https://github.com/python-trio/trio/issues/3332>`__)
+
+
+Trio 0.31.0 (2025-09-09)
+------------------------
+
+Features
+~~~~~~~~
+
+- :exc:`Cancelled` strings can now display the source and reason for a cancellation. Trio-internal sources of cancellation will set this string, and :meth:`CancelScope.cancel` now has a ``reason`` string parameter that can be used to attach info to any :exc:`Cancelled` to help in debugging. (`#3232 <https://github.com/python-trio/trio/issues/3232>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Make ctrl+c work in more situations in the Trio REPL (``python -m trio``). (`#3007 <https://github.com/python-trio/trio/issues/3007>`__)
+- Allow pickling `trio.Cancelled`, as they can show up when you want to pickle something else. This does not rule out pickling other ``NoPublicConstructor`` objects -- create an issue if necessary. (`#3248 <https://github.com/python-trio/trio/issues/3248>`__)
+- Decrease import time on Windows by around 10%. (`#3263 <https://github.com/python-trio/trio/issues/3263>`__)
+- Handle unwrapping SystemExit/KeyboardInterrupt exception gracefully in utility function ``raise_single_exception_from_group`` that reraises last exception from group. (`#3275 <https://github.com/python-trio/trio/issues/3275>`__)
+- Ensure that the DTLS server does not mutate SSL context. (`#3277 <https://github.com/python-trio/trio/issues/3277>`__)
+- Avoid having `trio.as_safe_channel` raise if closing the generator wrapped
+  `GeneratorExit` in a `BaseExceptionGroup`. (`#3324 <https://github.com/python-trio/trio/issues/3324>`__)
+
+
+Deprecations and removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Implement ``bool(trio.Event)`` and have it raise a `DeprecationWarning` and tell users to use `trio.Event.is_set` instead. This is an alternative to ``mypy --enable-error-code=truthy-bool`` for users who don't use type checking. (`#3322 <https://github.com/python-trio/trio/issues/3322>`__)
+
+
+Miscellaneous internal changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- When misnesting nurseries you now get a helpful :exc:`RuntimeError` instead of a catastrophic :exc:`TrioInternalError`. (`#3307 <https://github.com/python-trio/trio/issues/3307>`__)
+
+
 Trio 0.30.0 (2025-04-20)
 ------------------------
 
@@ -125,7 +190,7 @@ Removals without deprecations
 Miscellaneous internal changes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Switch to using PEP570 for positional-only arguments for `~trio.socket.SocketType`'s methods. (`#3094 <https://github.com/python-trio/trio/issues/3094>`__)
+- Switch to using :pep:`570` for positional-only arguments for `~trio.socket.SocketType`'s methods. (`#3094 <https://github.com/python-trio/trio/issues/3094>`__)
 - Improve type annotations in several places by removing `Any` usage. (`#3121 <https://github.com/python-trio/trio/issues/3121>`__)
 - Get and enforce 100% coverage (`#3159 <https://github.com/python-trio/trio/issues/3159>`__)
 
@@ -1070,7 +1135,7 @@ Features
   to make the task scheduler reproducible and avoid flaky tests. (`#890 <https://github.com/python-trio/trio/issues/890>`__)
 - :class:`~trio.abc.SendChannel`, :class:`~trio.abc.ReceiveChannel`, :class:`~trio.abc.Listener`,
   and :func:`~trio.open_memory_channel` can now be referenced using a generic type parameter
-  (the type of object sent over the channel or produced by the listener) using PEP 484 syntax:
+  (the type of object sent over the channel or produced by the listener) using :pep:`484` syntax:
   ``trio.abc.SendChannel[bytes]``, ``trio.abc.Listener[trio.SocketStream]``,
   ``trio.open_memory_channel[MyMessage](5)``, etc. The added type information does not change
   the runtime semantics, but permits better integration with external static type checkers. (`#908 <https://github.com/python-trio/trio/issues/908>`__)

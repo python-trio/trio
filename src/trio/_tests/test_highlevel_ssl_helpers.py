@@ -7,7 +7,6 @@ import attrs
 import pytest
 
 import trio
-import trio.testing
 from trio.socket import AF_INET, IPPROTO_TCP, SOCK_STREAM
 
 from .._highlevel_ssl_helpers import (

@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, NoReturn
 import pytest
 
 import trio
-from trio.testing import RaisesGroup
 
 from .. import _core
 from .._signals import _signal_handler, get_pending_signal_count, open_signal_receiver
@@ -75,7 +74,7 @@ async def test_catch_signals_wrong_thread() -> None:
 
 
 async def test_open_signal_receiver_conflict() -> None:
-    with RaisesGroup(trio.BusyResourceError):
+    with pytest.RaisesGroup(trio.BusyResourceError):
         with open_signal_receiver(signal.SIGILL) as receiver:
             async with trio.open_nursery() as nursery:
                 nursery.start_soon(receiver.__anext__)

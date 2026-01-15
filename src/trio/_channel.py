@@ -17,12 +17,11 @@ from outcome import Error, Value
 import trio
 
 from ._abc import ReceiveChannel, ReceiveType, SendChannel, SendType, T
-from ._core import Abort, RaiseCancelT, Task, enable_ki_protection
+from ._core import Abort, BrokenResourceError, RaiseCancelT, Task, enable_ki_protection
 from ._util import (
     MultipleExceptionError,
     NoPublicConstructor,
     final,
-    generic_function,
     raise_single_exception_from_group,
 )
 
@@ -35,7 +34,7 @@ if TYPE_CHECKING:
     from typing_extensions import ParamSpec, Self
 
     P = ParamSpec("P")
-elif "sphinx" in sys.modules:
+elif "sphinx.ext.autodoc" in sys.modules:
     # P needs to exist for Sphinx to parse the type hints successfully.
     try:
         from typing_extensions import ParamSpec
@@ -45,9 +44,9 @@ elif "sphinx" in sys.modules:
         P = ParamSpec("P")
 
 
-def _open_memory_channel(
-    max_buffer_size: int | float,  # noqa: PYI041
-) -> tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]:
+# written as a class so you can say open_memory_channel[int](5)
+@final
+class open_memory_channel(tuple["MemorySendChannel[T]", "MemoryReceiveChannel[T]"]):
     """Open a channel for passing objects between tasks within a process.
 
     Memory channels are lightweight, cheap to allocate, and entirely
@@ -97,38 +96,24 @@ def _open_memory_channel(
       channel (summing over all clones).
     * ``tasks_waiting_receive``: The number of tasks blocked in ``receive`` on
       this channel (summing over all clones).
-
     """
-    if max_buffer_size != inf and not isinstance(max_buffer_size, int):
-        raise TypeError("max_buffer_size must be an integer or math.inf")
-    if max_buffer_size < 0:
-        raise ValueError("max_buffer_size must be >= 0")
-    state: MemoryChannelState[T] = MemoryChannelState(max_buffer_size)
-    return (
-        MemorySendChannel[T]._create(state),
-        MemoryReceiveChannel[T]._create(state),
-    )
 
+    def __new__(  # type: ignore[misc]  # "must return a subtype"
+        cls,
+        max_buffer_size: int | float,  # noqa: PYI041
+    ) -> tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]:
+        if max_buffer_size != inf and not isinstance(max_buffer_size, int):
+            raise TypeError("max_buffer_size must be an integer or math.inf")
+        if max_buffer_size < 0:
+            raise ValueError("max_buffer_size must be >= 0")
+        state: MemoryChannelState[T] = MemoryChannelState(max_buffer_size)
+        return (
+            MemorySendChannel[T]._create(state),
+            MemoryReceiveChannel[T]._create(state),
+        )
 
-# This workaround requires python3.9+, once older python versions are not supported
-# or there's a better way of achieving type-checking on a generic factory function,
-# it could replace the normal function header
-if TYPE_CHECKING:
-    # written as a class so you can say open_memory_channel[int](5)
-    class open_memory_channel(tuple["MemorySendChannel[T]", "MemoryReceiveChannel[T]"]):
-        def __new__(  # type: ignore[misc]  # "must return a subtype"
-            cls,
-            max_buffer_size: int | float,  # noqa: PYI041
-        ) -> tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]:
-            return _open_memory_channel(max_buffer_size)
-
-        def __init__(self, max_buffer_size: int | float) -> None:  # noqa: PYI041
-            ...
-
-else:
-    # apply the generic_function decorator to make open_memory_channel indexable
-    # so it's valid to say e.g. ``open_memory_channel[bytes](5)`` at runtime
-    open_memory_channel = generic_function(_open_memory_channel)
+    def __init__(self, max_buffer_size: int | float) -> None:  # noqa: PYI041
+        ...
 
 
 @attrs.frozen
@@ -547,17 +532,22 @@ def as_safe_channel(
                     yield wrapped_recv_chan
                 # User has exited context manager, cancel to immediately close the
                 # abandoned generator if it's still alive.
-                nursery.cancel_scope.cancel()
+                nursery.cancel_scope.cancel(
+                    "exited trio.as_safe_channel context manager"
+                )
         except BaseExceptionGroup as eg:
             try:
                 raise_single_exception_from_group(eg)
             except MultipleExceptionError:
                 # In case user has except* we make it possible for them to handle the
                 # exceptions.
-                raise BaseExceptionGroup(
-                    "Encountered exception during cleanup of generator object, as well as exception in the contextmanager body - unable to unwrap.",
-                    [eg],
-                ) from None
+                if sys.version_info >= (3, 11):
+                    eg.add_note(
+                        "Encountered exception during cleanup of generator object, as "
+                        "well as exception in the contextmanager body - unable to unwrap."
+                    )
+
+                raise eg from None
 
     async def _move_elems_to_channel(
         agen: AsyncGenerator[T, None],
@@ -568,19 +558,53 @@ def as_safe_channel(
         # `async with send_chan` will eat exceptions,
         # see https://github.com/python-trio/trio/issues/1559
         with send_chan:
+            # replace try-finally with contextlib.aclosing once python39 is
+            # dropped:
             try:
                 task_status.started()
                 while True:
                     # wait for receiver to call next on the aiter
                     await send_semaphore.acquire()
+                    if not send_chan._state.open_receive_channels:
+                        # skip the possibly-expensive computation in the generator,
+                        # if we know it will be impossible to send the result.
+                        break
                     try:
                         value = await agen.__anext__()
                     except StopAsyncIteration:
                         return
                     # Send the value to the channel
-                    await send_chan.send(value)
+                    try:
+                        await send_chan.send(value)
+                    except BrokenResourceError:
+                        break  # closed since we checked above
             finally:
-                # replace try-finally with contextlib.aclosing once python39 is dropped
-                await agen.aclose()
+                # work around `.aclose()` not suppressing GeneratorExit in an
+                # ExceptionGroup:
+                # TODO: make an issue on CPython about this
+                try:
+                    await agen.aclose()
+                except BaseExceptionGroup as exceptions:
+                    removed, narrowed_exceptions = exceptions.split(GeneratorExit)
+
+                    # TODO: extract a helper to flatten exception groups
+                    removed_exceptions: list[BaseException | None] = [removed]
+                    genexits_seen = 0
+                    for e in removed_exceptions:
+                        if isinstance(e, BaseExceptionGroup):
+                            removed_exceptions.extend(e.exceptions)  # noqa: B909
+                        else:
+                            genexits_seen += 1
+
+                    if genexits_seen > 1:
+                        exc = AssertionError("More than one GeneratorExit found.")
+                        if narrowed_exceptions is None:
+                            narrowed_exceptions = exceptions.derive([exc])
+                        else:
+                            narrowed_exceptions = narrowed_exceptions.derive(
+                                [*narrowed_exceptions.exceptions, exc]
+                            )
+                    if narrowed_exceptions is not None:
+                        raise narrowed_exceptions from None
 
     return context_manager

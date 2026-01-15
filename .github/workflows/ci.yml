@@ -33,12 +33,12 @@ jobs:
 
     steps:
       - name: Switch to using Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: 3.11
 
       - name: Grab the source from Git
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           persist-credentials: false
 
@@ -74,7 +74,7 @@ jobs:
           SDIST: ${{ steps.artifact-name.outputs.sdist }}
           WHEEL: ${{ steps.artifact-name.outputs.wheel }}
       - name: Store the distribution packages
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ env.dists-artifact-name }}
           # NOTE: Exact expected file names are specified here
@@ -86,12 +86,25 @@ jobs:
             dist/${{ steps.artifact-name.outputs.wheel }}
           retention-days: 5
 
+  smoke-tests:
+    name: Smoke tests
+    needs:
+      - build
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Switch to using Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3.11
+
       - name: >-
           Smoke-test:
           retrieve the project source from an sdist inside the GHA artifact
         uses: re-actors/checkout-python-sdist@release/v2
         with:
-          source-tarball-name: ${{ steps.artifact-name.outputs.sdist }}
+          source-tarball-name: ${{ needs.build.outputs.sdist-artifact-name }}
           workflow-artifact-name: ${{ env.dists-artifact-name }}
 
       - name: >-
@@ -104,7 +117,7 @@ jobs:
 
       - name: >-
           Smoke-test: grab the source from Git into git-src
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: git-src
           persist-credentials: false
@@ -155,32 +168,33 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+        python: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.14t']
         arch: ['x86', 'x64']
         lsp: ['']
         lsp_extract_file: ['']
         extra_name: ['']
         include:
-          - python: '3.9'
+          - python: '3.10'
             arch: 'x64'
             lsp: 'https://raw.githubusercontent.com/python-trio/trio-ci-assets/master/komodia-based-vpn-setup.zip'
             lsp_extract_file: 'komodia-based-vpn-setup.exe'
             extra_name: ', with Komodia LSP'
-          - python: '3.9'
+          - python: '3.10'
             arch: 'x64'
             lsp: 'https://www.proxifier.com/download/legacy/ProxifierSetup342.exe'
             lsp_extract_file: ''
             extra_name: ', with IFS LSP'
-          - python: 'pypy-3.10'
+          - python: 'pypy-3.11'
             arch: 'x64'
             lsp: ''
             lsp_extract_file: ''
             extra_name: ''
-          #- python: '3.9'
+          #- python: '3.10'
           #  arch: 'x64'
           #  lsp: 'http://download.pctools.com/mirror/updates/9.0.0.2308-SDavfree-lite_en.exe'
           #  lsp_extract_file: ''
           #  extra_name: ', with non-IFS LSP'
+
     continue-on-error: >-
       ${{
         (
@@ -196,21 +210,12 @@ jobs:
         with:
           source-tarball-name: ${{ needs.build.outputs.sdist-artifact-name }}
           workflow-artifact-name: ${{ env.dists-artifact-name }}
-      - name: Setup python
-        uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v6
         with:
-          # This allows the matrix to specify just the major.minor version while still
-          # expanding it to get the latest patch version including alpha releases.
-          # This avoids the need to update for each new alpha, beta, release candidate,
-          # and then finally an actual release version.  actions/setup-python doesn't
-          # support this for PyPy presently so we get no help there.
-          #
-          # 'CPython' -> '3.9.0-alpha - 3.9.X'
-          # 'PyPy'    -> 'pypy-3.9'
-          python-version: ${{ fromJSON(format('["{0}", "{1}"]', format('{0}.0-alpha - {0}.X', matrix.python), matrix.python))[startsWith(matrix.python, 'pypy')] }}
+          python-version: '${{ matrix.python }}'
           architecture: '${{ matrix.arch }}'
-          cache: pip
-          cache-dependency-path: test-requirements.txt
+          allow-prereleases: true
       - name: Run tests
         run: ./ci.sh
         shell: bash
@@ -218,14 +223,13 @@ jobs:
           LSP: '${{ matrix.lsp }}'
           LSP_EXTRACT_FILE: '${{ matrix.lsp_extract_file }}'
       - if: always()
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
-          directory: empty
           name: Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})
           # multiple flags is marked as an error in codecov UI, but is actually fine
           # https://github.com/codecov/feedback/issues/567
           flags: Windows,${{ matrix.python }}
-          fail_ci_if_error: false  # change to true when using codecov action v5
+          fail_ci_if_error: true
 
   Ubuntu:
     name: 'Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})'
@@ -237,7 +241,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.10', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+        python: ['pypy-3.11', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t']
         check_formatting: ['0']
         no_test_requirements: ['0']
         extra_name: ['']
@@ -246,7 +250,7 @@ jobs:
             check_formatting: '1'
             extra_name: ', check formatting'
           # separate test run that doesn't install test-requirements.txt
-          - python: '3.9'
+          - python: '3.10'
             no_test_requirements: '1'
             extra_name: ', no test-requirements'
     continue-on-error: >-
@@ -270,17 +274,31 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Setup python
-        uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v6
         with:
-          python-version: ${{ fromJSON(format('["{0}", "{1}"]', format('{0}.0-alpha - {0}.X', matrix.python), matrix.python))[startsWith(matrix.python, 'pypy')] }}
+          python-version: '${{ matrix.python }}'
           cache: pip
           cache-dependency-path: test-requirements.txt
+          allow-prereleases: true
+      - name: Setup minimum Python version
+        if: matrix.check_formatting == '1'
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.10'
+          cache: pip
+          cache-dependency-path: test-requirements.txt
+          allow-prereleases: true
       - name: Check Formatting
         if: matrix.check_formatting == '1'
         run:
           python -m pip install tox &&
           tox -m check
+      - name: Install python3-apport
+        if: matrix.check_formatting == '0'
+        run: |
+          sudo apt update
+          sudo apt install -q python3-apport
       - name: Run tests
         if: matrix.check_formatting == '0'
         run: ./ci.sh
@@ -289,12 +307,11 @@ jobs:
       - if: >-
           always()
           && matrix.check_formatting != '1'
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
-          directory: empty
           name: Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})
           flags: Ubuntu,${{ matrix.python }}
-          fail_ci_if_error: false
+          fail_ci_if_error: true
 
   macOS:
     name: 'macOS (${{ matrix.python }})'
@@ -306,7 +323,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.10', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+        python: ['pypy-3.11', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t']
     continue-on-error: >-
       ${{
         (
@@ -322,21 +339,21 @@ jobs:
         with:
           source-tarball-name: ${{ needs.build.outputs.sdist-artifact-name }}
           workflow-artifact-name: ${{ env.dists-artifact-name }}
-      - name: Setup python
-        uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v6
         with:
-          python-version: ${{ fromJSON(format('["{0}", "{1}"]', format('{0}.0-alpha - {0}.X', matrix.python), matrix.python))[startsWith(matrix.python, 'pypy')] }}
+          python-version: '${{ matrix.python }}'
           cache: pip
           cache-dependency-path: test-requirements.txt
+          allow-prereleases: true
       - name: Run tests
         run: ./ci.sh
       - if: always()
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
-          directory: empty
           name: macOS (${{ matrix.python }})
           flags: macOS,${{ matrix.python }}
-          fail_ci_if_error: false
+          fail_ci_if_error: true
 
   # run CI on a musl linux
   Alpine:
@@ -350,29 +367,39 @@ jobs:
       - name: Install necessary packages
         # can't use setup-python because that python doesn't seem to work;
         # `python3-dev` (rather than `python:alpine`) for some ctypes reason,
+        # `curl`, `gpg`, `git` for codecov-action v4/v5 to work (https://github.com/codecov/codecov-action/issues/1320).
         # `nodejs` for pyright (`node-env` pulls in nodejs but that takes a while and can time out the test).
         # `perl` for a platform independent `sed -i` alternative
-        run: apk update && apk add python3-dev bash nodejs perl
+        run: apk update && apk add python3-dev bash curl gpg git nodejs perl
+
       - name: Retrieve the project source from an sdist inside the GHA artifact
         # must be after `apk add` because it relies on `bash` existing
         uses: re-actors/checkout-python-sdist@release/v2
         with:
           source-tarball-name: ${{ needs.build.outputs.sdist-artifact-name }}
           workflow-artifact-name: ${{ env.dists-artifact-name }}
+
       - name: Enter virtual environment
         run: python -m venv .venv
+
       - name: Run tests
         run: source .venv/bin/activate && ./ci.sh
+
       - name: Get Python version for codecov flag
         id: get-version
-        run: echo "version=$(python -V | cut -d' ' -f2 | cut -d'.' -f1,2)" >> "${GITHUB_OUTPUT}"
+        shell: python
+        run: |
+          import sys, os
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+            f.write("version=" + ".".join(map(str, sys.version_info[:2])))
+            f.write("\n")
+
       - if: always()
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
-          directory: empty
           name: Alpine
           flags: Alpine,${{ steps.get-version.outputs.version }}
-          fail_ci_if_error: false
+          fail_ci_if_error: true
 
   Cython:
     name: "Cython"
@@ -384,22 +411,25 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - python: '3.9'  # We support running on cython 2 and 3 for 3.9
-            cython: '<3'   # cython 2
-          - python: '3.9'
-            cython: '>=3'  # cython 3 (or greater)
-          - python: '3.11' # 3.11 is the last version Cy2 supports
-            cython: '<3'   # cython 2
-          - python: '3.13' # We support running cython3 on 3.13
-            cython: '>=3'  # cython 3 (or greater)
+          # Cython 2 supports 3.10 and 3.11 and Cython 3 supports all versions we do,
+          # so test both the lowest and higher version for both
+          - python: '3.10'
+            cython: '<3'
+          - python: '3.11'
+            cython: '<3'
+          # TODO: technically we should pin cython versions
+          - python: '3.10'
+            cython: '>=3'
+          - python: '3.14'
+            cython: '>=3'
     steps:
       - name: Retrieve the project source from an sdist inside the GHA artifact
         uses: re-actors/checkout-python-sdist@release/v2
         with:
           source-tarball-name: ${{ needs.build.outputs.sdist-artifact-name }}
           workflow-artifact-name: ${{ env.dists-artifact-name }}
-      - name: Setup python
-        uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v6
         with:
             python-version: '${{ matrix.python }}'
             cache: pip
@@ -422,11 +452,14 @@ jobs:
       - name: import & run module
         run: coverage run -m tests.cython.run_test_cython
 
-      - name: get Python version for codecov flag
+      - name: Get Python version for codecov flag
         id: get-version
-        run: >-
-          echo "version=$(python -V | cut -d' ' -f2 | cut -d'.' -f1,2)"
-          >> "${GITHUB_OUTPUT}"
+        shell: python
+        run: |
+          import sys, os
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+            f.write("version=" + ".".join(map(str, sys.version_info[:2])))
+            f.write("\n")
 
       - run: |
           coverage combine
@@ -437,7 +470,7 @@ jobs:
         with:
           name: Cython
           flags: Cython,${{ steps.get-version.outputs.version }}
-          fail_ci_if_error: false
+          fail_ci_if_error: true
 
   # https://github.com/marketplace/actions/alls-green#why
   check:  # This job does nothing and is only used for the branch protection
@@ -445,6 +478,7 @@ jobs:
     if: always()
 
     needs:
+      - smoke-tests
       - Windows
       - Ubuntu
       - macOS

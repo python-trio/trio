@@ -8,7 +8,7 @@ ci:
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -20,13 +20,13 @@ repos:
       - id: sort-simple-yaml
         files: .pre-commit-config.yaml
   - repo: https://github.com/psf/black-pre-commit-mirror
-    rev: 25.1.0
+    rev: 25.12.0
     hooks:
       - id: black
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.7
+    rev: v0.14.11
     hooks:
-      - id: ruff
+      - id: ruff-check
         types: [file]
         types_or: [python, pyi, toml]
         args: ["--show-fixes"]
@@ -38,15 +38,15 @@ repos:
           # tomli needed on 3.10. tomllib is available in stdlib on 3.11+
           - tomli
   - repo: https://github.com/adhtruong/mirrors-typos
-    rev: v1.31.2
+    rev: v1.42.0
     hooks:
       - id: typos
   - repo: https://github.com/sphinx-contrib/sphinx-lint
-    rev: v1.0.0
+    rev: v1.0.2
     hooks:
       - id: sphinx-lint
   - repo: https://github.com/woodruffw/zizmor-pre-commit
-    rev: v1.6.0
+    rev: v1.20.0
     hooks:
       - id: zizmor
   - repo: local
@@ -58,15 +58,29 @@ repos:
         pass_filenames: false
         additional_dependencies: ["astor", "attrs", "black", "ruff"]
         files: ^src\/trio\/_core\/(_run|(_i(o_(common|epoll|kqueue|windows)|nstrumentation)))\.py$
+      - id: regenerate-windows-cffi
+        name: regenerate windows CFFI
+        language: python
+        entry: python src/trio/_tools/windows_ffi_build.py
+        pass_filenames: false
+        additional_dependencies: ["cffi"]
+        files: ^src\/trio\/_tools\/windows_ffi_build\.py$
+      - id: sync-test-requirements
+        name: synchronize test requirements
+        language: python
+        entry: python src/trio/_tools/sync_requirements.py
+        pass_filenames: false
+        additional_dependencies: ["pyyaml"]
+        files: ^(test-requirements\.txt)|(\.pre-commit-config\.yaml)$
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.7.2
+    rev: 0.9.24
     hooks:
       # Compile requirements
       - id: pip-compile
         name: uv pip-compile test-requirements.in
         args: [
           "--universal",
-          "--python-version=3.9",
+          "--python-version=3.10",
           "test-requirements.in",
           "-o",
           "test-requirements.txt"]

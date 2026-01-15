@@ -26,15 +26,15 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: System :: Networking",
     "Typing :: Typed",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     # attrs 19.2.0 adds `eq` option to decorators
     # attrs 20.1.0 adds @frozen
@@ -78,6 +78,7 @@ force-exclude = '''
 (
   ^/docs/source/reference-.*
   | ^/docs/source/tutorial
+  | ^/src/trio/_core/_generated_windows_ffi.py
 )
 '''
 
@@ -110,6 +111,7 @@ include = ["*.py", "*.pyi", "**/pyproject.toml"]
 extend-exclude = [
   "docs/source/reference-*",
   "docs/source/tutorial/*",
+  "src/trio/_core/_generated_windows_ffi.py"
 ]
 
 [tool.ruff.lint]
@@ -153,6 +155,7 @@ extend-ignore = [
     "PERF203", # try-except-in-loop (not always possible to refactor)
     "PT012",   # multiple statements in pytest.raises block
     "SIM117",  # multiple-with-statements (messes up lots of context-based stuff and looks bad)
+    "RUF067",  # non-empty-init-module, since we need lots of logic in our __init__
 
     # conflicts with formatter (ruff recommends these be disabled)
     "COM812",
@@ -213,7 +216,7 @@ disallow_untyped_defs = true
 check_untyped_defs = true
 
 [tool.pyright]
-pythonVersion = "3.9"
+pythonVersion = "3.10"
 reportUnnecessaryTypeIgnoreComment = true
 typeCheckingMode = "strict"
 
@@ -290,18 +293,14 @@ show_contexts = true
 skip_covered = false
 
 [tool.coverage.paths]
-_site-packages-to-src-mapping = [
-  "src",
-  "*/src",
-  '*\src',
-  "*/lib/pypy*/site-packages",
-  "*/lib/python*/site-packages",
-  '*\Lib\site-packages',
+source = ["src", "**/site-packages"]
+attrs-plugin = [
+  "tests/_trio_check_attrs_aliases.py",
+  "_trio_check_attrs_aliases.py",
 ]
 
 [tool.coverage.run]
 branch = true
-source_pkgs = ["trio"]
 omit = [
     # Omit the generated files in trio/_core starting with _generated_
     "*/trio/_core/_generated_*",
@@ -309,6 +308,8 @@ omit = [
     "*/type_tests/*",
     # Script used to check type completeness that isn't run in tests
     "*/trio/_tests/check_type_completeness.py",
+    # Script to generate a CFFI interface for the Windows kernel
+    "*/trio/_tools/windows_ffi_build.py",
 ]
 # The test suite spawns subprocesses to test some stuff, so make sure
 # this doesn't corrupt the coverage files
@@ -316,6 +317,7 @@ parallel = true
 plugins = []
 relative_files = true
 source = ["."]
+source_pkgs = ["trio", "_trio_check_attrs_aliases"]
 
 [tool.coverage.report]
 precision = 1
@@ -331,8 +333,10 @@ exclude_also = [
    "@overload",
    'class .*\bProtocol\b.*\):',
    "raise NotImplementedError",
-   '.*if "sphinx" in sys.modules:',
-   'TODO: test this line'
+   '.*if "sphinx.ext.autodoc" in sys.modules:',
+   'TODO: test this line',
+   'if __name__ == "__main__":',
+   'pass',
 ]
 partial_branches = [
     "pragma: no branch",

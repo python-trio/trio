@@ -3,22 +3,14 @@ from __future__ import annotations
 import errno
 import os
 import sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final as FinalType
 
 import trio
 
 from ._abc import Stream
 from ._util import ConflictDetector, final
 
-if TYPE_CHECKING:
-    from typing import Final as FinalType
-
 assert not TYPE_CHECKING or sys.platform != "win32"
-
-if os.name != "posix":
-    # We raise an error here rather than gating the import in lowlevel.py
-    # in order to keep jedi static analysis happy.
-    raise ImportError
 
 # XX TODO: is this a good number? who knows... it does match the default Linux
 # pipe capacity though.
@@ -86,8 +78,7 @@ class _FdHolder:
 
 @final
 class FdStream(Stream):
-    """
-    Represents a stream given the file descriptor to a pipe, TTY, etc.
+    """Represents a stream given the file descriptor to a pipe, TTY, etc.
 
     *fd* must refer to a file that is open for reading and/or writing and
     supports non-blocking I/O (pipes and TTYs will work, on-disk files probably
@@ -110,6 +101,15 @@ class FdStream(Stream):
     `FdStream` is closed. See `issue #174
     <https://github.com/python-trio/trio/issues/174>`__ for a discussion of the
     challenges involved in relaxing this restriction.
+
+    .. warning:: one specific consequence of non-blocking mode
+      applying to the entire open file description is that when
+      your program is run with multiple standard streams connected to
+      a TTY (as in a terminal emulator), all of the streams become
+      non-blocking when you construct an `FdStream` for any of them.
+      For example, if you construct an `FdStream` for standard input,
+      you might observe Python loggers begin to fail with
+      `BlockingIOError`.
 
     Args:
       fd (int): The fd to be wrapped.
@@ -156,12 +156,7 @@ class FdStream(Stream):
         with self._send_conflict_detector:
             if self._fd_holder.closed:
                 raise trio.ClosedResourceError("file was already closed")
-            try:
-                await trio.lowlevel.wait_writable(self._fd_holder.fd)
-            except BrokenPipeError as e:
-                # kqueue: raises EPIPE on wait_writable instead
-                # of sending, which is annoying
-                raise trio.BrokenResourceError from e
+            await trio.lowlevel.wait_writable(self._fd_holder.fd)
 
     async def receive_some(self, max_bytes: int | None = None) -> bytes:
         with self._receive_conflict_detector:

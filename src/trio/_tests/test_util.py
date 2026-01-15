@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 import pytest
 
 import trio
-from trio.testing import Matcher, RaisesGroup
+from trio.testing import _Matcher as Matcher, _RaisesGroup as RaisesGroup
 
 from .. import _core
 from .._core._tests.tutil import (
@@ -23,7 +23,6 @@ from .._util import (
     coroutine_or_error,
     final,
     fixup_module_metadata,
-    generic_function,
     is_main_thread,
     raise_single_exception_from_group,
 )
@@ -159,20 +158,6 @@ def test_coroutine_or_error() -> None:
         del excinfo
 
 
-def test_generic_function() -> None:
-    @generic_function  # Decorated function contains "Any".
-    def test_func(arg: T) -> T:  # type: ignore[misc]
-        """Look, a docstring!"""
-        return arg
-
-    assert test_func is test_func[int] is test_func[int, str]
-    assert test_func(42) == test_func[int](42) == 42
-    assert test_func.__doc__ == "Look, a docstring!"
-    assert test_func.__qualname__ == "test_generic_function.<locals>.test_func"  # type: ignore[attr-defined]
-    assert test_func.__name__ == "test_func"  # type: ignore[attr-defined]
-    assert test_func.__module__ == __name__
-
-
 def test_final_decorator() -> None:
     """Test that subclassing a @final-annotated class is not allowed.
 
@@ -248,7 +233,7 @@ def test_fixup_module_metadata() -> None:
         },
     )
     # Reference loop is fine.
-    mod.SomeClass.recursion = mod.SomeClass  # type: ignore[attr-defined]
+    mod.SomeClass.recursion = mod.SomeClass
 
     fixup_module_metadata("trio.somemodule", vars(mod))
     assert mod.some_func.__name__ == "some_func"
@@ -264,9 +249,9 @@ def test_fixup_module_metadata() -> None:
     assert mod.only_has_name.__module__ == "trio.somemodule"
     assert not hasattr(mod.only_has_name, "__qualname__")
 
-    assert mod.SomeClass.method.__name__ == "method"  # type: ignore[attr-defined]
-    assert mod.SomeClass.method.__module__ == "trio.somemodule"  # type: ignore[attr-defined]
-    assert mod.SomeClass.method.__qualname__ == "SomeClass.method"  # type: ignore[attr-defined]
+    assert mod.SomeClass.method.__name__ == "method"
+    assert mod.SomeClass.method.__module__ == "trio.somemodule"
+    assert mod.SomeClass.method.__qualname__ == "SomeClass.method"
     # Make coverage happy.
     non_trio_module.some_func()
     mod.some_func()
@@ -282,7 +267,7 @@ async def test_raise_single_exception_from_group() -> None:
     context = TypeError("context")
     exc.__cause__ = cause
     exc.__context__ = context
-    cancelled = trio.Cancelled._create()
+    cancelled = trio.Cancelled._create(source="deadline")
 
     with pytest.raises(ValueError, match="foo") as excinfo:
         raise_single_exception_from_group(ExceptionGroup("", [exc]))
@@ -323,32 +308,41 @@ async def test_raise_single_exception_from_group() -> None:
         [
             ValueError("foo"),
             ValueError("bar"),
-            KeyboardInterrupt("this exc doesn't get reraised"),
+            KeyboardInterrupt("preserve error msg"),
         ],
     )
-    with pytest.raises(KeyboardInterrupt, match=r"^$") as excinfo:
+    with pytest.raises(
+        KeyboardInterrupt,
+        match=r"^preserve error msg$",
+    ) as excinfo:
         raise_single_exception_from_group(eg_ki)
+
     assert excinfo.value.__cause__ is eg_ki
     assert excinfo.value.__context__ is None
 
-    # and same for SystemExit
+    # and same for SystemExit but verify code too
     systemexit_ki = BaseExceptionGroup(
         "",
         [
             ValueError("foo"),
             ValueError("bar"),
-            SystemExit("this exc doesn't get reraised"),
+            SystemExit(2),
         ],
     )
-    with pytest.raises(SystemExit, match=r"^$") as excinfo:
+
+    with pytest.raises(SystemExit) as excinfo:
         raise_single_exception_from_group(systemexit_ki)
+
+    assert excinfo.value.code == 2
     assert excinfo.value.__cause__ is systemexit_ki
     assert excinfo.value.__context__ is None
 
     # if we only got cancelled, first one is reraised
-    with pytest.raises(trio.Cancelled, match=r"^Cancelled$") as excinfo:
+    with pytest.raises(trio.Cancelled, match=r"^cancelled due to deadline$") as excinfo:
         raise_single_exception_from_group(
-            BaseExceptionGroup("", [cancelled, trio.Cancelled._create()])
+            BaseExceptionGroup(
+                "", [cancelled, trio.Cancelled._create(source="explicit")]
+            )
         )
     assert excinfo.value is cancelled
     assert excinfo.value.__cause__ is None

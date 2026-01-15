@@ -122,5 +122,5 @@ def main(argv: list[str]) -> None:
             pickle.dump(results, f)
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":
     main(sys.argv[1:])
