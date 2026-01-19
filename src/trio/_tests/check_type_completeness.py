@@ -7,6 +7,7 @@
 
 If this check is giving you false alarms, you can ignore them by adding logic to `has_docstring_at_runtime`, in the main loop in `check_type`, or by updating the json file.
 """
+
 from __future__ import annotations
 
 # this file is not run as part of the tests, instead it's run standalone from check.sh
