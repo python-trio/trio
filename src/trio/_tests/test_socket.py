@@ -975,7 +975,7 @@ async def test_send_recv_variants() -> None:
         # recvfrom + sendto, with and without names
         for target in targets:
             assert await a.sendto(b"xxx", target) == 3
-            (data, addr) = await b.recvfrom(10)
+            data, addr = await b.recvfrom(10)
             assert data == b"xxx"
             assert addr == a.getsockname()
 
@@ -991,21 +991,21 @@ async def test_send_recv_variants() -> None:
             await a.sendto(b"xxx", tsocket.MSG_MORE, b.getsockname())
             await a.sendto(b"yyy", tsocket.MSG_MORE, b.getsockname())
             await a.sendto(b"zzz", b.getsockname())
-            (data, addr) = await b.recvfrom(10)
+            data, addr = await b.recvfrom(10)
             assert data == b"xxxyyyzzz"
             assert addr == a.getsockname()
 
         # recvfrom_into
         assert await a.sendto(b"xxx", b.getsockname()) == 3
         buf = bytearray(10)
-        (nbytes, addr) = await b.recvfrom_into(buf)
+        nbytes, addr = await b.recvfrom_into(buf)
         assert nbytes == 3
         assert buf == b"xxx" + b"\x00" * 7
         assert addr == a.getsockname()
 
         if hasattr(b, "recvmsg"):
             assert await a.sendto(b"xxx", b.getsockname()) == 3
-            (data, ancdata, msg_flags, addr) = await b.recvmsg(10)
+            data, ancdata, msg_flags, addr = await b.recvmsg(10)
             assert data == b"xxx"
             assert ancdata == []
             assert msg_flags == 0
@@ -1016,7 +1016,7 @@ async def test_send_recv_variants() -> None:
             buf1 = bytearray(2)
             buf2 = bytearray(3)
             ret = await b.recvmsg_into([buf1, buf2])
-            (nbytes, ancdata, msg_flags, addr) = ret
+            nbytes, ancdata, msg_flags, addr = ret
             assert nbytes == 4
             assert buf1 == b"xy"
             assert buf2 == b"zw" + b"\x00"

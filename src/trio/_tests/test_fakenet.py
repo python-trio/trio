@@ -98,9 +98,9 @@ async def test_recv_methods() -> None:
     buf = bytearray(10)
 
     with pytest.raises(NotImplementedError, match=r"^partial recvfrom_into$"):
-        (nbytes, addr) = await s2.recvfrom_into(buf, nbytes=2)
+        nbytes, addr = await s2.recvfrom_into(buf, nbytes=2)
 
-    (nbytes, addr) = await s2.recvfrom_into(buf)
+    nbytes, addr = await s2.recvfrom_into(buf)
     assert nbytes == 3
     assert buf == b"ghi" + b"\x00" * 7
     assert addr == s1.getsockname()
@@ -154,7 +154,7 @@ async def test_nonwindows_functionality() -> None:
         assert exc.value.errno == errno.ENOTCONN
 
         assert await s1.sendmsg([b"jkl"], (), 0, s2.getsockname()) == 3
-        (data, ancdata, msg_flags, addr) = await s2.recvmsg(10)
+        data, ancdata, msg_flags, addr = await s2.recvmsg(10)
         assert data == b"jkl"
         assert ancdata == []
         assert msg_flags == 0
@@ -167,7 +167,7 @@ async def test_nonwindows_functionality() -> None:
         buf1 = bytearray(2)
         buf2 = bytearray(3)
         ret = await s2.recvmsg_into([buf1, buf2])
-        (nbytes, ancdata, msg_flags, addr) = ret
+        nbytes, ancdata, msg_flags, addr = ret
         assert nbytes == 4
         assert buf1 == b"xy"
         assert buf2 == b"zw" + b"\x00"
@@ -179,7 +179,7 @@ async def test_nonwindows_functionality() -> None:
         assert await s1.sendto(b"xyzwv", s2.getsockname()) == 5
         buf1 = bytearray(2)
         ret = await s2.recvmsg_into([buf1])
-        (nbytes, ancdata, msg_flags, addr) = ret
+        nbytes, ancdata, msg_flags, addr = ret
         assert nbytes == 2
         assert buf1 == b"xy"
         assert ancdata == []
