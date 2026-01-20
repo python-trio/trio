@@ -37,6 +37,7 @@ from .tutil import (
     create_asyncio_future_in_new_loop,
     gc_collect_harder,
     ignore_coroutine_never_awaited_warnings,
+    no_other_refs,
     restore_unraisablehook,
     slow,
 )
@@ -2936,24 +2937,9 @@ async def test_internal_error_old_nursery_multiple_tasks() -> None:
     assert pytest.RaisesGroup(ValueError, ValueError).matches(excinfo.value.__cause__)
 
 
-if sys.version_info >= (3, 11):
-
-    def no_other_refs() -> list[object]:
-        return []
-
-else:
-
-    def no_other_refs() -> list[object]:
-        return [sys._getframe(1)]
-
-
 @pytest.mark.skipif(
     sys.implementation.name != "cpython",
     reason="Only makes sense with refcounting GC",
-)
-@pytest.mark.xfail(
-    sys.version_info >= (3, 14),
-    reason="https://github.com/python/cpython/issues/125603",
 )
 async def test_ki_protection_doesnt_leave_cyclic_garbage() -> None:
     class MyException(Exception):
