@@ -52,16 +52,13 @@ ruff==1.2.5
         encoding="utf-8",
     )
     assert update_requirements(requirements_file, {"black": "3.1.5", "ruff": "1.2.7"})
-    assert (
-        requirements_file.read_text(encoding="utf-8")
-        == """# comment
+    assert requirements_file.read_text(encoding="utf-8") == """# comment
   # also comment but spaces line start
 waffles are delicious no equals
 black==3.1.5 ; specific version thingy
 mypy==1.15.0
 ruff==1.2.7
 # required by soupy cat"""
-    )
 
 
 def test_update_requirements_no_changes(

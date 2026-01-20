@@ -26,7 +26,7 @@ if posix:
 
 async def make_pipe() -> tuple[FdStream, FdStream]:
     """Makes a new pair of pipes."""
-    (r, w) = os.pipe()
+    r, w = os.pipe()
     return FdStream(w), FdStream(r)
 
 

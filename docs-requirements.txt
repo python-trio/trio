@@ -69,7 +69,7 @@ snowballstemmer==3.0.1
     # via sphinx
 sortedcontainers==2.4.0
     # via -r docs-requirements.in
-soupsieve==2.8.1
+soupsieve==2.8.2
     # via beautifulsoup4
 sphinx==8.2.3
     # via
@@ -80,7 +80,7 @@ sphinx==8.2.3
     #   sphinxcontrib-trio
 sphinx-codeautolink==0.17.5
     # via -r docs-requirements.in
-sphinx-rtd-theme==3.0.2
+sphinx-rtd-theme==3.1.0
     # via -r docs-requirements.in
 sphinxcontrib-applehelp==2.0.0
     # via sphinx
@@ -107,5 +107,5 @@ typing-extensions==4.15.0
     #   beautifulsoup4
     #   exceptiongroup
     #   pyopenssl
-urllib3==2.6.2
+urllib3==2.6.3
     # via requests

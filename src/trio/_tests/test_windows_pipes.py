@@ -24,7 +24,7 @@ if sys.platform == "win32":
 
 async def make_pipe() -> tuple[PipeSendStream, PipeReceiveStream]:
     """Makes a new pair of pipes."""
-    (r, w) = pipe()
+    r, w = pipe()
     return PipeSendStream(w), PipeReceiveStream(r)
 
 
