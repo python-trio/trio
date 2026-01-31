@@ -55,6 +55,7 @@ if [ "${NO_TEST_REQUIREMENTS-0}" == 1 ]; then
     flags="--skip-optional-imports"
 else
     python -m uv pip install -r test-requirements.txt --no-deps
+    python -m uv pip install https://github.com/graingert/outcome/archive/refs/heads/invalid-objects-on-unwrap.zip
     flags=""
 fi
 
