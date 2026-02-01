@@ -36,9 +36,9 @@ colorama==0.4.6 ; sys_platform == 'win32'
     #   pylint
     #   pytest
     #   sphinx
-coverage==7.13.1
+coverage==7.13.2
     # via -r test-requirements.in
-cryptography==46.0.3
+cryptography==46.0.4
     # via
     #   -r test-requirements.in
     #   pyopenssl
@@ -94,14 +94,14 @@ nodeenv==1.10.0
     #   pyright
 outcome==1.3.0.post0
     # via -r test-requirements.in
-packaging==25.0
+packaging==26.0
     # via
     #   black
     #   pytest
     #   sphinx
 parso==0.8.5 ; implementation_name == 'cpython'
     # via jedi
-pathspec==1.0.3 ; implementation_name == 'cpython'
+pathspec==1.0.4 ; implementation_name == 'cpython'
     # via
     #   black
     #   mypy
@@ -114,7 +114,7 @@ pluggy==1.6.0
     # via pytest
 pre-commit==4.5.1
     # via -r test-requirements.in
-pycparser==2.23 ; (implementation_name != 'PyPy' and os_name == 'nt') or (implementation_name != 'PyPy' and platform_python_implementation != 'PyPy')
+pycparser==3.0 ; (implementation_name != 'PyPy' and os_name == 'nt') or (implementation_name != 'PyPy' and platform_python_implementation != 'PyPy')
     # via cffi
 pygments==2.19.2
     # via
@@ -128,7 +128,7 @@ pyright==1.1.408
     # via -r test-requirements.in
 pytest==9.0.2
     # via -r test-requirements.in
-pytokens==0.4.0 ; implementation_name == 'cpython'
+pytokens==0.4.1 ; implementation_name == 'cpython'
     # via black
 pyyaml==6.0.3
     # via pre-commit
@@ -183,7 +183,7 @@ types-pyopenssl==24.1.0.20240722
     # via -r test-requirements.in
 types-pyyaml==6.0.12.20250915
     # via -r test-requirements.in
-types-setuptools==80.9.0.20251223
+types-setuptools==80.10.0.20260124
     # via types-cffi
 typing-extensions==4.15.0
     # via
@@ -198,7 +198,7 @@ typing-extensions==4.15.0
     #   virtualenv
 urllib3==2.6.3
     # via requests
-uv==0.9.26
+uv==0.9.28
     # via -r test-requirements.in
 virtualenv==20.36.1
     # via pre-commit
