@@ -25,6 +25,7 @@ from typing import (
 )
 
 import attrs
+import outcome
 from outcome import Error, Outcome, Value, capture
 from sniffio import thread_local as sniffio_library
 from sortedcontainers import SortedDict
@@ -1903,7 +1904,9 @@ class Runner:  # type: ignore[explicit-any]
     ################
 
     @_public
-    def reschedule(self, task: Task, next_send: Outcome[object] = _NO_SEND) -> None:
+    def reschedule(
+        self, task: Task, next_send: outcome.Outcome[object] = _NO_SEND
+    ) -> None:
         """Reschedule the given task with the given
         :class:`outcome.Outcome`.
 
