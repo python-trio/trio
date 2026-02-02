@@ -3131,6 +3131,13 @@ elif TYPE_CHECKING or hasattr(select, "kqueue"):
         KqueueIOManager as TheIOManager,
         _KqueueStatistics as IOStatistics,
     )
+elif sys.platform == "solaris" or (not TYPE_CHECKING and hasattr(select, "devpoll")):
+    from ._generated_io_devpoll import *
+    from ._io_devpoll import (
+        DevpollIOManager as TheIOManager,
+        EventResult as EventResult,
+        _DevpollStatistics as IOStatistics,
+    )
 else:  # pragma: no cover
     _patchers = sorted({"eventlet", "gevent"}.intersection(sys.modules))
     if _patchers:
