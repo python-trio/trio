@@ -765,3 +765,87 @@ async def test_subprocess_pidfd_unnotified() -> None:
             # for everything to notice
             await noticed_exit.wait()
         assert noticed_exit.is_set(), "child task wasn't woken after poll, DEADLOCK"
+
+
+@pytest.mark.skipif(not posix, reason="posix only")
+@slow
+async def test_shells_killed_by_default() -> None:
+    assert sys.platform != "win32"
+
+    async with _core.open_nursery() as nursery:
+        proc = await nursery.start(
+            partial(
+                trio.run_process,
+                'python -u -c "import os, time, signal; '
+                f"os.kill({os.getpid()}, signal.SIGHUP); "
+                'print(os.getpid()); time.sleep(5)" | cat',
+                shell=True,
+                stdout=subprocess.PIPE,
+            )
+        )
+
+        with trio.fail_after(1):
+            with trio.open_signal_receiver(signal.SIGHUP) as signal_aiter:  # type: ignore[attr-defined,unused-ignore]
+                signum = await signal_aiter.__anext__()
+                assert signum == signal.SIGHUP  # type: ignore[attr-defined,unused-ignore]
+
+        nursery.cancel_scope.cancel()
+
+    chunks = []
+    with trio.move_on_after(0.1):
+        async with proc.stdout:
+            async for c in proc.stdout:
+                chunks.append(c)  # noqa: PERF401
+
+    # give the child time to wind down execution (this is unfortunate)
+    await trio.sleep(1)
+
+    child_pid = int(b"".join(chunks))
+    if sys.platform == "linux":
+        # docker containers can have an evil init which
+        # won't reap zombie children, so we have to work around that
+        with pytest.raises(FileNotFoundError):
+            with open(f"/proc/{child_pid}/status") as f:  # noqa: ASYNC230
+                hit_zombie = False
+                for line in f:
+                    if line.startswith("State:"):
+                        assert "Z" in line
+                        hit_zombie = True
+
+                if hit_zombie:
+                    raise FileNotFoundError
+    else:
+        with pytest.raises(OSError, match="No such process"):
+            os.kill(child_pid, 0)
+
+
+@pytest.mark.skipif(not posix, reason="posix only")
+@slow
+async def test_process_group_SIGKILL_escalation(mock_clock: MockClock) -> None:
+    assert sys.platform != "win32"
+    mock_clock.autojump_threshold = 1
+
+    with pytest.warns(RuntimeWarning, match=".*ignored SIGTERM.*"):  # noqa: PT031
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(
+                # this ignore is because process_group=0 on Windows
+                partial(  # type: ignore[call-arg,unused-ignore]
+                    trio.run_process,
+                    [
+                        "python",
+                        "-c",
+                        "import os, time, signal;"
+                        f"os.kill({os.getpid()}, signal.SIGHUP);"
+                        "signal.signal(signal.SIGTERM, signal.SIG_IGN);"
+                        "time.sleep(10)",
+                    ],
+                    process_group=0,
+                )
+            )
+
+            with trio.fail_after(1):
+                with trio.open_signal_receiver(signal.SIGHUP) as signal_aiter:  # type: ignore[attr-defined,unused-ignore]
+                    signum = await signal_aiter.__anext__()
+                    assert signum == signal.SIGHUP  # type: ignore[attr-defined,unused-ignore]
+
+            nursery.cancel_scope.cancel()
