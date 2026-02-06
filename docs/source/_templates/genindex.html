@@ -1,0 +1,38 @@
+{% extends "!genindex.html" %}
+
+{# check sphinx/themes/basic/genindex if this snippet has become outdated #}
+
+{% block body %}
+
+<h1 id="index">{{ _('Index') }}</h1>
+
+<div class="genindex-jumpbox">
+ {% for key, dummy in genindexentries -%}
+ <a href="#{{ key }}"><strong>{{ key }}</strong></a>
+ {% if not loop.last %}| {% endif %}
+ {%- endfor %}
+</div>
+
+{%- for key, entries in genindexentries %}
+<h2 id="{{ key }}">{{ key }}</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  {%- for column in entries|slice_index(2) if column %}
+  <td style="width: 33%; vertical-align: top;"><ul>
+    {%- for entryname, (links, subitems, _) in column %}
+      {% set name = links[0][1].rsplit('#', 1)[1] if links else '' %}
+      <li>{{ indexentries(name if name and '-' not in name else entryname, links) }}
+      {%- if subitems %}
+      <ul>
+      {%- for subentryname, subentrylinks in subitems %}
+        {% set sname = subentrylinks[0][1].rsplit('#', 1)[1] if subentrylinks else '' %}
+        <li>{{ indexentries(sname if sname and '-' not in sname else subentryname, subentrylinks) }}</li>
+      {%- endfor %}
+      </ul>
+      {%- endif -%}</li>
+    {%- endfor %}
+  </ul></td>
+  {%- endfor %}
+</tr></table>
+{% endfor %}
+
+{% endblock %}

@@ -86,6 +86,7 @@ Vital statistics:
    contributing.rst
    releasing.rst
    code-of-conduct.rst
+   genindex
 
 ====================
  Indices and tables
