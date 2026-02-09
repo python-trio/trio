@@ -162,7 +162,7 @@ def format_host_port(host: str | bytes, port: int | str) -> str:
         return f"{host}:{port}"
 
 
-# Twisted's HostnameEndpoint has a good set of configurables:
+# Twisted's HostnameEndpoint has a good set of configurable:
 #   https://twistedmatrix.com/documents/current/api/twisted.internet.endpoints.HostnameEndpoint.html
 #
 # - per-connection timeout
