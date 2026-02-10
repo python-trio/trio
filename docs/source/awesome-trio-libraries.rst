@@ -50,6 +50,7 @@ Database
 * `asyncakumuli <https://github.com/M-o-a-T/asyncakumuli>`__ - Client for the `Akumuli <https://akumuli.org/>`__ time series database.
 * `aio-databases <https://github.com/klen/aio-databases>`_ - Async Support for various databases (triopg, trio-mysql)
 * `peewee-aio <https://github.com/klen/peewee-aio>`_ - Peewee Async ORM with trio support (triopg, trio-mysql).
+* `coredis <https://github.com/alisaifee/coredis>`_ - Fast, async, fully-typed Redis client with support for cluster and sentinel
 
 
 IOT
@@ -81,6 +82,11 @@ Multi-Core/Multiprocessing
 Stream Processing
 -----------------
 * `Slurry <https://github.com/andersea/slurry>`__ - Slurry is a microframework for building reactive, data processing applications with Trio.
+
+
+Distributed Task Queue
+----------------------
+* `streaQ <https://github.com/tastyware/streaq>`_ - Fast, async, fully-typed distributed task queue via Redis streams
 
 
 RPC
