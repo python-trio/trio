@@ -107,6 +107,7 @@ class SocketStream(HalfCloseableStream):
                 self.setsockopt(tsocket.IPPROTO_TCP, tsocket.TCP_NOTSENT_LOWAT, 2**14)
 
     async def send_all(self, data: bytes | bytearray | memoryview) -> None:
+        """See `trio.abc.SendStream.send_all`."""
         if self.socket.did_shutdown_SHUT_WR:
             raise trio.ClosedResourceError("can't send data after sending EOF")
         with self._send_conflict_detector:
@@ -124,6 +125,7 @@ class SocketStream(HalfCloseableStream):
                         total_sent += sent
 
     async def wait_send_all_might_not_block(self) -> None:
+        """See `trio.abc.SendStream.wait_send_all_might_not_block`."""
         with self._send_conflict_detector:
             if self.socket.fileno() == -1:
                 raise trio.ClosedResourceError
@@ -131,6 +133,7 @@ class SocketStream(HalfCloseableStream):
                 await self.socket.wait_writable()
 
     async def send_eof(self) -> None:
+        """See `trio.abc.HalfCloseableStream.send_eof`."""
         with self._send_conflict_detector:
             await trio.lowlevel.checkpoint()
             # On macOS, calling shutdown a second time raises ENOTCONN, but
@@ -141,6 +144,7 @@ class SocketStream(HalfCloseableStream):
                 self.socket.shutdown(tsocket.SHUT_WR)
 
     async def receive_some(self, max_bytes: int | None = None) -> bytes:
+        """See `trio.abc.ReceiveStream.receive_some`."""
         if max_bytes is None:
             max_bytes = DEFAULT_RECEIVE_SIZE
         if max_bytes < 1:
@@ -149,6 +153,7 @@ class SocketStream(HalfCloseableStream):
             return await self.socket.recv(max_bytes)
 
     async def aclose(self) -> None:
+        """See `trio.abc.AsyncResource.aclose`."""
         self.socket.close()
         await trio.lowlevel.checkpoint()
 

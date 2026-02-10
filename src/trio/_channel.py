@@ -118,6 +118,12 @@ class open_memory_channel(tuple["MemorySendChannel[T]", "MemoryReceiveChannel[T]
 
 @attrs.frozen
 class MemoryChannelStatistics:
+    """Object returned by `MemorySendChannel.statistics` and
+    `MemoryReceiveChannel.statistics`.
+
+    See :func:`open_memory_channel` for details on the fields.
+    """
+
     current_buffer_used: int
     max_buffer_size: int | float
     open_send_channels: int
@@ -152,6 +158,15 @@ class MemoryChannelState(Generic[T]):
 @final
 @attrs.define(eq=False, repr=False, slots=False)
 class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
+    """The sending end of a memory channel.
+
+    Created by `open_memory_channel`. This implements the
+    `~trio.abc.SendChannel` interface.
+
+    See `open_memory_channel` for details, and :ref:`channel-mpmc` for a
+    discussion of channel cloning.
+    """
+
     _state: MemoryChannelState[SendType]
     _closed: bool = False
     # This is just the tasks waiting on *this* object. As compared to
@@ -300,6 +315,15 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
 @final
 @attrs.define(eq=False, repr=False, slots=False)
 class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstructor):
+    """The receiving end of a memory channel.
+
+    Created by `open_memory_channel`. This implements the
+    `~trio.abc.ReceiveChannel` interface.
+
+    See `open_memory_channel` for details, and :ref:`channel-mpmc` for a
+    discussion of channel cloning.
+    """
+
     _state: MemoryChannelState[ReceiveType]
     _closed: bool = False
     _tasks: set[trio._core._run.Task] = attrs.Factory(set)

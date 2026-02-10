@@ -152,6 +152,11 @@ class ParkingLot:
     # items
     _parked: OrderedDict[Task, None] = attrs.field(factory=OrderedDict, init=False)
     broken_by: list[Task] = attrs.field(factory=list, init=False)
+    """List of tasks that have broken this lot via `break_lot`.
+
+    If empty, the lot is not broken. If non-empty, any attempt to
+    `park` in this lot will raise `~trio.BrokenResourceError`.
+    """
 
     def __len__(self) -> int:
         """Returns the number of parked tasks."""

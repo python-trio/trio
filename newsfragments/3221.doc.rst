@@ -1,0 +1,3 @@
+Added missing docstrings for `MemorySendChannel`, `MemoryReceiveChannel`,
+`MemoryChannelStatistics`, ``SocketStream`` methods, `~trio.lowlevel.ParkingLot.broken_by`,
+and ``HasFileno.fileno``.

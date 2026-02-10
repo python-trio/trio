@@ -218,7 +218,6 @@ abstraction.
 
 .. autoclass:: SocketStream
    :members:
-   :undoc-members:
    :show-inheritance:
 
 .. autoclass:: SocketListener
