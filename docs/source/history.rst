@@ -5,6 +5,21 @@ Release history
 
 .. towncrier release notes start
 
+trio 0.33.0 (2026-02-14)
+------------------------
+
+Bugfixes
+~~~~~~~~
+
+- Start supporting Android's new ``"android"`` `sys.platform`. (`#3357 <https://github.com/python-trio/trio/issues/3357>`__)
+
+
+Deprecations and removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Both :class:`trio.testing.RaisesGroup` and :class:`trio.testing.Matcher` have been deprecated. Pytest alternatives ``pytest.RaisesGroup`` and ``pytest.RaisesExc`` (respectively) are considered correct replacement. (`#3326 <https://github.com/python-trio/trio/issues/3326>`__)
+
+
 trio 0.32.0 (2025-10-31)
 ------------------------
 

@@ -1,1 +1,0 @@
-Start supporting Android's new ``"android"`` `sys.platform`.
