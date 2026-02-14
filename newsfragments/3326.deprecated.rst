@@ -1,1 +1,0 @@
-Both :class:`trio.testing.RaisesGroup` and :class:`trio.testing.Matcher` have been deprecated. Pytest alternatives ``pytest.RaisesGroup`` and ``pytest.RaisesExc`` (respectively) are considered correct replacement.
