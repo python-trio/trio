@@ -6,7 +6,7 @@ attrs==25.4.0
     # via
     #   -r docs-requirements.in
     #   outcome
-babel==2.17.0
+babel==2.18.0
     # via sphinx
 beautifulsoup4==4.14.3
     # via sphinx-codeautolink
@@ -24,7 +24,7 @@ colorama==0.4.6 ; sys_platform == 'win32'
     # via
     #   click
     #   sphinx
-cryptography==46.0.4
+cryptography==46.0.5
     # via pyopenssl
 docutils==0.22.4
     # via
