@@ -4,7 +4,7 @@ alabaster==1.0.0
     # via sphinx
 astor==0.8.1
     # via -r test-requirements.in
-astroid==4.0.3
+astroid==4.0.4
     # via pylint
 async-generator==1.10
     # via -r test-requirements.in
@@ -12,7 +12,7 @@ attrs==25.4.0
     # via
     #   -r test-requirements.in
     #   outcome
-babel==2.17.0
+babel==2.18.0
     # via sphinx
 black==26.1.0 ; implementation_name == 'cpython'
     # via -r test-requirements.in
@@ -36,9 +36,9 @@ colorama==0.4.6 ; sys_platform == 'win32'
     #   pylint
     #   pytest
     #   sphinx
-coverage==7.13.2
+coverage==7.13.4
     # via -r test-requirements.in
-cryptography==46.0.4
+cryptography==46.0.5
     # via
     #   -r test-requirements.in
     #   pyopenssl
@@ -56,7 +56,7 @@ exceptiongroup==1.3.1 ; python_full_version < '3.11'
     # via
     #   -r test-requirements.in
     #   pytest
-filelock==3.20.3
+filelock==3.24.0
     # via virtualenv
 identify==2.6.16
     # via pre-commit
@@ -75,7 +75,7 @@ jedi==0.19.2 ; implementation_name == 'cpython'
     # via -r test-requirements.in
 jinja2==3.1.6
     # via sphinx
-librt==0.7.8 ; implementation_name == 'cpython' and platform_python_implementation != 'PyPy'
+librt==0.8.0 ; implementation_name == 'cpython' and platform_python_implementation != 'PyPy'
     # via mypy
 markupsafe==3.0.3
     # via jinja2
@@ -99,13 +99,13 @@ packaging==26.0
     #   black
     #   pytest
     #   sphinx
-parso==0.8.5 ; implementation_name == 'cpython'
+parso==0.8.6 ; implementation_name == 'cpython'
     # via jedi
 pathspec==1.0.4 ; implementation_name == 'cpython'
     # via
     #   black
     #   mypy
-platformdirs==4.5.1
+platformdirs==4.9.0
     # via
     #   black
     #   pylint
@@ -136,7 +136,7 @@ requests==2.32.5
     # via sphinx
 roman-numerals==4.1.0 ; python_full_version >= '3.11'
     # via sphinx
-ruff==0.15.0
+ruff==0.15.1
     # via -r test-requirements.in
 sniffio==1.3.1
     # via -r test-requirements.in
@@ -183,7 +183,7 @@ types-pyopenssl==24.1.0.20240722
     # via -r test-requirements.in
 types-pyyaml==6.0.12.20250915
     # via -r test-requirements.in
-types-setuptools==80.10.0.20260124
+types-setuptools==82.0.0.20260210
     # via types-cffi
 typing-extensions==4.15.0
     # via
@@ -198,7 +198,7 @@ typing-extensions==4.15.0
     #   virtualenv
 urllib3==2.6.3
     # via requests
-uv==0.10.0
+uv==0.10.2
     # via -r test-requirements.in
 virtualenv==20.36.1
     # via pre-commit
