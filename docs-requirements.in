@@ -1,6 +1,6 @@
 # RTD is currently installing 1.5.3, which has a bug in :lineno-match: (??)
-# sphinx 5.3 doesn't work with our _NoValue workaround, 9.0 breaks sphinxcontrib-trio
-sphinx >= 6.0,<9.0
+# sphinx 5.3 doesn't work with our _NoValue workaround
+sphinx >= 6.0
 jinja2
 # >= is necessary to prevent `uv` from selecting a `Sphinx` version this does not support
 sphinx_rtd_theme >= 3

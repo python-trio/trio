@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     import contextvars
     from collections.abc import Awaitable, Callable
 
-    from outcome import Outcome
+    import outcome
     from typing_extensions import Unpack
 
     from .._abc import Clock
@@ -102,7 +102,7 @@ def current_root_task() -> Task | None:
 
 
 @enable_ki_protection
-def reschedule(task: Task, next_send: Outcome[object] = _NO_SEND) -> None:
+def reschedule(task: Task, next_send: outcome.Outcome[object] = _NO_SEND) -> None:
     """Reschedule the given task with the given
     :class:`outcome.Outcome`.
 

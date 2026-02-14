@@ -348,7 +348,7 @@ IMPORTS_RUN = """\
 from collections.abc import Awaitable, Callable
 from typing import Any, TYPE_CHECKING
 
-from outcome import Outcome
+import outcome
 import contextvars
 
 from ._run import _NO_SEND, RunStatistics, Task
