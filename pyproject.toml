@@ -175,7 +175,10 @@ extend-ignore = [
 # do not use an await in their function bodies. There are several
 # places where internal trio synchronous code relies on being
 # called from an async function, where current task is set up.
-'src/trio/_tests/*.py' = ['RUF029']
+'src/trio/_tests/*.py' = [
+    "RUF029",
+    "RUF069",  # float-equality-comparison, we're careful (these are tests) + use autojump clock
+]
 'src/trio/_core/_tests/*.py' = ['RUF029']
 # A005 is ignoring modules that shadow stdlib modules.
 'src/trio/_abc.py' = ['A005']
