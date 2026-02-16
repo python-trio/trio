@@ -73,7 +73,7 @@ repos:
         additional_dependencies: ["pyyaml"]
         files: ^(test-requirements\.txt)|(\.pre-commit-config\.yaml)$
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.10.2
+    rev: 0.10.3
     hooks:
       # Compile requirements
       - id: pip-compile
