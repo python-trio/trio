@@ -33,7 +33,7 @@ from sortedcontainers import SortedDict
 from .. import _core
 from .._abc import Clock, Instrument
 from .._deprecate import warn_deprecated
-from .._util import NoPublicConstructor, coroutine_or_error, final
+from .._util import NoPublicConstructor, coroutine_or_error, final, raise_saving_context
 from ._asyncgens import AsyncGenerators
 from ._concat_tb import concat_tb
 from ._entry_queue import EntryQueue, TrioToken
@@ -1466,7 +1466,7 @@ class Nursery(metaclass=NoPublicConstructor):
                     # cancel this nursery:
             except BaseExceptionGroup as exc:
                 if len(exc.exceptions) == 1:
-                    raise exc.exceptions[0] from None
+                    raise_saving_context(exc.exceptions[0])
                 raise TrioInternalError(
                     "Internal nursery should not have multiple tasks. This can be "
                     'caused by the user managing to access the "old" nursery in '
