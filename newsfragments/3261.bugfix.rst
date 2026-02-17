@@ -1,0 +1,2 @@
+``Nursery.start()`` now preserves the ``__cause__`` and ``__context__`` of
+exceptions raised before ``task_status.started()`` is called.
