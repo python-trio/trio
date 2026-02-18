@@ -2930,14 +2930,15 @@ async def test_start_exception_preserves_cause_and_context() -> None:
         e.__context__ = TypeError("baz")
         raise e
 
-    with pytest.raises(BaseExceptionGroup) as exc_info:
+    with pytest.RaisesGroup(
+        pytest.RaisesExc(
+            ValueError,
+            check=lambda exc: isinstance(exc.__cause__, SyntaxError)
+            and isinstance(exc.__context__, TypeError),
+        ),
+    ):
         async with _core.open_nursery() as nursery:
             await nursery.start(task)
-    assert len(exc_info.value.exceptions) == 1
-    exc = exc_info.value.exceptions[0]
-    assert isinstance(exc, ValueError)
-    assert isinstance(exc.__cause__, SyntaxError)
-    assert isinstance(exc.__context__, TypeError)
 
 
 async def test_internal_error_old_nursery_multiple_tasks() -> None:
