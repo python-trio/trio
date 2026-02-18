@@ -1649,7 +1649,13 @@ class Task(metaclass=NoPublicConstructor):  # type: ignore[explicit-any]
         # whether we succeeded or failed.
         self._abort_func = None
         if success is Abort.SUCCEEDED:
-            self._runner.reschedule(self, capture(raise_cancel))
+            # Clear __context__ to prevent exception state from the task
+            # that called cancel() from leaking into the cancelled task's
+            # Cancelled exception. See https://github.com/python-trio/trio/issues/2649
+            error = capture(raise_cancel)
+            error.error.__context__ = None
+            self._runner.reschedule(self, error)
+            del error
 
     def _attempt_delivery_of_any_pending_cancel(self) -> None:
         if self._abort_func is None:

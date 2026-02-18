@@ -603,6 +603,42 @@ async def test_cancel_shield_abort() -> None:
                 assert record == ["sleeping", "cancelled"]
 
 
+async def test_cancelled_context_does_not_leak_from_other_task() -> None:
+    # https://github.com/python-trio/trio/issues/2649
+    # When task 1 calls cancel() while handling an exception,
+    # task 2's Cancelled exception should NOT have task 1's
+    # exception as __context__.
+    task2_cancelled: _core.Cancelled | None = None
+
+    async def task2(cancel_scope: _core.CancelScope) -> None:
+        nonlocal task2_cancelled
+        with cancel_scope:
+            try:
+                await sleep_forever()
+            except _core.Cancelled as exc:
+                task2_cancelled = exc
+                raise
+
+    async with _core.open_nursery() as nursery:
+        cancel_scope = _core.CancelScope()
+        nursery.start_soon(task2, cancel_scope)
+        await wait_all_tasks_blocked()
+
+        # Task 1 cancels the scope while handling an exception
+        try:
+            raise RuntimeError("task1 error")
+        except RuntimeError:
+            cancel_scope.cancel()
+
+        # Give task2 a chance to run and handle the cancellation
+        await wait_all_tasks_blocked()
+
+    assert task2_cancelled is not None
+    # The key assertion: task2's Cancelled should not have
+    # task1's RuntimeError as __context__
+    assert task2_cancelled.__context__ is None
+
+
 async def test_basic_timeout(mock_clock: _core.MockClock) -> None:
     start = _core.current_time()
     with _core.CancelScope() as scope:

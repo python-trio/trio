@@ -1,0 +1,3 @@
+:exc:`Cancelled` exceptions no longer inherit ``__context__`` from
+unrelated exceptions being handled in the task that called
+:meth:`CancelScope.cancel`.
