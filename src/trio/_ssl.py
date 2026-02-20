@@ -223,7 +223,7 @@ class NeedHandshakeError(Exception):
 
 
 class _Once:
-    __slots__ = ("_afn", "_args", "_done", "started")
+    __slots__ = ("_afn", "_args", "_done", "_failure", "started")
 
     def __init__(
         self,
@@ -234,16 +234,26 @@ class _Once:
         self._args = args
         self.started = False
         self._done = _sync.Event()
+        self._failure: BaseException | None = None
 
     async def ensure(self, *, checkpoint: bool) -> None:
         if not self.started:
             self.started = True
-            await self._afn(*self._args)
+            try:
+                await self._afn(*self._args)
+            except BaseException as exc:
+                self._failure = exc
+                self._done.set()
+                raise
             self._done.set()
         elif not checkpoint and self._done.is_set():
+            if self._failure is not None:
+                raise trio.BrokenResourceError from self._failure
             return
         else:
             await self._done.wait()
+            if self._failure is not None:
+                raise trio.BrokenResourceError from self._failure
 
     @property
     def done(self) -> bool:
