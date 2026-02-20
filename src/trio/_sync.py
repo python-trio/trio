@@ -377,8 +377,8 @@ class CapacityLimiter(AsyncContextManagerMixin):
             self._pending_borrowers[task] = borrower
             try:
                 await self._lot.park()
-            except trio.Cancelled:
-                self._pending_borrowers.pop(task)
+            except BaseException:
+                self._pending_borrowers.pop(task, None)
                 raise
         else:
             await trio.lowlevel.cancel_shielded_checkpoint()
