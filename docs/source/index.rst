@@ -86,7 +86,8 @@ Vital statistics:
    contributing.rst
    releasing.rst
    code-of-conduct.rst
-   genindex
+
+.. once https://github.com/sphinx-doc/sphinx/issues/13733 is merged, add `genindex` above
 
 ====================
  Indices and tables
