@@ -1,0 +1,3 @@
+Trying to use absolute deadlines on a `trio.CancelScope` constructed
+with a relative deadline now raises, after being deprecated since Trio
+0.27.0.
