@@ -243,13 +243,12 @@ async def test_timeout_deadline_on_entry(mock_clock: _core.MockClock) -> None:
         assert rcs is cs
 
 
-async def test_invalid_access_unentered(mock_clock: _core.MockClock) -> None:
+async def test_invalid_access_unentered() -> None:
     cs = move_on_after(5)
-    mock_clock.jump(3)
 
     match_str = "^Unentered relative cancel scope does not have an absolute deadline"
     with pytest.raises(RuntimeError, match=match_str):
-        print("SHOULD NOT PRINT! deadline:", cs.deadline)
+        assert cs.deadline
 
     with pytest.raises(RuntimeError, match=match_str):
         cs.deadline = 7
