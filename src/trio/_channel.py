@@ -118,6 +118,26 @@ class open_memory_channel(tuple["MemorySendChannel[T]", "MemoryReceiveChannel[T]
 
 @attrs.frozen
 class MemoryChannelStatistics:
+    """Statistics about a memory channel.
+
+    This object is returned by the ``statistics()`` method on
+    :class:`MemorySendChannel` and :class:`MemoryReceiveChannel`.
+
+    Attributes:
+        current_buffer_used: The number of items currently stored in the
+            channel buffer.
+        max_buffer_size: The maximum number of items allowed in the buffer,
+            as passed to :func:`open_memory_channel`.
+        open_send_channels: The number of open :class:`MemorySendChannel`
+            endpoints pointing to this channel.
+        open_receive_channels: The number of open :class:`MemoryReceiveChannel`
+            endpoints pointing to this channel.
+        tasks_waiting_send: The number of tasks blocked in ``send`` on this
+            channel (summing over all clones).
+        tasks_waiting_receive: The number of tasks blocked in ``receive`` on
+            this channel (summing over all clones).
+    """
+
     current_buffer_used: int
     max_buffer_size: int | float
     open_send_channels: int
@@ -152,6 +172,15 @@ class MemoryChannelState(Generic[T]):
 @final
 @attrs.define(eq=False, repr=False, slots=False)
 class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
+    """The sending end of a memory channel.
+
+    Memory channels are created using :func:`open_memory_channel`, which
+    returns a pair of (:class:`MemorySendChannel`, :class:`MemoryReceiveChannel`).
+    See :func:`open_memory_channel` for full documentation.
+
+    This implements the :class:`~trio.abc.SendChannel` interface.
+    """
+
     _state: MemoryChannelState[SendType]
     _closed: bool = False
     # This is just the tasks waiting on *this* object. As compared to
@@ -300,6 +329,15 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
 @final
 @attrs.define(eq=False, repr=False, slots=False)
 class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstructor):
+    """The receiving end of a memory channel.
+
+    Memory channels are created using :func:`open_memory_channel`, which
+    returns a pair of (:class:`MemorySendChannel`, :class:`MemoryReceiveChannel`).
+    See :func:`open_memory_channel` for full documentation.
+
+    This implements the :class:`~trio.abc.ReceiveChannel` interface.
+    """
+
     _state: MemoryChannelState[ReceiveType]
     _closed: bool = False
     _tasks: set[trio._core._run.Task] = attrs.Factory(set)
