@@ -120,9 +120,6 @@ class open_memory_channel(tuple["MemorySendChannel[T]", "MemoryReceiveChannel[T]
 class MemoryChannelStatistics:
     """Statistics about a memory channel.
 
-    This object is returned by the ``statistics()`` method on
-    :class:`MemorySendChannel` and :class:`MemoryReceiveChannel`.
-
     Attributes:
         current_buffer_used: The number of items currently stored in the
             channel buffer.
@@ -177,8 +174,6 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
     Memory channels are created using :func:`open_memory_channel`, which
     returns a pair of (:class:`MemorySendChannel`, :class:`MemoryReceiveChannel`).
     See :func:`open_memory_channel` for full documentation.
-
-    This implements the :class:`~trio.abc.SendChannel` interface.
     """
 
     _state: MemoryChannelState[SendType]
@@ -334,8 +329,6 @@ class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstr
     Memory channels are created using :func:`open_memory_channel`, which
     returns a pair of (:class:`MemorySendChannel`, :class:`MemoryReceiveChannel`).
     See :func:`open_memory_channel` for full documentation.
-
-    This implements the :class:`~trio.abc.ReceiveChannel` interface.
     """
 
     _state: MemoryChannelState[ReceiveType]
