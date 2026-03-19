@@ -16,7 +16,7 @@ cffi==2.0.0 ; os_name == 'nt' or platform_python_implementation != 'PyPy'
     # via
     #   -r docs-requirements.in
     #   cryptography
-charset-normalizer==3.4.4
+charset-normalizer==3.4.6
     # via requests
 click==8.3.1
     # via towncrier
@@ -36,7 +36,7 @@ idna==3.11
     # via
     #   -r docs-requirements.in
     #   requests
-imagesize==1.4.1
+imagesize==2.0.0
     # via sphinx
 immutables==0.21
     # via -r docs-requirements.in
@@ -55,7 +55,7 @@ pycparser==3.0 ; (implementation_name != 'PyPy' and os_name == 'nt') or (impleme
     # via cffi
 pygments==2.19.2
     # via sphinx
-pyopenssl==25.3.0
+pyopenssl==26.0.0
     # via -r docs-requirements.in
 requests==2.32.5
     # via sphinx
