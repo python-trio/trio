@@ -808,13 +808,9 @@ class CancelScope:
         """
         if self._relative_deadline != inf:
             assert self._deadline == inf
-            warnings.warn(
-                DeprecationWarning(
-                    "unentered relative cancel scope does not have an absolute deadline. Use `.relative_deadline`",
-                ),
-                stacklevel=2,
+            raise RuntimeError(
+                "Unentered relative cancel scope does not have an absolute deadline."
             )
-            return current_time() + self._relative_deadline
         return self._deadline
 
     @deadline.setter
@@ -823,13 +819,9 @@ class CancelScope:
             raise ValueError("deadline must not be NaN")
         if self._relative_deadline != inf:
             assert self._deadline == inf
-            warnings.warn(
-                DeprecationWarning(
-                    "unentered relative cancel scope does not have an absolute deadline. Transforming into an absolute cancel scope. First set `.relative_deadline = math.inf` if you do want an absolute cancel scope.",
-                ),
-                stacklevel=2,
+            raise RuntimeError(
+                "Unentered relative cancel scope does not have an absolute deadline."
             )
-            self._relative_deadline = inf
         with self._might_change_registered_deadline():
             self._deadline = float(new_deadline)
 
@@ -852,7 +844,7 @@ class CancelScope:
         elif self._deadline != inf:
             assert self._relative_deadline == inf
             raise RuntimeError(
-                "unentered non-relative cancel scope does not have a relative deadline",
+                "Unentered non-relative cancel scope does not have a relative deadline",
             )
         return self._relative_deadline
 
@@ -868,7 +860,7 @@ class CancelScope:
         elif self._deadline != inf:
             assert self._relative_deadline == inf
             raise RuntimeError(
-                "unentered non-relative cancel scope does not have a relative deadline",
+                "Unentered non-relative cancel scope does not have a relative deadline",
             )
         else:
             self._relative_deadline = new_relative_deadline
