@@ -1,5 +1,6 @@
 {
     "Darwin": [
+        "No docstring found for class \"trio._core._io_kqueue._KqueueStatistics\"",
         "No docstring found for function \"trio._unix_pipes.FdStream.send_all\"",
         "No docstring found for function \"trio._unix_pipes.FdStream.wait_send_all_might_not_block\"",
         "No docstring found for function \"trio._unix_pipes.FdStream.receive_some\"",
@@ -18,20 +19,8 @@
     ],
     "Windows": [],
     "all": [
-        "No docstring found for class \"trio.MemoryReceiveChannel\"",
-        "No docstring found for class \"trio._channel.MemoryReceiveChannel\"",
-        "No docstring found for class \"trio.MemoryChannelStatistics\"",
-        "No docstring found for class \"trio._channel.MemoryChannelStatistics\"",
-        "No docstring found for class \"trio.MemorySendChannel\"",
-        "No docstring found for class \"trio._channel.MemorySendChannel\"",
         "No docstring found for class \"trio._core._run.Task\"",
         "No docstring found for class \"trio._socket.SocketType\"",
-        "No docstring found for function \"trio._highlevel_socket.SocketStream.send_all\"",
-        "No docstring found for function \"trio._highlevel_socket.SocketStream.wait_send_all_might_not_block\"",
-        "No docstring found for function \"trio._highlevel_socket.SocketStream.send_eof\"",
-        "No docstring found for function \"trio._highlevel_socket.SocketStream.receive_some\"",
-        "No docstring found for function \"trio._highlevel_socket.SocketStream.aclose\"",
-        "No docstring found for function \"trio._subprocess.HasFileno.fileno\"",
         "No docstring found for class \"trio._sync.AsyncContextManagerMixin\"",
         "No docstring found for function \"trio._sync._HasAcquireRelease.acquire\"",
         "No docstring found for function \"trio._sync._HasAcquireRelease.release\"",
