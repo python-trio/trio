@@ -171,7 +171,7 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
     """The send end of a memory channel, created by
     :func:`open_memory_channel`.
 
-    See :ref:`channel` for details. This implements the
+    See :ref:`channels` for details. This implements the
     :class:`trio.abc.SendChannel` interface.
 
     """
@@ -327,7 +327,7 @@ class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstr
     """The receive end of a memory channel, created by
     :func:`open_memory_channel`.
 
-    See :ref:`channel` for details. This implements the
+    See :ref:`channels` for details. This implements the
     :class:`trio.abc.ReceiveChannel` interface.
 
     """
