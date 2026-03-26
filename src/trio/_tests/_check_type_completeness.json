@@ -1,6 +1,5 @@
 {
     "Darwin": [
-        "No docstring found for class \"trio._core._io_kqueue._KqueueStatistics\"",
         "No docstring found for function \"trio._unix_pipes.FdStream.send_all\"",
         "No docstring found for function \"trio._unix_pipes.FdStream.wait_send_all_might_not_block\"",
         "No docstring found for function \"trio._unix_pipes.FdStream.receive_some\"",

@@ -173,15 +173,6 @@ def autodoc_process_signature(
 # currently undocumented things
 logger = getLogger("trio")
 UNDOCUMENTED = {
-    "trio.MemorySendChannel",
-    "trio.MemoryReceiveChannel",
-    "trio.MemoryChannelStatistics",
-    "trio.SocketStream.aclose",
-    "trio.SocketStream.receive_some",
-    "trio.SocketStream.send_all",
-    "trio.SocketStream.send_eof",
-    "trio.SocketStream.wait_send_all_might_not_block",
-    "trio._subprocess.HasFileno.fileno",
     "trio.lowlevel.ParkingLot.broken_by",
 }
 
