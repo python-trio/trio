@@ -394,6 +394,8 @@ class SSLStream(Stream, Generic[T_Stream]):
 
         self._estimated_receive_size = STARTING_RECEIVE_SIZE
 
+        self._ssl_error = None
+
     _forwarded: ClassVar = {
         "context",
         "server_side",
@@ -499,7 +501,19 @@ class SSLStream(Stream, Generic[T_Stream]):
                 ret = fn(*args)
             except _stdlib_ssl.SSLWantReadError:
                 want_read = True
-            except (_stdlib_ssl.SSLError, _stdlib_ssl.CertificateError) as exc:
+            except _stdlib_ssl.CertificateError as exc:
+                if self._outgoing.pending:
+                    # We have pending data in MemoryBIO.  The assumption is
+                    # that this is the TLS alert corresponding to the
+                    # exception.  As the alert needs to be sent to the peer, we
+                    # stash the exception for now.  We'll raise it after the
+                    # alert is sent below, which will surely happen as sending
+                    # has priority over receiving.
+                    self._ssl_error = exc
+                else:
+                    self._state = _State.BROKEN
+                    raise trio.BrokenResourceError from exc
+            except _stdlib_ssl.SSLError as exc:
                 self._state = _State.BROKEN
                 raise trio.BrokenResourceError from exc
             else:
@@ -633,6 +647,13 @@ class SSLStream(Stream, Generic[T_Stream]):
                             )
                             self._incoming.write(data)
                         self._inner_recv_count += 1
+            if self._ssl_error:
+                # Raise the stashed SSLError exception.
+                self._state = _State.BROKEN
+                # Not sure if this is necessary, but let's clean up
+                # self._ssl_error just in case.
+                self._ssl_error, ssl_error = None, self._ssl_error
+                raise trio.BrokenResourceError from ssl_error
         if not yielded:
             await trio.lowlevel.cancel_shielded_checkpoint()
         return ret
