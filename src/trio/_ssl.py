@@ -394,7 +394,7 @@ class SSLStream(Stream, Generic[T_Stream]):
 
         self._estimated_receive_size = STARTING_RECEIVE_SIZE
 
-        self._ssl_error = None
+        self._ssl_error: _stdlib_ssl.CertificateError | None = None
 
     _forwarded: ClassVar = {
         "context",

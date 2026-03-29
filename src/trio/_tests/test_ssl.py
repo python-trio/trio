@@ -472,31 +472,29 @@ async def test_ssl_client_basics(client_ctx: SSLContext) -> None:
     # rather than choking with UNEXPECTED_EOF_WHILE_READING.
     with pytest.RaisesGroup(
         pytest.RaisesExc(ssl.SSLError, match="TLSV1_ALERT_UNKNOWN_CA")
-    ) as excinfo:
+    ):
         async with ssl_echo_server_raw(expect_fail="raise") as sock:
             bad_client_ctx = ssl.create_default_context()
             s = SSLStream(
                 sock, bad_client_ctx, server_hostname="trio-test-1.example.org"
             )
             assert not s.server_side
-            with pytest.RaisesGroup(
-                BrokenResourceError, allow_unwrapped=True, flatten_subgroups=True
-            ) as excinfo:
+            with pytest.raises(BrokenResourceError) as excinfo1:
                 await s.send_all(b"x")
-            assert isinstance(excinfo.value.__cause__, ssl.SSLError)
+            assert isinstance(excinfo1.value.__cause__, ssl.SSLError)
 
     # Trusted CA, but wrong host name
     # Check that the server receives SSLV3_ALERT_BAD_CERTIFICATE
     # rather than choking with UNEXPECTED_EOF_WHILE_READING.
     with pytest.RaisesGroup(
         pytest.RaisesExc(ssl.SSLError, match="SSLV3_ALERT_BAD_CERTIFICATE")
-    ) as excinfo:
+    ):
         async with ssl_echo_server_raw(expect_fail="raise") as sock:
             s = SSLStream(sock, client_ctx, server_hostname="trio-test-2.example.org")
             assert not s.server_side
-            with pytest.raises(BrokenResourceError) as excinfo:
+            with pytest.raises(BrokenResourceError) as excinfo2:
                 await s.send_all(b"x")
-            assert isinstance(excinfo.value.__cause__, ssl.CertificateError)
+            assert isinstance(excinfo2.value.__cause__, ssl.CertificateError)
 
 
 async def test_ssl_server_basics(client_ctx: SSLContext) -> None:
