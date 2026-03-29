@@ -587,6 +587,8 @@ async def test_client_certificate(client_ctx: SSLContext) -> None:
         # thread therefore finishes, setting client_done.  With the old
         # _ssl.py, the thread hangs and will be abandoned after the timeout,
         # leaving client_done unset and thereby triggering the assertion error.
+        # (The general timeout imposed on tests is not only too long for this,
+        # but it also doesn't work, because the thread is not abandoned.)
         #
         # Potential problem: determinism.  It is highly unlikely but I guess it
         # could happen that the client thread doesn't get from .recv to
