@@ -116,7 +116,7 @@ def ssl_echo_serve_sync(
     # expect_fail = "raise" expects to fail but raises nevertheless, i.e. it is
     # like False but does not print; used where the raised exception is checked
     # in the main thread.
-    expect_fail: bool = False,
+    expect_fail: bool | str = False,
 ) -> None:
     try:
         wrapped = SERVER_CTX.wrap_socket(
@@ -171,7 +171,9 @@ def ssl_echo_serve_sync(
 # (running in a thread). Useful for testing making connections with different
 # SSLContexts.
 @asynccontextmanager
-async def ssl_echo_server_raw(expect_fail: bool = False) -> AsyncIterator[SocketStream]:
+async def ssl_echo_server_raw(
+    expect_fail: bool | str = False,
+) -> AsyncIterator[SocketStream]:
     a, b = stdlib_socket.socketpair()
     async with trio.open_nursery() as nursery:
         # Exiting the 'with a, b' context manager closes the sockets, which
@@ -191,7 +193,7 @@ async def ssl_echo_server_raw(expect_fail: bool = False) -> AsyncIterator[Socket
 @asynccontextmanager
 async def ssl_echo_server(
     client_ctx: SSLContext,
-    expect_fail: bool = False,
+    expect_fail: bool | str = False,
 ) -> AsyncIterator[SSLStream[Stream]]:
     async with ssl_echo_server_raw(expect_fail=expect_fail) as sock:
         yield SSLStream(sock, client_ctx, server_hostname="trio-test-1.example.org")
