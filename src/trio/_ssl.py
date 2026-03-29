@@ -502,17 +502,13 @@ class SSLStream(Stream, Generic[T_Stream]):
             except _stdlib_ssl.SSLWantReadError:
                 want_read = True
             except _stdlib_ssl.CertificateError as exc:
-                if self._outgoing.pending:
-                    # We have pending data in MemoryBIO.  The assumption is
-                    # that this is the TLS alert corresponding to the
-                    # exception.  As the alert needs to be sent to the peer, we
-                    # stash the exception for now.  We'll raise it after the
-                    # alert is sent below, which will surely happen as sending
-                    # has priority over receiving.
-                    self._ssl_error = exc
-                else:
-                    self._state = _State.BROKEN
-                    raise trio.BrokenResourceError from exc
+                # We assume to have pending data in MemoryBIO: the TLS alert
+                # corresponding to the exception.  As the alert needs to be
+                # sent to the peer, we stash the exception for now.  We'll
+                # raise it after the alert is sent below, which will surely
+                # happen as sending has priority over receiving.
+                assert self._outgoing.pending
+                self._ssl_error = exc
             except _stdlib_ssl.SSLError as exc:
                 self._state = _State.BROKEN
                 raise trio.BrokenResourceError from exc
