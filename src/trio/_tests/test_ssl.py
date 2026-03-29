@@ -567,7 +567,7 @@ async def test_client_certificate(client_ctx: SSLContext) -> None:
 
     # An expired client certificate: this should fail
     client_cert = TRIO_TEST_CA.issue_cert(
-        "user@example.org", not_after=datetime.datetime.now(datetime.UTC)
+        "user@example.org", not_after=datetime.datetime.now(datetime.timezone.utc)
     )
     client_cert.configure_cert(client_ctx)
 
