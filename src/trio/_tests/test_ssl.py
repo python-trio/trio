@@ -479,7 +479,9 @@ async def test_ssl_client_basics(client_ctx: SSLContext) -> None:
                 sock, bad_client_ctx, server_hostname="trio-test-1.example.org"
             )
             assert not s.server_side
-            with pytest.raises(BrokenResourceError) as excinfo:
+            with pytest.RaisesGroup(
+                BrokenResourceError, allow_unwrapped=True, flatten_subgroups=True
+            ) as excinfo:
                 await s.send_all(b"x")
             assert isinstance(excinfo.value.__cause__, ssl.SSLError)
 
