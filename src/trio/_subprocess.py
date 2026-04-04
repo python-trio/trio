@@ -675,7 +675,7 @@ async def _run_process(
     if task_status is trio.TASK_STATUS_IGNORED:
         if stdin is subprocess.PIPE:
             raise ValueError(
-                "stdout=subprocess.PIPE is only valid with nursery.start, "
+                "stdin=subprocess.PIPE is only valid with nursery.start, "
                 "since that's the only way to access the pipe; use nursery.start "
                 "or pass the data you want to write directly",
             )
