@@ -61,6 +61,22 @@ def warn_deprecated(
     stacklevel: int = 2,
     use_triodeprecationwarning: bool = False,
 ) -> None:
+    """Issue a deprecation warning for a Trio feature.
+
+    Args:
+      thing: The deprecated object or a string describing it.
+      version: The Trio version in which the deprecation was introduced
+          (e.g. ``"0.2.0"``).
+      issue: The GitHub issue number tracking the deprecation, or None.
+      instead: The replacement to suggest, or None if there is no replacement.
+      stacklevel: Passed to :func:`warnings.warn`; controls which call frame
+          appears in the warning message. The default of ``2`` points at the
+          immediate caller of :func:`warn_deprecated`.
+      use_triodeprecationwarning: If True, emit a
+          :class:`TrioDeprecationWarning` instead of the default
+          :class:`DeprecationWarning`.
+
+    """
     stacklevel += 1
     msg = f"{_stringify(thing)} is deprecated since Trio {version}"
     if instead is None:
@@ -86,6 +102,33 @@ def deprecated(
     instead: object,
     use_triodeprecationwarning: bool = False,
 ) -> Callable[[Callable[ArgsT, RetT]], Callable[ArgsT, RetT]]:
+    """Decorator that marks a function as deprecated.
+
+    When the decorated function is called, a deprecation warning is issued
+    via :func:`warn_deprecated`. If the function already has a docstring, a
+    ``.. deprecated::`` Sphinx directive is automatically appended to it.
+
+    Args:
+      version: The Trio version in which the deprecation was introduced
+          (e.g. ``"0.2.0"``).
+      thing: The name or object to mention in the warning.  Defaults to the
+          decorated function itself.
+      issue: The GitHub issue number tracking the deprecation, or None.
+      instead: The replacement to suggest, or None if there is no replacement.
+      use_triodeprecationwarning: If True, emit a
+          :class:`TrioDeprecationWarning` instead of :class:`DeprecationWarning`.
+
+    Returns:
+      A decorator that wraps the target function with deprecation behaviour.
+
+    Example::
+
+       @deprecated("0.2.0", issue=None, instead=new_function)
+       def old_function(...):
+           ...
+
+    """
+
     def do_wrap(fn: Callable[ArgsT, RetT]) -> Callable[ArgsT, RetT]:
         nonlocal thing
 
@@ -130,6 +173,24 @@ def deprecated_alias(
     *,
     issue: int | None,
 ) -> Callable[ArgsT, RetT]:
+    """Create a deprecated wrapper that forwards calls to *new_fn*.
+
+    Calling the returned callable is equivalent to calling *new_fn*, but also
+    issues a deprecation warning attributing the call to *old_qualname*.
+
+    Args:
+      old_qualname: The fully-qualified name of the old (deprecated) callable,
+          used in the warning message (e.g. ``"trio.old_name"``).
+      new_fn: The replacement callable that the alias should forward to.
+      version: The Trio version in which the deprecation was introduced.
+      issue: The GitHub issue number tracking the deprecation, or None.
+
+    Returns:
+      A wrapper callable that emits a deprecation warning and then delegates
+      to *new_fn*.
+
+    """
+
     @deprecated(version, issue=issue, instead=new_fn)
     @wraps(new_fn, assigned=("__module__", "__annotations__"))
     def wrapper(*args: ArgsT.args, **kwargs: ArgsT.kwargs) -> RetT:
@@ -144,6 +205,21 @@ def deprecated_alias(
 @final
 @attrs.frozen(slots=False)
 class DeprecatedAttribute:
+    """Descriptor for a single deprecated module-level attribute.
+
+    Pass instances of this class to :func:`deprecate_attributes` to declare
+    that a module attribute is deprecated.  When the attribute is accessed,
+    :func:`warn_deprecated` is called automatically.
+
+    Args:
+      value: The current value of the attribute to return to callers.
+      version: The Trio version in which the deprecation was introduced.
+      issue: The GitHub issue number tracking the deprecation, or None.
+      instead: The suggested replacement.  Defaults to *value* itself when
+          not provided.
+
+    """
+
     _not_set: ClassVar[object] = object()
 
     value: object
@@ -155,6 +231,22 @@ class DeprecatedAttribute:
 def deprecate_attributes(
     module_name: str, deprecated_attributes: dict[str, DeprecatedAttribute]
 ) -> None:
+    """Install a ``__getattr__`` hook on *module_name* to warn on deprecated attributes.
+
+    After this function is called, accessing any attribute listed in
+    *deprecated_attributes* on the given module will emit a deprecation
+    warning via :func:`warn_deprecated` and then return the attribute's value.
+    Accessing any other undefined attribute raises :exc:`AttributeError` as
+    normal.
+
+    Args:
+      module_name: The ``__name__`` of the module to patch (pass
+          ``__name__`` from inside the module itself).
+      deprecated_attributes: A mapping from attribute name to a
+          :class:`DeprecatedAttribute` instance describing the deprecation.
+
+    """
+
     def __getattr__(name: str) -> object:
         if name in deprecated_attributes:
             info = deprecated_attributes[name]
