@@ -230,6 +230,10 @@ async def test_globmethods(path: trio.Path) -> None:
     assert entries == {"_bar.txt", "bar.txt"}
 
 
+@pytest.mark.xfail(
+    sys.version_info >= (3, 14),
+    reason="we need to update `as_uri` to use Path.as_uri"
+)
 async def test_as_uri(path: trio.Path) -> None:
     path = await path.parent.resolve()
 
