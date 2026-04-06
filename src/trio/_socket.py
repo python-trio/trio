@@ -338,7 +338,7 @@ if sys.platform == "win32":
 else:
     FamilyDefault: None = None
     FamilyT: TypeAlias = int | AddressFamily | None
-    TypeT: TypeAlias = _stdlib_socket.socket | int
+    TypeT: TypeAlias = _stdlib_socket.SocketKind | int
 
 
 @_wraps(_stdlib_socket.socketpair, assigned=(), updated=())

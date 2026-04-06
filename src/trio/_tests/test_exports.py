@@ -52,6 +52,10 @@ def _ensure_mypy_cache_updated() -> None:
                 "--config-file=",
                 "--cache-dir=./.mypy_cache",
                 "--no-error-summary",
+                # TODO: update our tests to use the exposed APIs
+                # instead of reading JSON... or use dmypy?
+                "--no-fixed-format-cache",
+                "--no-sqlite-cache",
                 "-c",
                 "import trio",
             ],
