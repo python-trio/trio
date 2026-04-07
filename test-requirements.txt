@@ -24,9 +24,9 @@ cffi==2.0.0 ; os_name == 'nt' or platform_python_implementation != 'PyPy'
     #   cryptography
 cfgv==3.5.0
     # via pre-commit
-charset-normalizer==3.4.6
+charset-normalizer==3.4.7
     # via requests
-click==8.3.1 ; implementation_name == 'cpython'
+click==8.3.2 ; implementation_name == 'cpython'
     # via black
 codespell==2.4.2
     # via -r test-requirements.in
@@ -129,9 +129,9 @@ pyopenssl==26.0.0
     # via -r test-requirements.in
 pyright==1.1.408
     # via -r test-requirements.in
-pytest==9.0.2
+pytest==9.0.3
     # via -r test-requirements.in
-python-discovery==1.2.1
+python-discovery==1.2.2
     # via virtualenv
 pytokens==0.4.1 ; implementation_name == 'cpython'
     # via black
@@ -178,7 +178,7 @@ tomlkit==0.14.0
     # via pylint
 trustme==1.2.1
     # via -r test-requirements.in
-types-cffi==2.0.0.20260316
+types-cffi==2.0.0.20260402
     # via
     #   -r test-requirements.in
     #   types-pyopenssl
@@ -188,7 +188,7 @@ types-pyopenssl==24.1.0.20240722
     # via -r test-requirements.in
 types-pyyaml==6.0.12.20250915
     # via -r test-requirements.in
-types-setuptools==82.0.0.20260210
+types-setuptools==82.0.0.20260402
     # via types-cffi
 typing-extensions==4.15.0
     # via
