@@ -16,9 +16,9 @@ cffi==2.0.0 ; os_name == 'nt' or platform_python_implementation != 'PyPy'
     # via
     #   -r docs-requirements.in
     #   cryptography
-charset-normalizer==3.4.6
+charset-normalizer==3.4.7
     # via requests
-click==8.3.1
+click==8.3.2
     # via towncrier
 colorama==0.4.6 ; sys_platform == 'win32'
     # via
