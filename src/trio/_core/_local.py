@@ -49,12 +49,11 @@ class RunVar(Generic[T]):
             raise RuntimeError("Cannot be used outside of a run context") from None
         except KeyError:
             # contextvars consistency
-            # `type: ignore` awaiting https://github.com/python/mypy/issues/15553 to be fixed & released
             if default is not _NoValue:
-                return default  # type: ignore[return-value]
+                return default
 
             if self._default is not _NoValue:
-                return self._default  # type: ignore[return-value]
+                return self._default
 
             raise LookupError(self) from None
 

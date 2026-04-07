@@ -306,10 +306,12 @@ def test_delegation_to_existing_hooks() -> None:
 
     def my_firstiter(agen: AsyncGenerator[object, NoReturn]) -> None:
         assert isinstance(agen, AsyncGeneratorType)
+        assert agen.ag_frame is not None
         record.append("firstiter " + agen.ag_frame.f_locals["arg"])
 
     def my_finalizer(agen: AsyncGenerator[object, NoReturn]) -> None:
         assert isinstance(agen, AsyncGeneratorType)
+        assert agen.ag_frame is not None
         record.append("finalizer " + agen.ag_frame.f_locals["arg"])
 
     async def example(arg: str) -> AsyncGenerator[int, None]:

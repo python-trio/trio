@@ -2,7 +2,7 @@
 #    uv pip compile --universal --python-version=3.11 docs-requirements.in -o docs-requirements.txt
 alabaster==1.0.0
     # via sphinx
-attrs==25.4.0
+attrs==26.1.0
     # via
     #   -r docs-requirements.in
     #   outcome
@@ -16,7 +16,7 @@ cffi==2.0.0 ; os_name == 'nt' or platform_python_implementation != 'PyPy'
     # via
     #   -r docs-requirements.in
     #   cryptography
-charset-normalizer==3.4.4
+charset-normalizer==3.4.6
     # via requests
 click==8.3.1
     # via towncrier
@@ -24,7 +24,7 @@ colorama==0.4.6 ; sys_platform == 'win32'
     # via
     #   click
     #   sphinx
-cryptography==46.0.5
+cryptography==46.0.6
     # via pyopenssl
 docutils==0.22.4
     # via
@@ -36,7 +36,7 @@ idna==3.11
     # via
     #   -r docs-requirements.in
     #   requests
-imagesize==1.4.1
+imagesize==2.0.0
     # via sphinx
 immutables==0.21
     # via -r docs-requirements.in
@@ -53,11 +53,11 @@ packaging==26.0
     # via sphinx
 pycparser==3.0 ; (implementation_name != 'PyPy' and os_name == 'nt') or (implementation_name != 'PyPy' and platform_python_implementation != 'PyPy')
     # via cffi
-pygments==2.19.2
+pygments==2.20.0
     # via sphinx
-pyopenssl==25.3.0
+pyopenssl==26.0.0
     # via -r docs-requirements.in
-requests==2.32.5
+requests==2.33.1
     # via sphinx
 roman-numerals==4.1.0
     # via sphinx

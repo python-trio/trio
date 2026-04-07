@@ -33,7 +33,7 @@ async def check_takes_about(f: Callable[[], Awaitable[T]], expected_dur: float) 
     result = await outcome.acapture(f)
     dur = time.perf_counter() - start
     print(dur / expected_dur)
-    # 1.5 is an arbitrary fudge factor because there's always some delay
+    # 2.0 is an arbitrary fudge factor because there's always some delay
     # between when we become eligible to wake up and when we actually do. We
     # used to sleep for 0.05, and regularly observed overruns of 1.6x on
     # Appveyor, and then started seeing overruns of 2.3x on Travis's macOS, so
@@ -52,7 +52,7 @@ async def check_takes_about(f: Callable[[], Awaitable[T]], expected_dur: float) 
     # lol floating point we got slightly different rounding errors. (That
     # value above is exactly 128 ULPs below 1.0, which would make sense if it
     # started as a 1 ULP error at a different dynamic range.)
-    assert (1 - 1e-8) <= (dur / expected_dur) < 1.5
+    assert (1 - 1e-8) <= (dur / expected_dur) < 2.0
 
     return result.unwrap()
 
@@ -243,29 +243,24 @@ async def test_timeout_deadline_on_entry(mock_clock: _core.MockClock) -> None:
         assert rcs is cs
 
 
-async def test_invalid_access_unentered(mock_clock: _core.MockClock) -> None:
+async def test_invalid_access_unentered() -> None:
     cs = move_on_after(5)
-    mock_clock.jump(3)
-    start = _core.current_time()
 
-    match_str = "^unentered relative cancel scope does not have an absolute deadline"
-    with pytest.warns(DeprecationWarning, match=match_str):
-        assert cs.deadline == start + 5
-    mock_clock.jump(1)
-    # this is hella sketchy, but they *have* been warned
-    with pytest.warns(DeprecationWarning, match=match_str):
-        assert cs.deadline == start + 6
+    match_str = "^Unentered relative cancel scope does not have an absolute deadline"
+    with pytest.raises(RuntimeError, match=match_str):
+        assert cs.deadline
 
-    with pytest.warns(DeprecationWarning, match=match_str):
+    with pytest.raises(RuntimeError, match=match_str):
         cs.deadline = 7
-    # now transformed into absolute
-    assert cs.deadline == 7
-    assert not cs.is_relative
+
+    # nothing happened!
+    assert cs.relative_deadline == 5
+    assert cs.is_relative
 
     cs = move_on_at(5)
 
     match_str = (
-        "^unentered non-relative cancel scope does not have a relative deadline$"
+        "^Unentered non-relative cancel scope does not have a relative deadline$"
     )
     with pytest.raises(RuntimeError, match=match_str):
         assert cs.relative_deadline

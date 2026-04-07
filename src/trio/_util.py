@@ -298,7 +298,8 @@ def name_asyncgen(agen: AsyncGeneratorType[object, NoReturn]) -> str:
     if not hasattr(agen, "ag_code"):  # pragma: no cover
         return repr(agen)
     try:
-        module = agen.ag_frame.f_globals["__name__"]
+        # `agen.ag_frame` can be None, but we catch AttributeError.
+        module = agen.ag_frame.f_globals["__name__"]  # type: ignore[union-attr]
     except (AttributeError, KeyError):
         module = f"<{agen.ag_code.co_filename}>"
     try:
