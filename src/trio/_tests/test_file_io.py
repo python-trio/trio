@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gc
 import importlib
 import io
 import os
@@ -228,6 +229,35 @@ async def test_open_context_manager(path: pathlib.Path) -> None:
         assert not f.closed
 
     assert f.closed
+
+
+async def test_wrap_file_aclose_closes_underlying_file() -> None:
+    wrapped = io.StringIO("test")
+    async_file = trio.wrap_file(wrapped)
+
+    await async_file.aclose()
+
+    assert wrapped.closed
+
+
+async def test_wrap_file_context_manager_closes_underlying_file() -> None:
+    wrapped = io.StringIO("test")
+
+    async with trio.wrap_file(wrapped) as async_file:
+        assert async_file.wrapped is wrapped
+        assert not wrapped.closed
+
+    assert wrapped.closed
+
+
+def test_wrap_file_garbage_collection_does_not_close_underlying_file() -> None:
+    wrapped = io.StringIO("test")
+    trio.wrap_file(wrapped)
+
+    gc.collect()
+
+    assert not wrapped.closed
+    wrapped.close()
 
 
 async def test_async_iter() -> None:

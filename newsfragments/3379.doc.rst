@@ -1,0 +1,1 @@
+Clarified :func:`trio.wrap_file` ownership and lifecycle behavior, including that closing the async wrapper closes the underlying file, garbage collection does not close it automatically, and the original synchronous file object should not be used concurrently.

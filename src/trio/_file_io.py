@@ -498,13 +498,13 @@ def wrap_file(file: FileT) -> AsyncIOWrapper[FileT]:
     :meth:`~trio.abc.AsyncResource.aclose` or ``async with``) will close the
     underlying file. However, if the wrapper is garbage collected without
     being explicitly closed, the underlying file is *not* closed
-    automatically — you should always close it explicitly.
+    automatically, so you should always close it explicitly.
 
     The original synchronous file object should not be used directly while
     the wrapper exists, as the wrapper may call file methods in a worker
     thread, and concurrent access from multiple threads is not safe for most
     file objects. If you need synchronous access, use the
-    :attr:`~AsyncIOWrapper.wrapped` attribute.
+    :attr:`~trio._file_io.AsyncIOWrapper.wrapped` attribute.
 
     Example::
 
