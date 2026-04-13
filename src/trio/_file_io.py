@@ -493,6 +493,19 @@ def wrap_file(file: FileT) -> AsyncIOWrapper[FileT]:
     Returns:
         An :term:`asynchronous file object` that wraps ``file``
 
+    The returned wrapper object shares the underlying file with the original
+    ``file`` object; it does not copy it. Closing the wrapper (via
+    :meth:`~trio.abc.AsyncResource.aclose` or ``async with``) will close the
+    underlying file. However, if the wrapper is garbage collected without
+    being explicitly closed, the underlying file is *not* closed
+    automatically — you should always close it explicitly.
+
+    The original synchronous file object should not be used directly while
+    the wrapper exists, as the wrapper may call file methods in a worker
+    thread, and concurrent access from multiple threads is not safe for most
+    file objects. If you need synchronous access, use the
+    :attr:`~AsyncIOWrapper.wrapped` attribute.
+
     Example::
 
         async_file = trio.wrap_file(StringIO('asdf'))
