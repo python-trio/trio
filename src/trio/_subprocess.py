@@ -664,9 +664,15 @@ async def _run_process(
 
     .. note:: The child process runs in the same process group as the parent
        Trio process, so a Ctrl+C will be delivered simultaneously to both
-       parent and child. If you don't want this behavior, consult your
-       platform's documentation for starting child processes in a different
-       process group.
+       parent and child.
+
+       On Unix, descendants can still change process-group or session state
+       after startup. If a child or grandchild moves itself into a different
+       foreground process group, then your Trio process may stop receiving
+       Ctrl+C the way you expect. If you need isolation from terminal job
+       control, consider starting the subprocess in a new session or process
+       group, for example with ``start_new_session=True`` or
+       ``process_group=0``.
 
     """
 
