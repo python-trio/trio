@@ -122,16 +122,6 @@ class MemoryChannelStatistics:
 
     Returned by :meth:`MemorySendChannel.statistics` and
     :meth:`MemoryReceiveChannel.statistics`.
-
-    Attributes:
-        current_buffer_used: The number of items currently buffered in the channel.
-        max_buffer_size: The maximum number of items that can be buffered.
-        open_send_channels: The number of open
-            :class:`MemorySendChannel` endpoints.
-        open_receive_channels: The number of open
-            :class:`MemoryReceiveChannel` endpoints.
-        tasks_waiting_send: The number of tasks waiting to send.
-        tasks_waiting_receive: The number of tasks waiting to receive.
     """
 
     current_buffer_used: int
@@ -171,8 +161,7 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
     """The send end of a memory channel, created by
     :func:`open_memory_channel`.
 
-    See :ref:`channels` for details. This implements the
-    :class:`trio.abc.SendChannel` interface.
+    See :ref:`channels` for details.
 
     """
 
@@ -327,8 +316,7 @@ class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstr
     """The receive end of a memory channel, created by
     :func:`open_memory_channel`.
 
-    See :ref:`channels` for details. This implements the
-    :class:`trio.abc.ReceiveChannel` interface.
+    See :ref:`channels` for details.
 
     """
 
