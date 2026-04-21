@@ -168,24 +168,24 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.14t']
-        arch: ['x86', 'x64']
+        python: ['cpython-3.10', 'cpython-3.11', 'cpython-3.12', 'cpython-3.13', 'cpython-3.14', 'cpython-3.14+freethreaded']
+        arch: ['x86', 'x86_64']
         lsp: ['']
         lsp_extract_file: ['']
         extra_name: ['']
         include:
-          - python: '3.10'
-            arch: 'x64'
+          - python: 'cpython-3.10'
+            arch: 'x86_64'
             lsp: 'https://raw.githubusercontent.com/python-trio/trio-ci-assets/master/komodia-based-vpn-setup.zip'
             lsp_extract_file: 'komodia-based-vpn-setup.exe'
             extra_name: ', with Komodia LSP'
-          - python: '3.10'
-            arch: 'x64'
+          - python: 'cpython-3.10'
+            arch: 'x86_64'
             lsp: 'https://www.proxifier.com/download/legacy/ProxifierSetup342.exe'
             lsp_extract_file: ''
             extra_name: ', with IFS LSP'
           - python: 'pypy-3.11'
-            arch: 'x64'
+            arch: 'x86_64'
             lsp: ''
             lsp_extract_file: ''
             extra_name: ''
@@ -211,11 +211,11 @@ jobs:
           source-tarball-name: ${{ needs.build.outputs.sdist-artifact-name }}
           workflow-artifact-name: ${{ env.dists-artifact-name }}
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: astral-sh/setup-uv@v8.1.0
         with:
-          python-version: '${{ matrix.python }}'
-          architecture: '${{ matrix.arch }}'
-          allow-prereleases: true
+          python-version: '${{ matrix.python }}-windows-${{ matrix.arch }}-none'
+          activate-environment: "true"
+      - run: uv pip install pip
       - name: Run tests
         run: ./ci.sh
         shell: bash
