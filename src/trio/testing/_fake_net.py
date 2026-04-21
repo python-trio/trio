@@ -123,7 +123,7 @@ class UDPPacket:
 class FakeSocketFactory(trio.abc.SocketFactory):
     fake_net: FakeNet
 
-    def socket(self, family: int, type_: int, proto: int) -> FakeSocket:  # type: ignore[override]
+    def socket(self, family: AddressFamily, type_: SocketKind, proto: int) -> FakeSocket:  # type: ignore[override]
         return FakeSocket._create(self.fake_net, family, type_, proto)
 
 
