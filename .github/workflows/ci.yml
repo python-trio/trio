@@ -168,18 +168,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['cpython-3.10', 'cpython-3.11', 'cpython-3.12', 'cpython-3.13', 'cpython-3.14', 'cpython-3.14+freethreaded']
+        python: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.14+freethreaded']
         arch: ['x86', 'x86_64']
         lsp: ['']
         lsp_extract_file: ['']
         extra_name: ['']
         include:
-          - python: 'cpython-3.10'
+          - python: '3.10'
             arch: 'x86_64'
             lsp: 'https://raw.githubusercontent.com/python-trio/trio-ci-assets/master/komodia-based-vpn-setup.zip'
             lsp_extract_file: 'komodia-based-vpn-setup.exe'
             extra_name: ', with Komodia LSP'
-          - python: 'cpython-3.10'
+          - python: '3.10'
             arch: 'x86_64'
             lsp: 'https://www.proxifier.com/download/legacy/ProxifierSetup342.exe'
             lsp_extract_file: ''
@@ -213,7 +213,7 @@ jobs:
       - name: Setup Python
         uses: astral-sh/setup-uv@v8.1.0
         with:
-          python-version: '${{ matrix.python }}-windows-${{ matrix.arch }}-none'
+          python-version: ${{ case(startsWith(matrix.python, 'pypy'), matrix.python, format('cpython-{0}', matrix.python)) }}-windows-${{ matrix.arch }}-none
           activate-environment: "true"
       - run: uv pip install pip
       - name: Run tests
