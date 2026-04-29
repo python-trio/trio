@@ -184,7 +184,7 @@ jobs:
             lsp: 'https://www.proxifier.com/download/legacy/ProxifierSetup342.exe'
             lsp_extract_file: ''
             extra_name: ', with IFS LSP'
-          - python: 'pypy-3.11'
+          - python: 'pypy-3.11-nightly'
             arch: 'x64'
             lsp: ''
             lsp_extract_file: ''
@@ -241,7 +241,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.11', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t']
+        python: ['pypy-3.11-nightly', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t']
         check_formatting: ['0']
         no_test_requirements: ['0']
         extra_name: ['']
@@ -323,7 +323,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.11', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t']
+        python: ['pypy-3.11-nightly', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t']
     continue-on-error: >-
       ${{
         (
