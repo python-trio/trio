@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import os
 import socket as stdlib_socket
 import ssl
@@ -77,6 +78,13 @@ if hasattr(ssl, "OP_IGNORE_UNEXPECTED_EOF"):
 
 TRIO_TEST_1_CERT.configure_cert(SERVER_CTX)
 
+SERVER_CTX_REQ = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+if hasattr(ssl, "OP_IGNORE_UNEXPECTED_EOF"):
+    SERVER_CTX_REQ.options &= ~ssl.OP_IGNORE_UNEXPECTED_EOF
+TRIO_TEST_1_CERT.configure_cert(SERVER_CTX_REQ)
+SERVER_CTX_REQ.verify_mode = ssl.CERT_REQUIRED
+TRIO_TEST_CA.configure_trust(SERVER_CTX_REQ)
+
 
 # TLS 1.3 has a lot of changes from previous versions. So we want to run tests
 # with both TLS 1.3, and TLS 1.2.
@@ -105,7 +113,10 @@ def client_ctx(request: pytest.FixtureRequest) -> ssl.SSLContext:
 def ssl_echo_serve_sync(
     sock: stdlib_socket.socket,
     *,
-    expect_fail: bool = False,
+    # expect_fail = "raise" expects to fail but raises nevertheless, i.e. it is
+    # like False but does not print; used where the raised exception is checked
+    # in the main thread.
+    expect_fail: bool | str = False,
 ) -> None:
     try:
         wrapped = SERVER_CTX.wrap_socket(
@@ -142,7 +153,9 @@ def ssl_echo_serve_sync(
     except (ConnectionResetError, ConnectionAbortedError):  # pragma: no cover
         return
     except Exception as exc:
-        if expect_fail:
+        if expect_fail == "raise":
+            raise
+        elif expect_fail:
             print("ssl_echo_serve_sync got error as expected:", exc)
         else:  # pragma: no cover
             print("ssl_echo_serve_sync got unexpected error:", exc)
@@ -158,7 +171,9 @@ def ssl_echo_serve_sync(
 # (running in a thread). Useful for testing making connections with different
 # SSLContexts.
 @asynccontextmanager
-async def ssl_echo_server_raw(expect_fail: bool = False) -> AsyncIterator[SocketStream]:
+async def ssl_echo_server_raw(
+    expect_fail: bool | str = False,
+) -> AsyncIterator[SocketStream]:
     a, b = stdlib_socket.socketpair()
     async with trio.open_nursery() as nursery:
         # Exiting the 'with a, b' context manager closes the sockets, which
@@ -178,7 +193,7 @@ async def ssl_echo_server_raw(expect_fail: bool = False) -> AsyncIterator[Socket
 @asynccontextmanager
 async def ssl_echo_server(
     client_ctx: SSLContext,
-    expect_fail: bool = False,
+    expect_fail: bool | str = False,
 ) -> AsyncIterator[SSLStream[Stream]]:
     async with ssl_echo_server_raw(expect_fail=expect_fail) as sock:
         yield SSLStream(sock, client_ctx, server_hostname="trio-test-1.example.org")
@@ -453,21 +468,33 @@ async def test_ssl_client_basics(client_ctx: SSLContext) -> None:
         await s.aclose()
 
     # Didn't configure the CA file, should fail
-    async with ssl_echo_server_raw(expect_fail=True) as sock:
-        bad_client_ctx = ssl.create_default_context()
-        s = SSLStream(sock, bad_client_ctx, server_hostname="trio-test-1.example.org")
-        assert not s.server_side
-        with pytest.raises(BrokenResourceError) as excinfo:
-            await s.send_all(b"x")
-        assert isinstance(excinfo.value.__cause__, ssl.SSLError)
+    # Check that the server receives TLSV1_ALERT_UNKNOWN_CA
+    # rather than choking with UNEXPECTED_EOF_WHILE_READING.
+    with pytest.RaisesGroup(
+        pytest.RaisesExc(ssl.SSLError, match="TLSV1_ALERT_UNKNOWN_CA")
+    ):
+        async with ssl_echo_server_raw(expect_fail="raise") as sock:
+            bad_client_ctx = ssl.create_default_context()
+            s = SSLStream(
+                sock, bad_client_ctx, server_hostname="trio-test-1.example.org"
+            )
+            assert not s.server_side
+            with pytest.raises(BrokenResourceError) as excinfo1:
+                await s.send_all(b"x")
+            assert isinstance(excinfo1.value.__cause__, ssl.SSLError)
 
     # Trusted CA, but wrong host name
-    async with ssl_echo_server_raw(expect_fail=True) as sock:
-        s = SSLStream(sock, client_ctx, server_hostname="trio-test-2.example.org")
-        assert not s.server_side
-        with pytest.raises(BrokenResourceError) as excinfo:
-            await s.send_all(b"x")
-        assert isinstance(excinfo.value.__cause__, ssl.CertificateError)
+    # Check that the server receives SSLV3_ALERT_BAD_CERTIFICATE
+    # rather than choking with UNEXPECTED_EOF_WHILE_READING.
+    with pytest.RaisesGroup(
+        pytest.RaisesExc(ssl.SSLError, match="SSLV3_ALERT_BAD_CERTIFICATE")
+    ):
+        async with ssl_echo_server_raw(expect_fail="raise") as sock:
+            s = SSLStream(sock, client_ctx, server_hostname="trio-test-2.example.org")
+            assert not s.server_side
+            with pytest.raises(BrokenResourceError) as excinfo2:
+                await s.send_all(b"x")
+            assert isinstance(excinfo2.value.__cause__, ssl.CertificateError)
 
 
 async def test_ssl_server_basics(client_ctx: SSLContext) -> None:
@@ -501,6 +528,103 @@ async def test_ssl_server_basics(client_ctx: SSLContext) -> None:
         await server_transport.aclose()
 
         t.join()
+
+
+async def test_client_certificate(client_ctx: SSLContext) -> None:
+
+    # A valid client certificate
+    client_cert = TRIO_TEST_CA.issue_cert("user@example.org")
+    client_cert.configure_cert(client_ctx)
+
+    a, b = stdlib_socket.socketpair()
+    with a, b:
+        server_sock = tsocket.from_stdlib_socket(b)
+        server_transport = SSLStream(
+            SocketStream(server_sock),
+            SERVER_CTX_REQ,
+            server_side=True,
+        )
+        assert server_transport.server_side
+
+        def client() -> None:
+            with client_ctx.wrap_socket(
+                a,
+                server_hostname="trio-test-1.example.org",
+            ) as client_sock:
+                client_sock.sendall(b"x")
+                assert client_sock.recv(1) == b"y"
+                client_sock.sendall(b"z")
+                client_sock.unwrap()
+
+        t = threading.Thread(target=client)
+        t.start()
+
+        assert await server_transport.receive_some(1) == b"x"
+        await server_transport.send_all(b"y")
+        assert await server_transport.receive_some(1) == b"z"
+        assert await server_transport.receive_some(1) == b""
+        await server_transport.aclose()
+
+        t.join()
+
+    # An expired client certificate: this should fail
+    client_cert = TRIO_TEST_CA.issue_cert(
+        "user@example.org", not_after=datetime.datetime.now(datetime.timezone.utc)
+    )
+    client_cert.configure_cert(client_ctx)
+
+    a, b = stdlib_socket.socketpair()
+    with a, b:
+        server_sock = tsocket.from_stdlib_socket(b)
+        server_transport = SSLStream(
+            SocketStream(server_sock),
+            SERVER_CTX_REQ,
+            server_side=True,
+        )
+        assert server_transport.server_side
+
+        # Prior to the changes to _ssl.py made in this commit, this test hangs
+        # without the timeout introduced below.  With the new _ssl.py,
+        # pytest.raises in the client successfully catches the error; the
+        # thread therefore finishes, setting client_done.  With the old
+        # _ssl.py, the thread hangs and will be abandoned after the timeout,
+        # leaving client_done unset and thereby triggering the assertion error.
+        # (The general timeout imposed on tests is not only too long for this,
+        # but it also doesn't work, because the thread is not abandoned.)
+        #
+        # Potential problem: determinism.  It is highly unlikely but I guess it
+        # could happen that the client thread doesn't get from .recv to
+        # client_done.set in the allotted time, resulting in a false negative.
+
+        client_done = trio.Event()
+
+        def client() -> None:
+            # For TLS 1.3, pytest.raises is ok around .sendall below, but it
+            # needs to be here for TLS 1.2. (Is this because TLS 1.2 verifies
+            # client-side certificates during the initial handshake?)
+            with pytest.raises(ssl.SSLError, match="SSLV3_ALERT_CERTIFICATE_EXPIRED"):
+                with client_ctx.wrap_socket(
+                    a,
+                    server_hostname="trio-test-1.example.org",
+                ) as client_sock:
+                    client_sock.sendall(b"x")
+                    client_sock.recv(1)
+            trio.from_thread.run_sync(client_done.set)
+
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(
+                partial(trio.to_thread.run_sync, client, abandon_on_cancel=True)
+            )
+            with pytest.raises(BrokenResourceError) as excinfo:
+                assert await server_transport.receive_some(1) == b"x"
+            assert isinstance(excinfo.value.__cause__, ssl.SSLError)
+            assert excinfo.value.__cause__.reason == "CERTIFICATE_VERIFY_FAILED"
+            # This timeout shouldn't affect the execution time of the test on
+            # healthy code.
+            with trio.move_on_after(0.1):
+                await client_done.wait()
+            nursery.cancel_scope.cancel()
+        assert client_done.is_set(), "The client thread is hanging"
 
 
 async def test_attributes(client_ctx: SSLContext) -> None:
