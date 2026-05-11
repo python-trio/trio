@@ -38,7 +38,7 @@ repos:
           # tomli needed on 3.10. tomllib is available in stdlib on 3.11+
           - tomli
   - repo: https://github.com/adhtruong/mirrors-typos
-    rev: v1.46.0
+    rev: v1.46.1
     hooks:
       - id: typos
   - repo: https://github.com/sphinx-contrib/sphinx-lint
@@ -73,7 +73,7 @@ repos:
         additional_dependencies: ["pyyaml"]
         files: ^(test-requirements\.txt)|(\.pre-commit-config\.yaml)$
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.11.8
+    rev: 0.11.13
     hooks:
       # Compile requirements
       - id: pip-compile
