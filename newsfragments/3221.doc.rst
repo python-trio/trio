@@ -1,0 +1,4 @@
+Stopped listing :class:`trio.SocketStream`'s undocumented overrides of
+``send_all``, ``wait_send_all_might_not_block``, ``send_eof``, ``receive_some``,
+and ``aclose`` in the API reference. The base contracts on the
+:mod:`trio.abc` classes remain the canonical reference.
