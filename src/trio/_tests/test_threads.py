@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextvars
+import gc
 import queue as stdlib_queue
 import re
 import sys
@@ -28,7 +29,7 @@ from .. import (
     sleep_forever,
 )
 from .._core._tests.test_ki import ki_self
-from .._core._tests.tutil import slow
+from .._core._tests.tutil import no_other_refs, slow
 from .._threads import (
     active_thread_count,
     current_default_thread_limiter,
@@ -1171,3 +1172,55 @@ async def test_wait_all_threads_completed() -> None:
 async def test_wait_all_threads_completed_no_threads() -> None:
     await wait_all_threads_completed()
     assert active_thread_count() == 0
+
+
+@pytest.mark.skipif(
+    sys.implementation.name == "pypy",
+    reason=(
+        "gc.get_referrers is broken on PyPy (see "
+        "https://github.com/pypy/pypy/issues/5075)"
+    ),
+)
+async def test_run_sync_worker_references() -> None:
+    class Foo:
+        pass
+
+    def foo(_: Foo) -> Foo:
+        return Foo()
+
+    cvar = contextvars.ContextVar[Foo]("cvar")
+    contextval = Foo()
+    arg = Foo()
+    cvar.set(contextval)
+    v = await to_thread_run_sync(foo, arg)
+
+    cvar.set(Foo())
+
+    assert gc.get_referrers(contextval) == no_other_refs()
+    assert gc.get_referrers(foo) == no_other_refs()
+    assert gc.get_referrers(arg) == no_other_refs()
+    assert gc.get_referrers(v) == no_other_refs()
+
+
+@pytest.mark.skipif(
+    sys.implementation.name == "pypy",
+    reason=(
+        "gc.get_referrers is broken on PyPy (see "
+        "https://github.com/pypy/pypy/issues/5075)"
+    ),
+)
+async def test_run_sync_workerreferences_exc() -> None:
+
+    class MyException(Exception):
+        pass
+
+    def throw() -> None:
+        raise MyException
+
+    e = None
+    try:
+        await to_thread_run_sync(throw)
+    except MyException as err:
+        e = err
+
+    assert gc.get_referrers(e) == no_other_refs()

@@ -445,17 +445,19 @@ async def to_thread_run_sync(
             msg_from_thread: outcome.Outcome[RetT] | Run[object] | RunSync[object] = (
                 await trio.lowlevel.wait_task_rescheduled(abort)
             )
-            if isinstance(msg_from_thread, outcome.Outcome):
-                return msg_from_thread.unwrap()
-            elif isinstance(msg_from_thread, Run):
-                await msg_from_thread.run()
-            elif isinstance(msg_from_thread, RunSync):
-                msg_from_thread.run_sync()
-            else:  # pragma: no cover, internal debugging guard TODO: use assert_never
-                raise TypeError(
-                    f"trio.to_thread.run_sync received unrecognized thread message {msg_from_thread!r}.",
-                )
-            del msg_from_thread
+            try:
+                if isinstance(msg_from_thread, outcome.Outcome):
+                    return msg_from_thread.unwrap()
+                elif isinstance(msg_from_thread, Run):
+                    await msg_from_thread.run()
+                elif isinstance(msg_from_thread, RunSync):
+                    msg_from_thread.run_sync()
+                else:  # pragma: no cover, internal debugging guard TODO: use assert_never
+                    raise TypeError(
+                        f"trio.to_thread.run_sync received unrecognized thread message {msg_from_thread!r}.",
+                    )
+            finally:
+                del msg_from_thread
 
 
 def from_thread_check_cancelled() -> None:
