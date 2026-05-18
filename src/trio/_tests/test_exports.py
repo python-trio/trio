@@ -509,7 +509,7 @@ def test_static_tool_sees_class_members(
             # (which might or might not happen and we don't know)
             missing.discard("__annotate_func__")
             missing.discard("__annotations_cache__")
-        
+
         if tool == "jedi" and class_ == trio.open_memory_channel:
             # something is seriously wrong with jedi's understanding of open_memory_channel...
             for attrib in (
@@ -522,7 +522,7 @@ def test_static_tool_sees_class_members(
                 "__mul__",
                 "__rmul__",
                 "count",
-                "index"
+                "index",
             ):
                 missing.remove(class_)
 
