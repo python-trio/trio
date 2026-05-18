@@ -486,7 +486,7 @@ async def test_server_socket_doesnt_crash_on_garbage(
 
     async with dtls_echo_server(server_ctx=server_ctx) as (_, address):
         with trio.socket.socket(type=trio.socket.SOCK_DGRAM) as sock:
-            bad_packet: bytes
+            bad_packet: bytes | bytearray
 
             for bad_packet in [
                 b"",
