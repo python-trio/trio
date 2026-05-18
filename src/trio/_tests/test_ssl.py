@@ -252,17 +252,18 @@ class PyOpenSSLEchoStream(Stream):
             await _core.checkpoint()
             await self.sleeper("wait_send_all_might_not_block")
 
-    async def send_all(self, data: bytes) -> None:
+    async def send_all(self, data: bytes | bytearray | memoryview[int]) -> None:
         print("  --> transport_stream.send_all")
+        data_ = bytes(data)
         with self._send_all_conflict_detector:
             await _core.checkpoint()
             await _core.checkpoint()
             await self.sleeper("send_all")
-            self._conn.bio_write(data)
+            self._conn.bio_write(data_)
             while True:
                 await self.sleeper("send_all")
                 try:
-                    data = self._conn.recv(1)
+                    data_ = self._conn.recv(1)
                 except SSL.ZeroReturnError:
                     self._conn.shutdown()
                     print("renegotiations:", self._conn.total_renegotiations())
@@ -270,7 +271,7 @@ class PyOpenSSLEchoStream(Stream):
                 except SSL.WantReadError:
                     break
                 else:
-                    self._pending_cleartext += data
+                    self._pending_cleartext += data_
             self._lot.unpark_all()
             await self.sleeper("send_all")
             print("  <-- transport_stream.send_all finished")

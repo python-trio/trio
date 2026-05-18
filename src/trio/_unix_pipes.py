@@ -127,7 +127,7 @@ class FdStream(Stream):
             "another task is using this stream for receive",
         )
 
-    async def send_all(self, data: bytes) -> None:
+    async def send_all(self, data: bytes | bytearray | memoryview) -> None:
         with self._send_conflict_detector:
             # have to check up front, because send_all(b"") on a closed pipe
             # should raise

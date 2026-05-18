@@ -357,7 +357,7 @@ jobs:
       - build
 
     runs-on: ubuntu-latest
-    container: alpine
+    container: alpine:3
     steps:
       - name: Install necessary packages
         # can't use setup-python because that python doesn't seem to work;

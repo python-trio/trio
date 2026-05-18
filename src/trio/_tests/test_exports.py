@@ -417,18 +417,7 @@ def test_static_tool_sees_class_members(
         # using .remove() instead of .delete() to get an error in case they start not
         # being missing
 
-        if (
-            tool == "jedi"
-            and BaseException in class_.__mro__
-            and sys.version_info >= (3, 11)
-        ):
-            missing.remove("add_note")
-
-        if (
-            tool == "mypy"
-            and BaseException in class_.__mro__
-            and sys.version_info >= (3, 11)
-        ):
+        if BaseException in class_.__mro__ and sys.version_info >= (3, 11):
             extra.remove("__notes__")
 
         if tool == "mypy" and attrs.has(class_):
@@ -443,8 +432,7 @@ def test_static_tool_sees_class_members(
 
         # dir does not see `__signature__` on enums until 3.14
         if (
-            tool == "mypy"
-            and enum.Enum in class_.__mro__
+            enum.Enum in class_.__mro__
             and sys.version_info >= (3, 12)
             and sys.version_info < (3, 14)
         ):
@@ -508,16 +496,8 @@ def test_static_tool_sees_class_members(
             if tool == "jedi" and sys.platform == "win32":
                 extra -= {"owner", "is_mount", "group"}
 
-        # not sure why jedi in particular ignores this (static?) method in 3.13
-        if (
-            tool == "jedi"
-            and sys.version_info[:2] == (3, 13)
-            and class_ in (trio.Path, trio.WindowsPath, trio.PosixPath)
-        ):
-            missing.remove("with_segments")
-
         # tuple subclasses are weird
-        if issubclass(class_, tuple):
+        if tool == "mypy" and issubclass(class_, tuple):
             extra.remove("__reversed__")
             missing.remove("__getnewargs__")
 
@@ -529,6 +509,22 @@ def test_static_tool_sees_class_members(
             # (which might or might not happen and we don't know)
             missing.discard("__annotate_func__")
             missing.discard("__annotations_cache__")
+
+        if tool == "jedi" and class_ == trio.open_memory_channel:
+            # something is seriously wrong with jedi's understanding of open_memory_channel...
+            for attrib in (
+                "__add__",
+                "__contains__",
+                "__getitem__",
+                "__getnewargs__",
+                "__iter__",
+                "__len__",
+                "__mul__",
+                "__rmul__",
+                "count",
+                "index",
+            ):
+                missing.remove(attrib)
 
         if missing or extra:  # pragma: no cover
             errors[f"{module_name}.{class_name}"] = {
