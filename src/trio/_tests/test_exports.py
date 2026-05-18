@@ -432,8 +432,7 @@ def test_static_tool_sees_class_members(
 
         # dir does not see `__signature__` on enums until 3.14
         if (
-            tool == "mypy"
-            and enum.Enum in class_.__mro__
+            enum.Enum in class_.__mro__
             and sys.version_info >= (3, 12)
             and sys.version_info < (3, 14)
         ):
