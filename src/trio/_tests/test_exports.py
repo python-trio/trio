@@ -524,7 +524,7 @@ def test_static_tool_sees_class_members(
                 "count",
                 "index",
             ):
-                missing.remove(class_)
+                missing.remove(attrib)
 
         if missing or extra:  # pragma: no cover
             errors[f"{module_name}.{class_name}"] = {
