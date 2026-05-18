@@ -416,7 +416,7 @@ async def test_MemorySendStream() -> None:
 async def test_MemoryReceiveStream() -> None:
     mrs = MemoryReceiveStream()
 
-    async def do_receive_some(max_bytes: int | None) -> bytes:
+    async def do_receive_some(max_bytes: int | None) -> bytes | bytearray:
         with assert_checkpoints():
             return await mrs.receive_some(max_bytes)
 

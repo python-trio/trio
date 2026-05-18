@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+from collections.abc import Buffer
 from contextlib import asynccontextmanager
 from itertools import count
 from typing import TYPE_CHECKING, NoReturn
@@ -486,6 +487,8 @@ async def test_server_socket_doesnt_crash_on_garbage(
 
     async with dtls_echo_server(server_ctx=server_ctx) as (_, address):
         with trio.socket.socket(type=trio.socket.SOCK_DGRAM) as sock:
+            bad_packet: Buffer
+
             for bad_packet in [
                 b"",
                 b"xyz",
@@ -532,7 +535,7 @@ async def test_invalid_cookie_rejected(
                         offset = len(payload) - 1
                         cscope.cancel()
                     payload[offset] ^= 0x01
-                    packet = attrs.evolve(packet, payload=payload)
+                    packet = attrs.evolve(packet, payload=bytes(payload))
 
             fn.deliver_packet(packet)
 

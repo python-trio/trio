@@ -418,13 +418,6 @@ def test_static_tool_sees_class_members(
         # being missing
 
         if (
-            tool == "jedi"
-            and BaseException in class_.__mro__
-            and sys.version_info >= (3, 11)
-        ):
-            missing.remove("add_note")
-
-        if (
             tool == "mypy"
             and BaseException in class_.__mro__
             and sys.version_info >= (3, 11)

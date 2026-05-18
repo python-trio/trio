@@ -252,7 +252,7 @@ class PyOpenSSLEchoStream(Stream):
             await _core.checkpoint()
             await self.sleeper("wait_send_all_might_not_block")
 
-    async def send_all(self, data: bytes) -> None:
+    async def send_all(self, data: bytes | bytearray | memoryview[int]) -> None:
         print("  --> transport_stream.send_all")
         with self._send_all_conflict_detector:
             await _core.checkpoint()
