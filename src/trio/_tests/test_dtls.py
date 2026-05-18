@@ -486,9 +486,7 @@ async def test_server_socket_doesnt_crash_on_garbage(
 
     async with dtls_echo_server(server_ctx=server_ctx) as (_, address):
         with trio.socket.socket(type=trio.socket.SOCK_DGRAM) as sock:
-            bad_packet: bytes | bytearray
-
-            for bad_packet in [
+            bad_packets: list[bytes | bytearray | memoryview[int]] = [
                 b"",
                 b"xyz",
                 client_hello_extended,
@@ -499,7 +497,9 @@ async def test_server_socket_doesnt_crash_on_garbage(
                 client_hello_trailing_data_in_record,
                 handshake_empty,
                 client_hello_truncated_in_cookie,
-            ]:
+            ]
+
+            for bad_packet in bad_packets:
                 await sock.sendto(bad_packet, address)
                 await trio.sleep(1)
 

@@ -509,6 +509,22 @@ def test_static_tool_sees_class_members(
             # (which might or might not happen and we don't know)
             missing.discard("__annotate_func__")
             missing.discard("__annotations_cache__")
+        
+        if tool == "jedi" and class_ == trio.open_memory_channel:
+            # something is seriously wrong with jedi's understanding of open_memory_channel...
+            for attrib in (
+                "__add__",
+                "__contains__",
+                "__getitem__",
+                "__getnewargs__",
+                "__iter__",
+                "__len__",
+                "__mul__",
+                "__rmul__",
+                "count",
+                "index"
+            ):
+                missing.remove(class_)
 
         if missing or extra:  # pragma: no cover
             errors[f"{module_name}.{class_name}"] = {
