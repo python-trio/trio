@@ -417,10 +417,7 @@ def test_static_tool_sees_class_members(
         # using .remove() instead of .delete() to get an error in case they start not
         # being missing
 
-        if (
-            BaseException in class_.__mro__
-            and sys.version_info >= (3, 11)
-        ):
+        if BaseException in class_.__mro__ and sys.version_info >= (3, 11):
             extra.remove("__notes__")
 
         if tool == "mypy" and attrs.has(class_):
