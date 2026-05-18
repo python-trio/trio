@@ -517,7 +517,7 @@ def test_static_tool_sees_class_members(
             missing.remove("with_segments")
 
         # tuple subclasses are weird
-        if issubclass(class_, tuple):
+        if tool == "mypy" and issubclass(class_, tuple):
             extra.remove("__reversed__")
             missing.remove("__getnewargs__")
 
