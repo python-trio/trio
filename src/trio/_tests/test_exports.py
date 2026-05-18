@@ -496,14 +496,6 @@ def test_static_tool_sees_class_members(
             if tool == "jedi" and sys.platform == "win32":
                 extra -= {"owner", "is_mount", "group"}
 
-        # not sure why jedi in particular ignores this (static?) method in 3.13
-        if (
-            tool == "jedi"
-            and sys.version_info[:2] == (3, 13)
-            and class_ in (trio.Path, trio.WindowsPath, trio.PosixPath)
-        ):
-            missing.remove("with_segments")
-
         # tuple subclasses are weird
         if tool == "mypy" and issubclass(class_, tuple):
             extra.remove("__reversed__")
