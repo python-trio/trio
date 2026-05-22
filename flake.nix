@@ -45,7 +45,7 @@
               # - [ ] extract-n-translate all `[docs|test]-requirements.txt` deps
               #      into their equiv nxpkgs equivalents.
               #
-              # For ex. we can explicitily add them like the below,
+              # For ex. we can explicitly add them like the below,
               # but ideally we use a translator lib (like
               # `pyproject.nix` and/or `uv2nix`).
               #
