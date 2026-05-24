@@ -336,7 +336,7 @@ async def open_tcp_stream(
                 # But on some versions of Linux, we can re-enable sharing of
                 # local ports by setting a special flag. This flag tells
                 # bind() to only bind the IP, and not the port. That way,
-                # connect() is allowed to pick the the port, and it can do a
+                # connect() is allowed to pick the port, and it can do a
                 # better job of it because it knows the remote IP/port.
                 with suppress(OSError, AttributeError):
                     sock.setsockopt(
