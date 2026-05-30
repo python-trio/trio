@@ -118,6 +118,19 @@ class open_memory_channel(tuple["MemorySendChannel[T]", "MemoryReceiveChannel[T]
 
 @attrs.frozen
 class MemoryChannelStatistics:
+    """Statistics about a memory channel, as returned by
+    :meth:`MemorySendChannel.statistics` or
+    :meth:`MemoryReceiveChannel.statistics`.
+
+    Attributes:
+      current_buffer_used: Number of items currently stored in the channel buffer.
+      max_buffer_size: Maximum number of items allowed in the buffer.
+      open_send_channels: Number of open :class:`MemorySendChannel` endpoints.
+      open_receive_channels: Number of open :class:`MemoryReceiveChannel` endpoints.
+      tasks_waiting_send: Number of tasks blocked in ``send`` across all clones.
+      tasks_waiting_receive: Number of tasks blocked in ``receive`` across all clones.
+    """
+
     current_buffer_used: int
     max_buffer_size: int | float
     open_send_channels: int
@@ -152,6 +165,13 @@ class MemoryChannelState(Generic[T]):
 @final
 @attrs.define(eq=False, repr=False, slots=False)
 class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
+    """The send end of a memory channel, as returned by :func:`open_memory_channel`.
+
+    Use :meth:`send` to send objects and :meth:`aclose` (or ``async with``)
+    to close.  Call :meth:`clone` to create additional send endpoints that
+    share the same underlying channel.
+    """
+
     _state: MemoryChannelState[SendType]
     _closed: bool = False
     # This is just the tasks waiting on *this* object. As compared to
@@ -300,6 +320,13 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
 @final
 @attrs.define(eq=False, repr=False, slots=False)
 class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstructor):
+    """The receive end of a memory channel, as returned by :func:`open_memory_channel`.
+
+    Use :meth:`receive` to receive objects and :meth:`aclose` (or ``async with``)
+    to close.  Call :meth:`clone` to create additional receive endpoints that
+    share the same underlying channel.
+    """
+
     _state: MemoryChannelState[ReceiveType]
     _closed: bool = False
     _tasks: set[trio._core._run.Task] = attrs.Factory(set)
