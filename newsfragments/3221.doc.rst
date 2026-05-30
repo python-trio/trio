@@ -1,0 +1,3 @@
+Added docstrings to :class:`MemoryChannelStatistics`, :class:`MemorySendChannel`,
+:class:`MemoryReceiveChannel`, and several :class:`SocketStream` methods that
+were missing from the API reference.
