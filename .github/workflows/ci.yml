@@ -216,6 +216,7 @@ jobs:
           python-version: '${{ matrix.python }}'
           architecture: '${{ matrix.arch }}'
           allow-prereleases: true
+          check-latest: true
       - name: Run tests
         run: ./ci.sh
         shell: bash
@@ -281,6 +282,7 @@ jobs:
           cache: pip
           cache-dependency-path: test-requirements.txt
           allow-prereleases: true
+          check-latest: true
       - name: Setup minimum Python version
         if: matrix.check_formatting == '1'
         uses: actions/setup-python@v6
@@ -341,6 +343,7 @@ jobs:
           cache: pip
           cache-dependency-path: test-requirements.txt
           allow-prereleases: true
+          check-latest: true
       - name: Run tests
         run: ./ci.sh
       - if: always()
