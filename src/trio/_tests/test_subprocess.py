@@ -103,7 +103,7 @@ async def run_process_in_nursery(  # type: ignore[misc, explicit-any]
         value = await nursery.start(partial(run_process, *args, **kwargs))
         assert isinstance(value, Process)
         proc: Process = value
-        yield proc
+        yield proc  # noqa: RUF075
         nursery.cancel_scope.cancel()
 
 

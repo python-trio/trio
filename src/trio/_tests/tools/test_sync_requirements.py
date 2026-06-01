@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from trio._tests.pytest_plugin import skip_if_optional_else_raise
