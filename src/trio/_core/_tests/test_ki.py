@@ -28,10 +28,7 @@ from ...testing import wait_all_tasks_blocked
 if TYPE_CHECKING:
     from collections.abc import (
         AsyncGenerator,
-        AsyncIterator,
-        Callable,
         Generator,
-        Iterator,
     )
 
     from ..._core import Abort, RaiseCancelT

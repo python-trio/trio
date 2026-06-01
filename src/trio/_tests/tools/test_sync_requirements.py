@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from trio._tests.pytest_plugin import skip_if_optional_else_raise
 
@@ -15,9 +14,6 @@ from trio._tools.sync_requirements import (
     update_requirements,
     yield_pre_commit_version_data,
 )
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 def test_yield_pre_commit_version_data() -> None:
