@@ -98,7 +98,7 @@ async def dtls_echo_server(
 
             await nursery.start(server.serve, server_ctx, echo_handler)
 
-            yield server, server.socket.getsockname()
+            yield server, server.socket.getsockname()  # noqa: RUF075
 
             if autocancel:
                 nursery.cancel_scope.cancel()
