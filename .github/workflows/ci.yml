@@ -184,7 +184,7 @@ jobs:
             lsp: 'https://www.proxifier.com/download/legacy/ProxifierSetup342.exe'
             lsp_extract_file: ''
             extra_name: ', with IFS LSP'
-          - python: 'pypy-3.11-nightly'
+          - python: 'pypy-3.11'
             arch: 'x64'
             lsp: ''
             lsp_extract_file: ''
@@ -216,6 +216,7 @@ jobs:
           python-version: '${{ matrix.python }}'
           architecture: '${{ matrix.arch }}'
           allow-prereleases: true
+          check-latest: true
       - name: Run tests
         run: ./ci.sh
         shell: bash
@@ -241,7 +242,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.11-nightly', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t']
+        python: ['pypy-3.11', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t']
         check_formatting: ['0']
         no_test_requirements: ['0']
         extra_name: ['']
@@ -281,6 +282,7 @@ jobs:
           cache: pip
           cache-dependency-path: test-requirements.txt
           allow-prereleases: true
+          check-latest: true
       - name: Setup minimum Python version
         if: matrix.check_formatting == '1'
         uses: actions/setup-python@v6
@@ -318,7 +320,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.11-nightly', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t']
+        python: ['pypy-3.11', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t']
     continue-on-error: >-
       ${{
         (
@@ -341,6 +343,7 @@ jobs:
           cache: pip
           cache-dependency-path: test-requirements.txt
           allow-prereleases: true
+          check-latest: true
       - name: Run tests
         run: ./ci.sh
       - if: always()
