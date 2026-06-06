@@ -7,6 +7,7 @@ build-backend = "setuptools.build_meta"
 name = "trio"
 description = "A friendly Python library for async concurrency and I/O"
 authors = [{name = "Nathaniel J. Smith", email = "njs@pobox.com"}]
+maintainers = [{name = "Nathaniel J. Smith", email = "njs@pobox.com"}]
 license = "MIT OR Apache-2.0"
 license-files = ["LICENSE*"]
 keywords = [
