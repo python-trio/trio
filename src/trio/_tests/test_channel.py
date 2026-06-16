@@ -559,7 +559,7 @@ async def test_as_safe_channel_doesnt_leak_cancellation() -> None:
         yield
         with trio.CancelScope() as cscope:
             cscope.cancel()
-            yield  # noqa: ASYNC119  # https://github.com/astral-sh/ruff/issues/25770
+            yield
 
     with pytest.raises(AssertionError):
         async with agen() as recv_chan:
@@ -636,7 +636,7 @@ async def test_as_safe_channel_genexit_exception_group() -> None:
     async def agen() -> AsyncGenerator[None]:
         try:
             async with trio.open_nursery():
-                yield  # noqa: ASYNC119  # https://github.com/astral-sh/ruff/issues/25770
+                yield
         except BaseException as e:
             assert pytest.RaisesGroup(GeneratorExit).matches(e)  # noqa: PT017
             raise
@@ -668,7 +668,7 @@ async def test_as_safe_channel_genexit_filter() -> None:
     async def agen() -> AsyncGenerator[None]:
         async with trio.open_nursery() as nursery:
             nursery.start_soon(wait_then_raise)
-            yield  # noqa: ASYNC119  # https://github.com/astral-sh/ruff/issues/25770
+            yield
 
     with pytest.RaisesGroup(ValueError):
         async with agen() as g:
@@ -688,7 +688,7 @@ async def test_as_safe_channel_swallowing_extra_exceptions() -> None:
         async with trio.open_nursery() as nursery:
             nursery.start_soon(wait_then_raise, ex)
             nursery.start_soon(wait_then_raise, GeneratorExit)
-            yield  # noqa: ASYNC119  # https://github.com/astral-sh/ruff/issues/25770
+            yield
 
     with pytest.RaisesGroup(AssertionError):
         async with agen(GeneratorExit) as g:
