@@ -1,47 +1,58 @@
 from __future__ import annotations
 
 import ast
-import contextlib
 import inspect
 import sys
 import warnings
 from code import InteractiveConsole
+from signal import SIGINT, raise_signal, signal
 from types import CodeType, FrameType, FunctionType
 from typing import TYPE_CHECKING
 
 import outcome
 
 import trio
-import trio.lowlevel
 from trio._util import final
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-
-class SuppressDecorator(contextlib.ContextDecorator, contextlib.suppress):
-    pass
-
-
-@SuppressDecorator(KeyboardInterrupt)
-@trio.lowlevel.disable_ki_protection
-def terminal_newline() -> None:  # TODO: test this line
-    import fcntl
-    import termios
-
-    # Fake up a newline char as if user had typed it at the terminal
+try:
+    import pyrepl
+    from pyrepl import commands, reader as r, readline
+except ImportError:
     try:
-        fcntl.ioctl(sys.stdin, termios.TIOCSTI, b"\n")  # type: ignore[attr-defined, unused-ignore]
-    except OSError as e:
-        print(f"\nPress enter! Newline injection failed: {e}", end="", flush=True)
+        import _pyrepl as pyrepl
+        from _pyrepl import commands, reader as r, readline
+    except ImportError:
+        print(
+            "Trio's REPL requires CPython 3.13+, PyPy, or installing pyrepl from PyPI."
+        )
+        exit(1)
+
+# there are differences between the CPython pyrepl and PyPI pyrepl
+try:
+    # The following expression fails on PyPy, even though you can
+    # `import pyrepl`. This is important because PyPy simply vendors
+    # CPython pyrepl: https://github.com/pypy/pypy/issues/4990
+    pyrepl.__version__  # noqa: B018
+except AttributeError:
+    CPYTHON_VENDOR = True
+else:
+    CPYTHON_VENDOR = False
 
 
 @final
 class TrioInteractiveConsole(InteractiveConsole):
-    def __init__(self, repl_locals: dict[str, object] | None = None) -> None:
+    def __init__(  # type: ignore[no-any-unimported]
+        self,
+        repl_locals: dict[str, object] | None = None,
+        reader: r.Reader | None = None,
+    ) -> None:
         super().__init__(locals=repl_locals)
-        self.token: trio.lowlevel.TrioToken | None = None
         self.compile.compiler.flags |= ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
+        self.reader = reader
+        self.trim_first_char = False
         self.interrupted = False
 
     def runcode(self, code: CodeType) -> None:
@@ -71,53 +82,56 @@ class TrioInteractiveConsole(InteractiveConsole):
                 # We always use sys.excepthook, unlike other implementations.
                 # This means that overriding self.write also does nothing to tbs.
                 sys.excepthook(sys.last_type, sys.last_value, sys.last_traceback)
+
         # clear any residual KI
         trio.from_thread.run(trio.lowlevel.checkpoint_if_cancelled)
         # trio.from_thread.check_cancelled() has too long of a memory
 
-    if sys.platform == "win32":  # TODO: test this line
+    def raw_input(self, prompt: str = "") -> str:
+        def install_handler() -> Callable[[int, FrameType | None], None] | int | None:
+            def handler(sig: int, frame: FrameType | None) -> None:
+                self.interrupted = True
 
-        def raw_input(self, prompt: str = "") -> str:
-            try:
-                return input(prompt)
-            except EOFError:
-                # check if trio has a pending KI
-                trio.from_thread.run(trio.lowlevel.checkpoint_if_cancelled)
-                raise
+            return signal(SIGINT, handler)
 
-    else:
+        prev_handler = trio.from_thread.run_sync(install_handler)
 
-        def raw_input(self, prompt: str = "") -> str:
-            from signal import SIGINT, signal
+        assert self.reader is not None
+        self.reader.ps1 = prompt
+        self.interrupted = False
+        self.reader.prepare()
+        try:
+            self.reader.refresh()
+            while not self.reader.finished and not self.interrupted:
+                if not self.reader.handle1(block=False):
+                    # let's avoid busy waiting
+                    if CPYTHON_VENDOR:
+                        self.reader.console.wait(100)
+                    else:
+                        self.reader.console.pollob.poll(100)
 
-            assert not self.interrupted
+            if self.interrupted:
+                if not CPYTHON_VENDOR:
+                    self.trim_first_char = True
+                raise KeyboardInterrupt
+            if CPYTHON_VENDOR:
+                return self.reader.get_unicode()  # type: ignore[no-any-return]
+            else:
+                return self.reader.get_str()  # type: ignore[no-any-return]
+        finally:
+            trio.from_thread.run_sync(signal, SIGINT, prev_handler)
+            self.reader.restore()
 
-            def install_handler() -> (
-                Callable[[int, FrameType | None], None] | int | None
-            ):
-                def handler(
-                    sig: int, frame: FrameType | None
-                ) -> None:  # TODO: test this line
-                    self.interrupted = True
-                    token.run_sync_soon(terminal_newline, idempotent=True)
-
-                token = trio.lowlevel.current_trio_token()
-
-                return signal(SIGINT, handler)
-
-            prev_handler = trio.from_thread.run_sync(install_handler)
-            try:
-                return input(prompt)
-            finally:
-                trio.from_thread.run_sync(signal, SIGINT, prev_handler)
-                if self.interrupted:  # TODO: test this line
-                    raise KeyboardInterrupt
-
+    if not CPYTHON_VENDOR:
+        # pyrepl has some special handling to make sure that
+        # the console is always ended in `\r\n` when done.
+        # However, InteractiveConsole assumes that the input
+        # was exited without a newline! So we need this hack.
         def write(self, output: str) -> None:
-            if self.interrupted:  # TODO: test this line
+            if self.trim_first_char:
                 assert output == "\nKeyboardInterrupt\n"
                 sys.stderr.write(output[1:])
-                self.interrupted = False
+                self.trim_first_char = False
             else:
                 sys.stderr.write(output)
 
@@ -141,9 +155,6 @@ async def run_repl(console: TrioInteractiveConsole) -> None:
 
 
 def main(original_locals: dict[str, object]) -> None:
-    with contextlib.suppress(ImportError):
-        import readline  # noqa: F401
-
     repl_locals: dict[str, object] = {"trio": trio}
     for key in {
         "__name__",
@@ -155,5 +166,19 @@ def main(original_locals: dict[str, object]) -> None:
     }:
         repl_locals[key] = original_locals[key]
 
-    console = TrioInteractiveConsole(repl_locals)
+    # This call also registers all necessary signal handlers.
+    # Otherwise, we would not be able to run `multiline_input` in a
+    # child thread.
+    reader = readline._get_reader()
+
+    if not CPYTHON_VENDOR:
+        # The default `interrupt` command finishes the console, which
+        # adds an extra newline. Unforgivable!
+        class interrupt(commands.FinishCommand):  # type: ignore[misc,no-any-unimported]
+            def do(self) -> None:
+                raise_signal(SIGINT)
+
+        reader.commands["interrupt"] = interrupt
+
+    console = TrioInteractiveConsole(repl_locals, reader)
     trio.run(run_repl, console)

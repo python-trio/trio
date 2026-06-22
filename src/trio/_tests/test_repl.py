@@ -1,16 +1,29 @@
 from __future__ import annotations
 
+import errno
 import os
-import pathlib
+import re
 import signal
-import subprocess
 import sys
-from functools import partial
 from typing import Protocol
 
 import pytest
 
-import trio._repl
+from trio._tests.pytest_plugin import SKIP_OPTIONAL_IMPORTS
+
+if sys.platform == "win32" and sys.version_info < (3, 13):
+    pytest.skip("PyPI pyrepl only supports unix", allow_module_level=True)
+
+try:
+    import trio._repl
+except SystemExit:
+    if SKIP_OPTIONAL_IMPORTS:
+        pytest.skip(
+            "we exit out of the REPL quickly if no pyrepl is found",
+            allow_module_level=True,
+        )
+    else:
+        raise
 
 
 class RawInput(Protocol):
@@ -230,33 +243,7 @@ async def test_base_exception_capture_from_coroutine(
     assert "AFTER BaseException" in out
 
 
-def test_main_entrypoint() -> None:
-    """
-    Basic smoke test when running via the package __main__ entrypoint.
-    """
-    repl = subprocess.run([sys.executable, "-m", "trio"], input=b"exit()")
-    assert repl.returncode == 0
-
-
-def should_try_newline_injection() -> bool:
-    if sys.platform != "linux":
-        return False
-
-    sysctl = pathlib.Path("/proc/sys/dev/tty/legacy_tiocsti")
-    if not sysctl.exists():  # pragma: no cover
-        return True
-
-    else:
-        return sysctl.read_text() == "1"
-
-
-@pytest.mark.skipif(
-    not should_try_newline_injection(),
-    reason="the ioctl we use is disabled in CI",
-)
-def test_ki_newline_injection() -> None:  # TODO: test this line
-    # TODO: we want to remove this functionality, eg by using vendored
-    #       pyrepls.
+def start_repl() -> tuple[int, int]:
     assert sys.platform != "win32"
 
     import pty
@@ -269,160 +256,119 @@ def test_ki_newline_injection() -> None:  # TODO: test this line
     if pid == 0:
         os.execlp(sys.executable, *[sys.executable, "-u", "-m", "trio"])
 
+    return pid, pty_fd
+
+
+def read_until(buffer: bytearray, expected: bytes, fd: int) -> None:
+    while expected not in strip_some_escape_chars(buffer):
+        try:
+            res = os.read(fd, 4096)
+        except OSError as e:
+            if e.errno == errno.EIO:
+                break  # process died
+            else:
+                print(buffer, res)
+                raise
+
+        if res == b"":
+            break
+        buffer += res
+
+    if b"_pyrepl.unix_console.InvalidTerminal" in buffer:
+        pytest.skip("this PTY doesn't support the necessary operations")
+
+
+def write_out(text: bytes, buffer: bytearray, fd: int) -> None:
+    # for some reason this is required for pypy :(
+    small_buffer = bytearray()
+    for i, char in enumerate(text):
+        os.write(fd, bytes([char]))
+        read_until(small_buffer, text[: i + 1], fd)
+
+    buffer += small_buffer
+
+
+def strip_some_escape_chars(buffer: bytearray) -> bytes:
+    # https://superuser.com/a/380778
+    return re.sub(b"\x1b" + rb"\[.*?[\x40-\x7E]", b"", buffer)
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Python doesn't support ConPTY, so we can't make the right environment for the REPL.",
+)
+def test_main_entrypoint() -> None:
+    """
+    Basic smoke test when running via the package __main__ entrypoint.
+    """
+    pid, fd = start_repl()
+
     # setup:
-    buffer = b""
-    while not buffer.endswith(b"import trio\r\n>>> "):
-        buffer += os.read(pty_fd, 4096)
+    buffer = bytearray()
+    read_until(buffer, b"import trio", fd)
+
+    buffer = buffer.split(b"import trio")[-1]
+    read_until(buffer, b">>>", fd)
+
+    # just exit:
+    write_out(b"exit()", buffer, fd)
+    os.write(fd, b"\n")
+
+    # and flush any output:
+    buffer = bytearray()
+    read_until(buffer, b"something impossible", fd)
+
+    assert os.waitpid(pid, 0)[1] == 0
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Python doesn't support ConPTY, so we can't make the right environment for the REPL.",
+)
+def test_repl_ki() -> None:
+    pid, fd = start_repl()
+
+    # setup:
+    buffer = bytearray()
+    read_until(buffer, b"import trio", fd)
+
+    buffer = buffer.split(b"import trio")[-1]
+    read_until(buffer, b">>>", fd)
 
     # sanity check:
     print(buffer.decode())
-    buffer = b""
-    os.write(pty_fd, b'print("hello!")\n')
-    while not buffer.endswith(b">>> "):
-        buffer += os.read(pty_fd, 4096)
+    buffer = bytearray()
+    write_out(b'print("hello!") # mark', buffer, fd)
+    os.write(fd, b"\n")
+    read_until(buffer, b"# mark", fd)
 
-    assert buffer.count(b"hello!") == 2
+    buffer = buffer.split(b"# mark")[-1]
+    read_until(buffer, b">>>", fd)
+
+    assert buffer.count(b"hello!") == 1
 
     # press ctrl+c
     print(buffer.decode())
-    buffer = b""
-    os.kill(pid, signal.SIGINT)
-    while not buffer.endswith(b">>> "):
-        buffer += os.read(pty_fd, 4096)
+    if trio._repl.CPYTHON_VENDOR:
+        # would you believe me if I told you pyrepl has a bug where
+        # `UnixConsole.get_event(block=False)`... blocks? well anyways,
+        # that means this part of the test doesn't work.
+        buffer = bytearray()
+        os.kill(pid, signal.SIGINT)
+        read_until(buffer, b">>>", fd)
 
-    assert b"KeyboardInterrupt" in buffer
+        assert b"KeyboardInterrupt" in buffer
 
-    # press ctrl+c later
-    print(buffer.decode())
-    buffer = b""
-    os.write(pty_fd, b'print("hello!")')
-    os.kill(pid, signal.SIGINT)
-    while not buffer.endswith(b">>> "):
-        buffer += os.read(pty_fd, 4096)
+        # press ctrl+c later
+        print(buffer.decode())
+        buffer = bytearray()
+        write_out(b'print("hello!") # mark', buffer, fd)
+        read_until(buffer, b"# mark", fd)
 
-    assert b"KeyboardInterrupt" in buffer
-    print(buffer.decode())
-    os.close(pty_fd)
+        buffer = bytearray()
+        os.kill(pid, signal.SIGINT)
+        read_until(buffer, b">>>", fd)
+
+        assert b"KeyboardInterrupt" in buffer
+    os.close(fd)
     os.waitpid(pid, 0)[1]
-
-
-async def test_ki_in_repl() -> None:
-    async with trio.open_nursery() as nursery:
-        proc = await nursery.start(
-            partial(
-                trio.run_process,
-                [sys.executable, "-u", "-m", "trio"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                stdin=subprocess.PIPE,
-                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == "win32" else 0,  # type: ignore[attr-defined,unused-ignore]
-            )
-        )
-
-        async with proc.stdout:
-            # setup
-            buffer = b""
-            async for part in proc.stdout:  # pragma: no branch
-                buffer += part
-                # TODO: consider making run_process stdout have some universal newlines thing
-                if buffer.replace(b"\r\n", b"\n").endswith(b"import trio\n>>> "):
-                    break
-
-            # ensure things work
-            print(buffer.decode())
-            buffer = b""
-            await proc.stdin.send_all(b'print("hello!")\n')
-            async for part in proc.stdout:  # pragma: no branch
-                buffer += part
-                if buffer.endswith(b">>> "):
-                    break
-
-            assert b"hello!" in buffer
-            print(buffer.decode())
-
-            # this seems to be necessary on Windows for reasons
-            # (the parents of process groups ignore ctrl+c by default...)
-            if sys.platform == "win32":
-                buffer = b""
-                await proc.stdin.send_all(
-                    b"import ctypes; ctypes.windll.kernel32.SetConsoleCtrlHandler(None, False)\n"
-                )
-                async for part in proc.stdout:  # pragma: no branch
-                    buffer += part
-                    if buffer.endswith(b">>> "):
-                        break
-
-                print(buffer.decode())
-
-            # try to decrease flakiness...
-            buffer = b""
-            await proc.stdin.send_all(
-                b"import coverage; trio.lowlevel.enable_ki_protection(coverage.pytracer.PyTracer._trace)\n"
-            )
-            async for part in proc.stdout:  # pragma: no branch
-                buffer += part
-                if buffer.endswith(b">>> "):
-                    break
-
-            print(buffer.decode())
-
-            # ensure that ctrl+c on a prompt works
-            # NOTE: for some reason, signal.SIGINT doesn't work for this test.
-            # Using CTRL_C_EVENT is also why we need subprocess.CREATE_NEW_PROCESS_GROUP
-            signal_sent = signal.CTRL_C_EVENT if sys.platform == "win32" else signal.SIGINT  # type: ignore[attr-defined,unused-ignore]
-            os.kill(proc.pid, signal_sent)
-            if sys.platform == "win32":
-                # we rely on EOFError which... doesn't happen with pipes.
-                # I'm not sure how to fix it...
-                await proc.stdin.send_all(b"\n")
-            else:
-                # we test injection separately
-                await proc.stdin.send_all(b"\n")
-
-            buffer = b""
-            async for part in proc.stdout:  # pragma: no branch
-                buffer += part
-                if buffer.endswith(b">>> "):
-                    break
-
-            assert b"KeyboardInterrupt" in buffer
-
-            # ensure ctrl+c while a command runs works
-            print(buffer.decode())
-            await proc.stdin.send_all(b'print("READY"); await trio.sleep_forever()\n')
-            killed = False
-            buffer = b""
-            async for part in proc.stdout:  # pragma: no branch
-                buffer += part
-                if buffer.replace(b"\r\n", b"\n").endswith(b"READY\n") and not killed:
-                    os.kill(proc.pid, signal_sent)
-                    killed = True
-                if buffer.endswith(b">>> "):
-                    break
-
-            assert b"trio" in buffer
-            assert b"KeyboardInterrupt" in buffer
-
-            # make sure it works for sync commands too
-            # (though this would be hard to break)
-            print(buffer.decode())
-            await proc.stdin.send_all(
-                b'import time; print("READY"); time.sleep(99999)\n'
-            )
-            killed = False
-            buffer = b""
-            async for part in proc.stdout:  # pragma: no branch
-                buffer += part
-                if buffer.replace(b"\r\n", b"\n").endswith(b"READY\n") and not killed:
-                    os.kill(proc.pid, signal_sent)
-                    killed = True
-                if buffer.endswith(b">>> "):
-                    break
-
-            assert b"Traceback" in buffer
-            assert b"KeyboardInterrupt" in buffer
-
-            print(buffer.decode())
-
-        # kill the process
-        nursery.cancel_scope.cancel()
