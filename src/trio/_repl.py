@@ -3,19 +3,14 @@ from __future__ import annotations
 import ast
 import inspect
 import sys
-import warnings
 from code import InteractiveConsole
-from signal import SIGINT, raise_signal, signal
-from types import CodeType, FrameType, FunctionType
-from typing import TYPE_CHECKING
+from signal import SIGINT, raise_signal
+from types import CodeType, FunctionType
 
 import outcome
 
 import trio
 from trio._util import final
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
 
 try:
     import pyrepl
@@ -47,13 +42,9 @@ class TrioInteractiveConsole(InteractiveConsole):
     def __init__(  # type: ignore[no-any-unimported]
         self,
         repl_locals: dict[str, object] | None = None,
-        reader: r.Reader | None = None,
     ) -> None:
         super().__init__(locals=repl_locals)
         self.compile.compiler.flags |= ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
-        self.reader = reader
-        self.trim_first_char = False
-        self.interrupted = False
 
     def runcode(self, code: CodeType) -> None:
         func = FunctionType(code, self.locals)
@@ -87,71 +78,63 @@ class TrioInteractiveConsole(InteractiveConsole):
         trio.from_thread.run(trio.lowlevel.checkpoint_if_cancelled)
         # trio.from_thread.check_cancelled() has too long of a memory
 
-    def raw_input(self, prompt: str = "") -> str:
-        def install_handler() -> Callable[[int, FrameType | None], None] | int | None:
-            def handler(sig: int, frame: FrameType | None) -> None:
-                self.interrupted = True
 
-            return signal(SIGINT, handler)
+async def repl_input(reader: r.Reader | None, prompt: str) -> str:
+    assert reader is not None
+    reader.ps1 = prompt
+    reader.prepare()
+    try:
+        reader.refresh()
+        while not reader.finished:
+            if not reader.handle1(block=False):
+                if sys.platform == "win32":
+                    await trio.lowlevel.wait_readable(pyrepl.windows_console.InHandle)
+                else:
+                    await trio.lowlevel.wait_readable(reader.console.input_fd)
 
-        prev_handler = trio.from_thread.run_sync(install_handler)
-
-        assert self.reader is not None
-        self.reader.ps1 = prompt
-        self.interrupted = False
-        self.reader.prepare()
-        try:
-            self.reader.refresh()
-            while not self.reader.finished and not self.interrupted:
-                if not self.reader.handle1(block=False):
-                    # let's avoid busy waiting
-                    if CPYTHON_VENDOR:
-                        self.reader.console.wait(100)
-                    else:
-                        self.reader.console.pollob.poll(100)
-
-            if self.interrupted:
-                if not CPYTHON_VENDOR:
-                    self.trim_first_char = True
-                raise KeyboardInterrupt
-            if CPYTHON_VENDOR:
-                return self.reader.get_unicode()  # type: ignore[no-any-return]
-            else:
-                return self.reader.get_str()  # type: ignore[no-any-return]
-        finally:
-            trio.from_thread.run_sync(signal, SIGINT, prev_handler)
-            self.reader.restore()
-
-    if not CPYTHON_VENDOR:
-        # pyrepl has some special handling to make sure that
-        # the console is always ended in `\r\n` when done.
-        # However, InteractiveConsole assumes that the input
-        # was exited without a newline! So we need this hack.
-        def write(self, output: str) -> None:
-            if self.trim_first_char:
-                assert output == "\nKeyboardInterrupt\n"
-                sys.stderr.write(output[1:])
-                self.trim_first_char = False
-            else:
-                sys.stderr.write(output)
+        if CPYTHON_VENDOR:
+            return reader.get_unicode()  # type: ignore[no-any-return]
+        else:
+            return reader.get_str()  # type: ignore[no-any-return]
+    finally:
+        reader.restore()
 
 
-async def run_repl(console: TrioInteractiveConsole) -> None:
+async def run_repl(console: TrioInteractiveConsole, reader: r.Reader | None) -> None:
+    # mostly copy-pasted from code.InteractiveConsole.interact
+    try:
+        sys.ps1  # noqa: B018
+    except AttributeError:
+        sys.ps1 = ">>> "
+    try:
+        sys.ps2  # noqa: B018
+    except AttributeError:
+        sys.ps2 = "... "
+
     banner = (
         f"trio REPL {sys.version} on {sys.platform}\n"
         f'Use "await" directly instead of "trio.run()".\n'
         f'Type "help", "copyright", "credits" or "license" '
         f"for more information.\n"
-        f'{getattr(sys, "ps1", ">>> ")}import trio'
+        f'{getattr(sys, "ps1", ">>> ")}import trio\n'
     )
-    try:
-        await trio.to_thread.run_sync(console.interact, banner)
-    finally:
-        warnings.filterwarnings(
-            "ignore",
-            message=r"^coroutine .* was never awaited$",
-            category=RuntimeWarning,
-        )
+    console.write(banner)
+    more = 0
+
+    while True:
+        try:
+            prompt = sys.ps2 if more else sys.ps1
+            try:
+                line = await repl_input(reader, prompt)
+            except EOFError:
+                console.write("\n")
+                break
+            else:
+                more = await trio.to_thread.run_sync(console.push, line)
+        except KeyboardInterrupt:
+            console.write("\nKeyboardInterrupt\n")
+            console.resetbuffer()
+            more = 0
 
 
 def main(original_locals: dict[str, object]) -> None:
@@ -180,5 +163,5 @@ def main(original_locals: dict[str, object]) -> None:
 
         reader.commands["interrupt"] = interrupt
 
-    console = TrioInteractiveConsole(repl_locals, reader)
-    trio.run(run_repl, console)
+    console = TrioInteractiveConsole(repl_locals)
+    trio.run(run_repl, console, reader)

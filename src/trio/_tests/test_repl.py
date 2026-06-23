@@ -5,11 +5,14 @@ import os
 import re
 import signal
 import sys
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 import pytest
 
 from trio._tests.pytest_plugin import SKIP_OPTIONAL_IMPORTS
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 if sys.platform == "win32" and sys.version_info < (3, 13):
     pytest.skip("PyPI pyrepl only supports unix", allow_module_level=True)
@@ -24,35 +27,33 @@ except SystemExit:
     )
 
 
-class RawInput(Protocol):
+class ReplInput(Protocol):
     def __call__(self, prompt: str = "") -> str: ...
 
 
-def build_raw_input(cmds: list[str]) -> RawInput:
+def build_repl_input(cmds: list[str]) -> Callable[[object, str], Awaitable[str]]:
     """
     Pass in a list of strings.
     Returns a callable that returns each string, each time its called
     When there are not more strings to return, raise EOFError
     """
     cmds_iter = iter(cmds)
-    prompts = []
 
-    def _raw_helper(prompt: str = "") -> str:
-        prompts.append(prompt)
+    async def _repl_input_helper(_reader: object, _prompt: str) -> str:
         try:
             return next(cmds_iter)
         except StopIteration:
             raise EOFError from None
 
-    return _raw_helper
+    return _repl_input_helper
 
 
-def test_build_raw_input() -> None:
+async def test_build_repl_input() -> None:
     """Quick test of our helper function."""
-    raw_input = build_raw_input(["cmd1"])
-    assert raw_input() == "cmd1"
+    repl_input = build_repl_input(["cmd1"])
+    assert await repl_input(None, None) == "cmd1"
     with pytest.raises(EOFError):
-        raw_input()
+        await repl_input(None, None)
 
 
 async def test_basic_interaction(
@@ -64,7 +65,7 @@ async def test_basic_interaction(
     Ensure that the interpreted prints the expected results.
     """
     console = trio._repl.TrioInteractiveConsole()
-    raw_input = build_raw_input(
+    repl_input = build_repl_input(
         [
             # evaluate simple expression and recall the value
             "x = 1",
@@ -86,22 +87,22 @@ async def test_basic_interaction(
             "sys.stdout.write('hello stdout\\n')",
         ],
     )
-    monkeypatch.setattr(console, "raw_input", raw_input)
-    await trio._repl.run_repl(console)
+    monkeypatch.setattr(trio._repl, "repl_input", repl_input)
+    await trio._repl.run_repl(console, None)
     out, _err = capsys.readouterr()
     assert out.splitlines() == ["x=1", "'hello'", "2", "4", "hello stdout", "13"]
 
 
 async def test_system_exits_quit_interpreter(monkeypatch: pytest.MonkeyPatch) -> None:
     console = trio._repl.TrioInteractiveConsole()
-    raw_input = build_raw_input(
+    repl_input = build_repl_input(
         [
             "raise SystemExit",
         ],
     )
-    monkeypatch.setattr(console, "raw_input", raw_input)
+    monkeypatch.setattr(trio._repl, "repl_input", repl_input)
     with pytest.raises(SystemExit):
-        await trio._repl.run_repl(console)
+        await trio._repl.run_repl(console, None)
 
 
 async def test_KI_interrupts(
@@ -109,7 +110,7 @@ async def test_KI_interrupts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     console = trio._repl.TrioInteractiveConsole()
-    raw_input = build_raw_input(
+    repl_input = build_repl_input(
         [
             "import signal, trio, trio.lowlevel",
             "async def f():",
@@ -124,8 +125,8 @@ async def test_KI_interrupts(
             "print('AFTER KeyboardInterrupt')",
         ],
     )
-    monkeypatch.setattr(console, "raw_input", raw_input)
-    await trio._repl.run_repl(console)
+    monkeypatch.setattr(trio._repl, "repl_input", repl_input)
+    await trio._repl.run_repl(console, None)
     out, err = capsys.readouterr()
     assert "KeyboardInterrupt" in err
     assert "should" not in out
@@ -137,7 +138,7 @@ async def test_system_exits_in_exc_group(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     console = trio._repl.TrioInteractiveConsole()
-    raw_input = build_raw_input(
+    repl_input = build_repl_input(
         [
             "import sys",
             "if sys.version_info < (3, 11):",
@@ -147,8 +148,8 @@ async def test_system_exits_in_exc_group(
             "print('AFTER BaseExceptionGroup')",
         ],
     )
-    monkeypatch.setattr(console, "raw_input", raw_input)
-    await trio._repl.run_repl(console)
+    monkeypatch.setattr(trio._repl, "repl_input", repl_input)
+    await trio._repl.run_repl(console, None)
     out, _err = capsys.readouterr()
     # assert that raise SystemExit in an exception group
     # doesn't quit
@@ -160,7 +161,7 @@ async def test_system_exits_in_nested_exc_group(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     console = trio._repl.TrioInteractiveConsole()
-    raw_input = build_raw_input(
+    repl_input = build_repl_input(
         [
             "import sys",
             "if sys.version_info < (3, 11):",
@@ -171,8 +172,8 @@ async def test_system_exits_in_nested_exc_group(
             "print('AFTER BaseExceptionGroup')",
         ],
     )
-    monkeypatch.setattr(console, "raw_input", raw_input)
-    await trio._repl.run_repl(console)
+    monkeypatch.setattr(trio._repl, "repl_input", repl_input)
+    await trio._repl.run_repl(console, None)
     out, _err = capsys.readouterr()
     # assert that raise SystemExit in an exception group
     # doesn't quit
@@ -184,15 +185,15 @@ async def test_base_exception_captured(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     console = trio._repl.TrioInteractiveConsole()
-    raw_input = build_raw_input(
+    repl_input = build_repl_input(
         [
             # The statement after raise should still get executed
             "raise BaseException",
             "print('AFTER BaseException')",
         ],
     )
-    monkeypatch.setattr(console, "raw_input", raw_input)
-    await trio._repl.run_repl(console)
+    monkeypatch.setattr(trio._repl, "repl_input", repl_input)
+    await trio._repl.run_repl(console, None)
     out, err = capsys.readouterr()
     assert "_threads.py" not in err
     assert "_repl.py" not in err
@@ -204,15 +205,15 @@ async def test_exc_group_captured(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     console = trio._repl.TrioInteractiveConsole()
-    raw_input = build_raw_input(
+    repl_input = build_repl_input(
         [
             # The statement after raise should still get executed
             "raise ExceptionGroup('', [KeyError()])",
             "print('AFTER ExceptionGroup')",
         ],
     )
-    monkeypatch.setattr(console, "raw_input", raw_input)
-    await trio._repl.run_repl(console)
+    monkeypatch.setattr(trio._repl, "repl_input", repl_input)
+    await trio._repl.run_repl(console, None)
     out, _err = capsys.readouterr()
     assert "AFTER ExceptionGroup" in out
 
@@ -222,7 +223,7 @@ async def test_base_exception_capture_from_coroutine(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     console = trio._repl.TrioInteractiveConsole()
-    raw_input = build_raw_input(
+    repl_input = build_repl_input(
         [
             "async def async_func_raises_base_exception():",
             "  raise BaseException",
@@ -233,8 +234,8 @@ async def test_base_exception_capture_from_coroutine(
             "print('AFTER BaseException')",
         ],
     )
-    monkeypatch.setattr(console, "raw_input", raw_input)
-    await trio._repl.run_repl(console)
+    monkeypatch.setattr(trio._repl, "repl_input", repl_input)
+    await trio._repl.run_repl(console, None)
     out, err = capsys.readouterr()
     assert "_threads.py" not in err
     assert "_repl.py" not in err
