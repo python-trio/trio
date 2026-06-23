@@ -17,13 +17,11 @@ if sys.platform == "win32" and sys.version_info < (3, 13):
 try:
     import trio._repl
 except SystemExit:
-    if SKIP_OPTIONAL_IMPORTS:
-        pytest.skip(
-            "we exit out of the REPL quickly if no pyrepl is found",
-            allow_module_level=True,
-        )
-    else:
-        raise
+    assert SKIP_OPTIONAL_IMPORTS
+    pytest.skip(
+        "we exit out of the REPL quickly if no pyrepl is found",
+        allow_module_level=True,
+    )
 
 
 class RawInput(Protocol):
@@ -253,7 +251,7 @@ def start_repl() -> tuple[int, int]:
     # (which I don't know how to replicate... so I copied this
     # structure from pty.spawn...)
     pid, pty_fd = pty.fork()  # type: ignore[attr-defined,unused-ignore]
-    if pid == 0:
+    if pid == 0:  # pragma: no cover
         os.execlp(sys.executable, *[sys.executable, "-u", "-m", "trio"])
 
     return pid, pty_fd
@@ -264,11 +262,9 @@ def read_until(buffer: bytearray, expected: bytes, fd: int) -> None:
         try:
             res = os.read(fd, 4096)
         except OSError as e:
-            if e.errno == errno.EIO:
-                break  # process died
-            else:
-                print(buffer, res)
-                raise
+            # process died
+            assert e.errno == errno.EIO  # noqa: PT017
+            break
 
         if res == b"":
             break

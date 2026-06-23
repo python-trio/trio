@@ -167,8 +167,8 @@ def main(original_locals: dict[str, object]) -> None:
         repl_locals[key] = original_locals[key]
 
     # This call also registers all necessary signal handlers.
-    # Otherwise, we would not be able to run `multiline_input` in a
-    # child thread.
+    # Otherwise, we would not be able to run `readline` in a child
+    # thread.
     reader = readline._get_reader()
 
     if not CPYTHON_VENDOR:
