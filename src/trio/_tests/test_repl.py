@@ -51,9 +51,9 @@ def build_repl_input(cmds: list[str]) -> Callable[[object, str], Awaitable[str]]
 async def test_build_repl_input() -> None:
     """Quick test of our helper function."""
     repl_input = build_repl_input(["cmd1"])
-    assert await repl_input(None, None) == "cmd1"
+    assert await repl_input(None, "x") == "cmd1"
     with pytest.raises(EOFError):
-        await repl_input(None, None)
+        await repl_input(None, "x")
 
 
 async def test_basic_interaction(

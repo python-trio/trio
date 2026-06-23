@@ -6,6 +6,7 @@ import sys
 from code import InteractiveConsole
 from signal import SIGINT, raise_signal
 from types import CodeType, FunctionType
+from typing import cast
 
 import outcome
 
@@ -39,7 +40,7 @@ else:
 
 @final
 class TrioInteractiveConsole(InteractiveConsole):
-    def __init__(  # type: ignore[no-any-unimported]
+    def __init__(
         self,
         repl_locals: dict[str, object] | None = None,
     ) -> None:
@@ -79,7 +80,7 @@ class TrioInteractiveConsole(InteractiveConsole):
         # trio.from_thread.check_cancelled() has too long of a memory
 
 
-async def repl_input(reader: r.Reader | None, prompt: str) -> str:
+async def repl_input(reader: r.Reader | None, prompt: str) -> str:  # type: ignore[no-any-unimported]
     assert reader is not None
     reader.ps1 = prompt
     reader.prepare()
@@ -87,7 +88,7 @@ async def repl_input(reader: r.Reader | None, prompt: str) -> str:
         reader.refresh()
         while not reader.finished:
             if not reader.handle1(block=False):
-                if sys.platform == "win32":
+                if sys.platform == "win32":  # TODO: test this line
                     await trio.lowlevel.wait_readable(pyrepl.windows_console.InHandle)
                 else:
                     await trio.lowlevel.wait_readable(reader.console.input_fd)
@@ -100,7 +101,7 @@ async def repl_input(reader: r.Reader | None, prompt: str) -> str:
         reader.restore()
 
 
-async def run_repl(console: TrioInteractiveConsole, reader: r.Reader | None) -> None:
+async def run_repl(console: TrioInteractiveConsole, reader: r.Reader | None) -> None:  # type: ignore[no-any-unimported]
     # mostly copy-pasted from code.InteractiveConsole.interact
     try:
         sys.ps1  # noqa: B018
@@ -123,7 +124,7 @@ async def run_repl(console: TrioInteractiveConsole, reader: r.Reader | None) -> 
 
     while True:
         try:
-            prompt = sys.ps2 if more else sys.ps1
+            prompt = cast("str", sys.ps2 if more else sys.ps1)
             try:
                 line = await repl_input(reader, prompt)
             except EOFError:
@@ -131,7 +132,7 @@ async def run_repl(console: TrioInteractiveConsole, reader: r.Reader | None) -> 
                 break
             else:
                 more = await trio.to_thread.run_sync(console.push, line)
-        except KeyboardInterrupt:
+        except KeyboardInterrupt:  # TODO: test this line
             console.write("\nKeyboardInterrupt\n")
             console.resetbuffer()
             more = 0
@@ -158,7 +159,7 @@ def main(original_locals: dict[str, object]) -> None:
         # The default `interrupt` command finishes the console, which
         # adds an extra newline. Unforgivable!
         class interrupt(commands.FinishCommand):  # type: ignore[misc,no-any-unimported]
-            def do(self) -> None:
+            def do(self) -> None:  # TODO: test this line
                 raise_signal(SIGINT)
 
         reader.commands["interrupt"] = interrupt

@@ -1,0 +1,6 @@
+Switch ``python -m trio`` to use ``pyrepl``. This means that keyboard
+interrupts should be processed more consistently, as well as matching
+the builtin Python REPL more. One downside is that now using the trio
+REPL requires PyPy, CPython 3.13+, or installing the ``pyrepl`` package
+from PyPI. We recommend the first two options, as our support for the
+version on PyPI is worse.
