@@ -1,0 +1,1 @@
+Improve defaults if ``shell=True`` for `trio.run_process`, as well as backport the ``process_group`` argument.
