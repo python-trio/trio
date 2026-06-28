@@ -129,6 +129,8 @@ pylint==4.0.5
     # via -r test-requirements.in
 pyopenssl==26.2.0
     # via -r test-requirements.in
+pyrepl==0.11.4 ; python_full_version < '3.13' and implementation_name != 'pypy'
+    # via -r test-requirements.in
 pyright==1.1.409
     # via -r test-requirements.in
 pytest==9.0.3

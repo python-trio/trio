@@ -301,6 +301,7 @@ jobs:
         run: ./ci.sh
         env:
           NO_TEST_REQUIREMENTS: '${{ matrix.no_test_requirements }}'
+          TERM: xterm
       - if: >-
           always()
           && matrix.check_formatting != '1'
@@ -346,6 +347,8 @@ jobs:
           check-latest: true
       - name: Run tests
         run: ./ci.sh
+        env:
+          TERM: xterm
       - if: always()
         uses: codecov/codecov-action@v7
         with:
