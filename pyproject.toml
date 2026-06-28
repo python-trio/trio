@@ -233,6 +233,8 @@ filterwarnings = [
   'ignore:You are using cryptography on a 32-bit Python on a 64-bit Windows Operating System. Cryptography will be significantly faster if you switch to using a 64-bit Python.:UserWarning',
   # https://github.com/berkerpeksag/astor/issues/217
   'ignore:ast.Num is deprecated:DeprecationWarning:astor',
+  # https://github.com/coveragepy/coveragepy/issues/2208
+  'ignore:Module globals; __loader__ != __spec__.loader:DeprecationWarning',
 ]
 junit_family = "xunit2"
 markers = ["redistributors_should_skip: tests that should be skipped by downstream redistributors"]
