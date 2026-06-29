@@ -218,7 +218,6 @@ abstraction.
 
 .. autoclass:: SocketStream
    :members:
-   :undoc-members:
    :show-inheritance:
 
 .. autoclass:: SocketListener
@@ -431,8 +430,8 @@ Socket objects
      socket.
    * :meth:`~socket.socket.sendall`: Could be supported, but you're
      better off using the higher-level
-     :class:`~trio.SocketStream`, and specifically its
-     :meth:`~trio.SocketStream.send_all` method, which also does
+     :class:`~trio.SocketStream`, and specifically the
+     :meth:`~trio.abc.SendStream.send_all` method, which also does
      additional error checking.
 
    In addition, the following methods are similar to the equivalents
