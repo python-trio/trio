@@ -1,0 +1,1 @@
+Clarified how :func:`trio.wrap_file` async wrappers interact with the wrapped synchronous file object's close lifecycle and concurrent use.

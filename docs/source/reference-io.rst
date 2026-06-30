@@ -690,6 +690,12 @@ Asynchronous file objects
      guaranteed to close the file before returning, even if it is
      cancelled or otherwise raises an error.
 
+     Calling ``aclose`` on an async file object also closes the
+     underlying synchronous file object. Trio does not add a
+     synchronous ``close`` method to the async wrapper, and does not
+     guarantee that the wrapped file will be closed automatically when
+     the async wrapper is garbage collected.
+
    * Using the same async file object from multiple tasks
      simultaneously: because the async methods on async file objects
      are implemented using threads, it's only safe to call two of them
@@ -701,6 +707,12 @@ Asynchronous file objects
      mode: `binary mode files are task-safe/thread-safe, text mode
      files are not
      <https://docs.python.org/3/library/io.html#multi-threading>`__.
+
+     The same caveat applies if you keep using the original
+     synchronous file object after wrapping it with
+     :func:`trio.wrap_file`: direct synchronous operations can run at
+     the same time as the wrapper's async operations, so this is only
+     safe when the wrapped object supports that kind of concurrent use.
 
    * Async file objects can be used as async iterators to iterate over
      the lines of the file:
