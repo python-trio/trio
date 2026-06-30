@@ -21,3 +21,7 @@ async def test() -> None:
         # 3.11+:
         await trio.run_process("python", process_group=5)  # type: ignore
         await trio.lowlevel.open_process("python", process_group=5)  # type: ignore
+
+    # spawn_in_current_thread is accepted on every platform/overload shape
+    await trio.run_process("python", spawn_in_current_thread=True)
+    await trio.lowlevel.open_process("python", spawn_in_current_thread=True)

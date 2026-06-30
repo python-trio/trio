@@ -309,6 +309,7 @@ async def _open_process(
     stdin: int | HasFileno | None = None,
     stdout: int | HasFileno | None = None,
     stderr: int | HasFileno | None = None,
+    spawn_in_current_thread: bool = False,
     **options: object,
 ) -> Process:
     r"""Execute a child program in a new process.
@@ -327,6 +328,16 @@ async def _open_process(
     Unlike `trio.run_process`, this function doesn't do any kind of automatic
     management of the child process. It's up to you to implement whatever semantics you
     want.
+
+    .. note:: By default, the child process is spawned from a worker thread
+       drawn from Trio's internal thread pool, not from the thread that calls
+       `open_process`. Most Python-level state (e.g. context variables) is
+       copied across, but OS-level per-thread state is not: things like the
+       Linux network namespace (:manpage:`setns(2)`), capabilities, and CPU
+       affinity (:manpage:`pthreads(7)`) on the worker thread can differ from
+       what you set up on the calling thread, and the child inherits the
+       worker thread's state instead. Pass ``spawn_in_current_thread=True``
+       if your child process needs to inherit this kind of state faithfully.
 
     Args:
       command: The command to run. Typically this is a sequence of strings or
@@ -351,6 +362,13 @@ async def _open_process(
           which causes the child's standard output and standard error
           messages to be intermixed on a single standard output stream,
           attached to whatever the ``stdout`` option says to attach it to.
+      spawn_in_current_thread: If true, spawn the child process directly on
+          the thread that calls `open_process`, instead of on a worker
+          thread. This makes the child inherit OS-level thread state (e.g.
+          a network namespace set with :manpage:`setns(2)`) from the calling
+          thread, at the cost of briefly blocking the calling thread (and,
+          if called from Trio's main thread, the whole event loop) while
+          `subprocess.Popen` does its work.
       **options: Other :ref:`general subprocess options <subprocess-options>`
           are also accepted.
 
@@ -414,16 +432,21 @@ async def _open_process(
             always_cleanup.callback(os.close, stderr)
             cleanup_on_fail.callback(trio_stderr.close)
 
-        popen = await trio.to_thread.run_sync(
-            partial(
-                subprocess.Popen,
-                command,
-                stdin=stdin,
-                stdout=stdout,
-                stderr=stderr,
-                **options,
-            ),
+        spawn_subprocess = partial(
+            subprocess.Popen,
+            command,
+            stdin=stdin,
+            stdout=stdout,
+            stderr=stderr,
+            **options,
         )
+        if spawn_in_current_thread:
+            # Caller accepts brief event-loop blocking in exchange for
+            # spawning in *this* thread's OS context (namespaces, caps,
+            # affinity) instead of a worker thread's.
+            popen = spawn_subprocess()
+        else:
+            popen = await trio.to_thread.run_sync(spawn_subprocess)
         # We did not fail, so dismiss the stack for the trio ends
         cleanup_on_fail.pop_all()
 
@@ -472,6 +495,7 @@ async def _run_process(
     check: bool = True,
     deliver_cancel: Callable[[Process], Awaitable[object]] | None = None,
     task_status: TaskStatus[Process] = trio.TASK_STATUS_IGNORED,
+    spawn_in_current_thread: bool = False,
     **options: object,
 ) -> subprocess.CompletedProcess[bytes]:
     """Run ``command`` in a subprocess and wait for it to complete.
@@ -567,6 +591,16 @@ async def _run_process(
 
        To get the `subprocess.run` semantics, use ``check=False, stdin=None``.
 
+    .. note:: By default, the child process is spawned from a worker thread
+       drawn from Trio's internal thread pool, not from the thread that calls
+       `run_process`. Most Python-level state (e.g. context variables) is
+       copied across, but OS-level per-thread state is not: things like the
+       Linux network namespace (:manpage:`setns(2)`), capabilities, and CPU
+       affinity (:manpage:`pthreads(7)`) on the worker thread can differ from
+       what you set up on the calling thread, and the child inherits the
+       worker thread's state instead. Pass ``spawn_in_current_thread=True``
+       if your child process needs to inherit this kind of state faithfully.
+
     Args:
       command (list or str): The command to run. Typically this is a
           sequence of strings such as ``['ls', '-l', 'directory with spaces']``,
@@ -632,6 +666,14 @@ async def _run_process(
 
           In any case, `run_process` will always wait for the child process to
           exit before raising `Cancelled`.
+
+      spawn_in_current_thread: If true, spawn the child process directly on
+          the thread that calls `run_process`, instead of on a worker
+          thread. This makes the child inherit OS-level thread state (e.g.
+          a network namespace set with :manpage:`setns(2)`) from the calling
+          thread, at the cost of briefly blocking the calling thread (and,
+          if called from Trio's main thread, the whole event loop) while
+          `subprocess.Popen` does its work.
 
       **options: :func:`run_process` also accepts any :ref:`general subprocess
           options <subprocess-options>` and passes them on to the
@@ -736,7 +778,11 @@ async def _run_process(
 
     # Opening the process does not need to be inside the nursery, so we put it outside
     # so any exceptions get directly seen by users.
-    proc = await _open_process(command, **options)  # type: ignore[arg-type]
+    proc = await _open_process(
+        command,
+        spawn_in_current_thread=spawn_in_current_thread,
+        **options,  # type: ignore[arg-type]
+    )
     async with trio.open_nursery() as nursery:
         try:
             if input_ is not None:
@@ -825,6 +871,7 @@ if TYPE_CHECKING:
             command: StrOrBytesPath | Sequence[StrOrBytesPath],
             *,
             stdin: int | HasFileno | None = None,
+            spawn_in_current_thread: bool = False,
             **kwargs: Unpack[WindowsProcessArgs],
         ) -> trio.Process:
             r"""Execute a child program in a new process.
@@ -843,6 +890,16 @@ if TYPE_CHECKING:
             Unlike `trio.run_process`, this function doesn't do any kind of automatic
             management of the child process. It's up to you to implement whatever semantics you
             want.
+
+            .. note:: By default, the child process is spawned from a worker thread
+               drawn from Trio's internal thread pool, not from the thread that calls
+               `open_process`. Most Python-level state (e.g. context variables) is
+               copied across, but OS-level per-thread state is not: things like
+               capabilities and CPU affinity (:manpage:`pthreads(7)`) on the worker
+               thread can differ from what you set up on the calling thread, and the
+               child inherits the worker thread's state instead. Pass
+               ``spawn_in_current_thread=True`` if your child process needs to
+               inherit this kind of state faithfully.
 
             Args:
               command (list or str): The command to run. Typically this is a
@@ -866,6 +923,10 @@ if TYPE_CHECKING:
                   which causes the child's standard output and standard error
                   messages to be intermixed on a single standard output stream,
                   attached to whatever the ``stdout`` option says to attach it to.
+              spawn_in_current_thread: If true, spawn the child process directly on
+                  the thread that calls `open_process`, instead of on a worker
+                  thread, at the cost of briefly blocking the calling thread while
+                  `subprocess.Popen` does its work.
               **options: Other :ref:`general subprocess options <subprocess-options>`
                   are also accepted.
 
@@ -888,6 +949,7 @@ if TYPE_CHECKING:
             capture_stderr: bool = False,
             check: bool = True,
             deliver_cancel: Callable[[Process], Awaitable[object]] | None = None,
+            spawn_in_current_thread: bool = False,
             **kwargs: Unpack[WindowsProcessArgs],
         ) -> subprocess.CompletedProcess[bytes]:
             """Run ``command`` in a subprocess and wait for it to complete.
@@ -983,6 +1045,16 @@ if TYPE_CHECKING:
 
                To get the `subprocess.run` semantics, use ``check=False, stdin=None``.
 
+            .. note:: By default, the child process is spawned from a worker thread
+               drawn from Trio's internal thread pool, not from the thread that calls
+               `run_process`. Most Python-level state (e.g. context variables) is
+               copied across, but OS-level per-thread state is not: things like
+               capabilities and CPU affinity (:manpage:`pthreads(7)`) on the worker
+               thread can differ from what you set up on the calling thread, and the
+               child inherits the worker thread's state instead. Pass
+               ``spawn_in_current_thread=True`` if your child process needs to
+               inherit this kind of state faithfully.
+
             Args:
               command (list or str): The command to run. Typically this is a
                   sequence of strings such as ``['ls', '-l', 'directory with spaces']``,
@@ -1048,6 +1120,11 @@ if TYPE_CHECKING:
 
                   In any case, `run_process` will always wait for the child process to
                   exit before raising `Cancelled`.
+
+              spawn_in_current_thread: If true, spawn the child process directly on
+                  the thread that calls `run_process`, instead of on a worker
+                  thread, at the cost of briefly blocking the calling thread while
+                  `subprocess.Popen` does its work.
 
               **options: :func:`run_process` also accepts any :ref:`general subprocess
                   options <subprocess-options>` and passes them on to the
@@ -1139,6 +1216,7 @@ if TYPE_CHECKING:
             *,
             stdin: int | HasFileno | None = None,
             shell: Literal[True],
+            spawn_in_current_thread: bool = False,
             **kwargs: Unpack[UnixProcessArgs],
         ) -> trio.Process: ...
 
@@ -1148,6 +1226,7 @@ if TYPE_CHECKING:
             *,
             stdin: int | HasFileno | None = None,
             shell: bool = False,
+            spawn_in_current_thread: bool = False,
             **kwargs: Unpack[UnixProcessArgs],
         ) -> trio.Process: ...
 
@@ -1157,6 +1236,7 @@ if TYPE_CHECKING:
             *,
             stdin: bytes | bytearray | memoryview | int | HasFileno | None = b"",
             shell: Literal[True],
+            spawn_in_current_thread: bool = False,
             **kwargs: Unpack[UnixRunProcessArgs],
         ) -> subprocess.CompletedProcess[bytes]: ...
 
@@ -1166,6 +1246,7 @@ if TYPE_CHECKING:
             *,
             stdin: bytes | bytearray | memoryview | int | HasFileno | None = b"",
             shell: bool = False,
+            spawn_in_current_thread: bool = False,
             **kwargs: Unpack[UnixRunProcessArgs],
         ) -> subprocess.CompletedProcess[bytes]: ...
 

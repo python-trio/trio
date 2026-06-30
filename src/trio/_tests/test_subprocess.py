@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import gc
+import json
 import os
 import random
 import signal
@@ -766,3 +767,73 @@ async def test_subprocess_pidfd_unnotified() -> None:
             # for everything to notice
             await noticed_exit.wait()
         assert noticed_exit.is_set(), "child task wasn't woken after poll, DEADLOCK"
+
+
+async def test_spawn_in_current_thread_equivalence() -> None:
+    # spawn_in_current_thread only changes which thread calls Popen();
+    # it shouldn't change anything about the resulting subprocess.
+    for in_current_thread in (False, True):
+        result = await run_process(
+            CAT,
+            stdin=b"hello",
+            capture_stdout=True,
+            spawn_in_current_thread=in_current_thread,
+        )
+        assert result.returncode == 0
+        assert result.stdout == b"hello"
+
+        proc = await open_process(
+            EXIT_TRUE,
+            spawn_in_current_thread=in_current_thread,
+        )
+        try:
+            assert await proc.wait() == 0
+        finally:
+            proc.kill()
+            await proc.wait()
+
+
+# regression test for #3360
+@pytest.mark.skipif(
+    not hasattr(os, "sched_getaffinity"),
+    reason="sched_getaffinity/sched_setaffinity are Linux-only",
+)
+async def test_spawn_in_current_thread_affinity() -> None:
+    # By default, run_process spawns the child from a worker thread out of
+    # trio's thread cache, so a child can inherit stale OS-level thread state
+    # (here, CPU affinity) from whatever thread happens to be reused, instead
+    # of from the thread that actually called run_process.
+    # spawn_in_current_thread=True should avoid that by spawning directly on
+    # the calling thread.
+    original_mask = os.sched_getaffinity(0)  # type: ignore[attr-defined,unused-ignore]
+    if len(original_mask) < 2:
+        pytest.skip("need at least 2 available CPUs to exercise this")
+
+    # warm up trio's worker thread cache while affinity is unrestricted, so
+    # there's a cached worker thread whose affinity doesn't match what we're
+    # about to set below
+    await run_process(EXIT_TRUE)
+
+    restricted_mask = {next(iter(original_mask))}
+    os.sched_setaffinity(0, restricted_mask)  # type: ignore[attr-defined,unused-ignore]
+    try:
+        check_affinity = python(
+            "import json, os; print(json.dumps(sorted(os.sched_getaffinity(0))))",
+        )
+
+        default_result = await run_process(check_affinity, capture_stdout=True)
+        default_mask = set(json.loads(default_result.stdout))
+
+        current_thread_result = await run_process(
+            check_affinity,
+            capture_stdout=True,
+            spawn_in_current_thread=True,
+        )
+        current_thread_mask = set(json.loads(current_thread_result.stdout))
+    finally:
+        os.sched_setaffinity(0, original_mask)  # type: ignore[attr-defined,unused-ignore]
+
+    # the cached worker thread still has the old, unrestricted affinity
+    assert default_mask != restricted_mask
+    # but spawning from the calling thread picks up the restriction
+    assert current_thread_mask == restricted_mask

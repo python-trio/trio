@@ -1,0 +1,8 @@
+`trio.run_process` and `trio.lowlevel.open_process` now accept a
+``spawn_in_current_thread`` keyword argument. By default the child process is
+spawned from a worker thread in trio's internal thread pool, so OS-level
+per-thread state on the calling thread (network namespace, capabilities, CPU
+affinity, etc.) is not necessarily reflected in the child. Passing
+``spawn_in_current_thread=True`` spawns the child directly from the calling
+thread instead, at the cost of briefly blocking the event loop while
+``subprocess.Popen`` runs.
