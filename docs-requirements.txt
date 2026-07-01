@@ -55,7 +55,7 @@ pycparser==3.0 ; (implementation_name != 'PyPy' and os_name == 'nt') or (impleme
     # via cffi
 pygments==2.20.0
     # via sphinx
-pyopenssl==26.3.0
+pyopenssl==26.2.0
     # via -r docs-requirements.in
 requests==2.34.2
     # via sphinx
