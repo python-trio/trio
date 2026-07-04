@@ -169,8 +169,7 @@ class MemoryChannelState(Generic[T]):
 @final
 @attrs.define(eq=False, repr=False, slots=False)
 class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
-    """
-    A memory channel endpoint for sending Python objects.
+    """A memory channel endpoint for sending Python objects.
 
     Instances of this class are created by
     :func:`open_memory_channel` and cannot be instantiated directly.
