@@ -223,6 +223,7 @@ jobs:
         env:
           LSP: '${{ matrix.lsp }}'
           LSP_EXTRACT_FILE: '${{ matrix.lsp_extract_file }}'
+          SKIP_SSL_TESTS: ${{ matrix.arch == 'x86' && '1' || '0' }}
       - if: always()
         uses: codecov/codecov-action@v7
         with:

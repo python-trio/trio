@@ -54,7 +54,14 @@ if [ "${NO_TEST_REQUIREMENTS-0}" == 1 ]; then
     python -m uv pip install pytest coverage -c test-requirements.txt
     flags="--skip-optional-imports"
 else
-    python -m uv pip install -r test-requirements.txt --no-deps
+    requirements_file=test-requirements.txt
+    if [ "${SKIP_SSL_TESTS-0}" == 1 ]; then
+        # cryptography no longer supports 32-bit Windows, and these
+        # dependencies are only needed by the SSL/DTLS tests skipped below.
+        requirements_file=test-requirements-no-ssl.txt
+        grep -Ev '^(cryptography|pyopenssl|trustme)==' test-requirements.txt > "$requirements_file"
+    fi
+    python -m uv pip install -r "$requirements_file" --no-deps
     flags=""
 fi
 
@@ -113,6 +120,10 @@ cd empty
 
 INSTALLDIR=$(python -c "import os, trio; print(os.path.dirname(trio.__file__))")
 cp ../pyproject.toml "$INSTALLDIR"  # TODO: remove this
+
+if [ "${SKIP_SSL_TESTS-0}" == 1 ]; then
+    flags="$flags --ignore=${INSTALLDIR}/_tests/test_ssl.py --ignore=${INSTALLDIR}/_tests/test_dtls.py"
+fi
 
 # get mypy tests a nice cache
 MYPYPATH=".." mypy --config-file= --cache-dir=./.mypy_cache -c "import trio" >/dev/null 2>/dev/null || true
