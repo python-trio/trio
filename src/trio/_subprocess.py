@@ -98,7 +98,9 @@ else:
 class HasFileno(Protocol):
     """Represents any file-like object that has a file descriptor."""
 
-    def fileno(self) -> int: ...
+    def fileno(self) -> int:
+        """Return the integer file descriptor for this object."""
+        ...
 
 
 @final

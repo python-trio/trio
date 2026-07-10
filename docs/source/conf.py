@@ -172,13 +172,7 @@ def autodoc_process_signature(
 
 # currently undocumented things
 logger = getLogger("trio")
-UNDOCUMENTED = {
-    "trio.MemorySendChannel",
-    "trio.MemoryReceiveChannel",
-    "trio.MemoryChannelStatistics",
-    "trio._subprocess.HasFileno.fileno",
-    "trio.lowlevel.ParkingLot.broken_by",
-}
+UNDOCUMENTED: set[str] = set()
 
 
 def autodoc_process_docstring(

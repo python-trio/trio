@@ -1,0 +1,1 @@
+Document `MemorySendChannel`, `MemoryReceiveChannel`, and `MemoryChannelStatistics` in the API reference.

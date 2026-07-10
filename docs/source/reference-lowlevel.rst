@@ -482,6 +482,12 @@ Wait queue abstraction
 .. autoclass:: ParkingLot
    :members:
    :undoc-members:
+   :exclude-members: broken_by
+
+   .. attribute:: broken_by
+
+      The tasks that broke this parking lot. This list is empty until
+      :meth:`break_lot` is called.
 
 .. autoclass:: ParkingLotStatistics
    :members:
