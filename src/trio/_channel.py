@@ -118,12 +118,29 @@ class open_memory_channel(tuple["MemorySendChannel[T]", "MemoryReceiveChannel[T]
 
 @attrs.frozen
 class MemoryChannelStatistics:
+    """Statistics describing the current state of a memory channel.
+
+    Returned by :meth:`MemorySendChannel.statistics` and
+    :meth:`MemoryReceiveChannel.statistics`.
+    """
+
     current_buffer_used: int
+    """The number of items currently stored in the channel buffer."""
+
     max_buffer_size: int | float
+    """The maximum number of items that can be buffered in the channel."""
+
     open_send_channels: int
+    """The number of open :class:`MemorySendChannel` endpoints pointing to this channel."""
+
     open_receive_channels: int
+    """The number of open :class:`MemoryReceiveChannel` endpoints pointing to this channel."""
+
     tasks_waiting_send: int
+    """The number of tasks currently blocked waiting to send."""
+
     tasks_waiting_receive: int
+    """The number of tasks currently blocked waiting to receive."""
 
 
 @attrs.define
@@ -152,6 +169,12 @@ class MemoryChannelState(Generic[T]):
 @final
 @attrs.define(eq=False, repr=False, slots=False)
 class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
+    """A memory channel endpoint for sending Python objects.
+
+    Instances of this class are created by
+    :func:`open_memory_channel` and cannot be instantiated directly.
+    """
+
     _state: MemoryChannelState[SendType]
     _closed: bool = False
     # This is just the tasks waiting on *this* object. As compared to
@@ -300,6 +323,12 @@ class MemorySendChannel(SendChannel[SendType], metaclass=NoPublicConstructor):
 @final
 @attrs.define(eq=False, repr=False, slots=False)
 class MemoryReceiveChannel(ReceiveChannel[ReceiveType], metaclass=NoPublicConstructor):
+    """A memory channel endpoint for receiving Python objects.
+
+    Instances of this class are created by
+    :func:`open_memory_channel` and cannot be instantiated directly.
+    """
+
     _state: MemoryChannelState[ReceiveType]
     _closed: bool = False
     _tasks: set[trio._core._run.Task] = attrs.Factory(set)
