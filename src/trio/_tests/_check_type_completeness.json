@@ -4,8 +4,7 @@
         "No docstring found for function \"trio._unix_pipes.FdStream.wait_send_all_might_not_block\"",
         "No docstring found for function \"trio._unix_pipes.FdStream.receive_some\"",
         "No docstring found for function \"trio._unix_pipes.FdStream.close\"",
-        "No docstring found for function \"trio._unix_pipes.FdStream.aclose\"",
-        "No docstring found for function \"trio._unix_pipes.FdStream.fileno\""
+        "No docstring found for function \"trio._unix_pipes.FdStream.aclose\""
     ],
     "Linux": [
         "No docstring found for class \"trio._core._io_epoll._EpollStatistics\"",
@@ -13,8 +12,7 @@
         "No docstring found for function \"trio._unix_pipes.FdStream.wait_send_all_might_not_block\"",
         "No docstring found for function \"trio._unix_pipes.FdStream.receive_some\"",
         "No docstring found for function \"trio._unix_pipes.FdStream.close\"",
-        "No docstring found for function \"trio._unix_pipes.FdStream.aclose\"",
-        "No docstring found for function \"trio._unix_pipes.FdStream.fileno\""
+        "No docstring found for function \"trio._unix_pipes.FdStream.aclose\""
     ],
     "Windows": [],
     "all": [
@@ -25,7 +23,6 @@
         "No docstring found for function \"trio._highlevel_socket.SocketStream.send_eof\"",
         "No docstring found for function \"trio._highlevel_socket.SocketStream.receive_some\"",
         "No docstring found for function \"trio._highlevel_socket.SocketStream.aclose\"",
-        "No docstring found for function \"trio._subprocess.HasFileno.fileno\"",
         "No docstring found for class \"trio._sync.AsyncContextManagerMixin\"",
         "No docstring found for function \"trio._sync._HasAcquireRelease.acquire\"",
         "No docstring found for function \"trio._sync._HasAcquireRelease.release\"",
