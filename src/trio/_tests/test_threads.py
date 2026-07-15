@@ -688,6 +688,13 @@ async def test_trio_to_thread_run_sync_contextvars() -> None:
     assert sniffio.current_async_library() == "trio"
 
 
+@pytest.mark.skipif(
+    sys.implementation.name == "pypy",
+    reason=(
+        "gc.get_referrers is broken on PyPy (see "
+        "https://github.com/pypy/pypy/issues/5075)"
+    ),
+)
 async def test_worker_thread_context_not_leaked() -> None:
     # Regression test for: https://github.com/python-trio/trio/issues/3472
     class Foo:
