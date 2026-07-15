@@ -154,10 +154,15 @@ class WorkerThread(Generic[RetT]):
         self._default_name = f"Trio thread {next(name_counter)}"
         if sys.version_info >= (3, 14):
             self._thread = Thread(
-                target=self._work, name=self._default_name, daemon=True, context=Context())
+                target=self._work,
+                name=self._default_name,
+                daemon=True,
+                context=Context(),
+            )
         else:
             self._thread = Thread(
-                target=self._work, name=self._default_name, daemon=True)
+                target=self._work, name=self._default_name, daemon=True
+            )
 
         if set_os_thread_name:
             set_os_thread_name(self._thread.ident, self._default_name)

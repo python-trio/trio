@@ -692,7 +692,7 @@ async def test_worker_thread_context_not_leaked() -> None:
     # Regression test for: https://github.com/python-trio/trio/issues/3472
     class Foo:
         pass
-    
+
     def sync_fn() -> None:
         pass
 
@@ -704,8 +704,7 @@ async def test_worker_thread_context_not_leaked() -> None:
     gc.collect()
 
     referrers = [
-        r for r in gc.get_referrers(contextval)
-        if type(r).__name__ != "coroutine"
+        r for r in gc.get_referrers(contextval) if type(r).__name__ != "coroutine"
     ]
     assert not referrers, referrers
 
