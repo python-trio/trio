@@ -688,13 +688,6 @@ async def test_trio_to_thread_run_sync_contextvars() -> None:
     assert sniffio.current_async_library() == "trio"
 
 
-@pytest.mark.skipif(
-    sys.implementation.name == "pypy",
-    reason=(
-        "gc.get_referrers is broken on PyPy (see "
-        "https://github.com/pypy/pypy/issues/5075)"
-    ),
-)
 async def test_worker_thread_context_not_leaked() -> None:
     # Regression test for: https://github.com/python-trio/trio/issues/3472
 
@@ -706,20 +699,15 @@ async def test_worker_thread_context_not_leaked() -> None:
 
     cvar: contextvars.ContextVar[Foo] = contextvars.ContextVar("cvar")
     contextval = Foo()
+    ref = weakref.ref(contextval)
     cvar.set(contextval)
     await to_thread_run_sync(sync_fn)
     cvar.set(Foo())
+
+    del contextval
     gc.collect()
 
-    def no_other_refs() -> list[object]:
-        if sys.version_info >= (3, 14):
-            return [sys._getframe(1).f_generator]
-        elif sys.version_info >= (3, 11):
-            return []
-        else:
-            return [sys._getframe(1)]
- 
-    assert gc.get_referrers(contextval) == no_other_refs()
+    assert ref() is None
 
 
 async def test_trio_from_thread_run_sync() -> None:
