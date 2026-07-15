@@ -697,6 +697,7 @@ async def test_trio_to_thread_run_sync_contextvars() -> None:
 )
 async def test_worker_thread_context_not_leaked() -> None:
     # Regression test for: https://github.com/python-trio/trio/issues/3472
+
     class Foo:
         pass
 
@@ -710,10 +711,15 @@ async def test_worker_thread_context_not_leaked() -> None:
     cvar.set(Foo())
     gc.collect()
 
-    referrers = [
-        r for r in gc.get_referrers(contextval) if type(r).__name__ != "coroutine"
-    ]
-    assert not referrers, referrers
+    def no_other_refs() -> list[object]:
+        if sys.version_info >= (3, 14):
+            return [sys._getframe(1).f_generator]
+        elif sys.version_info >= (3, 11):
+            return []
+        else:
+            return [sys._getframe(1)]
+ 
+    assert gc.get_referrers(contextval) == no_other_refs()
 
 
 async def test_trio_from_thread_run_sync() -> None:
