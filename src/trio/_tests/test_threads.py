@@ -718,7 +718,7 @@ async def test_worker_thread_context_not_leaked() -> None:
             return []
         else:
             return [sys._getframe(1)]
- 
+
     assert gc.get_referrers(contextval) == no_other_refs()
 
 
