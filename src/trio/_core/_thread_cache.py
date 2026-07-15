@@ -152,7 +152,7 @@ class WorkerThread(Generic[RetT]):
         self._worker_lock = Lock()
         self._worker_lock.acquire()
         self._default_name = f"Trio thread {next(name_counter)}"
-        kwargs: dict[str, Any] = {} # type: ignore[explicit-any]
+        kwargs: dict[str, Any] = {}  # type: ignore[explicit-any]
         if sys.version_info >= (3, 14):
             kwargs["context"] = Context()
         self._thread = Thread(
