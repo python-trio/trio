@@ -46,6 +46,7 @@ python -m uv pip install build
 python -m build
 wheel_package=$(ls dist/*.whl)
 python -m uv pip install "trio @ $wheel_package" -c test-requirements.txt
+python -m uv pip install https://github.com/python-trio/outcome/archive/e0f317813a499f1a3629b37c3b8caed72825d9c0.zip
 
 # Actual tests
 # expands to 0 != 1 if NO_TEST_REQUIREMENTS is not set, if set the `-0` has no effect
