@@ -1,0 +1,4 @@
+`MemoryChannelStatistics` now has a ``max_buffer_used`` field, which reports
+the largest number of items that have ever been in the channel's buffer at
+once. This makes it easier to pick a sensible ``max_buffer_size`` based on
+data from a real run, instead of guessing.

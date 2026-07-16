@@ -320,9 +320,11 @@ async def test_statistics() -> None:
     assert stats.open_receive_channels == 1
     assert stats.tasks_waiting_send == 0
     assert stats.tasks_waiting_receive == 0
+    assert stats.max_buffer_used == 0
 
     s.send_nowait(None)
     assert s.statistics().current_buffer_used == 1
+    assert s.statistics().max_buffer_used == 1
 
     s2 = s.clone()
     assert s.statistics().open_send_channels == 2
@@ -337,6 +339,7 @@ async def test_statistics() -> None:
     async with trio.open_nursery() as nursery:
         s2.send_nowait(None)  # fill up the buffer
         assert s.statistics().current_buffer_used == 2
+        assert s.statistics().max_buffer_used == 2
         nursery.start_soon(s2.send, None)
         nursery.start_soon(s2.send, None)
         await wait_all_tasks_blocked()
@@ -350,6 +353,10 @@ async def test_statistics() -> None:
             r.receive_nowait()
     except trio.WouldBlock:
         pass
+
+    # draining the buffer doesn't reset the high-water mark
+    assert s.statistics().current_buffer_used == 0
+    assert s.statistics().max_buffer_used == 2
 
     async with trio.open_nursery() as nursery:
         nursery.start_soon(r.receive)
