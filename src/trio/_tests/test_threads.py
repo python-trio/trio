@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextvars
+import gc
 import queue as stdlib_queue
 import re
 import sys
@@ -685,6 +686,28 @@ async def test_trio_to_thread_run_sync_contextvars() -> None:
         " thread"
     )
     assert sniffio.current_async_library() == "trio"
+
+
+async def test_worker_thread_context_not_leaked() -> None:
+    # Regression test for: https://github.com/python-trio/trio/issues/3472
+
+    class Foo:
+        pass
+
+    def sync_fn() -> None:
+        pass
+
+    cvar: contextvars.ContextVar[Foo] = contextvars.ContextVar("cvar")
+    contextval = Foo()
+    ref = weakref.ref(contextval)
+    cvar.set(contextval)
+    await to_thread_run_sync(sync_fn)
+    cvar.set(Foo())
+
+    del contextval
+    gc.collect()
+
+    assert ref() is None
 
 
 async def test_trio_from_thread_run_sync() -> None:
