@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import os
+import sys
 import threading
 import time
+import warnings
 from contextlib import contextmanager
 from queue import Queue
 from typing import TYPE_CHECKING, NoReturn
@@ -210,7 +212,17 @@ def test_clear_thread_cache_after_fork() -> None:
     start_thread_soon(foo, lambda _: done.set())
     done.wait()
 
-    child_pid = os.fork()
+    with warnings.catch_warnings(record=True) as emitted:
+        # TODO: remove this extra filter once we drop 3.14. See
+        # https://github.com/python-trio/trio/issues/3355.
+        warnings.simplefilter("default")
+        child_pid = os.fork()
+
+    if child_pid != 0 and sys.version_info >= (3, 12):
+        # the warning is only emitted in the parent
+        assert len(emitted) == 1
+        assert isinstance(emitted[0].message, DeprecationWarning)
+        assert "fork() may lead to" in str(emitted[0].message)
 
     # try using it
     done = threading.Event()

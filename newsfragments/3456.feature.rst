@@ -1,0 +1,2 @@
+Support Python 3.15, as of beta 3. Things may still change and so this
+support may break in the future.
