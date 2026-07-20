@@ -265,7 +265,7 @@ async def test_current_time() -> None:
     t1 = _core.current_time()
     # Windows clock is pretty low-resolution -- appveyor tests fail unless we
     # sleep for a bit here.
-    time.sleep(time.get_clock_info("perf_counter").resolution)  # noqa: ASYNC251
+    time.sleep(time.get_clock_info("perf_counter").resolution)  # ruff:ignore[blocking-sleep-in-async-function]
     t2 = _core.current_time()
     assert t1 < t2
 
@@ -2895,7 +2895,7 @@ def test_trio_run_strict_before_started(
                 ) from None
             raise
 
-    with pytest.raises(BaseException) as exc_info:  # noqa: PT011  # no `match`
+    with pytest.raises(BaseException) as exc_info:  # ruff:ignore[pytest-raises-too-broad]  # no `match`
         _core.run(start_raiser, strict_exception_groups=run_strict)
 
     if start_raiser_strict or (run_strict and start_raiser_strict is None):

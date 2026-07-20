@@ -236,7 +236,7 @@ async def test_SocketListener_accept_errors() -> None:
         def getsockopt(self, /, level: int, optname: int) -> int: ...
 
         @overload
-        def getsockopt(  # noqa: F811
+        def getsockopt(  # ruff:ignore[redefined-while-unused]
             self,
             /,
             level: int,
@@ -244,7 +244,7 @@ async def test_SocketListener_accept_errors() -> None:
             buflen: int,
         ) -> bytes: ...
 
-        def getsockopt(  # noqa: F811
+        def getsockopt(  # ruff:ignore[redefined-while-unused]
             self,
             /,
             level: int,
@@ -263,7 +263,7 @@ async def test_SocketListener_accept_errors() -> None:
         ) -> None: ...
 
         @overload
-        def setsockopt(  # noqa: F811
+        def setsockopt(  # ruff:ignore[redefined-while-unused]
             self,
             /,
             level: int,
@@ -272,7 +272,7 @@ async def test_SocketListener_accept_errors() -> None:
             optlen: int,
         ) -> None: ...
 
-        def setsockopt(  # noqa: F811
+        def setsockopt(  # ruff:ignore[redefined-while-unused]
             self,
             /,
             level: int,

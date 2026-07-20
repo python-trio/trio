@@ -213,7 +213,7 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
             pytest.skip("use --run-slow to check against pyright")
 
         try:
-            import pyright  # noqa: F401
+            import pyright  # ruff:ignore[unused-import]
         except ImportError as error:
             skip_if_optional_else_raise(error)
         import subprocess

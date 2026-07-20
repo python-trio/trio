@@ -373,7 +373,7 @@ def socket(
         if sf is not None:
             return sf.socket(family, type, proto)
     else:
-        family, type, proto = _sniff_sockopts_for_fileno(  # noqa: A001
+        family, type, proto = _sniff_sockopts_for_fileno(  # ruff:ignore[builtin-variable-shadowing]
             family,
             type,
             proto,

@@ -142,7 +142,7 @@ async def run_repl(console: TrioInteractiveConsole) -> None:
 
 def main(original_locals: dict[str, object]) -> None:
     with contextlib.suppress(ImportError):
-        import readline  # noqa: F401
+        import readline  # ruff:ignore[unused-import]
 
     repl_locals: dict[str, object] = {"trio": trio}
     for key in {

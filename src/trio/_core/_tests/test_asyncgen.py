@@ -23,7 +23,7 @@ def test_asyncgen_basics() -> None:
         try:
             with contextlib.suppress(GeneratorExit):
                 # we *want* to test what happens to delayed `await`
-                yield 42  # noqa: ASYNC119
+                yield 42  # ruff:ignore[yield-in-context-manager-in-async-generator]
             await _core.checkpoint()
         except _core.Cancelled:
             assert "exhausted" not in cause
@@ -44,7 +44,7 @@ def test_asyncgen_basics() -> None:
 
     async def async_main() -> None:
         # GC'ed before exhausted
-        with pytest.warns(  # noqa: PT031
+        with pytest.warns(  # ruff:ignore[pytest-warns-with-multiple-statements]
             ResourceWarning,
             match="Async generator.*collected before.*exhausted",
         ):
@@ -281,12 +281,12 @@ async def test_fallback_when_no_hook_claims_it(
     # noqas because we *want* to test delayed yield/await!
     async def yields_after_yield() -> AsyncGenerator[int, None]:
         with pytest.raises(GeneratorExit):
-            yield 42  # noqa: ASYNC119
+            yield 42  # ruff:ignore[yield-in-context-manager-in-async-generator]
         yield 100
 
     async def awaits_after_yield() -> AsyncGenerator[int, None]:
         with pytest.raises(GeneratorExit):
-            yield 42  # noqa: ASYNC119
+            yield 42  # ruff:ignore[yield-in-context-manager-in-async-generator]
         await _core.cancel_shielded_checkpoint()
 
     with restore_unraisablehook():

@@ -158,7 +158,7 @@ def _count_context_run_tb_frames() -> int:
 
     def function_with_unique_name_xyzzy() -> NoReturn:
         try:
-            1 / 0  # noqa: B018  # We need a ZeroDivisionError to fire
+            1 / 0  # ruff:ignore[useless-expression]  # We need a ZeroDivisionError to fire
         except ZeroDivisionError:
             raise
         else:  # pragma: no cover
@@ -961,7 +961,7 @@ class CancelScope:
         cancelled, then :attr:`cancelled_caught` is usually more
         appropriate.
         """
-        if (  # noqa: SIM102  # collapsible-if but this way is nicer
+        if (  # ruff:ignore[collapsible-if]  # collapsible-if but this way is nicer
             self._cancel_status is not None or not self._has_been_entered
         ):
             # Scope is active or not yet entered: make sure cancel_called

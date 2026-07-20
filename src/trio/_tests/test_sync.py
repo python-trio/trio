@@ -333,7 +333,7 @@ def test_Semaphore_bounded() -> None:
 async def test_Lock_and_StrictFIFOLock(
     lockcls: type[Lock | StrictFIFOLock],
 ) -> None:
-    l = lockcls()  # noqa
+    l = lockcls()  # ruff:ignore[ambiguous-variable-name]
     assert not l.locked()
 
     # make sure locks can be weakref'ed (gh-331)
@@ -412,7 +412,7 @@ async def test_Condition() -> None:
         Condition(Semaphore(1))  # type: ignore[arg-type]
     with pytest.raises(TypeError):
         Condition(StrictFIFOLock)  # type: ignore[arg-type]
-    l = Lock()  # noqa
+    l = Lock()  # ruff:ignore[ambiguous-variable-name]
     c = Condition(l)
     assert not l.locked()
     assert not c.locked()

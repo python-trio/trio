@@ -1116,13 +1116,15 @@ def test__ExceptionInfo(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_raisesgroup_matcher_deprecation() -> None:
     with pytest.deprecated_call():
-        trio.testing.Matcher  # type: ignore # noqa: B018
+        trio.testing.Matcher  # type: ignore # ruff:ignore[useless-expression]
 
     with pytest.deprecated_call():
-        trio.testing.RaisesGroup  # type: ignore # noqa: B018
+        trio.testing.RaisesGroup  # type: ignore # ruff:ignore[useless-expression]
 
     with pytest.deprecated_call():
-        from trio.testing import Matcher  # type: ignore # noqa: F401
+        from trio.testing import Matcher  # type: ignore # ruff:ignore[unused-import]
 
     with pytest.deprecated_call():
-        from trio.testing import RaisesGroup  # type: ignore # noqa: F401
+        from trio.testing import (
+            RaisesGroup,  # type: ignore # ruff:ignore[unused-import]
+        )

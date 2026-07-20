@@ -5,4 +5,4 @@ def test_trio_import() -> None:
         if module.startswith("trio"):
             del sys.modules[module]
 
-    import trio  # noqa: F401
+    import trio  # ruff:ignore[unused-import]

@@ -208,7 +208,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         if not family:  # pragma: no cover
             family = trio.socket.AF_INET
         if not type:  # pragma: no cover
-            type = trio.socket.SOCK_STREAM  # noqa: A001  # name shadowing builtin
+            type = trio.socket.SOCK_STREAM  # ruff:ignore[builtin-variable-shadowing]  # name shadowing builtin
 
         if family not in (trio.socket.AF_INET, trio.socket.AF_INET6):
             raise NotImplementedError(f"FakeNet doesn't (yet) support family={family}")
@@ -484,7 +484,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
     @overload
     async def sendto(
         self,
-        __data: Buffer,  # noqa: PYI063
+        __data: Buffer,  # ruff:ignore[pep484-style-positional-only-parameter]
         __address: tuple[object, ...] | str | Buffer,
     ) -> int: ...
 
@@ -492,7 +492,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
     @overload
     async def sendto(
         self,
-        __data: Buffer,  # noqa: PYI063
+        __data: Buffer,  # ruff:ignore[pep484-style-positional-only-parameter]
         __flags: int,
         __address: tuple[object, ...] | str | Buffer | None,
     ) -> int: ...

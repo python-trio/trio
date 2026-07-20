@@ -253,7 +253,7 @@ def test_module_with_deprecations(recwarn_always: pytest.WarningsRecorder) -> No
     assert "instead-string instead" in got.message.args[0]
 
     with pytest.raises(AttributeError):
-        module_with_deprecations.asdf  # type: ignore[attr-defined]  # noqa: B018  # "useless expression"
+        module_with_deprecations.asdf  # type: ignore[attr-defined]  # ruff:ignore[useless-expression]  # "useless expression"
 
 
 def test_warning_class() -> None:

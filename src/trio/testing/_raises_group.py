@@ -131,7 +131,7 @@ if TYPE_CHECKING:
 
 else:
     try:
-        from pytest import ExceptionInfo  # noqa: PT013
+        from pytest import ExceptionInfo  # ruff:ignore[pytest-incorrect-pytest-import]
     except ImportError:  # pragma: no cover
         ExceptionInfo = _ExceptionInfo
 

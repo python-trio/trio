@@ -460,7 +460,7 @@ async def test_can_survive_unnotified_close() -> None:
     # handle to the object (which produces a LOCAL_CLOSE notification and
     # wakes up wait_readable), or only close one of the handles (which leaves
     # wait_readable pending until cancelled).
-    with stdlib_socket.socket() as s, s.dup() as s2:  # noqa: F841
+    with stdlib_socket.socket() as s, s.dup() as s2:  # ruff:ignore[unused-variable]
         async with trio.open_nursery() as nursery:
             nursery.start_soon(allow_OSError, trio.lowlevel.wait_readable, s)
             await wait_all_tasks_blocked()

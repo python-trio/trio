@@ -443,7 +443,7 @@ async def test_SocketType_basics() -> None:
 
     # our __getattr__ handles unknown names
     with pytest.raises(AttributeError):
-        sock.asdf  # type: ignore[attr-defined]  # noqa: B018
+        sock.asdf  # type: ignore[attr-defined]  # ruff:ignore[useless-expression]
 
     # type family proto
     stdlib_sock = stdlib_socket.socket()
@@ -470,7 +470,7 @@ def setsockopt_tests(sock: SocketType | SocketStream) -> None:
         except (
             OSError
         ) as e:  # pragma: no cover  # all CI runners support SO_BINDTODEVICE
-            assert e.errno in [  # noqa: PT017
+            assert e.errno in [  # ruff:ignore[pytest-assert-in-except]
                 # some versions of Python have the attribute yet can run on
                 # platforms that do not support it. For instance, MacOS 15
                 # gained support for SO_BINDTODEVICE and CPython 3.13.1 was
@@ -664,7 +664,7 @@ async def test_SocketType_resolve(socket_type: AddressFamily, addrs: Addresses) 
             ) -> tuple[str | int, ...]:
                 value = await sock._resolve_address_nocp(
                     args,
-                    local=local,  # noqa: B023  # local is not bound in function definition
+                    local=local,  # ruff:ignore[function-uses-loop-variable]  # local is not bound in function definition
                 )
                 assert isinstance(value, tuple)
                 return cast("tuple[str | int, ...]", value)
@@ -1239,7 +1239,7 @@ async def test_many_sockets() -> None:
             # Semi-expecting following errors (sockets are files):
             # EMFILE: "Too many open files" (reached kernel cap)
             # ENFILE: "File table overflow" (beyond kernel cap)
-            assert exc.errno in (errno.EMFILE, errno.ENFILE)  # noqa: PT017
+            assert exc.errno in (errno.EMFILE, errno.ENFILE)  # ruff:ignore[pytest-assert-in-except]
             print(f"Unable to open more than {opened} sockets.")
             # Stop opening any more sockets if too many are open
             break

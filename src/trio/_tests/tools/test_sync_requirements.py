@@ -6,7 +6,7 @@ from trio._tests.pytest_plugin import skip_if_optional_else_raise
 
 # imports in gen_exports that are not in `install_requires` in requirements
 try:
-    import yaml  # noqa: F401
+    import yaml  # ruff:ignore[unused-import]
 except ImportError as error:
     skip_if_optional_else_raise(error)
 

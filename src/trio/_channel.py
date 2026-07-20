@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import sys
 from collections import OrderedDict, deque
-from collections.abc import AsyncGenerator, Callable  # noqa: TC003  # Needed for Sphinx
+from collections.abc import (  # ruff:ignore[typing-only-standard-library-import]  # Needed for Sphinx
+    AsyncGenerator,
+    Callable,
+)
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from functools import wraps
 from math import inf
@@ -100,7 +103,7 @@ class open_memory_channel(tuple["MemorySendChannel[T]", "MemoryReceiveChannel[T]
 
     def __new__(  # type: ignore[misc]  # "must return a subtype"
         cls,
-        max_buffer_size: int | float,  # noqa: PYI041
+        max_buffer_size: int | float,  # ruff:ignore[redundant-numeric-union]
     ) -> tuple[MemorySendChannel[T], MemoryReceiveChannel[T]]:
         if max_buffer_size != inf and not isinstance(max_buffer_size, int):
             raise TypeError("max_buffer_size must be an integer or math.inf")
@@ -112,7 +115,7 @@ class open_memory_channel(tuple["MemorySendChannel[T]", "MemoryReceiveChannel[T]
             MemoryReceiveChannel[T]._create(state),
         )
 
-    def __init__(self, max_buffer_size: int | float) -> None:  # noqa: PYI041
+    def __init__(self, max_buffer_size: int | float) -> None:  # ruff:ignore[redundant-numeric-union]
         ...
 
 
@@ -621,7 +624,7 @@ def as_safe_channel(
                     genexits_seen = 0
                     for e in removed_exceptions:
                         if isinstance(e, BaseExceptionGroup):
-                            removed_exceptions.extend(e.exceptions)  # noqa: B909
+                            removed_exceptions.extend(e.exceptions)  # ruff:ignore[loop-iterator-mutation]
                         else:
                             genexits_seen += 1
 

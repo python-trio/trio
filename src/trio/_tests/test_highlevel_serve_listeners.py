@@ -114,10 +114,10 @@ async def test_serve_listeners_accept_unrecognized_error() -> None:
         listener = MemoryListener()
 
         async def raise_error() -> NoReturn:
-            raise error  # noqa: B023  # Set from loop
+            raise error  # ruff:ignore[function-uses-loop-variable]  # Set from loop
 
         def check_error(e: BaseException) -> bool:
-            return e is error  # noqa: B023
+            return e is error  # ruff:ignore[function-uses-loop-variable]
 
         listener.accept_hook = raise_error
 

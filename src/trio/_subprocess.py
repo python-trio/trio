@@ -187,7 +187,7 @@ class Process(metaclass=NoPublicConstructor):
                 # It worked! Wrap the raw fd up in a Python file object to
                 # make sure it'll get closed.
                 # SIM115: open-file-with-context-handler
-                self._pidfd = open(fd)  # noqa: SIM115
+                self._pidfd = open(fd)  # ruff:ignore[open-file-with-context-handler]
 
         self.args: StrOrBytesPath | Sequence[StrOrBytesPath] = self._proc.args
         self.pid: int = self._proc.pid
@@ -431,7 +431,7 @@ async def _open_process(
 
 
 # async function missing await
-async def _windows_deliver_cancel(p: Process) -> None:  # noqa: RUF029
+async def _windows_deliver_cancel(p: Process) -> None:  # ruff:ignore[unused-async]
     try:
         p.terminate()
     except OSError as exc:
@@ -732,7 +732,7 @@ async def _run_process(
     ) -> None:
         async with stream:
             async for chunk in stream:
-                chunks.append(chunk)  # noqa: PERF401
+                chunks.append(chunk)  # ruff:ignore[manual-list-comprehension]
 
     # Opening the process does not need to be inside the nursery, so we put it outside
     # so any exceptions get directly seen by users.

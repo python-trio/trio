@@ -65,7 +65,7 @@ class EntryQueue:
                 sync_fn(*args)
             except BaseException as exc:
 
-                async def kill_everything(  # noqa: RUF029  # await not used
+                async def kill_everything(  # ruff:ignore[unused-async]  # await not used
                     exc: BaseException,
                 ) -> NoReturn:
                     raise exc

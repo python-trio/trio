@@ -124,7 +124,7 @@ async def test_readinto_overlapped() -> None:
 
     with tempfile.TemporaryDirectory() as tdir:
         tfile = os.path.join(tdir, "numbers.txt")
-        with open(  # noqa: ASYNC230  # This is a test, synchronous is ok
+        with open(  # ruff:ignore[blocking-open-call-in-async-function]  # This is a test, synchronous is ok
             tfile,
             "wb",
         ) as fp:
@@ -238,7 +238,7 @@ async def test_too_late_to_cancel() -> None:
             # Note: not trio.sleep! We're making sure the OS level
             # ReadFile completes, before Trio has a chance to execute
             # another checkpoint and notice it completed.
-            time.sleep(1)  # noqa: ASYNC251
+            time.sleep(1)  # ruff:ignore[blocking-sleep-in-async-function]
             nursery.cancel_scope.cancel()
         assert target[:6] == b"test1\n"
 

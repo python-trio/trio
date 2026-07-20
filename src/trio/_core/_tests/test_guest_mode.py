@@ -437,7 +437,7 @@ def test_guest_warns_if_abandoned() -> None:
         with pytest.raises(ZeroDivisionError):
             trivial_guest_run(abandoned_main)
 
-    with pytest.warns(  # noqa: PT031
+    with pytest.warns(  # ruff:ignore[pytest-warns-with-multiple-statements]
         RuntimeWarning,
         match="Trio guest run got abandoned",
     ):

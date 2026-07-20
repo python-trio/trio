@@ -514,10 +514,10 @@ async def test_attributes(client_ctx: SSLContext) -> None:
 
         # Forwarded attribute getting
         assert s.context is good_ctx
-        assert s.server_side == False  # noqa
+        assert s.server_side == False  # ruff:ignore[true-false-comparison]
         assert s.server_hostname == "trio-test-1.example.org"
         with pytest.raises(AttributeError):
-            s.asfdasdfsa  # noqa: B018  # "useless expression"
+            s.asfdasdfsa  # ruff:ignore[useless-expression]  # "useless expression"
 
         # __dir__
         assert "transport_stream" in dir(s)
@@ -706,7 +706,7 @@ async def test_renegotiation_randomized(
     async def sleeper_with_slow_send_all(method: str) -> None:
         if method == "send_all":
             # ignore ASYNC116, not sleep_forever, trying to test a large but finite sleep
-            await trio.sleep(100000)  # noqa: ASYNC116
+            await trio.sleep(100000)  # ruff:ignore[long-sleep-not-forever]
 
     # And our wait_send_all_might_not_block call will give it time to get
     # stuck, and then start
@@ -731,7 +731,7 @@ async def test_renegotiation_randomized(
     async def sleeper_with_slow_wait_writable_and_expect(method: str) -> None:
         if method == "wait_send_all_might_not_block":
             # ignore ASYNC116, not sleep_forever, trying to test a large but finite sleep
-            await trio.sleep(100000)  # noqa: ASYNC116
+            await trio.sleep(100000)  # ruff:ignore[long-sleep-not-forever]
         elif method == "expect":
             await trio.sleep(1000)
 

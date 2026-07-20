@@ -8,7 +8,10 @@ from typing import TYPE_CHECKING
 import trio
 
 from .. import _core, _subprocess
-from .._abc import ReceiveStream, SendStream  # noqa: TC001
+from .._abc import (  # ruff:ignore[typing-only-first-party-import]
+    ReceiveStream,
+    SendStream,
+)
 
 _wait_child_exiting_error: ImportError | None = None
 _create_child_pipe_error: ImportError | None = None
@@ -74,7 +77,7 @@ try:
         from .kqueue import wait_child_exiting
     else:
         # as it's an exported symbol, noqa'd
-        from .waitid import wait_child_exiting  # noqa: F401
+        from .waitid import wait_child_exiting  # ruff:ignore[unused-import]
 except ImportError as ex:  # pragma: no cover
     _wait_child_exiting_error = ex
 

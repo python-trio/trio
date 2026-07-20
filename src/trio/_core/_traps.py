@@ -7,7 +7,7 @@ import types
 
 # typing.Callable is necessary because collections.abc.Callable breaks
 # test_static_tool_sees_all_symbols in 3.10.
-from typing import (  # noqa: UP035
+from typing import (  # ruff:ignore[deprecated-import]
     TYPE_CHECKING,
     Any,
     Callable,
@@ -68,7 +68,7 @@ def _real_async_yield(
 ) -> Generator[MessageType, None, None]:
     # "Using `yield` and `return {value}` in a generator function can
     # lead to confusing behavior"
-    return (yield obj)  # noqa: B901
+    return (yield obj)  # ruff:ignore[return-in-generator]
 
 
 # Real yield value is from trio's main loop, but type checkers can't

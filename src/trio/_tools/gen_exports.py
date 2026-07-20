@@ -93,7 +93,7 @@ def create_passthrough_args(funcdef: ast.FunctionDef | ast.AsyncFunctionDef) -> 
     if funcdef.args.vararg:
         call_args.append("*" + funcdef.args.vararg.arg)
     for arg in funcdef.args.kwonlyargs:
-        call_args.append(arg.arg + "=" + arg.arg)  # noqa: PERF401  # clarity
+        call_args.append(arg.arg + "=" + arg.arg)  # ruff:ignore[manual-list-comprehension]  # clarity
     if funcdef.args.kwarg:
         call_args.append("**" + funcdef.args.kwarg.arg)
     return "({})".format(", ".join(call_args))
@@ -112,7 +112,7 @@ def run_black(file: File, source: str) -> tuple[bool, str]:
       ImportError: If black is not installed.
     """
     # imported to check that `subprocess` calls will succeed
-    import black  # noqa: F401
+    import black  # ruff:ignore[unused-import]
 
     # Black has an undocumented API, but it doesn't easily allow reading configuration from
     # pyproject.toml, and simultaneously pass in / receive the code as a string.
@@ -143,7 +143,7 @@ def run_ruff(file: File, source: str) -> tuple[bool, str]:
       ImportError: If ruff is not installed.
     """
     # imported to check that `subprocess` calls will succeed
-    import ruff  # noqa: F401
+    import ruff  # ruff:ignore[unused-import]
 
     result = subprocess.run(
         # "-" as a filename = use stdin, return on stdout.

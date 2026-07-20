@@ -66,7 +66,7 @@ class Clock(ABC):
         """
 
 
-class Instrument(ABC):  # noqa: B024  # conceptually is ABC
+class Instrument(ABC):  # ruff:ignore[abstract-base-class-without-abstract-method]  # conceptually is ABC
     """The interface for run loop instrumentation.
 
     Instruments don't have to inherit from this abstract base class, and all

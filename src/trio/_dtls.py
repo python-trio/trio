@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from types import TracebackType
 
     # See DTLSEndpoint.__init__ for why this is imported here
-    from OpenSSL import SSL  # noqa: TC004
+    from OpenSSL import SSL  # ruff:ignore[runtime-import-in-type-checking-block]
     from typing_extensions import Self, TypeVarTuple, Unpack
 
     from trio._socket import AddressFormat
@@ -658,7 +658,7 @@ _T = TypeVar("_T")
 
 
 class _Queue(Generic[_T]):
-    def __init__(self, incoming_packets_buffer: int | float) -> None:  # noqa: PYI041
+    def __init__(self, incoming_packets_buffer: int | float) -> None:  # ruff:ignore[redundant-numeric-union]
         self.s, self.r = trio.open_memory_channel[_T](incoming_packets_buffer)
 
 

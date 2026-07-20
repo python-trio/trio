@@ -8,8 +8,8 @@ from trio._tests.pytest_plugin import skip_if_optional_else_raise
 
 # imports in gen_exports that are not in `install_requires` in setup.py
 try:
-    import astor  # noqa: F401
-    import isort  # noqa: F401
+    import astor  # ruff:ignore[unused-import]
+    import isort  # ruff:ignore[unused-import]
 except ImportError as error:
     skip_if_optional_else_raise(error)
 
@@ -100,7 +100,7 @@ def test_process(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     try:
-        import black  # noqa: F401
+        import black  # ruff:ignore[unused-import]
     # there's no dedicated CI run that has astor+isort, but lacks black.
     except ImportError as error:  # pragma: no cover
         skip_if_optional_else_raise(error)
@@ -139,7 +139,7 @@ def test_process(
 def test_run_ruff(tmp_path: Path) -> None:
     """Test that processing properly fails if ruff does."""
     try:
-        import ruff  # noqa: F401
+        import ruff  # ruff:ignore[unused-import]
     except ImportError as error:  # pragma: no cover
         skip_if_optional_else_raise(error)
 
@@ -165,8 +165,8 @@ def test_run_ruff(tmp_path: Path) -> None:
 def test_lint_failure(tmp_path: Path) -> None:
     """Test that processing properly fails if black or ruff does."""
     try:
-        import black  # noqa: F401
-        import ruff  # noqa: F401
+        import black  # ruff:ignore[unused-import]
+        import ruff  # ruff:ignore[unused-import]
     except ImportError as error:  # pragma: no cover
         skip_if_optional_else_raise(error)
 

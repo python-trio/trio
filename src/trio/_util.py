@@ -320,7 +320,7 @@ if TYPE_CHECKING:
     ) -> Callable[[Fn], Fn]: ...
 
 else:
-    from functools import wraps  # noqa: F401  # this is re-exported
+    from functools import wraps  # ruff:ignore[unused-import]  # this is re-exported
 
 
 def raise_saving_context(exc: BaseException) -> NoReturn:

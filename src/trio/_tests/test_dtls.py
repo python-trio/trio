@@ -98,7 +98,7 @@ async def dtls_echo_server(
 
             await nursery.start(server.serve, server_ctx, echo_handler)
 
-            yield server, server.socket.getsockname()  # noqa: RUF075
+            yield server, server.socket.getsockname()  # ruff:ignore[fallible-context-manager]
 
             if autocancel:
                 nursery.cancel_scope.cancel()
@@ -198,7 +198,7 @@ async def test_handshake_over_terrible_network(
                         break
 
             def route_packet_wrapper(packet: UDPPacket) -> None:
-                try:  # noqa: SIM105  # suppressible-exception
+                try:  # ruff:ignore[suppressible-exception]  # suppressible-exception
                     nursery.start_soon(route_packet, packet)
                 except RuntimeError:  # pragma: no cover
                     # We're exiting the nursery, so any remaining packets can just get
@@ -795,7 +795,7 @@ async def test_system_task_cleaned_up_on_gc(client_ctx: SSL.Context) -> None:
         during_tasks = trio.lowlevel.current_statistics().tasks_living
         return during_tasks
 
-    with pytest.warns(ResourceWarning):  # noqa: PT031
+    with pytest.warns(ResourceWarning):  # ruff:ignore[pytest-warns-with-multiple-statements]
         during_tasks = await start_and_forget_endpoint()
         await trio.testing.wait_all_tasks_blocked()
         gc_collect_harder()
@@ -811,7 +811,7 @@ async def test_system_task_cleaned_up_on_gc(client_ctx: SSL.Context) -> None:
 async def test_gc_before_system_task_starts() -> None:
     e = endpoint()
 
-    with pytest.warns(ResourceWarning):  # noqa: PT031
+    with pytest.warns(ResourceWarning):  # ruff:ignore[pytest-warns-with-multiple-statements]
         del e
         gc_collect_harder()
 
@@ -834,7 +834,7 @@ async def test_gc_as_packet_received() -> None:
     # At this point, the endpoint's receive loop has been marked runnable because it
     # just received a packet; closing the endpoint socket won't interrupt that. But by
     # the time it wakes up to process the packet, the endpoint will be gone.
-    with pytest.warns(ResourceWarning):  # noqa: PT031
+    with pytest.warns(ResourceWarning):  # ruff:ignore[pytest-warns-with-multiple-statements]
         del e
         gc_collect_harder()
 
@@ -851,7 +851,7 @@ def test_gc_after_trio_exits() -> None:
         return endpoint()
 
     e = trio.run(main)
-    with pytest.warns(ResourceWarning):  # noqa: PT031
+    with pytest.warns(ResourceWarning):  # ruff:ignore[pytest-warns-with-multiple-statements]
         del e
         gc_collect_harder()
 

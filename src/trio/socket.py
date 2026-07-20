@@ -93,7 +93,7 @@ if _t.TYPE_CHECKING:
     IP_BIND_ADDRESS_NO_PORT: int
 else:
     try:
-        IP_BIND_ADDRESS_NO_PORT  # noqa: B018  # "useless expression"
+        IP_BIND_ADDRESS_NO_PORT  # ruff:ignore[useless-expression]  # "useless expression"
     except NameError:
         if sys.platform == "linux":
             IP_BIND_ADDRESS_NO_PORT = 24

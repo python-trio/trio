@@ -65,7 +65,7 @@ cls_pairs: list[tuple[EitherPathType, EitherPathType]] = [
 def test_cmp_magic(cls_a: EitherPathType, cls_b: EitherPathType) -> None:
     a, b = cls_a(""), cls_b("")
     assert a == b
-    assert not a != b  # noqa: SIM202  # negate-not-equal-op
+    assert not a != b  # ruff:ignore[negate-not-equal-op]  # negate-not-equal-op
 
     a, b = cls_a("a"), cls_b("b")
     assert a < b
@@ -73,8 +73,8 @@ def test_cmp_magic(cls_a: EitherPathType, cls_b: EitherPathType) -> None:
 
     # this is intentionally testing equivalence with none, due to the
     # other=sentinel logic in _forward_magic
-    assert not a == None  # noqa
-    assert not b == None  # noqa
+    assert not a == None  # ruff:ignore[none-comparison, negate-equal-op]
+    assert not b == None  # ruff:ignore[none-comparison, negate-equal-op]
 
 
 # upstream python3.8 bug: we should also test (pathlib.Path, trio.Path), but
@@ -141,7 +141,7 @@ async def test_compare_async_stat_methods(method_name: str) -> None:
 
 def test_invalid_name_not_wrapped(path: trio.Path) -> None:
     with pytest.raises(AttributeError):
-        getattr(path, "invalid_fake_attr")  # noqa: B009  # "get-attr-with-constant"
+        getattr(path, "invalid_fake_attr")  # ruff:ignore[get-attr-with-constant]  # "get-attr-with-constant"
 
 
 @pytest.mark.parametrize("method_name", ["absolute", "resolve"])
@@ -258,7 +258,7 @@ async def test_classmethods() -> None:
     assert isinstance(await trio.Path.home(), trio.Path)
 
     # pathlib.Path has only two classmethods
-    assert str(await trio.Path.home()) == os.path.expanduser("~")  # noqa: ASYNC240
+    assert str(await trio.Path.home()) == os.path.expanduser("~")  # ruff:ignore[blocking-path-method-in-async-function]
     assert str(await trio.Path.cwd()) == os.getcwd()
 
     # Wrapped method has docstring

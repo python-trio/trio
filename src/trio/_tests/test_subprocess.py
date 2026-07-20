@@ -103,7 +103,7 @@ async def run_process_in_nursery(  # type: ignore[misc, explicit-any]
         value = await nursery.start(partial(run_process, *args, **kwargs))
         assert isinstance(value, Process)
         proc: Process = value
-        yield proc  # noqa: RUF075
+        yield proc  # ruff:ignore[fallible-context-manager]
         nursery.cancel_scope.cancel()
 
 
@@ -676,7 +676,7 @@ async def test_warn_on_failed_cancel_terminate(monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.setattr(Process, "terminate", broken_terminate)
 
-    with pytest.warns(RuntimeWarning, match=".*whoops.*"):  # noqa: PT031
+    with pytest.warns(RuntimeWarning, match=".*whoops.*"):  # ruff:ignore[pytest-warns-with-multiple-statements]
         async with _core.open_nursery() as nursery:
             nursery.start_soon(run_process, SLEEP(9999))
             await wait_all_tasks_blocked()
@@ -690,7 +690,7 @@ async def test_warn_on_cancel_SIGKILL_escalation(
 ) -> None:
     monkeypatch.setattr(Process, "terminate", lambda *args: None)
 
-    with pytest.warns(RuntimeWarning, match=".*ignored SIGTERM.*"):  # noqa: PT031
+    with pytest.warns(RuntimeWarning, match=".*ignored SIGTERM.*"):  # ruff:ignore[pytest-warns-with-multiple-statements]
         async with _core.open_nursery() as nursery:
             nursery.start_soon(run_process, SLEEP(9999))
             await wait_all_tasks_blocked()
@@ -715,17 +715,17 @@ async def test_run_process_background_fail() -> None:
 async def test_for_leaking_fds() -> None:
     gc.collect()  # address possible flakiness on PyPy
 
-    starting_fds = set(SyncPath("/dev/fd").iterdir())  # noqa: ASYNC240
+    starting_fds = set(SyncPath("/dev/fd").iterdir())  # ruff:ignore[blocking-path-method-in-async-function]
     await run_process(EXIT_TRUE)
-    assert set(SyncPath("/dev/fd").iterdir()) == starting_fds  # noqa: ASYNC240
+    assert set(SyncPath("/dev/fd").iterdir()) == starting_fds  # ruff:ignore[blocking-path-method-in-async-function]
 
     with pytest.raises(subprocess.CalledProcessError):
         await run_process(EXIT_FALSE)
-    assert set(SyncPath("/dev/fd").iterdir()) == starting_fds  # noqa: ASYNC240
+    assert set(SyncPath("/dev/fd").iterdir()) == starting_fds  # ruff:ignore[blocking-path-method-in-async-function]
 
     with pytest.raises(PermissionError):
         await run_process(["/dev/fd/0"])
-    assert set(SyncPath("/dev/fd").iterdir()) == starting_fds  # noqa: ASYNC240
+    assert set(SyncPath("/dev/fd").iterdir()) == starting_fds  # ruff:ignore[blocking-path-method-in-async-function]
 
 
 async def test_run_process_internal_error(monkeypatch: pytest.MonkeyPatch) -> None:
