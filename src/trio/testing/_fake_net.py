@@ -208,7 +208,9 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         if not family:  # pragma: no cover
             family = trio.socket.AF_INET
         if not type:  # pragma: no cover
-            type = trio.socket.SOCK_STREAM  # ruff:ignore[builtin-variable-shadowing]  # name shadowing builtin
+            type = (
+                trio.socket.SOCK_STREAM
+            )  # ruff:ignore[builtin-variable-shadowing]  # name shadowing builtin
 
         if family not in (trio.socket.AF_INET, trio.socket.AF_INET6):
             raise NotImplementedError(f"FakeNet doesn't (yet) support family={family}")

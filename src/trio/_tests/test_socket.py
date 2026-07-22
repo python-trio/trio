@@ -1239,7 +1239,10 @@ async def test_many_sockets() -> None:
             # Semi-expecting following errors (sockets are files):
             # EMFILE: "Too many open files" (reached kernel cap)
             # ENFILE: "File table overflow" (beyond kernel cap)
-            assert exc.errno in (errno.EMFILE, errno.ENFILE)  # ruff:ignore[pytest-assert-in-except]
+            assert exc.errno in (
+                errno.EMFILE,
+                errno.ENFILE,
+            )
             print(f"Unable to open more than {opened} sockets.")
             # Stop opening any more sockets if too many are open
             break

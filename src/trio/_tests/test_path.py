@@ -258,7 +258,9 @@ async def test_classmethods() -> None:
     assert isinstance(await trio.Path.home(), trio.Path)
 
     # pathlib.Path has only two classmethods
-    assert str(await trio.Path.home()) == os.path.expanduser(  # ruff:ignore[blocking-path-method-in-async-function]
+    assert str(
+        await trio.Path.home()
+    ) == os.path.expanduser(  # ruff:ignore[blocking-path-method-in-async-function]
         "~"
     )
     assert str(await trio.Path.cwd()) == os.getcwd()

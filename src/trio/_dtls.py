@@ -658,7 +658,9 @@ _T = TypeVar("_T")
 
 
 class _Queue(Generic[_T]):
-    def __init__(self, incoming_packets_buffer: int | float) -> None:  # ruff:ignore[redundant-numeric-union]
+    def __init__(
+        self, incoming_packets_buffer: float
+    ) -> None:
         self.s, self.r = trio.open_memory_channel[_T](incoming_packets_buffer)
 
 

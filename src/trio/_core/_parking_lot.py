@@ -189,7 +189,9 @@ class ParkingLot:
 
         await _core.wait_task_rescheduled(abort_fn)
 
-    def _pop_several(self, count: int | float) -> Iterator[Task]:  # ruff:ignore[redundant-numeric-union]
+    def _pop_several(
+        self, count: float
+    ) -> Iterator[Task]:
         if isinstance(count, float):
             if math.isinf(count):
                 count = len(self._parked)
@@ -202,7 +204,9 @@ class ParkingLot:
             yield task
 
     @_core.enable_ki_protection
-    def unpark(self, *, count: int | float = 1) -> list[Task]:  # ruff:ignore[redundant-numeric-union]
+    def unpark(
+        self, *, count: float = 1
+    ) -> list[Task]:
         """Unpark one or more tasks.
 
         This wakes up ``count`` tasks that are blocked in :meth:`park`. If

@@ -375,11 +375,12 @@ def socket(
     else:
         family, type, proto = (  # ruff:ignore[builtin-variable-shadowing]
             _sniff_sockopts_for_fileno(
-            family,
-            type,
-            proto,
-            fileno,
-        ))
+                family,
+                type,
+                proto,
+                fileno,
+            )
+        )
     stdlib_socket = _stdlib_socket.socket(family, type, proto, fileno)
     return from_stdlib_socket(stdlib_socket)
 

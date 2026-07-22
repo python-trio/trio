@@ -93,7 +93,9 @@ def create_passthrough_args(funcdef: ast.FunctionDef | ast.AsyncFunctionDef) -> 
     if funcdef.args.vararg:
         call_args.append("*" + funcdef.args.vararg.arg)
     for arg in funcdef.args.kwonlyargs:
-        call_args.append(arg.arg + "=" + arg.arg)  # ruff:ignore[manual-list-comprehension]  # clarity
+        call_args.append(
+            arg.arg + "=" + arg.arg
+        )  # ruff:ignore[manual-list-comprehension]  # clarity
     if funcdef.args.kwarg:
         call_args.append("**" + funcdef.args.kwarg.arg)
     return "({})".format(", ".join(call_args))

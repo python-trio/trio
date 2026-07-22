@@ -115,7 +115,9 @@ class open_memory_channel(tuple["MemorySendChannel[T]", "MemoryReceiveChannel[T]
             MemoryReceiveChannel[T]._create(state),
         )
 
-    def __init__(self, max_buffer_size: int | float) -> None:  # ruff:ignore[redundant-numeric-union]
+    def __init__(
+        self, max_buffer_size: float
+    ) -> None:
         ...
 
 

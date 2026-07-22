@@ -65,7 +65,9 @@ def _assert_raises(
         assert wrapped, "caught exceptiongroup, but expected an unwrapped exception"
         # assert in except block ignored below
         assert len(exc.exceptions) == 1  # ruff:ignore[pytest-assert-in-except]
-        assert isinstance(exc.exceptions[0], expected_exc)  # ruff:ignore[pytest-assert-in-except]
+        assert isinstance(
+            exc.exceptions[0], expected_exc
+        )
     except expected_exc:
         assert not wrapped, "caught exception, but expected an exceptiongroup"
     else:
