@@ -141,7 +141,7 @@ async def test_compare_async_stat_methods(method_name: str) -> None:
 
 def test_invalid_name_not_wrapped(path: trio.Path) -> None:
     with pytest.raises(AttributeError):
-        getattr(path, "invalid_fake_attr")  # ruff:ignore[get-attr-with-constant]  # "get-attr-with-constant"
+        getattr(path, "invalid_fake_attr")  # ruff:ignore[get-attr-with-constant]
 
 
 @pytest.mark.parametrize("method_name", ["absolute", "resolve"])
@@ -258,7 +258,9 @@ async def test_classmethods() -> None:
     assert isinstance(await trio.Path.home(), trio.Path)
 
     # pathlib.Path has only two classmethods
-    assert str(await trio.Path.home()) == os.path.expanduser("~")  # ruff:ignore[blocking-path-method-in-async-function]
+    assert str(await trio.Path.home()) == os.path.expanduser(  # ruff:ignore[blocking-path-method-in-async-function]
+        "~"
+    )
     assert str(await trio.Path.cwd()) == os.getcwd()
 
     # Wrapped method has docstring

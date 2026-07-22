@@ -278,7 +278,7 @@ async def test_fallback_when_no_hook_claims_it(
     async def well_behaved() -> AsyncGenerator[int, None]:
         yield 42
 
-    # noqas because we *want* to test delayed yield/await!
+    # these noqas are because we *want* to test delayed yield/await!
     async def yields_after_yield() -> AsyncGenerator[int, None]:
         with pytest.raises(GeneratorExit):
             yield 42  # ruff:ignore[yield-in-context-manager-in-async-generator]

@@ -1125,6 +1125,6 @@ def test_raisesgroup_matcher_deprecation() -> None:
         from trio.testing import Matcher  # type: ignore # ruff:ignore[unused-import]
 
     with pytest.deprecated_call():
-        from trio.testing import (
-            RaisesGroup,  # type: ignore # ruff:ignore[unused-import]
+        from trio.testing import (  # type: ignore # ruff:ignore[unused-import]
+            RaisesGroup,
         )

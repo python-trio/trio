@@ -624,7 +624,9 @@ def as_safe_channel(
                     genexits_seen = 0
                     for e in removed_exceptions:
                         if isinstance(e, BaseExceptionGroup):
-                            removed_exceptions.extend(e.exceptions)  # ruff:ignore[loop-iterator-mutation]
+                            removed_exceptions.extend(  # ruff:ignore[loop-iterator-mutation]
+                                e.exceptions
+                            )
                         else:
                             genexits_seen += 1
 

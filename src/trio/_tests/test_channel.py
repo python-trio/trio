@@ -638,7 +638,9 @@ async def test_as_safe_channel_genexit_exception_group() -> None:
             async with trio.open_nursery():
                 yield
         except BaseException as e:
-            assert pytest.RaisesGroup(GeneratorExit).matches(e)  # ruff:ignore[pytest-assert-in-except]
+            assert pytest.RaisesGroup(GeneratorExit).matches(  # ruff:ignore[pytest-assert-in-except]
+                e
+            )
             raise
 
     async with agen() as g:
