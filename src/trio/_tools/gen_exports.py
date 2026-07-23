@@ -339,6 +339,12 @@ def main() -> None:  # pragma: no cover
             platform="darwin",
             imports=IMPORTS_KQUEUE,
         ),
+        File(
+            core / "_io_devpoll.py",
+            "runner.io_manager",
+            platform="solaris",
+            imports=IMPORTS_SOLARIS,
+        ),
     ]
 
     process(to_wrap, do_test=parsed_args.test)
@@ -364,6 +370,13 @@ from ._instrumentation import Instrument
 """
 
 IMPORTS_EPOLL = """\
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .._file_io import _HasFileNo
+"""
+
+IMPORTS_SOLARIS = """\
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
