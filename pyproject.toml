@@ -146,20 +146,20 @@ select = [
     "YTT",   # flake8-2020
 ]
 extend-ignore = [
-    "builtin-argument-shadowing",  # A002
-    "any-type",  # ANN401 (mypy's `disallow_any_explicit` is better)
-    "module-import-not-at-top-of-file",  # E402(usually OS-specific)
-    "line-too-long",  # E501
-    "undefined-local-with-import-star",  # F403
-    "undefined-local-with-import-star-usage",  # F405
-    "try-except-in-loop",  # PERF203(not always possible to refactor)
-    "pytest-raises-with-multiple-statements",  # PT012 multiple statements in pytest.raises block
-    "multiple-with-statements",  # SIM117 (messes up lots of context-based stuff and looks bad)
-    "non-empty-init-module",  # RUF067 we need lots of logic in our __init__
-    "noqa-comments",  # RUF105 replaces noqa with ruff:ignore, which is ugly and doesn't have support in black
+    "builtin-argument-shadowing",             # A002
+    "any-type",                               # ANN401 (mypy's `disallow_any_explicit` is better)
+    "module-import-not-at-top-of-file",       # E402(usually OS-specific)
+    "line-too-long",                          # E501
+    "undefined-local-with-import-star",       # F403
+    "undefined-local-with-import-star-usage", # F405
+    "try-except-in-loop",                     # PERF203(not always possible to refactor)
+    "pytest-raises-with-multiple-statements", # PT012 multiple statements in pytest.raises block
+    "multiple-with-statements",               # SIM117 (messes up lots of context-based stuff and looks bad)
+    "non-empty-init-module",                  # RUF067 we need lots of logic in our __init__
+    "noqa-comments",                          # RUF105 replaces noqa with ruff:ignore, which is ugly and doesn't have support in black
 
     # conflicts with formatter (ruff recommends these be disabled)
-    "missing-trailing-comma",  # COM812
+    "missing-trailing-comma",                 # COM812
 ]
 
 [tool.ruff.lint.per-file-ignores]
