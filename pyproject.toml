@@ -146,26 +146,26 @@ select = [
     "YTT",   # flake8-2020
 ]
 extend-ignore = [
-    "builtin-argument-shadowing",    # builtin-argument-shadowing
-    "any-type",  # any-type (mypy's `disallow_any_explicit` is better)
-    "module-import-not-at-top-of-file",    # module-import-not-at-top-of-file (usually OS-specific)
-    "line-too-long",    # line-too-long
-    "undefined-local-with-import-star",    # undefined-local-with-import-star
-    "undefined-local-with-import-star-usage",    # undefined-local-with-import-star-usage
-    "try-except-in-loop", # try-except-in-loop (not always possible to refactor)
-    "pytest-raises-with-multiple-statements",   # multiple statements in pytest.raises block
-    "multiple-with-statements",  # multiple-with-statements (messes up lots of context-based stuff and looks bad)
-    "non-empty-init-module",  # non-empty-init-module, since we need lots of logic in our __init__
-    "noqa-comments",  # replaces noqa with ruff:ignore, which is ugly and doesn't have support in black
+    "builtin-argument-shadowing",  # A002
+    "any-type",  # ANN401 (mypy's `disallow_any_explicit` is better)
+    "module-import-not-at-top-of-file",  # E402(usually OS-specific)
+    "line-too-long",  # E501
+    "undefined-local-with-import-star",  # F403
+    "undefined-local-with-import-star-usage",  # F405
+    "try-except-in-loop",  # PERF203(not always possible to refactor)
+    "pytest-raises-with-multiple-statements",  # PT012 multiple statements in pytest.raises block
+    "multiple-with-statements",  # SIM117 (messes up lots of context-based stuff and looks bad)
+    "non-empty-init-module",  # RUF067 we need lots of logic in our __init__
+    "noqa-comments",  # RUF105 replaces noqa with ruff:ignore, which is ugly and doesn't have support in black
 
     # conflicts with formatter (ruff recommends these be disabled)
-    "missing-trailing-comma",
+    "missing-trailing-comma",  # COM812
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# F401 is ignoring unused imports. For these particular files,
-# these are public APIs where we are importing everything we want
-# to export for public use.
+# Ignoring unused imports (F401) for these particular files, these are
+# public APIs where we are importing everything we want to export for
+# public use. stdlib module shadowing is A005.
 'src/trio/__init__.py' = ['unused-import']
 'src/trio/_core/__init__.py' = ['unused-import']
 'src/trio/abc.py' = ['unused-import', 'stdlib-module-shadowing']
@@ -173,13 +173,13 @@ extend-ignore = [
 'src/trio/socket.py' = ['unused-import', 'stdlib-module-shadowing']
 'src/trio/testing/__init__.py' = ['unused-import']
 
-# RUF029 is ignoring tests that are marked as async functions but
-# do not use an await in their function bodies. There are several
-# places where internal trio synchronous code relies on being
-# called from an async function, where current task is set up.
+# Ignoring tests that are marked as async functions (RUF029) but do not
+# use an await in their function bodies. There are several places where
+# internal trio synchronous code relies on being called from an async
+# function, where current task is set up.
 #
-# RUF069 is ignoring exact float comparison, because we use that
-# in combination with autojump clocks
+# Ignoring exact float comparison (RUF029), because we use that in
+# combination with autojump clocks
 'src/trio/_tests/*.py' = ['unused-async', 'float-equality-comparison']
 'src/trio/_core/_tests/*.py' = ['unused-async', 'float-equality-comparison']
 # A005 is ignoring modules that shadow stdlib modules.

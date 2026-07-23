@@ -30,7 +30,7 @@ charset-normalizer==3.4.7
     # via requests
 click==8.4.2 ; implementation_name == 'cpython'
     # via black
-codespell==2.4.2
+codespell==2.4.3
     # via -r test-requirements.in
 colorama==0.4.6 ; sys_platform == 'win32'
     # via
@@ -205,7 +205,7 @@ typing-extensions==4.15.0
     #   virtualenv
 urllib3==2.7.0
     # via requests
-uv==0.11.28
+uv==0.11.31
     # via -r test-requirements.in
 virtualenv==21.5.1
     # via pre-commit
