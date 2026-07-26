@@ -679,7 +679,10 @@ finished.
 
 .. note::
 
-   A return statement will not cancel the nursery if it still has tasks running:
+   ``return``, ``break``, and ``continue`` that exit a nursery block can be
+   surprising.
+
+   First, they do not cancel child tasks:
 
    .. code-block:: python
 
@@ -691,6 +694,30 @@ finished.
      trio.run(main)
 
    This code will wait 5 seconds (for the child task to finish), and then return.
+
+   Second, the control flow is only provisional until the nursery finishes
+   exiting. If exiting the nursery propagates an exception, then the pending
+   ``return``, ``break``, or ``continue`` is discarded:
+
+   .. code-block:: python
+
+     async def main():
+         with trio.CancelScope() as scope:
+             async with trio.open_nursery() as nursery:
+                 nursery.start_soon(trio.sleep_forever)
+                 scope.cancel()
+                 return 42
+
+     assert trio.run(main) is None
+
+   The same thing can happen if another child task raises while the nursery is
+   exiting.
+
+   If you need to stop sibling tasks and then return a value, cancel the
+   relevant scope first and perform the ``return``, ``break``, or ``continue``
+   after the nursery block exits. `flake8-async rule ASYNC121
+   <https://flake8-async.readthedocs.io/en/latest/rules.html#async121>`_ can
+   help catch this pattern.
 
 Child tasks and cancellation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
