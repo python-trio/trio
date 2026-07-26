@@ -8,9 +8,9 @@ attrs==26.1.0
     #   outcome
 babel==2.18.0
     # via sphinx
-beautifulsoup4==4.14.3
+beautifulsoup4==4.15.0
     # via sphinx-codeautolink
-certifi==2026.5.20
+certifi==2026.6.17
     # via requests
 cffi==2.0.0 ; os_name == 'nt' or platform_python_implementation != 'PyPy'
     # via
@@ -18,7 +18,7 @@ cffi==2.0.0 ; os_name == 'nt' or platform_python_implementation != 'PyPy'
     #   cryptography
 charset-normalizer==3.4.7
     # via requests
-click==8.4.1
+click==8.4.2
     # via towncrier
 colorama==0.4.6 ; sys_platform == 'win32'
     # via
@@ -32,7 +32,7 @@ docutils==0.22.4
     #   sphinx-rtd-theme
 exceptiongroup==1.3.1
     # via -r docs-requirements.in
-idna==3.17
+idna==3.18
     # via
     #   -r docs-requirements.in
     #   requests
@@ -63,7 +63,7 @@ roman-numerals==4.1.0
     # via sphinx
 sniffio==1.3.1
     # via -r docs-requirements.in
-snowballstemmer==3.1.0
+snowballstemmer==3.1.1
     # via sphinx
 sortedcontainers==2.4.0
     # via -r docs-requirements.in
