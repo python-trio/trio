@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import contextvars
-import gc
 import queue as stdlib_queue
 import re
 import sys
@@ -29,7 +28,7 @@ from .. import (
     sleep_forever,
 )
 from .._core._tests.test_ki import ki_self
-from .._core._tests.tutil import slow
+from .._core._tests.tutil import gc_collect_harder, slow
 from .._threads import (
     active_thread_count,
     current_default_thread_limiter,
@@ -705,7 +704,8 @@ async def test_worker_thread_context_not_leaked() -> None:
     cvar.set(Foo())
 
     del contextval
-    gc.collect()
+    if sys.implementation.name == "pypy":
+        gc_collect_harder()
 
     assert ref() is None
 
