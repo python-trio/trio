@@ -213,9 +213,9 @@ def test_clear_thread_cache_after_fork() -> None:
     done.wait()
 
     with warnings.catch_warnings(record=True) as emitted:
-        # TODO: remove this extra filter once we drop 3.14. See
-        # https://github.com/python-trio/trio/issues/3355.
-        warnings.simplefilter("default")
+        if sys.version_info < (3, 15):
+            # https://github.com/python-trio/trio/issues/3355
+            warnings.simplefilter("default")
         child_pid = os.fork()
 
     if child_pid != 0 and sys.version_info >= (3, 12):
