@@ -38,7 +38,7 @@ colorama==0.4.6 ; sys_platform == 'win32'
     #   pylint
     #   pytest
     #   sphinx
-coverage==7.14.3
+coverage==7.15.2
     # via -r test-requirements.in
 cryptography==48.0.0
     # via

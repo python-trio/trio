@@ -1,6 +1,6 @@
 # For tests
 pytest >= 8.4         # for pytest.RaisesGroup
-coverage >= 7.2.5
+coverage >= 7.15.0
 async_generator >= 1.9
 pyright
 pyOpenSSL >= 22.0.0   # for the ssl + DTLS tests
