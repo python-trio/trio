@@ -170,12 +170,8 @@ def autodoc_process_signature(
     return signature, return_annotation
 
 
-# currently undocumented things
 logger = getLogger("trio")
-UNDOCUMENTED = {
-    "trio._subprocess.HasFileno.fileno",
-    "trio.lowlevel.ParkingLot.broken_by",
-}
+UNDOCUMENTED: set[str] = set()
 
 
 def autodoc_process_docstring(
@@ -187,7 +183,6 @@ def autodoc_process_docstring(
     lines: list[str],
 ) -> None:
     if not lines:
-        # TODO: document these and remove them from here
         if name in UNDOCUMENTED:
             return
 

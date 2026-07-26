@@ -151,7 +151,16 @@ class ParkingLot:
     # {task: None}, we just want a deque where we can quickly delete random
     # items
     _parked: OrderedDict[Task, None] = attrs.field(factory=OrderedDict, init=False)
-    broken_by: list[Task] = attrs.field(factory=list, init=False)
+    _broken_by: list[Task] = attrs.field(factory=list, init=False)
+
+    @property
+    def broken_by(self) -> list[Task]:
+        """Tasks that have broken this parking lot, in break order."""
+        return self._broken_by
+
+    @broken_by.setter
+    def broken_by(self, new_broken_by: list[Task]) -> None:
+        self._broken_by = new_broken_by
 
     def __len__(self) -> int:
         """Returns the number of parked tasks."""
