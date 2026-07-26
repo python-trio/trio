@@ -38,7 +38,7 @@ jobs:
           python-version: 3.11
 
       - name: Grab the source from Git
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -74,7 +74,7 @@ jobs:
           SDIST: ${{ steps.artifact-name.outputs.sdist }}
           WHEEL: ${{ steps.artifact-name.outputs.wheel }}
       - name: Store the distribution packages
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ env.dists-artifact-name }}
           # NOTE: Exact expected file names are specified here
@@ -117,7 +117,7 @@ jobs:
 
       - name: >-
           Smoke-test: grab the source from Git into git-src
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           path: git-src
           persist-credentials: false
@@ -224,7 +224,7 @@ jobs:
           LSP: '${{ matrix.lsp }}'
           LSP_EXTRACT_FILE: '${{ matrix.lsp_extract_file }}'
       - if: always()
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           name: Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})
           # multiple flags is marked as an error in codecov UI, but is actually fine
@@ -272,7 +272,7 @@ jobs:
           workflow-artifact-name: ${{ env.dists-artifact-name }}
       - name: Grab the source from Git
         if: matrix.check_formatting == '1'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Setup Python
@@ -304,7 +304,7 @@ jobs:
       - if: >-
           always()
           && matrix.check_formatting != '1'
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           name: Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})
           flags: Ubuntu,${{ matrix.python }}
@@ -347,7 +347,7 @@ jobs:
       - name: Run tests
         run: ./ci.sh
       - if: always()
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           name: macOS (${{ matrix.python }})
           flags: macOS,${{ matrix.python }}
@@ -393,7 +393,7 @@ jobs:
             f.write("\n")
 
       - if: always()
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           name: Alpine
           flags: Alpine,${{ steps.get-version.outputs.version }}
@@ -464,7 +464,7 @@ jobs:
           coverage report
 
       - if: always()
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           name: Cython
           flags: Cython,${{ steps.get-version.outputs.version }}
