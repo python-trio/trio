@@ -470,6 +470,12 @@ jobs:
           flags: Cython,${{ steps.get-version.outputs.version }}
           fail_ci_if_error: true
 
+  zizmor:
+    name: zizmor
+    permissions:
+      security-events: write
+    uses: ./.github/workflows/zizmor.yml
+
   # https://github.com/marketplace/actions/alls-green#why
   check:  # This job does nothing and is only used for the branch protection
 
@@ -482,6 +488,7 @@ jobs:
       - macOS
       - Alpine
       - Cython
+      - zizmor
 
     runs-on: ubuntu-latest
 
