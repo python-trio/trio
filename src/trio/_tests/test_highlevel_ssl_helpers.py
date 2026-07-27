@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import struct
+import sys
 from functools import partial
 from typing import TYPE_CHECKING, NoReturn, cast
 
@@ -17,6 +19,11 @@ from .._highlevel_ssl_helpers import (
 
 # using noqa because linters don't understand how pytest fixtures work.
 from .test_ssl import SERVER_CTX, client_ctx  # noqa: F401
+
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32" and struct.calcsize("P") == 4,
+    reason="SSL tests are not supported on 32-bit Windows",
+)
 
 if TYPE_CHECKING:
     from socket import AddressFamily, SocketKind

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import socket as stdlib_socket
 import ssl
+import struct
 import sys
 import threading
 from contextlib import asynccontextmanager, contextmanager, suppress
@@ -40,6 +41,11 @@ from ..testing import (
     check_two_way_stream,
     lockstep_stream_pair,
     memory_stream_pair,
+)
+
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32" and struct.calcsize("P") == 4,
+    reason="SSL tests are not supported on 32-bit Windows",
 )
 
 if TYPE_CHECKING:

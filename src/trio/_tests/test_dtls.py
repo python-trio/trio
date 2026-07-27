@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import random
+import struct
+import sys
 from contextlib import asynccontextmanager
 from itertools import count
 from typing import TYPE_CHECKING, NoReturn
@@ -23,6 +25,11 @@ from trio import DTLSChannel, DTLSEndpoint
 from trio.testing._fake_net import FakeNet, UDPPacket
 
 from .._core._tests.tutil import binds_ipv6, gc_collect_harder, slow
+
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32" and struct.calcsize("P") == 4,
+    reason="SSL tests are not supported on 32-bit Windows",
+)
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
