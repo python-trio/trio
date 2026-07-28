@@ -1056,13 +1056,7 @@ def test_broken_abort() -> None:
     gc_collect_harder()
 
 
-# This segfaults, so we need to skipif. Remember to remove the skipif once
-# the upstream issue is resolved.
 @restore_unraisablehook()
-@pytest.mark.skipif(
-    sys.version_info[:2] == (3, 14),
-    reason="https://github.com/python/cpython/issues/133932",
-)
 def test_error_in_run_loop() -> None:
     # Blow stuff up real good to check we at least get a TrioInternalError
     async def main() -> None:
