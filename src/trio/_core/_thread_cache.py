@@ -188,6 +188,13 @@ class WorkerThread(Generic[RetT]):
             if set_os_thread_name:
                 set_os_thread_name(self._thread.ident, self._default_name)
 
+        # Without this, this thread may get rescheduled after `deliver`
+        # and only return after the kernel gets around to it. That's an
+        # arbitrary amount of time during which we keep anything
+        # referred to in the function alive, like contextvars. That's
+        # surprising!
+        del fn
+
         # Tell the cache that we're available to be assigned a new
         # job. We do this *before* calling 'deliver', so that if
         # 'deliver' triggers a new job, it can be assigned to us
