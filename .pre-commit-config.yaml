@@ -45,10 +45,6 @@ repos:
     rev: v1.0.2
     hooks:
       - id: sphinx-lint
-  - repo: https://github.com/woodruffw/zizmor-pre-commit
-    rev: v1.28.0
-    hooks:
-      - id: zizmor
   - repo: local
     hooks:
       - id: regenerate-files

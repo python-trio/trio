@@ -470,6 +470,20 @@ jobs:
           flags: Cython,${{ steps.get-version.outputs.version }}
           fail_ci_if_error: true
 
+  zizmor:
+    name: Run zizmor 🌈
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write # Required for upload-sarif (used by zizmor-action) to upload SARIF files.
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Run zizmor 🌈
+        uses: zizmorcore/zizmor-action@v0.6.1
+
   # https://github.com/marketplace/actions/alls-green#why
   check:  # This job does nothing and is only used for the branch protection
 
@@ -482,6 +496,7 @@ jobs:
       - macOS
       - Alpine
       - Cython
+      - zizmor
 
     runs-on: ubuntu-latest
 
