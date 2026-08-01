@@ -12,7 +12,7 @@ beautifulsoup4==4.15.0
     # via sphinx-codeautolink
 certifi==2026.7.22
     # via requests
-cffi==2.1.0 ; os_name == 'nt' or platform_python_implementation != 'PyPy'
+cffi==2.0.0 ; os_name == 'nt' or platform_python_implementation != 'PyPy'
     # via
     #   -r docs-requirements.in
     #   cryptography
@@ -24,7 +24,7 @@ colorama==0.4.6 ; sys_platform == 'win32'
     # via
     #   click
     #   sphinx
-cryptography==49.0.0
+cryptography==48.0.0
     # via pyopenssl
 docutils==0.22.4
     # via
@@ -55,7 +55,7 @@ pycparser==3.0 ; (implementation_name != 'PyPy' and os_name == 'nt') or (impleme
     # via cffi
 pygments==2.20.0
     # via sphinx
-pyopenssl==26.3.0
+pyopenssl==26.2.0
     # via -r docs-requirements.in
 requests==2.34.2
     # via sphinx
