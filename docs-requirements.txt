@@ -10,13 +10,13 @@ babel==2.18.0
     # via sphinx
 beautifulsoup4==4.15.0
     # via sphinx-codeautolink
-certifi==2026.6.17
+certifi==2026.7.22
     # via requests
-cffi==2.0.0 ; os_name == 'nt' or platform_python_implementation != 'PyPy'
+cffi==2.1.0 ; os_name == 'nt' or platform_python_implementation != 'PyPy'
     # via
     #   -r docs-requirements.in
     #   cryptography
-charset-normalizer==3.4.7
+charset-normalizer==3.4.9
     # via requests
 click==8.4.2
     # via towncrier
@@ -24,7 +24,7 @@ colorama==0.4.6 ; sys_platform == 'win32'
     # via
     #   click
     #   sphinx
-cryptography==48.0.0
+cryptography==49.0.0
     # via pyopenssl
 docutils==0.22.4
     # via
@@ -55,7 +55,7 @@ pycparser==3.0 ; (implementation_name != 'PyPy' and os_name == 'nt') or (impleme
     # via cffi
 pygments==2.20.0
     # via sphinx
-pyopenssl==26.2.0
+pyopenssl==26.3.0
     # via -r docs-requirements.in
 requests==2.34.2
     # via sphinx
@@ -67,7 +67,7 @@ snowballstemmer==3.1.1
     # via sphinx
 sortedcontainers==2.4.0
     # via -r docs-requirements.in
-soupsieve==2.8.4
+soupsieve==2.9.1
     # via beautifulsoup4
 sphinx==9.0.4 ; python_full_version < '3.12'
     # via
@@ -83,7 +83,7 @@ sphinx==9.1.0 ; python_full_version >= '3.12'
     #   sphinx-rtd-theme
     #   sphinxcontrib-jquery
     #   sphinxcontrib-trio
-sphinx-codeautolink==0.18.1
+sphinx-codeautolink==0.19.0
     # via -r docs-requirements.in
 sphinx-rtd-theme==3.1.0
     # via -r docs-requirements.in
@@ -107,7 +107,7 @@ sphinxcontrib-trio==1.2.0
     # via -r docs-requirements.in
 towncrier==25.8.0
     # via -r docs-requirements.in
-typing-extensions==4.15.0
+typing-extensions==4.16.0
     # via
     #   beautifulsoup4
     #   exceptiongroup
