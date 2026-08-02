@@ -1,0 +1,1 @@
+Avoid holding refs to result/exception from ``trio.to_thread.run_sync``.

@@ -83,6 +83,8 @@ class EntryQueue:
                             "Internal error: `parent_nursery` should never be `None`",
                         ) from exc  # pragma: no cover
                     parent_nursery.start_soon(kill_everything, exc)
+            finally:
+                del sync_fn, args, job
 
         # This has to be carefully written to be safe in the face of new items
         # being queued while we iterate, and to do a bounded amount of work on
