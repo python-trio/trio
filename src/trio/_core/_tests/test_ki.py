@@ -32,6 +32,9 @@ if TYPE_CHECKING:
         Generator,
         Iterator,
     )
+    from types import AsyncGeneratorType
+
+    from typing_extensions import Never
 
     from ..._core import Abort, RaiseCancelT
 
@@ -665,11 +668,11 @@ def _unprotected_gen_fn() -> Generator[None, None, None]:
     yield
 
 
-async def _consume_async_generator(agen: AsyncGenerator[None, None]) -> None:
+async def _consume_async_generator(agen: AsyncGeneratorType[object, Never]) -> None:
     try:
         with pytest.raises(StopAsyncIteration):
             while True:
-                await agen.asend(None)
+                await agen.asend(None)  # type: ignore[arg-type]
     finally:
         await agen.aclose()
 
@@ -684,7 +687,7 @@ def _consume_function_for_coverage(
     assert inspect.isgenerator(result) or inspect.iscoroutine(result)
     with pytest.raises(StopIteration):
         while True:
-            result.send(None)
+            result.send(None)  # type: ignore[arg-type]
 
 
 def test_enable_disable_ki_protection_passes_on_inspect_flags() -> None:
