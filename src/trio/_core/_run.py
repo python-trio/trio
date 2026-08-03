@@ -1810,6 +1810,10 @@ class Runner:  # type: ignore[explicit-any]
 
     # If everything goes idle for this long, we call clock._autojump()
     clock_autojump_threshold: float = inf
+    # Nonzero while work that will wake a task is still running off the event
+    # loop; the autojump above is not armed until it returns to zero. See
+    # _AutojumpThreadHold in trio._threads.
+    autojump_holds: int = 0
 
     # Guest mode stuff
     is_guest: bool = False
@@ -2752,7 +2756,15 @@ def unrolled_run(
             # We use 'elif' here because if there are tasks in
             # wait_all_tasks_blocked, then those tasks will wake up without
             # jumping the clock, so we don't need to autojump.
-            elif runner.clock_autojump_threshold < timeout:
+            #
+            # Similarly, while a to_thread.run_sync thread is running, the
+            # system isn't really idle: real work is happening off the event
+            # loop, and it will eventually wake up a task. So we don't arm
+            # the autojump, and the IO wait simply sleeps until the thread
+            # reports back.
+            elif (
+                runner.clock_autojump_threshold < timeout and runner.autojump_holds == 0
+            ):
                 timeout = runner.clock_autojump_threshold
                 idle_primed = IdlePrimedTypes.AUTOJUMP_CLOCK
 

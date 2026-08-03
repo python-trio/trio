@@ -27,9 +27,11 @@ from .. import (
     sleep,
     sleep_forever,
 )
+from .._core._run import GLOBAL_RUN_CONTEXT
 from .._core._tests.test_ki import ki_self
 from .._core._tests.tutil import gc_collect_harder, slow
 from .._threads import (
+    _AutojumpThreadHold,
     active_thread_count,
     current_default_thread_limiter,
     from_thread_check_cancelled,
@@ -38,7 +40,7 @@ from .._threads import (
     to_thread_run_sync,
     wait_all_threads_completed,
 )
-from ..testing import wait_all_tasks_blocked
+from ..testing import MockClock, wait_all_tasks_blocked
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Awaitable, Callable
@@ -1194,3 +1196,214 @@ async def test_wait_all_threads_completed() -> None:
 async def test_wait_all_threads_completed_no_threads() -> None:
     await wait_all_threads_completed()
     assert active_thread_count() == 0
+
+
+async def test_autojump_clock_waits_for_threads(autojump_clock: MockClock) -> None:
+    # Virtual time must not jump ahead while a to_thread.run_sync thread is
+    # still running: the thread is real work, happening in real time.
+    # https://github.com/python-trio/trio/issues/456
+    record = []
+
+    async def sleeper() -> None:
+        await sleep(10)
+        record.append(("sleeper", _core.current_time()))
+
+    async def thread_task() -> None:
+        await to_thread_run_sync(time.sleep, 0.2)
+        record.append(("thread", _core.current_time()))
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(sleeper)
+        nursery.start_soon(thread_task)
+
+    # The thread finished first, with virtual time still untouched; only then
+    # did the clock jump ahead and wake the sleeper.
+    assert record == [("thread", 0), ("sleeper", 10)]
+
+
+async def test_autojump_clock_and_from_thread_reentry(
+    autojump_clock: MockClock,
+) -> None:
+    # A thread is not counted while it is inside from_thread.run, so a
+    # virtual-time sleep in the re-entrant call must still autojump. (If it
+    # did not, this test would deadlock.)
+    def thread_fn() -> None:
+        from_thread_run(sleep, 10)
+
+    start = _core.current_time()
+    await to_thread_run_sync(thread_fn)
+    assert _core.current_time() - start == 10
+
+
+async def test_autojump_clock_and_from_thread_reentry_abandon_on_cancel(
+    autojump_clock: MockClock,
+) -> None:
+    # With abandon_on_cancel=True, from_thread.run is dispatched to the
+    # system nursery instead of the waiting task; the thread must not be
+    # counted as active on that route either while the re-entrant call
+    # runs. (If it were, this test would deadlock.)
+    def thread_fn() -> None:
+        from_thread_run(sleep, 10)
+
+    start = _core.current_time()
+    await to_thread_run_sync(thread_fn, abandon_on_cancel=True)
+    assert _core.current_time() - start == 10
+
+
+async def test_autojump_clock_and_from_thread_reentry_explicit_token(
+    autojump_clock: MockClock,
+) -> None:
+    # Passing an explicit trio_token also sends from_thread.run to the system
+    # nursery, even from a to_thread.run_sync worker thread, and the thread
+    # must not be counted during the re-entrant call on that route either.
+    token = _core.current_trio_token()
+
+    def thread_fn() -> None:
+        from_thread_run(sleep, 10, trio_token=token)
+
+    start = _core.current_time()
+    await to_thread_run_sync(thread_fn)
+    assert _core.current_time() - start == 10
+
+
+@pytest.mark.parametrize("abandon_on_cancel", [False, True])
+async def test_autojump_clock_waits_again_after_from_thread_reentry(
+    autojump_clock: MockClock,
+    abandon_on_cancel: bool,
+) -> None:
+    # When the re-entrant call returns, the thread is doing real work again
+    # and the clock must wait for it again, on both dispatch routes
+    # (abandon_on_cancel=True sends from_thread.run to the system nursery).
+    record = []
+
+    def thread_fn() -> None:
+        from_thread_run(sleep, 1)
+        time.sleep(0.2)
+
+    async def thread_task() -> None:
+        await to_thread_run_sync(thread_fn, abandon_on_cancel=abandon_on_cancel)
+        record.append(("thread", _core.current_time()))
+
+    async def sleeper() -> None:
+        await sleep(10)
+        record.append(("sleeper", _core.current_time()))
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(thread_task)
+        nursery.start_soon(sleeper)
+
+    assert record == [("thread", 1), ("sleeper", 10)]
+
+
+async def test_autojump_clock_thread_abandoned_during_reentry(
+    autojump_clock: MockClock,
+) -> None:
+    # If the waiting task is cancelled (abandoning the thread) while the
+    # thread's re-entrant from_thread.run call is still running in the
+    # system nursery, the thread must not be counted again when that call
+    # finishes: nobody is left to stop counting it.
+    finish_reentry = Event()
+    in_reentry = Event()
+    thread_finished = Event()
+
+    async def reentrant_afn() -> None:
+        in_reentry.set()
+        await finish_reentry.wait()
+
+    def thread_fn() -> None:
+        from_thread_run(reentrant_afn)
+        # The re-entrant call has been fully dealt with by the time it
+        # returns here, so this is a reliable signal for the checks below.
+        from_thread_run_sync(thread_finished.set)
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(
+            partial(to_thread_run_sync, thread_fn, abandon_on_cancel=True),
+        )
+        await in_reentry.wait()
+        nursery.cancel_scope.cancel()
+
+    # The thread is abandoned and its re-entrant call is still pending.
+    assert GLOBAL_RUN_CONTEXT.runner.autojump_holds == 0
+    finish_reentry.set()
+    await thread_finished.wait()
+    assert GLOBAL_RUN_CONTEXT.runner.autojump_holds == 0
+    start = _core.current_time()
+    await sleep(7)
+    assert _core.current_time() - start == 7
+
+
+async def test_autojump_clock_cross_run_reentry(autojump_clock: MockClock) -> None:
+    # A worker thread can re-enter a *different* trio run by passing that
+    # run's token to from_thread.run. Its unit of autojump_holds belongs to
+    # its home run (A, this one): while the thread is inside run B, A must
+    # still count it, and B's count must not be touched. Run B relies on its
+    # own autojump *during* the re-entrant call, so this test hangs if B's
+    # count is driven negative; both runs' counts are checked afterwards.
+    a_runner = GLOBAL_RUN_CONTEXT.runner
+    a_count_during: list[int] = []
+    b_token: list[_core.TrioToken] = []
+    b_stop: list[Event] = []
+    b_ready = threading.Event()
+    b_results: list[float] = []
+
+    def run_b() -> None:
+        async def b_main() -> None:
+            b_token.append(_core.current_trio_token())
+            b_stop.append(Event())
+            b_ready.set()
+            await b_stop[0].wait()
+            # After the cross-run re-entry: B's count must be untouched and
+            # B's autojump must still work.
+            b_results.append(GLOBAL_RUN_CONTEXT.runner.autojump_holds)
+            start = _core.current_time()
+            await sleep(5)
+            b_results.append(_core.current_time() - start)
+
+        _core.run(b_main, clock=MockClock(autojump_threshold=0))
+
+    b_thread = threading.Thread(target=run_b)
+    b_thread.start()
+
+    async def afn_in_b() -> int:
+        # Runs in B's system nursery. This virtual sleep needs B's autojump:
+        # if the cross-run dispatch decremented B's count, it hangs forever.
+        await sleep(2)
+        # Run A is quiescent, parked waiting for the worker thread.
+        a_count_during.append(a_runner.autojump_holds)
+        return 42
+
+    def worker() -> int:
+        b_ready.wait()
+        result: int = from_thread_run(afn_in_b, trio_token=b_token[0])
+        return result
+
+    try:
+        assert await to_thread_run_sync(worker) == 42
+    finally:
+        # Stop run B even if the above failed, or its thread keeps pytest
+        # alive. B has started by now: the worker waits for it first.
+        b_token[0].run_sync_soon(b_stop[0].set)
+        await to_thread_run_sync(b_thread.join)
+    assert a_count_during == [1]
+    assert b_results == [0, 5]
+    # Run A's own count is back to zero, and A's autojump still works.
+    assert GLOBAL_RUN_CONTEXT.runner.autojump_holds == 0
+    start = _core.current_time()
+    await sleep(3)
+    assert _core.current_time() - start == 3
+
+
+def test_autojump_clock_thread_hold_exit_outside_run() -> None:
+    # If a run dies while a task is parked in to_thread.run_sync, the task's
+    # coroutine is closed later, outside any run. Leaving the block must then
+    # be silent, as it is for the thread tracking that sits beside it.
+    holds: list[_AutojumpThreadHold] = []
+
+    async def main() -> None:
+        holds.append(_AutojumpThreadHold(GLOBAL_RUN_CONTEXT.runner))
+        holds[0].__enter__()
+
+    _core.run(main)
+    holds[0].__exit__(None, None, None)
+    assert holds[0].runner is None
