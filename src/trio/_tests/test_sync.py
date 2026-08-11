@@ -19,10 +19,7 @@ async def test_Event() -> None:
     assert not e.is_set()
     assert e.statistics().tasks_waiting == 0
 
-    with pytest.warns(
-        DeprecationWarning,
-        match=r"trio\.Event\.__bool__ is deprecated since Trio 0\.31\.0; use trio\.Event\.is_set instead \(https://github.com/python-trio/trio/issues/3238\)",
-    ):
+    with pytest.raises(NotImplementedError):
         e.__bool__()
 
     e.set()

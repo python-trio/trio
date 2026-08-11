@@ -5,6 +5,41 @@ Release history
 
 .. towncrier release notes start
 
+trio 0.34.0 (2026-08-10)
+------------------------
+
+Features
+~~~~~~~~
+
+- `MemoryChannelStatistics` now has a ``peak_buffer_used`` field, which reports
+  the largest number of items that have ever been in the channel's buffer at
+  once. This makes it easier to pick a sensible ``max_buffer_size`` based on
+  data from a real run, instead of guessing. (`#1723 <https://github.com/python-trio/trio/issues/1723>`__)
+- Support Python 3.15, as of beta 4. Things may still change and so this
+  support may break in the future. (`#3456 <https://github.com/python-trio/trio/issues/3456>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- ``Nursery.start()`` now preserves the ``__cause__`` and ``__context__`` of
+  exceptions raised before ``task_status.started()`` is called. (`#3261 <https://github.com/python-trio/trio/issues/3261>`__)
+- Fixed incorrect error message in ``run_process``: the ``stdout`` pipe check now correctly says "stdout" instead of "stdin". (`#3409 <https://github.com/python-trio/trio/issues/3409>`__)
+- Fixed ``trio.Path.as_uri()`` on Python 3.14+ to avoid the deprecated ``pathlib.PurePath.as_uri()`` path. (`#3460 <https://github.com/python-trio/trio/issues/3460>`__)
+- Fixed ``trio.to_thread.run_sync``` workers leaking spawner's ``Context`` on ``py314t+`` free-threaded builds. (`#3472 <https://github.com/python-trio/trio/issues/3472>`__)
+
+
+Deprecations and removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Trying to use absolute deadlines on a `trio.CancelScope` constructed
+  with a relative deadline now raises, after being deprecated since Trio
+  0.27.0.
+
+  To switch a cancel scope from being relative to absolute, replace the
+  `trio.CancelScope` object instead of trying to mutate it. (`#3403 <https://github.com/python-trio/trio/issues/3403>`__)
+
+
 trio 0.33.0 (2026-02-14)
 ------------------------
 
