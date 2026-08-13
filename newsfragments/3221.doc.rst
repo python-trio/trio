@@ -1,0 +1,2 @@
+Added missing docstrings for :attr:`trio.lowlevel.ParkingLot.broken_by` and
+``trio._subprocess.HasFileno.fileno``.
