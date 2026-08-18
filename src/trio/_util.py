@@ -27,11 +27,12 @@ if TYPE_CHECKING:
     import sys
     from types import AsyncGeneratorType, TracebackType
 
-    from typing_extensions import TypeVarTuple, Unpack
+    from typing_extensions import ParamSpec, TypeVarTuple, Unpack
 
     if sys.version_info < (3, 11):
         from exceptiongroup import BaseExceptionGroup
 
+    P = ParamSpec("P")
     PosArgsT = TypeVarTuple("PosArgsT")
 
 
@@ -287,8 +288,9 @@ class NoPublicConstructor(ABCMeta):
             f"{cls.__module__}.{cls.__qualname__} has no public constructor",
         )
 
-    def _create(cls: type[T], *args: object, **kwargs: object) -> T:
-        return super().__call__(*args, **kwargs)  # type: ignore
+    def _create(cls: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
+        # misc = unsupported argument 2 for "super" (??)
+        return super().__call__(*args, **kwargs)  # type: ignore[misc,no-any-return]
 
 
 def name_asyncgen(agen: AsyncGeneratorType[object, NoReturn]) -> str:
