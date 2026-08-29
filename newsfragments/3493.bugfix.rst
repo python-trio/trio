@@ -1,0 +1,1 @@
+Allow importing Trio on Android API levels where ``socket.if_indextoname`` and ``socket.if_nametoindex`` are unavailable.

@@ -4,6 +4,7 @@ import errno
 import inspect
 import os
 import socket as stdlib_socket
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -165,6 +166,33 @@ def test_socket_has_some_reexports() -> None:
     assert tsocket.TCP_NODELAY == stdlib_socket.TCP_NODELAY
     assert tsocket.gaierror == stdlib_socket.gaierror
     assert tsocket.ntohs == stdlib_socket.ntohs
+
+
+def test_imports_without_android_interface_helpers() -> None:
+    script = """
+import socket as real_socket
+import sys
+import types
+
+fake_socket = types.ModuleType("socket")
+fake_socket.__dict__.update(real_socket.__dict__)
+del fake_socket.if_indextoname
+del fake_socket.if_nametoindex
+sys.modules["socket"] = fake_socket
+
+import trio.socket
+"""
+    environment = os.environ.copy()
+    source_path = str(Path(__file__).parents[2])
+    environment["PYTHONPATH"] = os.pathsep.join(
+        [source_path, environment.get("PYTHONPATH", "")]
+    )
+    subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=Path(__file__).parents[3],
+        env=environment,
+        check=True,
+    )
 
 
 ################################################################
