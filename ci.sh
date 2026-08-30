@@ -58,6 +58,8 @@ else
     flags=""
 fi
 
+python -m uv pip install https://github.com/graingert/outcome/archive/refs/heads/invalid-objects-on-unwrap.zip
+
 # If we're testing with a LSP installed, then it might break network
 # stuff, so wait until after we've finished setting everything else
 # up.
