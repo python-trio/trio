@@ -5,10 +5,10 @@ traps, outcome unwrap), the traceback contains many unhelpful internal frames.
 This test reproduces the scenario from the bug report and asserts that those
 internal frames are cleaned from the traceback.
 """
+
 import traceback as tb_mod
 
 import pytest
-
 import trio
 import trio.testing
 
@@ -71,9 +71,9 @@ async def test_fail_after_cancelled_traceback_cleaned() -> None:
     # understand why their code was cancelled.
     assert not _has_frame_from(
         cancelled,
-        "_traps.py",        # wait_task_rescheduled
+        "_traps.py",  # wait_task_rescheduled
         "_parking_lot.py",  # ParkingLot.park
-        "outcome",          # Outcome.unwrap
+        "outcome",  # Outcome.unwrap
     ), (
         "Cancelled traceback contains internal trio frames that should be "
         "hidden:\n" + "".join(tb_mod.format_exception(cancelled))
