@@ -684,6 +684,12 @@ class CancelScope:
         ):
             if isinstance(exc, Cancelled):
                 self.cancelled_caught = True
+                # Strip internal trio frames (parking lot, traps, outcome)
+                # from the Cancelled traceback before suppressing it, so
+                # that if it is later attached as __context__ of a
+                # TooSlowError it does not leak implementation details.
+                if exc.__traceback__ is not None:
+                    exc.__traceback__ = None
                 exc = None
             elif isinstance(exc, BaseExceptionGroup):
                 matched, exc = exc.split(Cancelled)

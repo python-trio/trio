@@ -78,3 +78,5 @@ doc/_build/
 
 # PyCharm
 .idea/
+.cie/
+.forge/
