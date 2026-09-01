@@ -22,7 +22,7 @@ click==8.5.0
     # via towncrier
 colorama==0.4.6 ; sys_platform == 'win32'
     # via sphinx
-cryptography==50.0.1
+cryptography==48.0.0
     # via pyopenssl
 docutils==0.22.4
     # via
@@ -53,7 +53,7 @@ pycparser==3.0 ; (implementation_name != 'PyPy' and os_name == 'nt') or (impleme
     # via cffi
 pygments==2.21.0
     # via sphinx
-pyopenssl==26.4.0
+pyopenssl==26.2.0
     # via -r docs-requirements.in
 requests==2.34.2
     # via sphinx
