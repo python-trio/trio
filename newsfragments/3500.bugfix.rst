@@ -1,0 +1,1 @@
+On the kqueue backend (macOS/BSD), `~trio.lowlevel.notify_closing` could race with an already-fetched batch of kernel events under guest mode, causing `TrioInternalError: internal error in Trio - please file a bug!` wrapping a `KeyError` from inside `process_events`. Such stale events are now ignored instead of crashing the run.

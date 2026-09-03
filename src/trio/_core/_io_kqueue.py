@@ -90,7 +90,15 @@ class KqueueIOManager:
             if event.ident == self._force_wakeup_fd:
                 self._force_wakeup.drain()
                 continue
-            receiver = self._registered[key]
+            receiver = self._registered.get(key)
+            if receiver is None:
+                # In guest mode, get_events() can fetch a batch of kernel
+                # events ahead of when they actually reach process_events()
+                # on a later tick. notify_closing() (or a completed
+                # wait_kevent abort) can deregister this same key in that
+                # window, so by the time the stale event gets here there's
+                # nothing left to deliver it to.
+                continue
             if event.flags & select.KQ_EV_ONESHOT:  # TODO: test this branch
                 del self._registered[key]
             if isinstance(receiver, _core.Task):
