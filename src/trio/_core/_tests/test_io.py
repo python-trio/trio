@@ -426,6 +426,7 @@ async def test_io_manager_kqueue_monitors_statistics() -> None:
     sys.platform == "win32" or sys.platform == "linux",
     reason="only the kqueue backend has this failure mode",
 )
+@pytest.mark.filterwarnings("ignore:.*UnboundedQueue:trio.TrioDeprecationWarning")
 async def test_kqueue_process_events_tolerates_stale_deregistered_key() -> None:
     # The pytest.mark.skipif above keeps this from running on Linux/Windows,
     # but mypy doesn't understand that decorator and still type-checks this
@@ -442,22 +443,28 @@ async def test_kqueue_process_events_tolerates_stale_deregistered_key() -> None:
         # used to look it up with a bare `self._registered[key]` and blow up
         # with a KeyError instead of just treating it as "nothing left to
         # wake up here."
+        #
+        # This goes through monitor_kevent (the same public registration API
+        # notify_closing's own deregistration relies on) rather than poking
+        # at _registered directly, so the test exercises the real code path
+        # instead of just asserting against internal state.
         from trio._core._io_kqueue import KqueueIOManager
 
         manager = KqueueIOManager()
         try:
             with stdlib_socket.socket() as s:
                 fileno = s.fileno()
-            # The socket is closed now, so this fileno is free, but we're not
-            # actually doing any real kqueue registration here, we just care
-            # about the dict lookup process_events() does against _registered.
-            key = (fileno, select.KQ_FILTER_WRITE)
-
-            manager._registered[key] = object()
-            del manager._registered[key]  # e.g. notify_closing() already ran
-
-            stale_event = select.kevent(fileno, select.KQ_FILTER_WRITE)
-            manager.process_events([stale_event])  # must not raise KeyError
+                filter = select.KQ_FILTER_WRITE
+                with manager.monitor_kevent(fileno, filter):
+                    pass  # registered, then deregistered on context exit below
+                # The context manager's __exit__ already removed
+                # (fileno, filter) from _registered, the same way
+                # notify_closing removes a key for a task waiting in
+                # wait_kevent. A kqueue batch fetched just before that exit
+                # can still hand process_events() an event for this now-
+                # stale key.
+                stale_event = select.kevent(fileno, filter)
+                manager.process_events([stale_event])  # must not raise KeyError
         finally:
             manager.close()
 
