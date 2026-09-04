@@ -427,32 +427,39 @@ async def test_io_manager_kqueue_monitors_statistics() -> None:
     reason="only the kqueue backend has this failure mode",
 )
 async def test_kqueue_process_events_tolerates_stale_deregistered_key() -> None:
-    # In guest mode, GuestState.guest_tick can fetch a batch of ready kqueue
-    # events with get_events(0) ahead of when they're actually delivered to
-    # process_events() on a later tick. notify_closing() can run in that
-    # window and deregister the same key, since it's a plain synchronous
-    # function that isn't tied to a checkpoint the way task cancellation is.
-    # When the stale event then arrives, process_events() used to look it up
-    # with a bare `self._registered[key]` and blow up with a KeyError instead
-    # of just treating it as "nothing left to wake up here."
-    from trio._core._io_kqueue import KqueueIOManager
+    # The pytest.mark.skipif above keeps this from running on Linux/Windows,
+    # but mypy doesn't understand that decorator and still type-checks this
+    # body under --platform linux, where select.kevent/KQ_FILTER_WRITE don't
+    # exist. Narrow with the same static sys.platform check the rest of this
+    # file already uses so mypy skips the body too, matching the check above.
+    if sys.platform != "win32" and sys.platform != "linux":
+        # In guest mode, GuestState.guest_tick can fetch a batch of ready
+        # kqueue events with get_events(0) ahead of when they're actually
+        # delivered to process_events() on a later tick. notify_closing() can
+        # run in that window and deregister the same key, since it's a plain
+        # synchronous function that isn't tied to a checkpoint the way task
+        # cancellation is. When the stale event then arrives, process_events()
+        # used to look it up with a bare `self._registered[key]` and blow up
+        # with a KeyError instead of just treating it as "nothing left to
+        # wake up here."
+        from trio._core._io_kqueue import KqueueIOManager
 
-    manager = KqueueIOManager()
-    try:
-        with stdlib_socket.socket() as s:
-            fileno = s.fileno()
-        # The socket is closed now, so this fileno is free, but we're not
-        # actually doing any real kqueue registration here, we just care
-        # about the dict lookup process_events() does against _registered.
-        key = (fileno, select.KQ_FILTER_WRITE)
+        manager = KqueueIOManager()
+        try:
+            with stdlib_socket.socket() as s:
+                fileno = s.fileno()
+            # The socket is closed now, so this fileno is free, but we're not
+            # actually doing any real kqueue registration here, we just care
+            # about the dict lookup process_events() does against _registered.
+            key = (fileno, select.KQ_FILTER_WRITE)
 
-        manager._registered[key] = object()
-        del manager._registered[key]  # e.g. notify_closing() already ran
+            manager._registered[key] = object()
+            del manager._registered[key]  # e.g. notify_closing() already ran
 
-        stale_event = select.kevent(fileno, select.KQ_FILTER_WRITE)
-        manager.process_events([stale_event])  # must not raise KeyError
-    finally:
-        manager.close()
+            stale_event = select.kevent(fileno, select.KQ_FILTER_WRITE)
+            manager.process_events([stale_event])  # must not raise KeyError
+        finally:
+            manager.close()
 
 
 async def test_can_survive_unnotified_close() -> None:
