@@ -1,0 +1,3 @@
+Document that `trio.run_process` and `trio.lowlevel.open_process` create
+subprocesses from a worker thread, which affects the per-thread operating-system
+state inherited by the child.

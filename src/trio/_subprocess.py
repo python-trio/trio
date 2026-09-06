@@ -328,6 +328,12 @@ async def _open_process(
     management of the child process. It's up to you to implement whatever semantics you
     want.
 
+    .. note:: `subprocess.Popen` runs in a worker thread to avoid blocking Trio's
+       event loop. Any per-thread operating-system state inherited by the child
+       therefore comes from that worker thread, not the thread running Trio. On Linux,
+       for example, changes to the Trio thread's namespaces or CPU affinity may not be
+       reflected in the child process.
+
     Args:
       command: The command to run. Typically this is a sequence of strings or
           bytes such as ``['ls', '-l', 'directory with spaces']``, where the
@@ -554,6 +560,12 @@ async def _run_process(
     **Cancellation:** If cancelled, `run_process` sends a termination
     request to the subprocess, then waits for it to fully exit. The
     ``deliver_cancel`` argument lets you control how the process is terminated.
+
+    .. note:: `subprocess.Popen` runs in a worker thread to avoid blocking Trio's
+       event loop. Any per-thread operating-system state inherited by the child
+       therefore comes from that worker thread, not the thread running Trio. On Linux,
+       for example, changes to the Trio thread's namespaces or CPU affinity may not be
+       reflected in the child process.
 
     .. note:: `run_process` is intentionally similar to the standard library
        `subprocess.run`, but some of the defaults are different. Specifically, we
