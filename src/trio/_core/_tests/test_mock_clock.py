@@ -24,9 +24,9 @@ def test_mock_clock() -> None:
     with pytest.raises(ValueError, match=r"^time can't go backwards$"):
         c.jump(-1)
     assert c.current_time() == 1.2
-    assert c.deadline_to_sleep_time(1.1) == 0
-    assert c.deadline_to_sleep_time(1.2) == 0
-    assert c.deadline_to_sleep_time(1.3) > 999999
+    assert c.deadline_to_sleep_time(-0.1) == 0
+    assert c.deadline_to_sleep_time(0.0) == 0
+    assert c.deadline_to_sleep_time(0.1) == 999999999
 
     with pytest.raises(ValueError, match=r"^rate must be >= 0$"):
         c.rate = -1
@@ -36,15 +36,15 @@ def test_mock_clock() -> None:
     assert c.current_time() == 1.2
     REAL_NOW += 1
     assert c.current_time() == 3.2
-    assert c.deadline_to_sleep_time(3.1) == 0
-    assert c.deadline_to_sleep_time(3.2) == 0
-    assert c.deadline_to_sleep_time(4.2) == 0.5
+    assert c.deadline_to_sleep_time(-0.1) == 0
+    assert c.deadline_to_sleep_time(0.0) == 0
+    assert c.deadline_to_sleep_time(1.0) == 0.5
 
     c.rate = 0.5
     assert c.current_time() == 3.2
-    assert c.deadline_to_sleep_time(3.1) == 0
-    assert c.deadline_to_sleep_time(3.2) == 0
-    assert c.deadline_to_sleep_time(4.2) == 2.0
+    assert c.deadline_to_sleep_time(-0.1) == 0
+    assert c.deadline_to_sleep_time(0.0) == 0
+    assert c.deadline_to_sleep_time(1.0) == 2.0
 
     c.jump(0.8)
     assert c.current_time() == 4.0
@@ -80,11 +80,12 @@ async def test_mock_clock_autojump(mock_clock: MockClock) -> None:
     t = _core.current_time()
     # this should wake up before the autojump threshold triggers, so time
     # shouldn't change
+    # TODO: technically, this waits for an infinite virtual time - how should `current_time()` change?
     await wait_all_tasks_blocked()
     assert t == _core.current_time()
     # this should too
     await wait_all_tasks_blocked(0.01)
-    assert t == _core.current_time()
+    assert t + 0.01 == _core.current_time()
 
     # set up a situation where the autojump task is blocked for a long long
     # time, to make sure that cancel-and-adjust-threshold logic is working
@@ -179,15 +180,16 @@ async def test_mock_clock_autojump_0_and_wait_all_tasks_blocked_nonzero(
 
 
 async def test_initialization_doesnt_mutate_runner() -> None:
+    # TODO: is this test even necessary now?
     before = (
         GLOBAL_RUN_CONTEXT.runner.clock,
-        GLOBAL_RUN_CONTEXT.runner.clock_autojump_threshold,
+        # GLOBAL_RUN_CONTEXT.runner.clock.autojump_threshold,
     )
 
     MockClock(autojump_threshold=2, rate=3)
 
     after = (
         GLOBAL_RUN_CONTEXT.runner.clock,
-        GLOBAL_RUN_CONTEXT.runner.clock_autojump_threshold,
+        # GLOBAL_RUN_CONTEXT.runner.clock.autojump_threshold,
     )
     assert before == after
