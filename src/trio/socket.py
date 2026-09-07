@@ -69,10 +69,18 @@ from socket import (
 )
 
 if sys.implementation.name == "cpython":
-    from socket import (
-        if_indextoname as if_indextoname,
-        if_nametoindex as if_nametoindex,
-    )
+    if sys.version_info >= (3, 16):  # pragma: no branch
+        from socket import (  # pragma: no cover
+            if_indextoname as if_indextoname,
+            if_nametoindex as if_nametoindex,
+        )
+    else:
+        # https://github.com/python/cpython/issues/156439
+        with _suppress(ImportError):
+            from socket import (
+                if_indextoname as if_indextoname,
+                if_nametoindex as if_nametoindex,
+            )
 
     # For android devices, if_nameindex support was introduced in API 24,
     # so it doesn't exist for any version prior.
@@ -82,7 +90,7 @@ if sys.implementation.name == "cpython":
         )
 
 
-# not always available so expose only if
+# not always available so expose only if possible
 if sys.platform != "win32" or not _t.TYPE_CHECKING:
     with _suppress(ImportError):
         from socket import (
