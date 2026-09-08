@@ -1,0 +1,2 @@
+The type returned by `trio.open_file`, `trio.wrap_file`, and `trio.Path.open`
+is now publicly available as `trio.AsyncIOWrapper` for use in type annotations.

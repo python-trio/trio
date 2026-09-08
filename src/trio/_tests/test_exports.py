@@ -21,7 +21,7 @@ import trio
 import trio.testing
 from trio._tests.pytest_plugin import RUN_SLOW, skip_if_optional_else_raise
 
-from .. import _core, _util
+from .. import _core, _file_io, _util
 from .._core._tests.tutil import slow
 
 if TYPE_CHECKING:
@@ -413,6 +413,15 @@ def test_static_tool_sees_class_members(
 
         missing = runtime_names - static_names
         extra = static_names - runtime_names
+
+        if class_ is trio.AsyncIOWrapper:
+            # The stubs describe methods and properties supplied by __getattr__
+            # on instances. Only detach is also defined on the runtime class.
+            missing.remove("__getattr__")
+            for name in (_file_io._FILE_SYNC_ATTRS | _file_io._FILE_ASYNC_METHODS) - {
+                "detach"
+            }:
+                extra.remove(name)
 
         # using .remove() instead of .delete() to get an error in case they start not
         # being missing

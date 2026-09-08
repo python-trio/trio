@@ -18,7 +18,7 @@ from typing import (
 
 import trio
 
-from ._util import async_wraps
+from ._util import async_wraps, final
 from .abc import AsyncResource
 
 if TYPE_CHECKING:
@@ -216,6 +216,7 @@ if TYPE_CHECKING:
 
 # FileT needs to be covariant for the protocol trick to work - the real IO types are effectively a
 # subtype of the protocols.
+@final
 class AsyncIOWrapper(AsyncResource, Generic[FileT_co]):
     """A generic :class:`~io.IOBase` wrapper that implements the :term:`asynchronous
     file object` interface. Wrapped methods that could block are executed in
@@ -223,6 +224,11 @@ class AsyncIOWrapper(AsyncResource, Generic[FileT_co]):
 
     All properties and methods defined in :mod:`~io` are exposed by this
     wrapper, if they exist in the wrapped file object.
+
+    Obtain a wrapper using :func:`open_file`, :func:`wrap_file`, or
+    :meth:`Path.open`. For type annotations, parameterize this class with the
+    type of the wrapped synchronous file object, for example
+    ``AsyncIOWrapper[io.TextIOWrapper]`` or ``AsyncIOWrapper[io.BytesIO]``.
     """
 
     def __init__(self, file: FileT_co) -> None:

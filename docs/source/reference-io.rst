@@ -657,6 +657,8 @@ Asynchronous file objects
 
 .. autofunction:: wrap_file(file)
 
+.. autoclass:: AsyncIOWrapper()
+
 .. interface:: Asynchronous file interface
 
    Trio's asynchronous file objects have an interface that

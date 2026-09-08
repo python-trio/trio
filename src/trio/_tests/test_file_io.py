@@ -11,8 +11,8 @@ from unittest.mock import sentinel
 import pytest
 
 import trio
-from trio import _core, _file_io
-from trio._file_io import _FILE_ASYNC_METHODS, _FILE_SYNC_ATTRS, AsyncIOWrapper
+from trio import AsyncIOWrapper, _core, _file_io
+from trio._file_io import _FILE_ASYNC_METHODS, _FILE_SYNC_ATTRS
 
 if TYPE_CHECKING:
     import pathlib
