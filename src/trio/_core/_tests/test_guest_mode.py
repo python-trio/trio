@@ -39,6 +39,21 @@ T = TypeVar("T")
 InHost: TypeAlias = Callable[[Callable[[], object]], None]
 
 
+def test_guest_unclosed_cancel_scope_deadline_cleanup() -> None:
+    async def main(in_host: InHost) -> None:
+        scope = trio.CancelScope(deadline=trio.current_time() + 100)
+
+        async def child() -> None:
+            scope.__enter__()
+
+        with pytest.RaisesGroup(RuntimeError):
+            async with trio.open_nursery() as nursery:
+                nursery.start_soon(child)
+        assert scope._registered_deadline == inf
+
+    trivial_guest_run(main)
+
+
 # The simplest possible "host" loop.
 # Nice features:
 # - we can run code "outside" of trio using the schedule function passed to
