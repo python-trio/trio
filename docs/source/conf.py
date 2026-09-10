@@ -174,7 +174,6 @@ def autodoc_process_signature(
 logger = getLogger("trio")
 UNDOCUMENTED = {
     "trio._subprocess.HasFileno.fileno",
-    "trio.lowlevel.ParkingLot.broken_by",
 }
 
 
