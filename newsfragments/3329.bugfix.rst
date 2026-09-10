@@ -1,0 +1,3 @@
+Trio now reports an error when a task exits without closing a cancel scope it
+entered, instead of allowing that scope to be exited by another task. Deadlines
+associated with these unclosed scopes are also cleaned up.

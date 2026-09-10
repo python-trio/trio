@@ -852,6 +852,66 @@ async def test_cancel_scope_misnesting_3() -> None:
         scope.cancel()
 
 
+@pytest.mark.parametrize("depth", [1, 2])
+@pytest.mark.parametrize("cancelled", [False, True])
+@pytest.mark.parametrize("adopted", [False, True])
+async def test_cancel_scope_left_open_at_task_exit(
+    depth: int, cancelled: bool, adopted: bool
+) -> None:
+    # A scope must not outlive the task that entered it (issue #3329).
+    scopes = [
+        _core.CancelScope(deadline=_core.current_time() + 100) for _ in range(depth)
+    ]
+
+    async def enter_scope(
+        *, task_status: _core.TaskStatus[None] = _core.TASK_STATUS_IGNORED
+    ) -> None:
+        for scope in scopes:
+            scope.__enter__()
+        task_status.started()
+        if cancelled:
+            scopes[-1].cancel()
+            await _core.checkpoint()
+
+    with pytest.RaisesGroup(RuntimeError):
+        async with _core.open_nursery() as nursery:
+            if adopted:
+                await nursery.start(enter_scope)
+            else:
+                nursery.start_soon(enter_scope)
+
+    assert all(scope._registered_deadline == inf for scope in scopes)
+    assert all(scope._cancel_status is None for scope in scopes)
+
+
+async def test_unclosed_cancel_scope_preserves_error_and_parent() -> None:
+    original = ValueError("child failure")
+    child_scope = _core.CancelScope(deadline=_core.current_time() + 100)
+
+    async def child() -> None:
+        child_scope.__enter__()
+        raise original
+
+    with _core.CancelScope(deadline=_core.current_time() + 200) as parent_scope:
+        parent_status = parent_scope._cancel_status
+        parent_deadline = parent_scope._registered_deadline
+        with pytest.RaisesGroup(
+            pytest.RaisesExc(
+                RuntimeError,
+                match="exited without closing its cancel scope",
+                check=lambda exc: exc.__context__ is original,
+            )
+        ):
+            async with _core.open_nursery() as nursery:
+                nursery.start_soon(child)
+        assert parent_scope._cancel_status is parent_status
+        assert parent_scope._registered_deadline == parent_deadline
+        assert not parent_scope.cancel_called
+        await _core.checkpoint()
+    assert child_scope._cancel_status is None
+    assert child_scope._registered_deadline == inf
+
+
 # helper to check we're not outputting overly verbose tracebacks
 def no_cause_or_context(e: BaseException) -> bool:
     return e.__cause__ is None and e.__context__ is None

@@ -2026,11 +2026,21 @@ class Runner:  # type: ignore[explicit-any]
                 lot.break_lot(task)
             del GLOBAL_PARKING_LOT_BREAKER[task]
 
+        unclosed_scope = (
+            task._parent_nursery is not None
+            and task._cancel_status is not task._parent_nursery._cancel_status
+            and task._cancel_status is not None
+            and not task._cancel_status.abandoned_by_misnesting
+        )
         if (
-            task._cancel_status is not None
-            and task._cancel_status.abandoned_by_misnesting
-            and task._cancel_status.parent is None
-        ) or task._child_nurseries:
+            (
+                task._cancel_status is not None
+                and task._cancel_status.abandoned_by_misnesting
+                and task._cancel_status.parent is None
+            )
+            or task._child_nurseries
+            or unclosed_scope
+        ):
             reason = "Nursery" if task._child_nurseries else "Cancel scope"
             # The cancel scope surrounding this task's nursery was closed
             # before the task exited. Force the task to exit with an error,
@@ -2039,6 +2049,11 @@ class Runner:  # type: ignore[explicit-any]
             try:
                 # Raise this, rather than just constructing it, to get a
                 # traceback frame included
+                if unclosed_scope and not task._child_nurseries:
+                    raise RuntimeError(
+                        f"Cancel scope stack corrupted: {task!r} exited without "
+                        f"closing its cancel scope\n{MISNESTING_ADVICE}",
+                    )
                 raise RuntimeError(
                     f"{reason} stack corrupted: {reason} surrounding "
                     f"{task!r} was closed before the task exited\n{MISNESTING_ADVICE}",
@@ -2048,7 +2063,18 @@ class Runner:  # type: ignore[explicit-any]
                     new_exc.__context__ = outcome.error
                 outcome = Error(new_exc)
 
+        exited_status: CancelStatus | None = task._cancel_status
         task._activate_cancel_status(None)
+        if unclosed_scope and not task._child_nurseries:
+            assert task._parent_nursery is not None
+            while exited_status is not task._parent_nursery._cancel_status:
+                assert exited_status is not None
+                parent_status = exited_status.parent
+                scope = exited_status._scope
+                exited_status.close()
+                with scope._might_change_registered_deadline():
+                    scope._cancel_status = None
+                exited_status = parent_status
         self.tasks.remove(task)
         if task is self.init_task:
             # If the init task crashed, then something is very wrong and we
