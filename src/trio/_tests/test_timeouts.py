@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import time
 from typing import TYPE_CHECKING, Protocol, TypeVar
 
@@ -182,29 +183,25 @@ async def test_timeouts_raise_value_error() -> None:
 
     nan = float("nan")
 
-    for fun, val in (
-        (sleep, -1),
-        (sleep, nan),
-        (sleep_until, nan),
+    # Each message names the parameter that function actually takes, so the
+    # patterns are exact rather than an alternation over both spellings.
+    for fun, val, message in (
+        (sleep, -1, "`seconds` must be non-negative"),
+        (sleep, nan, "`seconds` must not be NaN"),
+        (sleep_until, nan, "deadline must not be NaN"),
     ):
-        with pytest.raises(
-            ValueError,
-            match=r"^(deadline|`seconds`) must (not )*be (non-negative|NaN)$",
-        ):
+        with pytest.raises(ValueError, match=rf"^{re.escape(message)}$"):
             await fun(val)
 
-    for cm, val in (
-        (fail_after, -1),
-        (fail_after, nan),
-        (fail_at, nan),
-        (move_on_after, -1),
-        (move_on_after, nan),
-        (move_on_at, nan),
+    for cm, val, message in (
+        (fail_after, -1, "`seconds` must be non-negative"),
+        (fail_after, nan, "`seconds` must not be NaN"),
+        (fail_at, nan, "deadline must not be NaN"),
+        (move_on_after, -1, "`seconds` must be non-negative"),
+        (move_on_after, nan, "`seconds` must not be NaN"),
+        (move_on_at, nan, "deadline must not be NaN"),
     ):
-        with pytest.raises(
-            ValueError,
-            match=r"^(deadline|`seconds`) must (not )*be (non-negative|NaN)$",
-        ):
+        with pytest.raises(ValueError, match=rf"^{re.escape(message)}$"):
             with cm(val):
                 pass  # pragma: no cover
 
