@@ -7,7 +7,7 @@ import sys
 from typing import IO, Any, BinaryIO
 
 import trio
-from trio._file_io import AsyncIOWrapper
+from trio import AsyncIOWrapper
 from typing_extensions import assert_type
 
 
