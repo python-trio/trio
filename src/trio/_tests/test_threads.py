@@ -1407,3 +1407,40 @@ def test_autojump_clock_thread_hold_exit_outside_run() -> None:
     _core.run(main)
     holds[0].__exit__(None, None, None)
     assert holds[0].runner is None
+
+
+async def test_autojump_clock_thread_and_hold_autojump_together(
+    autojump_clock: MockClock,
+) -> None:
+    # to_thread.run_sync and trio.lowlevel.hold_autojump share one count, so
+    # the clock waits for whichever finishes last. wait_all_tasks_blocked is
+    # not held up by either.
+    record = []
+
+    async def sleeper() -> None:
+        await sleep(10)
+        record.append(("sleeper", _core.current_time()))
+
+    proceed = threading.Event()
+
+    def thread_fn() -> None:
+        proceed.wait()
+        # Not needed by a correct clock; it gives a broken one time to jump.
+        time.sleep(0.05)
+
+    async def thread_task() -> None:
+        await to_thread_run_sync(thread_fn)
+        record.append(("thread", _core.current_time()))
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(sleeper)
+        nursery.start_soon(thread_task)
+        try:
+            with _core.hold_autojump():
+                await wait_all_tasks_blocked()
+                assert GLOBAL_RUN_CONTEXT.runner.autojump_holds == 2
+        finally:
+            proceed.set()
+
+    # The block ended before the thread did, and the clock still waited.
+    assert record == [("thread", 0), ("sleeper", 10)]

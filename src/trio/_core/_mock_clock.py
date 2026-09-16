@@ -73,6 +73,9 @@ class MockClock(Clock):
           fills after a sleep): the clock waits for the thread and the
           thread waits for the clock, a deadlock.
 
+          Code that waits for other work outside the run loop can get the
+          same treatment with `trio.lowlevel.hold_autojump`.
+
     """
 
     def __init__(self, rate: float = 0.0, autojump_threshold: float = inf) -> None:
