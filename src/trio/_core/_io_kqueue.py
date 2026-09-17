@@ -280,7 +280,13 @@ class KqueueIOManager:
 
             if type(receiver) is _core.Task:
                 event = select.kevent(fd, filter_, select.KQ_EV_DELETE)
-                self._kqueue.control([event], 0)
+                try:
+                    self._kqueue.control([event], 0)
+                except OSError as e:
+                    if e.errno == errno.ENOENT:  # pragma: no branch
+                        # the event isn't in kqueue
+                        continue
+                    raise  # pragma: no cover
                 exc = _core.ClosedResourceError("another task closed this fd")
                 _core.reschedule(receiver, outcome.Error(exc))
                 del self._registered[key]
