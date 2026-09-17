@@ -487,6 +487,16 @@ def wrap_file(file: FileT) -> AsyncIOWrapper[FileT]:
     """This wraps any file object in a wrapper that provides an asynchronous
     file object interface.
 
+    The wrapper and ``file`` refer to the same underlying object. Calling
+    :meth:`~trio.abc.AsyncResource.aclose` on the wrapper closes ``file`` as
+    well. Discarding the wrapper does not explicitly close ``file``; use
+    ``aclose`` or an async context manager when the wrapper owns its lifetime.
+
+    You may continue to use ``file`` directly until it is closed, but both
+    references share the same file position and buffers. Since the wrapper
+    runs blocking operations in worker threads, simultaneous access through
+    both references is safe only when the underlying object is thread-safe.
+
     Args:
         file: a :term:`file object`
 
