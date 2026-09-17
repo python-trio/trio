@@ -1,0 +1,2 @@
+:func:`trio.sleep` now reports ``NaN`` under the name of its own parameter, raising
+```seconds`` must not be NaN`` rather than ``deadline must not be NaN``.
