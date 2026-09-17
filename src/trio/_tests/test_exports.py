@@ -21,7 +21,7 @@ import trio
 import trio.testing
 from trio._tests.pytest_plugin import RUN_SLOW, skip_if_optional_else_raise
 
-from .. import _core, _util
+from .. import _core, _file_io, _util
 from .._core._tests.tutil import slow
 
 if TYPE_CHECKING:
@@ -413,6 +413,17 @@ def test_static_tool_sees_class_members(
 
         missing = runtime_names - static_names
         extra = static_names - runtime_names
+
+        if class_ is trio.AsyncIOWrapper:
+            # AsyncIOWrapper intentionally has a different static class surface:
+            # these names model methods supplied dynamically by __getattr__ on
+            # instances. The file-I/O tests separately verify that the dynamic
+            # methods and the TYPE_CHECKING declarations stay in sync.
+            expected_extra = _file_io._FILE_SYNC_ATTRS | _file_io._FILE_ASYNC_METHODS
+            assert missing == {"__getattr__"}
+            assert extra == expected_extra
+            missing.clear()
+            extra.clear()
 
         # using .remove() instead of .delete() to get an error in case they start not
         # being missing
