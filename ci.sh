@@ -55,7 +55,7 @@ if [ "${NO_TEST_REQUIREMENTS-0}" == 1 ]; then
     flags="--skip-optional-imports"
 else
     flags=""
-    if [ "x$ARCH" == "xx86" ]; then
+    if [ "${SKIP_SSL_INSTALLATION-0}" == 1 ]; then
         echo cryptography >excluded_deps
         PIP_ARGS="--exclude excluded_deps"
         flags="--skip-ssl-imports"
