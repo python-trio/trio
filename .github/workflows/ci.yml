@@ -223,6 +223,7 @@ jobs:
         env:
           LSP: '${{ matrix.lsp }}'
           LSP_EXTRACT_FILE: '${{ matrix.lsp_extract_file }}'
+          ARCH: '${{ matrix.arch }}'
       - if: always()
         uses: codecov/codecov-action@v7
         with:

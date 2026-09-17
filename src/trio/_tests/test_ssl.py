@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any, NoReturn, TypeAlias
 import pytest
 
 from trio import StapledStream
-from trio._tests.pytest_plugin import skip_if_optional_else_raise
+from trio._tests.pytest_plugin import maybe_ignore_import_error
 from trio.abc import ReceiveStream, SendStream
 from trio.testing import MemoryReceiveStream, MemorySendStream
 
@@ -21,7 +21,7 @@ try:
     import trustme
     from OpenSSL import SSL
 except ImportError as error:
-    skip_if_optional_else_raise(error)
+    maybe_ignore_import_error(error)
 
 import trio
 
