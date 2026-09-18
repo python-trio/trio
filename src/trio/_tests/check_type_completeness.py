@@ -12,11 +12,12 @@ from __future__ import annotations
 
 # this file is not run as part of the tests, instead it's run standalone from check.sh
 import argparse
+import inspect
 import json
 import subprocess
 import sys
 from pathlib import Path
-import inspect
+
 import trio
 import trio.testing
 
