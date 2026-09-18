@@ -16,7 +16,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-
+import inspect
 import trio
 import trio.testing
 
@@ -108,7 +108,8 @@ def has_docstring_at_runtime(name: str) -> bool:
                 file=sys.stderr,
             )
             return False
-    return bool(obj.__doc__)
+    doc = inspect.getdoc(obj)
+    return bool(doc)
 
 
 def check_type(
