@@ -283,7 +283,7 @@ class KqueueIOManager:
                 try:
                     self._kqueue.control([event], 0)
                 except OSError as e:
-                    if e.errno == errno.ENOENT:  # pragma: no branch
+                    if e.errno in (errno.EBADF, errno.ENOENT):  # pragma: no branch
                         # the event isn't in kqueue
                         continue
                     raise  # pragma: no cover
