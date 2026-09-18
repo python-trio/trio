@@ -755,7 +755,10 @@ def test_guest_mode_asyncgens_garbage_collection() -> None:
     assert record == {("asyncio", "asyncio", True), ("trio", "trio", True)}
 
 
-def test_notify_closing_after_events() -> None:
+@pytest.mark.parametrize(
+    "close_first", [False, True], ids=["notify-then-close", "close-then-notify"],
+)
+def test_notify_closing_after_events(close_first: bool) -> None:
     # inspired by wrong repro in https://github.com/python-trio/trio/pull/3502
     # either the program should silently pass or wait_writable should fail.
     pair = socket.socketpair()
@@ -769,8 +772,10 @@ def test_notify_closing_after_events() -> None:
 
     def uh_oh() -> None:
         # this will run after trio gets events but before they are processed
-        trio.lowlevel.notify_closing(pair[0])
+        fd = pair[0].fileno()
+        if close_first:
+            pair[0].close()
+        trio.lowlevel.notify_closing(fd)
 
-    trivial_guest_run(trio_main)
-    for sock in pair:
-        sock.close()
+    with pair[0], pair[1]:
+        trivial_guest_run(trio_main)
