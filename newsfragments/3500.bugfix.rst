@@ -1,0 +1,1 @@
+Fixed a race on kqueue backends where cancelling an I/O wait in guest mode after its event had been fetched could raise :exc:`TrioInternalError`.
