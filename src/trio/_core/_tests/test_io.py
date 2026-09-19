@@ -427,16 +427,15 @@ async def test_io_manager_kqueue_monitors_statistics() -> None:
     reason="requires the kqueue backend",
 )
 def test_kqueue_process_events_rejects_unknown_key() -> None:
-    if sys.platform != "win32" and sys.platform != "linux":
-        from .._io_kqueue import KqueueIOManager
+    from .._io_kqueue import KqueueIOManager
 
-        manager = KqueueIOManager()
-        try:
-            event = select.kevent(1_000_000, select.KQ_FILTER_READ)
-            with pytest.raises(KeyError):
-                manager.process_events([event])
-        finally:
-            manager.close()
+    manager = KqueueIOManager()
+    try:
+        event = select.kevent(1_000_000, select.KQ_FILTER_READ)
+        with pytest.raises(KeyError):
+            manager.process_events([event])
+    finally:
+        manager.close()
 
 
 async def test_can_survive_unnotified_close() -> None:
