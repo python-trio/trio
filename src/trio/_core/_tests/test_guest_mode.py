@@ -774,3 +774,19 @@ def test_notify_closing_after_events() -> None:
     trivial_guest_run(trio_main)
     for sock in pair:
         sock.close()
+
+
+@pytest.mark.skipif(
+    sys.platform in {"win32", "linux"},
+    reason="requires the kqueue backend",
+)
+def test_cancel_io_after_events_fetched() -> None:
+    async def trio_main(in_host: InHost) -> None:
+        left, right = socket.socketpair()
+        with left, right, trio.CancelScope() as scope:
+            in_host(scope.cancel)
+            await trio.lowlevel.wait_writable(left)
+
+        assert scope.cancelled_caught
+
+    trivial_guest_run(trio_main)
