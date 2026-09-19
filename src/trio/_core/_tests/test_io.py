@@ -422,20 +422,18 @@ async def test_io_manager_kqueue_monitors_statistics() -> None:
             check(expected_monitors=0, expected_readers=1, expected_writers=0)
 
 
-@pytest.mark.skipif(
-    sys.platform in {"win32", "linux"},
-    reason="requires the kqueue backend",
-)
-def test_kqueue_process_events_rejects_unknown_key() -> None:
-    from .._io_kqueue import KqueueIOManager
+if sys.platform not in {"win32", "linux"} and not TYPE_CHECKING:
 
-    manager = KqueueIOManager()
-    try:
-        event = select.kevent(1_000_000, select.KQ_FILTER_READ)
-        with pytest.raises(KeyError):
-            manager.process_events([event])
-    finally:
-        manager.close()
+    def test_kqueue_process_events_rejects_unknown_key() -> None:
+        from .._io_kqueue import KqueueIOManager
+
+        manager = KqueueIOManager()
+        try:
+            event = select.kevent(1_000_000, select.KQ_FILTER_READ)
+            with pytest.raises(KeyError):
+                manager.process_events([event])
+        finally:
+            manager.close()
 
 
 async def test_can_survive_unnotified_close() -> None:
