@@ -38,6 +38,7 @@ class KqueueIOManager:
     _registered: dict[tuple[int, int], Task | UnboundedQueue[select.kevent]] = (
         attrs.Factory(dict)
     )
+    _cancelled_keys: set[tuple[int, int]] = attrs.Factory(set)
     _force_wakeup: WakeupSocketpair = attrs.Factory(WakeupSocketpair)
     _force_wakeup_fd: int | None = None
 
@@ -85,14 +86,20 @@ class KqueueIOManager:
         return events
 
     def process_events(self, events: EventResult) -> None:
+        cancelled_keys = self._cancelled_keys
+        self._cancelled_keys = set()
         for event in events:
             key = (event.ident, event.filter)
             if event.ident == self._force_wakeup_fd:
                 self._force_wakeup.drain()
                 continue
-            receiver = self._registered.get(key)
-            if receiver is None:
-                continue
+            try:
+                receiver = self._registered[key]
+            except KeyError:
+                if key in cancelled_keys:
+                    # See test_cancel_io_after_events_fetched.
+                    continue
+                raise
             if event.flags & select.KQ_EV_ONESHOT:  # TODO: test this branch
                 del self._registered[key]
             if isinstance(receiver, _core.Task):
@@ -163,6 +170,7 @@ class KqueueIOManager:
         def abort(raise_cancel: RaiseCancelT) -> Abort:
             r = abort_func(raise_cancel)
             if r is _core.Abort.SUCCEEDED:  # TODO: test this branch
+                self._cancelled_keys.add(key)
                 del self._registered[key]
             return r
 
