@@ -779,3 +779,27 @@ def test_notify_closing_after_events(close_first: bool) -> None:
 
     with pair[0], pair[1]:
         trivial_guest_run(trio_main)
+
+
+def test_cancel_from_host_after_events() -> None:
+    # Regression test for https://github.com/python-trio/trio/issues/3500
+    #
+    # In guest mode, host-loop callbacks can run between the IO manager
+    # fetching a batch of events and Trio processing it. If such a callback
+    # cancels a task that is blocked in wait_readable/wait_writable, the
+    # kqueue backend used to delete the task's registration while its event
+    # was already in that batch, and then crash with a KeyError (wrapped in
+    # TrioInternalError) when the stale event was processed.
+    a, b = socket.socketpair()
+    with a, b:
+
+        async def trio_main(in_host: InHost) -> None:
+            with trio.CancelScope() as cancel_scope:
+                # This runs in the host loop after the current tick has
+                # already fetched the "writable" event for `a`, but before
+                # the tick that would deliver it.
+                in_host(cancel_scope.cancel)
+                await trio.lowlevel.wait_writable(a)  # `a` is writable already
+            assert cancel_scope.cancelled_caught
+
+        trivial_guest_run(trio_main)
