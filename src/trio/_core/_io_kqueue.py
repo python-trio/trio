@@ -90,7 +90,13 @@ class KqueueIOManager:
             if event.ident == self._force_wakeup_fd:
                 self._force_wakeup.drain()
                 continue
-            receiver = self._registered[key]
+            receiver = self._registered.get(key)
+            if receiver is None:
+                # In guest mode, host callbacks can run between get_events()
+                # and process_events(). If one cancels a wait that has already
+                # completed then it will remove the receiver from _registered,
+                # so it will be missing when we get here; we can just drop it.
+                continue
             if event.flags & select.KQ_EV_ONESHOT:  # TODO: test this branch
                 del self._registered[key]
             if isinstance(receiver, _core.Task):

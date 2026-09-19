@@ -1,0 +1,1 @@
+Avoid raising `trio.TrioInternalError` when, in guest mode on BSD/MacOS, a callback in the host loop cancels a task waiting for a readable/writable wait that has just completed.
