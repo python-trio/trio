@@ -756,7 +756,9 @@ def test_guest_mode_asyncgens_garbage_collection() -> None:
 
 
 @pytest.mark.parametrize(
-    "close_first", [False, True], ids=["notify-then-close", "close-then-notify"],
+    "close_first",
+    [False, True],
+    ids=["notify-then-close", "close-then-notify"],
 )
 def test_notify_closing_after_events(close_first: bool) -> None:
     # inspired by wrong repro in https://github.com/python-trio/trio/pull/3502
