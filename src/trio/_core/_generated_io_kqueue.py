@@ -59,15 +59,42 @@ def monitor_kevent(
 
 @enable_ki_protection
 async def wait_kevent(
-    ident: int, filter: int, abort_func: Callable[[RaiseCancelT], Abort]
-) -> Abort:
-    """TODO: these are implemented, but are currently more of a sketch than
-    anything real. See `#26
-    <https://github.com/python-trio/trio/issues/26>`__.
+    ident: int | _HasFileNo,
+    filter: int,
+    abort_func: Callable[[RaiseCancelT], Abort] | None = None,
+    *,
+    fflags: int = 0,
+    data: int = 0,
+) -> select.kevent:
+    """Waits for a one-shot kevent to happen.
+
+    This is a low-level function that lets you wait on a specific kevent, in case
+    you have a use case not covered by the IO primitives in Trio.
+
+    This registers ``kevent(ident, filter, flags, fflags, data)``, where
+    ``flags`` is set to ``select.KQ_EV_ADD | select.KQ_EV_ONESHOT``, and waits
+    for it to complete. If cancelled then it is removed with ``flags`` set to
+    ``select.KQ_EV_DELETE``.
+
+    Args:
+        ident: Value used to identify the event. The interpretation depends on the
+          filter but it's usually the file descriptor.
+        filter: Name of the kernel filter e.g. ``select.KQ_FILTER_READ``.
+        fflags: Filter-specific flags.
+        data: Filter-specific data.
+
+    Returns:
+        select.kevent: The event returned from kqueue.
+
+    Raises:
+        BusyResourceError: if another task is waiting for this (ident, filter) pair.
+        OSError: if the kqueue rejects the registration (for example,
+            `ProcessLookupError` for an ``EVFILT_PROC`` ident that has
+            already exited).
     """
     try:
         return await GLOBAL_RUN_CONTEXT.runner.io_manager.wait_kevent(
-            ident, filter, abort_func
+            ident, filter, abort_func, fflags=fflags, data=data
         )
     except AttributeError:
         raise RuntimeError("must be called from async context") from None

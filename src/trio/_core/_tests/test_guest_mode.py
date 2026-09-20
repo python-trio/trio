@@ -30,7 +30,7 @@ import trio
 import trio.testing
 from trio.abc import Clock, Instrument
 
-from .tutil import gc_collect_harder, restore_unraisablehook
+from .tutil import gc_collect_harder, restore_unraisablehook, slow
 
 if TYPE_CHECKING:
     from trio._channel import MemorySendChannel
@@ -803,3 +803,64 @@ def test_cancel_from_host_after_events() -> None:
             assert cancel_scope.cancelled_caught
 
         trivial_guest_run(trio_main)
+
+
+@slow
+def test_cancel_from_host_after_process_exit_event() -> None:
+    # Regression test for the Process.wait() variant of
+    # https://github.com/python-trio/trio/issues/3500: on the kqueue backend,
+    # cancelling from the host after the child's exit event had been fetched
+    # but before it was processed raised an OSError out of cancel().
+    #
+    # This doesn't use trivial_guest_run because the host callback needs to
+    # know when Trio's worker thread has fetched a batch of events and posted
+    # its delivery callback, i.e. when run_sync_soon_threadsafe is called.
+    todo: queue.Queue[Callable[[], object] | Outcome[None]] = queue.Queue()
+    events_fetched = threading.Event()
+
+    def run_sync_soon_threadsafe(fn: Callable[[], object]) -> None:
+        events_fetched.set()
+        todo.put(fn)
+
+    def run_sync_soon_not_threadsafe(fn: Callable[[], object]) -> None:
+        todo.put(fn)
+
+    def done_callback(outcome: Outcome[None]) -> None:
+        todo.put(outcome)
+
+    async def trio_main() -> None:
+        # The child must still be alive when Process.wait() registers its
+        # interest, and then exit while Trio is idle in the worker thread.
+        proc = await trio.lowlevel.open_process(
+            [sys.executable, "-c", "import time; time.sleep(1)"],
+        )
+        with trio.CancelScope() as cancel_scope:
+            async with trio.open_nursery() as nursery:
+                nursery.start_soon(proc.wait)
+                await trio.testing.wait_all_tasks_blocked()
+                # No fetch can be in progress while a task is running, so from
+                # here on the event can only be set by the fetch that returns
+                # the child's exit event.
+                events_fetched.clear()
+
+                def cancel_from_host() -> None:
+                    assert events_fetched.wait(30)
+                    cancel_scope.cancel()
+
+                run_sync_soon_not_threadsafe(cancel_from_host)
+        assert cancel_scope.cancelled_caught
+        # Reap the child now that we're no longer cancelled.
+        assert await proc.wait() == 0
+
+    trio.lowlevel.start_guest_run(
+        trio_main,
+        run_sync_soon_threadsafe=run_sync_soon_threadsafe,
+        run_sync_soon_not_threadsafe=run_sync_soon_not_threadsafe,
+        done_callback=done_callback,
+    )
+    while True:
+        item = todo.get()
+        if isinstance(item, Outcome):
+            item.unwrap()
+            return
+        item()
