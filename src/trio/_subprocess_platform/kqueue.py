@@ -10,7 +10,6 @@ assert (sys.platform != "win32" and sys.platform != "linux") or not TYPE_CHECKIN
 
 
 async def wait_child_exiting(process: _subprocess.Process) -> None:
-    kqueue = _core.current_kqueue()
     try:
         from select import KQ_NOTE_EXIT
     except ImportError:  # pragma: no cover
@@ -19,16 +18,12 @@ async def wait_child_exiting(process: _subprocess.Process) -> None:
         # I verified this value against both Darwin and FreeBSD
         KQ_NOTE_EXIT = 0x80000000  # type: ignore[misc]
 
-    def make_event(flags: int) -> select.kevent:
-        return select.kevent(
+    try:
+        await _core.wait_kevent(
             process.pid,
-            filter=select.KQ_FILTER_PROC,
-            flags=flags,
+            select.KQ_FILTER_PROC,
             fflags=KQ_NOTE_EXIT,
         )
-
-    try:
-        kqueue.control([make_event(select.KQ_EV_ADD | select.KQ_EV_ONESHOT)], 0)
     except ProcessLookupError:  # pragma: no cover
         # This can supposedly happen if the process is in the process
         # of exiting, and it can even be the case that kqueue says the
@@ -40,9 +35,3 @@ async def wait_child_exiting(process: _subprocess.Process) -> None:
         # for the same process simultaneously, but given the explanation
         # in Chromium it seems we should still keep the check.
         return
-
-    def abort(_: _core.RaiseCancelT) -> _core.Abort:
-        kqueue.control([make_event(select.KQ_EV_DELETE)], 0)
-        return _core.Abort.SUCCEEDED
-
-    await _core.wait_kevent(process.pid, select.KQ_FILTER_PROC, abort)

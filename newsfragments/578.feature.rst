@@ -1,0 +1,5 @@
+`trio.lowlevel.wait_kevent` now actually registers the kevent (as a one shot
+event) rather than leaving that to the caller, and unregisters on cancellation
+rather than leaving it to the user supplied (and now deprecated)
+``abort_func`` parameter. This is a more convenient API, and more reliably
+handles conflicts if multiple callers attempt to wait for the same event.
