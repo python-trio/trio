@@ -19,7 +19,7 @@ import pytest
 
 import trio
 import trio.testing
-from trio._tests.pytest_plugin import RUN_SLOW, skip_if_optional_else_raise
+from trio._tests.pytest_plugin import RUN_SLOW, maybe_ignore_import_error
 
 from .. import _core, _util
 from .._core._tests.tutil import slow
@@ -41,7 +41,7 @@ def _ensure_mypy_cache_updated() -> None:
     try:
         from mypy.api import run
     except ImportError as error:
-        skip_if_optional_else_raise(error)
+        maybe_ignore_import_error(error)
 
     global mypy_cache_updated
     if not mypy_cache_updated:
@@ -159,7 +159,7 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
         try:
             from pylint.lint import PyLinter
         except ImportError as error:
-            skip_if_optional_else_raise(error)
+            maybe_ignore_import_error(error)
 
         linter = PyLinter()
         assert module.__file__ is not None
@@ -172,7 +172,7 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
         try:
             import jedi
         except ImportError as error:
-            skip_if_optional_else_raise(error)
+            maybe_ignore_import_error(error)
 
         # Simulate typing "import trio; trio.<TAB>"
         script = jedi.Script(f"import {modname}; {modname}.")
@@ -215,7 +215,7 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
         try:
             import pyright  # noqa: F401
         except ImportError as error:
-            skip_if_optional_else_raise(error)
+            maybe_ignore_import_error(error)
         import subprocess
 
         res = subprocess.run(
@@ -380,7 +380,7 @@ def test_static_tool_sees_class_members(
             try:
                 import jedi
             except ImportError as error:
-                skip_if_optional_else_raise(error)
+                maybe_ignore_import_error(error)
 
             script = jedi.Script(
                 f"from {module_name} import {class_name}; {class_name}.",
