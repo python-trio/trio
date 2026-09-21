@@ -205,7 +205,7 @@ class KqueueIOManager:
 
             def abort_deprecated(raise_cancel: RaiseCancelT) -> Abort:
                 r = abort_fn(raise_cancel)
-                if r is _core.Abort.SUCCEEDED:
+                if r is _core.Abort.SUCCEEDED:  # TODO: test this branch
                     del self._registered[key]
                 return r
 

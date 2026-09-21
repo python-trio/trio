@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import select
+import sys
 import time
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -14,6 +16,10 @@ pytestmark = pytest.mark.skipif(
     not hasattr(select, "kqueue"),
     reason="kqueue platforms only",
 )
+
+assert (
+    sys.platform != "linux" and sys.platform != "win32"
+) or not TYPE_CHECKING  # Skip type checking when not on a kqueue platform
 
 
 async def test_wait_kevent_timer() -> None:
@@ -81,9 +87,8 @@ async def test_wait_kevent_deprecated_abort_func() -> None:
         0,
     )
 
-    def abort(_: object) -> trio.lowlevel.Abort:
-        kq.control([select.kevent(4, select.KQ_FILTER_TIMER, select.KQ_EV_DELETE)], 0)
-        return trio.lowlevel.Abort.SUCCEEDED
+    def abort(_: object) -> trio.lowlevel.Abort:  # pragma: no cover
+        pytest.fail("wait unexpectedly cancelled")
 
     with pytest.deprecated_call():
         event = await trio.lowlevel.wait_kevent(4, select.KQ_FILTER_TIMER, abort)

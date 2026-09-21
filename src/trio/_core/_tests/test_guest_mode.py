@@ -757,8 +757,17 @@ def test_guest_mode_asyncgens_garbage_collection() -> None:
 
 @pytest.mark.parametrize(
     "close_first",
-    [False, True],
-    ids=["notify-then-close", "close-then-notify"],
+    [
+        pytest.param(False, id="notify-then-close"),
+        pytest.param(
+            True,
+            id="close-then-notify",
+            marks=pytest.mark.skipif(
+                sys.platform == "win32",
+                reason="Windows backend can't notify_closing an already-closed socket",
+            ),
+        ),
+    ],
 )
 def test_notify_closing_after_events(close_first: bool) -> None:
     # inspired by wrong repro in https://github.com/python-trio/trio/pull/3502

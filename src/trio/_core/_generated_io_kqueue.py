@@ -68,17 +68,17 @@ async def wait_kevent(
 ) -> select.kevent:
     """Waits for a one-shot kevent to happen.
 
-    This is a low-level function that lets you wait on a specific kevent, in case
-    you have a use case not covered by the IO primitives in Trio.
+    This is a low-level function that lets you wait on a specific kevent,
+    in case you have a use case not covered by the IO primitives in Trio.
 
     This registers ``kevent(ident, filter, flags, fflags, data)``, where
-    ``flags`` is set to ``select.KQ_EV_ADD | select.KQ_EV_ONESHOT``, and waits
-    for it to complete. If cancelled then it is removed with ``flags`` set to
-    ``select.KQ_EV_DELETE``.
+    ``flags`` is set to ``select.KQ_EV_ADD | select.KQ_EV_ONESHOT``, and
+    waits for it to complete. If cancelled then it is removed with ``flags``
+    set to ``select.KQ_EV_DELETE``.
 
     Args:
-        ident: Value used to identify the event. The interpretation depends on the
-          filter but it's usually the file descriptor.
+        ident: Value used to identify the event. The interpretation depends
+            on the filter but it's usually the file descriptor.
         filter: Name of the kernel filter e.g. ``select.KQ_FILTER_READ``.
         fflags: Filter-specific flags.
         data: Filter-specific data.
@@ -87,7 +87,8 @@ async def wait_kevent(
         select.kevent: The event returned from kqueue.
 
     Raises:
-        BusyResourceError: if another task is waiting for this (ident, filter) pair.
+        BusyResourceError: if another task is waiting for this
+            ``(ident, filter)`` pair.
         OSError: if the kqueue rejects the registration (for example,
             `ProcessLookupError` for an ``EVFILT_PROC`` ident that has
             already exited).
