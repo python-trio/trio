@@ -1,1 +1,0 @@
-Fix issue in tox:type_completeness check that relates to checking docstrings when they are defined in base class.
