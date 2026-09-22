@@ -18,7 +18,6 @@ class _NoValue:
     (e.g. when variable is not initialized with value yet).
     Like `undefined` in JS (but better).
     """
-    ...
 
 
 @final

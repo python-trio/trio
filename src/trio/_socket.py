@@ -548,6 +548,7 @@ class SocketType:
     Trio's version of standard library's :class:`socket.socket`.
     Encompasses some of Trio-specific platform handling logic.
     """
+
     def __init__(self) -> None:
         # make sure this __init__ works with multiple inheritance
         super().__init__()

@@ -195,7 +195,7 @@ class FdStream(Stream):
 
     async def aclose(self) -> None:
         """
-        Close (syncronously) the stream and close file descriptor
+        Close (synchronously) the stream and close file descriptor
         it's wrapping. See class docstring for details.
         """
         self.close()

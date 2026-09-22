@@ -306,6 +306,7 @@ class _WindowsStatistics:
     It has a sibling :class:`~trio._core._io_epoll._EpollStatistics`
     that is used with platform "Linux" or "Darwin".
     """
+
     tasks_waiting_read: int
     tasks_waiting_write: int
     tasks_waiting_overlapped: int

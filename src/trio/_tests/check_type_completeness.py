@@ -181,7 +181,6 @@ def main(args: argparse.Namespace) -> int:
     else:
         full_diagnostics_file = None
 
-
     has_errors = False
     for platform in "Linux", "Windows", "Darwin":
         print("*" * 20, f"\nChecking {platform}...")

@@ -1489,11 +1489,12 @@ class Task(metaclass=NoPublicConstructor):  # type: ignore[explicit-any]
     """
     Class for Trio's `Task` primitive.
     Wraps coroutine, adding more functionality for stopping and resuming tasks,
-    for scheduling and canceling tasks, for assosiating a `Task` with `Runner` and
+    for scheduling and canceling tasks, for associating a `Task` with `Runner` and
     context (`contextvars.Context`), among other things.
     `Task` can belong to `trio._core._run.Nursery` and can spawn child nurseries.
     See `trio._core._run.Nursery` docs for more information.
     """
+
     _parent_nursery: Nursery | None
     coro: types.CoroutineType[Any, Outcome[object], Any]  # type: ignore[explicit-any]
     _runner: Runner

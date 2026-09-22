@@ -144,6 +144,7 @@ class AsyncContextManagerMixin:
     Calls `await self.acquire()` on entry and `self.release` on exit,
     adding KeyboardInterrupt protection support.
     """
+
     @enable_ki_protection
     async def __aenter__(self: _HasAcquireRelease) -> None:
         await self.acquire()

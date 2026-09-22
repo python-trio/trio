@@ -44,6 +44,7 @@ class _EpollStatistics:
     It has a sibling :class:`~trio._core._io_windows._WindowsStatistics`
     that is used with platform "Windows".
     """
+
     tasks_waiting_read: int
     tasks_waiting_write: int
     backend: Literal["epoll"] = attrs.field(init=False, default="epoll")

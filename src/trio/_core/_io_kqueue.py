@@ -37,6 +37,7 @@ class _KqueueStatistics:
     It has a sibling :class:`~trio._core._io_windows._WindowsStatistics`
     that is used with platform "Windows".
     """
+
     tasks_waiting: int
     monitors: int
     backend: Literal["kqueue"] = attrs.field(init=False, default="kqueue")
