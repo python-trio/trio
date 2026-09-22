@@ -188,7 +188,7 @@ def main(args: argparse.Namespace) -> int:
 
         if errors:
             print(
-                f"New errors introduced in `pyright --verifytypes`. Fix them, or ignore them by modifying {errors_by_platform_file}, either manually or with '--overwrite-file'.",
+                "New errors introduced in `pyright --verifytypes`. Fix them.",
                 file=sys.stderr,
             )
             has_errors = True
