@@ -101,7 +101,7 @@ class HasFileno(Protocol):
     def fileno(self) -> int:
         """
         Integer that corresponds to file descriptor, as in
-        `sys.stdout.fileno()`
+        :func:`~sys.stdout.fileno()`
         """
         ...
 
