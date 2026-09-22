@@ -39,6 +39,13 @@ class KqueueIOManager:
     _registered: dict[tuple[int, int], Task | UnboundedQueue[select.kevent]] = (
         attrs.Factory(dict)
     )
+    # Keeps track of whether we are running host callbacks in guest mode
+    # and, if so, which events have been discarded by those callbacks
+    # cancelling waiters or calling notify_closing. Needed in case they
+    # have just completed, in which case they will appear to be spurious
+    # in process_events.
+    _events_pending: bool = False
+    _deregistered: set[tuple[int, int]] = attrs.Factory(set)
     _force_wakeup: WakeupSocketpair = attrs.Factory(WakeupSocketpair)
     _force_wakeup_fd: int | None = None
 
@@ -68,7 +75,15 @@ class KqueueIOManager:
     def force_wakeup(self) -> None:
         self._force_wakeup.wakeup_thread_and_signal_safe()
 
+    def _deregister(self, key: tuple[int, int]) -> None:
+        del self._registered[key]
+        if self._events_pending:
+            self._deregistered.add(key)
+
     def get_events(self, timeout: float) -> EventResult:
+        # In guest mode, note that we are now processing host callbacks, so
+        # need to record any discarded events.
+        self._events_pending = True
         # max_events must be > 0 or kqueue gets cranky
         # and we generally want this to be strictly larger than the actual
         # number of events we get, so that we can tell that we've gotten
@@ -91,20 +106,21 @@ class KqueueIOManager:
             if event.ident == self._force_wakeup_fd:
                 self._force_wakeup.drain()
                 continue
-            receiver = self._registered.get(key)
-            if receiver is None:
-                # In guest mode, host callbacks can run between get_events()
-                # and process_events(). If one cancels a wait that has already
-                # completed, or calls notify_closing() on its fd, then it will
-                # remove the receiver from _registered, so it will be missing
-                # when we get here; we can just drop it.
+            if key in self._deregistered:
+                # A host callback deregistered this key after the batch was
+                # fetched (see _deregistered above); its receiver is gone and
+                # this stale event should just be dropped. Any other missing
+                # key would be a bug, so let the lookup below fail loudly.
                 continue
+            receiver = self._registered[key]
             if event.flags & select.KQ_EV_ONESHOT:  # TODO: test this branch
                 del self._registered[key]
             if isinstance(receiver, _core.Task):
                 _core.reschedule(receiver, outcome.Value(event))
             else:
                 receiver.put_nowait(event)  # TODO: test this line
+        self._events_pending = False
+        self._deregistered.clear()
 
     # kevent registration is complicated -- e.g. aio submission can
     # implicitly perform an EV_ADD, and EVFILT_PROC with NOTE_TRACK will
@@ -207,7 +223,7 @@ class KqueueIOManager:
             def abort_deprecated(raise_cancel: RaiseCancelT) -> Abort:
                 r = abort_fn(raise_cancel)
                 if r is _core.Abort.SUCCEEDED:  # TODO: test this branch
-                    del self._registered[key]
+                    self._deregister(key)
                 return r
 
             # wait_task_rescheduled does not have its return type typed
@@ -227,7 +243,7 @@ class KqueueIOManager:
         self._registered[key] = _core.current_task()
 
         def abort(raise_cancel: RaiseCancelT) -> Abort:
-            del self._registered[key]
+            self._deregister(key)
             try:
                 event = select.kevent(ident, filter, select.KQ_EV_DELETE)
                 self._kqueue.control([event], 0)
@@ -347,7 +363,7 @@ class KqueueIOManager:
                         raise  # pragma: no cover
                 exc = _core.ClosedResourceError("another task closed this fd")
                 _core.reschedule(receiver, outcome.Error(exc))
-                del self._registered[key]
+                self._deregister(key)
             else:
                 # XX this is an interesting example of a case where being able
                 # to close a queue would be useful...
