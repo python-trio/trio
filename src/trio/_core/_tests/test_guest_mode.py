@@ -771,14 +771,14 @@ def test_guest_mode_asyncgens_garbage_collection() -> None:
 )
 def test_notify_closing_after_events(close_first: bool) -> None:
     # inspired by wrong repro in https://github.com/python-trio/trio/pull/3502
-    # either the program should silently pass or wait_writable should fail.
+    # wait_writable must raise ClosedResourceError
     pair = socket.socketpair()
     for sock in pair:
         sock.setblocking(False)
 
     async def trio_main(in_host: InHost) -> None:
         in_host(uh_oh)
-        with contextlib.suppress(trio.ClosedResourceError):
+        with pytest.raises(trio.ClosedResourceError):
             await trio.lowlevel.wait_writable(pair[0])  # blocks
 
     def uh_oh() -> None:

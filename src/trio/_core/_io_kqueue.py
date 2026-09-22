@@ -95,8 +95,9 @@ class KqueueIOManager:
             if receiver is None:
                 # In guest mode, host callbacks can run between get_events()
                 # and process_events(). If one cancels a wait that has already
-                # completed then it will remove the receiver from _registered,
-                # so it will be missing when we get here; we can just drop it.
+                # completed, or calls notify_closing() on its fd, then it will
+                # remove the receiver from _registered, so it will be missing
+                # when we get here; we can just drop it.
                 continue
             if event.flags & select.KQ_EV_ONESHOT:  # TODO: test this branch
                 del self._registered[key]
@@ -337,10 +338,13 @@ class KqueueIOManager:
                 try:
                     self._kqueue.control([event], 0)
                 except OSError as e:
-                    if e.errno in (errno.EBADF, errno.ENOENT):  # pragma: no branch
-                        # the event isn't in kqueue
-                        continue
-                    raise  # pragma: no cover
+                    # kqueue no longer knows about this event. Either the fd
+                    # was already closed, which deregisters it automatically
+                    # (FreeBSD reports EBADF, macOS ENOENT), or, in guest
+                    # mode, the one-shot event was fetched by get_events()
+                    # but not yet processed (ENOENT on both platforms).
+                    if e.errno not in (errno.EBADF, errno.ENOENT):
+                        raise  # pragma: no cover
                 exc = _core.ClosedResourceError("another task closed this fd")
                 _core.reschedule(receiver, outcome.Error(exc))
                 del self._registered[key]
