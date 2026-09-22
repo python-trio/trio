@@ -657,6 +657,16 @@ Asynchronous file objects
 
 .. autofunction:: wrap_file(file)
 
+.. autoclass:: AsyncIOWrapper
+
+   This is the concrete wrapper type returned by :func:`open_file`,
+   :func:`wrap_file`, and :meth:`Path.open`. It does not provide every file
+   operation on every instance: available operations depend on the wrapped
+   synchronous file object, and the type hints model that relationship. If an
+   API only needs a small subset of the asynchronous file interface, accepting
+   a structural protocol can be more flexible than requiring
+   ``AsyncIOWrapper`` specifically.
+
 .. interface:: Asynchronous file interface
 
    Trio's asynchronous file objects have an interface that
