@@ -239,9 +239,14 @@ def collapse_exception_group(
         and isinstance(excgroup, BaseExceptionGroup)
         and NONSTRICT_EXCEPTIONGROUP_NOTE in getattr(excgroup, "__notes__", ())
     ):
-        exceptions[0].__traceback__ = concat_tb(
-            excgroup.__traceback__,
-            exceptions[0].__traceback__,
+        # Frozen dataclass exceptions reject normal attribute assignment.
+        object.__setattr__(
+            exceptions[0],
+            "__traceback__",
+            concat_tb(
+                excgroup.__traceback__,
+                exceptions[0].__traceback__,
+            ),
         )
         return exceptions[0]
     elif modified:
@@ -725,7 +730,7 @@ class CancelScope:
             finally:
                 _, value, _ = sys.exc_info()
                 assert value is remaining_error_after_cancel_scope
-                value.__context__ = old_context
+                object.__setattr__(value, "__context__", old_context)
                 # delete references from locals to avoid creating cycles
                 # see test_cancel_scope_exit_doesnt_create_cyclic_garbage
                 # Note: still relevant
@@ -1118,7 +1123,7 @@ class NurseryManager:
             finally:
                 _, value, _ = sys.exc_info()
                 assert value is combined_error_from_nursery
-                value.__context__ = old_context
+                object.__setattr__(value, "__context__", old_context)
                 # delete references from locals to avoid creating cycles
                 # see test_cancel_scope_exit_doesnt_create_cyclic_garbage
                 del _, combined_error_from_nursery, value, new_exc

@@ -15,6 +15,7 @@ from contextlib import (
     contextmanager,
     suppress,
 )
+from dataclasses import dataclass
 from math import inf, nan
 from typing import TYPE_CHECKING, NoReturn, TypeVar
 from unittest import mock
@@ -2822,6 +2823,24 @@ async def test_nursery_collapse(strict: bool | None) -> None:
                 nursery2.start_soon(sleep_forever)
                 nursery2.start_soon(raise_error)
                 nursery.cancel_scope.cancel()
+
+
+@pytest.mark.filterwarnings(
+    "ignore:.*strict_exception_groups=False:trio.TrioDeprecationWarning",
+)
+async def test_nursery_collapse_allows_frozen_exceptions() -> None:
+    @dataclass(frozen=True)
+    class FrozenError(Exception):
+        value: int
+
+    async def raise_error() -> NoReturn:
+        raise FrozenError(1)
+
+    with pytest.raises(FrozenError) as excinfo:
+        async with _core.open_nursery(strict_exception_groups=False) as nursery:
+            nursery.start_soon(raise_error)
+
+    assert excinfo.value.value == 1
 
 
 async def test_cancel_scope_no_cancellederror() -> None:

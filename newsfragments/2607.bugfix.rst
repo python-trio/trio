@@ -1,0 +1,1 @@
+Fixed a crash when collapsing exception groups containing frozen dataclass exceptions.

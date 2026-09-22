@@ -332,7 +332,7 @@ def raise_saving_context(exc: BaseException) -> NoReturn:
     try:
         raise exc
     finally:
-        exc.__context__ = context
+        object.__setattr__(exc, "__context__", context)
         del exc, context
 
 
