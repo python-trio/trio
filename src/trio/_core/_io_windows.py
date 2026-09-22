@@ -293,6 +293,19 @@ assert not TYPE_CHECKING or sys.platform == "win32"
 
 @attrs.frozen(eq=False)
 class _WindowsStatistics:
+    """
+    DTO class that holds information on current status
+    that pertains to IO waits:
+    - amount of tasks waiting on read
+    - amount of tasks waiting on write
+    - amount of overlapped tasks
+    - amount of completion monitors
+    - backend = "windows"
+
+    This class is used with platform "Windows".
+    It has a sibling :class:`~trio._core._io_epoll._EpollStatistics`
+    that is used with platform "Linux" or "Darwin".
+    """
     tasks_waiting_read: int
     tasks_waiting_write: int
     tasks_waiting_overlapped: int

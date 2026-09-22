@@ -12,7 +12,13 @@ T = TypeVar("T")
 
 
 @final
-class _NoValue: ...
+class _NoValue:
+    """
+    Indicates `RunVar` variable without a value
+    (e.g. when variable is not initialized with value yet).
+    Like `undefined` in JS (but better).
+    """
+    ...
 
 
 @final

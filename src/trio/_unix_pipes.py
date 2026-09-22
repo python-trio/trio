@@ -187,11 +187,23 @@ class FdStream(Stream):
             return data
 
     def close(self) -> None:
+        """
+        Close the stream and close file descriptor it's wrapping.
+        See class docstring for details.
+        """
         self._fd_holder.close()
 
     async def aclose(self) -> None:
+        """
+        Close (syncronously) the stream and close file descriptor
+        it's wrapping. See class docstring for details.
+        """
         self.close()
         await trio.lowlevel.checkpoint()
 
     def fileno(self) -> int:
+        """
+        Returns integer representing the file descriptor this `FdStream` class
+        instance is wrapping. See class docstring for details.
+        """
         return self._fd_holder.fd
