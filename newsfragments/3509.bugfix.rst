@@ -1,0 +1,4 @@
+On Windows, :func:`trio.lowlevel.wait_readable`, :func:`trio.lowlevel.wait_writable`
+and :func:`trio.lowlevel.notify_closing` raised ``BusyResourceError`` and
+``ClosedResourceError`` without any message. They now explain themselves, as they
+already did on the epoll and kqueue backends.
