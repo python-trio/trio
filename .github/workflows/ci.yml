@@ -1,3 +1,5 @@
+# This workflow is managed by gh actions-lock.
+
 name: CI
 
 permissions: {}
@@ -33,12 +35,12 @@ jobs:
 
     steps:
       - name: Switch to using Python 3.11
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v6.3.0
         with:
           python-version: 3.11
 
       - name: Grab the source from Git
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.0
         with:
           persist-credentials: false
 
@@ -74,7 +76,7 @@ jobs:
           SDIST: ${{ steps.artifact-name.outputs.sdist }}
           WHEEL: ${{ steps.artifact-name.outputs.wheel }}
       - name: Store the distribution packages
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: ${{ env.dists-artifact-name }}
           # NOTE: Exact expected file names are specified here
@@ -95,7 +97,7 @@ jobs:
 
     steps:
       - name: Switch to using Python 3.11
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v6.3.0
         with:
           python-version: 3.11
 
@@ -117,7 +119,7 @@ jobs:
 
       - name: >-
           Smoke-test: grab the source from Git into git-src
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.0
         with:
           path: git-src
           persist-credentials: false
@@ -211,7 +213,7 @@ jobs:
           source-tarball-name: ${{ needs.build.outputs.sdist-artifact-name }}
           workflow-artifact-name: ${{ env.dists-artifact-name }}
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v6.3.0
         with:
           python-version: '${{ matrix.python }}'
           architecture: '${{ matrix.arch }}'
@@ -224,7 +226,7 @@ jobs:
           LSP: '${{ matrix.lsp }}'
           LSP_EXTRACT_FILE: '${{ matrix.lsp_extract_file }}'
       - if: always()
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@v7.0.0
         with:
           name: Windows (${{ matrix.python }}, ${{ matrix.arch }}${{ matrix.extra_name }})
           # multiple flags is marked as an error in codecov UI, but is actually fine
@@ -272,11 +274,11 @@ jobs:
           workflow-artifact-name: ${{ env.dists-artifact-name }}
       - name: Grab the source from Git
         if: matrix.check_formatting == '1'
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.0
         with:
           persist-credentials: false
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v6.3.0
         with:
           python-version: '${{ matrix.python }}'
           cache: pip
@@ -285,7 +287,7 @@ jobs:
           check-latest: true
       - name: Setup minimum Python version
         if: matrix.check_formatting == '1'
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v6.3.0
         with:
           python-version: '3.10'
           cache: pip
@@ -304,7 +306,7 @@ jobs:
       - if: >-
           always()
           && matrix.check_formatting != '1'
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@v7.0.0
         with:
           name: Ubuntu (${{ matrix.python }}${{ matrix.extra_name }})
           flags: Ubuntu,${{ matrix.python }}
@@ -337,7 +339,7 @@ jobs:
           source-tarball-name: ${{ needs.build.outputs.sdist-artifact-name }}
           workflow-artifact-name: ${{ env.dists-artifact-name }}
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v6.3.0
         with:
           python-version: '${{ matrix.python }}'
           cache: pip
@@ -347,7 +349,7 @@ jobs:
       - name: Run tests
         run: ./ci.sh
       - if: always()
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@v7.0.0
         with:
           name: macOS (${{ matrix.python }})
           flags: macOS,${{ matrix.python }}
@@ -393,7 +395,7 @@ jobs:
             f.write("\n")
 
       - if: always()
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@v7.0.0
         with:
           name: Alpine
           flags: Alpine,${{ steps.get-version.outputs.version }}
@@ -427,7 +429,7 @@ jobs:
           source-tarball-name: ${{ needs.build.outputs.sdist-artifact-name }}
           workflow-artifact-name: ${{ env.dists-artifact-name }}
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v6.3.0
         with:
             python-version: '${{ matrix.python }}'
             cache: pip
@@ -464,7 +466,7 @@ jobs:
           coverage report
 
       - if: always()
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@v7.0.0
         with:
           name: Cython
           flags: Cython,${{ steps.get-version.outputs.version }}
