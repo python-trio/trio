@@ -239,9 +239,9 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
     #   static analysis (e.g. in trio.socket or trio.lowlevel)
     # So we check that the runtime names are a subset of the static names.
     missing_names = runtime_names - static_names
-    print(f"missing_names=})
-    print(f"runtime_names=})
-    print(f"static_names=})
+    print(f"{missing_names=}")
+    print(f"{runtime_names=}")
+    print(f"{static_names=}")
 
     # ignore warnings about deprecated module tests
     missing_names -= {"tests"}
