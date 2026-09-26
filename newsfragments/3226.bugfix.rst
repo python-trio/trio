@@ -1,0 +1,1 @@
+Add docstrings for the classes and functions that ``pyright --verifytypes`` complains about.

@@ -184,7 +184,7 @@ jobs:
             lsp: 'https://www.proxifier.com/download/legacy/ProxifierSetup342.exe'
             lsp_extract_file: ''
             extra_name: ', with IFS LSP'
-          - python: 'pypy-3.11'
+          - python: 'pypy-3.11-v7.3.23'  # pin to 7.3 bc of bugs in pypy 8.0 for win
             arch: 'x64'
             lsp: ''
             lsp_extract_file: ''
