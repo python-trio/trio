@@ -134,16 +134,15 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
 )
 @pytest.mark.parametrize(
     "modname",
-    # PUBLIC_MODULE_NAMES
-    ["trio.socket"],
+    PUBLIC_MODULE_NAMES
 )
 @pytest.mark.parametrize(
     "tool",
     [
         "pylint",
-        # "jedi",
-        # "mypy",
-        # "pyright_verifytypes"
+        "jedi",
+        "mypy",
+        "pyright_verifytypes"
     ],
 )
 @pytest.mark.filterwarnings(
@@ -151,10 +150,7 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
     "ignore:module 'sre_constants' is deprecated:DeprecationWarning",
 )
 def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -> None:
-    print(sys.version_info)
     module = importlib.import_module(modname)
-    print(dir(module))
-    assert False
 
     def no_underscores(symbols: Iterable[str]) -> set[str]:
         return {symbol for symbol in symbols if not symbol.startswith("_")}
@@ -254,9 +250,6 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
     #   static analysis (e.g. in trio.socket or trio.lowlevel)
     # So we check that the runtime names are a subset of the static names.
     missing_names = runtime_names - static_names
-    print(f"{missing_names=}")
-    print(f"{runtime_names=}")
-    print(f"{static_names=}")
 
     # ignore warnings about deprecated module tests
     missing_names -= {"tests"}
