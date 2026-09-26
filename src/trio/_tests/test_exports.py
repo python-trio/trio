@@ -132,18 +132,10 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
     sys.version_info.releaselevel == "alpha",
     reason="skip static introspection tools on Python dev/alpha releases",
 )
-@pytest.mark.parametrize(
-    "modname",
-    PUBLIC_MODULE_NAMES
-)
+@pytest.mark.parametrize("modname", PUBLIC_MODULE_NAMES)
 @pytest.mark.parametrize(
     "tool",
-    [
-        "pylint",
-        "jedi",
-        "mypy",
-        "pyright_verifytypes"
-    ],
+    ["pylint", "jedi", "mypy", "pyright_verifytypes"],
 )
 @pytest.mark.filterwarnings(
     # https://github.com/pypa/setuptools/issues/3274
