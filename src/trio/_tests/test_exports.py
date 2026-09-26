@@ -253,6 +253,7 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
 
     # ignore warnings about deprecated module tests
     missing_names -= {"tests"}
+    missing_names -= {"ALG_SET_PUB_KEY"}  # https://github.com/pypy/pypy/issues/5594
 
     if missing_names:  # pragma: no cover
         print(f"{tool} can't see the following names in {modname}:")
