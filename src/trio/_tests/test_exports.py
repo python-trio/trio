@@ -135,7 +135,7 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
 @pytest.mark.parametrize(
     "modname",
     # PUBLIC_MODULE_NAMES
-    ["trio.socket"]
+    ["trio.socket"],
 )
 @pytest.mark.parametrize(
     "tool",
@@ -144,7 +144,7 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
         # "jedi",
         # "mypy",
         # "pyright_verifytypes"
-    ]
+    ],
 )
 @pytest.mark.filterwarnings(
     # https://github.com/pypa/setuptools/issues/3274
