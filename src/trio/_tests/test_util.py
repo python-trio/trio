@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import signal
 import sys
 import types
 from typing import TYPE_CHECKING, TypeVar
@@ -85,6 +86,28 @@ def test_module_metadata_is_fixed_up() -> None:
 
 
 async def test_is_main_thread() -> None:
+    assert is_main_thread()
+
+    def not_main_thread() -> None:
+        assert not is_main_thread()
+
+    await trio.to_thread.run_sync(not_main_thread)
+
+
+async def test_is_main_thread_with_non_python_sigint_handler(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Embedding hosts can install a C-level SIGINT handler. Python then
+    # reports the handler as None, and signal.signal() rejects it with
+    # TypeError. That is not the same as running off the main thread.
+    orig = signal.getsignal
+
+    def fake_getsignal(signum: int) -> object:
+        if signum == signal.SIGINT:
+            return None
+        return orig(signum)
+
+    monkeypatch.setattr(signal, "getsignal", fake_getsignal)
     assert is_main_thread()
 
     def not_main_thread() -> None:

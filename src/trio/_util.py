@@ -47,9 +47,16 @@ def is_main_thread() -> bool:
     """Attempt to reliably check if we are in the main thread."""
     try:
         signal.signal(signal.SIGINT, signal.getsignal(signal.SIGINT))
+    except TypeError:
+        # Embedding hosts (Qt, etc.) may install a C-level SIGINT handler.
+        # signal.getsignal() then returns None, and round-tripping that
+        # through signal.signal() raises TypeError. Getting that far still
+        # means we are on the main thread; ValueError is the "not main
+        # thread" signal. See https://github.com/python-trio/trio/issues/2564
         return True
-    except (TypeError, ValueError):
+    except ValueError:
         return False
+    return True
 
 
 ######
