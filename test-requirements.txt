@@ -39,7 +39,11 @@ colorama==0.4.6 ; sys_platform == 'win32'
     #   sphinx
 coverage==7.16.2
     # via -r test-requirements.in
+<<<<<<< HEAD
 cryptography==50.0.2
+=======
+cryptography==50.0.1
+>>>>>>> ada9c778 (Avoid SSL tests on x86 Windows as cryptography doesn't support it (#3515))
     # via
     #   -r test-requirements.in
     #   pyopenssl
@@ -127,7 +131,7 @@ pygments==2.21.0
     #   sphinx
 pylint==4.1.1
     # via -r test-requirements.in
-pyopenssl==26.2.0
+pyopenssl==26.4.0
     # via -r test-requirements.in
 pyright==1.1.414
     # via -r test-requirements.in

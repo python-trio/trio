@@ -4,14 +4,14 @@ from pathlib import Path
 
 import pytest
 
-from trio._tests.pytest_plugin import skip_if_optional_else_raise
+from trio._tests.pytest_plugin import maybe_ignore_import_error
 
 # imports in gen_exports that are not in `install_requires` in setup.py
 try:
     import astor  # noqa: F401
     import isort  # noqa: F401
 except ImportError as error:
-    skip_if_optional_else_raise(error)
+    maybe_ignore_import_error(error)
 
 
 from trio._tools.gen_exports import (
@@ -103,7 +103,7 @@ def test_process(
         import black  # noqa: F401
     # there's no dedicated CI run that has astor+isort, but lacks black.
     except ImportError as error:  # pragma: no cover
-        skip_if_optional_else_raise(error)
+        maybe_ignore_import_error(error)
 
     modpath = tmp_path / "_module.py"
     genpath = tmp_path / "_generated_module.py"
@@ -141,7 +141,7 @@ def test_run_ruff(tmp_path: Path) -> None:
     try:
         import ruff  # noqa: F401
     except ImportError as error:  # pragma: no cover
-        skip_if_optional_else_raise(error)
+        maybe_ignore_import_error(error)
 
     file = File(tmp_path / "module.py", "module")
 
@@ -168,7 +168,7 @@ def test_lint_failure(tmp_path: Path) -> None:
         import black  # noqa: F401
         import ruff  # noqa: F401
     except ImportError as error:  # pragma: no cover
-        skip_if_optional_else_raise(error)
+        maybe_ignore_import_error(error)
 
     file = File(tmp_path / "module.py", "module")
 

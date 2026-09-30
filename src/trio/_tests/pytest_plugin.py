@@ -9,6 +9,7 @@ from ..testing import MockClock, trio_test
 
 RUN_SLOW = True
 SKIP_OPTIONAL_IMPORTS = False
+SKIP_SSL_IMPORTS = False
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -18,13 +19,18 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         action="store_true",
         help="skip tests that rely on libraries not required by trio itself",
     )
+    parser.addoption(
+        "--skip-ssl-imports",
+        action="store_true",
+        help="skip tests that rely on cryptography",
+    )
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    global RUN_SLOW
+    global RUN_SLOW, SKIP_OPTIONAL_IMPORTS, SKIP_SSL_IMPORTS
     RUN_SLOW = config.getoption("--run-slow", default=True)
-    global SKIP_OPTIONAL_IMPORTS
     SKIP_OPTIONAL_IMPORTS = config.getoption("--skip-optional-imports", default=False)
+    SKIP_SSL_IMPORTS = config.getoption("--skip-ssl-imports", default=False)
 
 
 @pytest.fixture
@@ -47,8 +53,8 @@ def pytest_pyfunc_call(pyfuncitem: pytest.Function) -> None:
         pyfuncitem.obj = trio_test(pyfuncitem.obj)
 
 
-def skip_if_optional_else_raise(error: ImportError) -> NoReturn:
-    if SKIP_OPTIONAL_IMPORTS:
+def maybe_ignore_import_error(error: ImportError) -> NoReturn:
+    if SKIP_OPTIONAL_IMPORTS or (SKIP_SSL_IMPORTS and error.name == "cryptography"):
         pytest.skip(error.msg, allow_module_level=True)
     else:  # pragma: no cover
         raise error
