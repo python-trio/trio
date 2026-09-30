@@ -98,7 +98,14 @@ else:
 class HasFileno(Protocol):
     """Represents any file-like object that has a file descriptor."""
 
-    def fileno(self) -> int: ...
+    def fileno(self) -> int:
+        """Return the file descriptor of the underlying file.
+
+        This is the same method as :meth:`io.IOBase.fileno`, and is what
+        Trio uses to pass the descriptor to the subprocess APIs.
+
+        """
+        ...
 
 
 @final
