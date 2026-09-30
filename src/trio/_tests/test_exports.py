@@ -243,6 +243,10 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
     # ignore warnings about deprecated module tests
     missing_names -= {"tests"}
 
+    # ignore spurious incorrect name
+    # TODO: remove when PyPy 8.0.1 or 8.1.0 gets released!
+    missing_names -= {"ALG_SET_PUB_KEY"}
+
     if missing_names:  # pragma: no cover
         print(f"{tool} can't see the following names in {modname}:")
         print()
