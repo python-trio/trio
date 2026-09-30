@@ -60,7 +60,7 @@ else
         PIP_ARGS="--exclude excluded_deps"
         flags="--skip-ssl-imports"
     fi
-    python -m uv pip install -r test-requirements.txt --no-deps $PIP_ARGS
+    python -m uv pip install -r test-requirements.txt -vvv --no-deps $PIP_ARGS
 fi
 
 # If we're testing with a LSP installed, then it might break network
