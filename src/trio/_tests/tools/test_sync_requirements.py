@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from trio._tests.pytest_plugin import skip_if_optional_else_raise
+from trio._tests.pytest_plugin import maybe_ignore_import_error
 
 # imports in gen_exports that are not in `install_requires` in requirements
 try:
     import yaml  # noqa: F401
 except ImportError as error:
-    skip_if_optional_else_raise(error)
+    maybe_ignore_import_error(error)
 
 from trio._tools.sync_requirements import (
     update_requirements,
