@@ -740,7 +740,9 @@ class WindowsIOManager:
             waiters = AFDWaiters()
             self._afd_waiters[base_handle] = waiters
         if getattr(waiters, mode) is not None:
-            raise _core.BusyResourceError
+            raise _core.BusyResourceError(
+                "another task is already reading / writing this socket",
+            )
         setattr(waiters, mode, _core.current_task())
         # Could potentially raise if the handle is somehow invalid; that's OK,
         # we let it escape.
@@ -822,7 +824,10 @@ class WindowsIOManager:
         handle = _get_base_socket(handle)
         waiters = self._afd_waiters.get(handle)
         if waiters is not None:
-            wake_all(waiters, _core.ClosedResourceError())
+            wake_all(
+                waiters,
+                _core.ClosedResourceError("another task closed this socket"),
+            )
             self._refresh_afd(handle)
 
     ################################################################
