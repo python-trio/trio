@@ -118,8 +118,7 @@ if TYPE_CHECKING:
 
         def fileno(self) -> int:
             """
-            Integer that corresponds to file descriptor, as in
-            ``sys.stdout.fileno()``.
+            Integer that corresponds to file descriptor, as in ``sys.stdout.fileno()``.
             """
 
     class _HasIsATTY(Protocol):
