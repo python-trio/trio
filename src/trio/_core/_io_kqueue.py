@@ -226,7 +226,6 @@ class KqueueIOManager:
                     self._deregister(key)
                 return r
 
-            # wait_task_rescheduled does not have its return type typed
             return await _core.wait_task_rescheduled(  # type: ignore[no-any-return]
                 abort_deprecated,
             )
@@ -270,7 +269,6 @@ class KqueueIOManager:
                     raise
             return _core.Abort.SUCCEEDED
 
-        # wait_task_rescheduled does not have its return type typed
         return await _core.wait_task_rescheduled(abort)  # type: ignore[no-any-return]
 
     @_public
