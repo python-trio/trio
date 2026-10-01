@@ -140,8 +140,8 @@ class _HasAcquireRelease(Protocol):
 class AsyncContextManagerMixin:
     """
     An async context manager base class.
-    Should be used with :class:`~trio._sync._HasAcquireRelease` Protocol.
-    Calls `await self.acquire()` on entry and `self.release` on exit,
+    Should be used with the ``_HasAcquireRelease`` Protocol.
+    Calls ``await self.acquire()`` on entry and ``self.release()`` on exit,
     adding KeyboardInterrupt protection support.
     """
 

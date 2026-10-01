@@ -28,13 +28,14 @@ EventResult: TypeAlias = "list[select.kevent]"
 class _KqueueStatistics:
     """
     DTO class that holds information on current kqueue status:
+
     - amount of tasks waiting
     - amount of monitors
     - backend = "kqueue"
 
     This class is used with platform "Linux" or "Darwin"
     (or any other platform that supports epoll functionality).
-    It has a sibling :class:`~trio._core._io_windows._WindowsStatistics`
+    It has a sibling ``_WindowsStatistics``
     that is used with platform "Windows".
     """
 

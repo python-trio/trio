@@ -35,13 +35,14 @@ EventResult: TypeAlias = "list[tuple[int, int]]"
 class _EpollStatistics:
     """
     DTO class that holds information on current epoll status:
+
     - amount of tasks waiting on read
     - amount of tasks waiting on write
     - backend = "epoll"
 
     This class is used with platform "Linux" or "Darwin"
     (or any other platform that supports epoll functionality).
-    It has a sibling :class:`~trio._core._io_windows._WindowsStatistics`
+    It has a sibling ``_WindowsStatistics``
     that is used with platform "Windows".
     """
 

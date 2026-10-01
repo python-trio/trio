@@ -14,9 +14,9 @@ T = TypeVar("T")
 @final
 class _NoValue:
     """
-    Indicates `RunVar` variable without a value
-    (e.g. when variable is not initialized with value yet).
-    Like `undefined` in JS (but better).
+    Indicates a :class:`~trio.lowlevel.RunVar` variable without a value
+    (e.g. when the variable is not initialized with a value yet).
+    Like ``undefined`` in JS (but better).
     """
 
 
