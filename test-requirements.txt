@@ -39,7 +39,7 @@ colorama==0.4.6 ; sys_platform == 'win32'
     #   sphinx
 coverage==7.16.0
     # via -r test-requirements.in
-cryptography==50.0.2
+cryptography==50.0.1
     # via
     #   -r test-requirements.in
     #   pyopenssl
