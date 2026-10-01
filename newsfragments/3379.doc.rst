@@ -1,0 +1,1 @@
+Document how :func:`trio.wrap_file` shares ownership, close behavior, and state with the synchronous file object it wraps.
