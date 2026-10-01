@@ -125,24 +125,22 @@ class _HasAcquireRelease(Protocol):
     async def acquire(self) -> object:
         """
         Method for resource locking.
-        Protocol implies this is similar to `threading.Semaphore.acquire`.
+        See docs for :class:`~trio.Lock` and :class:`~trio.StrictFIFOLock` for usage details.
         """
-        ...
 
     def release(self) -> object:
         """
         Method for resource releasing.
-        Protocol implies this is similar to `threading.Semaphore.release`.
+        See docs for :class:`~trio.Lock` and :class:`~trio.StrictFIFOLock` for usage details.
         """
-        ...
 
 
 class AsyncContextManagerMixin:
-    """
-    An async context manager base class.
+    """An async context manager base class.
+
     Should be used with the ``_HasAcquireRelease`` Protocol.
     Calls ``await self.acquire()`` on entry and ``self.release()`` on exit,
-    adding KeyboardInterrupt protection support.
+    adding :exc:`KeyboardInterrupt` protection support.
     """
 
     @enable_ki_protection

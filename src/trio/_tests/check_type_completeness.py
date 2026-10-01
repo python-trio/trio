@@ -76,8 +76,7 @@ def has_docstring_at_runtime(name: str) -> bool:
             # darwin
             "trio._core._io_kqueue._KqueueStatistics",  # confirmed to have docstring
             # windows
-            "trio._socket.SocketType.share",  # doesn't have docstring, like other
-            # SocketType methods. Shows up here bc method def is wrapped in `if not TYPE_CHECKING`
+            "trio._socket.SocketType.share",  # gets docstring copied from socket stdlib
             "trio._core._io_windows._WindowsStatistics",  # confirmed to have docstring
             "trio._core._windows_cffi.Handle",  # doesn't have docstring, it's basically type alias
             # linux
@@ -101,6 +100,9 @@ def has_docstring_at_runtime(name: str) -> bool:
             # if TYPE_CHECKING:
             #    from .._file_io import _HasFileNo
             # ```
+            # The situation can be dramatically remedied if pyright fixes bug #11803
+            # and trio's Path file vague typing is fixed/ignored. Then can
+            # decommision this file and put plain ``pyright`` check in tox.ini/ci.yaml.
             "trio._file_io._HasFileNo",
             "trio._file_io._HasFileNo.fileno",
             # verified that `HasFileNo` has docstrings

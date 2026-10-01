@@ -13,10 +13,11 @@ T = TypeVar("T")
 
 @final
 class _NoValue:
-    """
-    Indicates a :class:`~trio.lowlevel.RunVar` variable without a value
-    (e.g. when the variable is not initialized with a value yet).
-    Like ``undefined`` in JS (but better).
+    """Sentinel class object, used as the "undefined" variable value.
+
+    A :class:`~trio.lowlevel.RunVar` variable has this "stub" value
+    until the variable is assigned an actual value.
+    It is distinct from ``None``, which is a legitimate value a variable can hold.
     """
 
 
