@@ -8,13 +8,13 @@ from typing import TYPE_CHECKING, NoReturn
 import attrs
 import pytest
 
-from trio._tests.pytest_plugin import maybe_ignore_import_error
+from trio._tests.pytest_plugin import skip_if_optional_else_raise
 
 try:
     import trustme
     from OpenSSL import SSL
 except ImportError as error:
-    maybe_ignore_import_error(error)
+    skip_if_optional_else_raise(error)
 
 
 import trio

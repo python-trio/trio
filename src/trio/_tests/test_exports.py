@@ -659,7 +659,7 @@ import pytest
 
 import trio
 import trio.testing
-from trio._tests.pytest_plugin import RUN_SLOW, maybe_ignore_import_error
+from trio._tests.pytest_plugin import RUN_SLOW, skip_if_optional_else_raise
 
 from .. import _core, _util
 from .._core._tests.tutil import slow
@@ -681,7 +681,7 @@ def _ensure_mypy_cache_updated() -> None:
     try:
         from mypy.api import run
     except ImportError as error:
-        maybe_ignore_import_error(error)
+        skip_if_optional_else_raise(error)
 
     global mypy_cache_updated
     if not mypy_cache_updated:
@@ -772,17 +772,29 @@ PUBLIC_MODULE_NAMES = [m.__name__ for m in PUBLIC_MODULES]
     sys.version_info.releaselevel == "alpha",
     reason="skip static introspection tools on Python dev/alpha releases",
 )
-@pytest.mark.parametrize("modname", PUBLIC_MODULE_NAMES)
+@pytest.mark.parametrize(
+    "modname",
+    # PUBLIC_MODULE_NAMES
+    ["trio.socket"],
+)
 @pytest.mark.parametrize(
     "tool",
-    ["pylint", "jedi", "mypy", "pyright_verifytypes"],
+    [
+        "pylint",
+        # "jedi",
+        # "mypy",
+        # "pyright_verifytypes"
+    ],
 )
 @pytest.mark.filterwarnings(
     # https://github.com/pypa/setuptools/issues/3274
     "ignore:module 'sre_constants' is deprecated:DeprecationWarning",
 )
 def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -> None:
+    print(sys.version_info)
     module = importlib.import_module(modname)
+    print(dir(module))
+    assert False
 
     def no_underscores(symbols: Iterable[str]) -> set[str]:
         return {symbol for symbol in symbols if not symbol.startswith("_")}
@@ -802,7 +814,7 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
         try:
             from pylint.lint import PyLinter
         except ImportError as error:
-            maybe_ignore_import_error(error)
+            skip_if_optional_else_raise(error)
 
         linter = PyLinter()
         assert module.__file__ is not None
@@ -815,7 +827,7 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
         try:
             import jedi
         except ImportError as error:
-            maybe_ignore_import_error(error)
+            skip_if_optional_else_raise(error)
 
         # Simulate typing "import trio; trio.<TAB>"
         script = jedi.Script(f"import {modname}; {modname}.")
@@ -858,7 +870,7 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
         try:
             import pyright  # noqa: F401
         except ImportError as error:
-            maybe_ignore_import_error(error)
+            skip_if_optional_else_raise(error)
         import subprocess
 
         res = subprocess.run(
@@ -882,10 +894,12 @@ def test_static_tool_sees_all_symbols(tool: str, modname: str, tmp_path: Path) -
     #   static analysis (e.g. in trio.socket or trio.lowlevel)
     # So we check that the runtime names are a subset of the static names.
     missing_names = runtime_names - static_names
+    print(f"{missing_names=}")
+    print(f"{runtime_names=}")
+    print(f"{static_names=}")
 
     # ignore warnings about deprecated module tests
     missing_names -= {"tests"}
-    missing_names -= {"ALG_SET_PUB_KEY"}  # https://github.com/pypy/pypy/issues/5594
 
     if missing_names:  # pragma: no cover
         print(f"{tool} can't see the following names in {modname}:")
@@ -1024,7 +1038,7 @@ def test_static_tool_sees_class_members(
             try:
                 import jedi
             except ImportError as error:
-                maybe_ignore_import_error(error)
+                skip_if_optional_else_raise(error)
 
             script = jedi.Script(
                 f"from {module_name} import {class_name}; {class_name}.",
