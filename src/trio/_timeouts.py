@@ -103,8 +103,12 @@ async def sleep(seconds: float) -> None:
         ValueError: if *seconds* is negative or NaN.
 
     """
+    # Duplicate validation logic, as in move_on_after, so the error names the
+    # parameter the caller passed rather than the deadline derived from it.
     if seconds < 0:
         raise ValueError("`seconds` must be non-negative")
+    if math.isnan(seconds):
+        raise ValueError("`seconds` must not be NaN")
     if seconds == 0:
         await trio.lowlevel.checkpoint()
     else:
