@@ -84,7 +84,7 @@ async def wait_kevent(
         data: Filter-specific data.
 
     Returns:
-        select.kevent: The event returned from kqueue.
+        The `select.kevent` returned from kqueue.
 
     Raises:
         BusyResourceError: if another task is waiting for this
