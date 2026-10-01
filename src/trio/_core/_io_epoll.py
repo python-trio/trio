@@ -33,17 +33,30 @@ EventResult: TypeAlias = "list[tuple[int, int]]"
 
 @attrs.frozen(eq=False)
 class _EpollStatistics:
-    """
-    DTO class that holds information on current epoll status:
+    """DTO class that holds information on current epoll status.
 
-    - amount of tasks waiting on read
-    - amount of tasks waiting on write
-    - backend = "epoll"
+    This class can be used on any platform that supports
+    epoll functionality (e.g. Linux).
+    Trio also defines other similar classes for statistics reporting:
+    ``_WindowsStatistics`` and ``_KqueueStatistics``.
+    They are similar in function but some fields differ.
+    All of them have a ``backend`` attribute.
+    The statistics class best suited for the runtime platform is
+    imported as the ``IOStatistics`` type. See ``trio._core._run``.
 
-    This class is used with platform "Linux" or "Darwin"
-    (or any other platform that supports epoll functionality).
-    It has a sibling ``_WindowsStatistics``
-    that is used with platform "Windows".
+    .. attribute:: tasks_waiting_read
+
+       Number of tasks waiting on read.
+
+    .. attribute:: tasks_waiting_write
+
+       Number of tasks waiting on write.
+
+    .. attribute:: backend
+
+       This attribute holds a string value that corresponds to the statistics type.
+       This class has ``backend == "epoll"``.
+       Use ``backend`` attribute to distinguish statistics types at runtime.
     """
 
     tasks_waiting_read: int
