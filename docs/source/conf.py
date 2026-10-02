@@ -282,9 +282,8 @@ def add_intersphinx(app: Sphinx) -> None:
         # to type checkers
         inventory = app.builder.env.intersphinx_inventory  # type: ignore[attr-defined]
         assert isinstance(inventory, dict)
-        inventory = cast("Inventory", inventory)
-
         if sys.version_info >= (3, 11):
+            inventory = cast("Inventory", inventory)
             inventory[f"py:{reftype}"][f"{target}"] = _InventoryItem(
                 project_name="Python",
                 project_version=version,
@@ -292,7 +291,10 @@ def add_intersphinx(app: Sphinx) -> None:
                 display_name="-",
             )
         else:
-            inventory[f"py:{reftype}"][f"{target}"] = (
+            legacy_inventory = cast(
+                "dict[str, dict[str, tuple[str, str, str, str]]]", inventory
+            )
+            legacy_inventory[f"py:{reftype}"][f"{target}"] = (
                 "Python",
                 version,
                 f"https://docs.python.org/{url_version}/library/{library}.html/{obj}",
