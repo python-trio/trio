@@ -100,12 +100,9 @@ async def test_is_main_thread_with_non_python_sigint_handler(
     # Embedding hosts can install a C-level SIGINT handler. Python then
     # reports the handler as None, and signal.signal() rejects it with
     # TypeError. That is not the same as running off the main thread.
-    orig = signal.getsignal
-
     def fake_getsignal(signum: int) -> object:
-        if signum == signal.SIGINT:
-            return None
-        return orig(signum)
+        assert signum == signal.SIGINT
+        return None
 
     def not_main_thread() -> None:
         assert not is_main_thread()

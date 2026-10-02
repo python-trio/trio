@@ -10,6 +10,7 @@ import sysconfig
 import textwrap
 from pathlib import Path
 from typing import TYPE_CHECKING, NoReturn
+from unittest import mock
 
 import pytest
 
@@ -21,6 +22,12 @@ from .._signals import _signal_handler, get_pending_signal_count, open_signal_re
 
 if TYPE_CHECKING:
     from types import FrameType
+
+
+_C_COMPILER = shlex.split(sysconfig.get_config_var("CC") or "cc")
+_PYTHON_CONFIG = (
+    Path(sys.base_prefix) / "bin" / f"python{sysconfig.get_python_version()}-config"
+)
 
 
 @pytest.mark.parametrize("native_signum", [signal.SIGINT, signal.SIGILL])
@@ -35,8 +42,10 @@ def test_signal_handler_rejects_native_before_changing_handlers(
             return None
         return original_getsignal(signum)
 
-    def unexpected_signal(*args: object) -> NoReturn:
-        raise AssertionError("Changed a handler before checking all signals")
+    unexpected_signal = mock.Mock(
+        spec_set=signal.signal,
+        side_effect=AssertionError("Changed a handler before checking all signals"),
+    )
 
     monkeypatch.setattr(signal, "getsignal", getsignal)
     monkeypatch.setattr(signal, "signal", unexpected_signal)
@@ -45,6 +54,7 @@ def test_signal_handler_rejects_native_before_changing_handlers(
     ):
         with _signal_handler([signal.SIGINT, signal.SIGILL], signal.SIG_IGN):
             pytest.fail("Accepted a native handler")  # pragma: no cover
+    unexpected_signal.assert_not_called()
 
 
 @slow
@@ -52,16 +62,13 @@ def test_signal_handler_rejects_native_before_changing_handlers(
     os.name != "posix" or sys.implementation.name != "cpython",
     reason="Requires a POSIX CPython embedding host",
 )
+@pytest.mark.skipif(
+    shutil.which(_C_COMPILER[0]) is None or not _PYTHON_CONFIG.is_file(),
+    reason="Requires a C compiler and python-config with embedding support",
+)
 def test_open_signal_receiver_preserves_native_sigint_handler(tmp_path: Path) -> None:
     # Python only reports None if the C handler predates interpreter startup.
     # Changing libc's handler after startup leaves Python's cached handler intact.
-    compiler = shlex.split(sysconfig.get_config_var("CC") or "cc")
-    config = (
-        Path(sys.base_prefix) / "bin" / f"python{sysconfig.get_python_version()}-config"
-    )
-    if shutil.which(compiler[0]) is None or not config.is_file():
-        pytest.skip("Requires a C compiler and python-config with embedding support")
-
     source = tmp_path / "native_signal_host.c"
     source.write_text(
         textwrap.dedent("""\
@@ -92,7 +99,7 @@ def test_open_signal_receiver_preserves_native_sigint_handler(tmp_path: Path) ->
     )
     flags = shlex.split(
         subprocess.check_output(
-            [str(config), "--includes", "--embed", "--ldflags"],
+            [str(_PYTHON_CONFIG), "--includes", "--embed", "--ldflags"],
             text=True,
             timeout=60,
         ),
@@ -102,7 +109,7 @@ def test_open_signal_receiver_preserves_native_sigint_handler(tmp_path: Path) ->
     libdir = sysconfig.get_config_var("LIBDIR") or str(Path(sys.base_prefix) / "lib")
     compiled = subprocess.run(
         [
-            *compiler,
+            *_C_COMPILER,
             str(source),
             "-o",
             str(executable),
