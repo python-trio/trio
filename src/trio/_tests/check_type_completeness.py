@@ -69,43 +69,37 @@ def has_docstring_at_runtime(name: str) -> bool:
         if "AsyncIOWrapper" in str(exc) or name in (
             # Symbols not existing on all platforms, so we can't dynamically inspect them.
             # Manually confirmed to have docstrings but pyright doesn't see them due to
-            # export shenanigans.
+            # export shenanigans. TODO: actually manually confirm that.
             # In theory we could verify these at runtime, probably by running the script separately
             # on separate platforms. It might also be a decent idea to work the other way around,
             # a la test_static_tool_sees_class_members
             # darwin
-            "trio._core._io_kqueue._KqueueStatistics",  # confirmed to have docstring
+            "trio.lowlevel.current_kqueue",
+            "trio.lowlevel.monitor_kevent",
+            "trio.lowlevel.wait_kevent",
+            "trio._core._io_kqueue._KqueueStatistics",
             # windows
-            "trio._socket.SocketType.share",  # gets docstring copied from socket stdlib
-            "trio._core._io_windows._WindowsStatistics",  # confirmed to have docstring
-            "trio._core._windows_cffi.Handle",  # doesn't have docstring, it's basically type alias
+            "trio._socket.SocketType.share",
+            "trio._core._io_windows._WindowsStatistics",
+            "trio._core._windows_cffi.Handle",
+            "trio.lowlevel.current_iocp",
+            "trio.lowlevel.monitor_completion_key",
+            "trio.lowlevel.readinto_overlapped",
+            "trio.lowlevel.register_with_iocp",
+            "trio.lowlevel.wait_overlapped",
+            "trio.lowlevel.write_overlapped",
+            "trio.lowlevel.WaitForSingleObject",
+            "trio.socket.fromshare",
             # linux
             # this test will fail on linux, but I don't develop on linux. So the next
             # person to do so is very welcome to open a pull request and populate with
             # objects
             # TODO: these are erroring on all platforms, why?
-            # It could be due to the fact that this file runs with
-            # `typing.TYPE_CHECKING=False` flag, whereas `pyright` executes
-            # with flag `typing.TYPE_CHECKING=True`.
-            # `AsyncIOWrapper` has conditional method stubs, only for type checking,
-            # and docstring is in real method.
-            # In other places, private types are imported (or publicly reexported)
-            # when `not TYPE_CHECKING`.
-            # This could be why this the whole of this exception handler is like this.
-            # If one puts `typing.TYPE_CHECKING=True` before trio imports on top
-            # of this file, there's circular import error.
-            #
-            # _io_poll.py and _io_windows.py and _io_kqueue.py:
-            # ```
-            # if TYPE_CHECKING:
-            #    from .._file_io import _HasFileNo
-            # ```
-            # The situation can be dramatically remedied if pyright fixes bug #11803
-            # and trio's Path file vague typing is fixed/ignored. Then can
-            # decommision this file and put plain ``pyright`` check in tox.ini/ci.yaml.
+            "trio._highlevel_generic.StapledStream.send_stream",
+            "trio._highlevel_generic.StapledStream.receive_stream",
+            "trio._ssl.SSLStream.transport_stream",
             "trio._file_io._HasFileNo",
             "trio._file_io._HasFileNo.fileno",
-            # verified that `HasFileNo` has docstrings
         ):
             return True
 
@@ -122,6 +116,7 @@ def has_docstring_at_runtime(name: str) -> bool:
 def check_type(
     platform: str,
     full_diagnostics_file: Path | None,
+    expected_errors: list[object],
 ) -> list[object]:
     # convince isort we use the trio import
     assert trio is not None
@@ -166,7 +161,7 @@ def check_type(
                 # Missing docstring messages include the name of the object.
                 # Other errors don't, so we add it.
                 message = f"{name}: {message}"
-            if message not in printed_diagnostics:
+            if message not in expected_errors and message not in printed_diagnostics:
                 print(f"new error: {message}", file=sys.stderr)
             errors.append(message)
             printed_diagnostics.add(message)
@@ -183,25 +178,65 @@ def main(args: argparse.Namespace) -> int:
     else:
         full_diagnostics_file = None
 
-    has_errors = False
-    for platform in "Linux", "Windows", "Darwin":
-        print("*" * 20, f"\nChecking {platform}...")
-        errors = check_type(platform, full_diagnostics_file)
+    errors_by_platform_file = Path(__file__).parent / "_check_type_completeness.json"
+    if errors_by_platform_file.exists():
+        with open(errors_by_platform_file) as f:
+            errors_by_platform = json.load(f)
+    else:
+        errors_by_platform = {"Linux": [], "Windows": [], "Darwin": [], "all": []}
 
-        if errors:
+    changed = False
+    for platform in "Linux", "Windows", "Darwin":
+        platform_errors = errors_by_platform[platform] + errors_by_platform["all"]
+        print("*" * 20, f"\nChecking {platform}...")
+        errors = check_type(platform, full_diagnostics_file, platform_errors)
+
+        new_errors = [e for e in errors if e not in platform_errors]
+        missing_errors = [e for e in platform_errors if e not in errors]
+
+        if new_errors:
             print(
-                "New errors introduced in `pyright --verifytypes`. Fix them.",
+                f"New errors introduced in `pyright --verifytypes`. Fix them, or ignore them by modifying {errors_by_platform_file}, either manually or with '--overwrite-file'.",
                 file=sys.stderr,
             )
-            has_errors = True
+            changed = True
+        if missing_errors:
+            print(
+                f"Congratulations, you have resolved existing errors! Please remove them from {errors_by_platform_file}, either manually or with '--overwrite-file'.",
+                file=sys.stderr,
+            )
+            changed = True
+            print(missing_errors, file=sys.stderr)
 
+        errors_by_platform[platform] = errors
     print("*" * 20)
 
+    # cut down the size of the json file by a lot, and make it easier to parse for
+    # humans, by moving errors that appear on all platforms to a separate category
+    errors_by_platform["all"] = []
+    for e in errors_by_platform["Linux"].copy():
+        if e in errors_by_platform["Darwin"] and e in errors_by_platform["Windows"]:
+            for platform in "Linux", "Windows", "Darwin":
+                errors_by_platform[platform].remove(e)
+            errors_by_platform["all"].append(e)
+
+    if changed and args.overwrite_file:
+        with open(errors_by_platform_file, "w") as f:
+            json.dump(errors_by_platform, f, indent=4, sort_keys=True)
+            # newline at end of file
+            f.write("\n")
+
     # True -> 1 -> non-zero exit value -> error
-    return has_errors
+    return changed
 
 
 parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--overwrite-file",
+    action="store_true",
+    default=False,
+    help="Use this flag to overwrite the current stored results. Either in CI together with a diff check, or to avoid having to manually correct it.",
+)
 parser.add_argument(
     "--full-diagnostics-file",
     type=Path,
