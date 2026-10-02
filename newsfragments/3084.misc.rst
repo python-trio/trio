@@ -1,3 +1,0 @@
-Contributors can run ``make -C docs check-newsfragments`` to check newsfragment
-syntax and references without changing the release history or staged files.
-Warnings identify the original fragment filename and line number.

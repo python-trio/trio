@@ -31,17 +31,16 @@ Your text can use all the same markup that we use in our Sphinx docs.
 For example, you can use double-backticks to mark code snippets, or
 single-backticks to link to a function/class/module.
 
-To check fragment syntax and references locally, run these commands from the
-repository root with your development virtual environment activated:
+To check syntax and references locally, install the documentation dependencies
+in your development environment and run the existing Sphinx dummy builder:
 
 .. code-block:: shell
 
    python -m pip install -r docs-requirements.txt
-   make -C docs check-newsfragments
+   make -C docs dummy SPHINXOPTS="-E -W --keep-going"
 
-This reports warnings against the original fragment filenames and line numbers,
-without changing fragments, the release history, or staged files.
-It checks the documentation too, so references to other pages can be resolved.
+This checks the assembled changelog and documentation without generating HTML.
+Warnings cause the command to fail; ``-E`` ensures edited fragments are reread.
 
 To check how your formatting looks, the easiest way is to make the PR,
 and then after the CI checks run, click on the "Read the Docs build"
