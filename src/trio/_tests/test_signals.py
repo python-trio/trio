@@ -64,8 +64,7 @@ def test_open_signal_receiver_preserves_native_sigint_handler(tmp_path: Path) ->
 
     source = tmp_path / "native_signal_host.c"
     source.write_text(
-        textwrap.dedent(
-            """\
+        textwrap.dedent("""\
             #include <Python.h>
             #include <signal.h>
             #include <stdio.h>
@@ -88,8 +87,7 @@ def test_open_signal_receiver_preserves_native_sigint_handler(tmp_path: Path) ->
                 }
                 return 0;
             }
-            """
-        ),
+            """),
         encoding="utf-8",
     )
     flags = shlex.split(
@@ -120,8 +118,7 @@ def test_open_signal_receiver_preserves_native_sigint_handler(tmp_path: Path) ->
     )
     assert compiled.returncode == 0, compiled.stdout + compiled.stderr
 
-    script = textwrap.dedent(
-        """\
+    script = textwrap.dedent("""\
         import signal
         import threading
 
@@ -168,8 +165,7 @@ def test_open_signal_receiver_preserves_native_sigint_handler(tmp_path: Path) ->
         trio.run(main)
         assert signal.getsignal(signal.SIGINT) is None
         signal.raise_signal(signal.SIGINT)
-        """
-    )
+        """)
     result = subprocess.run(
         [str(executable), "-c", script],
         env={**os.environ, "PYTHONPATH": os.pathsep.join(sys.path)},
