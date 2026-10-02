@@ -18,6 +18,41 @@ except ImportError as error:
     maybe_ignore_import_error(error)
 
 
+def find_docs_config(test_file: Path, working_directory: Path) -> Path:
+    config_file = test_file.parents[4] / "docs" / "source" / "conf.py"
+    if not config_file.is_file():
+        # CI runs the installed package tests from the checkout's empty/ directory.
+        config_file = working_directory.parent / "docs" / "source" / "conf.py"
+    if not config_file.is_file():
+        pytest.skip("The documentation sources are not installed")
+    return config_file
+
+
+def forbid_subprocess(*args: object, **kwargs: object) -> None:
+    pytest.fail("Checking newsfragments must not run Towncrier or Git")
+
+
+def test_forbid_subprocess() -> None:
+    with pytest.raises(pytest.fail.Exception, match="must not run Towncrier or Git"):
+        forbid_subprocess(["git", "status"])
+
+
+@pytest.mark.parametrize("layout", ["checkout", "installed", "missing"])
+def test_find_docs_config(tmp_path: Path, layout: str) -> None:
+    checkout = tmp_path / "checkout"
+    test_file = checkout / "src/trio/_tests/tools/test_check_newsfragments.py"
+    if layout != "checkout":
+        test_file = tmp_path / "installed/trio/_tests/tools/test_check_newsfragments.py"
+    config_file = checkout / "docs/source/conf.py"
+    if layout == "missing":
+        with pytest.raises(pytest.skip.Exception, match="documentation sources"):
+            find_docs_config(test_file, checkout / "empty")
+    else:
+        config_file.parent.mkdir(parents=True)
+        config_file.touch()
+        assert find_docs_config(test_file, checkout / "empty") == config_file
+
+
 @pytest.mark.parametrize(
     ("fragment", "warning"),
     [
@@ -50,16 +85,7 @@ def test_check_newsfragments(
     )
     (source / "conf.py").write_text("nitpicky = True\n", encoding="utf8")
     originals = {path: path.read_bytes() for path in tmp_path.rglob("*.rst")}
-    config_file = Path(__file__).parents[4] / "docs" / "source" / "conf.py"
-
-    if not config_file.is_file():
-        # CI runs the installed package tests from the checkout's empty/ directory.
-        config_file = Path.cwd().parent / "docs" / "source" / "conf.py"
-    if not config_file.is_file():
-        pytest.skip("The documentation sources are not installed")
-
-    def forbid_subprocess(*args: object, **kwargs: object) -> None:
-        pytest.fail("Checking newsfragments must not run Towncrier or Git")
+    config_file = find_docs_config(Path(__file__), Path.cwd())
 
     with monkeypatch.context() as patch:
         patch.chdir(source)
