@@ -32,7 +32,10 @@ from sphinx.util.logging import getLogger
 
 if TYPE_CHECKING:
     from sphinx.application import Sphinx
+    from sphinx.util.tags import Tags
     from sphinx.util.typing import Inventory
+
+sphinx_tags = cast("Tags", globals()["tags"])
 
 # For our local_customization module
 sys.path.insert(0, os.path.abspath("."))
@@ -47,7 +50,14 @@ os.environ["SPHINX_AUTODOC_RELOAD_MODULES"] = "1"
 history_file = Path("history.rst")
 
 history_new: str | None
-if glob.glob("../../newsfragments/*.*.rst"):
+if sphinx_tags.has("check-newsfragments"):
+    # Includes preserve the original filenames and line numbers in warnings.
+    # No Towncrier invocation or changes to the working tree/index are needed.
+    history_new = "Unreleased newsfragments\n========================\n\n" + "\n".join(
+        f".. include:: {fragment}\n"
+        for fragment in sorted(glob.glob("../../newsfragments/*.*.rst"))
+    )
+elif glob.glob("../../newsfragments/*.*.rst"):
     print("-- Found newsfragments; running towncrier --", flush=True)
     history_orig = history_file.read_bytes()
     import subprocess
