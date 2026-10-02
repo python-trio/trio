@@ -94,3 +94,13 @@ a.trio-help-hint, .trio-help-hint a:link, .trio-help-hint a:visited {
     text-decoration: none;
     border-bottom: 1px solid;
 }
+
+/* Reformat the "Parameters:", "Returns:", etc. below each function to fit
+ * better on to narrow viewports such as mobile. See
+ * https://stackoverflow.com/questions/79114648
+ */
+@media screen and (max-width:1024px) {
+  html.writer-html5 .rst-content dl.field-list { display: block }
+}
+html.writer-html5 .rst-content dl.field-list > dt { padding-left: 0px }
+html.writer-html5 .rst-content { overflow-wrap: break-word }
