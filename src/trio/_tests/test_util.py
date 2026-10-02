@@ -107,13 +107,15 @@ async def test_is_main_thread_with_non_python_sigint_handler(
             return None
         return orig(signum)
 
-    monkeypatch.setattr(signal, "getsignal", fake_getsignal)
-    assert is_main_thread()
-
     def not_main_thread() -> None:
         assert not is_main_thread()
 
-    await trio.to_thread.run_sync(not_main_thread)
+    # Restore getsignal before trio.run closes its KIManager, so it can restore
+    # the real Python handler instead of leaving this test's Trio handler behind.
+    with monkeypatch.context() as patch:
+        patch.setattr(signal, "getsignal", fake_getsignal)
+        assert is_main_thread()
+        await trio.to_thread.run_sync(not_main_thread)
 
 
 # @coroutine is deprecated since python 3.8, which is fine with us.

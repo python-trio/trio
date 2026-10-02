@@ -1,1 +1,5 @@
 Treat a C-level ``SIGINT`` handler as still running on the main thread, so embedding Trio in hosts like Qt no longer skips signal setup.
+
+`trio.open_signal_receiver` now rejects signals whose handlers were installed
+outside Python, preserving the host's handlers instead of replacing them and
+failing to restore them on exit. Receivers for other signals remain available.
