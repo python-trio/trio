@@ -544,9 +544,9 @@ async def _resolve_address_nocp(
 
 
 class SocketType:
-    """
-    Trio's version of standard library's :class:`socket.socket`.
-    Encompasses some of Trio-specific platform handling logic.
+    """Trio's version of the standard library's :class:`socket.socket`.
+
+    Encompasses some Trio-specific platform handling logic.
     """
 
     def __init__(self) -> None:

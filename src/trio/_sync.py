@@ -123,14 +123,14 @@ class _HasAcquireRelease(Protocol):
     """Only classes with acquire() and release() can use the mixin's implementations."""
 
     async def acquire(self) -> object:
-        """
-        Method for resource locking.
+        """Acquire the resource (lock).
+
         See docs for :class:`~trio.Lock` and :class:`~trio.StrictFIFOLock` for usage details.
         """
 
     def release(self) -> object:
-        """
-        Method for resource releasing.
+        """Release the resource (unlock).
+
         See docs for :class:`~trio.Lock` and :class:`~trio.StrictFIFOLock` for usage details.
         """
 
