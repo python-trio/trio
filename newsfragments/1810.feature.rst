@@ -1,1 +1,0 @@
-`trio.socket.socket` now prints the address it tried to connect to upon failure.

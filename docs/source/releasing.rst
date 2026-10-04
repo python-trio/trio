@@ -29,28 +29,30 @@ Things to do for releasing:
 
       - review history change
 
-      - ``git rm`` changes
+      - ``git rm`` the now outdated newfragments
 
    + commit
 
 * push to your personal repository
 
-* create pull request to ``python-trio/trio``'s "master" branch
+* create pull request to ``python-trio/trio``'s "main" branch
 
 * verify that all checks succeeded
 
 * tag with vVERSION, push tag on ``python-trio/trio`` (not on your personal repository)
 
-* push to PyPI::
-
-    git clean -xdf   # maybe run 'git clean -xdn' first to see what it will delete
-    python3 setup.py sdist bdist_wheel
-    twine upload dist/*
+* approve the release workflow's publish job
 
 * update version number in the same pull request
 
    + add ``+dev`` tag to the end
 
 * merge the release pull request
+
+* make a GitHub release (go to the tag and press "Create release from tag")
+
+   + paste in the new content in ``history.rst`` and convert it to markdown: turn the parts under section into ``---``, update links to just be the links, and whatever else is necessary.
+
+   + include anything else that might be pertinent, like a link to the commits between the latest and current release.
 
 * announce on gitter

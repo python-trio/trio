@@ -49,8 +49,62 @@ attributes, :meth:`trio.Lock.statistics`, etc.). Here are some more.
 Global statistics
 -----------------
 
-.. autofunction:: current_statistics
+.. function:: current_statistics() -> RunStatistics
 
+   Returns an object containing run-loop-level debugging information:
+
+.. autoclass:: RunStatistics()
+
+
+.. _trio_contexts:
+
+Checking for Trio
+-----------------
+
+If you want to interact with an active Trio run -- perhaps you need to
+know the :func:`~trio.current_time` or the
+:func:`~trio.lowlevel.current_task` -- then Trio needs to have certain
+state available to it or else you will get a
+``RuntimeError("must be called from async context")``.
+This requires that you either be:
+
+* indirectly inside (and on the same thread as) a call to
+  :func:`trio.run`, for run-level information such as the
+  :func:`~trio.current_time` or :func:`~trio.lowlevel.current_clock`;
+  or
+
+* indirectly inside a Trio task, for task-level information such as
+  the :func:`~trio.lowlevel.current_task` or
+  :func:`~trio.current_effective_deadline`.
+
+Internally, this state is provided by thread-local variables tracking
+the current run and the current task. Sometimes, it's useful to know
+in advance whether a call will fail or to have dynamic information for
+safeguards against running something inside or outside Trio. To do so,
+call :func:`trio.lowlevel.in_trio_run` or
+:func:`trio.lowlevel.in_trio_task`, which will provide answers
+according to the following table.
+
+
++--------------------------------------------------------+-----------------------------------+------------------------------------+
+| situation                                              | :func:`trio.lowlevel.in_trio_run` | :func:`trio.lowlevel.in_trio_task` |
++========================================================+===================================+====================================+
+| inside a Trio-flavored async function                  | `True`                            | `True`                             |
++--------------------------------------------------------+-----------------------------------+------------------------------------+
+| in a thread without an active call to :func:`trio.run` | `False`                           | `False`                            |
++--------------------------------------------------------+-----------------------------------+------------------------------------+
+| in a guest run's host loop                             | `True`                            | `False`                            |
++--------------------------------------------------------+-----------------------------------+------------------------------------+
+| inside an instrument call                              | `True`                            | depends                            |
++--------------------------------------------------------+-----------------------------------+------------------------------------+
+| in a thread created by :func:`trio.to_thread.run_sync` | `False`                           | `False`                            |
++--------------------------------------------------------+-----------------------------------+------------------------------------+
+| inside an abort function                               | `True`                            | `True`                             |
++--------------------------------------------------------+-----------------------------------+------------------------------------+
+
+.. autofunction:: in_trio_run
+
+.. autofunction:: in_trio_task
 
 The current clock
 -----------------
@@ -199,7 +253,9 @@ a stream.
 
 If you have two different file descriptors for sending and receiving,
 and want to bundle them together into a single bidirectional
-`~trio.abc.Stream`, then use `trio.StapledStream`::
+`~trio.abc.Stream`, then use `trio.StapledStream`:
+
+.. code-block:: python
 
     bidirectional_stream = trio.StapledStream(
         trio.lowlevel.FdStream(write_fd),
@@ -218,17 +274,20 @@ TODO: these are implemented, but are currently more of a sketch than
 anything real. See `#26
 <https://github.com/python-trio/trio/issues/26>`__.
 
-.. function:: current_kqueue()
+.. autofunction:: current_kqueue()
 
-.. function:: wait_kevent(ident, filter, abort_func)
+.. autofunction:: wait_kevent(ident, filter, abort_func)
    :async:
 
-.. function:: monitor_kevent(ident, filter)
+.. autofunction:: monitor_kevent(ident, filter)
    :with: queue
 
 
 Windows-specific API
 --------------------
+
+.. note: this is a function and not `autofunction` since it relies on cffi
+   compiling some things.
 
 .. function:: WaitForSingleObject(handle)
     :async:
@@ -248,14 +307,20 @@ anything real. See `#26
 <https://github.com/python-trio/trio/issues/26>`__ and `#52
 <https://github.com/python-trio/trio/issues/52>`__.
 
-.. function:: register_with_iocp(handle)
+.. autofunction:: register_with_iocp(handle)
 
-.. function:: wait_overlapped(handle, lpOverlapped)
+.. autofunction:: wait_overlapped(handle, lpOverlapped)
    :async:
 
-.. function:: current_iocp()
+.. autofunction:: write_overlapped(handle, data)
+   :async:
 
-.. function:: monitor_completion_key()
+.. autofunction:: readinto_overlapped(handle, data)
+   :async:
+
+.. autofunction:: current_iocp()
+
+.. autofunction:: monitor_completion_key()
    :with: queue
 
 
@@ -365,6 +430,46 @@ These transitions are accomplished using two function decorators:
    poorly-timed :exc:`KeyboardInterrupt` could leave the lock in an
    inconsistent state and cause a deadlock.
 
+   Since KeyboardInterrupt protection is tracked per code object, any attempt to
+   conditionally protect the same block of code in different ways is unlikely to behave
+   how you expect. If you try to conditionally protect a closure, it will be
+   unconditionally protected instead::
+
+       def example(protect: bool) -> bool:
+           def inner() -> bool:
+               return trio.lowlevel.currently_ki_protected()
+           if protect:
+               inner = trio.lowlevel.enable_ki_protection(inner)
+           return inner()
+
+       async def amain():
+           assert example(False) == False
+           assert example(True) == True  # once protected ...
+           assert example(False) == True  # ... always protected
+
+       trio.run(amain)
+
+   If you really need conditional protection, you can achieve it by giving each
+   KI-protected instance of the closure its own code object::
+
+       def example(protect: bool) -> bool:
+           def inner() -> bool:
+               return trio.lowlevel.currently_ki_protected()
+           if protect:
+               inner.__code__ = inner.__code__.replace()
+               inner = trio.lowlevel.enable_ki_protection(inner)
+           return inner()
+
+       async def amain():
+           assert example(False) == False
+           assert example(True) == True
+           assert example(False) == False
+
+       trio.run(amain)
+
+   (This isn't done by default because it carries some memory overhead and reduces
+   the potential for specializing optimizations in recent versions of CPython.)
+
 .. autofunction:: currently_ki_protected
 
 
@@ -378,6 +483,12 @@ Wait queue abstraction
    :members:
    :undoc-members:
 
+.. autoclass:: ParkingLotStatistics
+   :members:
+
+.. autofunction:: add_parking_lot_breaker
+
+.. autofunction:: remove_parking_lot_breaker
 
 Low-level checkpoint functions
 ------------------------------
@@ -391,7 +502,9 @@ The next two functions are used *together* to make up a checkpoint:
 
 These are commonly used in cases where you have an operation that
 might-or-might-not block, and you want to implement Trio's standard
-checkpoint semantics. Example::
+checkpoint semantics. Example:
+
+.. code-block:: python
 
    async def operation_that_maybe_blocks():
        await checkpoint_if_cancelled()
@@ -452,7 +565,9 @@ non-blocking path, etc. If you really want to implement your own lock,
 then you should study the implementation of :class:`trio.Lock` and use
 :class:`ParkingLot`, which handles some of these issues for you. But
 this does serve to illustrate the basic structure of the
-:func:`wait_task_rescheduled` API::
+:func:`wait_task_rescheduled` API:
+
+.. code-block:: python
 
    class NotVeryGoodLock:
        def __init__(self):
@@ -532,7 +647,6 @@ Task API
       putting a task to sleep and then waking it up again. (See
       :func:`wait_task_rescheduled` for details.)
 
-
 .. _guest-mode:
 
 Using "guest mode" to run Trio on top of other event loops
@@ -585,7 +699,9 @@ like Qt. Its advantages are:
   from the host, and call sync host APIs from Trio. For example, if
   you're making a GUI app with Qt as the host loop, then making a
   `cancel button <https://doc.qt.io/qt-5/qpushbutton.html>`__ and
-  connecting it to a `trio.CancelScope` is as easy as writing::
+  connecting it to a `trio.CancelScope` is as easy as writing:
+
+  .. code-block:: python
 
       # Trio code can create Qt objects without any special ceremony...
       my_cancel_button = QPushButton("Cancel")
@@ -688,9 +804,12 @@ with your favorite event loop. Treat this section like a checklist.
 
 **Getting started:** The first step is to get something basic working.
 Here's a minimal example of running Trio on top of asyncio, that you
-can use as a model::
+can use as a model:
 
-    import asyncio, trio
+.. code-block:: python
+
+    import asyncio
+    import trio
 
     # A tiny Trio program
     async def trio_main():
@@ -800,7 +919,9 @@ Here's how we'd extend our asyncio example to implement this pattern:
        return trio_main_outcome.unwrap()
 
 And then you can encapsulate all this machinery in a utility function
-that exposes a `trio.run`-like API, but runs both loops together::
+that exposes a `trio.run`-like API, but runs both loops together:
+
+.. code-block:: python
 
    def trio_run_with_asyncio(trio_main, *args, **trio_run_kwargs):
        async def asyncio_main():
@@ -961,8 +1082,7 @@ issue #649 <https://github.com/python-trio/trio/issues/649>`__. For
 more details on how coroutines work, we recommend André Caron's `A
 tale of event loops
 <https://github.com/AndreLouisCaron/a-tale-of-event-loops>`__, or
-going straight to `PEP 492
-<https://www.python.org/dev/peps/pep-0492/>`__ for the full details.
+going straight to :pep:`492` for the full details.
 
 .. autofunction:: permanently_detach_coroutine_object
 

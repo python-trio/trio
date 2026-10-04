@@ -312,7 +312,9 @@ mean.
 This is often a challenging rule to follow – for example, the call
 soon code has to jump through some hoops to make it happen – but its
 most dramatic influence can seen in Trio's task-spawning interface,
-where it motivates the use of "nurseries"::
+where it motivates the use of "nurseries":
+
+.. code-block:: python
 
    async def parent():
        async with trio.open_nursery() as nursery:
@@ -376,18 +378,22 @@ Specific style guidelines
   unconditionally act as cancel+schedule points.
 
 * Any function that takes a callable to run should have a signature
-  like::
+  like:
 
-     def call_the_thing(fn, *args, kwonly1, kwonly2, ...)::
+  .. code-block:: python
+
+     def call_the_thing(fn, *args, kwonly1, kwonly2):
          ...
 
   where ``fn(*args)`` is the thing to be called, and ``kwonly1``,
-  ``kwonly2``, ... are keyword-only arguments that belong to
+  ``kwonly2``, are keyword-only arguments that belong to
   ``call_the_thing``. This applies even if ``call_the_thing`` doesn't
   take any arguments of its own, i.e. in this case its signature looks
-  like::
+  like:
 
-     def call_the_thing(fn, *args)::
+  .. code-block:: python
+
+     def call_the_thing(fn, *args):
          ...
 
   This allows users to skip faffing about with
@@ -410,12 +416,14 @@ Specific style guidelines
   worse, and you get used to the convention pretty quick.
 
 * If it's desirable to have both blocking and non-blocking versions of
-  a function, then they look like::
+  a function, then they look like:
 
-     async def OPERATION(...):
+  .. code-block:: python
+
+     async def OPERATION(arg1, arg2):
          ...
 
-     def OPERATION_nowait(...):
+     def OPERATION_nowait(arg1, arg2):
          ...
 
   and the ``nowait`` version raises :exc:`trio.WouldBlock` if it would block.

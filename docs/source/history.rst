@@ -5,6 +5,551 @@ Release history
 
 .. towncrier release notes start
 
+trio 0.34.0 (2026-08-10)
+------------------------
+
+Features
+~~~~~~~~
+
+- `MemoryChannelStatistics` now has a ``peak_buffer_used`` field, which reports
+  the largest number of items that have ever been in the channel's buffer at
+  once. This makes it easier to pick a sensible ``max_buffer_size`` based on
+  data from a real run, instead of guessing. (`#1723 <https://github.com/python-trio/trio/issues/1723>`__)
+- Support Python 3.15, as of beta 4. Things may still change and so this
+  support may break in the future. (`#3456 <https://github.com/python-trio/trio/issues/3456>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- ``Nursery.start()`` now preserves the ``__cause__`` and ``__context__`` of
+  exceptions raised before ``task_status.started()`` is called. (`#3261 <https://github.com/python-trio/trio/issues/3261>`__)
+- Fixed incorrect error message in ``run_process``: the ``stdout`` pipe check now correctly says "stdout" instead of "stdin". (`#3409 <https://github.com/python-trio/trio/issues/3409>`__)
+- Fixed ``trio.Path.as_uri()`` on Python 3.14+ to avoid the deprecated ``pathlib.PurePath.as_uri()`` path. (`#3460 <https://github.com/python-trio/trio/issues/3460>`__)
+- Fixed ``trio.to_thread.run_sync``` workers leaking spawner's ``Context`` on ``py314t+`` free-threaded builds. (`#3472 <https://github.com/python-trio/trio/issues/3472>`__)
+
+
+Deprecations and removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Trying to use absolute deadlines on a `trio.CancelScope` constructed
+  with a relative deadline now raises, after being deprecated since Trio
+  0.27.0.
+
+  To switch a cancel scope from being relative to absolute, replace the
+  `trio.CancelScope` object instead of trying to mutate it. (`#3403 <https://github.com/python-trio/trio/issues/3403>`__)
+
+
+trio 0.33.0 (2026-02-14)
+------------------------
+
+Bugfixes
+~~~~~~~~
+
+- Start supporting Android's new ``"android"`` `sys.platform`. (`#3357 <https://github.com/python-trio/trio/issues/3357>`__)
+
+
+Deprecations and removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Both :class:`trio.testing.RaisesGroup` and :class:`trio.testing.Matcher` have been deprecated. Pytest alternatives ``pytest.RaisesGroup`` and ``pytest.RaisesExc`` (respectively) are considered correct replacement. (`#3326 <https://github.com/python-trio/trio/issues/3326>`__)
+
+
+trio 0.32.0 (2025-10-31)
+------------------------
+
+Features
+~~~~~~~~
+
+- Allow `trio.CapacityLimiter` to have zero total_tokens. (`#3321 <https://github.com/python-trio/trio/issues/3321>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Fixed a bug where iterating over an ``@as_safe_channel``-derived ``ReceiveChannel``
+  would raise `~trio.BrokenResourceError` if the channel was closed by another task.
+  It now shuts down cleanly. (`#3331 <https://github.com/python-trio/trio/issues/3331>`__)
+- `trio.lowlevel.Task.iter_await_frames` now works on completed tasks, by
+  returning an empty list of frames if the underlying coroutine has been closed.
+  Previously, it raised an internal error. (`#3337 <https://github.com/python-trio/trio/issues/3337>`__)
+
+
+Removals without deprecations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Drop support for Python 3.9. (`#3345 <https://github.com/python-trio/trio/issues/3345>`__)
+
+
+Miscellaneous internal changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Decrease indentation for exception groups raised in `trio.as_safe_channel`. (`#3332 <https://github.com/python-trio/trio/issues/3332>`__)
+
+
+Trio 0.31.0 (2025-09-09)
+------------------------
+
+Features
+~~~~~~~~
+
+- :exc:`Cancelled` strings can now display the source and reason for a cancellation. Trio-internal sources of cancellation will set this string, and :meth:`CancelScope.cancel` now has a ``reason`` string parameter that can be used to attach info to any :exc:`Cancelled` to help in debugging. (`#3232 <https://github.com/python-trio/trio/issues/3232>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Make ctrl+c work in more situations in the Trio REPL (``python -m trio``). (`#3007 <https://github.com/python-trio/trio/issues/3007>`__)
+- Allow pickling `trio.Cancelled`, as they can show up when you want to pickle something else. This does not rule out pickling other ``NoPublicConstructor`` objects -- create an issue if necessary. (`#3248 <https://github.com/python-trio/trio/issues/3248>`__)
+- Decrease import time on Windows by around 10%. (`#3263 <https://github.com/python-trio/trio/issues/3263>`__)
+- Handle unwrapping SystemExit/KeyboardInterrupt exception gracefully in utility function ``raise_single_exception_from_group`` that reraises last exception from group. (`#3275 <https://github.com/python-trio/trio/issues/3275>`__)
+- Ensure that the DTLS server does not mutate SSL context. (`#3277 <https://github.com/python-trio/trio/issues/3277>`__)
+- Avoid having `trio.as_safe_channel` raise if closing the generator wrapped
+  `GeneratorExit` in a `BaseExceptionGroup`. (`#3324 <https://github.com/python-trio/trio/issues/3324>`__)
+
+
+Deprecations and removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Implement ``bool(trio.Event)`` and have it raise a `DeprecationWarning` and tell users to use `trio.Event.is_set` instead. This is an alternative to ``mypy --enable-error-code=truthy-bool`` for users who don't use type checking. (`#3322 <https://github.com/python-trio/trio/issues/3322>`__)
+
+
+Miscellaneous internal changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- When misnesting nurseries you now get a helpful :exc:`RuntimeError` instead of a catastrophic :exc:`TrioInternalError`. (`#3307 <https://github.com/python-trio/trio/issues/3307>`__)
+
+
+Trio 0.30.0 (2025-04-20)
+------------------------
+
+Features
+~~~~~~~~
+
+- Add :func:`@trio.as_safe_channel <trio.as_safe_channel>`, a wrapper that can be used to make async generators safe.
+  This will be the suggested fix for the flake8-async lint rule `ASYNC900 <https://flake8-async.readthedocs.io/en/latest/rules.html#async900>`_. (`#3197 <https://github.com/python-trio/trio/issues/3197>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Allow `trio` to be a `types.ModuleType` and still have deprecated attributes. (`#2135 <https://github.com/python-trio/trio/issues/2135>`__)
+- Fixed socket module for some older systems which lack ``socket.AI_NUMERICSERV``.
+  Now trio works on legacy (pre-Lion) macOS. (`#3133 <https://github.com/python-trio/trio/issues/3133>`__)
+- Update type hints for `trio.run_process` and `trio.lowlevel.open_process`. (`#3183 <https://github.com/python-trio/trio/issues/3183>`__)
+- Don't mutate the global runner when MockClock is created. (`#3205 <https://github.com/python-trio/trio/issues/3205>`__)
+- Fix incorrect return type hint for :meth:`Nursery.start() <trio.Nursery.start>`. (`#3224 <https://github.com/python-trio/trio/issues/3224>`__)
+
+
+Improved documentation
+~~~~~~~~~~~~~~~~~~~~~~
+
+- Update wording in documentation to more accurately reflect Trio's maturity. (`#3216 <https://github.com/python-trio/trio/issues/3216>`__)
+
+
+Trio 0.29.0 (2025-02-14)
+------------------------
+
+Features
+~~~~~~~~
+
+- Add :func:`trio.lowlevel.in_trio_run` and :func:`trio.lowlevel.in_trio_task` and document the semantics (and differences) thereof. See :ref:`the documentation <trio_contexts>`. (`#2757 <https://github.com/python-trio/trio/issues/2757>`__)
+- If `trio.testing.RaisesGroup` does not get the expected exceptions it now raises an `AssertionError` with a helpful message, instead of letting the raised exception/group fall through. The raised exception is available in the ``__context__`` of the `AssertionError` and can be seen in the traceback. (`#3145 <https://github.com/python-trio/trio/issues/3145>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Clear Trio's cache of worker threads upon `os.fork`. (`#2764 <https://github.com/python-trio/trio/issues/2764>`__)
+
+
+Miscellaneous internal changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Stop using ctypes to mutate tracebacks for ``strict_exception_groups=False``'s exception collapsing. (`#405 <https://github.com/python-trio/trio/issues/405>`__)
+- Fixed spelling error in Windows error code enum for ``ERROR_INVALID_PARAMETER``. (`#3166 <https://github.com/python-trio/trio/issues/3166>`__)
+- Publicly re-export ``__version__`` for type checking purposes. (`#3186 <https://github.com/python-trio/trio/issues/3186>`__)
+- The typing of :func:`trio.abc.HostnameResolver.getaddrinfo` has been corrected to
+  match that of the stdlib `socket.getaddrinfo`, which was updated in mypy 1.15 (via
+  a typeshed update) to include the possibility of ``tuple[int, bytes]`` for the
+  ``sockaddr`` field of the result. This happens in situations where Python was compiled
+  with ``--disable-ipv6``.
+
+  Additionally, the static typing of :func:`trio.to_thread.run_sync`,
+  :func:`trio.from_thread.run` and :func:`trio.from_thread.run_sync` has been
+  improved and should reflect the underlying function being run. (`#3201 <https://github.com/python-trio/trio/issues/3201>`__)
+
+
+Trio 0.28.0 (2024-12-25)
+------------------------
+
+Bugfixes
+~~~~~~~~
+
+- :func:`inspect.iscoroutinefunction` and the like now give correct answers when
+  called on KI-protected functions. (`#2670 <https://github.com/python-trio/trio/issues/2670>`__)
+- Rework KeyboardInterrupt protection to track code objects, rather than frames,
+  as protected or not. The new implementation no longer needs to access
+  ``frame.f_locals`` dictionaries, so it won't artificially extend the lifetime of
+  local variables. Since KeyboardInterrupt protection is now imposed statically
+  (when a protected function is defined) rather than each time the function runs,
+  its previously-noticeable performance overhead should now be near zero.
+  The lack of a call-time wrapper has some other benefits as well:
+
+  * :func:`inspect.iscoroutinefunction` and the like now give correct answers when
+    called on KI-protected functions.
+
+  * Calling a synchronous KI-protected function no longer pushes an additional stack
+    frame, so tracebacks are clearer.
+
+  * A synchronous KI-protected function invoked from C code (such as a weakref
+    finalizer) is now guaranteed to start executing; previously there would be a brief
+    window in which KeyboardInterrupt could be raised before the protection was
+    established.
+
+  One minor drawback of the new approach is that multiple instances of the same
+  closure share a single KeyboardInterrupt protection state (because they share a
+  single code object). That means that if you apply
+  `@enable_ki_protection <trio.lowlevel.enable_ki_protection>` to some of them
+  and not others, you won't get the protection semantics you asked for. See the
+  documentation of `@enable_ki_protection <trio.lowlevel.enable_ki_protection>`
+  for more details and a workaround. (`#3108 <https://github.com/python-trio/trio/issues/3108>`__)
+- Rework foreign async generator finalization to track async generator
+  ids rather than mutating ``ag_frame.f_locals``. This fixes an issue
+  with the previous implementation: locals' lifetimes will no longer be
+  extended by materialization in the ``ag_frame.f_locals`` dictionary that
+  the previous finalization dispatcher logic needed to access to do its work. (`#3112 <https://github.com/python-trio/trio/issues/3112>`__)
+- Ensure that Pyright recognizes our underscore prefixed attributes for attrs classes. (`#3114 <https://github.com/python-trio/trio/issues/3114>`__)
+- Fix `trio.testing.RaisesGroup`'s typing. (`#3141 <https://github.com/python-trio/trio/issues/3141>`__)
+
+
+Improved documentation
+~~~~~~~~~~~~~~~~~~~~~~
+
+- Improve error message when run after gevent's monkey patching. (`#3087 <https://github.com/python-trio/trio/issues/3087>`__)
+- Document that :func:`trio.sleep_forever` is guaranteed to raise an exception now. (`#3113 <https://github.com/python-trio/trio/issues/3113>`__)
+
+
+Removals without deprecations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Remove workaround for OpenSSL 1.1.1 DTLS ClientHello bug. (`#3097 <https://github.com/python-trio/trio/issues/3097>`__)
+- Drop support for Python 3.8. (`#3104 <https://github.com/python-trio/trio/issues/3104>`__) (`#3106 <https://github.com/python-trio/trio/issues/3106>`__)
+
+
+Miscellaneous internal changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Switch to using :pep:`570` for positional-only arguments for `~trio.socket.SocketType`'s methods. (`#3094 <https://github.com/python-trio/trio/issues/3094>`__)
+- Improve type annotations in several places by removing `Any` usage. (`#3121 <https://github.com/python-trio/trio/issues/3121>`__)
+- Get and enforce 100% coverage (`#3159 <https://github.com/python-trio/trio/issues/3159>`__)
+
+
+Trio 0.27.0 (2024-10-17)
+------------------------
+
+Breaking changes
+~~~~~~~~~~~~~~~~
+
+- :func:`trio.move_on_after` and :func:`trio.fail_after` previously set the deadline relative to initialization time, instead of more intuitively upon entering the context manager. This might change timeouts if a program relied on this behavior. If you want to restore previous behavior you should instead use ``trio.move_on_at(trio.current_time() + ...)``.
+  flake8-async has a new rule to catch this, in case you're supporting older trio versions. See :ref:`ASYNC122`. (`#2512 <https://github.com/python-trio/trio/issues/2512>`__)
+
+
+Features
+~~~~~~~~
+
+- :meth:`CancelScope.relative_deadline` and :meth:`CancelScope.is_relative` added, as well as a ``relative_deadline`` parameter to ``__init__``. This allows initializing scopes ahead of time, but where the specified relative deadline doesn't count down until the scope is entered. (`#2512 <https://github.com/python-trio/trio/issues/2512>`__)
+- :class:`trio.Lock` and :class:`trio.StrictFIFOLock` will now raise :exc:`trio.BrokenResourceError` when :meth:`trio.Lock.acquire` would previously stall due to the owner of the lock exiting without releasing the lock. (`#3035 <https://github.com/python-trio/trio/issues/3035>`__)
+- `trio.move_on_at`, `trio.move_on_after`, `trio.fail_at` and `trio.fail_after` now accept *shield* as a keyword argument. If specified, it provides an initial value for the `~trio.CancelScope.shield` attribute of the `trio.CancelScope` object created by the context manager. (`#3052 <https://github.com/python-trio/trio/issues/3052>`__)
+- Added :func:`trio.lowlevel.add_parking_lot_breaker` and :func:`trio.lowlevel.remove_parking_lot_breaker` to allow creating custom lock/semaphore implementations that will break their underlying parking lot if a task exits unexpectedly. :meth:`trio.lowlevel.ParkingLot.break_lot` is also added, to allow breaking a parking lot intentionally. (`#3081 <https://github.com/python-trio/trio/issues/3081>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Allow sockets to bind any ``os.PathLike`` object. (`#3041 <https://github.com/python-trio/trio/issues/3041>`__)
+- Update ``trio.lowlevel.open_process``'s documentation to allow bytes. (`#3076 <https://github.com/python-trio/trio/issues/3076>`__)
+- Update :func:`trio.sleep_forever` to be `NoReturn`. (`#3095 <https://github.com/python-trio/trio/issues/3095>`__)
+
+
+Improved documentation
+~~~~~~~~~~~~~~~~~~~~~~
+
+- Add docstrings for memory channels' ``statistics()`` and ``aclose`` methods. (`#3101 <https://github.com/python-trio/trio/issues/3101>`__)
+
+
+Trio 0.26.2 (2024-08-08)
+------------------------
+
+Bugfixes
+~~~~~~~~
+
+- Remove remaining ``hash`` usage and fix test configuration issue that prevented it from being caught. (`#3053 <https://github.com/python-trio/trio/issues/3053>`__)
+
+
+Trio 0.26.1 (2024-08-05)
+------------------------
+
+Bugfixes
+~~~~~~~~
+
+- Switched ``attrs`` usage off of ``hash``, which is now deprecated. (`#3053 <https://github.com/python-trio/trio/issues/3053>`__)
+
+
+Miscellaneous internal changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Use PyPI's Trusted Publishers to make releases. (`#2980 <https://github.com/python-trio/trio/issues/2980>`__)
+
+
+Trio 0.26.0 (2024-07-05)
+------------------------
+
+Features
+~~~~~~~~
+
+- Added an interactive interpreter ``python -m trio``.
+
+  This makes it easier to try things and experiment with trio in the a Python repl.
+  Use the ``await`` keyword without needing to call ``trio.run()``
+
+  .. code-block:: console
+
+     $ python -m trio
+     Trio 0.21.0+dev, Python 3.10.6
+     Use "await" directly instead of "trio.run()".
+     Type "help", "copyright", "credits" or "license" for more information.
+     >>> import trio
+     >>> await trio.sleep(1); print("hi")  # prints after one second
+     hi
+
+  See :ref:`interactive debugging` for further detail. (`#2972 <https://github.com/python-trio/trio/issues/2972>`__)
+- :class:`trio.testing.RaisesGroup` can now catch an unwrapped exception with ``unwrapped=True``. This means that the behaviour of :ref:`except* <except_star>` can be fully replicated in combination with ``flatten_subgroups=True`` (formerly ``strict=False``). (`#2989 <https://github.com/python-trio/trio/issues/2989>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Fixed a bug where :class:`trio.testing.RaisesGroup(..., strict=False) <trio.testing.RaisesGroup>` would check the number of exceptions in the raised `ExceptionGroup` before flattening subgroups, leading to incorrectly failed matches.
+  It now properly supports end (``$``) regex markers in the ``match`` message, by no longer including " (x sub-exceptions)" in the string it matches against. (`#2989 <https://github.com/python-trio/trio/issues/2989>`__)
+
+
+Deprecations and removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Deprecated ``strict`` parameter from :class:`trio.testing.RaisesGroup`, previous functionality of ``strict=False`` is now in ``flatten_subgroups=True``. (`#2989 <https://github.com/python-trio/trio/issues/2989>`__)
+
+
+Trio 0.25.1 (2024-05-16)
+------------------------
+
+Bugfixes
+~~~~~~~~
+
+- Fix crash when importing trio in embedded Python on Windows, and other installs that remove docstrings. (`#2987 <https://github.com/python-trio/trio/issues/2987>`__)
+
+
+Trio 0.25.0 (2024-03-17)
+------------------------
+
+Breaking changes
+~~~~~~~~~~~~~~~~
+
+- The :ref:`strict_exception_groups <strict_exception_groups>` parameter now defaults to `True` in `trio.run` and `trio.lowlevel.start_guest_run`. `trio.open_nursery` still defaults to the same value as was specified in `trio.run`/`trio.lowlevel.start_guest_run`, but if you didn't specify it there then all subsequent calls to `trio.open_nursery` will change.
+  This is unfortunately very tricky to change with a deprecation period, as raising a `DeprecationWarning` whenever :ref:`strict_exception_groups <strict_exception_groups>` is not specified would raise a lot of unnecessary warnings.
+
+  Notable side effects of changing code to run with ``strict_exception_groups==True``
+
+  * If an iterator raises `StopAsyncIteration` or `StopIteration` inside a nursery, then python will not recognize wrapped instances of those for stopping iteration.
+  * `trio.run_process` is now documented that it can raise an `ExceptionGroup`. It previously could do this in very rare circumstances, but with :ref:`strict_exception_groups <strict_exception_groups>` set to `True` it will now do so whenever exceptions occur in ``deliver_cancel`` or with problems communicating with the subprocess.
+
+    * Errors in opening the process is now done outside the internal nursery, so if code previously ran with ``strict_exception_groups=True`` there are cases now where an `ExceptionGroup` is *no longer* added.
+  * `trio.TrioInternalError` ``.__cause__`` might be wrapped in one or more `ExceptionGroups <ExceptionGroup>` (`#2786 <https://github.com/python-trio/trio/issues/2786>`__)
+
+
+Features
+~~~~~~~~
+
+- Add `trio.testing.wait_all_threads_completed`, which blocks until no threads are running tasks. This is intended to be used in the same way as `trio.testing.wait_all_tasks_blocked`. (`#2937 <https://github.com/python-trio/trio/issues/2937>`__)
+- :class:`Path` is now a subclass of :class:`pathlib.PurePath`, allowing it to interoperate with other standard
+  :mod:`pathlib` types.
+
+  Instantiating :class:`Path` now returns a concrete platform-specific subclass, one of :class:`PosixPath` or
+  :class:`WindowsPath`, matching the behavior of :class:`pathlib.Path`. (`#2959 <https://github.com/python-trio/trio/issues/2959>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- The pthread functions are now correctly found on systems using vanilla versions of musl libc. (`#2939 <https://github.com/python-trio/trio/issues/2939>`__)
+
+
+Miscellaneous internal changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- use the regular readme for the PyPI long_description (`#2866 <https://github.com/python-trio/trio/issues/2866>`__)
+
+
+Trio 0.24.0 (2024-01-10)
+------------------------
+
+Features
+~~~~~~~~
+
+- New helper classes: :class:`~.testing.RaisesGroup` and :class:`~.testing.Matcher`.
+
+  In preparation for changing the default of ``strict_exception_groups`` to `True`, we're introducing a set of helper classes that can be used in place of `pytest.raises <https://docs.pytest.org/en/stable/reference/reference.html#pytest.raises>`_ in tests, to check for an expected `ExceptionGroup`.
+  These are provisional, and only planned to be supplied until there's a good solution in ``pytest``. See https://github.com/pytest-dev/pytest/issues/11538 (`#2785 <https://github.com/python-trio/trio/issues/2785>`__)
+
+
+Deprecations and removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- ``MultiError`` has been fully removed, and all relevant trio functions now raise ExceptionGroups instead. This should not affect end users that have transitioned to using ``except*`` or catching ExceptionGroup/BaseExceptionGroup. (`#2891 <https://github.com/python-trio/trio/issues/2891>`__)
+
+
+Trio 0.23.2 (2023-12-14)
+------------------------
+
+Features
+~~~~~~~~
+
+- `TypeVarTuple <https://docs.python.org/3.12/library/typing.html#typing.TypeVarTuple>`_ is now used to fully type :meth:`nursery.start_soon() <trio.Nursery.start_soon>`, :func:`trio.run`, :func:`trio.to_thread.run_sync`, and other similar functions accepting ``(func, *args)``. This means type checkers will be able to verify types are used correctly. :meth:`nursery.start() <trio.Nursery.start>` is not fully typed yet however. (`#2881 <https://github.com/python-trio/trio/issues/2881>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Make pyright recognize :func:`open_memory_channel` as generic. (`#2873 <https://github.com/python-trio/trio/issues/2873>`__)
+
+
+Miscellaneous internal changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Moved the metadata into :pep:`621`-compliant :file:`pyproject.toml`. (`#2860 <https://github.com/python-trio/trio/issues/2860>`__)
+- do not depend on exceptiongroup pre-release (`#2861 <https://github.com/python-trio/trio/issues/2861>`__)
+- Move .coveragerc into pyproject.toml (`#2867 <https://github.com/python-trio/trio/issues/2867>`__)
+
+
+Trio 0.23.1 (2023-11-04)
+------------------------
+
+Bugfixes
+~~~~~~~~
+
+- Don't crash on import in Anaconda interpreters. (`#2855 <https://github.com/python-trio/trio/issues/2855>`__)
+
+
+Trio 0.23.0 (2023-11-03)
+------------------------
+
+Headline features
+~~~~~~~~~~~~~~~~~
+
+- Add type hints. (`#543 <https://github.com/python-trio/trio/issues/543>`__)
+
+
+Features
+~~~~~~~~
+
+- When exiting a nursery block, the parent task always waits for child
+  tasks to exit. This wait cannot be cancelled. However, previously, if
+  you tried to cancel it, it *would* inject a `Cancelled` exception,
+  even though it wasn't cancelled. Most users probably never noticed
+  either way, but injecting a `Cancelled` here is not really useful, and
+  in some rare cases caused confusion or problems, so Trio no longer
+  does that. (`#1457 <https://github.com/python-trio/trio/issues/1457>`__)
+- If called from a thread spawned by `trio.to_thread.run_sync`, `trio.from_thread.run` and
+  `trio.from_thread.run_sync` now reuse the task and cancellation status of the host task;
+  this means that context variables and cancel scopes naturally propagate 'through'
+  threads spawned by Trio. You can also use `trio.from_thread.check_cancelled`
+  to efficiently check for cancellation without reentering the Trio thread. (`#2392 <https://github.com/python-trio/trio/issues/2392>`__)
+- :func:`trio.lowlevel.start_guest_run` now does a bit more setup of the guest run
+  before it returns to its caller, so that the caller can immediately make calls to
+  :func:`trio.current_time`, :func:`trio.lowlevel.spawn_system_task`,
+  :func:`trio.lowlevel.current_trio_token`, etc. (`#2696 <https://github.com/python-trio/trio/issues/2696>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- When a starting function raises before calling :func:`trio.TaskStatus.started`,
+  :func:`trio.Nursery.start` will no longer wrap the exception in an undocumented
+  :exc:`ExceptionGroup`. Previously, :func:`trio.Nursery.start` would incorrectly
+  raise an :exc:`ExceptionGroup` containing it when using ``trio.run(...,
+  strict_exception_groups=True)``. (`#2611 <https://github.com/python-trio/trio/issues/2611>`__)
+
+
+Deprecations and removals
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- To better reflect the underlying thread handling semantics,
+  the keyword argument for `trio.to_thread.run_sync` that was
+  previously called ``cancellable`` is now named ``abandon_on_cancel``.
+  It still does the same thing -- allow the thread to be abandoned
+  if the call to `trio.to_thread.run_sync` is cancelled -- but since we now
+  have other ways to propagate a cancellation without abandoning
+  the thread, "cancellable" has become somewhat of a misnomer.
+  The old ``cancellable`` name is now deprecated. (`#2841 <https://github.com/python-trio/trio/issues/2841>`__)
+- Deprecated support for ``math.inf`` for the ``backlog`` argument in ``open_tcp_listeners``, making its docstring correct in the fact that only ``TypeError`` is raised if invalid arguments are passed. (`#2842 <https://github.com/python-trio/trio/issues/2842>`__)
+
+
+Removals without deprecations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Drop support for Python3.7 and PyPy3.7/3.8. (`#2668 <https://github.com/python-trio/trio/issues/2668>`__)
+- Removed special ``MultiError`` traceback handling for IPython. As of `version 8.15 <https://ipython.readthedocs.io/en/stable/whatsnew/version8.html#ipython-8-15>`_ `ExceptionGroup` is handled natively. (`#2702 <https://github.com/python-trio/trio/issues/2702>`__)
+
+
+Miscellaneous internal changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Trio now indicates its presence to `sniffio` using the ``sniffio.thread_local``
+  interface that is preferred since sniffio v1.3.0. This should be less likely
+  than the previous approach to cause :func:`sniffio.current_async_library` to
+  return incorrect results due to unintended inheritance of contextvars. (`#2700 <https://github.com/python-trio/trio/issues/2700>`__)
+- On windows, if SIO_BASE_HANDLE failed and SIO_BSP_HANDLE_POLL didn't return a different socket, runtime error will now raise from the OSError that indicated the issue so that in the event it does happen it might help with debugging. (`#2807 <https://github.com/python-trio/trio/issues/2807>`__)
+
+
+Trio 0.22.2 (2023-07-13)
+------------------------
+
+Bugfixes
+~~~~~~~~
+
+- Fix ``PermissionError`` when importing `trio` due to trying to access ``pthread``. (`#2688 <https://github.com/python-trio/trio/issues/2688>`__)
+
+
+Trio 0.22.1 (2023-07-02)
+------------------------
+
+Breaking changes
+~~~~~~~~~~~~~~~~
+
+- Timeout functions now raise `ValueError` if passed `math.nan`. This includes `trio.sleep`, `trio.sleep_until`, `trio.move_on_at`, `trio.move_on_after`, `trio.fail_at` and `trio.fail_after`. (`#2493 <https://github.com/python-trio/trio/issues/2493>`__)
+
+
+Features
+~~~~~~~~
+
+- Added support for naming threads created with `trio.to_thread.run_sync`, requires pthreads so is only available on POSIX platforms with glibc installed. (`#1148 <https://github.com/python-trio/trio/issues/1148>`__)
+- `trio.socket.socket` now prints the address it tried to connect to upon failure. (`#1810 <https://github.com/python-trio/trio/issues/1810>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Fixed a crash that can occur when running Trio within an embedded Python interpreter, by handling the `TypeError` that is raised when trying to (re-)install a C signal handler. (`#2333 <https://github.com/python-trio/trio/issues/2333>`__)
+- Fix :func:`sniffio.current_async_library` when Trio tasks are spawned from a non-Trio context (such as when using trio-asyncio). Previously, a regular Trio task would inherit the non-Trio library name, and spawning a system task would cause the non-Trio caller to start thinking it was Trio. (`#2462 <https://github.com/python-trio/trio/issues/2462>`__)
+- Issued a new release as in the git tag for 0.22.0, ``trio.__version__`` is incorrectly set to 0.21.0+dev. (`#2485 <https://github.com/python-trio/trio/issues/2485>`__)
+
+
+Improved documentation
+~~~~~~~~~~~~~~~~~~~~~~
+
+- Documented that :obj:`Nursery.start_soon` does not guarantee task ordering. (`#970 <https://github.com/python-trio/trio/issues/970>`__)
+
+
 Trio 0.22.0 (2022-09-28)
 ------------------------
 
@@ -226,7 +771,7 @@ Headline features
 Features
 ~~~~~~~~
 
-- To speed up `trio.to_thread.run_sync`, Trio now caches and re-uses
+- To speed up `trio.to_thread.run_sync`, Trio now caches and reuses
   worker threads.
 
   And in case you have some exotic use case where you need to spawn
@@ -380,7 +925,7 @@ Features
 
   If you're using higher-level interfaces outside of the `trio.hazmat <trio.lowlevel>`
   module, then you don't need to worry about any of this; those
-  intefaces already take care of calling `~trio.lowlevel.notify_closing`
+  interfaces already take care of calling `~trio.lowlevel.notify_closing`
   for you. (`#1272 <https://github.com/python-trio/trio/issues/1272>`__)
 
 
@@ -640,7 +1185,7 @@ Features
   to make the task scheduler reproducible and avoid flaky tests. (`#890 <https://github.com/python-trio/trio/issues/890>`__)
 - :class:`~trio.abc.SendChannel`, :class:`~trio.abc.ReceiveChannel`, :class:`~trio.abc.Listener`,
   and :func:`~trio.open_memory_channel` can now be referenced using a generic type parameter
-  (the type of object sent over the channel or produced by the listener) using PEP 484 syntax:
+  (the type of object sent over the channel or produced by the listener) using :pep:`484` syntax:
   ``trio.abc.SendChannel[bytes]``, ``trio.abc.Listener[trio.SocketStream]``,
   ``trio.open_memory_channel[MyMessage](5)``, etc. The added type information does not change
   the runtime semantics, but permits better integration with external static type checkers. (`#908 <https://github.com/python-trio/trio/issues/908>`__)
@@ -728,7 +1273,7 @@ Bugfixes
 - Fixed a race condition on macOS, where Trio's TCP listener would crash if an
   incoming TCP connection was closed before the listener had a chance to accept
   it. (`#609 <https://github.com/python-trio/trio/issues/609>`__)
-- :func:`trio.open_tcp_stream()` has been refactored to clean up unsuccessful
+- :func:`trio.open_tcp_stream` has been refactored to clean up unsuccessful
   connection attempts more reliably. (`#809
   <https://github.com/python-trio/trio/issues/809>`__)
 
@@ -1047,7 +1592,9 @@ Highlights
 * The new nursery :meth:`~Nursery.start` method makes it
   easy to perform controlled start-up of long-running tasks. For
   example, given an appropriate ``http_server_on_random_open_port``
-  function, you could write::
+  function, you could write:
+
+  .. code-block:: python
 
       port = await nursery.start(http_server_on_random_open_port)
 
@@ -1099,14 +1646,14 @@ Highlights
 Breaking changes and deprecations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Trio is a young and ambitious project, but it also aims to become a
-stable, production-quality foundation for async I/O in Python.
-Therefore, our approach for now is to provide deprecation warnings
-where-ever possible, but on a fairly aggressive cycle as we push
-towards stability. If you use Trio you should `read and subscribe to
-issue #1 <https://github.com/python-trio/trio/issues/1>`__. We'd also
-welcome feedback on how this approach is working, whether our
-deprecation warnings could be more helpful, or anything else.
+Trio has matured into a stable, production-quality foundation for
+async I/O in Python. While we strive to maintain stability, we may
+make occasional breaking changes to improve the library. Whenever
+possible, we provide deprecation warnings on a reasonable timeline to
+ease transitions. If you use Trio, we recommend `subscribing to issue
+#1 <https://github.com/python-trio/trio/issues/1>`__ to stay informed
+about changes. We also welcome feedback on how our deprecation process
+is working and whether it could be improved.
 
 The tl;dr is: stop using ``socket.bind`` if you can, and then fix
 everything your test suite warns you about.
@@ -1289,7 +1836,9 @@ Other changes
   functions, if you're using asyncio you have to use asyncio
   functions, and so forth. (See the discussion of the "async sandwich"
   in the Trio tutorial for more details.) So for example, this isn't
-  going to work::
+  going to work:
+
+  .. code-block:: python
 
       async def main():
           # asyncio here

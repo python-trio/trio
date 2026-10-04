@@ -1,0 +1,1 @@
+Avoid erroring when running in a CPython built for an Android API version less than 24.

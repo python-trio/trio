@@ -1,19 +1,257 @@
-[tool.black]
-target-version = ['py37']
+[build-system]
+# setuptools v77 adds PEP 639 support
+requires = ["setuptools >= 77"]
+build-backend = "setuptools.build_meta"
 
+[project]
+name = "trio"
+description = "A friendly Python library for async concurrency and I/O"
+authors = [{name = "Nathaniel J. Smith", email = "njs@pobox.com"}]
+license = "MIT OR Apache-2.0"
+license-files = ["LICENSE*"]
+keywords = [
+    "async",
+    "io",
+    "networking",
+    "trio",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: Trio",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: POSIX :: BSD",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: System :: Networking",
+    "Typing :: Typed",
+]
+requires-python = ">=3.10"
+dependencies = [
+    # attrs 19.2.0 adds `eq` option to decorators
+    # attrs 20.1.0 adds @frozen
+    # attrs 21.1.0 adds a dataclass transform for type-checkers
+    # attrs 21.3.0 adds `import attrs`
+    "attrs >= 23.2.0",
+    "sortedcontainers",
+    "idna",
+    "outcome",
+    "sniffio >= 1.3.0",
+    # cffi 1.12 adds from_buffer(require_writable=True) and ffi.release()
+    # cffi 1.14 fixes memory leak inside ffi.getwinerror()
+    # cffi is required on Windows, except on PyPy where it is built-in
+    "cffi>=1.14; os_name == 'nt' and implementation_name != 'pypy'",
+    "exceptiongroup; python_version < '3.11'",
+]
+dynamic = ["version"]
+
+[project.readme]
+file = "README.rst"
+content-type = "text/x-rst"
+
+[project.urls]
+Homepage = "https://github.com/python-trio/trio"
+Documentation = "https://trio.readthedocs.io/"
+Changelog = "https://trio.readthedocs.io/en/latest/history.html"
+
+[project.entry-points.hypothesis]
+trio = "trio._core._run:_hypothesis_plugin_setup"
+
+[tool.setuptools]
+# This means, just install *everything* you see under trio/, even if it
+# doesn't look like a source file, so long as it appears in MANIFEST.in:
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = {attr = "trio._version.__version__"}
+
+[tool.black]
+force-exclude = '''
+(
+  ^/docs/source/reference-.*
+  | ^/docs/source/tutorial
+  | ^/src/trio/_core/_generated_windows_ffi.py
+)
+'''
+
+[tool.codespell]
+ignore-words-list = 'astroid,crasher,asend'
+
+[tool.typos]
+default.extend-ignore-re = [
+    "(?Rm)^.*(#|//)\\s*spellchecker:disable-line$",
+]
+
+[tool.typos.default.extend-identifiers]
+IPPROTO_ND = "IPPROTO_ND"
+
+[tool.typos.default.extend-words]
+astroid = "astroid"
+crasher = "crasher"
+asend = "asend"
+
+[tool.ruff]
+respect-gitignore = true
+fix = true
+
+# The directories to consider when resolving first vs. third-party imports.
+# Does not control what files to include/exclude!
+src = ["src/trio"]
+
+include = ["*.py", "*.pyi", "**/pyproject.toml"]
+
+extend-exclude = [
+  "docs/source/reference-*",
+  "docs/source/tutorial/*",
+  "src/trio/_core/_generated_windows_ffi.py"
+]
+
+[tool.ruff.lint]
+preview = true
+allowed-confusables = ["–"]
+
+select = [
+    "A",     # flake8-builtins
+    "ANN",   # flake8-annotations
+    "ASYNC", # flake8-async
+    "B",     # flake8-bugbear
+    "C4",    # flake8-comprehensions
+    "COM",   # flake8-commas
+    "E",     # Error
+    "EXE",   # flake8-executable
+    "F",     # pyflakes
+    "FA",    # flake8-future-annotations
+    "FLY",   # flynt
+    "FURB",  # refurb
+    "I",     # isort
+    "ICN",   # flake8-import-conventions
+    "PERF",  # Perflint
+    "PIE",   # flake8-pie
+    "PT",    # flake8-pytest-style
+    "PYI",   # flake8-pyi
+    "Q",     # flake8-quotes
+    "RUF",   # Ruff-specific rules
+    "SIM",   # flake8-simplify
+    "TC",    # flake8-type-checking
+    "UP",    # pyupgrade
+    "W",     # Warning
+    "YTT",   # flake8-2020
+]
+extend-ignore = [
+    "builtin-argument-shadowing",             # A002
+    "any-type",                               # ANN401 (mypy's `disallow_any_explicit` is better)
+    "module-import-not-at-top-of-file",       # E402(usually OS-specific)
+    "line-too-long",                          # E501
+    "undefined-local-with-import-star",       # F403
+    "undefined-local-with-import-star-usage", # F405
+    "try-except-in-loop",                     # PERF203(not always possible to refactor)
+    "pytest-raises-with-multiple-statements", # PT012 multiple statements in pytest.raises block
+    "multiple-with-statements",               # SIM117 (messes up lots of context-based stuff and looks bad)
+    "non-empty-init-module",                  # RUF067 we need lots of logic in our __init__
+    "noqa-comments",                          # RUF105 replaces noqa with ruff:ignore, which is ugly and doesn't have support in black
+
+    # conflicts with formatter (ruff recommends these be disabled)
+    "missing-trailing-comma",                 # COM812
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Ignoring unused imports (F401) for these particular files, these are
+# public APIs where we are importing everything we want to export for
+# public use. stdlib module shadowing is A005.
+'src/trio/__init__.py' = ['unused-import']
+'src/trio/_core/__init__.py' = ['unused-import']
+'src/trio/abc.py' = ['unused-import', 'stdlib-module-shadowing']
+'src/trio/lowlevel.py' = ['unused-import']
+'src/trio/socket.py' = ['unused-import', 'stdlib-module-shadowing']
+'src/trio/testing/__init__.py' = ['unused-import']
+
+# Ignoring tests that are marked as async functions (RUF029) but do not
+# use an await in their function bodies. There are several places where
+# internal trio synchronous code relies on being called from an async
+# function, where current task is set up.
+#
+# Ignoring exact float comparison (RUF029), because we use that in
+# combination with autojump clocks
+'src/trio/_tests/*.py' = ['unused-async', 'float-equality-comparison']
+'src/trio/_core/_tests/*.py' = ['unused-async', 'float-equality-comparison']
+# A005 is ignoring modules that shadow stdlib modules.
+'src/trio/_abc.py' = ['stdlib-module-shadowing']
+'src/trio/_socket.py' = ['stdlib-module-shadowing']
+'src/trio/_ssl.py' = ['stdlib-module-shadowing']
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+
+[tool.mypy]
+python_version = "3.10"
+files = ["src/trio/", "docs/source/*.py"]
+
+# Be flexible about dependencies that don't have stubs yet (like pytest)
+ignore_missing_imports = true
+
+# Be strict about use of Mypy
+enable_error_code = ["truthy-bool", "mutable-override"]
+local_partial_types = true
+warn_unused_ignores = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_return_any = true
+
+# Avoid subtle backsliding
+disallow_any_decorated = true
+disallow_any_explicit = true
+disallow_any_generics = true
+disallow_any_unimported = true
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+
+[tool.pyright]
+pythonVersion = "3.10"
+reportUnnecessaryTypeIgnoreComment = true
+typeCheckingMode = "strict"
+
+[tool.pytest.ini_options]
+addopts = ["--strict-markers", "--strict-config", "-p trio._tests.pytest_plugin", "--import-mode=importlib"]
+faulthandler_timeout = 60
+filterwarnings = [
+  "error",
+  # https://gitter.im/python-trio/general?at=63bb8d0740557a3d5c688d67
+  'ignore:You are using cryptography on a 32-bit Python on a 64-bit Windows Operating System. Cryptography will be significantly faster if you switch to using a 64-bit Python.:UserWarning',
+  # https://github.com/berkerpeksag/astor/issues/217
+  'ignore:ast.Num is deprecated:DeprecationWarning:astor',
+]
+junit_family = "xunit2"
+markers = ["redistributors_should_skip: tests that should be skipped by downstream redistributors"]
+xfail_strict = true
 
 [tool.towncrier]
+directory = "newsfragments"
+filename = "docs/source/history.rst"
+issue_format = "`#{issue} <https://github.com/python-trio/trio/issues/{issue}>`__"
 # Usage:
 # - PRs should drop a file like "issuenumber.feature" in newsfragments
-#   (or "bugfix", "doc", "removal", "misc"; misc gets no text, we can
-#    customize this)
+# (or "bugfix", "doc", "removal", "misc"; misc gets no text, we can
+# customize this)
 # - At release time after bumping version number, run: towncrier
-#   (or towncrier --draft)
+# (or towncrier --draft)
 package = "trio"
-filename = "docs/source/history.rst"
-directory = "newsfragments"
+package_dir = "src"
 underlines = ["-", "~", "^"]
-issue_format = "`#{issue} <https://github.com/python-trio/trio/issues/{issue}>`__"
 
 [[tool.towncrier.type]]
 directory = "headline"
@@ -46,26 +284,72 @@ name = "Deprecations and removals"
 showcontent = true
 
 [[tool.towncrier.type]]
+directory = "removal"
+name = "Removals without deprecations"
+showcontent = true
+
+[[tool.towncrier.type]]
 directory = "misc"
 name = "Miscellaneous internal changes"
 showcontent = true
 
-[tool.pytest.ini_options]
-addopts = ["--strict-markers", "--strict-config"]
-xfail_strict = true
-faulthandler_timeout = 60
-markers = ["redistributors_should_skip: tests that should be skipped by downstream redistributors"]
-junit_family = "xunit2"
-filterwarnings = [
-    "error",
-    # https://gitter.im/python-trio/general?at=63bb8d0740557a3d5c688d67
-    'ignore:You are using cryptography on a 32-bit Python on a 64-bit Windows Operating System. Cryptography will be significantly faster if you switch to using a 64-bit Python.:UserWarning',
-    # this should remain until https://github.com/pytest-dev/pytest/pull/10894 is merged
-    'ignore:ast.Str is deprecated:DeprecationWarning',
-    'ignore:Attribute s is deprecated and will be removed:DeprecationWarning',
-    'ignore:ast.NameConstant is deprecated:DeprecationWarning',
-    'ignore:ast.Num is deprecated:DeprecationWarning',
-    # https://github.com/python/mypy/issues/15330
-    'ignore:ast.Ellipsis is deprecated:DeprecationWarning',
-    'ignore:ast.Bytes is deprecated:DeprecationWarning',
+[tool.coverage.html]
+show_contexts = true
+skip_covered = false
+
+[tool.coverage.paths]
+source = ["src", "**/site-packages"]
+attrs-plugin = [
+  "tests/_trio_check_attrs_aliases.py",
+  "_trio_check_attrs_aliases.py",
+]
+
+[tool.coverage.run]
+branch = true
+omit = [
+    # Omit the generated files in trio/_core starting with _generated_
+    "*/trio/_core/_generated_*",
+    # Type tests aren't intended to be run, just passed to type checkers.
+    "*/type_tests/*",
+    # Script used to check type completeness that isn't run in tests
+    "*/trio/_tests/check_type_completeness.py",
+    # Script to generate a CFFI interface for the Windows kernel
+    "*/trio/_tools/windows_ffi_build.py",
+]
+# The test suite spawns subprocesses to test some stuff, so make sure
+# this doesn't corrupt the coverage files
+parallel = true
+plugins = []
+relative_files = true
+source = ["."]
+source_pkgs = ["trio", "_trio_check_attrs_aliases"]
+
+[tool.coverage.report]
+precision = 1
+skip_covered = true
+skip_empty = true
+show_missing = true
+exclude_also = [
+  '^\s*@pytest\.mark\.xfail',
+   "abc.abstractmethod",
+   "if TYPE_CHECKING.*:",
+   "if _t.TYPE_CHECKING:",
+   "if t.TYPE_CHECKING:",
+   "@overload",
+   'class .*\bProtocol\b.*\):',
+   "raise NotImplementedError",
+   '.*if "sphinx.ext.autodoc" in sys.modules:',
+   'TODO: test this line',
+   'if __name__ == "__main__":',
+   'pass',
+]
+partial_branches = [
+    "pragma: no branch",
+    "if not TYPE_CHECKING:",
+    "if not _t.TYPE_CHECKING:",
+    "if not t.TYPE_CHECKING:",
+    "if .* or not TYPE_CHECKING:",
+    "if .* or not _t.TYPE_CHECKING:",
+    "if .* or not t.TYPE_CHECKING:",
+   'TODO: test this branch',
 ]

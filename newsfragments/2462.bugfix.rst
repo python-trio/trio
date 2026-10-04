@@ -1,1 +1,0 @@
-Fix :func:`sniffio.current_async_library` when Trio tasks are spawned from a non-Trio context (such as when using trio-asyncio). Previously, a regular Trio task would inherit the non-Trio library name, and spawning a system task would cause the non-Trio caller to start thinking it was Trio.

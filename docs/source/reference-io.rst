@@ -30,7 +30,9 @@ create complex transport configurations. Here's some examples:
   stdout. If for some reason you wanted to speak SSL to a subprocess,
   you could use a :class:`StapledStream` to combine its stdin/stdout
   into a single bidirectional :class:`~trio.abc.Stream`, and then wrap
-  that in an :class:`~trio.SSLStream`::
+  that in an :class:`~trio.SSLStream`:
+
+  .. code-block:: python
 
      ssl_context = ssl.create_default_context()
      ssl_context.check_hostname = False
@@ -42,7 +44,9 @@ create complex transport configurations. Here's some examples:
   <https://daniel.haxx.se/blog/2016/11/26/https-proxy-with-curl/>`__. In
   Trio this is trivial – just wrap your first
   :class:`~trio.SSLStream` in a second
-  :class:`~trio.SSLStream`::
+  :class:`~trio.SSLStream`:
+
+  .. code-block:: python
 
      # Get a raw SocketStream connection to the proxy:
      s0 = await open_tcp_stream("proxy", 443)
@@ -63,7 +67,7 @@ create complex transport configurations. Here's some examples:
 
 * The :mod:`trio.testing` module provides a set of :ref:`flexible
   in-memory stream object implementations <testing-streams>`, so if
-  you have a protocol implementation to test then you can can start
+  you have a protocol implementation to test then you can start
   two tasks, set up a virtual "socket" connecting them, and then do
   things like inject random-but-repeatable delays into the connection.
 
@@ -214,7 +218,6 @@ abstraction.
 
 .. autoclass:: SocketStream
    :members:
-   :undoc-members:
    :show-inheritance:
 
 .. autoclass:: SocketListener
@@ -304,6 +307,9 @@ unfortunately that's not yet possible.
 
    .. automethod:: statistics
 
+.. autoclass:: DTLSChannelStatistics
+   :members:
+
 .. module:: trio.socket
 
 Low-level networking with :mod:`trio.socket`
@@ -367,12 +373,16 @@ broken features:
   :func:`~socket.getaddrinfo` and :func:`~socket.getnameinfo` instead.
 
 * :func:`~socket.getservbyport`: obsolete and `buggy
-  <https://bugs.python.org/issue30482>`__; instead, do::
+  <https://bugs.python.org/issue30482>`__; instead, do:
 
-     _, service_name = await getnameinfo((127.0.0.1, port), NI_NUMERICHOST))
+  .. code-block:: python
+
+     _, service_name = await getnameinfo(('127.0.0.1', port), NI_NUMERICHOST)
 
 * :func:`~socket.getservbyname`: obsolete and `buggy
-  <https://bugs.python.org/issue30482>`__; instead, do::
+  <https://bugs.python.org/issue30482>`__; instead, do:
+
+  .. code-block:: python
 
      await getaddrinfo(None, service_name)
 
@@ -420,8 +430,8 @@ Socket objects
      socket.
    * :meth:`~socket.socket.sendall`: Could be supported, but you're
      better off using the higher-level
-     :class:`~trio.SocketStream`, and specifically its
-     :meth:`~trio.SocketStream.send_all` method, which also does
+     :class:`~trio.SocketStream`, and specifically the
+     :meth:`~trio.abc.SendStream.send_all` method, which also does
      additional error checking.
 
    In addition, the following methods are similar to the equivalents
@@ -441,7 +451,7 @@ Socket objects
          has begun. If :meth:`connect` is cancelled, and is unable to
          abort the connection attempt, then it will:
 
-         1. forcibly close the socket to prevent accidental re-use
+         1. forcibly close the socket to prevent accidental reuse
          2. raise :exc:`~trio.Cancelled`.
 
          tl;dr: if :meth:`connect` is cancelled then the socket is
@@ -501,6 +511,7 @@ Socket objects
    * :meth:`~socket.socket.set_inheritable`
    * :meth:`~socket.socket.get_inheritable`
 
+
 .. currentmodule:: trio
 
 
@@ -543,7 +554,8 @@ there are 1,000,000 µs in a second. Note that all the numbers here are
 going to be rough orders of magnitude to give you a sense of scale; if
 you need precise numbers for your environment, measure!)
 
-.. file.read benchmark is notes-to-self/file-read-latency.py
+.. file.read benchmark is
+   https://github.com/python-trio/trio/wiki/notes-to-self#file-read-latencypy
 .. Numbers for spinning disks and SSDs are from taking a few random
    recent reviews from http://www.storagereview.com/best_drives and
    looking at their "4K Write Latency" test results for "Average MS"
@@ -627,6 +639,11 @@ Asynchronous path objects
 
 .. autoclass:: Path
    :members:
+   :inherited-members:
+
+.. autoclass:: PosixPath
+
+.. autoclass:: WindowsPath
 
 
 .. _async-file-objects:
@@ -634,9 +651,11 @@ Asynchronous path objects
 Asynchronous file objects
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autofunction:: open_file
+.. Suppress type annotations here, they refer to lots of internal types.
+   The normal Python docs go into better detail.
+.. autofunction:: open_file(file, mode='r', buffering=-1, encoding=None, errors=None, newline=None, closefd=None, opener=None)
 
-.. autofunction:: wrap_file
+.. autofunction:: wrap_file(file)
 
 .. interface:: Asynchronous file interface
 
@@ -684,7 +703,9 @@ Asynchronous file objects
      <https://docs.python.org/3/library/io.html#multi-threading>`__.
 
    * Async file objects can be used as async iterators to iterate over
-     the lines of the file::
+     the lines of the file:
+
+     .. code-block:: python
 
         async with await trio.open_file(...) as f:
             async for line in f:
@@ -718,7 +739,13 @@ task and interact with it while it's running:
 
 .. autofunction:: trio.run_process
 
-.. autoclass:: trio.Process
+.. autoclass:: trio._subprocess.HasFileno(Protocol)
+
+   .. automethod:: fileno
+
+.. autoclass:: trio._subprocess.StrOrBytesPath
+
+.. autoclass:: trio.Process()
 
    .. autoattribute:: returncode
 
@@ -833,19 +860,25 @@ shell doesn't provide any way to write a double quote inside a
 double-quoted string. Outside double quotes, any character (including
 a double quote) can be escaped using a leading ``^``.  But since a
 pipeline is processed by running each command in the pipeline in a
-subshell, multiple layers of escaping can be needed::
+subshell, multiple layers of escaping can be needed:
+
+.. code-block:: sh
 
     echo ^^^&x | find "x" | find "x"          # prints: &x
 
 And if you combine pipelines with () grouping, you can need even more
-levels of escaping::
+levels of escaping:
+
+.. code-block:: sh
 
     (echo ^^^^^^^&x | find "x") | find "x"    # prints: &x
 
 Since process creation takes a single arguments string, ``CMD.EXE``\'s
 quoting does not influence word splitting, and double quotes are not
 removed during CMD.EXE's expansion pass. Double quotes are troublesome
-because CMD.EXE handles them differently from the MSVC runtime rules; in::
+because CMD.EXE handles them differently from the MSVC runtime rules; in:
+
+.. code-block:: sh
 
     prog.exe "foo \"bar\" baz"
 
