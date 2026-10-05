@@ -1,0 +1,1 @@
+Ensure `trio.lowlevel.notify_closing` works even on events that have been deleted, e.g. because they were registered as one shot events.

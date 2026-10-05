@@ -12,6 +12,7 @@ from __future__ import annotations
 
 # this file is not run as part of the tests, instead it's run standalone from check.sh
 import argparse
+import inspect
 import json
 import subprocess
 import sys
@@ -108,7 +109,8 @@ def has_docstring_at_runtime(name: str) -> bool:
                 file=sys.stderr,
             )
             return False
-    return bool(obj.__doc__)
+    doc = inspect.getdoc(obj)
+    return bool(doc)
 
 
 def check_type(

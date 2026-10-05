@@ -753,3 +753,24 @@ def test_guest_mode_asyncgens_garbage_collection() -> None:
     aiotrio_run(trio_main, host_uses_signal_set_wakeup_fd=True)
 
     assert record == {("asyncio", "asyncio", True), ("trio", "trio", True)}
+
+
+def test_notify_closing_after_events() -> None:
+    # inspired by wrong repro in https://github.com/python-trio/trio/pull/3502
+    # either the program should silently pass or wait_writable should fail.
+    pair = socket.socketpair()
+    for sock in pair:
+        sock.setblocking(False)
+
+    async def trio_main(in_host: InHost) -> None:
+        in_host(uh_oh)
+        with contextlib.suppress(trio.ClosedResourceError):
+            await trio.lowlevel.wait_writable(pair[0])  # blocks
+
+    def uh_oh() -> None:
+        # this will run after trio gets events but before they are processed
+        trio.lowlevel.notify_closing(pair[0])
+
+    trivial_guest_run(trio_main)
+    for sock in pair:
+        sock.close()

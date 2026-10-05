@@ -2,11 +2,11 @@
 #    uv pip compile --universal --python-version=3.10 test-requirements.in -o test-requirements.txt
 alabaster==1.0.0
     # via sphinx
-ast-serialize==0.8.0 ; implementation_name == 'cpython'
+ast-serialize==0.11.2 ; implementation_name == 'cpython'
     # via mypy
 astor==0.8.1
     # via -r test-requirements.in
-astroid==4.0.4
+astroid==4.3.3
     # via pylint
 async-generator==1.10
     # via -r test-requirements.in
@@ -26,7 +26,7 @@ cffi==2.1.1 ; os_name == 'nt' or platform_python_implementation != 'PyPy'
     #   cryptography
 cfgv==3.5.0
     # via pre-commit
-charset-normalizer==3.5.1
+charset-normalizer==3.5.2
     # via requests
 click==8.5.0 ; implementation_name == 'cpython'
     # via black
@@ -37,9 +37,9 @@ colorama==0.4.6 ; sys_platform == 'win32'
     #   pylint
     #   pytest
     #   sphinx
-coverage==7.16.0
+coverage==7.16.2
     # via -r test-requirements.in
-cryptography==48.0.0
+cryptography==50.0.2
     # via
     #   -r test-requirements.in
     #   pyopenssl
@@ -57,13 +57,13 @@ exceptiongroup==1.3.1 ; python_full_version < '3.11'
     # via
     #   -r test-requirements.in
     #   pytest
-filelock==3.32.5
+filelock==4.0.7
     # via
     #   python-discovery
     #   virtualenv
-identify==2.6.19
+identify==2.6.20
     # via pre-commit
-idna==3.19
+idna==3.20
     # via
     #   -r test-requirements.in
     #   requests
@@ -72,13 +72,13 @@ imagesize==2.0.1
     # via sphinx
 iniconfig==2.3.0
     # via pytest
-isort==9.0.1
+isort==9.0.2
     # via pylint
 jedi==0.20.0 ; implementation_name == 'cpython'
     # via -r test-requirements.in
 jinja2==3.1.6
     # via sphinx
-librt==0.15.0 ; implementation_name == 'cpython' and platform_python_implementation != 'PyPy'
+librt==0.16.0 ; implementation_name == 'cpython' and platform_python_implementation != 'PyPy'
     # via mypy
 markupsafe==3.0.3
     # via jinja2
@@ -92,7 +92,7 @@ mypy-extensions==1.1.0
     #   black
     #   isort
     #   mypy
-nodeenv==1.10.0
+nodeenv==1.11.0
     # via
     #   pre-commit
     #   pyright
@@ -103,13 +103,14 @@ packaging==26.3
     #   black
     #   pytest
     #   sphinx
+    #   virtualenv
 parso==0.8.7 ; implementation_name == 'cpython'
     # via jedi
 pathspec==1.1.1 ; implementation_name == 'cpython'
     # via
     #   black
     #   mypy
-platformdirs==4.11.5
+platformdirs==4.12.2
     # via
     #   black
     #   pylint
@@ -124,15 +125,15 @@ pygments==2.21.0
     # via
     #   pytest
     #   sphinx
-pylint==4.0.8
+pylint==4.1.1
     # via -r test-requirements.in
-pyopenssl==26.2.0
+pyopenssl==26.4.0
     # via -r test-requirements.in
-pyright==1.1.411
+pyright==1.1.414
     # via -r test-requirements.in
 pytest==9.1.1
     # via -r test-requirements.in
-python-discovery==1.6.0
+python-discovery==1.6.1
     # via virtualenv
 pytokens==0.4.1 ; implementation_name == 'cpython'
     # via black
@@ -142,7 +143,7 @@ requests==2.34.2
     # via sphinx
 roman-numerals==4.1.0 ; python_full_version >= '3.11'
     # via sphinx
-ruff==0.16.6
+ruff==0.16.9
     # via -r test-requirements.in
 sniffio==1.3.1
     # via -r test-requirements.in
@@ -183,11 +184,11 @@ types-cffi==2.1.0.20260827
     # via
     #   -r test-requirements.in
     #   types-pyopenssl
-types-docutils==0.23.0.20260827
+types-docutils==0.23.0.20260923
     # via -r test-requirements.in
 types-pyopenssl==24.1.0.20240722
     # via -r test-requirements.in
-types-pyyaml==6.0.12.20260815
+types-pyyaml==6.0.12.20260906
     # via -r test-requirements.in
 types-setuptools==84.0.0.20260812
     # via types-cffi
@@ -202,9 +203,9 @@ typing-extensions==4.16.0
     #   pyopenssl
     #   pyright
     #   virtualenv
-urllib3==2.7.0
+urllib3==2.8.0
     # via requests
-uv==0.12.10
+uv==0.12.21
     # via -r test-requirements.in
-virtualenv==21.7.7
+virtualenv==21.14.1
     # via pre-commit

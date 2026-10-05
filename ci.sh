@@ -54,8 +54,13 @@ if [ "${NO_TEST_REQUIREMENTS-0}" == 1 ]; then
     python -m uv pip install pytest coverage -c test-requirements.txt
     flags="--skip-optional-imports"
 else
-    python -m uv pip install -r test-requirements.txt --no-deps
     flags=""
+    if [ "${SKIP_SSL_INSTALLATION-0}" == 1 ]; then
+        echo cryptography >excluded_deps
+        PIP_ARGS="--exclude excluded_deps"
+        flags="--skip-ssl-imports"
+    fi
+    python -m uv pip install -r test-requirements.txt --no-deps $PIP_ARGS
 fi
 
 # If we're testing with a LSP installed, then it might break network
