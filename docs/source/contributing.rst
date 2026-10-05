@@ -133,8 +133,8 @@ in separate sections below:
   adding a test to make sure it stays fixed.
 
 * :ref:`pull-request-formatting`: If you changed Python code, then did
-  you run ``black trio``? (Or for other packages, replace
-  ``trio`` with the package name.)
+  you run ``black src/trio``? (Or for other packages, replace
+  ``src/trio`` with the path to the package.)
 
 * :ref:`pull-request-release-notes`: If your change affects
   user-visible functionality, then did you add a release note to the
@@ -258,7 +258,7 @@ Some rules for writing good tests:
 
 * (Trio package only) Slow tests – anything that takes more than about
   0.25 seconds – should be marked with ``@slow``. This makes it so they
-  only run if you do ``pytest trio --run-slow``. Our CI scripts do
+  only run if you do ``pytest src/trio --run-slow``. Our CI scripts do
   run slow tests, so you can be sure that the code will still be
   thoroughly tested, and this way you don't have to sit around waiting
   for a few irrelevant multi-second tests to run while you're iterating
@@ -351,7 +351,7 @@ If you want to see what changes black will make, you can use:
 
 .. code-block:: text
 
-    black --diff trio
+    black --diff src/trio
 
 (``--diff`` displays a diff, versus the default mode which fixes files
 in-place.)
