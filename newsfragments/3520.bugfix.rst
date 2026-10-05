@@ -1,0 +1,1 @@
+Fix `trio.lowlevel.notify_closing` after ``close`` on kqueue failing to interrupt current waiters.

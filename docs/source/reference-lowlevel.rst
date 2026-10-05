@@ -276,7 +276,7 @@ anything real. See `#26
 
 .. autofunction:: current_kqueue()
 
-.. autofunction:: wait_kevent(ident, filter, abort_func)
+.. autofunction:: wait_kevent(ident, filter, *, fflags=0, data=0)
    :async:
 
 .. autofunction:: monitor_kevent(ident, filter)
