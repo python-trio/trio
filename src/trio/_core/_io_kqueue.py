@@ -26,6 +26,32 @@ EventResult: TypeAlias = "list[select.kevent]"
 
 @attrs.frozen(eq=False)
 class _KqueueStatistics:
+    """DTO class that holds information on current kqueue status.
+
+    This class can be used on any platform that supports
+    kqueue functionality (e.g. BSD/Darwin).
+    Trio also defines other similar classes for statistics reporting:
+    ``_WindowsStatistics`` and ``_EpollStatistics``.
+    They are similar in function but some fields differ.
+    All of them have a ``backend`` attribute.
+    The statistics class best suited for the runtime platform is
+    imported as the ``IOStatistics`` type. See ``trio._core._run``.
+
+    .. attribute:: tasks_waiting
+
+       Number of tasks that are currently in the waiting state.
+
+    .. attribute:: monitors
+
+       Number of monitors.
+
+    .. attribute:: backend
+
+       This attribute holds a string value that corresponds to the statistics type.
+       This class has ``backend == "kqueue"``.
+       Use ``backend`` attribute to distinguish statistics types at runtime.
+    """
+
     tasks_waiting: int
     monitors: int
     backend: Literal["kqueue"] = attrs.field(init=False, default="kqueue")
