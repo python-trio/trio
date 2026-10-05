@@ -53,6 +53,10 @@ Database
 * `coredis <https://github.com/alisaifee/coredis>`_ - Fast, async, fully-typed Redis client with support for cluster and sentinel
 
 
+Cloud Services
+--------------
+* `capo <https://github.com/kap-sh/capo>`__ - Community-driven AWS SDK for Python.
+
 IOT
 ---
 * `DistMQTT <https://github.com/M-o-a-T/distmqtt>`__ - DistMQTT is an open source MQTT client and broker implementation. It is a fork of hbmqtt with support for anyio and DistKV.
