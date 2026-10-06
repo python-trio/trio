@@ -1,0 +1,3 @@
+:class:`trio.AsyncIOWrapper` is now public, so values returned by
+:func:`trio.open_file`, :func:`trio.wrap_file`, and :meth:`trio.Path.open` can
+be annotated without importing from the private ``trio._file_io`` module.
