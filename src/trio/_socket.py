@@ -207,11 +207,13 @@ async def getaddrinfo(
     # If host and port are numeric, then getaddrinfo doesn't block and we can
     # skip the whole thread thing, which seems worthwhile. So we try first
     # with the _NUMERIC_ONLY flags set, and then only spawn a thread if that
-    # fails with EAI_NONAME:
+    # fails with EAI_NONAME. If the caller already asked for _NUMERIC_ONLY,
+    # a retry would make the exact same call, so let the error propagate:
     def numeric_only_failure(exc: BaseException) -> bool:
         return (
             isinstance(exc, _stdlib_socket.gaierror)
             and exc.errno == _stdlib_socket.EAI_NONAME
+            and flags & _NUMERIC_ONLY != _NUMERIC_ONLY
         )
 
     async with _try_sync(numeric_only_failure):
