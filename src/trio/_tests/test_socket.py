@@ -8,7 +8,7 @@ import sys
 import tempfile
 from pathlib import Path
 from socket import AddressFamily, SocketKind
-from typing import TYPE_CHECKING, TypeAlias, cast
+from typing import TYPE_CHECKING, NoReturn, TypeAlias, cast
 
 import attrs
 import pytest
@@ -1126,6 +1126,26 @@ async def test_custom_hostname_resolver(monkeygai: MonkeypatchedGAI) -> None:
     # our monkeypatched version of socket.getaddrinfo)
     monkeygai.set("x", b"host", "port", family=0, type=0, proto=0, flags=0)
     assert await tsocket.getaddrinfo("host", "port") == "x"
+
+
+async def test_getaddrinfo_numeric_only_flags_skip_resolver() -> None:
+    # If the caller already passed AI_NUMERICHOST|AI_NUMERICSERV, the fast
+    # path call is identical to the one a worker thread or custom resolver
+    # would make, so its EAI_NONAME failure must propagate directly.
+    class FailingResolver:
+        async def getaddrinfo(self, *args: object) -> NoReturn:
+            raise AssertionError(f"resolver called with {args}")
+
+        async def getnameinfo(self, *args: object) -> NoReturn:
+            raise NotImplementedError
+
+    tsocket.set_custom_hostname_resolver(FailingResolver())  # type: ignore[arg-type]
+    try:
+        with pytest.raises(tsocket.gaierror) as excinfo:
+            await tsocket.getaddrinfo("example.invalid", 80, flags=_NUMERIC_ONLY)
+        assert excinfo.value.errno == tsocket.EAI_NONAME
+    finally:
+        tsocket.set_custom_hostname_resolver(None)
 
 
 async def test_custom_socket_factory() -> None:
