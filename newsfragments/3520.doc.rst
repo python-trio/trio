@@ -1,0 +1,1 @@
+Clarify that `trio.lowlevel.notify_closing` must be called before actually closing a file descriptor or socket, even when there are no checkpoints between the steps.
