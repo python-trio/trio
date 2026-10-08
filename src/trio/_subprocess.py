@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import contextlib
 import os
+import signal
 import subprocess
 import sys
 import warnings
+from collections.abc import Awaitable
 from contextlib import ExitStack
 from functools import partial
 from typing import (
@@ -30,7 +32,6 @@ from ._sync import Lock
 from ._util import NoPublicConstructor, final
 
 if TYPE_CHECKING:
-    import signal
     from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
     from io import TextIOWrapper
 
@@ -441,24 +442,45 @@ async def _windows_deliver_cancel(p: Process) -> None:  # noqa: RUF029
         )
 
 
-async def _posix_deliver_cancel(p: Process) -> None:
-    try:
-        p.terminate()
-        await trio.sleep(5)
-        warnings.warn(
-            RuntimeWarning(
-                f"process {p!r} ignored SIGTERM for 5 seconds. "
-                "(Maybe you should pass a custom deliver_cancel?) "
-                "Trying SIGKILL.",
-            ),
-            stacklevel=1,
+def _get_posix_deliver_cancel(
+    process_group: int | None,
+) -> Callable[[Process], Awaitable[None]]:
+    async def _posix_deliver_cancel(p: Process) -> None:
+        should_deliver_to_pg = (
+            sys.platform != "win32"
+            and process_group is not None
+            and os.getpgrp() != os.getpgid(p.pid)
         )
-        p.kill()
-    except OSError as exc:
-        warnings.warn(
-            RuntimeWarning(f"tried to kill process {p!r}, but failed with: {exc!r}"),
-            stacklevel=1,
-        )
+        try:
+            # TODO: should Process#terminate do this special logic
+            if sys.platform != "win32" and should_deliver_to_pg:
+                os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+            else:
+                p.terminate()
+
+            await trio.sleep(5)
+            warnings.warn(
+                RuntimeWarning(
+                    f"process {p!r} ignored SIGTERM for 5 seconds. "
+                    "(Maybe you should pass a custom deliver_cancel?) "
+                    "Trying SIGKILL.",
+                ),
+                stacklevel=1,
+            )
+
+            if sys.platform != "win32" and should_deliver_to_pg:
+                os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+            else:
+                p.kill()
+        except OSError as exc:
+            warnings.warn(
+                RuntimeWarning(
+                    f"tried to kill process {p!r}, but failed with: {exc!r}"
+                ),
+                stacklevel=1,
+            )
+
+    return _posix_deliver_cancel
 
 
 # Use a private name, so we can declare platform-specific stubs below.
@@ -472,6 +494,7 @@ async def _run_process(
     check: bool = True,
     deliver_cancel: Callable[[Process], Awaitable[object]] | None = None,
     task_status: TaskStatus[Process] = trio.TASK_STATUS_IGNORED,
+    shell: bool = False,
     **options: object,
 ) -> subprocess.CompletedProcess[bytes]:
     """Run ``command`` in a subprocess and wait for it to complete.
@@ -689,6 +712,9 @@ async def _run_process(
                 "stderr=subprocess.PIPE is only valid with nursery.start, "
                 "since that's the only way to access the pipe",
             )
+
+    options["shell"] = shell
+
     if isinstance(stdin, (bytes, bytearray, memoryview)):
         input_ = stdin
         options["stdin"] = subprocess.PIPE
@@ -708,12 +734,36 @@ async def _run_process(
             raise ValueError("can't specify both stderr and capture_stderr")
         options["stderr"] = subprocess.PIPE
 
+    # ensure things can be killed including a shell's child processes
+    if shell and sys.platform != "win32" and "process_group" not in options:
+        options["process_group"] = 0
+
     if deliver_cancel is None:
         if os.name == "nt":
             deliver_cancel = _windows_deliver_cancel
         else:
             assert os.name == "posix"
-            deliver_cancel = _posix_deliver_cancel
+            deliver_cancel = _get_posix_deliver_cancel(options.get("process_group"))  # type: ignore[arg-type]
+
+    if (
+        sys.platform != "win32"
+        and options.get("process_group") is not None
+        and sys.version_info < (3, 11)
+    ):
+        # backport the argument to Python versions prior to 3.11
+        preexec_fn = options.get("preexec_fn")
+        process_group = options.pop("process_group")
+
+        def new_preexecfn() -> object:  # pragma: no cover
+            assert sys.platform != "win32"
+            os.setpgid(0, process_group)  # type: ignore[arg-type]
+
+            if callable(preexec_fn):
+                return preexec_fn()
+            else:
+                return None
+
+        options["preexec_fn"] = new_preexecfn
 
     stdout_chunks: list[bytes | bytearray] = []
     stderr_chunks: list[bytes | bytearray] = []
