@@ -1,7 +1,6 @@
 import time
 from math import inf
 
-from .. import _core
 from .._abc import Clock
 from .._util import final
 from ._run import GLOBAL_RUN_CONTEXT
@@ -105,12 +104,6 @@ class MockClock(Clock):
         self._autojump_threshold = float(new_autojump_threshold)
         self._try_resync_autojump_threshold()
 
-    # runner.clock_autojump_threshold is an internal API that isn't easily
-    # usable by custom third-party Clock objects. If you need access to this
-    # functionality, let us know, and we'll figure out how to make a public
-    # API. Discussion:
-    #
-    #     https://github.com/python-trio/trio/issues/1587
     def _try_resync_autojump_threshold(self) -> None:
         try:
             runner = GLOBAL_RUN_CONTEXT.runner
@@ -118,17 +111,12 @@ class MockClock(Clock):
                 runner.force_guest_tick_asap()
         except AttributeError:
             pass
-        else:
-            if runner.clock is self:
-                runner.clock_autojump_threshold = self._autojump_threshold
 
-    # Invoked by the run loop when runner.clock_autojump_threshold is
-    # exceeded.
-    def _autojump(self) -> None:
-        statistics = _core.current_statistics()
-        jump = statistics.seconds_to_next_deadline
-        if 0 < jump < inf:
-            self.jump(jump)
+    def propagate(self, real_time_passed: float, virtual_timeout: float) -> None:
+        if self._rate > 0:
+            self.jump(real_time_passed * self._rate)
+        else:
+            self.jump(virtual_timeout)
 
     def _real_to_virtual(self, real: float) -> float:
         real_offset = real - self._real_base
@@ -136,19 +124,25 @@ class MockClock(Clock):
         return self._virtual_base + virtual_offset
 
     def start_clock(self) -> None:
-        self._try_resync_autojump_threshold()
+        pass
 
     def current_time(self) -> float:
         return self._real_to_virtual(self._real_clock())
 
-    def deadline_to_sleep_time(self, deadline: float) -> float:
-        virtual_timeout = deadline - self.current_time()
-        if virtual_timeout <= 0:
-            return 0
-        elif self._rate > 0:
-            return virtual_timeout / self._rate
-        else:
-            return 999999999
+    def deadline_to_sleep_time(self, timeout: float) -> float:
+        virtual_timeout = max(0.0, timeout)
+
+        real_timeout = virtual_timeout
+
+        if self._rate > 0:
+            real_timeout /= self._rate
+        elif real_timeout > 0 and self._rate == 0:
+            real_timeout = 999999999.0
+
+        if real_timeout > self.autojump_threshold:
+            real_timeout = self.autojump_threshold
+
+        return real_timeout
 
     def jump(self, seconds: float) -> None:
         """Manually advance the clock by the given number of seconds.
