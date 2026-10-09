@@ -98,7 +98,12 @@ else:
 class HasFileno(Protocol):
     """Represents any file-like object that has a file descriptor."""
 
-    def fileno(self) -> int: ...
+    def fileno(self) -> int:
+        """Returns the file descriptor of this file-like object, as an
+        integer. It is passed to the child process, e.g. when a
+        :class:`HasFileno` object is used as ``stdin``, ``stdout`` or
+        ``stderr`` of a spawned process."""
+        ...
 
 
 @final

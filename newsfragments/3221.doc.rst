@@ -1,0 +1,3 @@
+Filled in the missing documentation for ``trio._subprocess.HasFileno.fileno``
+and ``trio.lowlevel.ParkingLot.broken_by``, which completes the checklist in
+issue #3221.

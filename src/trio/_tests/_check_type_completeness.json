@@ -12,7 +12,6 @@
     "all": [
         "No docstring found for class \"trio._core._run.Task\"",
         "No docstring found for class \"trio._socket.SocketType\"",
-        "No docstring found for function \"trio._subprocess.HasFileno.fileno\"",
         "No docstring found for class \"trio._sync.AsyncContextManagerMixin\"",
         "No docstring found for function \"trio._sync._HasAcquireRelease.acquire\"",
         "No docstring found for function \"trio._sync._HasAcquireRelease.release\"",

@@ -146,6 +146,10 @@ class ParkingLot:
     the number of parked tasks, and ``if parking_lot: ...`` to check whether
     there are any parked tasks.
 
+    Attributes:
+        broken_by: The tasks that broke this parking lot, most recent
+            last. See :meth:`break_lot`.
+
     """
 
     # {task: None}, we just want a deque where we can quickly delete random

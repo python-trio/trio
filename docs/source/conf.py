@@ -172,8 +172,9 @@ def autodoc_process_signature(
 
 # currently undocumented things
 logger = getLogger("trio")
-UNDOCUMENTED = {
-    "trio._subprocess.HasFileno.fileno",
+# ``ParkingLot.broken_by`` is a slotted attrs field; its documentation lives
+# in the ``ParkingLot`` class docstring's ``Attributes:`` block.
+UNDOCUMENTED: set[str] = {
     "trio.lowlevel.ParkingLot.broken_by",
 }
 
