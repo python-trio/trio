@@ -170,7 +170,8 @@ async def test_double_read(socketpair: SocketPair, wait_readable: WaitSocket) ->
     async with _core.open_nursery() as nursery:
         nursery.start_soon(wait_readable, a)
         await wait_all_tasks_blocked()
-        with pytest.raises(_core.BusyResourceError):
+        # The wording differs per backend, so assert only that there is one.
+        with pytest.raises(_core.BusyResourceError, match=r"\S"):
             await wait_readable(a)
         nursery.cancel_scope.cancel()
 
@@ -184,7 +185,8 @@ async def test_double_write(socketpair: SocketPair, wait_writable: WaitSocket) -
     async with _core.open_nursery() as nursery:
         nursery.start_soon(wait_writable, a)
         await wait_all_tasks_blocked()
-        with pytest.raises(_core.BusyResourceError):
+        # The wording differs per backend, so assert only that there is one.
+        with pytest.raises(_core.BusyResourceError, match=r"\S"):
             await wait_writable(a)
         nursery.cancel_scope.cancel()
 
@@ -201,11 +203,11 @@ async def test_interrupted_by_close(
     a, _b = socketpair
 
     async def reader() -> None:
-        with pytest.raises(_core.ClosedResourceError):
+        with pytest.raises(_core.ClosedResourceError, match=r"\S"):
             await wait_readable(a)
 
     async def writer() -> None:
-        with pytest.raises(_core.ClosedResourceError):
+        with pytest.raises(_core.ClosedResourceError, match=r"\S"):
             await wait_writable(a)
 
     fill_socket(a)
