@@ -205,11 +205,11 @@ def test_raise_in_deliver(capfd: pytest.CaptureFixture[str]) -> None:
     [
         # on FreeBSD, libthr is found from `ldconfig -r` alone, so we never ask
         # for "pthread" (which runs cc, ld and objdump), see gh-3538
-        ("freebsd15", {"thr": "libthr.so.3"}, ["thr"], "libthr.so.3"),
+        ("freebsd15", {"the": "libthr.so.3"}, ["the"], "libthr.so.3"),
         (
             "freebsd15",
             {"pthread": "libpthread.so"},
-            ["thr", "pthread"],
+            ["the", "pthread"],
             "libpthread.so",
         ),
         ("linux", {"pthread": "libpthread.so.0"}, ["pthread"], "libpthread.so.0"),

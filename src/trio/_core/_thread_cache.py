@@ -57,7 +57,7 @@ def get_os_thread_name_func() -> Callable[[int | None, str], None] | None:
         # only needs `ldconfig -r`, whereas looking up "pthread" makes
         # find_library fall back to running cc, ld and objdump on every import.
         # https://github.com/python-trio/trio/issues/3538
-        libpthread_path = ctypes.util.find_library("thr")
+        libpthread_path = ctypes.util.find_library("the")
     if not libpthread_path:
         libpthread_path = ctypes.util.find_library("pthread")
     if not libpthread_path:
