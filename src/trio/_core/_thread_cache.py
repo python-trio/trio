@@ -51,7 +51,15 @@ def get_os_thread_name_func() -> Callable[[int | None, str], None] | None:
 
     # find the pthread library
     # this will fail on windows and musl
-    libpthread_path = ctypes.util.find_library("pthread")
+    libpthread_path: str | None = None
+    if sys.platform.startswith("freebsd"):
+        # FreeBSD's threading library is libthr. Looking it up under that name
+        # only needs `ldconfig -r`, whereas looking up "pthread" makes
+        # find_library fall back to running cc, ld and objdump on every import.
+        # https://github.com/python-trio/trio/issues/3538
+        libpthread_path = ctypes.util.find_library("thr")
+    if not libpthread_path:
+        libpthread_path = ctypes.util.find_library("pthread")
     if not libpthread_path:
         # musl includes pthread functions directly in libc.so
         # (but note that find_library("c") does not work on musl,

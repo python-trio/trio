@@ -200,6 +200,50 @@ def test_raise_in_deliver(capfd: pytest.CaptureFixture[str]) -> None:
     assert "delivering result" in err
 
 
+@pytest.mark.parametrize(
+    ("platform", "found", "expected_lookups", "expected_path"),
+    [
+        # on FreeBSD, libthr is found from `ldconfig -r` alone, so we never ask
+        # for "pthread" (which runs cc, ld and objdump), see gh-3538
+        ("freebsd15", {"thr": "libthr.so.3"}, ["thr"], "libthr.so.3"),
+        (
+            "freebsd15",
+            {"pthread": "libpthread.so"},
+            ["thr", "pthread"],
+            "libpthread.so",
+        ),
+        ("linux", {"pthread": "libpthread.so.0"}, ["pthread"], "libpthread.so.0"),
+        ("linux", {}, ["pthread"], "libc.so"),
+    ],
+)
+def test_os_thread_name_library_lookup(
+    monkeypatch: pytest.MonkeyPatch,
+    platform: str,
+    found: dict[str, str],
+    expected_lookups: list[str],
+    expected_path: str,
+) -> None:
+    lookups: list[str] = []
+    loaded: list[str] = []
+
+    def find_library(name: str) -> str | None:
+        lookups.append(name)
+        return found.get(name)
+
+    def cdll(path: str) -> object:
+        loaded.append(path)
+        # no pthread_setname_np, so no thread name function is returned
+        return object()
+
+    monkeypatch.setattr(sys, "platform", platform)
+    monkeypatch.setattr(_thread_cache.ctypes.util, "find_library", find_library)
+    monkeypatch.setattr(_thread_cache.ctypes, "CDLL", cdll)
+
+    assert _thread_cache.get_os_thread_name_func() is None
+    assert lookups == expected_lookups
+    assert loaded == [expected_path]
+
+
 @pytest.mark.skipif(not hasattr(os, "fork"), reason="os.fork isn't supported")
 def test_clear_thread_cache_after_fork() -> None:
     assert hasattr(os, "fork")

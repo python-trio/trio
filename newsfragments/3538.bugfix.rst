@@ -1,0 +1,1 @@
+On FreeBSD, ``import trio`` no longer runs the C compiler, linker and ``objdump`` to locate the threads library. Trio now looks up ``libthr`` directly before falling back to ``pthread``.
