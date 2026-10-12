@@ -83,7 +83,7 @@ force-exclude = '''
 '''
 
 [tool.codespell]
-ignore-words-list = 'astroid,crasher,asend'
+ignore-words-list = 'astroid,crasher,asend,thr'
 
 [tool.typos]
 default.extend-ignore-re = [
@@ -97,6 +97,7 @@ IPPROTO_ND = "IPPROTO_ND"
 astroid = "astroid"
 crasher = "crasher"
 asend = "asend"
+thr = "thr"
 
 [tool.ruff]
 respect-gitignore = true
