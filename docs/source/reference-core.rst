@@ -1022,6 +1022,34 @@ The nursery API
 
    .. automethod:: start_soon(async_fn, *args, name = None)
 
+Service startup readiness
++++++++++++++++++++++++++
+
+:meth:`Nursery.start` waits for a readiness signal, rather than merely scheduling
+another task or waiting for that task to finish. For example,
+:func:`serve_tcp` binds its listening sockets before it signals
+``task_status.started(listeners)``. The awaiting parent receives those listeners
+and can connect to their bound ports, while the service task continues running.
+
+.. figure:: _static/nursery-start-readiness.png
+   :alt: The parent awaits nursery.start for a serve_tcp child. The child binds listening sockets and signals started(listeners). The parent then receives the listeners and connects to a returned port. The service continues running after signaling readiness.
+   :width: 760px
+
+   Successful TCP service startup. :download:`Editable SVG <_static/nursery-start-readiness.svg>`.
+   `Edit diagram <https://svgdiagram.ai/diagram-sources/trio-nursery-start-readiness?version=1>`__.
+
+The child's code defines what "ready" means. A call to ``started()`` is not a
+promise that the service has finished, nor that every application-level handler
+has already run. In this example it tells the parent that listening sockets are
+available. By contrast, :meth:`Nursery.start_soon` returns without waiting for
+this handshake.
+
+If the child raises before signaling readiness, that exception is reported by
+the awaiting ``start`` call. If it exits normally without calling ``started()``,
+``start`` raises :class:`RuntimeError`. Cancelling ``start`` during startup also
+cancels the child. After the signal, the child belongs to the nursery and its
+subsequent errors follow the nursery's usual exception handling.
+
 .. attribute:: TASK_STATUS_IGNORED
    :type: TaskStatus
 

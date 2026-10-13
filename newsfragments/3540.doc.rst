@@ -1,0 +1,1 @@
+Added a service startup readiness diagram and explanation for ``Nursery.start``.
