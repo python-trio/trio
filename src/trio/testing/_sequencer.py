@@ -9,7 +9,7 @@ import attrs
 from .. import Event, _core, _util
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncGenerator
 
 
 @_util.final
@@ -62,7 +62,7 @@ class Sequencer:
     _broken: bool = attrs.field(default=False, init=False)
 
     @asynccontextmanager
-    async def __call__(self, position: int) -> AsyncIterator[None]:
+    async def __call__(self, position: int) -> AsyncGenerator[None, None]:
         if position in self._claimed:
             raise RuntimeError(f"Attempted to reuse sequence point {position}")
         if self._broken:

@@ -43,7 +43,7 @@ from ..testing import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
+    from collections.abc import AsyncGenerator, Awaitable, Callable, Generator
 
     from trio._core import MockClock
     from trio._ssl import T_Stream
@@ -158,7 +158,9 @@ def ssl_echo_serve_sync(
 # (running in a thread). Useful for testing making connections with different
 # SSLContexts.
 @asynccontextmanager
-async def ssl_echo_server_raw(expect_fail: bool = False) -> AsyncIterator[SocketStream]:
+async def ssl_echo_server_raw(
+    expect_fail: bool = False,
+) -> AsyncGenerator[SocketStream, None]:
     a, b = stdlib_socket.socketpair()
     async with trio.open_nursery() as nursery:
         # Exiting the 'with a, b' context manager closes the sockets, which
@@ -179,7 +181,7 @@ async def ssl_echo_server_raw(expect_fail: bool = False) -> AsyncIterator[Socket
 async def ssl_echo_server(
     client_ctx: SSLContext,
     expect_fail: bool = False,
-) -> AsyncIterator[SSLStream[Stream]]:
+) -> AsyncGenerator[SSLStream[Stream], None]:
     async with ssl_echo_server_raw(expect_fail=expect_fail) as sock:
         yield SSLStream(sock, client_ctx, server_hostname="trio-test-1.example.org")
 
@@ -368,7 +370,7 @@ async def test_PyOpenSSLEchoStream_gives_resource_busy_errors() -> None:
 def virtual_ssl_echo_server(
     client_ctx: SSLContext,
     sleeper: Callable[[str], Awaitable[None]] | None = None,
-) -> Iterator[SSLStream[PyOpenSSLEchoStream]]:
+) -> Generator[SSLStream[PyOpenSSLEchoStream], None, None]:
     fakesock = PyOpenSSLEchoStream(sleeper=sleeper)
     yield SSLStream(fakesock, client_ctx, server_hostname="trio-test-1.example.org")
 
