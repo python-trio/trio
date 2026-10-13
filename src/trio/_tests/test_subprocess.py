@@ -6,7 +6,7 @@ import random
 import signal
 import subprocess
 import sys
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncGenerator, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from functools import partial
 from pathlib import Path as SyncPath
@@ -84,7 +84,7 @@ else:
 async def open_process_then_kill(  # type: ignore[misc, explicit-any]
     *args: Any,
     **kwargs: Any,
-) -> AsyncIterator[Process]:
+) -> AsyncGenerator[Process, None]:
     proc = await open_process(*args, **kwargs)
     try:
         yield proc
@@ -97,7 +97,7 @@ async def open_process_then_kill(  # type: ignore[misc, explicit-any]
 async def run_process_in_nursery(  # type: ignore[misc, explicit-any]
     *args: Any,
     **kwargs: Any,
-) -> AsyncIterator[Process]:
+) -> AsyncGenerator[Process, None]:
     async with _core.open_nursery() as nursery:
         kwargs.setdefault("check", False)
         value = await nursery.start(partial(run_process, *args, **kwargs))
