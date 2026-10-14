@@ -1,0 +1,1 @@
+Type checkers now accept the optional ``hint`` argument to asynchronous files' ``readlines()`` method, matching the underlying synchronous file API.

@@ -199,6 +199,16 @@ async def test_async_methods_wrap(
         wrapped.reset_mock()
 
 
+async def test_readlines_hint() -> None:
+    """Readlines forwards its hint and keeps the remaining lines available."""
+    async with trio.wrap_file(io.StringIO("first\nsecond\nthird\n")) as text_file:
+        assert await text_file.readlines(1) == ["first\n"]
+        assert await text_file.readlines() == ["second\n", "third\n"]
+    async with trio.wrap_file(io.BytesIO(b"first\nsecond\nthird\n")) as binary_file:
+        assert await binary_file.readlines(1) == [b"first\n"]
+        assert await binary_file.readlines() == [b"second\n", b"third\n"]
+
+
 def test_async_methods_match_wrapper(
     async_file: AsyncIOWrapper[mock.Mock],
     wrapped: mock.Mock,
