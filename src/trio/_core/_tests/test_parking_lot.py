@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import re
 from typing import TypeVar
 
@@ -223,6 +224,50 @@ async def test_parking_lot_repark_with_count() -> None:
             "wake 2",
         ]
         lot1.unpark_all()
+
+
+@pytest.mark.parametrize(
+    ("count", "expected_broken"),
+    [(0, 0), (1, 1), (2, 2), (5, 3), (math.inf, 3), (None, 3)],
+)
+async def test_parking_lot_repark_to_broken_lot(
+    count: float | None,
+    expected_broken: int,
+) -> None:
+    """Reparked tasks fail instead of waiting forever in a broken destination."""
+    source = ParkingLot()
+    target = ParkingLot()
+    target.break_lot()
+    broken: set[int] = set()
+    woken: set[int] = set()
+
+    async def waiter(i: int) -> None:
+        try:
+            await source.park()
+        except _core.BrokenResourceError:
+            broken.add(i)
+        else:
+            woken.add(i)
+
+    async with _core.open_nursery() as nursery:
+        for i in range(3):
+            nursery.start_soon(waiter, i)
+            await wait_all_tasks_blocked()
+
+        if count is None:
+            source.repark_all(target)
+        else:
+            source.repark(target, count=count)
+        await wait_all_tasks_blocked()
+
+        assert broken == set(range(expected_broken))
+        assert not woken
+        assert len(target) == 0
+        assert len(source) == 3 - expected_broken
+
+        source.unpark_all()
+
+    assert woken == set(range(expected_broken, 3))
 
 
 async def dummy_task(
