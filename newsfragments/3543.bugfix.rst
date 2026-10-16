@@ -1,4 +1,4 @@
-Fixed silent data loss in `trio.SocketStream.send_all` and
-`trio.lowlevel.FdStream.send_all` when a partial write occurs while sending a
+Fixed silent data loss in ``trio.SocketStream.send_all`` and
+``trio.lowlevel.FdStream.send_all`` when a partial write occurs while sending a
 contiguous memoryview with multi-byte elements. Multidimensional and
 zero-dimensional views are now also handled in byte units.
