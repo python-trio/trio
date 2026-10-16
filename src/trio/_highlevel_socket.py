@@ -112,16 +112,18 @@ class SocketStream(HalfCloseableStream):
         with self._send_conflict_detector:
             with _translate_socket_errors_to_stream_errors():
                 with memoryview(data) as data:
-                    if not data:
+                    if not data.nbytes:
                         if self.socket.fileno() == -1:
                             raise trio.ClosedResourceError("socket was already closed")
                         await trio.lowlevel.checkpoint()
                         return
-                    total_sent = 0
-                    while total_sent < len(data):
-                        with data[total_sent:] as remaining:
-                            sent = await self.socket.send(remaining)
-                        total_sent += sent
+                    # send() returns byte counts, so offsets must also be in bytes.
+                    with data.cast("B") as data:
+                        total_sent = 0
+                        while total_sent < len(data):
+                            with data[total_sent:] as remaining:
+                                sent = await self.socket.send(remaining)
+                            total_sent += sent
 
     async def wait_send_all_might_not_block(self) -> None:
         with self._send_conflict_detector:

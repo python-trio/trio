@@ -10,7 +10,7 @@ import pytest
 
 from .. import _core
 from .._core._tests.tutil import gc_collect_harder, skip_if_fbsd_pipes_broken
-from ..testing import check_one_way_stream, wait_all_tasks_blocked
+from ..testing import assert_checkpoints, check_one_way_stream, wait_all_tasks_blocked
 
 if TYPE_CHECKING:
     from .._file_io import _HasFileNo
@@ -64,6 +64,40 @@ async def test_send_pipe() -> None:
         assert (os.read(r, 8)) == b"123"
 
         os.close(r)
+
+
+@pytest.mark.parametrize("shape", [(16,), (4, 4), ()])
+async def test_send_pipe_memoryview(
+    monkeypatch: pytest.MonkeyPatch,
+    shape: tuple[int, ...],
+) -> None:
+    original_write = os.write
+
+    def partial_write(fd: int, data: bytes | bytearray | memoryview) -> int:
+        with memoryview(data).cast("B") as view:
+            return original_write(fd, view[:3])
+
+    monkeypatch.setattr(os, "write", partial_write)
+    payload = bytes(range(32)) if shape else b"ab"
+    send, receive = await make_pipe()
+    async with send, receive:
+        with memoryview(payload).cast("H", shape=shape) as data:
+            await send.send_all(data)
+        await send.aclose()
+        received = bytearray()
+        async for chunk in receive:
+            received.extend(chunk)
+        assert received == payload
+
+
+async def test_send_pipe_empty_noncontiguous_memoryview() -> None:
+    send, receive = await make_pipe()
+    async with send, receive:
+        with memoryview(b"abc")[0:0:2] as data:
+            with assert_checkpoints():
+                await send.send_all(data)
+        await send.aclose()
+        assert await receive.receive_some() == b""
 
 
 async def test_receive_pipe() -> None:

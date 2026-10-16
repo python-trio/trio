@@ -9,6 +9,7 @@ import pytest
 
 from .. import _core, socket as tsocket
 from .._highlevel_socket import *
+from .._socket import _SocketType
 from ..testing import (
     assert_checkpoints,
     check_half_closeable_stream,
@@ -117,6 +118,45 @@ async def test_SocketStream_send_all() -> None:
         assert await b.receive_some(10) == b"e"
         await a.send_eof()
         assert await b.receive_some(10) == b""
+
+
+@pytest.mark.parametrize("shape", [(16,), (4, 4), ()])
+async def test_SocketStream_send_all_memoryview(
+    monkeypatch: pytest.MonkeyPatch,
+    shape: tuple[int, ...],
+) -> None:
+    original_send = _SocketType.send
+
+    async def partial_send(
+        self: _SocketType,
+        data: bytes | bytearray | memoryview,
+        flags: int = 0,
+    ) -> int:
+        # Use a real socket, but force partial writes independently of OS buffers.
+        with memoryview(data).cast("B") as view:
+            return await original_send(self, view[:3], flags)
+
+    monkeypatch.setattr(_SocketType, "send", partial_send)
+    payload = bytes(range(32)) if shape else b"ab"
+    left, right = tsocket.socketpair()
+    async with SocketStream(left) as sender, SocketStream(right) as receiver:
+        with memoryview(payload).cast("H", shape=shape) as data:
+            await sender.send_all(data)
+        await sender.send_eof()
+        received = bytearray()
+        async for chunk in receiver:
+            received.extend(chunk)
+        assert received == payload
+
+
+async def test_SocketStream_send_all_empty_noncontiguous_memoryview() -> None:
+    left, right = tsocket.socketpair()
+    async with SocketStream(left) as sender, SocketStream(right) as receiver:
+        with memoryview(b"abc")[0:0:2] as data:
+            with assert_checkpoints():
+                await sender.send_all(data)
+        await sender.send_eof()
+        assert await receiver.receive_some() == b""
 
 
 async def fill_stream(s: SocketStream) -> None:
