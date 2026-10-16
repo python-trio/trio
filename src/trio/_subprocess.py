@@ -663,10 +663,12 @@ async def _run_process(
           which is deprecated, then single exceptions will be collapsed.
 
     .. note:: The child process runs in the same process group as the parent
-       Trio process, so a Ctrl+C will be delivered simultaneously to both
-       parent and child. If you don't want this behavior, consult your
-       platform's documentation for starting child processes in a different
-       process group.
+       Trio process, so a Ctrl+C will normally be delivered to both parent
+       and child.
+
+       Python's ``subprocess`` API provides platform-specific options such as
+       ``process_group`` and ``start_new_session`` to control how child
+       processes are started.
 
     """
 
