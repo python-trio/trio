@@ -134,9 +134,14 @@ class FdStream(Stream):
             if self._fd_holder.closed:
                 raise trio.ClosedResourceError("file was already closed")
             await trio.lowlevel.checkpoint()
-            length = len(data)
             # adapted from the SocketStream code
             with memoryview(data) as view:
+                # os.write returns a byte count; index memoryviews in bytes too.
+                # Contiguous multi-byte / multi-dim views must be cast first
+                # (#3543). Leave empty views alone (cast can fail on strided).
+                if view.contiguous and view:
+                    view = view.cast("B")
+                length = len(view)
                 sent = 0
                 while sent < length:
                     with view[sent:] as remaining:

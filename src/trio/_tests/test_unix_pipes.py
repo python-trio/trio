@@ -286,3 +286,29 @@ async def test_bizarro_OSError_from_receive() -> None:
 @skip_if_fbsd_pipes_broken
 async def test_pipe_fully() -> None:
     await check_one_way_stream(make_pipe, make_clogged_pipe)
+
+
+async def test_send_all_memoryview_itemsize_gt_1() -> None:
+    """Partial writes must advance by byte count, not element count (#3543)."""
+    import os
+
+    import trio
+
+    payload = bytes(range(256)) * 64  # 16 KiB
+    read_fd, write_fd = os.pipe()
+    received = bytearray()
+    async with trio.lowlevel.FdStream(write_fd) as sender, trio.lowlevel.FdStream(
+        read_fd,
+    ) as receiver:
+
+        async def send() -> None:
+            with memoryview(payload).cast("H") as data:
+                await sender.send_all(data)
+            await sender.aclose()
+
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(send)
+            async for chunk in receiver:
+                received.extend(chunk)
+
+    assert received == payload

@@ -117,6 +117,11 @@ class SocketStream(HalfCloseableStream):
                             raise trio.ClosedResourceError("socket was already closed")
                         await trio.lowlevel.checkpoint()
                         return
+                    # send() returns a byte count; index memoryviews in bytes too.
+                    # Contiguous multi-byte / multi-dim views must be cast first
+                    # (#3543). Leave empty views alone (cast can fail on strided).
+                    if data.contiguous:
+                        data = data.cast("B")
                     total_sent = 0
                     while total_sent < len(data):
                         with data[total_sent:] as remaining:
