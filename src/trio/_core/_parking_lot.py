@@ -146,6 +146,14 @@ class ParkingLot:
     the number of parked tasks, and ``if parking_lot: ...`` to check whether
     there are any parked tasks.
 
+    Attributes:
+        broken_by (list[trio.lowlevel.Task]):
+            Tasks recorded by calls to :meth:`break_lot`, in call order.
+            This list is empty until the lot is broken. Each call appends its
+            ``task`` argument, or the current task if none is supplied, even
+            if the lot is already broken. The same task can therefore appear
+            more than once.
+
     """
 
     # {task: None}, we just want a deque where we can quickly delete random
