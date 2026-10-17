@@ -297,9 +297,12 @@ async def test_send_all_memoryview_itemsize_gt_1() -> None:
     payload = bytes(range(256)) * 64  # 16 KiB
     read_fd, write_fd = os.pipe()
     received = bytearray()
-    async with trio.lowlevel.FdStream(write_fd) as sender, trio.lowlevel.FdStream(
-        read_fd,
-    ) as receiver:
+    async with (
+        trio.lowlevel.FdStream(write_fd) as sender,
+        trio.lowlevel.FdStream(
+            read_fd,
+        ) as receiver,
+    ):
 
         async def send() -> None:
             with memoryview(payload).cast("H") as data:
