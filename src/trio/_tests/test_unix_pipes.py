@@ -66,6 +66,39 @@ async def test_send_pipe() -> None:
         os.close(r)
 
 
+async def test_send_all_typed_memoryview(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Regression test for gh-3543: FdStream.send_all() must not silently
+    # truncate a typed memoryview (itemsize > 1) on partial writes.
+    write, read = await make_pipe()
+
+    # Force partial writes: at most 3 bytes per os.write() call.
+    real_write = os.write
+
+    def limited_write(fd: int, buf: bytes | bytearray | memoryview) -> int:
+        return real_write(fd, memoryview(buf)[:3])
+
+    monkeypatch.setattr(os, "write", limited_write)
+
+    payload = bytes(range(256)) * 64
+    with memoryview(payload).cast("H") as typed:
+        assert typed.itemsize == 2
+        await write.send_all(typed)
+    # Empty views (even strided ones, which cast("B") would reject) are
+    # still accepted.
+    await write.send_all(b"")
+    await write.send_all(memoryview(b"")[::2])
+    await write.aclose()
+
+    received = bytearray()
+    while True:
+        chunk = await read.receive_some(65536)
+        if not chunk:
+            break
+        received.extend(chunk)
+    await read.aclose()
+    assert bytes(received) == payload
+
+
 async def test_receive_pipe() -> None:
     r, w = os.pipe()
     async with FdStream(r) as recv:
