@@ -117,11 +117,16 @@ class SocketStream(HalfCloseableStream):
                             raise trio.ClosedResourceError("socket was already closed")
                         await trio.lowlevel.checkpoint()
                         return
-                    total_sent = 0
-                    while total_sent < len(data):
-                        with data[total_sent:] as remaining:
-                            sent = await self.socket.send(remaining)
-                        total_sent += sent
+                    # send() returns a byte count, so the buffer must be
+                    # sliced in bytes: cast typed views (itemsize > 1) to a
+                    # one-dimensional byte view first, otherwise a partial
+                    # write silently skips data (gh-3543).
+                    with data.cast("B") as data:
+                        total_sent = 0
+                        while total_sent < len(data):
+                            with data[total_sent:] as remaining:
+                                sent = await self.socket.send(remaining)
+                            total_sent += sent
 
     async def wait_send_all_might_not_block(self) -> None:
         with self._send_conflict_detector:
