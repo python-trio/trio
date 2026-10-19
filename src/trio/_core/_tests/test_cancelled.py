@@ -1,6 +1,8 @@
 import pickle
 import re
+import subprocess
 import sys
+import textwrap
 from math import inf
 
 import pytest
@@ -11,6 +13,7 @@ from trio.lowlevel import current_task
 from trio.testing import wait_all_tasks_blocked
 
 from .test_ki import ki_self
+from .tutil import slow
 
 if sys.version_info < (3, 11):
     from exceptiongroup import ExceptionGroup
@@ -170,8 +173,6 @@ async def test_nursery_exception_repr_failure(
 ) -> None:
     class UnprintableError(Exception):
         def __repr__(self) -> str:
-            if repr_error is RecursionError:
-                return repr(self)
             raise repr_error
 
     original = UnprintableError()
@@ -217,6 +218,49 @@ async def test_nursery_exception_repr_failure(
     assert reasons == [f"{prefix} raised exception <exception repr() failed>"]
     # The nursery has finished unwinding; cancellation must not leak into its parent.
     await trio.lowlevel.checkpoint()
+
+
+@slow
+def test_nursery_exception_repr_recursion() -> None:
+    # A real recursion overflow disables coverage tracing on PyPy. Isolate it so
+    # coverage can still measure the remaining tests in the parent process.
+    code = textwrap.dedent(
+        """
+        import sys
+        import trio
+
+        if sys.version_info < (3, 11):
+            from exceptiongroup import ExceptionGroup
+
+        class RecursiveError(Exception):
+            def __repr__(self):
+                return repr(self)
+
+        original = RecursiveError()
+
+        async def failing_task():
+            raise original
+
+        async def main():
+            try:
+                async with trio.open_nursery() as nursery:
+                    nursery.start_soon(failing_task)
+            except ExceptionGroup as exc:
+                assert len(exc.exceptions) == 1
+                assert exc.exceptions[0] is original
+            else:
+                raise AssertionError("original exception was lost")
+
+        trio.run(main)
+        """,
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 async def test_cancel_reason_not_overwritten() -> None:
