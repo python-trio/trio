@@ -319,6 +319,15 @@ class Deadlines:
         return did_something
 
 
+def _safe_exception_repr(exc: BaseException) -> str:
+    try:
+        return repr(exc)
+    except BaseException:
+        # Formatting diagnostics must not interfere with nursery cleanup, even if
+        # a user-defined __repr__ raises KeyboardInterrupt or SystemExit.
+        return "<exception repr() failed>"
+
+
 @attrs.define
 class CancelReason:
     """Attached to a :class:`CancelScope` upon cancellation with details of the source of the
@@ -1265,7 +1274,7 @@ class Nursery(metaclass=NoPublicConstructor):
                 CancelReason(
                     source="nursery",
                     source_task=repr(task),
-                    reason=f"child task raised exception {outcome.error!r}",
+                    reason=f"child task raised exception {_safe_exception_repr(outcome.error)}",
                 ),
             )
         self._check_nursery_closed()
@@ -1282,7 +1291,7 @@ class Nursery(metaclass=NoPublicConstructor):
                 reason=CancelReason(
                     source="nursery",
                     source_task=repr(self._parent_task),
-                    reason=f"Code block inside nursery contextmanager raised exception {nested_child_exc!r}",
+                    reason=f"Code block inside nursery contextmanager raised exception {_safe_exception_repr(nested_child_exc)}",
                 ),
             )
         self._nested_child_running = False

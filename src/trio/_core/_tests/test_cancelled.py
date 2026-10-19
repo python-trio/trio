@@ -1,5 +1,6 @@
 import pickle
 import re
+import sys
 from math import inf
 
 import pytest
@@ -10,6 +11,9 @@ from trio.lowlevel import current_task
 from trio.testing import wait_all_tasks_blocked
 
 from .test_ki import ki_self
+
+if sys.version_info < (3, 11):
+    from exceptiongroup import ExceptionGroup
 
 
 def test_Cancelled_init() -> None:
@@ -152,6 +156,67 @@ async def test_cancel_reason_nursery3() -> None:
             nursery.start_soon(cancelled_task)
             await wait_all_tasks_blocked()
             await nursery.start(failing_task)
+
+
+@pytest.mark.parametrize("from_child", [False, True])
+@pytest.mark.parametrize("grouped", [False, True])
+@pytest.mark.parametrize(
+    "repr_error", [ValueError, RecursionError, KeyboardInterrupt, SystemExit]
+)
+async def test_nursery_exception_repr_failure(
+    from_child: bool,
+    grouped: bool,
+    repr_error: type[BaseException],
+) -> None:
+    class UnprintableError(Exception):
+        def __repr__(self) -> str:
+            if repr_error is RecursionError:
+                return repr(self)
+            raise repr_error
+
+    original = UnprintableError()
+    error: Exception = original
+    if grouped:
+        for _ in range(20):
+            error = ExceptionGroup("nested", [error])
+
+    reasons: list[str | None] = []
+    sources: list[str] = []
+    finished: list[bool] = []
+
+    async def sibling() -> None:
+        try:
+            await trio.sleep_forever()
+        except Cancelled as exc:
+            reasons.append(exc.reason)
+            sources.append(exc.source)
+            raise
+        finally:
+            finished.append(True)
+
+    async def failing_task() -> None:
+        raise error
+
+    with pytest.raises(ExceptionGroup) as excinfo:
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(sibling)
+            await wait_all_tasks_blocked()
+            if from_child:
+                nursery.start_soon(failing_task)
+            else:
+                raise error
+
+    propagated: BaseException = excinfo.value
+    while isinstance(propagated, ExceptionGroup):
+        assert len(propagated.exceptions) == 1
+        propagated = propagated.exceptions[0]
+    assert propagated is original
+    assert finished == [True]
+    assert sources == ["nursery"]
+    prefix = "child task" if from_child else "Code block inside nursery contextmanager"
+    assert reasons == [f"{prefix} raised exception <exception repr() failed>"]
+    # The nursery has finished unwinding; cancellation must not leak into its parent.
+    await trio.lowlevel.checkpoint()
 
 
 async def test_cancel_reason_not_overwritten() -> None:

@@ -1,0 +1,3 @@
+A failing exception ``__repr__`` no longer interrupts nursery bookkeeping while
+constructing cancellation diagnostics. Cancellation reasons use a placeholder
+when representing the exception raises an error, including ``RecursionError``.
