@@ -134,23 +134,30 @@ class FdStream(Stream):
             if self._fd_holder.closed:
                 raise trio.ClosedResourceError("file was already closed")
             await trio.lowlevel.checkpoint()
-            length = len(data)
             # adapted from the SocketStream code
             with memoryview(data) as view:
-                sent = 0
-                while sent < length:
-                    with view[sent:] as remaining:
-                        try:
-                            sent += os.write(self._fd_holder.fd, remaining)
-                        except BlockingIOError:
-                            await trio.lowlevel.wait_writable(self._fd_holder.fd)
-                        except OSError as e:
-                            if e.errno == errno.EBADF:
-                                raise trio.ClosedResourceError(
-                                    "file was already closed",
-                                ) from None
-                            else:
-                                raise trio.BrokenResourceError from e
+                if not view:
+                    return
+                # os.write() returns a byte count, so the buffer must be
+                # sliced in bytes: cast typed views (itemsize > 1) to a
+                # one-dimensional byte view first, otherwise a partial write
+                # silently skips data (gh-3543). The empty case is handled
+                # above because cast() rejects strided views, even empty ones.
+                with view.cast("B") as view:
+                    sent = 0
+                    while sent < len(view):
+                        with view[sent:] as remaining:
+                            try:
+                                sent += os.write(self._fd_holder.fd, remaining)
+                            except BlockingIOError:
+                                await trio.lowlevel.wait_writable(self._fd_holder.fd)
+                            except OSError as e:
+                                if e.errno == errno.EBADF:
+                                    raise trio.ClosedResourceError(
+                                        "file was already closed",
+                                    ) from None
+                                else:
+                                    raise trio.BrokenResourceError from e
 
     async def wait_send_all_might_not_block(self) -> None:
         with self._send_conflict_detector:

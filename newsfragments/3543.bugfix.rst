@@ -1,0 +1,2 @@
+Fix ``SocketStream.send_all()`` and POSIX ``FdStream.send_all()`` silently truncating typed
+memoryviews (``itemsize > 1``) when ``send()``/``os.write()`` performs a partial write.
