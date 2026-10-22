@@ -78,6 +78,7 @@ try:
 except ImportError as ex:  # pragma: no cover
     _wait_child_exiting_error = ex
 
+
 try:
     if TYPE_CHECKING:
         # Not worth type checking these definitions
@@ -96,15 +97,8 @@ try:
     elif os.name == "nt":
         import msvcrt
 
-        # This isn't exported or documented, but it's also not
-        # underscore-prefixed, and seems kosher to use. The asyncio docs
-        # for 3.5 included an example that imported socketpair from
-        # windows_utils (before socket.socketpair existed on Windows), and
-        # when asyncio.windows_utils.socketpair was removed in 3.7, the
-        # removal was mentioned in the release notes.
-        from asyncio.windows_utils import pipe as windows_pipe
-
         from .._windows_pipes import PipeReceiveStream, PipeSendStream
+        from .windows import windows_pipe
 
         def create_pipe_to_child_stdin() -> tuple[PipeSendStream, int]:
             # for stdin, we want the write end (our end) to use overlapped I/O

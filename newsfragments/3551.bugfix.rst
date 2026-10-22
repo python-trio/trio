@@ -1,0 +1,1 @@
+Avoid importing ``asyncio`` on Windows by implementing ``windows_pipe`` directly with ``_winapi``, reducing startup latency.
