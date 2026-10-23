@@ -1810,6 +1810,10 @@ class Runner:  # type: ignore[explicit-any]
 
     # If everything goes idle for this long, we call clock._autojump()
     clock_autojump_threshold: float = inf
+    # Nonzero while work that will wake a task is still running off the event
+    # loop; the autojump above is not armed until it returns to zero. See
+    # hold_autojump() below, and _AutojumpThreadHold in trio._threads.
+    autojump_holds: int = 0
 
     # Guest mode stuff
     is_guest: bool = False
@@ -2752,7 +2756,16 @@ def unrolled_run(
             # We use 'elif' here because if there are tasks in
             # wait_all_tasks_blocked, then those tasks will wake up without
             # jumping the clock, so we don't need to autojump.
-            elif runner.clock_autojump_threshold < timeout:
+            #
+            # Similarly, while anything holds the autojump (a
+            # to_thread.run_sync thread, or a hold_autojump() block), the
+            # system isn't really idle: real work is happening off the event
+            # loop, and it will eventually wake up a task. So we don't arm
+            # the autojump, and the IO wait simply sleeps until that work
+            # reports back.
+            elif (
+                runner.clock_autojump_threshold < timeout and runner.autojump_holds == 0
+            ):
                 timeout = runner.clock_autojump_threshold
                 idle_primed = IdlePrimedTypes.AUTOJUMP_CLOCK
 
@@ -2985,6 +2998,47 @@ def current_task() -> Task:
         return GLOBAL_RUN_CONTEXT.task
     except AttributeError:
         raise RuntimeError("must be called from async context") from None
+
+
+@contextmanager
+def hold_autojump() -> Generator[None, None, None]:
+    """Keep the autojump clock from jumping while the ``with`` block runs.
+
+    Use this around a wait for work that happens outside the run loop, where
+    Trio cannot see it: for example, a task parked in
+    :func:`wait_task_rescheduled` until a thread or another event loop wakes
+    it through :meth:`TrioToken.run_sync_soon`. Such a task looks idle, so
+    without this a :class:`trio.testing.MockClock` with a finite
+    ``autojump_threshold`` may jump ahead, and fire timeouts, while the
+    work is still in progress. :func:`trio.to_thread.run_sync` already does
+    the equivalent for its worker threads.
+
+    Only autojumping is affected. This does nothing under a real clock, and
+    tasks blocked in :func:`trio.testing.wait_all_tasks_blocked` still wake
+    up. Holds are counted, so they nest, and several tasks can hold at once.
+    While anything holds, the clock does not autojump: if the work never
+    finishes, a timeout that relies on autojumping never fires.
+
+    The block must be entered and exited from inside a task of the same run.
+    :meth:`TrioToken.run_sync_soon` callbacks qualify, so one callback may
+    enter the block and a later one exit it; but such a hold only starts when
+    the callback runs, and the clock may jump first. A task that enters the
+    block itself and then waits has no such gap.
+
+    Raises:
+      RuntimeError: if entered outside a task.
+
+    """
+    # Only tasks may take a hold. The run loop re-checks the count after every
+    # batch of task steps, and runs none between arming the autojump and
+    # firing it, so the count cannot rise in between.
+    current_task()
+    runner = GLOBAL_RUN_CONTEXT.runner
+    runner.autojump_holds += 1
+    try:
+        yield
+    finally:
+        runner.autojump_holds -= 1
 
 
 def current_effective_deadline() -> float:

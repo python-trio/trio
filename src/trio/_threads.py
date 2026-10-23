@@ -23,14 +23,17 @@ from ._core import (
     enable_ki_protection,
     start_thread_soon,
 )
+from ._core._run import GLOBAL_RUN_CONTEXT
 from ._sync import CapacityLimiter, Event
 from ._util import coroutine_or_error
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Generator
+    from types import TracebackType
 
     from typing_extensions import TypeVarTuple, Unpack
 
+    from trio._core._run import Runner
     from trio._core._traps import RaiseCancelT
 
     Ts = TypeVarTuple("Ts")
@@ -46,6 +49,7 @@ class _ParentTaskData(threading.local):
     abandon_on_cancel: bool
     cancel_register: list[RaiseCancelT | None]
     task_register: list[trio.lowlevel.Task | None]
+    autojump_hold: _AutojumpThreadHold
 
 
 PARENT_TASK_DATA = _ParentTaskData()
@@ -82,6 +86,66 @@ def _track_active_thread() -> Generator[None, None, None]:
         if active_threads_local.count == 0:
             active_threads_local.event.set()
             active_threads_local.event = Event()
+
+
+def _current_runner() -> Runner | None:
+    # A parked coroutine can be closed outside any run, after a crashed or
+    # abandoned run; there is no runner then, and the hold must do nothing.
+    return getattr(GLOBAL_RUN_CONTEXT, "runner", None)
+
+
+@define
+class _AutojumpThreadHold:
+    """One ``to_thread.run_sync`` call's unit of ``Runner.autojump_holds``.
+
+    While the unit is taken (``held``), the autojump clock waits for this
+    call's thread. The unit is given up while the thread re-enters Trio
+    through ``from_thread.run``: the thread is then parked and the work is
+    back on the Trio side, where the run loop can see it, so a virtual-time
+    sleep there must still autojump.
+
+    ``drop`` and ``restore`` do nothing unless called inside ``runner``, the
+    run the unit belongs to, and inside that run they are only called from
+    task steps. So the count only changes in task steps, and the run loop
+    runs none between arming the autojump and firing it. A thread that
+    re-enters a *different* run stays counted in its home run, which cannot
+    see the work done in the other one.
+
+    ``runner`` is None if the thread is never counted, and becomes None when
+    the waiting task leaves, so a re-entrant call that finishes after the
+    thread was abandoned does not take the unit back.
+    """
+
+    runner: Runner | None
+    held: bool = False
+
+    def __enter__(self) -> None:
+        self.restore()
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        self.drop()
+        self.runner = None
+
+    def drop(self) -> None:
+        runner = self.runner
+        if self.held and runner is _current_runner() and runner is not None:
+            self.held = False
+            runner.autojump_holds -= 1
+
+    def restore(self) -> None:
+        runner = self.runner
+        if not self.held and runner is _current_runner() and runner is not None:
+            self.held = True
+            runner.autojump_holds += 1
+
+
+# For threads that to_thread.run_sync did not start: never counted.
+_NOT_COUNTED = _AutojumpThreadHold(None)
 
 
 async def wait_all_threads_completed() -> None:
@@ -161,6 +225,14 @@ class Run(Generic[RetT]):  # type: ignore[explicit-any]
         init=False,
         factory=stdlib_queue.SimpleQueue,
     )
+    # The autojump unit of the to_thread.run_sync call this message comes
+    # from, or _NOT_COUNTED. Captured at construction, on the sending thread,
+    # because PARENT_TASK_DATA is thread-local.
+    hold: _AutojumpThreadHold = attrs.field(
+        init=False,
+        repr=False,
+        factory=lambda: getattr(PARENT_TASK_DATA, "autojump_hold", _NOT_COUNTED),
+    )
 
     @disable_ki_protection
     async def unprotected_afn(self) -> RetT:
@@ -179,7 +251,11 @@ class Run(Generic[RetT]):  # type: ignore[explicit-any]
         self.queue.put_nowait(result)
 
     async def run_system(self) -> None:
+        # The calling thread is not counted during the re-entrant call; see
+        # _AutojumpThreadHold.
+        self.hold.drop()
         result = await outcome.acapture(self.unprotected_afn)
+        self.hold.restore()
         self.queue.put_nowait(result)
 
     def run_in_host_task(self, token: TrioToken) -> None:
@@ -344,6 +420,30 @@ async def to_thread_run_sync(
       Exception: Whatever ``sync_fn(*args)`` raises.
 
     """
+    return await _to_thread_run_sync(
+        sync_fn,
+        args,
+        thread_name=thread_name,
+        abandon_on_cancel=abandon_on_cancel,
+        limiter=limiter,
+        hold_autojump=True,
+    )
+
+
+@enable_ki_protection
+async def _to_thread_run_sync(
+    sync_fn: Callable[[Unpack[Ts]], RetT],
+    args: tuple[Unpack[Ts]],
+    thread_name: str | None,
+    abandon_on_cancel: bool,
+    limiter: CapacityLimiter | None,
+    *,
+    hold_autojump: bool,
+) -> RetT:
+    # hold_autojump=False is for Trio's own threads that only wait for
+    # something outside the process, like a child exiting. On other platforms
+    # that is an I/O wait, which leaves the run loop idle; the autojump clock
+    # must not treat it differently because this platform needs a thread.
     await trio.lowlevel.checkpoint_if_cancelled()
     # raise early if abandon_on_cancel.__bool__ raises
     # and give a new name to ensure mypy knows it's never None
@@ -388,6 +488,7 @@ async def to_thread_run_sync(
         PARENT_TASK_DATA.abandon_on_cancel = abandon_bool
         PARENT_TASK_DATA.cancel_register = cancel_register
         PARENT_TASK_DATA.task_register = task_register
+        PARENT_TASK_DATA.autojump_hold = hold
         try:
             ret = context.run(sync_fn, *args)
 
@@ -405,6 +506,7 @@ async def to_thread_run_sync(
             del PARENT_TASK_DATA.abandon_on_cancel
             del PARENT_TASK_DATA.cancel_register
             del PARENT_TASK_DATA.task_register
+            del PARENT_TASK_DATA.autojump_hold
 
     context = contextvars.copy_context()
     # Trio doesn't use current_async_library_cvar, but if someone
@@ -421,7 +523,8 @@ async def to_thread_run_sync(
             current_trio_token.run_sync_soon(report_back_in_trio_thread_fn, result)
 
     await limiter.acquire_on_behalf_of(placeholder)
-    with _track_active_thread():
+    hold = _AutojumpThreadHold(GLOBAL_RUN_CONTEXT.runner if hold_autojump else None)
+    with _track_active_thread(), hold:
         try:
             start_thread_soon(worker_fn, deliver_worker_fn_result, thread_name)
         except:
@@ -448,7 +551,14 @@ async def to_thread_run_sync(
             if isinstance(msg_from_thread, outcome.Outcome):
                 return msg_from_thread.unwrap()
             elif isinstance(msg_from_thread, Run):
-                await msg_from_thread.run()
+                # Not counted during the re-entrant call; see
+                # _AutojumpThreadHold. (RunSync, below, runs within this
+                # task step, so the run loop never observes it.)
+                hold.drop()
+                try:
+                    await msg_from_thread.run()
+                finally:
+                    hold.restore()
             elif isinstance(msg_from_thread, RunSync):
                 msg_from_thread.run_sync()
             else:  # pragma: no cover, internal debugging guard TODO: use assert_never
