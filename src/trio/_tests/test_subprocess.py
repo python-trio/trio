@@ -157,6 +157,26 @@ async def test_basic_no_pidfd(background_process: BackgroundProcessType) -> None
         )
 
 
+async def test_no_encoding_warning() -> None:
+    # Spawning a process must not open anything in text mode without an
+    # explicit encoding, which warns under -X warn_default_encoding.
+    code = "import sys, trio; trio.run(trio.run_process, [sys.executable, '-c', ''])"
+    result = await run_process(
+        [
+            sys.executable,
+            "-X",
+            "warn_default_encoding",
+            "-W",
+            "error::EncodingWarning",
+            "-c",
+            code,
+        ],
+        capture_stderr=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr.decode()
+
+
 @background_process_param
 async def test_auto_update_returncode(
     background_process: BackgroundProcessType,
