@@ -7,6 +7,7 @@ import sys
 import warnings
 from contextlib import ExitStack
 from functools import partial
+from io import FileIO
 from typing import (
     TYPE_CHECKING,
     Final,
@@ -32,7 +33,6 @@ from ._util import NoPublicConstructor, final
 if TYPE_CHECKING:
     import signal
     from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
-    from io import TextIOWrapper
 
     from typing_extensions import Unpack
 
@@ -49,8 +49,6 @@ can_try_pidfd_open: bool
 if TYPE_CHECKING:
 
     def pidfd_open(fd: int, flags: int) -> int: ...
-
-    from ._subprocess_platform import ClosableReceiveStream, ClosableSendStream
 
 else:
     can_try_pidfd_open = True
@@ -171,9 +169,9 @@ class Process(metaclass=NoPublicConstructor):
         if self.stdin is not None and self.stdout is not None:
             self.stdio = StapledStream(self.stdin, self.stdout)
 
-        self._wait_lock: Lock = Lock()
+        self._wait_lock = Lock()
 
-        self._pidfd: TextIOWrapper | None = None
+        self._pidfd = None
         if can_try_pidfd_open:
             try:
                 fd: int = pidfd_open(self._proc.pid, 0)
@@ -186,9 +184,10 @@ class Process(metaclass=NoPublicConstructor):
             else:
                 # It worked! Wrap the raw fd up in a Python file object to
                 # make sure it'll get closed.
-                # SIM115: open-file-with-context-handler
-                self._pidfd = open(fd)  # noqa: SIM115
+                self._pidfd = FileIO(fd)
 
+        # TODO: remove the following two type hints, required only due to
+        # https://github.com/microsoft/pyright/issues/11917
         self.args: StrOrBytesPath | Sequence[StrOrBytesPath] = self._proc.args
         self.pid: int = self._proc.pid
 
@@ -382,9 +381,9 @@ async def _open_process(
                 "shell=True on UNIX systems",
             )
 
-    trio_stdin: ClosableSendStream | None = None
-    trio_stdout: ClosableReceiveStream | None = None
-    trio_stderr: ClosableReceiveStream | None = None
+    trio_stdin = None
+    trio_stdout = None
+    trio_stderr = None
     # Close the parent's handle for each child side of a pipe; we want the child to
     # have the only copy, so that when it exits we can read EOF on our side. The
     # trio ends of pipes will be transferred to the Process object, which will be
