@@ -165,7 +165,7 @@ class Process(metaclass=NoPublicConstructor):
         self.stdout = stdout
         self.stderr = stderr
 
-        self.stdio = None
+        self.stdio: StapledStream[SendStream, ReceiveStream] | None = None
         if self.stdin is not None and self.stdout is not None:
             self.stdio = StapledStream(self.stdin, self.stdout)
 
@@ -186,8 +186,10 @@ class Process(metaclass=NoPublicConstructor):
                 # make sure it'll get closed.
                 self._pidfd = FileIO(fd)
 
-        self.args = self._proc.args
-        self.pid = self._proc.pid
+        # TODO: remove the following two type hints, required only due to
+        # https://github.com/microsoft/pyright/issues/11917
+        self.args: StrOrBytesPath | Sequence[StrOrBytesPath] = self._proc.args
+        self.pid: int = self._proc.pid
 
     def __repr__(self) -> str:
         returncode = self.returncode
