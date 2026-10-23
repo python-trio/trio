@@ -7,6 +7,7 @@ import sys
 import warnings
 from contextlib import ExitStack
 from functools import partial
+from io import FileIO
 from typing import (
     TYPE_CHECKING,
     Final,
@@ -32,7 +33,6 @@ from ._util import NoPublicConstructor, final
 if TYPE_CHECKING:
     import signal
     from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
-    from io import TextIOWrapper
 
     from typing_extensions import Unpack
 
@@ -173,7 +173,7 @@ class Process(metaclass=NoPublicConstructor):
 
         self._wait_lock: Lock = Lock()
 
-        self._pidfd: TextIOWrapper | None = None
+        self._pidfd: FileIO | None = None
         if can_try_pidfd_open:
             try:
                 fd: int = pidfd_open(self._proc.pid, 0)
@@ -186,8 +186,7 @@ class Process(metaclass=NoPublicConstructor):
             else:
                 # It worked! Wrap the raw fd up in a Python file object to
                 # make sure it'll get closed.
-                # SIM115: open-file-with-context-handler
-                self._pidfd = open(fd)  # noqa: SIM115
+                self._pidfd = FileIO(fd)
 
         self.args: StrOrBytesPath | Sequence[StrOrBytesPath] = self._proc.args
         self.pid: int = self._proc.pid
