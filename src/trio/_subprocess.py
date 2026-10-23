@@ -50,8 +50,6 @@ if TYPE_CHECKING:
 
     def pidfd_open(fd: int, flags: int) -> int: ...
 
-    from ._subprocess_platform import ClosableReceiveStream, ClosableSendStream
-
 else:
     can_try_pidfd_open = True
     try:
@@ -167,13 +165,13 @@ class Process(metaclass=NoPublicConstructor):
         self.stdout = stdout
         self.stderr = stderr
 
-        self.stdio: StapledStream[SendStream, ReceiveStream] | None = None
+        self.stdio = None
         if self.stdin is not None and self.stdout is not None:
             self.stdio = StapledStream(self.stdin, self.stdout)
 
-        self._wait_lock: Lock = Lock()
+        self._wait_lock = Lock()
 
-        self._pidfd: FileIO | None = None
+        self._pidfd = None
         if can_try_pidfd_open:
             try:
                 fd: int = pidfd_open(self._proc.pid, 0)
@@ -188,8 +186,8 @@ class Process(metaclass=NoPublicConstructor):
                 # make sure it'll get closed.
                 self._pidfd = FileIO(fd)
 
-        self.args: StrOrBytesPath | Sequence[StrOrBytesPath] = self._proc.args
-        self.pid: int = self._proc.pid
+        self.args = self._proc.args
+        self.pid = self._proc.pid
 
     def __repr__(self) -> str:
         returncode = self.returncode
@@ -381,9 +379,9 @@ async def _open_process(
                 "shell=True on UNIX systems",
             )
 
-    trio_stdin: ClosableSendStream | None = None
-    trio_stdout: ClosableReceiveStream | None = None
-    trio_stderr: ClosableReceiveStream | None = None
+    trio_stdin = None
+    trio_stdout = None
+    trio_stderr = None
     # Close the parent's handle for each child side of a pipe; we want the child to
     # have the only copy, so that when it exits we can read EOF on our side. The
     # trio ends of pipes will be transferred to the Process object, which will be
