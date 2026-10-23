@@ -56,9 +56,18 @@ def _signal_handler(
     signals: Iterable[int],
     handler: Callable[[int, FrameType | None], object] | int | signal.Handlers | None,
 ) -> Generator[None, None, None]:
+    signals = set(signals)
+    # A C-level handler is reported as None, which signal.signal cannot restore.
+    # Check every signal before replacing any of the host's handlers.
+    for signum in signals:
+        if signal.getsignal(signum) is None:
+            raise RuntimeError(
+                f"Cannot receive signal {signum}: its C-level handler "
+                "cannot be restored by Python",
+            )
     original_handlers = {}
     try:
-        for signum in set(signals):
+        for signum in signals:
             original_handlers[signum] = signal.signal(signum, handler)
         yield
     finally:
@@ -150,7 +159,8 @@ def open_signal_receiver(
       TypeError: if no signals were provided.
 
       RuntimeError: if you try to use this anywhere except Python's main
-          thread. (This is a Python limitation.)
+          thread, or a requested signal has a C-level handler that Python
+          cannot restore. (These are Python limitations.)
 
     Example:
 
