@@ -114,7 +114,10 @@ if TYPE_CHECKING:
         def errors(self) -> str | None: ...
 
     class _HasFileNo(Protocol):
-        def fileno(self) -> int: ...
+        """Represents any file-like object that has a file descriptor."""
+
+        def fileno(self) -> int:
+            """Return the file descriptor."""
 
     class _HasIsATTY(Protocol):
         def isatty(self) -> bool: ...
