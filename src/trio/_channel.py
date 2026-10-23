@@ -22,6 +22,7 @@ from ._util import (
     MultipleExceptionError,
     NoPublicConstructor,
     final,
+    raise_saving_context,
     raise_single_exception_from_group,
 )
 
@@ -559,6 +560,7 @@ def as_safe_channel(
         *args: P.args, **kwargs: P.kwargs
     ) -> AsyncGenerator[trio._channel.RecvChanWrapper[T], None]:
         send_chan, recv_chan = trio.open_memory_channel[T](0)
+        agen_cancelled: list[trio.Cancelled] = []
         try:
             async with trio.open_nursery(strict_exception_groups=True) as nursery:
                 agen = fn(*args, **kwargs)
@@ -567,7 +569,11 @@ def as_safe_channel(
                 # If this errors we don't close `recv_chan`, but the caller
                 # never gets access to it, so that's not a problem.
                 await nursery.start(
-                    _move_elems_to_channel, agen, send_chan, send_semaphore
+                    _move_elems_to_channel,
+                    agen,
+                    send_chan,
+                    send_semaphore,
+                    agen_cancelled,
                 )
                 # `async with recv_chan` could eat exceptions, so use sync cm
                 with RecvChanWrapper(recv_chan, send_semaphore) as wrapped_recv_chan:
@@ -578,6 +584,13 @@ def as_safe_channel(
                     "exited trio.as_safe_channel context manager"
                 )
         except BaseExceptionGroup as eg:
+            # If the generator's own code was cancelled and the group holds nothing but
+            # Cancelled, raise what a plain `async for` would: the generator's Cancelled,
+            # with its context. (A group raised by the body is not a Cancelled.)
+            if agen_cancelled and all(
+                isinstance(e, trio.Cancelled) for e in eg.exceptions
+            ):
+                raise_saving_context(agen_cancelled[0])
             try:
                 raise_single_exception_from_group(eg)
             except MultipleExceptionError:
@@ -590,11 +603,16 @@ def as_safe_channel(
                     )
 
                 raise eg from None
+        finally:
+            # Break the reference cycle: the Cancelled's traceback holds this frame,
+            # which holds the list.
+            agen_cancelled.clear()
 
     async def _move_elems_to_channel(
         agen: AsyncGenerator[T, None],
         send_chan: trio.MemorySendChannel[T],
         send_semaphore: trio.Semaphore,
+        agen_cancelled: list[trio.Cancelled],
         task_status: trio.TaskStatus,
     ) -> None:
         # `async with send_chan` will eat exceptions,
@@ -615,6 +633,9 @@ def as_safe_channel(
                         value = await agen.__anext__()
                     except StopAsyncIteration:
                         return
+                    except trio.Cancelled as exc:
+                        agen_cancelled.append(exc)
+                        raise
                     # Send the value to the channel
                     try:
                         await send_chan.send(value)
