@@ -633,8 +633,8 @@ def as_safe_channel(
                         value = await agen.__anext__()
                     except StopAsyncIteration:
                         return
-                    except trio.Cancelled as exc:
-                        agen_cancelled.append(exc)
+                    except trio.Cancelled as cancelled:
+                        agen_cancelled.append(cancelled)
                         raise
                     # Send the value to the channel
                     try:
