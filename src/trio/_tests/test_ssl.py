@@ -121,8 +121,14 @@ def ssl_echo_serve_sync(
                     # other side has initiated a graceful shutdown; we try to
                     # respond in kind but it's legal for them to have already
                     # gone away.
-                    with suppress(BrokenPipeError, ssl.SSLZeroReturnError):
-                        wrapped.unwrap()
+                    try:
+                        with suppress(BrokenPipeError, ssl.SSLZeroReturnError):
+                            wrapped.unwrap()
+                    except ssl.SSLError as unwrap_exc:  # pragma: no cover
+                        # PyPy reports EPIPE here as SSLError("Broken pipe")
+                        # rather than BrokenPipeError.
+                        if "Broken pipe" not in str(unwrap_exc):
+                            raise
                     return
                 wrapped.sendall(data)
     # This is an obscure workaround for an openssl bug. In server mode, in
