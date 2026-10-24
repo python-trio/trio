@@ -52,7 +52,7 @@ AddressFormat: TypeAlias = Any  # type: ignore[explicit-any]
 
 # typeshed defines _GetAddrInfoResult but we would rather manipulate the inner
 # entry type... as well as use a type defined at runtime!
-_GetAddrInfoEntry: TypeAlias = (
+_GetAddrInfoEntry: TypeAlias = (  # noqa: PYI047
     tuple[
         Literal[AddressFamily.AF_INET],
         SocketKind,

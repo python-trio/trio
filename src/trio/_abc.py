@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import socket
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar, Literal
 
 import trio
 
@@ -175,15 +175,15 @@ class HostnameResolver(ABC):
     ) -> list[
         # copied from _GetAddrInfoEntry
         tuple[
-            Literal[AddressFamily.AF_INET],
-            SocketKind,
+            Literal[socket.AddressFamily.AF_INET],
+            socket.SocketKind,
             int,
             str,
             tuple[str, int],
         ]
         | tuple[
-            Literal[AddressFamily.AF_INET6],
-            SocketKind,
+            Literal[socket.AddressFamily.AF_INET6],
+            socket.SocketKind,
             int,
             str,
             tuple[str, int, int, int] | tuple[int, bytes],
