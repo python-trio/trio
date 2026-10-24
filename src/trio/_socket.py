@@ -199,7 +199,23 @@ async def getaddrinfo(
     type: int = 0,
     proto: int = 0,
     flags: int = 0,
-) -> list[_GetAddrInfoEntry]:
+) -> list[
+    # copied from _GetAddrInfoEntry
+    tuple[
+        Literal[AddressFamily.AF_INET],
+        SocketKind,
+        int,
+        str,
+        tuple[str, int],
+    ]
+    | tuple[
+        Literal[AddressFamily.AF_INET6],
+        SocketKind,
+        int,
+        str,
+        tuple[str, int, int, int] | tuple[int, bytes],
+    ]
+]:
     """Look up a numeric address given a name.
 
     Arguments and return values are identical to :func:`socket.getaddrinfo`,

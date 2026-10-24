@@ -172,7 +172,23 @@ class HostnameResolver(ABC):
         type: int = 0,
         proto: int = 0,
         flags: int = 0,
-    ) -> list[_GetAddrInfoEntry]:
+    ) -> list[
+        # copied from _GetAddrInfoEntry
+        tuple[
+            Literal[AddressFamily.AF_INET],
+            SocketKind,
+            int,
+            str,
+            tuple[str, int],
+        ]
+        | tuple[
+            Literal[AddressFamily.AF_INET6],
+            SocketKind,
+            int,
+            str,
+            tuple[str, int, int, int] | tuple[int, bytes],
+        ]
+    ]:
         """A custom implementation of :func:`~trio.socket.getaddrinfo`.
 
         Called by :func:`trio.socket.getaddrinfo`.
