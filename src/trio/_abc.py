@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import socket
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Generic, TypeVar, Literal
+from typing import TYPE_CHECKING, Generic, Literal, TypeVar
 
 import trio
 
