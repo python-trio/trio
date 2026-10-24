@@ -1,0 +1,2 @@
+Document :attr:`trio.lowlevel.ParkingLot.broken_by`, including how repeated
+calls to :meth:`~trio.lowlevel.ParkingLot.break_lot` record tasks.
