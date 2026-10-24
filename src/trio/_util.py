@@ -358,7 +358,7 @@ def raise_single_exception_from_group(
     the cause/context of the group(s).
 
     If multiple non-cancelled exceptions are encountered, it raises
-    :exc:`AssertionError`.
+    :exc:`MultipleExceptionError`.
     """
     # immediately bail out if there's any KI or SystemExit
     for e in eg.exceptions:
