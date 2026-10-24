@@ -4,7 +4,7 @@ import errno
 import socket as stdlib_socket
 import sys
 from socket import AddressFamily, SocketKind
-from typing import TYPE_CHECKING, cast, overload, Literal
+from typing import TYPE_CHECKING, Literal, cast, overload
 
 import attrs
 import pytest
@@ -242,7 +242,9 @@ class FakeSocketFactory(SocketFactory):
 
 @attrs.define(slots=False)
 class FakeHostnameResolver(HostnameResolver):
-    family_addr_pairs: Sequence[tuple[Literal[AddressFamily.AF_INET, AddressFamily.AF_INET6], str]]
+    family_addr_pairs: Sequence[
+        tuple[Literal[AddressFamily.AF_INET, AddressFamily.AF_INET6], str]
+    ]
 
     async def getaddrinfo(
         self,
@@ -255,7 +257,11 @@ class FakeHostnameResolver(HostnameResolver):
     ) -> list[_GetAddrInfoEntry]:
         assert isinstance(port, int)
         return [
-            (family, tsocket.SOCK_STREAM, 0, "", (addr, port)) if family is AddressFamily.AF_INET else (family, tsocket.SOCK_STREAM, 0, "", (addr, port, 0, 0))
+            (
+                (family, tsocket.SOCK_STREAM, 0, "", (addr, port))
+                if family is AddressFamily.AF_INET
+                else (family, tsocket.SOCK_STREAM, 0, "", (addr, port, 0, 0))
+            )
             for family, addr in self.family_addr_pairs
         ]
 
@@ -352,7 +358,10 @@ async def test_open_tcp_listeners_some_address_families_unavailable(
     else:
         listeners = await open_tcp_listeners(80)
         for listener in listeners:
-            assert listener.socket.family is AddressFamily.AF_INET or listener.socket.family is AddressFamily.AF_INET6
+            assert (
+                listener.socket.family is AddressFamily.AF_INET
+                or listener.socket.family is AddressFamily.AF_INET6
+            )
             should_succeed.remove(listener.socket.family)
         assert not should_succeed
 

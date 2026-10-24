@@ -15,7 +15,14 @@ import pytest
 
 from .. import _core, socket as tsocket
 from .._core._tests.tutil import binds_ipv6, can_create_ipv6, creates_ipv6, slow
-from .._socket import _NUMERIC_ONLY, AddressFormat, SocketType, _SocketType, _try_sync, _GetAddrInfoEntry
+from .._socket import (
+    _NUMERIC_ONLY,
+    AddressFormat,
+    SocketType,
+    _GetAddrInfoEntry,
+    _SocketType,
+    _try_sync,
+)
 from ..testing import assert_checkpoints, wait_all_tasks_blocked
 
 if TYPE_CHECKING:

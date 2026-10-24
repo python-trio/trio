@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 from contextlib import contextmanager, suppress
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import trio
 from trio.socket import SOCK_STREAM, SocketType, getaddrinfo, socket

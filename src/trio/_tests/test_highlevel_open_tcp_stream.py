@@ -20,8 +20,8 @@ from trio.socket import AF_INET, AF_INET6, IPPROTO_TCP, SOCK_STREAM, SocketType
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from trio.testing import MockClock
     from trio._socket import _GetAddrInfoEntry
+    from trio.testing import MockClock
 
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
@@ -72,7 +72,13 @@ def test_reorder_for_rfc_6555_section_5_4() -> None:
 
     def fake6(
         i: int,
-    ) -> tuple[Literal[AddressFamily.AF_INET6], SocketKind, int, str, tuple[str, int, int, int] | tuple[int, bytes]]:
+    ) -> tuple[
+        Literal[AddressFamily.AF_INET6],
+        SocketKind,
+        int,
+        str,
+        tuple[str, int, int, int] | tuple[int, bytes],
+    ]:
         return (AF_INET6, SOCK_STREAM, IPPROTO_TCP, "", (f"::{i}", 80, 0, 0))
 
     for fake in fake4, fake6:
@@ -284,7 +290,13 @@ class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
 
     def _ip_to_gai_entry(self, ip: str) -> _GetAddrInfoEntry:
         if ":" in ip:
-            return (trio.socket.AF_INET6, SOCK_STREAM, IPPROTO_TCP, "", (ip, self.port, 0, 0))
+            return (
+                trio.socket.AF_INET6,
+                SOCK_STREAM,
+                IPPROTO_TCP,
+                "",
+                (ip, self.port, 0, 0),
+            )
         else:
             return (trio.socket.AF_INET, SOCK_STREAM, IPPROTO_TCP, "", (ip, self.port))
 
@@ -296,9 +308,7 @@ class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
         type: int = -1,
         proto: int = -1,
         flags: int = -1,
-    ) -> list[
-        _GetAddrInfoEntry
-    ]:
+    ) -> list[_GetAddrInfoEntry]:
         assert host == b"test.example.com"
         assert port == self.port
         assert family == trio.socket.AF_UNSPEC
