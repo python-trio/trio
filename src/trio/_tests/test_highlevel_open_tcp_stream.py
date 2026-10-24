@@ -3,7 +3,7 @@ from __future__ import annotations
 import socket
 import sys
 from socket import AddressFamily, SocketKind
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import attrs
 import pytest
@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from trio.testing import MockClock
+    from trio._socket import _GetAddrInfoEntry
 
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
@@ -60,7 +61,7 @@ def test_close_all() -> None:
 def test_reorder_for_rfc_6555_section_5_4() -> None:
     def fake4(
         i: int,
-    ) -> tuple[socket.AddressFamily, socket.SocketKind, int, str, tuple[str, int]]:
+    ) -> _GetAddrInfoEntry:
         return (
             AF_INET,
             SOCK_STREAM,
@@ -71,8 +72,8 @@ def test_reorder_for_rfc_6555_section_5_4() -> None:
 
     def fake6(
         i: int,
-    ) -> tuple[socket.AddressFamily, socket.SocketKind, int, str, tuple[str, int]]:
-        return (AF_INET6, SOCK_STREAM, IPPROTO_TCP, "", (f"::{i}", 80))
+    ) -> tuple[Literal[AddressFamily.AF_INET6], SocketKind, int, str, tuple[str, int, int, int] | tuple[int, bytes]]:
+        return (AF_INET6, SOCK_STREAM, IPPROTO_TCP, "", (f"::{i}", 80, 0, 0))
 
     for fake in fake4, fake6:
         # No effect on homogeneous lists
@@ -281,21 +282,11 @@ class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
         self.socket_count += 1
         return FakeSocket(self, family, type_, proto)
 
-    def _ip_to_gai_entry(self, ip: str) -> tuple[
-        AddressFamily,
-        SocketKind,
-        int,
-        str,
-        tuple[str, int, int, int] | tuple[str, int] | tuple[int, bytes],
-    ]:
-        sockaddr: tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes]
+    def _ip_to_gai_entry(self, ip: str) -> _GetAddrInfoEntry:
         if ":" in ip:
-            family = trio.socket.AF_INET6
-            sockaddr = (ip, self.port, 0, 0)
+            return (trio.socket.AF_INET6, SOCK_STREAM, IPPROTO_TCP, "", (ip, self.port, 0, 0))
         else:
-            family = trio.socket.AF_INET
-            sockaddr = (ip, self.port)
-        return (family, SOCK_STREAM, IPPROTO_TCP, "", sockaddr)
+            return (trio.socket.AF_INET, SOCK_STREAM, IPPROTO_TCP, "", (ip, self.port))
 
     async def getaddrinfo(
         self,
@@ -306,13 +297,7 @@ class Scenario(trio.abc.SocketFactory, trio.abc.HostnameResolver):
         proto: int = -1,
         flags: int = -1,
     ) -> list[
-        tuple[
-            AddressFamily,
-            SocketKind,
-            int,
-            str,
-            tuple[str, int, int, int] | tuple[str, int] | tuple[int, bytes],
-        ]
+        _GetAddrInfoEntry
     ]:
         assert host == b"test.example.com"
         assert port == self.port

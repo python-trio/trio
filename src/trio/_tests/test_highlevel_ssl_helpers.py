@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 
     from .._highlevel_socket import SocketListener
     from .._ssl import SSLListener
+    from .._socket import _GetAddrInfoEntry
 
 
 async def echo_handler(stream: Stream) -> None:
@@ -44,7 +45,7 @@ async def echo_handler(stream: Stream) -> None:
 # you ask for.
 @attrs.define(slots=False)
 class FakeHostnameResolver(trio.abc.HostnameResolver):
-    sockaddr: tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes]
+    sockaddr: tuple[str, int]
 
     async def getaddrinfo(
         self,
@@ -55,13 +56,7 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
         proto: int = 0,
         flags: int = 0,
     ) -> list[
-        tuple[
-            AddressFamily,
-            SocketKind,
-            int,
-            str,
-            tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes],
-        ]
+        _GetAddrInfoEntry
     ]:
         return [(AF_INET, SOCK_STREAM, IPPROTO_TCP, "", self.sockaddr)]
 

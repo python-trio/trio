@@ -15,7 +15,7 @@ import pytest
 
 from .. import _core, socket as tsocket
 from .._core._tests.tutil import binds_ipv6, can_create_ipv6, creates_ipv6, slow
-from .._socket import _NUMERIC_ONLY, AddressFormat, SocketType, _SocketType, _try_sync
+from .._socket import _NUMERIC_ONLY, AddressFormat, SocketType, _SocketType, _try_sync, _GetAddrInfoEntry
 from ..testing import assert_checkpoints, wait_all_tasks_blocked
 
 if TYPE_CHECKING:
@@ -23,14 +23,7 @@ if TYPE_CHECKING:
 
     from .._highlevel_socket import SocketStream
 
-    GaiTuple: TypeAlias = tuple[
-        AddressFamily,
-        SocketKind,
-        int,
-        str,
-        tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes],
-    ]
-    GetAddrInfoResponse: TypeAlias = list[GaiTuple]
+    GetAddrInfoResponse: TypeAlias = list[_GetAddrInfoEntry]
     GetAddrInfoArgs: TypeAlias = tuple[
         str | bytes | None,
         str | bytes | int | None,
@@ -180,7 +173,7 @@ async def test_getaddrinfo(monkeygai: MonkeypatchedGAI) -> None:
         # Neither field gets used much and there isn't much opportunity for us
         # to mess them up, so we don't bother checking them here
         def interesting_fields(
-            gai_tup: GaiTuple,
+            gai_tup: _GetAddrInfoEntry,
         ) -> tuple[
             AddressFamily,
             SocketKind,

@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
     # both of these introduce circular imports if outside a TYPE_CHECKING guard
-    from ._socket import SocketType
+    from ._socket import SocketType, _GetAddrInfoEntry
     from .lowlevel import Task
 
 
@@ -172,15 +172,7 @@ class HostnameResolver(ABC):
         type: int = 0,
         proto: int = 0,
         flags: int = 0,
-    ) -> list[
-        tuple[
-            socket.AddressFamily,
-            socket.SocketKind,
-            int,
-            str,
-            tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes],
-        ]
-    ]:
+    ) -> list[_GetAddrInfoEntry]:
         """A custom implementation of :func:`~trio.socket.getaddrinfo`.
 
         Called by :func:`trio.socket.getaddrinfo`.

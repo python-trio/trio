@@ -10,6 +10,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Concatenate,
+    Literal,
     SupportsIndex,
     TypeAlias,
     TypeVar,
@@ -48,6 +49,25 @@ T = TypeVar("T")
 # `AddressFormat = TypeVar("AddressFormat")`
 # but instead we simply do:
 AddressFormat: TypeAlias = Any  # type: ignore[explicit-any]
+
+# typeshed defines _GetAddrInfoResult but we would rather manipulate the inner
+# entry type... as well as use a type defined at runtime!
+_GetAddrInfoEntry: TypeAlias = (
+    tuple[
+        Literal[AddressFamily.AF_INET],
+        SocketKind,
+        int,
+        str,
+        tuple[str, int],
+    ]
+    | tuple[
+        Literal[AddressFamily.AF_INET6],
+        SocketKind,
+        int,
+        str,
+        tuple[str, int, int, int] | tuple[int, bytes],
+    ]
+)
 
 
 # Usage:
@@ -179,15 +199,7 @@ async def getaddrinfo(
     type: int = 0,
     proto: int = 0,
     flags: int = 0,
-) -> list[
-    tuple[
-        AddressFamily,
-        SocketKind,
-        int,
-        str,
-        tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes],
-    ]
-]:
+) -> list[_GetAddrInfoEntry]:
     """Look up a numeric address given a name.
 
     Arguments and return values are identical to :func:`socket.getaddrinfo`,

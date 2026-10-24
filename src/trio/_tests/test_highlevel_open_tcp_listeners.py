@@ -4,7 +4,7 @@ import errno
 import socket as stdlib_socket
 import sys
 from socket import AddressFamily, SocketKind
-from typing import TYPE_CHECKING, cast, overload
+from typing import TYPE_CHECKING, cast, overload, Literal
 
 import attrs
 import pytest
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
     from typing_extensions import Buffer
 
-    from trio._socket import AddressFormat
+    from trio._socket import AddressFormat, _GetAddrInfoEntry
 
 
 async def test_open_tcp_listeners_basic() -> None:
@@ -242,7 +242,7 @@ class FakeSocketFactory(SocketFactory):
 
 @attrs.define(slots=False)
 class FakeHostnameResolver(HostnameResolver):
-    family_addr_pairs: Sequence[tuple[AddressFamily, str]]
+    family_addr_pairs: Sequence[tuple[Literal[AddressFamily.AF_INET, AddressFamily.AF_INET6], str]]
 
     async def getaddrinfo(
         self,
@@ -252,18 +252,10 @@ class FakeHostnameResolver(HostnameResolver):
         type: int = 0,
         proto: int = 0,
         flags: int = 0,
-    ) -> list[
-        tuple[
-            AddressFamily,
-            SocketKind,
-            int,
-            str,
-            tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes],
-        ]
-    ]:
+    ) -> list[_GetAddrInfoEntry]:
         assert isinstance(port, int)
         return [
-            (family, tsocket.SOCK_STREAM, 0, "", (addr, port))
+            (family, tsocket.SOCK_STREAM, 0, "", (addr, port)) if family is AddressFamily.AF_INET else (family, tsocket.SOCK_STREAM, 0, "", (addr, port, 0, 0))
             for family, addr in self.family_addr_pairs
         ]
 
@@ -333,7 +325,7 @@ async def test_serve_tcp() -> None:
     [{tsocket.AF_INET}, {tsocket.AF_INET6}, {tsocket.AF_INET, tsocket.AF_INET6}],
 )
 async def test_open_tcp_listeners_some_address_families_unavailable(
-    try_families: set[AddressFamily],
+    try_families: set[Literal[AddressFamily.AF_INET, AddressFamily.AF_INET6]],
     fail_families: set[AddressFamily],
 ) -> None:
     fsf = FakeSocketFactory(
@@ -360,6 +352,7 @@ async def test_open_tcp_listeners_some_address_families_unavailable(
     else:
         listeners = await open_tcp_listeners(80)
         for listener in listeners:
+            assert listener.socket.family is AddressFamily.AF_INET or listener.socket.family is AddressFamily.AF_INET6
             should_succeed.remove(listener.socket.family)
         assert not should_succeed
 
