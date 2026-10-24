@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
     # both of these introduce circular imports if outside a TYPE_CHECKING guard
-    from ._socket import SocketType, _GetAddrInfoEntry
+    from ._socket import SocketType
     from .lowlevel import Task
 
 
