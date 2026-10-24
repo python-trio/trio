@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import socket
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, Literal, TypeVar
 
 import trio
 
@@ -173,12 +173,20 @@ class HostnameResolver(ABC):
         proto: int = 0,
         flags: int = 0,
     ) -> list[
+        # copied from _GetAddrInfoEntry
         tuple[
-            socket.AddressFamily,
+            Literal[socket.AddressFamily.AF_INET],
             socket.SocketKind,
             int,
             str,
-            tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes],
+            tuple[str, int],
+        ]
+        | tuple[
+            Literal[socket.AddressFamily.AF_INET6],
+            socket.SocketKind,
+            int,
+            str,
+            tuple[str, int, int, int] | tuple[int, bytes],
         ]
     ]:
         """A custom implementation of :func:`~trio.socket.getaddrinfo`.
