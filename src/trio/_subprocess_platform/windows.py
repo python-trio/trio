@@ -27,7 +27,7 @@ def windows_pipe(
     Licensed under the Python Software Foundation License Version 2.
 
     Changes from CPython:
-    - Renamed pipe prefix from r'\\.\pipe\asyncio-pipe-*' to r'\\.\pipe\trio-pipe-*'.
+    - Renamed pipe prefix from r'\\.\\pipe\asyncio-pipe-*' to r'\\.\\pipe\trio-pipe-*'.
     - Modernized type hints for Trio's static typing and mypy checks.
     - Explicit exception guard ensures early handle is closed if connection fails.
     """
