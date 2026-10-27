@@ -168,7 +168,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.14t', '3.15-dev']
+        python: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.14t', '3.15', '3.15t']
         arch: ['x86', 'x64']
         lsp: ['']
         lsp_extract_file: ['']
@@ -243,7 +243,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.11', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t', '3.15-dev']
+        python: ['pypy-3.11', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t', '3.15', '3.15t']
         check_formatting: ['0']
         no_test_requirements: ['0']
         extra_name: ['']
@@ -321,7 +321,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.11', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t', '3.15-dev']
+        python: ['pypy-3.11', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t', '3.15', '3.15t']
     continue-on-error: >-
       ${{
         (
@@ -419,7 +419,7 @@ jobs:
           # TODO: technically we should pin cython versions
           - python: '3.10'
             cython: '>=3'
-          - python: '3.14'
+          - python: '3.15'
             cython: '>=3'
     steps:
       - name: Retrieve the project source from an sdist inside the GHA artifact
