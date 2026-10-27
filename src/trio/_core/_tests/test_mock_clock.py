@@ -32,6 +32,13 @@ def test_mock_clock() -> None:
         c.rate = -1
     assert c.rate == 0
 
+    with pytest.raises(ValueError, match=r"^rate must be >= 0$"):
+        c.rate = float("nan")
+    assert c.rate == 0
+
+    with pytest.raises(ValueError, match=r"^rate must be >= 0$"):
+        MockClock(rate=float("nan"))
+
     c.rate = 2
     assert c.current_time() == 1.2
     REAL_NOW += 1

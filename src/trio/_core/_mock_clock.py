@@ -87,7 +87,7 @@ class MockClock(Clock):
 
     @rate.setter
     def rate(self, new_rate: float) -> None:
-        if new_rate < 0:
+        if not new_rate >= 0:  # also rejects NaN
             raise ValueError("rate must be >= 0")
         else:
             real = self._real_clock()
