@@ -1378,3 +1378,13 @@ async def test_SSLListener(client_ctx: SSLContext) -> None:
     await aclose_forcefully(ssl_listener)
     await aclose_forcefully(ssl_client)
     await aclose_forcefully(ssl_server)
+
+
+async def test_server_hostname_is_idna_2008(client_ctx: SSLContext) -> None:
+    async with ssl_echo_server_raw(expect_fail=True) as sock:
+        good_ctx = client_ctx
+        s = SSLStream(sock, good_ctx, server_hostname="faß.de")
+
+        assert s.server_hostname.encode("ascii") == trio.lowlevel.encode_hostname(
+            "faß.de"
+        )

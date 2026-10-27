@@ -90,6 +90,27 @@ class _try_sync:
             return False
 
 
+def encode_hostname(hostname: str) -> bytes:
+    """Encode a hostname using the same IDNA 2008 encoding Trio uses.
+
+    If you want to know which exact hostname Trio will connect to, use this
+    function.
+    """
+    # Given a unicode hostname, we want to do our own encoding using the idna
+    # module, rather than letting Python do it. (Python will use the old IDNA
+    # 2003 standard, and possibly get the wrong answer - see bpo-17305).
+    # However, the idna module is picky, and will refuse to process some valid
+    # hostname strings, like "::1". So if it's already ascii, we pass it
+    # through; otherwise, we encode it via IDNA.
+    try:
+        return hostname.encode("ascii")
+    except UnicodeEncodeError:
+        # UTS-46 defines various normalizations; in particular, by default
+        # idna.encode will error out if the hostname has Capital Letters
+        # in it; with uts46=True it will lowercase them instead.
+        return _idna.encode(hostname, uts46=True)
+
+
 ################################################################
 # Overrides
 ################################################################
@@ -224,21 +245,8 @@ async def getaddrinfo(
             flags | _NUMERIC_ONLY,
         )
     # That failed; it's a real hostname. We better use a thread.
-    #
-    # Also, it might be a unicode hostname, in which case we want to do our
-    # own encoding using the idna module, rather than letting Python do
-    # it. (Python will use the old IDNA 2003 standard, and possibly get the
-    # wrong answer - see bpo-17305). However, the idna module is picky, and
-    # will refuse to process some valid hostname strings, like "::1". So if
-    # it's already ascii, we pass it through; otherwise, we encode it to.
     if isinstance(host, str):
-        try:
-            host = host.encode("ascii")
-        except UnicodeEncodeError:
-            # UTS-46 defines various normalizations; in particular, by default
-            # idna.encode will error out if the hostname has Capital Letters
-            # in it; with uts46=True it will lowercase them instead.
-            host = _idna.encode(host, uts46=True)
+        host = encode_hostname(host)
     hr = _resolver.get(None)
     if hr is not None:
         return await hr.getaddrinfo(host, port, family, type, proto, flags)
