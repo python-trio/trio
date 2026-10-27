@@ -189,6 +189,11 @@ jobs:
             lsp: ''
             lsp_extract_file: ''
             extra_name: ''
+          - python: 'pypy-3.12'
+            arch: 'x64'
+            lsp: ''
+            lsp_extract_file: ''
+            extra_name: ''
           #- python: '3.10'
           #  arch: 'x64'
           #  lsp: 'http://download.pctools.com/mirror/updates/9.0.0.2308-SDavfree-lite_en.exe'
@@ -243,7 +248,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.11', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t', '3.15-dev']
+        python: ['pypy-3.11', 'pypy-3.12', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t', '3.15-dev']
         check_formatting: ['0']
         no_test_requirements: ['0']
         extra_name: ['']
@@ -321,7 +326,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.11', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t', '3.15-dev']
+        python: ['pypy-3.11', 'pypy-3.12', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t', '3.15-dev']
     continue-on-error: >-
       ${{
         (
