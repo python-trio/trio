@@ -1,5 +1,5 @@
 import time
-from math import inf
+from math import inf, isnan
 
 from .. import _core
 from .._abc import Clock
@@ -87,8 +87,8 @@ class MockClock(Clock):
 
     @rate.setter
     def rate(self, new_rate: float) -> None:
-        if not new_rate >= 0:  # also rejects NaN
-            raise ValueError("rate must be >= 0")
+        if isnan(new_rate) or new_rate < 0:
+            raise ValueError(f"rate must be a non-negative number, not {new_rate!r}")
         else:
             real = self._real_clock()
             virtual = self._real_to_virtual(real)
