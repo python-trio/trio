@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import pathlib
+import sys
 from typing import TYPE_CHECKING
 
 import pytest
@@ -228,6 +229,17 @@ async def test_globmethods(path: trio.Path) -> None:
         entries.add(entry.name)
 
     assert entries == {"_bar.txt", "bar.txt"}
+
+
+def test_full_match_is_sync() -> None:
+    if sys.version_info < (3, 13):
+        pytest.skip("PurePath.full_match is 3.13+")
+
+    # full_match() is a pure path method like match(), so it must not be async
+    path = trio.Path("foo/bar.py")
+    assert path.full_match("**/*.py") is True
+    assert path.full_match("*.py") is False
+    assert path.full_match("FOO/BAR.PY", case_sensitive=False) is True
 
 
 async def test_as_uri(path: trio.Path) -> None:

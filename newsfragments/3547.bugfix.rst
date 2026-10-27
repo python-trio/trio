@@ -1,0 +1,1 @@
+`trio.Path.full_match` is now a synchronous method, like `pathlib.PurePath.full_match` and `trio.Path.match`. It was previously wrapped to run in a worker thread, so calling it without ``await`` returned a coroutine, which is always truthy.
