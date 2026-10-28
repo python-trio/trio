@@ -13,7 +13,6 @@ from ._core._windows_cffi import (
     kernel32,
     raise_winerror,
 )
-from ._threads import _to_thread_run_sync
 
 
 async def WaitForSingleObject(obj: int | CData) -> None:
@@ -42,12 +41,13 @@ async def WaitForSingleObject(obj: int | CData) -> None:
     # that we can use to cancel the thread.
     cancel_handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
     try:
-        await _to_thread_run_sync(
+        await trio.to_thread.run_sync(
             WaitForMultipleObjects_sync,
-            (handle, cancel_handle),
-            thread_name=None,
+            handle,
+            cancel_handle,
             abandon_on_cancel=True,
             limiter=trio.CapacityLimiter(math.inf),
+            # Only waits for a handle, like an I/O wait; see waitid.py.
             hold_autojump=False,
         )
     finally:

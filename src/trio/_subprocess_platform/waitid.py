@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from .. import _core, _subprocess
 from .._sync import CapacityLimiter, Event
-from .._threads import _to_thread_run_sync
+from .._threads import to_thread_run_sync
 
 assert (sys.platform != "win32" and sys.platform != "darwin") or not TYPE_CHECKING
 
@@ -78,12 +78,14 @@ async def _waitid_system_task(pid: int, event: Event) -> None:
     # call to trio.run is shutting down.
 
     try:
-        await _to_thread_run_sync(
+        await to_thread_run_sync(
             sync_wait_reapable,
-            (pid,),
-            thread_name=None,
+            pid,
             abandon_on_cancel=True,
             limiter=waitid_limiter,
+            # This thread only waits for the child to exit. Where the platform
+            # allows, that is an I/O wait, which does not hold the autojump
+            # clock either.
             hold_autojump=False,
         )
     except OSError:

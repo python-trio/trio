@@ -1449,3 +1449,26 @@ async def test_autojump_clock_thread_and_hold_autojump_together(
 
     # The block ended before the thread did, and the clock still waited.
     assert record == [("thread", 0), ("sleeper", 10)]
+
+
+async def test_autojump_clock_hold_autojump_false(autojump_clock: MockClock) -> None:
+    # A thread that waits until a task has slept in virtual time must be
+    # started with hold_autojump=False: with the default, the clock would wait
+    # for the thread and the thread for the clock.
+    record = []
+    proceed = threading.Event()
+
+    async def sleeper() -> None:
+        await sleep(10)
+        record.append(("sleeper", _core.current_time()))
+        proceed.set()
+
+    async def thread_task() -> None:
+        await to_thread_run_sync(proceed.wait, hold_autojump=False)
+        record.append(("thread", _core.current_time()))
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(thread_task)
+        nursery.start_soon(sleeper)
+
+    assert record == [("sleeper", 10), ("thread", 10)]

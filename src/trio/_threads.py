@@ -346,6 +346,7 @@ async def to_thread_run_sync(
     thread_name: str | None = None,
     abandon_on_cancel: bool = False,
     limiter: CapacityLimiter | None = None,
+    hold_autojump: bool = True,
 ) -> RetT:
     """Convert a blocking operation into an async operation using a thread.
 
@@ -385,6 +386,17 @@ async def to_thread_run_sync(
 
           If None (the default), uses the default `~trio.CapacityLimiter`, as
           returned by :func:`current_default_thread_limiter`.
+      hold_autojump (bool): Whether the autojump clock
+          (`trio.testing.MockClock` with a finite ``autojump_threshold``)
+          waits for this thread. If True (the default), virtual time does
+          not jump ahead while the thread runs, except while it is inside
+          `trio.from_thread.run` or after it has been abandoned. Pass False
+          for a thread that only waits for something, the way an I/O
+          operation would; in particular, a thread that waits until a task
+          has slept in virtual time (for example on a `queue.Queue` that a
+          task fills after a `trio.sleep`) needs False, or the clock waits
+          for the thread and the thread for the clock. See also
+          `trio.lowlevel.hold_autojump`.
 
     **Cancellation handling**: Cancellation is a tricky issue here, because
     neither Python nor the operating systems it runs on provide any general
@@ -430,30 +442,6 @@ async def to_thread_run_sync(
       Exception: Whatever ``sync_fn(*args)`` raises.
 
     """
-    return await _to_thread_run_sync(
-        sync_fn,
-        args,
-        thread_name=thread_name,
-        abandon_on_cancel=abandon_on_cancel,
-        limiter=limiter,
-        hold_autojump=True,
-    )
-
-
-@enable_ki_protection
-async def _to_thread_run_sync(
-    sync_fn: Callable[[Unpack[Ts]], RetT],
-    args: tuple[Unpack[Ts]],
-    thread_name: str | None,
-    abandon_on_cancel: bool,
-    limiter: CapacityLimiter | None,
-    *,
-    hold_autojump: bool,
-) -> RetT:
-    # hold_autojump=False is for Trio's own threads that only wait for
-    # something outside the process, like a child exiting. On other platforms
-    # that is an I/O wait, which leaves the run loop idle; the autojump clock
-    # must not treat it differently because this platform needs a thread.
     await trio.lowlevel.checkpoint_if_cancelled()
     # raise early if abandon_on_cancel.__bool__ raises
     # and give a new name to ensure mypy knows it's never None
