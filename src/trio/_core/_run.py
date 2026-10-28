@@ -3037,6 +3037,11 @@ def hold_autojump() -> Generator[None, None, None]:
     runner.autojump_holds += 1
     try:
         yield
+        # Checked only on normal exit, so that an exception already on its
+        # way out is never replaced; the finally releases the hold either way.
+        assert (
+            getattr(GLOBAL_RUN_CONTEXT, "runner", None) is runner
+        ), "hold_autojump() block exited outside the run it was entered in"
     finally:
         runner.autojump_holds -= 1
 

@@ -345,15 +345,17 @@ async def test_hold_autojump_exit_inside_another_run(
     autojump_clock: MockClock,
 ) -> None:
     # A hold belongs to the run it was entered in. Exiting the block from
-    # inside a different run is a misuse, but it must release the original
-    # run's unit and leave the other run's count alone.
+    # inside a different run is a misuse, which fails an assertion; but it
+    # still releases the original run's unit and leaves the other run's count
+    # alone.
     runner = GLOBAL_RUN_CONTEXT.runner
     hold = _core.hold_autojump()
     hold.__enter__()
     other_run_count = []
 
     async def exit_here() -> None:
-        hold.__exit__(None, None, None)
+        with pytest.raises(AssertionError, match="outside the run"):
+            hold.__exit__(None, None, None)
         other_run_count.append(GLOBAL_RUN_CONTEXT.runner.autojump_holds)
 
     thread = threading.Thread(target=_core.run, args=(exit_here,))
