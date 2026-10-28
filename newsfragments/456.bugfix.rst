@@ -1,21 +1,7 @@
 The autojump clock (`trio.testing.MockClock` with a finite
 ``autojump_threshold``) no longer jumps virtual time ahead while a task is
-waiting for a thread started by `trio.to_thread.run_sync`. Such a task is now
-treated as active, like a task blocked in
-`trio.testing.wait_all_tasks_blocked`. Previously the run loop looked idle
-while work was happening in the thread, so virtual time could race ahead of it
-and fire timeouts in concurrent tasks spuriously.
-
-Not waited for: threads that have been abandoned (``abandon_on_cancel=True``,
-after the waiting task was cancelled), threads that are currently inside
-`trio.from_thread.run`, and the threads Trio itself uses only to wait for a
-child process to exit or for a Windows handle, so virtual time can still pass
-while a child process runs.
-
-This can change how existing tests behave. A virtual-time timeout no longer
-fires while a `trio.to_thread.run_sync` call is still blocking; the call is
-waited for in real time. A thread can also deadlock now: if it blocks, other
-than through `trio.from_thread.run`, waiting for a task that first has to sleep
-in virtual time (for example ``queue.get()`` on a queue that a task fills after
-a `trio.sleep`), the clock waits for the thread and the thread for the clock.
-Have the thread wait through `trio.from_thread.run` instead.
+waiting for a thread started by `trio.to_thread.run_sync`, which made timeouts
+in concurrent tasks fire spuriously. A thread that waits until a task has
+slept in virtual time (for example on a `queue.Queue` that a task fills after
+a `trio.sleep`) must now be started with ``hold_autojump=False``, or it
+deadlocks.

@@ -1,9 +1,9 @@
 Added `trio.lowlevel.hold_autojump`, a context manager that keeps the
 autojump clock (`trio.testing.MockClock` with a finite
-``autojump_threshold``) from jumping while the block runs. It is meant for
-code that parks a task with `trio.lowlevel.wait_task_rescheduled` until work
+``autojump_threshold``) from jumping while the block runs. It is for code
+that parks a task with `trio.lowlevel.wait_task_rescheduled` until work
 outside the run loop finishes -- in a thread, or on another event loop --
-and wakes it through `trio.lowlevel.TrioToken.run_sync_soon`. Without it
-such a task looks idle, and virtual time can jump past timeouts while the
-work is still in progress. `trio.to_thread.run_sync` already holds the
-autojump for its own worker threads.
+and wakes it through `trio.lowlevel.TrioToken.run_sync_soon`. Such a task
+otherwise looks idle, so virtual time could jump past its timeouts while the
+work is still in progress. `trio.to_thread.run_sync` gained a matching
+``hold_autojump`` argument.

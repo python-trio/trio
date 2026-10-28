@@ -3010,8 +3010,8 @@ def hold_autojump() -> Generator[None, None, None]:
     it through :meth:`TrioToken.run_sync_soon`. Such a task looks idle, so
     without this a :class:`trio.testing.MockClock` with a finite
     ``autojump_threshold`` may jump ahead, and fire timeouts, while the
-    work is still in progress. :func:`trio.to_thread.run_sync` already does
-    the equivalent for its worker threads.
+    work is still in progress. :func:`trio.to_thread.run_sync` does the
+    equivalent for its worker threads, unless given ``hold_autojump=False``.
 
     Only autojumping is affected. This does nothing under a real clock, and
     tasks blocked in :func:`trio.testing.wait_all_tasks_blocked` still wake

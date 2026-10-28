@@ -61,20 +61,13 @@ class MockClock(Clock):
           in `wait_all_tasks_blocked`, then the autojump feature treats that
           as active task and does *not* jump the clock.
 
-          Tasks waiting on a thread started by `trio.to_thread.run_sync` are
-          also treated as active: while the thread is running, real work is
-          still happening in real time, so the clock does *not* jump.
-          Virtual time advances again once the thread finishes. The threads
-          Trio itself uses only to wait for a child process to exit, or for
-          a Windows handle, do not count: virtual time can pass while a
-          child process runs. Beware of a thread that blocks, other than
-          through `trio.from_thread.run`, waiting for a task that first has
-          to sleep in virtual time (``queue.get()`` on a queue that a task
-          fills after a sleep): the clock waits for the thread and the
-          thread waits for the clock, a deadlock.
-
-          Code that waits for other work outside the run loop can get the
-          same treatment with `trio.lowlevel.hold_autojump`.
+          Likewise, the clock does *not* jump while a task is waiting for a
+          thread started by `trio.to_thread.run_sync`, unless that thread
+          was started with ``hold_autojump=False``; a thread that waits
+          until a task has slept in virtual time needs that, or the two wait
+          for each other forever. Code that waits for other work outside
+          the run loop can get the same treatment with
+          `trio.lowlevel.hold_autojump`.
 
     """
 
