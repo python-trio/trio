@@ -23,17 +23,16 @@ from ._core import (
     enable_ki_protection,
     start_thread_soon,
 )
-from ._core._run import GLOBAL_RUN_CONTEXT
 from ._sync import CapacityLimiter, Event
 from ._util import coroutine_or_error
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Generator
+    from contextlib import AbstractContextManager
     from types import TracebackType
 
     from typing_extensions import TypeVarTuple, Unpack
 
-    from trio._core._run import Runner
     from trio._core._traps import RaiseCancelT
 
     Ts = TypeVarTuple("Ts")
@@ -88,36 +87,53 @@ def _track_active_thread() -> Generator[None, None, None]:
             active_threads_local.event = Event()
 
 
-def _current_runner() -> Runner | None:
-    # A parked coroutine can be closed outside any run, after a crashed or
-    # abandoned run; there is no runner then, and the hold must do nothing.
-    return getattr(GLOBAL_RUN_CONTEXT, "runner", None)
-
-
 @define
 class _AutojumpThreadHold:
-    """One ``to_thread.run_sync`` call's unit of ``Runner.autojump_holds``.
+    """Holds the autojump clock while one ``to_thread.run_sync`` thread works.
 
-    While the unit is taken (``held``), the autojump clock waits for this
-    call's thread. The unit is given up while the thread re-enters Trio
-    through ``from_thread.run``: the thread is then parked and the work is
-    back on the Trio side, where the run loop can see it, so a virtual-time
-    sleep there must still autojump.
+    While the thread runs, it holds its home run's clock through
+    `trio.lowlevel.hold_autojump`. Three things need more than a ``with``
+    block, which is why this class exists:
 
-    ``drop`` and ``restore`` do nothing unless called inside ``runner``, the
-    run the unit belongs to, and inside that run they are only called from
-    task steps. So the count only changes in task steps, and the run loop
-    runs none between arming the autojump and firing it. A thread that
-    re-enters a *different* run stays counted in its home run, which cannot
-    see the work done in the other one.
+    * While the thread is inside ``from_thread.run``, the work is back in
+      Trio, where the run loop can see it, so the hold is dropped (a
+      virtual-time sleep in that call must still autojump) and taken again
+      when the call returns. That can happen in the waiting task or, for
+      ``abandon_on_cancel=True`` or an explicit ``trio_token``, in a system
+      task.
+    * Once the waiting task has left (for example because the thread was
+      abandoned on cancel), nobody would release a new hold, so a re-entrant
+      call that returns later must not take one. ``token`` is cleared then.
+    * A thread may re-enter a *different* run by passing that run's token.
+      That run must not be held, and the home run keeps holding, since it
+      cannot see the work done there.
 
-    ``runner`` is None if the thread is never counted, and becomes None when
-    the waiting task leaves, so a re-entrant call that finishes after the
-    thread was abandoned does not take the unit back.
+    ``drop`` and ``restore`` only act inside a task of the home run, as
+    `trio.lowlevel.hold_autojump` requires.
     """
 
-    runner: Runner | None
-    held: bool = False
+    # The home run's token; None if the thread is never held, or once the
+    # waiting task has left.
+    token: TrioToken | None
+    _hold: AbstractContextManager[None] | None = attrs.field(
+        default=None,
+        init=False,
+    )
+
+    def _at_home(self) -> bool:
+        return (
+            self.token is not None and self.token is trio.lowlevel.current_trio_token()
+        )
+
+    def restore(self) -> None:
+        if self._hold is None and self._at_home():
+            self._hold = trio.lowlevel.hold_autojump()
+            self._hold.__enter__()
+
+    def drop(self) -> None:
+        if self._hold is not None and self._at_home():
+            hold, self._hold = self._hold, None
+            hold.__exit__(None, None, None)
 
     def __enter__(self) -> None:
         self.restore()
@@ -128,20 +144,14 @@ class _AutojumpThreadHold:
         exc_value: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
-        self.drop()
-        self.runner = None
-
-    def drop(self) -> None:
-        runner = self.runner
-        if self.held and runner is _current_runner() and runner is not None:
-            self.held = False
-            runner.autojump_holds -= 1
-
-    def restore(self) -> None:
-        runner = self.runner
-        if not self.held and runner is _current_runner() and runner is not None:
-            self.held = True
-            runner.autojump_holds += 1
+        # The waiting task is leaving. This can be outside any run, if the run
+        # died and the parked coroutine is closed later; the hold is bound to
+        # its own run, so releasing it is still safe. Passing the exception on
+        # lets the hold treat that exit as the abnormal exit it is.
+        self.token = None
+        if self._hold is not None:
+            hold, self._hold = self._hold, None
+            hold.__exit__(exc_type, exc_value, traceback)
 
 
 # For threads that to_thread.run_sync did not start: never counted.
@@ -523,7 +533,7 @@ async def _to_thread_run_sync(
             current_trio_token.run_sync_soon(report_back_in_trio_thread_fn, result)
 
     await limiter.acquire_on_behalf_of(placeholder)
-    hold = _AutojumpThreadHold(GLOBAL_RUN_CONTEXT.runner if hold_autojump else None)
+    hold = _AutojumpThreadHold(current_trio_token if hold_autojump else None)
     with _track_active_thread(), hold:
         try:
             start_thread_soon(worker_fn, deliver_worker_fn_result, thread_name)

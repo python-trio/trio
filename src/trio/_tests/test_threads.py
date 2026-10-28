@@ -27,7 +27,7 @@ from .. import (
     sleep,
     sleep_forever,
 )
-from .._core._run import GLOBAL_RUN_CONTEXT
+from .._core._run import GLOBAL_RUN_CONTEXT, Runner
 from .._core._tests.test_ki import ki_self
 from .._core._tests.tutil import gc_collect_harder, slow
 from .._threads import (
@@ -1396,17 +1396,22 @@ async def test_autojump_clock_cross_run_reentry(autojump_clock: MockClock) -> No
 
 def test_autojump_clock_thread_hold_exit_outside_run() -> None:
     # If a run dies while a task is parked in to_thread.run_sync, the task's
-    # coroutine is closed later, outside any run. Leaving the block must then
-    # be silent, as it is for the thread tracking that sits beside it.
+    # coroutine is closed later, outside any run, which exits the block with
+    # GeneratorExit. That must be silent, as it is for the thread tracking
+    # that sits beside it, and must still release the hold.
     holds: list[_AutojumpThreadHold] = []
+    runners: list[Runner] = []
 
     async def main() -> None:
-        holds.append(_AutojumpThreadHold(GLOBAL_RUN_CONTEXT.runner))
+        runners.append(GLOBAL_RUN_CONTEXT.runner)
+        holds.append(_AutojumpThreadHold(_core.current_trio_token()))
         holds[0].__enter__()
+        assert runners[0].autojump_holds == 1
 
     _core.run(main)
-    holds[0].__exit__(None, None, None)
-    assert holds[0].runner is None
+    holds[0].__exit__(GeneratorExit, GeneratorExit(), None)
+    assert holds[0].token is None
+    assert runners[0].autojump_holds == 0
 
 
 async def test_autojump_clock_thread_and_hold_autojump_together(
