@@ -10,6 +10,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Concatenate,
+    Literal,
     SupportsIndex,
     TypeAlias,
     TypeVar,
@@ -48,6 +49,25 @@ T = TypeVar("T")
 # `AddressFormat = TypeVar("AddressFormat")`
 # but instead we simply do:
 AddressFormat: TypeAlias = Any  # type: ignore[explicit-any]
+
+# typeshed defines _GetAddrInfoResult but we would rather manipulate the inner
+# entry type... as well as use a type defined at runtime!
+_GetAddrInfoEntry: TypeAlias = (  # noqa: PYI047
+    tuple[
+        Literal[AddressFamily.AF_INET],
+        SocketKind,
+        int,
+        str,
+        tuple[str, int],
+    ]
+    | tuple[
+        Literal[AddressFamily.AF_INET6],
+        SocketKind,
+        int,
+        str,
+        tuple[str, int, int, int] | tuple[int, bytes],
+    ]
+)
 
 
 # Usage:
@@ -201,12 +221,20 @@ async def getaddrinfo(
     proto: int = 0,
     flags: int = 0,
 ) -> list[
+    # copied from _GetAddrInfoEntry
     tuple[
-        AddressFamily,
+        Literal[AddressFamily.AF_INET],
         SocketKind,
         int,
         str,
-        tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes],
+        tuple[str, int],
+    ]
+    | tuple[
+        Literal[AddressFamily.AF_INET6],
+        SocketKind,
+        int,
+        str,
+        tuple[str, int, int, int] | tuple[int, bytes],
     ]
 ]:
     """Look up a numeric address given a name.
