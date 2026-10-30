@@ -1,11 +1,13 @@
+import contextlib
+import threading
 import time
 from math import inf
 
 import pytest
 
-from trio import sleep
+from trio import Event, move_on_after, sleep, sleep_forever
 
-from ... import _core
+from ... import _abc, _core
 from .. import wait_all_tasks_blocked
 from .._mock_clock import MockClock
 from .._run import GLOBAL_RUN_CONTEXT
@@ -191,3 +193,173 @@ async def test_initialization_doesnt_mutate_runner() -> None:
         GLOBAL_RUN_CONTEXT.runner.clock_autojump_threshold,
     )
     assert before == after
+
+
+@pytest.mark.parametrize("hold", [False, True])
+async def test_hold_autojump_while_waiting_for_thread(
+    autojump_clock: MockClock,
+    hold: bool,
+) -> None:
+    # A task parked in wait_task_rescheduled until a non-Trio thread wakes it
+    # through run_sync_soon looks idle to the run loop. Without a hold the
+    # clock jumps while the thread is still working; with one, virtual time
+    # waits for the thread. The thread works until ``proceed`` is set: by the
+    # sleeper (so only once the clock has jumped) or, when the clock is held
+    # and cannot jump, as soon as every task is blocked.
+    record = []
+    proceed = threading.Event()
+
+    async def wait_for_thread() -> None:
+        task = _core.current_task()
+        token = _core.current_trio_token()
+
+        def thread_fn() -> None:
+            proceed.wait()
+            # Not needed by a correct clock; it gives a broken one time to jump.
+            time.sleep(0.05)
+            token.run_sync_soon(_core.reschedule, task)
+
+        thread = threading.Thread(target=thread_fn)
+        thread.start()
+        try:
+            with _core.hold_autojump() if hold else contextlib.nullcontext():
+                await _core.wait_task_rescheduled(lambda _: _core.Abort.FAILED)
+        finally:
+            proceed.set()
+            thread.join()
+        record.append(("thread", _core.current_time()))
+
+    async def sleeper() -> None:
+        await sleep(10)
+        record.append(("sleeper", _core.current_time()))
+        proceed.set()
+
+    async def release_thread_if_held() -> None:
+        await wait_all_tasks_blocked()
+        if hold:
+            proceed.set()
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(wait_for_thread)
+        nursery.start_soon(sleeper)
+        nursery.start_soon(release_thread_if_held)
+
+    if hold:
+        assert record == [("thread", 0), ("sleeper", 10)]
+    else:
+        assert record == [("sleeper", 10), ("thread", 10)]
+
+
+async def test_hold_autojump_across_run_sync_soon_callbacks(
+    autojump_clock: MockClock,
+) -> None:
+    # run_sync_soon callbacks run inside a task, so one callback can enter the
+    # block and a later one, here sent from another thread, can exit it.
+    token = _core.current_trio_token()
+    hold = _core.hold_autojump()
+    done = Event()
+
+    def finished() -> None:
+        hold.__exit__(None, None, None)
+        done.set()
+
+    def thread_fn() -> None:
+        time.sleep(0.2)
+        token.run_sync_soon(finished)
+
+    # Queued before this task blocks, so it runs before the loop can go idle.
+    token.run_sync_soon(hold.__enter__)
+    thread = threading.Thread(target=thread_fn)
+    thread.start()
+    try:
+        with move_on_after(60) as scope:
+            await done.wait()
+    finally:
+        thread.join()
+    assert not scope.cancelled_caught
+    assert _core.current_time() == 0
+    assert GLOBAL_RUN_CONTEXT.runner.autojump_holds == 0
+
+
+async def test_hold_autojump_nests_and_always_releases(
+    autojump_clock: MockClock,
+) -> None:
+    runner = GLOBAL_RUN_CONTEXT.runner
+    with _core.hold_autojump():
+        with _core.hold_autojump():
+            assert runner.autojump_holds == 2
+        assert runner.autojump_holds == 1
+    assert runner.autojump_holds == 0
+
+    with pytest.raises(KeyError):
+        with _core.hold_autojump():
+            raise KeyError
+    assert runner.autojump_holds == 0
+
+    with _core.CancelScope() as scope:
+        with _core.hold_autojump():
+            scope.cancel()
+            await sleep_forever()
+    assert scope.cancelled_caught
+    assert runner.autojump_holds == 0
+
+    # ...and the clock autojumps again afterwards
+    start = _core.current_time()
+    await sleep(3)
+    assert _core.current_time() - start == 3
+
+
+def test_hold_autojump_with_real_clock() -> None:
+    # Under a real clock there is no autojump to hold; the block is harmless.
+    async def main() -> None:
+        with _core.hold_autojump():
+            await sleep(0.01)
+
+    _core.run(main)
+
+
+def test_hold_autojump_outside_task() -> None:
+    with pytest.raises(RuntimeError, match=r"^must be called from async context$"):
+        with _core.hold_autojump():
+            pass  # pragma: no cover
+
+    # Inside a run but between task steps is refused too: that is what keeps
+    # the count from changing between the run loop arming the autojump and
+    # firing it. (Exceptions in instrument hooks are swallowed, hence record.)
+    record = []
+
+    class TryToHold(_abc.Instrument):
+        def before_io_wait(self, timeout: float) -> None:
+            try:
+                with _core.hold_autojump():
+                    record.append("allowed")  # pragma: no cover
+            except RuntimeError:
+                record.append("refused")
+
+    _core.run(_core.checkpoint, instruments=[TryToHold()])
+    assert record
+    assert set(record) == {"refused"}
+
+
+async def test_hold_autojump_exit_inside_another_run(
+    autojump_clock: MockClock,
+) -> None:
+    # A hold belongs to the run it was entered in. Exiting the block from
+    # inside a different run is a misuse, which fails an assertion; but it
+    # still releases the original run's unit and leaves the other run's count
+    # alone.
+    runner = GLOBAL_RUN_CONTEXT.runner
+    hold = _core.hold_autojump()
+    hold.__enter__()
+    other_run_count = []
+
+    async def exit_here() -> None:
+        with pytest.raises(AssertionError, match="outside the run"):
+            hold.__exit__(None, None, None)
+        other_run_count.append(GLOBAL_RUN_CONTEXT.runner.autojump_holds)
+
+    thread = threading.Thread(target=_core.run, args=(exit_here,))
+    thread.start()
+    thread.join()
+    assert other_run_count == [0]
+    assert runner.autojump_holds == 0
