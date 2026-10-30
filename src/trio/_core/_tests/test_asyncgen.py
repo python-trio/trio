@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import sys
+import warnings
 import weakref
 from math import inf
 from types import AsyncGeneratorType
@@ -14,6 +15,7 @@ from .tutil import gc_collect_harder, restore_unraisablehook
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
+    from typing import Literal
 
 
 def test_asyncgen_basics() -> None:
@@ -117,6 +119,119 @@ async def test_asyncgen_throws_during_finalization(
     assert exc_type is ValueError
     assert str(exc_value) == "oops"
     assert "during finalization of async generator" in caplog.records[0].message
+
+
+@pytest.mark.parametrize("warning_filter", ["always", "error"])
+@pytest.mark.parametrize("main_raises", [False, True])
+@pytest.mark.parametrize("cleanup_raises", [False, True])
+def test_asyncgen_shutdown_warning(
+    warning_filter: Literal["always", "error"],
+    main_raises: bool,
+    cleanup_raises: bool,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    saved = []
+    closed = []
+    main_error = ValueError("main failed")
+    cleanup_error = LookupError("cleanup failed")
+
+    async def agen(index: int) -> AsyncGenerator[int, None]:
+        try:
+            yield index
+        finally:
+            await _core.cancel_shielded_checkpoint()
+            closed.append(index)
+            if cleanup_raises and index == 0:
+                raise cleanup_error
+
+    async def async_main() -> None:
+        for index in range(3):
+            saved.append(agen(index))
+            assert await saved[-1].asend(None) == index
+        if main_raises:
+            raise main_error
+
+    with warnings.catch_warnings(record=True) as emitted:
+        warnings.simplefilter(warning_filter, ResourceWarning)
+        if main_raises:
+            with pytest.raises(ValueError, match="main failed") as caught:
+                _core.run(async_main)
+            assert caught.value is main_error
+        else:
+            _core.run(async_main)
+
+    assert sorted(closed) == [0, 1, 2]
+    for saved_agen in saved:
+        assert isinstance(saved_agen, AsyncGeneratorType)
+        assert saved_agen.ag_frame is None
+    warning_errors = [
+        record
+        for record in caplog.records
+        if record.exc_info and record.exc_info[0] is ResourceWarning
+    ]
+    if warning_filter == "always":
+        assert len(emitted) == 3
+        assert all(warning.category is ResourceWarning for warning in emitted)
+        assert all("trio.run() shutdown" in str(warning.message) for warning in emitted)
+        assert {id(warning.source) for warning in emitted} == {
+            id(agen) for agen in saved
+        }
+        assert warning_errors == []
+    else:
+        assert emitted == []
+        assert len(warning_errors) == 3
+    cleanup_errors = [
+        record.exc_info[1]
+        for record in caplog.records
+        if record.exc_info and record.exc_info[0] is LookupError
+    ]
+    assert cleanup_errors == ([cleanup_error] if cleanup_raises else [])
+
+
+@pytest.mark.parametrize("state", ["closed", "exhausted", "unstarted"])
+def test_asyncgen_shutdown_warning_only_for_unfinished(state: str) -> None:
+    saved = []
+
+    async def agen() -> AsyncGenerator[int, None]:
+        yield 1
+
+    async def async_main() -> None:
+        saved.append(agen())
+        if state == "closed":
+            assert await saved[-1].asend(None) == 1
+            await saved[-1].aclose()
+        elif state == "exhausted":
+            async for value in saved[-1]:
+                assert value == 1
+
+    with warnings.catch_warnings(record=True) as emitted:
+        warnings.simplefilter("always", ResourceWarning)
+        _core.run(async_main)
+    assert emitted == []
+
+
+def test_asyncgen_shutdown_warning_for_generator_created_during_cleanup() -> None:
+    saved = []
+    closed = []
+
+    async def agen(index: int) -> AsyncGenerator[int, None]:
+        try:
+            yield index
+        finally:
+            closed.append(index)
+            if index:
+                saved.append(agen(0))
+                assert await saved[-1].asend(None) == 0
+
+    async def async_main() -> None:
+        saved.append(agen(1))
+        assert await saved[-1].asend(None) == 1
+
+    with pytest.warns(ResourceWarning, match="trio.run.*shutdown") as emitted:
+        _core.run(async_main)
+    assert closed == [1, 0]
+    assert len(emitted) == 2
+    assert {id(warning.source) for warning in emitted} == {id(agen) for agen in saved}
 
 
 def test_firstiter_after_closing() -> None:
@@ -234,10 +349,13 @@ def test_last_minute_gc_edge_case() -> None:
         needs_retry = False
         record.clear()
         saved.clear()
-        _core.run(async_main)
+        with warnings.catch_warnings(record=True) as emitted:
+            warnings.simplefilter("always", ResourceWarning)
+            _core.run(async_main)
         if needs_retry:  # pragma: no cover
             assert record == ["cleaned up"]
         else:
+            assert len(emitted) == 1
             assert record == ["final collection", "done", "cleaned up"]
             break
     else:  # pragma: no cover

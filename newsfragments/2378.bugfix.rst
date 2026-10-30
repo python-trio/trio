@@ -1,0 +1,3 @@
+Issue a :class:`ResourceWarning` for unfinished async generators finalized at
+:func:`trio.run` shutdown, including generators that still have strong references.
+Warnings promoted to errors are logged without interrupting generator cleanup.

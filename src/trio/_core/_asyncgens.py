@@ -176,7 +176,8 @@ class AsyncGenerators:
         await _core.wait_task_rescheduled(
             lambda _: _core.Abort.FAILED,  # pragma: no cover
         )
-        self.alive.update(self.trailing_needs_finalize)
+        already_warned = self.trailing_needs_finalize.copy()
+        self.alive.update(already_warned)
         self.trailing_needs_finalize.clear()
 
         # None of the still-living tasks use async generators, so
@@ -215,7 +216,28 @@ class AsyncGenerators:
             batch = self.alive
             self.alive = _ASYNC_GEN_SET()
             for agen in batch:
-                await self._finalize_one(agen, name_asyncgen(agen))
+                agen_name = name_asyncgen(agen)
+                needs_warning = agen.ag_frame is not None and agen not in already_warned
+                await self._finalize_one(agen, agen_name)
+                if needs_warning:
+                    try:
+                        warnings.warn(
+                            f"Async generator {agen_name!r} was finalized at trio.run() "
+                            "shutdown before it had been exhausted. Surround its use "
+                            "in 'async with aclosing(...):' to ensure that it gets "
+                            "cleaned up as soon as you're done using it.",
+                            ResourceWarning,
+                            stacklevel=2,
+                            source=agen,
+                        )
+                    except BaseException:
+                        # Warning filters must not prevent other generators from
+                        # being closed or replace the main task's exception.
+                        ASYNCGEN_LOGGER.exception(
+                            "Exception ignored while warning about finalization "
+                            "of async generator %r",
+                            agen_name,
+                        )
 
     def close(self) -> None:
         sys.set_asyncgen_hooks(*self.prev_hooks)
