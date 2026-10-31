@@ -482,6 +482,7 @@ Wait queue abstraction
 .. autoclass:: ParkingLot
    :members:
    :undoc-members:
+   :exclude-members: broken_by
 
 .. autoclass:: ParkingLotStatistics
    :members:
