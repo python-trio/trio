@@ -119,6 +119,47 @@ async def test_SocketStream_send_all() -> None:
         assert await b.receive_some(10) == b""
 
 
+async def test_SocketStream_send_all_typed_memoryview(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Regression test for gh-3543: send_all() must not silently truncate a
+    # typed memoryview (itemsize > 1) when send() performs partial writes.
+    a_sock, b_sock = tsocket.socketpair()
+    with a_sock, b_sock:
+        a = SocketStream(a_sock)
+        b = SocketStream(b_sock)
+
+        # Force partial writes: at most 3 bytes per send() call.
+        real_send = a_sock.send
+
+        def limited_send(buf: bytes | bytearray | memoryview, *args: object) -> int:
+            return real_send(memoryview(buf)[:3])  # type: ignore[return-value]
+
+        monkeypatch.setattr(a_sock, "send", limited_send)
+
+        payload = bytes(range(256)) * 64
+        received = bytearray()
+
+        async def sender() -> None:
+            with memoryview(payload).cast("H") as typed:
+                assert typed.itemsize == 2
+                await a.send_all(typed)
+            await a.send_eof()
+
+        async def receiver() -> None:
+            while True:
+                chunk = await b.receive_some(65536)
+                if not chunk:
+                    break
+                received.extend(chunk)
+
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(sender)
+            nursery.start_soon(receiver)
+
+        assert bytes(received) == payload
+
+
 async def fill_stream(s: SocketStream) -> None:
     async def sender() -> None:
         while True:
