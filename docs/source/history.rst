@@ -5,6 +5,31 @@ Release history
 
 .. towncrier release notes start
 
+trio 0.35.0 (2026-10-31)
+------------------------
+
+Features
+~~~~~~~~
+
+- Mark that Trio supports 3.15. (`#3563 <https://github.com/python-trio/trio/issues/3563>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Ensure that Trio consistently encodes all hostnames using IDNA 2008. (`#11 <https://github.com/python-trio/trio/issues/11>`__)
+- Avoid erroring when running in a CPython built for an Android API version less than 24. (`#3493 <https://github.com/python-trio/trio/issues/3493>`__)
+- Ensure `trio.lowlevel.notify_closing` works even on events that have been deleted, e.g. because they were registered as one shot events. (`#3502 <https://github.com/python-trio/trio/issues/3502>`__)
+- `trio.Process` no longer emits an `EncodingWarning` on Linux when Python runs with
+  ``-X warn_default_encoding`` (or ``PYTHONWARNDEFAULTENCODING=1``). (`#3555 <https://github.com/python-trio/trio/issues/3555>`__)
+
+
+Miscellaneous internal changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- The typing for :ref:`async-file-objects` is now consistent about what it exposes based on what is exposed by the underlying object. (`#3542 <https://github.com/python-trio/trio/issues/3542>`__)
+
+
 trio 0.34.0 (2026-08-10)
 ------------------------
 
