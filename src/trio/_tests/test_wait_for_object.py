@@ -1,4 +1,6 @@
 import os
+import threading
+from types import SimpleNamespace
 
 import pytest
 
@@ -8,12 +10,162 @@ pytestmark = pytest.mark.skipif(not on_windows, reason="windows only")
 
 import trio
 
-from .. import _core, _timeouts
+from .. import _core, _threads, _timeouts
 from .._core._tests.tutil import slow
 
 if on_windows:
-    from .._core._windows_cffi import Handle, ffi, kernel32
+    from .. import _wait_for_object
+    from .._core._windows_cffi import CData, ErrorCodes, Handle, _handle, ffi, kernel32
     from .._wait_for_object import WaitForMultipleObjects_sync, WaitForSingleObject
+
+
+@pytest.fixture
+def closed_handles(monkeypatch: pytest.MonkeyPatch) -> list[int]:
+    closed_handles: list[int] = []
+
+    def close_handle(handle: Handle) -> bool:
+        closed_handles.append(int(ffi.cast("intptr_t", handle)))
+        return kernel32.CloseHandle(handle)
+
+    def set_event(handle: Handle) -> None:
+        assert kernel32.WaitForSingleObject(handle, 0) != ErrorCodes.WAIT_FAILED
+        kernel32.SetEvent(handle)
+
+    monkeypatch.setattr(
+        _wait_for_object,
+        "kernel32",
+        SimpleNamespace(
+            CreateEventA=kernel32.CreateEventA,
+            WaitForSingleObject=kernel32.WaitForSingleObject,
+            WaitForMultipleObjects=kernel32.WaitForMultipleObjects,
+            SetEvent=set_event,
+            CloseHandle=close_handle,
+        ),
+    )
+    return closed_handles
+
+
+@pytest.mark.parametrize("wait_first", [False, True])
+async def test_cancel_handle_outlives_cancelled_task(
+    monkeypatch: pytest.MonkeyPatch, closed_handles: list[int], wait_first: bool
+) -> None:
+    handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
+    worker_paused = trio.Event()
+    worker_finished = trio.Event()
+    resume_worker = threading.Event()
+    cancel_handles: list[int] = []
+    results: list[bool] = []
+    release = trio.CapacityLimiter.release_on_behalf_of
+
+    def release_after_worker(self: trio.CapacityLimiter, borrower: object) -> None:
+        # Unlike the cancelled task, the limiter keeps its token until the
+        # worker has returned and released its arguments.
+        release(self, borrower)
+        worker_finished.set()
+
+    monkeypatch.setattr(
+        trio.CapacityLimiter, "release_on_behalf_of", release_after_worker
+    )
+
+    def paused_wait(*handles: int | CData) -> None:
+        # Keep only the raw handle value in test observations.
+        cancel_handles.append(int(ffi.cast("intptr_t", handles[1])))
+        if wait_first:
+            kernel32.SetEvent(handle)
+            WaitForMultipleObjects_sync(*handles)
+        trio.from_thread.run_sync(worker_paused.set)
+        resume_worker.wait()
+        results.append(kernel32.WaitForSingleObject(_handle(handles[1]), 0) == 0)
+        if not wait_first:
+            WaitForMultipleObjects_sync(*handles)
+
+    monkeypatch.setattr(_wait_for_object, "WaitForMultipleObjects_sync", paused_wait)
+    try:
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(WaitForSingleObject, handle)
+            await worker_paused.wait()
+            nursery.cancel_scope.cancel()
+
+        # The task has finished, but the worker has not. Cancellation must
+        # signal the event without closing the handle the worker still needs.
+        assert closed_handles == []
+        assert kernel32.WaitForSingleObject(_handle(cancel_handles[0]), 0) == 0
+    finally:
+        resume_worker.set()
+        await worker_finished.wait()
+        kernel32.CloseHandle(handle)
+
+    assert results == [True]
+    # Record closure rather than querying the stale handle: Windows may have
+    # reused its value for an unrelated object by this point.
+    assert closed_handles == cancel_handles
+
+
+async def test_cancel_handle_closed_after_success(
+    monkeypatch: pytest.MonkeyPatch, closed_handles: list[int]
+) -> None:
+    handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
+
+    def signal_and_wait(*handles: int | CData) -> None:
+        kernel32.SetEvent(handle)
+        WaitForMultipleObjects_sync(*handles)
+
+    monkeypatch.setattr(
+        _wait_for_object, "WaitForMultipleObjects_sync", signal_and_wait
+    )
+    try:
+        await WaitForSingleObject(handle)
+    finally:
+        kernel32.CloseHandle(handle)
+    assert len(closed_handles) == 1
+
+
+async def test_cancel_handle_closed_without_worker(
+    closed_handles: list[int],
+) -> None:
+    handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
+    try:
+        with trio.CancelScope() as scope:
+            scope.cancel()
+            await WaitForSingleObject(handle)
+        assert scope.cancelled_caught
+    finally:
+        kernel32.CloseHandle(handle)
+    assert len(closed_handles) == 1
+
+
+async def test_cancel_handle_closed_after_worker_error(
+    monkeypatch: pytest.MonkeyPatch, closed_handles: list[int]
+) -> None:
+    handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
+
+    def fail_wait(*handles: int | CData) -> None:
+        raise OSError("wait failed")
+
+    monkeypatch.setattr(_wait_for_object, "WaitForMultipleObjects_sync", fail_wait)
+    try:
+        with pytest.raises(OSError, match="wait failed"):
+            await WaitForSingleObject(handle)
+    finally:
+        kernel32.CloseHandle(handle)
+    assert len(closed_handles) == 1
+
+
+async def test_cancel_handle_closed_after_startup_error(
+    monkeypatch: pytest.MonkeyPatch, closed_handles: list[int]
+) -> None:
+    handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
+
+    def fail_start(*args: object) -> None:
+        raise RuntimeError("thread failed to start")
+
+    monkeypatch.setattr(_threads, "start_thread_soon", fail_start)
+    try:
+        with pytest.raises(RuntimeError, match="thread failed to start"):
+            await WaitForSingleObject(handle)
+    finally:
+        kernel32.CloseHandle(handle)
+    assert len(closed_handles) == 1
 
 
 def test_WaitForMultipleObjects_sync() -> None:

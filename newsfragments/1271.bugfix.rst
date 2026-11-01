@@ -1,0 +1,2 @@
+Fix a race in Windows handle waits where cancellation could close the
+internal wakeup event before the worker thread finished using it.

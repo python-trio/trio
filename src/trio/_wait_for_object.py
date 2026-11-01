@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import threading
 
 import trio
 
@@ -40,19 +41,39 @@ async def WaitForSingleObject(obj: int | CData) -> None:
     # Wait for a thread that waits for two handles: the handle plus a handle
     # that we can use to cancel the thread.
     cancel_handle = kernel32.CreateEventA(ffi.NULL, True, False, ffi.NULL)
+    limiter = trio.CapacityLimiter(math.inf)
+    lock = threading.Lock()
+    task_finished = False
+    worker_finished = False
+
+    def wait_in_thread() -> None:
+        nonlocal worker_finished
+        try:
+            WaitForMultipleObjects_sync(handle, cancel_handle)
+        finally:
+            with lock:
+                worker_finished = True
+                if task_finished:
+                    kernel32.CloseHandle(cancel_handle)
+
     try:
         await trio.to_thread.run_sync(
-            WaitForMultipleObjects_sync,
-            handle,
-            cancel_handle,
+            wait_in_thread,
             abandon_on_cancel=True,
-            limiter=trio.CapacityLimiter(math.inf),
+            limiter=limiter,
         )
     finally:
-        # Clean up our cancel handle. In case we get here because this task was
-        # cancelled, we also want to set the cancel_handle to stop the thread.
-        kernel32.SetEvent(cancel_handle)
-        kernel32.CloseHandle(cancel_handle)
+        with lock:
+            # The worker may not have started waiting yet. Whichever side
+            # finishes last closes the handle, after it can no longer be used
+            # by either WaitForMultipleObjects or SetEvent.
+            kernel32.SetEvent(cancel_handle)
+            task_finished = True
+            # run_sync retains its limiter token until the worker finishes.
+            # No token means cancellation or startup failure prevented a
+            # worker from starting, or its result has already been delivered.
+            if worker_finished or not limiter.borrowed_tokens:
+                kernel32.CloseHandle(cancel_handle)
 
 
 def WaitForMultipleObjects_sync(*handles: int | CData) -> None:
