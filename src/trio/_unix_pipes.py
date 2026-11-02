@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Final as FinalType
 import trio
 
 from ._abc import Stream
-from ._util import ConflictDetector, final
+from ._util import ConflictDetector, as_byte_view, final
 
 assert not TYPE_CHECKING or sys.platform != "win32"
 
@@ -134,9 +134,10 @@ class FdStream(Stream):
             if self._fd_holder.closed:
                 raise trio.ClosedResourceError("file was already closed")
             await trio.lowlevel.checkpoint()
-            length = len(data)
             # adapted from the SocketStream code
-            with memoryview(data) as view:
+            # (byte view: offsets are bytes, see #3543)
+            with as_byte_view(data) as view:
+                length = len(view)
                 sent = 0
                 while sent < length:
                     with view[sent:] as remaining:

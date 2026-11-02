@@ -119,6 +119,38 @@ async def test_SocketStream_send_all() -> None:
         assert await b.receive_some(10) == b""
 
 
+async def test_SocketStream_send_all_typed_memoryview() -> None:
+    # Partial writes counted in bytes must not skip data when the buffer
+    # has itemsize > 1 (slicing counts elements, see #3543). Force
+    # deterministic 1-byte partial writes by wrapping send().
+    import array
+
+    a_sock, b_sock = tsocket.socketpair()
+    with a_sock, b_sock:
+        a = SocketStream(a_sock)
+        b = SocketStream(b_sock)
+        orig_send = a_sock.send
+
+        async def tiny_send(data: bytes | bytearray | memoryview) -> int:
+            sent = await orig_send(bytes(data)[:1])
+            assert sent == 1
+            return sent
+
+        a_sock.send = tiny_send  # type: ignore[method-assign]
+        payload = array.array("H", range(256))
+        expected = payload.tobytes()
+        await a.send_all(payload)
+        # only the even bytes arrive: the odd ones were skipped (bug)
+        received = bytearray()
+        with trio.move_on_after(10):
+            while len(received) < len(expected):
+                chunk = await b.receive_some(len(expected))
+                if not chunk:
+                    break
+                received.extend(chunk)
+        assert bytes(received) == expected
+
+
 async def fill_stream(s: SocketStream) -> None:
     async def sender() -> None:
         while True:

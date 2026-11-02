@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, overload
 import trio
 
 from . import socket as tsocket
-from ._util import ConflictDetector, final
+from ._util import ConflictDetector, as_byte_view, final
 from .abc import HalfCloseableStream, Listener
 
 if TYPE_CHECKING:
@@ -111,7 +111,7 @@ class SocketStream(HalfCloseableStream):
             raise trio.ClosedResourceError("can't send data after sending EOF")
         with self._send_conflict_detector:
             with _translate_socket_errors_to_stream_errors():
-                with memoryview(data) as data:
+                with as_byte_view(data) as data:
                     if not data:
                         if self.socket.fileno() == -1:
                             raise trio.ClosedResourceError("socket was already closed")

@@ -1,0 +1,3 @@
+Fixed ``SocketStream.send_all`` and ``FdStream.send_all`` silently skipping data
+when given a buffer with ``itemsize`` greater than 1 (e.g. ``array.array``)
+and a partial write occurred: offsets are now counted in bytes.

@@ -336,6 +336,21 @@ def raise_saving_context(exc: BaseException) -> NoReturn:
         del exc, context
 
 
+def as_byte_view(data: bytes | bytearray | memoryview) -> memoryview:
+    """Return a flat byte view of *data* for offset arithmetic.
+
+    Slicing a multi-byte-itemsize view counts elements, but ``send()`` and
+    ``os.write()`` count bytes, so a partial write would skip data if the
+    offsets were applied to the original view (see #3543). A ``cast("B")``
+    view keeps every byte addressable. The caller must release the result.
+    """
+    view = memoryview(data)
+    if view.itemsize != 1 and view.c_contiguous:
+        view.release()
+        return memoryview(data).cast("B")
+    return view
+
+
 class MultipleExceptionError(Exception):
     """Raised by raise_single_exception_from_group if encountering multiple
     non-cancelled exceptions."""
