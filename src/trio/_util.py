@@ -346,8 +346,9 @@ def as_byte_view(data: bytes | bytearray | memoryview) -> memoryview:
     """
     view = memoryview(data)
     if view.itemsize != 1 and view.c_contiguous:
+        cast_view = view.cast("B")
         view.release()
-        return memoryview(data).cast("B")
+        return cast_view
     return view
 
 
