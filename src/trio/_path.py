@@ -216,6 +216,16 @@ class Path(pathlib.PurePath):
     def open(self, *args: Any, **kwargs: Any) -> AsyncIOWrapper[IO[Any]]:  # type: ignore[misc, explicit-any]  # Overload return mismatch.
         return wrap_file(self._wrapped_cls(self).open(*args, **kwargs))
 
+    @_wraps_async(pathlib.Path.samefile)
+    def samefile(self, other_path: str | os.PathLike[str]) -> bool:
+        # pathlib asks ``other_path`` for its stat result and hands that
+        # straight to ``samestat``.  Our ``stat`` is async, so when the other
+        # path is itself a `trio.Path` that would hand over an un-awaited
+        # coroutine.  Comparing via ``os.path`` uses ``__fspath__`` on both
+        # sides instead, so any `os.PathLike` -- including a `trio.Path` --
+        # works.
+        return os.path.samefile(os.fspath(self), os.fspath(other_path))
+
     def __repr__(self) -> str:
         return f"trio.Path({str(self)!r})"
 
@@ -255,7 +265,6 @@ class Path(pathlib.PurePath):
     expanduser = _wrap_method_path(pathlib.Path.expanduser)
     read_bytes = _wrap_method(pathlib.Path.read_bytes)
     read_text = _wrap_method(pathlib.Path.read_text)
-    samefile = _wrap_method(pathlib.Path.samefile)
     write_bytes = _wrap_method(pathlib.Path.write_bytes)
     write_text = _wrap_method(pathlib.Path.write_text)
     if sys.version_info < (3, 12):
