@@ -1,17 +1,187 @@
 from __future__ import annotations
 
+import os
+import shlex
+import shutil
 import signal
+import subprocess
+import sys
+import sysconfig
+import textwrap
+from pathlib import Path
 from typing import TYPE_CHECKING, NoReturn
+from unittest import mock
 
 import pytest
 
 import trio
 
 from .. import _core
+from .._core._tests.tutil import slow
 from .._signals import _signal_handler, get_pending_signal_count, open_signal_receiver
 
 if TYPE_CHECKING:
     from types import FrameType
+
+
+_C_COMPILER = shlex.split(sysconfig.get_config_var("CC") or "cc")
+_PYTHON_CONFIG = (
+    Path(sys.base_prefix) / "bin" / f"python{sysconfig.get_python_version()}-config"
+)
+
+
+@pytest.mark.parametrize("native_signum", [signal.SIGINT, signal.SIGILL])
+def test_signal_handler_rejects_native_before_changing_handlers(
+    monkeypatch: pytest.MonkeyPatch,
+    native_signum: signal.Signals,
+) -> None:
+    original_getsignal = signal.getsignal
+
+    def getsignal(signum: int) -> object:
+        if signum == native_signum:
+            return None
+        return original_getsignal(signum)
+
+    unexpected_signal = mock.Mock(
+        spec_set=signal.signal,
+        side_effect=AssertionError("Changed a handler before checking all signals"),
+    )
+
+    monkeypatch.setattr(signal, "getsignal", getsignal)
+    monkeypatch.setattr(signal, "signal", unexpected_signal)
+    with pytest.raises(
+        RuntimeError, match="C-level handler cannot be restored by Python"
+    ):
+        with _signal_handler([signal.SIGINT, signal.SIGILL], signal.SIG_IGN):
+            pytest.fail("Accepted a native handler")  # pragma: no cover
+    unexpected_signal.assert_not_called()
+
+
+@slow
+@pytest.mark.skipif(
+    os.name != "posix" or sys.implementation.name != "cpython",
+    reason="Requires a POSIX CPython embedding host",
+)
+@pytest.mark.skipif(
+    shutil.which(_C_COMPILER[0]) is None or not _PYTHON_CONFIG.is_file(),
+    reason="Requires a C compiler and python-config with embedding support",
+)
+def test_open_signal_receiver_preserves_native_sigint_handler(tmp_path: Path) -> None:
+    # Python only reports None if the C handler predates interpreter startup.
+    # Changing libc's handler after startup leaves Python's cached handler intact.
+    source = tmp_path / "native_signal_host.c"
+    source.write_text(
+        textwrap.dedent("""\
+            #include <Python.h>
+            #include <signal.h>
+            #include <stdio.h>
+
+            static volatile sig_atomic_t native_count = 0;
+
+            static void native_sigint(int signum) {
+                (void)signum;
+                native_count++;
+            }
+
+            int main(int argc, char **argv) {
+                if (signal(SIGINT, native_sigint) == SIG_ERR) return 2;
+                int result = Py_BytesMain(argc, argv);
+                if (result != 0) return result;
+                if (native_count != 4) {
+                    fprintf(stderr, "Native SIGINT deliveries: %d, expected 4\\n",
+                            (int)native_count);
+                    return 3;
+                }
+                return 0;
+            }
+            """),
+        encoding="utf-8",
+    )
+    flags = shlex.split(
+        subprocess.check_output(
+            [str(_PYTHON_CONFIG), "--includes", "--embed", "--ldflags"],
+            text=True,
+            timeout=60,
+        ),
+    )
+    executable = tmp_path / "native_signal_host"
+    # Relocatable Python builds may omit their library directory from --ldflags.
+    libdir = sysconfig.get_config_var("LIBDIR") or str(Path(sys.base_prefix) / "lib")
+    compiled = subprocess.run(
+        [
+            *_C_COMPILER,
+            str(source),
+            "-o",
+            str(executable),
+            "-L",
+            libdir,
+            f"-Wl,-rpath,{libdir}",
+            *flags,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert compiled.returncode == 0, compiled.stdout + compiled.stderr
+
+    script = textwrap.dedent("""\
+        import signal
+        import threading
+
+        import trio
+        from trio._core._ki import KIManager
+        from trio._util import is_main_thread
+
+        assert signal.getsignal(signal.SIGINT) is None
+        assert is_main_thread()
+        results = []
+        worker = threading.Thread(target=lambda: results.append(is_main_thread()))
+        worker.start()
+        worker.join()
+        assert results == [False]
+
+        manager = KIManager()
+        manager.install(lambda: None, True)
+        assert manager.handler is None
+        manager.close()
+
+        async def main():
+            for signals in [
+                (signal.SIGINT,),
+                (signal.SIGINT, signal.SIGINT),
+                (signal.SIGHUP, signal.SIGINT),
+            ]:
+                original = signal.getsignal(signal.SIGHUP)
+                try:
+                    with trio.open_signal_receiver(*signals):
+                        raise AssertionError("Replaced a native handler")
+                except RuntimeError as exc:
+                    assert "C-level handler" in str(exc), str(exc)
+                assert signal.getsignal(signal.SIGINT) is None
+                assert signal.getsignal(signal.SIGHUP) is original
+                signal.raise_signal(signal.SIGINT)
+
+            # An unrelated receiver remains usable with the native SIGINT handler.
+            original = signal.getsignal(signal.SIGHUP)
+            with trio.open_signal_receiver(signal.SIGHUP) as receiver:
+                signal.raise_signal(signal.SIGHUP)
+                assert await receiver.__anext__() == signal.SIGHUP
+            assert signal.getsignal(signal.SIGHUP) is original
+
+        trio.run(main)
+        assert signal.getsignal(signal.SIGINT) is None
+        signal.raise_signal(signal.SIGINT)
+        """)
+    result = subprocess.run(
+        [str(executable), "-c", script],
+        env={**os.environ, "PYTHONPATH": os.pathsep.join(sys.path)},
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 async def test_open_signal_receiver() -> None:
