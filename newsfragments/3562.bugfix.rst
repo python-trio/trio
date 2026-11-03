@@ -1,0 +1,1 @@
+Passing a NaN ``rate`` to :class:`trio.testing.MockClock` now raises :exc:`ValueError`, like a negative rate, instead of silently making the clock return NaN.
