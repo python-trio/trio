@@ -47,6 +47,8 @@ async def WaitForSingleObject(obj: int | CData) -> None:
             cancel_handle,
             abandon_on_cancel=True,
             limiter=trio.CapacityLimiter(math.inf),
+            # Only waits for a handle, like an I/O wait; see waitid.py.
+            hold_autojump=False,
         )
     finally:
         # Clean up our cancel handle. In case we get here because this task was
