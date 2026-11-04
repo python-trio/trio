@@ -1,0 +1,1 @@
+`trio.socket.getaddrinfo` no longer retries in a worker thread or calls the custom hostname resolver when the caller already passed both ``AI_NUMERICHOST`` and ``AI_NUMERICSERV``; the ``EAI_NONAME`` error from the non-blocking attempt is raised directly.
