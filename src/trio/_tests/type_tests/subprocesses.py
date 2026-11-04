@@ -1,6 +1,12 @@
+import os
 import sys
+from collections.abc import Sequence
+from typing import TypeAlias
 
 import trio
+from typing_extensions import assert_type
+
+StrOrBytesPath: TypeAlias = str | bytes | os.PathLike[str] | os.PathLike[bytes]
 
 
 async def test() -> None:
@@ -21,3 +27,15 @@ async def test() -> None:
         # 3.11+:
         await trio.run_process("python", process_group=5)  # type: ignore
         await trio.lowlevel.open_process("python", process_group=5)  # type: ignore
+
+
+def check_processes(proc: trio.Process) -> None:
+    assert_type(proc.stdin, trio.abc.SendStream | None)
+    assert_type(proc.stdout, trio.abc.ReceiveStream | None)
+    assert_type(proc.stderr, trio.abc.ReceiveStream | None)
+    assert_type(
+        proc.stdio,
+        trio.StapledStream[trio.abc.SendStream, trio.abc.ReceiveStream] | None,
+    )
+    assert_type(proc.args, StrOrBytesPath | Sequence[StrOrBytesPath])
+    assert_type(proc.pid, int)

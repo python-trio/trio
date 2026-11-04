@@ -28,9 +28,22 @@ def test_mock_clock() -> None:
     assert c.deadline_to_sleep_time(1.2) == 0
     assert c.deadline_to_sleep_time(1.3) > 999999
 
-    with pytest.raises(ValueError, match=r"^rate must be >= 0$"):
+    with pytest.raises(
+        ValueError, match=r"^rate must be a non-negative number, not -1$"
+    ):
         c.rate = -1
     assert c.rate == 0
+
+    with pytest.raises(
+        ValueError, match=r"^rate must be a non-negative number, not nan$"
+    ):
+        c.rate = float("nan")
+    assert c.rate == 0
+
+    with pytest.raises(
+        ValueError, match=r"^rate must be a non-negative number, not nan$"
+    ):
+        MockClock(rate=float("nan"))
 
     c.rate = 2
     assert c.current_time() == 1.2

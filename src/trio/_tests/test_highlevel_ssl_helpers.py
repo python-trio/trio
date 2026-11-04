@@ -19,12 +19,12 @@ from .._highlevel_ssl_helpers import (
 from .test_ssl import SERVER_CTX, client_ctx  # noqa: F401
 
 if TYPE_CHECKING:
-    from socket import AddressFamily, SocketKind
     from ssl import SSLContext
 
     from trio.abc import Stream
 
     from .._highlevel_socket import SocketListener
+    from .._socket import _GetAddrInfoEntry
     from .._ssl import SSLListener
 
 
@@ -44,7 +44,7 @@ async def echo_handler(stream: Stream) -> None:
 # you ask for.
 @attrs.define(slots=False)
 class FakeHostnameResolver(trio.abc.HostnameResolver):
-    sockaddr: tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes]
+    sockaddr: tuple[str, int]
 
     async def getaddrinfo(
         self,
@@ -54,15 +54,7 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
         type: int = 0,
         proto: int = 0,
         flags: int = 0,
-    ) -> list[
-        tuple[
-            AddressFamily,
-            SocketKind,
-            int,
-            str,
-            tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes],
-        ]
-    ]:
+    ) -> list[_GetAddrInfoEntry]:
         return [(AF_INET, SOCK_STREAM, IPPROTO_TCP, "", self.sockaddr)]
 
     async def getnameinfo(

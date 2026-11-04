@@ -16,7 +16,8 @@ from .._thread_cache import ThreadCache, start_thread_soon
 from .tutil import gc_collect_harder, slow
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+
+    from collections.abc import Generator
 
     from outcome import Outcome
 
@@ -112,7 +113,7 @@ def test_idle_threads_exit(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @contextmanager
-def _join_started_threads() -> Iterator[None]:
+def _join_started_threads() -> Generator[None, None, None]:
     before = frozenset(threading.enumerate())
     try:
         yield

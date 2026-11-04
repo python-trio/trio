@@ -10,6 +10,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Concatenate,
+    Literal,
     SupportsIndex,
     TypeAlias,
     TypeVar,
@@ -48,6 +49,25 @@ T = TypeVar("T")
 # `AddressFormat = TypeVar("AddressFormat")`
 # but instead we simply do:
 AddressFormat: TypeAlias = Any  # type: ignore[explicit-any]
+
+# typeshed defines _GetAddrInfoResult but we would rather manipulate the inner
+# entry type... as well as use a type defined at runtime!
+_GetAddrInfoEntry: TypeAlias = (  # noqa: PYI047
+    tuple[
+        Literal[AddressFamily.AF_INET],
+        SocketKind,
+        int,
+        str,
+        tuple[str, int],
+    ]
+    | tuple[
+        Literal[AddressFamily.AF_INET6],
+        SocketKind,
+        int,
+        str,
+        tuple[str, int, int, int] | tuple[int, bytes],
+    ]
+)
 
 
 # Usage:
@@ -88,6 +108,27 @@ class _try_sync:
             await trio.lowlevel.cancel_shielded_checkpoint()
             # Let the return or exception propagate
             return False
+
+
+def encode_hostname(hostname: str) -> bytes:
+    """Encode a hostname using the same IDNA 2008 encoding Trio uses.
+
+    If you want to know which exact hostname Trio will connect to, use this
+    function.
+    """
+    # Given a unicode hostname, we want to do our own encoding using the idna
+    # module, rather than letting Python do it. (Python will use the old IDNA
+    # 2003 standard, and possibly get the wrong answer - see bpo-17305).
+    # However, the idna module is picky, and will refuse to process some valid
+    # hostname strings, like "::1". So if it's already ascii, we pass it
+    # through; otherwise, we encode it via IDNA.
+    try:
+        return hostname.encode("ascii")
+    except UnicodeEncodeError:
+        # UTS-46 defines various normalizations; in particular, by default
+        # idna.encode will error out if the hostname has Capital Letters
+        # in it; with uts46=True it will lowercase them instead.
+        return _idna.encode(hostname, uts46=True)
 
 
 ################################################################
@@ -180,12 +221,20 @@ async def getaddrinfo(
     proto: int = 0,
     flags: int = 0,
 ) -> list[
+    # copied from _GetAddrInfoEntry
     tuple[
-        AddressFamily,
+        Literal[AddressFamily.AF_INET],
         SocketKind,
         int,
         str,
-        tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes],
+        tuple[str, int],
+    ]
+    | tuple[
+        Literal[AddressFamily.AF_INET6],
+        SocketKind,
+        int,
+        str,
+        tuple[str, int, int, int] | tuple[int, bytes],
     ]
 ]:
     """Look up a numeric address given a name.
@@ -224,21 +273,8 @@ async def getaddrinfo(
             flags | _NUMERIC_ONLY,
         )
     # That failed; it's a real hostname. We better use a thread.
-    #
-    # Also, it might be a unicode hostname, in which case we want to do our
-    # own encoding using the idna module, rather than letting Python do
-    # it. (Python will use the old IDNA 2003 standard, and possibly get the
-    # wrong answer - see bpo-17305). However, the idna module is picky, and
-    # will refuse to process some valid hostname strings, like "::1". So if
-    # it's already ascii, we pass it through; otherwise, we encode it to.
     if isinstance(host, str):
-        try:
-            host = host.encode("ascii")
-        except UnicodeEncodeError:
-            # UTS-46 defines various normalizations; in particular, by default
-            # idna.encode will error out if the hostname has Capital Letters
-            # in it; with uts46=True it will lowercase them instead.
-            host = _idna.encode(host, uts46=True)
+        host = encode_hostname(host)
     hr = _resolver.get(None)
     if hr is not None:
         return await hr.getaddrinfo(host, port, family, type, proto, flags)

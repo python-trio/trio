@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
     from typing_extensions import Buffer, Self
 
-    from trio._socket import AddressFormat
+    from trio._socket import AddressFormat, _GetAddrInfoEntry
 
 IPAddress: TypeAlias = ipaddress.IPv4Address | ipaddress.IPv6Address
 
@@ -139,15 +139,7 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
         type: int = 0,
         proto: int = 0,
         flags: int = 0,
-    ) -> list[
-        tuple[
-            AddressFamily,
-            SocketKind,
-            int,
-            str,
-            tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes],
-        ]
-    ]:
+    ) -> list[_GetAddrInfoEntry]:
         raise NotImplementedError("FakeNet doesn't do fake DNS yet")
 
     async def getnameinfo(
