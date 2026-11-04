@@ -1,0 +1,2 @@
+:func:`trio.sleep` now names its own parameter when given ``NaN``, raising an
+error about ``seconds`` rather than about ``deadline``.
