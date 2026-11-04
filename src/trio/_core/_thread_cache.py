@@ -49,28 +49,40 @@ def get_os_thread_name_func() -> Callable[[int | None, str], None] | None:
         if ident is not None:  # pragma: no cover
             setname(_to_os_thread_name(name))
 
-    # find the pthread library
-    # this will fail on windows and musl
-    libpthread_path = ctypes.util.find_library("pthread")
-    if not libpthread_path:
-        # musl includes pthread functions directly in libc.so
-        # (but note that find_library("c") does not work on musl,
-        #  see: https://github.com/python/cpython/issues/65821)
-        # so try that library instead
-        # if it doesn't exist, CDLL() will fail below
-        libpthread_path = "libc.so"
-
-    # Sometimes windows can find the path, but gives a permission error when
-    # accessing it. Catching a wider exception in case of more esoteric errors.
-    # https://github.com/python-trio/trio/issues/2688
+    # look for pthread_setname_np in the running process first: the interpreter
+    # already links the threads library on Linux, macOS and the BSDs, so this is
+    # cheap. find_library() can be slow; on FreeBSD it runs the C compiler, the
+    # linker and objdump, because ldconfig has no entry for "pthread" there.
+    # https://github.com/python-trio/trio/issues/3538
     try:
-        libpthread = ctypes.CDLL(libpthread_path)
-    except Exception:  # pragma: no cover
-        return None
+        pthread_setname_np = getattr(ctypes.CDLL(None), "pthread_setname_np", None)
+    except Exception:
+        # windows can't open the running process this way
+        pthread_setname_np = None
 
-    # get the setname method from it
+    if pthread_setname_np is None:
+        # otherwise find the pthread library
+        # this will fail on windows and musl
+        libpthread_path = ctypes.util.find_library("pthread")
+        if not libpthread_path:
+            # musl includes pthread functions directly in libc.so
+            # (but note that find_library("c") does not work on musl,
+            #  see: https://github.com/python/cpython/issues/65821)
+            # so try that library instead
+            # if it doesn't exist, CDLL() will fail below
+            libpthread_path = "libc.so"
+
+        # get the setname method from it.
+        # Sometimes windows can find the path, but gives a permission error when
+        # accessing it. Catching a wider exception in case of more esoteric errors.
+        # https://github.com/python-trio/trio/issues/2688
+        try:
+            libpthread = ctypes.CDLL(libpthread_path)
+            pthread_setname_np = getattr(libpthread, "pthread_setname_np", None)
+        except Exception:  # pragma: no cover
+            return None
+
     # afaik this should never fail
-    pthread_setname_np = getattr(libpthread, "pthread_setname_np", None)
     if pthread_setname_np is None:  # pragma: no cover
         return None
 

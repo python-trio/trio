@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ctypes.util
 import os
 import sys
 import threading
@@ -240,3 +241,16 @@ def test_clear_thread_cache_after_fork() -> None:
         # git blame for how to do that. however, that times out for some
         # reason when having `tests/` in `source` for coverage.py.
         os._exit(0)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="windows has no pthreads")
+def test_os_thread_name_func_does_not_need_find_library(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # find_library() runs the C compiler, the linker and objdump on FreeBSD
+    # (#3538), so the running process should be checked first.
+    def find_library(name: str) -> NoReturn:  # pragma: no cover
+        raise AssertionError(f"find_library({name!r}) was called")
+
+    monkeypatch.setattr(ctypes.util, "find_library", find_library)
+    assert _thread_cache.get_os_thread_name_func() is not None

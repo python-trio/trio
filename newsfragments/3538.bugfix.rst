@@ -1,0 +1,1 @@
+Importing trio no longer runs the C compiler, the linker and ``objdump`` on FreeBSD: ``pthread_setname_np``, used to name worker threads, is now looked up in the running process first, and :func:`ctypes.util.find_library` is only a fallback.
