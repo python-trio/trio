@@ -1,0 +1,3 @@
+Passing NaN to :meth:`trio.testing.MockClock.jump` now raises
+:exc:`ValueError`, like a negative value, instead of silently making the
+clock return NaN.
