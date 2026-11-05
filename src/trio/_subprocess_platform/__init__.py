@@ -94,26 +94,68 @@ try:
             return trio.lowlevel.FdStream(rfd), wfd
 
     elif os.name == "nt":
+        import _winapi
+        import itertools
         import msvcrt
-
-        # This isn't exported or documented, but it's also not
-        # underscore-prefixed, and seems kosher to use. The asyncio docs
-        # for 3.5 included an example that imported socketpair from
-        # windows_utils (before socket.socketpair existed on Windows), and
-        # when asyncio.windows_utils.socketpair was removed in 3.7, the
-        # removal was mentioned in the release notes.
-        from asyncio.windows_utils import pipe as windows_pipe
 
         from .._windows_pipes import PipeReceiveStream, PipeSendStream
 
+        _pipe_counter = itertools.count()
+
+        def _windows_pipe(*, overlapped: tuple[bool, bool]) -> tuple[int, int]:
+            address = (
+                rf"\\.\pipe\trio-pipe-{os.getpid()}-"
+                f"{next(_pipe_counter)}-{os.urandom(8).hex()}"
+            )
+            openmode = (
+                _winapi.PIPE_ACCESS_INBOUND | _winapi.FILE_FLAG_FIRST_PIPE_INSTANCE
+            )
+            if overlapped[0]:
+                openmode |= _winapi.FILE_FLAG_OVERLAPPED
+            flags_and_attribs = (
+                _winapi.FILE_FLAG_OVERLAPPED if overlapped[1] else 0
+            )
+            h1: int | None = None
+            h2: int | None = None
+            try:
+                h1 = _winapi.CreateNamedPipe(
+                    address,
+                    openmode,
+                    _winapi.PIPE_WAIT,
+                    1,
+                    0,
+                    8192,
+                    _winapi.NMPWAIT_WAIT_FOREVER,
+                    _winapi.NULL,
+                )
+                h2 = _winapi.CreateFile(
+                    address,
+                    _winapi.GENERIC_WRITE,
+                    0,
+                    _winapi.NULL,
+                    _winapi.OPEN_EXISTING,
+                    flags_and_attribs,
+                    _winapi.NULL,
+                )
+                ov = _winapi.ConnectNamedPipe(h1, overlapped=True)
+                ov.GetOverlappedResult(True)
+            except BaseException:
+                if h1 is not None:
+                    _winapi.CloseHandle(h1)
+                if h2 is not None:
+                    _winapi.CloseHandle(h2)
+                raise
+            else:
+                return h1, h2
+
         def create_pipe_to_child_stdin() -> tuple[PipeSendStream, int]:
             # for stdin, we want the write end (our end) to use overlapped I/O
-            rh, wh = windows_pipe(overlapped=(False, True))
+            rh, wh = _windows_pipe(overlapped=(False, True))
             return PipeSendStream(wh), msvcrt.open_osfhandle(rh, os.O_RDONLY)
 
         def create_pipe_from_child_output() -> tuple[PipeReceiveStream, int]:
             # for stdout/err, it's the read end that's overlapped
-            rh, wh = windows_pipe(overlapped=(True, False))
+            rh, wh = _windows_pipe(overlapped=(True, False))
             return PipeReceiveStream(rh), msvcrt.open_osfhandle(wh, 0)
 
     else:  # pragma: no cover

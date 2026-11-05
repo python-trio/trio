@@ -786,3 +786,19 @@ async def test_subprocess_pidfd_unnotified() -> None:
             # for everything to notice
             await noticed_exit.wait()
         assert noticed_exit.is_set(), "child task wasn't woken after poll, DEADLOCK"
+
+
+# regression test for #3551
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows-only test")
+def test_windows_subprocess_does_not_import_asyncio() -> None:
+    trio_src = str(SyncPath(__file__).resolve().parents[2])
+    env = dict(os.environ)
+    env["PYTHONPATH"] = trio_src + os.pathsep + env.get("PYTHONPATH", "")
+    res = subprocess.run(
+        python("import trio; assert 'asyncio' not in sys.modules"),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert res.returncode == 0, f"stdout:\n{res.stdout}\nstderr:\n{res.stderr}"
