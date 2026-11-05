@@ -21,8 +21,16 @@ def test_mock_clock() -> None:
     assert c.current_time() == 0
     c.jump(1.2)
     assert c.current_time() == 1.2
-    with pytest.raises(ValueError, match=r"^time can't go backwards$"):
+    with pytest.raises(
+        ValueError, match=r"^seconds must be a non-negative number, not -1$"
+    ):
         c.jump(-1)
+    assert c.current_time() == 1.2
+
+    with pytest.raises(
+        ValueError, match=r"^seconds must be a non-negative number, not nan$"
+    ):
+        c.jump(float("nan"))
     assert c.current_time() == 1.2
     assert c.deadline_to_sleep_time(1.1) == 0
     assert c.deadline_to_sleep_time(1.2) == 0
