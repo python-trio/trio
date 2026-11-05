@@ -112,9 +112,7 @@ try:
             )
             if overlapped[0]:
                 openmode |= _winapi.FILE_FLAG_OVERLAPPED
-            flags_and_attribs = (
-                _winapi.FILE_FLAG_OVERLAPPED if overlapped[1] else 0
-            )
+            flags_and_attribs = _winapi.FILE_FLAG_OVERLAPPED if overlapped[1] else 0
             h1: int | None = None
             h2: int | None = None
             try:
