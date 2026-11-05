@@ -157,9 +157,9 @@ class MockClock(Clock):
           seconds (float): the number of seconds to jump the clock forward.
 
         Raises:
-          ValueError: if you try to pass a negative value for ``seconds``.
+          ValueError: if you try to pass a negative value or NaN for ``seconds``.
 
         """
-        if seconds < 0:
-            raise ValueError("time can't go backwards")
+        if isnan(seconds) or seconds < 0:
+            raise ValueError(f"seconds must be a non-negative number, not {seconds!r}")
         self._virtual_base += seconds
