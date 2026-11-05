@@ -217,6 +217,36 @@ async def test_interrupted_by_close(
         notify_closing(a)
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Windows backend can't notify_closing an already-closed socket",
+)
+async def test_interrupted_by_close_before_notify(socketpair: SocketPair) -> None:
+    # Like test_interrupted_by_close, but in the alternate order the
+    # notify_closing docs allow: close first, then notify_closing, with no
+    # checkpoint in between. This ordering is only possible with a saved fd,
+    # since a closed socket object's fileno() is -1.
+    a, _b = socketpair
+
+    async def reader() -> None:
+        with pytest.raises(_core.ClosedResourceError):
+            await trio.lowlevel.wait_readable(a)
+
+    async def writer() -> None:
+        with pytest.raises(_core.ClosedResourceError):
+            await trio.lowlevel.wait_writable(a)
+
+    fill_socket(a)
+
+    async with _core.open_nursery() as nursery:
+        nursery.start_soon(reader)
+        nursery.start_soon(writer)
+        await wait_all_tasks_blocked()
+        fd = a.fileno()
+        a.close()
+        trio.lowlevel.notify_closing(fd)
+
+
 @read_socket_test
 @write_socket_test
 async def test_socket_simultaneous_read_write(

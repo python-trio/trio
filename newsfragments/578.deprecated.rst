@@ -1,0 +1,5 @@
+`trio.lowlevel.wait_kevent` previously required the caller to actually
+register with the kqueue (and unregister in the ``abort_func`` callback);
+this usage is deprecated. Instead, do not register the event with the kqueue,
+and do not pass ``abort_func``; then `trio.lowlevel.wait_kevent` will do the
+registration (and unregistration on cancellation).
