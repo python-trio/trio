@@ -499,6 +499,18 @@ def wrap_file(file: FileT) -> AsyncIOWrapper[FileT]:
 
         assert await async_file.read() == 'asdf'
 
+    Note:
+
+        Operations on the returned object are executed in a worker thread,
+        using :meth:`trio.to_thread.run_sync` with its default
+        ``abandon_on_cancel=False`` setting. This means that a blocked
+        operation cannot be interrupted by cancellation: if the enclosing
+        cancel scope is cancelled while a call such as ``read()`` is
+        blocked, then the cancellation does not take effect until the
+        underlying call returns. If you need an operation that can be
+        cancelled, then you should avoid wrapping blocking file objects
+        and use a non-blocking interface instead.
+
     """
 
     def has(attr: str) -> bool:

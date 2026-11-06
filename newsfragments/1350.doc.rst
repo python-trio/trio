@@ -1,0 +1,1 @@
+Documented that operations on files wrapped with :func:`trio.wrap_file` cannot be interrupted by cancellation, since they run in a worker thread with ``abandon_on_cancel=False``.
