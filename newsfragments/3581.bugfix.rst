@@ -1,0 +1,1 @@
+A task waiting on another task's :class:`trio.SSLStream` handshake no longer hangs forever if that handshake fails or is cancelled; it now raises :exc:`trio.BrokenResourceError`.
