@@ -3,6 +3,17 @@
 I/O in Trio
 ===========
 
+Knowing what hostname you are actually connected to
+---------------------------------------------------
+
+If you pass a string hostname to Trio, for example in
+`trio.socket.getaddrinfo` or `trio.SSLStream`, Trio will need to get a
+bytes version of it at some point. To do this conversion yourself, we
+recommend `trio.lowlevel.encode_hostname`. Notably, this differs from
+what the Python standard library typically encodes hosts as.
+
+.. autofunction:: trio.lowlevel.encode_hostname
+
 .. _abstract-stream-api:
 
 The abstract Stream API

@@ -52,6 +52,7 @@ from ._core import (
     wait_task_rescheduled as wait_task_rescheduled,
     wait_writable as wait_writable,
 )
+from ._socket import encode_hostname as encode_hostname
 from ._subprocess import open_process as open_process
 
 # This is the union of a subset of trio/_core/ and some things from trio/*.py.

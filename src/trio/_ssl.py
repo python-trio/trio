@@ -10,6 +10,7 @@ import trio
 
 from . import _sync
 from ._highlevel_generic import aclose_forcefully
+from ._socket import encode_hostname
 from ._util import ConflictDetector, final
 from .abc import Listener, Stream
 
@@ -362,6 +363,12 @@ class SSLStream(Stream, Generic[T_Stream]):
         server_side: bool = False,
         https_compatible: bool = False,
     ) -> None:
+        server_hostname = (
+            encode_hostname(server_hostname)
+            if isinstance(server_hostname, str)
+            else server_hostname
+        )
+
         self.transport_stream: T_Stream = transport_stream
         self._state = _State.OK
         self._https_compatible = https_compatible
