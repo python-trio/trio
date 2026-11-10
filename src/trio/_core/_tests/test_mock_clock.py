@@ -69,6 +69,24 @@ def test_mock_clock() -> None:
     assert c2.current_time() < 10
 
 
+@pytest.mark.parametrize("rate", [0.0, 2.0])
+def test_mock_clock_jump_nan_preserves_time(rate: float) -> None:
+    clock = MockClock()
+    clock._real_clock = lambda: 123.0
+    clock.rate = rate
+    clock.jump(1.2)
+
+    with pytest.raises(ValueError, match=r"^seconds must not be NaN$"):
+        clock.jump(float("nan"))
+
+    assert clock.current_time() == 1.2
+    clock.jump(0)
+    assert clock.current_time() == 1.2
+    clock.jump(0.8)
+    assert clock.current_time() == 2.0
+    assert clock.rate == rate
+
+
 async def test_mock_clock_autojump(mock_clock: MockClock) -> None:
     assert mock_clock.autojump_threshold == inf
 

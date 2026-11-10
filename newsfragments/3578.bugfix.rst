@@ -1,0 +1,2 @@
+`trio.testing.MockClock.jump` now rejects NaN with `ValueError` without
+changing the clock's time.
