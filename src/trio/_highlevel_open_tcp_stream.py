@@ -228,9 +228,8 @@ async def open_tcp_stream(
 
       happy_eyeballs_delay (float or None): How many seconds to wait for each
           connection attempt to succeed or fail before getting impatient and
-          starting another one in parallel. Set to `None` if you want
-          to limit to only one connection attempt at a time (like
-          :func:`socket.create_connection`). Default: 0.25 (250 ms).
+          starting another one in parallel. Default: 0.25 (250 ms).
+          Passing ``None`` also uses the default delay.
 
       local_address (None or str): The local IP address or hostname to use as
           the source for outgoing connections. If ``None``, we let the OS pick
