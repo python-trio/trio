@@ -1,0 +1,2 @@
+Clarify that passing ``None`` for the ``happy_eyeballs_delay`` argument of
+`trio.open_tcp_stream` uses the default 250 ms delay.
