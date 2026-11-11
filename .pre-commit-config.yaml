@@ -30,6 +30,13 @@ repos:
         types: [file]
         types_or: [python, pyi, toml]
         args: ["--show-fixes"]
+  - repo: https://github.com/python-trio/flake8-async
+    rev: 26.8.1
+    hooks:
+      - id: flake8-async
+        args: [--enable=ASYNC123]
+        files: ^src/trio/.*\.py$
+        exclude: ^src/trio/.*_tests/
   - repo: https://github.com/codespell-project/codespell
     rev: v2.4.3
     hooks:
