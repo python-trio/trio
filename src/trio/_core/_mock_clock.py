@@ -87,14 +87,16 @@ class MockClock(Clock):
 
     @rate.setter
     def rate(self, new_rate: float) -> None:
-        if isnan(new_rate) or new_rate < 0:
+        if isnan(new_rate):
+            raise ValueError("rate must not be NaN")
+        elif new_rate < 0:
             raise ValueError(f"rate must be a non-negative number, not {new_rate!r}")
         else:
             real = self._real_clock()
             virtual = self._real_to_virtual(real)
             self._virtual_base = virtual
             self._real_base = real
-            self._rate = float(new_rate)
+            self._rate = new_rate
 
     @property
     def autojump_threshold(self) -> float:
@@ -102,8 +104,11 @@ class MockClock(Clock):
 
     @autojump_threshold.setter
     def autojump_threshold(self, new_autojump_threshold: float) -> None:
-        self._autojump_threshold = float(new_autojump_threshold)
-        self._try_resync_autojump_threshold()
+        if isnan(new_autojump_threshold):
+            raise ValueError("autojump_threshold must not be NaN")
+        else:
+            self._autojump_threshold = new_autojump_threshold
+            self._try_resync_autojump_threshold()
 
     # runner.clock_autojump_threshold is an internal API that isn't easily
     # usable by custom third-party Clock objects. If you need access to this
@@ -160,6 +165,8 @@ class MockClock(Clock):
           ValueError: if you try to pass a negative value for ``seconds``.
 
         """
+        if isnan(seconds):
+            raise ValueError("time must not be NaN")
         if seconds < 0:
             raise ValueError("time can't go backwards")
         self._virtual_base += seconds

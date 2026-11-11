@@ -34,15 +34,11 @@ def test_mock_clock() -> None:
         c.rate = -1
     assert c.rate == 0
 
-    with pytest.raises(
-        ValueError, match=r"^rate must be a non-negative number, not nan$"
-    ):
+    with pytest.raises(ValueError, match=r"^rate must not be NaN$"):
         c.rate = float("nan")
     assert c.rate == 0
 
-    with pytest.raises(
-        ValueError, match=r"^rate must be a non-negative number, not nan$"
-    ):
+    with pytest.raises(ValueError, match=r"^rate must not be NaN$"):
         MockClock(rate=float("nan"))
 
     c.rate = 2
