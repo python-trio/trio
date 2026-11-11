@@ -487,6 +487,19 @@ async def test_custom_delay(autojump_clock: MockClock) -> None:
     }
 
 
+async def test_none_happy_eyeballs_delay(autojump_clock: MockClock) -> None:
+    with pytest.deprecated_call():
+        await run_scenario(
+            80,
+            [
+                ("1.1.1.1", 1, "success"),
+                ("2.2.2.2", 1, "success"),
+                ("3.3.3.3", 0.2, "success"),
+            ],
+            happy_eyeballs_delay=None,  # type: ignore[arg-type]
+        )
+
+
 async def test_custom_errors_expedite(autojump_clock: MockClock) -> None:
     sock, scenario = await run_scenario(
         80,
