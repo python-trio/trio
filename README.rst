@@ -101,8 +101,7 @@ except for CFFI on Windows, which has wheels available, so
 installation should be easy (no C compiler needed).
 
 **I tried it, but it's not working.** Sorry to hear that! You can try
-asking for help in our `chat room
-<https://gitter.im/python-trio/general>`__ or `forum
+asking for help in our `forum
 <https://trio.discourse.group>`__, `filing a bug
 <https://github.com/python-trio/trio/issues/new>`__, or `posting a
 question on StackOverflow
