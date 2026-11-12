@@ -2306,7 +2306,7 @@ class Runner:  # type: ignore[explicit-any]
 
         """
         if isnan(cushion):
-            raise ValueError("wait_all_tasks_blocked's cushion must not be NaN")
+            raise ValueError("cushion must not be NaN")
         task = current_task()
         key = (cushion, id(task))
         self.waiting_for_idle[key] = task
