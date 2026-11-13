@@ -17,6 +17,7 @@ import struct
 import warnings
 import weakref
 from itertools import count
+from math import isnan
 from typing import TYPE_CHECKING, Generic, TypeAlias, TypeVar
 from weakref import ReferenceType, WeakValueDictionary
 
@@ -957,6 +958,8 @@ class DTLSChannel(trio.abc.Channel[bytes], metaclass=NoPublicConstructor):
             network.
 
         """
+        if isnan(initial_retransmit_timeout):
+            raise ValueError("timeout must not be NaN")
         async with self._handshake_lock:
             if self._did_handshake:
                 return

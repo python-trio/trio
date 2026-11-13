@@ -1,0 +1,1 @@
+Trio will no longer accept `math.nan` in many places where floats are accepted.

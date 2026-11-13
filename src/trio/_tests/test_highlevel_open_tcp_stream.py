@@ -500,6 +500,19 @@ async def test_none_happy_eyeballs_delay(autojump_clock: MockClock) -> None:
         )
 
 
+async def test_happy_eyeballs_nan_delay() -> None:
+    with pytest.raises(ValueError, match=r"^happy eyeballs delay must not be NaN$"):
+        await run_scenario(
+            80,
+            [
+                ("1.1.1.1", 1, "success"),
+                ("2.2.2.2", 1, "success"),
+                ("3.3.3.3", 0.2, "success"),
+            ],
+            happy_eyeballs_delay=float("nan"),
+        )
+
+
 async def test_custom_errors_expedite(autojump_clock: MockClock) -> None:
     sock, scenario = await run_scenario(
         80,

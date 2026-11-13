@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 from contextlib import contextmanager, suppress
+from math import isnan
 from typing import TYPE_CHECKING
 
 import trio
@@ -275,6 +276,8 @@ async def open_tcp_stream(
             issue="3588",
         )
         happy_eyeballs_delay = DEFAULT_DELAY
+    if isnan(happy_eyeballs_delay):
+        raise ValueError("happy eyeballs delay must not be NaN")
 
     targets = await getaddrinfo(host, port, type=SOCK_STREAM)
 
