@@ -354,7 +354,7 @@ async def run_scenario(
     # If this is True, we require there to be an exception, and return
     #   (exception, scenario object)
     expect_error: tuple[type[BaseException], ...] | type[BaseException] = (),
-    happy_eyeballs_delay: float | None = 0.25,
+    happy_eyeballs_delay: float = 0.25,
     local_address: str | None = None,
 ) -> tuple[SocketType, Scenario] | tuple[BaseException, Scenario]:
     supported_families = set()
@@ -487,26 +487,17 @@ async def test_custom_delay(autojump_clock: MockClock) -> None:
     }
 
 
-async def test_none_default(autojump_clock: MockClock) -> None:
-    """Copy of test_basic_fallthrough, but specifying the delay =None"""
-    sock, scenario = await run_scenario(
-        80,
-        [
-            ("1.1.1.1", 1, "success"),
-            ("2.2.2.2", 1, "success"),
-            ("3.3.3.3", 0.2, "success"),
-        ],
-        happy_eyeballs_delay=None,
-    )
-    assert isinstance(sock, FakeSocket)
-    assert sock.ip == "3.3.3.3"
-    # current time is default time + default time + connection time
-    assert trio.current_time() == (0.250 + 0.250 + 0.2)
-    assert scenario.connect_times == {
-        "1.1.1.1": 0,
-        "2.2.2.2": 0.250,
-        "3.3.3.3": 0.500,
-    }
+async def test_none_happy_eyeballs_delay(autojump_clock: MockClock) -> None:
+    with pytest.deprecated_call():
+        await run_scenario(
+            80,
+            [
+                ("1.1.1.1", 1, "success"),
+                ("2.2.2.2", 1, "success"),
+                ("3.3.3.3", 0.2, "success"),
+            ],
+            happy_eyeballs_delay=None,  # type: ignore[arg-type]
+        )
 
 
 async def test_custom_errors_expedite(autojump_clock: MockClock) -> None:
