@@ -106,9 +106,9 @@ class MockClock(Clock):
     def autojump_threshold(self, new_autojump_threshold: float) -> None:
         if isnan(new_autojump_threshold):
             raise ValueError("autojump_threshold must not be NaN")
-        else:
-            self._autojump_threshold = new_autojump_threshold
-            self._try_resync_autojump_threshold()
+
+        self._autojump_threshold = new_autojump_threshold
+        self._try_resync_autojump_threshold()
 
     # runner.clock_autojump_threshold is an internal API that isn't easily
     # usable by custom third-party Clock objects. If you need access to this
