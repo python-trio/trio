@@ -712,8 +712,8 @@ async def test_initial_retransmit_timeout_configuration(
                 blackholed = True
                 channel = client.connect(address, client_ctx_fn())
                 await channel.do_handshake(initial_retransmit_timeout=float("nan"))
-                after = trio.current_time()
-                assert after - before == 0
+        after = trio.current_time()
+        assert after - before == 0
 
 
 async def test_explicit_tiny_mtu_is_respected(
