@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import copy
 import operator as _operator
 import ssl as _stdlib_ssl
 from enum import Enum as _Enum
@@ -223,8 +224,42 @@ class NeedHandshakeError(Exception):
     """
 
 
+def _copy_exception(exc: BaseException) -> BaseException:
+    """Make a copy of *exc* that is safe to raise in a different task.
+
+    Storing the original exception object would keep its traceback alive, and
+    those frames reference the :class:`SSLStream`, so the stream would be kept
+    alive by a reference cycle. Re-raising the same exception object in
+    several tasks would also mutate its shared traceback. Copying an exception
+    drops its traceback, so each task's traceback is built from its own stack.
+    Trio uses ``copy.copy`` for the same reason when delivering errors to
+    waiters in ``_core._io_common.wake_all``.
+    """
+
+    def copy_one(one: BaseException) -> BaseException:
+        try:
+            cloned = copy.copy(one)
+        except Exception:
+            # Defensive: an exotic exception with a broken __reduce__ must not
+            # prevent the waiters from waking up.
+            return trio.BrokenResourceError(
+                f"the TLS handshake failed with {type(one).__name__}",
+            )
+        cloned.__traceback__ = None
+        cloned.__context__ = None
+        cloned.__suppress_context__ = one.__suppress_context__
+        return cloned
+
+    copied = copy_one(exc)
+    if exc.__cause__ is not None:
+        # Keep the immediate cause, so that receive_some() can still recognize
+        # an EOF before the handshake when https_compatible=True.
+        copied.__cause__ = copy_one(exc.__cause__)
+    return copied
+
+
 class _Once:
-    __slots__ = ("_afn", "_args", "_done", "started")
+    __slots__ = ("_afn", "_args", "_done", "_failure", "started")
 
     def __init__(
         self,
@@ -235,20 +270,50 @@ class _Once:
         self._args = args
         self.started = False
         self._done = _sync.Event()
+        # On failure, this holds a traceback-free copy of the exception that
+        # waiters should receive. ``_done`` is set once the attempt finishes,
+        # whether it succeeded or failed.
+        self._failure: BaseException | None = None
 
     async def ensure(self, *, checkpoint: bool) -> None:
         if not self.started:
             self.started = True
-            await self._afn(*self._args)
-            self._done.set()
+            try:
+                await self._afn(*self._args)
+            except BaseException as exc:
+                if isinstance(exc, Exception):
+                    self._failure = _copy_exception(exc)
+                elif isinstance(exc, trio.Cancelled):
+                    # A Cancelled exception belongs to the task that was
+                    # cancelled, so it cannot be re-raised in the waiters.
+                    # _do_handshake has already marked the stream broken, and
+                    # a partially-completed handshake cannot be safely
+                    # retried, so report the broken stream instead. This
+                    # matches what a later call on the stream would raise.
+                    self._failure = trio.BrokenResourceError(
+                        "the TLS handshake was cancelled",
+                    )
+                else:
+                    # KeyboardInterrupt, SystemExit, ... cannot be handed to
+                    # another task either.
+                    self._failure = trio.BrokenResourceError(
+                        f"the TLS handshake was interrupted by {type(exc).__name__}",
+                    )
+                raise
+            finally:
+                self._done.set()
         elif not checkpoint and self._done.is_set():
+            if self._failure is not None:
+                raise _copy_exception(self._failure)
             return
         else:
             await self._done.wait()
+            if self._failure is not None:
+                raise _copy_exception(self._failure)
 
     @property
     def done(self) -> bool:
-        return bool(self._done.is_set())
+        return self._failure is None and bool(self._done.is_set())
 
 
 _State = _Enum("_State", ["OK", "BROKEN", "CLOSED"])
@@ -664,7 +729,9 @@ class SSLStream(Stream, Generic[T_Stream]):
         talking to them – then you can call this method.
 
         If the initial handshake is already in progress in another task, this
-        waits for it to complete and then returns.
+        waits for it to complete and then returns. If it fails, or the task
+        performing it is cancelled, this raises an error instead of waiting
+        forever.
 
         If the initial handshake has already completed, this returns
         immediately without doing anything (except executing a checkpoint).
