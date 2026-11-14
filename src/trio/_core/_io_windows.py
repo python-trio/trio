@@ -293,6 +293,39 @@ assert not TYPE_CHECKING or sys.platform == "win32"
 
 @attrs.frozen(eq=False)
 class _WindowsStatistics:
+    """DTO class that holds information on current I/O waits status.
+
+    This class is used on the Windows platform.
+    Trio also defines other similar classes for statistics reporting:
+    ``_KqueueStatistics`` and ``_EpollStatistics``.
+    They are similar in function but some fields differ.
+    All of them have a ``backend`` attribute.
+    The statistics class best suited for the runtime platform is
+    imported as the ``IOStatistics`` type. See ``trio._core._run``.
+
+    .. attribute:: tasks_waiting_read
+
+       Number of tasks waiting on read.
+
+    .. attribute:: tasks_waiting_write
+
+       Number of tasks waiting on write.
+
+    .. attribute:: tasks_waiting_overlapped
+
+       Number of tasks waiting on overlapped I/O operations.
+
+    .. attribute:: completion_key_monitors
+
+       Number of completion key monitors.
+
+    .. attribute:: backend
+
+       This attribute holds a string value that corresponds to the statistics type.
+       This class has ``backend == "windows"``.
+       Use ``backend`` attribute to distinguish statistics types at runtime.
+    """
+
     tasks_waiting_read: int
     tasks_waiting_write: int
     tasks_waiting_overlapped: int

@@ -1486,6 +1486,17 @@ class Nursery(metaclass=NoPublicConstructor):
 @final
 @attrs.define(eq=False, repr=False)
 class Task(metaclass=NoPublicConstructor):  # type: ignore[explicit-any]
+    """A ``Task`` object represents a concurrent "thread" of execution.
+
+    See the :class:`~trio.lowlevel.Task` entry in Trio's lowlevel module docs for a detailed description.
+    Trio's task primitive wraps a coroutine (`types.CoroutineType`),
+    adding more functionality for stopping and resuming tasks,
+    for scheduling and canceling tasks,
+    for associating a ``Task`` with a ``Runner`` and context variables.
+    A ``Task`` can belong to a :class:`~trio.Nursery` and can spawn
+    its own child nurseries. See :class:`~trio.Nursery` docs for more information.
+    """
+
     _parent_nursery: Nursery | None
     coro: types.CoroutineType[Any, Outcome[object], Any]  # type: ignore[explicit-any]
     _runner: Runner

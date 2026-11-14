@@ -12,7 +12,13 @@ T = TypeVar("T")
 
 
 @final
-class _NoValue: ...
+class _NoValue:
+    """Sentinel class object, used as the "undefined" variable value.
+
+    A :class:`~trio.lowlevel.RunVar` variable has this "stub" value
+    until the variable is assigned an actual value.
+    It is distinct from ``None``, which is a legitimate value a variable can hold.
+    """
 
 
 @final
