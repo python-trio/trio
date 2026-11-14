@@ -10,6 +10,7 @@ import attrs
 import outcome
 
 from .. import _core
+from .._deprecate import warn_deprecated
 from ._run import _public
 from ._wakeup_socketpair import WakeupSocketpair
 
@@ -38,6 +39,13 @@ class KqueueIOManager:
     _registered: dict[tuple[int, int], Task | UnboundedQueue[select.kevent]] = (
         attrs.Factory(dict)
     )
+    # Keeps track of whether we are running host callbacks in guest mode
+    # and, if so, which events have been discarded by those callbacks
+    # cancelling waiters or calling notify_closing. Needed in case they
+    # have just completed, in which case they will appear to be spurious
+    # in process_events.
+    _events_pending: bool = False
+    _deregistered: set[tuple[int, int]] = attrs.Factory(set)
     _force_wakeup: WakeupSocketpair = attrs.Factory(WakeupSocketpair)
     _force_wakeup_fd: int | None = None
 
@@ -67,7 +75,15 @@ class KqueueIOManager:
     def force_wakeup(self) -> None:
         self._force_wakeup.wakeup_thread_and_signal_safe()
 
+    def _deregister(self, key: tuple[int, int]) -> None:
+        del self._registered[key]
+        if self._events_pending:
+            self._deregistered.add(key)
+
     def get_events(self, timeout: float) -> EventResult:
+        # In guest mode, note that we are now processing host callbacks, so
+        # need to record any discarded events.
+        self._events_pending = True
         # max_events must be > 0 or kqueue gets cranky
         # and we generally want this to be strictly larger than the actual
         # number of events we get, so that we can tell that we've gotten
@@ -90,6 +106,12 @@ class KqueueIOManager:
             if event.ident == self._force_wakeup_fd:
                 self._force_wakeup.drain()
                 continue
+            if key in self._deregistered:
+                # A host callback deregistered this key after the batch was
+                # fetched (see _deregistered above); its receiver is gone and
+                # this stale event should just be dropped. Any other missing
+                # key would be a bug, so let the lookup below fail loudly.
+                continue
             receiver = self._registered[key]
             if event.flags & select.KQ_EV_ONESHOT:  # TODO: test this branch
                 del self._registered[key]
@@ -97,17 +119,16 @@ class KqueueIOManager:
                 _core.reschedule(receiver, outcome.Value(event))
             else:
                 receiver.put_nowait(event)  # TODO: test this line
+        self._events_pending = False
+        self._deregistered.clear()
 
     # kevent registration is complicated -- e.g. aio submission can
-    # implicitly perform a EV_ADD, and EVFILT_PROC with NOTE_TRACK will
-    # automatically register filters for child processes. So our lowlevel
-    # API is *very* low-level: we expose the kqueue itself for adding
-    # events or sticking into AIO submission structs, and split waiting
-    # off into separate methods. It's your responsibility to make sure
-    # that handle_io never receives an event without a corresponding
-    # registration! This may be challenging if you want to be careful
-    # about e.g. KeyboardInterrupt. Possibly this API could be improved to
-    # be more ergonomic...
+    # implicitly perform an EV_ADD, and EVFILT_PROC with NOTE_TRACK will
+    # automatically register filters for child processes. Earlier revisions
+    # had a *very* low-level API, where the caller had responsibility for
+    # registering events with the OS kqueue. wait_kevent now takes care of
+    # that for one-shot waits. monitor_kevent has not yet been updated
+    # similarly, so its callers still need to register events themselves.
 
     @_public
     def current_kqueue(self) -> select.kqueue:
@@ -143,56 +164,104 @@ class KqueueIOManager:
     @_public
     async def wait_kevent(
         self,
-        ident: int,
+        ident: int | _HasFileNo,
         filter: int,
-        abort_func: Callable[[RaiseCancelT], Abort],
-    ) -> Abort:
-        """TODO: these are implemented, but are currently more of a sketch than
-        anything real. See `#26
-        <https://github.com/python-trio/trio/issues/26>`__.
+        abort_func: Callable[[RaiseCancelT], Abort] | None = None,
+        *,
+        fflags: int = 0,
+        data: int = 0,
+    ) -> select.kevent:
+        """Waits for a one-shot kevent to happen.
+
+        This is a low-level function that lets you wait on a specific kevent,
+        in case you have a use case not covered by the IO primitives in Trio.
+
+        This registers ``kevent(ident, filter, flags, fflags, data)``, where
+        ``flags`` is set to ``select.KQ_EV_ADD | select.KQ_EV_ONESHOT``, and
+        waits for it to complete. If cancelled then it is removed with ``flags``
+        set to ``select.KQ_EV_DELETE``.
+
+        Args:
+            ident: Value used to identify the event. The interpretation depends
+                on the filter but it's usually the file descriptor.
+            filter: Name of the kernel filter e.g. ``select.KQ_FILTER_READ``.
+            fflags: Filter-specific flags.
+            data: Filter-specific data.
+
+        Returns:
+            The `select.kevent` returned from kqueue.
+
+        Raises:
+            BusyResourceError: if another task is waiting for this
+                ``(ident, filter)`` pair.
+            OSError: if the kqueue rejects the registration (for example,
+                `ProcessLookupError` for an ``EVFILT_PROC`` ident that has
+                already exited).
         """
+        if not isinstance(ident, int):
+            ident = ident.fileno()
+
+        if abort_func is not None:
+            warn_deprecated(
+                "wait_kevent(..., abort_func=...)",
+                "0.35.0",
+                issue=578,
+                instead="wait_kevent(ident, filter, fflags=..., data=...),"
+                " which registers the kevent itself",
+            )
+
         key = (ident, filter)
         if key in self._registered:
             raise _core.BusyResourceError(
                 "attempt to register multiple listeners for same ident/filter pair",
             )
+
+        if abort_func is not None:
+            abort_fn = abort_func
+            self._registered[key] = _core.current_task()
+
+            def abort_deprecated(raise_cancel: RaiseCancelT) -> Abort:
+                r = abort_fn(raise_cancel)
+                if r is _core.Abort.SUCCEEDED:  # TODO: test this branch
+                    self._deregister(key)
+                return r
+
+            return await _core.wait_task_rescheduled(  # type: ignore[no-any-return]
+                abort_deprecated,
+            )
+
+        # Register the event before updating _registered in case this throws
+        event = select.kevent(
+            ident,
+            filter,
+            select.KQ_EV_ADD | select.KQ_EV_ONESHOT,
+            fflags,
+            data,
+        )
+        self._kqueue.control([event], 0)
         self._registered[key] = _core.current_task()
 
         def abort(raise_cancel: RaiseCancelT) -> Abort:
-            r = abort_func(raise_cancel)
-            if r is _core.Abort.SUCCEEDED:  # TODO: test this branch
-                del self._registered[key]
-            return r
-
-        # wait_task_rescheduled does not have its return type typed
-        return await _core.wait_task_rescheduled(abort)  # type: ignore[no-any-return]
-
-    async def _wait_common(
-        self,
-        fd: int | _HasFileNo,
-        filter: int,
-    ) -> None:
-        if not isinstance(fd, int):
-            fd = fd.fileno()
-        flags = select.KQ_EV_ADD | select.KQ_EV_ONESHOT
-        event = select.kevent(fd, filter, flags)
-        self._kqueue.control([event], 0)
-
-        def abort(_: RaiseCancelT) -> Abort:
-            event = select.kevent(fd, filter, select.KQ_EV_DELETE)
+            self._deregister(key)
             try:
+                event = select.kevent(ident, filter, select.KQ_EV_DELETE)
                 self._kqueue.control([event], 0)
             except OSError as exc:
                 # kqueue tracks individual fds (*not* the underlying file
                 # object, see _io_epoll.py for a long discussion of why this
                 # distinction matters), and automatically deregisters an event
                 # if the fd is closed. So if kqueue.control says that it
-                # doesn't know about this event, then probably it's because
+                # doesn't know about this event, it could be because
                 # the fd was closed behind our backs. (Too bad we can't ask it
                 # to wake us up when this happens, versus discovering it after
                 # the fact... oh well, you can't have everything.)
-                #
                 # FreeBSD reports this using EBADF. macOS uses ENOENT.
+                #
+                # This can also happen if, in guest mode, the cancellation
+                # happens just after the event was fetched by get_events()
+                # (which removes it, since it's oneshot) but before it has been
+                # processed it in process_events(). This is reported as
+                # errno.ENOENT on both platforms.
                 if exc.errno in (errno.EBADF, errno.ENOENT):  # pragma: no branch
                     pass
                 else:  # pragma: no cover
@@ -200,7 +269,7 @@ class KqueueIOManager:
                     raise
             return _core.Abort.SUCCEEDED
 
-        await self.wait_kevent(fd, filter, abort)
+        return await _core.wait_task_rescheduled(abort)  # type: ignore[no-any-return]
 
     @_public
     async def wait_readable(self, fd: int | _HasFileNo) -> None:
@@ -225,7 +294,7 @@ class KqueueIOManager:
             if another task calls :func:`notify_closing` while this
             function is still working.
         """
-        await self._wait_common(fd, select.KQ_FILTER_READ)
+        await self.wait_kevent(fd, select.KQ_FILTER_READ)
 
     @_public
     async def wait_writable(self, fd: int | _HasFileNo) -> None:
@@ -240,7 +309,7 @@ class KqueueIOManager:
             if another task calls :func:`notify_closing` while this
             function is still working.
         """
-        await self._wait_common(fd, select.KQ_FILTER_WRITE)
+        await self.wait_kevent(fd, select.KQ_FILTER_WRITE)
 
     @_public
     def notify_closing(self, fd: int | _HasFileNo) -> None:
@@ -283,13 +352,16 @@ class KqueueIOManager:
                 try:
                     self._kqueue.control([event], 0)
                 except OSError as e:
-                    if e.errno == errno.ENOENT:  # pragma: no branch
-                        # the event isn't in kqueue
-                        continue
-                    raise  # pragma: no cover
+                    # kqueue no longer knows about this event. Either the fd
+                    # was already closed, which deregisters it automatically
+                    # (FreeBSD reports EBADF, macOS ENOENT), or, in guest
+                    # mode, the one-shot event was fetched by get_events()
+                    # but not yet processed (ENOENT on both platforms).
+                    if e.errno not in (errno.EBADF, errno.ENOENT):
+                        raise  # pragma: no cover
                 exc = _core.ClosedResourceError("another task closed this fd")
                 _core.reschedule(receiver, outcome.Error(exc))
-                del self._registered[key]
+                self._deregister(key)
             else:
                 # XX this is an interesting example of a case where being able
                 # to close a queue would be useful...
