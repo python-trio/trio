@@ -307,6 +307,77 @@ worth it! And don't be afraid to ask for help. Sometimes a fresh pair
 of eyes can be helpful when trying to come up with devious tricks.
 
 
+.. _contributor-attrs:
+
+Using attrs
+~~~~~~~~~~~
+
+Trio uses `attrs <https://www.attrs.org/>`__ to define many of its classes.
+It generates methods such as ``__init__`` and ``__repr__`` from annotated
+fields, while letting each class choose its equality and mutability behavior.
+When changing a class, keep those choices in mind rather than copying the
+nearest decorator unchanged.
+
+Private fields and constructor arguments
+++++++++++++++++++++++++++++++++++++++++
+
+Use a leading underscore for implementation details that callers should not
+access directly. If such a field is an argument to a public constructor,
+provide an explicit ``alias`` without the underscore::
+
+   import attrs
+
+   @attrs.define(eq=False)
+   class Example:
+       _name: str = attrs.field(alias="name")
+       _items: list[str] = attrs.field(factory=list, init=False)
+
+   example = Example(name="worker")
+
+attrs automatically strips leading underscores in constructor arguments, but
+Pyright does not infer that transformation without the explicit alias.
+For example, :class:`trio.lowlevel.RunVar` uses aliases for its private fields
+so that its public constructor accepts ``name`` and ``default``. Fields with
+``init=False`` are not constructor arguments and do not need aliases for this
+purpose. The ``test_pyright_recognizes_init_attributes`` export test checks
+this for publicly constructible attrs classes when run with the
+``_trio_check_attrs_aliases`` pytest plugin used in CI.
+
+See attrs' `private attributes and aliases
+<https://www.attrs.org/en/stable/init.html#private-attributes-and-aliases>`__
+and `Pyright support
+<https://www.attrs.org/en/stable/types.html#pyright-vs-code>`__ for details.
+
+Equality, slots, and frozen classes
++++++++++++++++++++++++++++++++++++
+
+* ``@attrs.define`` normally generates field-based equality. Use ``eq=False``
+  for objects that represent distinct identities, such as
+  :class:`trio.CancelScope` and :class:`trio.lowlevel.Task`. Two cancel scopes
+  with the same settings are still different scopes. Disabling generated
+  equality also preserves the base class' hash behavior; do not enable
+  ``unsafe_hash`` just to make a mutable value object usable as a dictionary
+  key.
+
+* ``@attrs.define`` and ``@attrs.frozen`` use slots by default. Keep that
+  default when the declared fields describe all instance attributes.
+  ``slots=False`` can be needed when attributes are assigned later without
+  being declared as fields: for example, ``NurseryManager.__aenter__`` sets
+  ``_scope`` and ``_nursery``. Also check inheritance and any need to patch
+  individual instances before changing an existing class' slots setting.
+  attrs' `slotted classes documentation
+  <https://www.attrs.org/en/stable/glossary.html#slotted-classes>`__ describes
+  the restrictions.
+
+* Use ``@attrs.frozen`` for records whose fields should not be reassigned,
+  such as :class:`trio.MemoryChannelStatistics`. This freezes the fields,
+  not objects stored in them: a list inside a frozen instance can still be
+  mutated. Stateful objects such as cancel scopes instead need mutable
+  fields. See the `attrs API reference
+  <https://www.attrs.org/en/stable/api.html#attrs.define>`__ for the interaction
+  between freezing, equality, and hashing.
+
+
 .. _pull-request-formatting:
 
 Code formatting
