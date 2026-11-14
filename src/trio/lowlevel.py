@@ -36,6 +36,7 @@ from ._core import (
     currently_ki_protected as currently_ki_protected,
     disable_ki_protection as disable_ki_protection,
     enable_ki_protection as enable_ki_protection,
+    hold_autojump as hold_autojump,
     in_trio_run as in_trio_run,
     in_trio_task as in_trio_task,
     notify_closing as notify_closing,
