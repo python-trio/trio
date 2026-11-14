@@ -1,0 +1,3 @@
+Tasks moved into an already broken `trio.lowlevel.ParkingLot` by
+`~trio.lowlevel.ParkingLot.repark` or `~trio.lowlevel.ParkingLot.repark_all`
+now raise `trio.BrokenResourceError` instead of remaining blocked.

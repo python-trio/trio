@@ -256,6 +256,9 @@ class ParkingLot:
         If there are fewer than ``count`` tasks parked, then reparks as many
         tasks as are available and then returns successfully.
 
+        If ``new_lot`` is broken, the moved tasks' calls to :meth:`park`
+        raise :exc:`trio.BrokenResourceError` instead.
+
         Args:
           new_lot (ParkingLot): the parking lot to move tasks to.
           count (int|math.inf): the number of tasks to move.
@@ -264,8 +267,18 @@ class ParkingLot:
         if not isinstance(new_lot, ParkingLot):
             raise TypeError("new_lot must be a ParkingLot")
         for task in self._pop_several(count):
-            new_lot._parked[task] = None
-            task.custom_sleep_data = new_lot
+            if new_lot.broken_by:
+                _core.reschedule(
+                    task,
+                    outcome.Error(
+                        _core.BrokenResourceError(
+                            f"Attempted to repark in parking lot broken by {new_lot.broken_by}",
+                        ),
+                    ),
+                )
+            else:
+                new_lot._parked[task] = None
+                task.custom_sleep_data = new_lot
 
     def repark_all(self, new_lot: ParkingLot) -> None:
         """Move all parked tasks from one :class:`ParkingLot` object to
