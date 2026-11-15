@@ -1,0 +1,1 @@
+Deprecate using `None` for `open_tcp_stream`'s ``happy_eyeball_delay``. Instead, you can pass ``0.25``.

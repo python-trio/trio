@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from contextlib import contextmanager, suppress
+from math import isnan
 from typing import TYPE_CHECKING
 
 import trio
 from trio.socket import SOCK_STREAM, SocketType, getaddrinfo, socket
+
+from ._deprecate import warn_deprecated
 
 if TYPE_CHECKING:
     from collections.abc import Generator, MutableSequence
@@ -182,7 +185,7 @@ async def open_tcp_stream(
     host: str | bytes,
     port: int,
     *,
-    happy_eyeballs_delay: float | None = DEFAULT_DELAY,
+    happy_eyeballs_delay: float = DEFAULT_DELAY,
     local_address: str | None = None,
 ) -> trio.SocketStream:
     """Connect to the given host and port over TCP.
@@ -222,9 +225,9 @@ async def open_tcp_stream(
 
       port (int): The port to connect to.
 
-      happy_eyeballs_delay (float or None): How many seconds to wait for each
+      happy_eyeballs_delay (float or int): How many seconds to wait for each
           connection attempt to succeed or fail before getting impatient and
-          starting another one in parallel. Set to `None` if you want
+          starting another one in parallel. Set to `math.inf` if you want
           to limit to only one connection attempt at a time (like
           :func:`socket.create_connection`). Default: 0.25 (250 ms).
 
@@ -261,9 +264,16 @@ async def open_tcp_stream(
         raise ValueError(f"host must be str or bytes, not {host!r}")
     if not isinstance(port, int):
         raise TypeError(f"port must be int, not {port!r}")
-
-    if happy_eyeballs_delay is None:
+    if not isinstance(happy_eyeballs_delay, (int, float)):
+        warn_deprecated(
+            "non-int, non-float happy_eyeballs_delay",
+            version="0.36.0",
+            instead="pass `math.inf` or 0.25",
+            issue="3588",
+        )
         happy_eyeballs_delay = DEFAULT_DELAY
+    if isnan(happy_eyeballs_delay):
+        raise ValueError("happy eyeballs delay must not be NaN")
 
     targets = await getaddrinfo(host, port, type=SOCK_STREAM)
 

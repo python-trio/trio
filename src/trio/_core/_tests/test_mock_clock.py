@@ -34,16 +34,22 @@ def test_mock_clock() -> None:
         c.rate = -1
     assert c.rate == 0
 
-    with pytest.raises(
-        ValueError, match=r"^rate must be a non-negative number, not nan$"
-    ):
+    with pytest.raises(ValueError, match=r"^rate must not be NaN$"):
         c.rate = float("nan")
     assert c.rate == 0
 
-    with pytest.raises(
-        ValueError, match=r"^rate must be a non-negative number, not nan$"
-    ):
+    with pytest.raises(ValueError, match=r"^rate must not be NaN$"):
         MockClock(rate=float("nan"))
+
+    with pytest.raises(ValueError, match=r"^autojump_threshold must not be NaN$"):
+        c.autojump_threshold = float("nan")
+    assert c.autojump_threshold == inf
+
+    with pytest.raises(ValueError, match=r"^autojump_threshold must not be NaN$"):
+        MockClock(autojump_threshold=float("nan"))
+
+    with pytest.raises(ValueError, match=r"^time must not be NaN$"):
+        c.jump(float("nan"))
 
     c.rate = 2
     assert c.current_time() == 1.2

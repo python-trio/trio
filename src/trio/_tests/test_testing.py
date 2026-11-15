@@ -107,6 +107,11 @@ async def test_wait_all_tasks_blocked_with_cushion() -> None:
     ]
 
 
+async def test_wait_all_tasks_blocked_with_nan_cushion() -> None:
+    with pytest.raises(ValueError, match=r"^cushion must not be NaN$"):
+        await wait_all_tasks_blocked(float("nan"))
+
+
 ################################################################
 
 
