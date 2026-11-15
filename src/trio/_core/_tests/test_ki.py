@@ -33,8 +33,7 @@ if TYPE_CHECKING:
         Iterator,
     )
     from types import AsyncGeneratorType
-
-    from typing_extensions import Never
+    from typing import Never
 
     from ..._core import Abort, RaiseCancelT
 

@@ -1,10 +1,9 @@
 import os
 import sys
 from collections.abc import Sequence
-from typing import TypeAlias
+from typing import TypeAlias, assert_type
 
 import trio
-from typing_extensions import assert_type
 
 StrOrBytesPath: TypeAlias = str | bytes | os.PathLike[str] | os.PathLike[bytes]
 
