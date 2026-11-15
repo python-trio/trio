@@ -14,7 +14,7 @@ from signal import Signals
 from typing import (
     TYPE_CHECKING,
     Any,
-    NoReturn,
+    Never,
     TypeAlias,
 )
 from unittest import mock
@@ -690,7 +690,7 @@ def test_bad_deliver_cancel() -> None:
 async def test_warn_on_failed_cancel_terminate(monkeypatch: pytest.MonkeyPatch) -> None:
     original_terminate = Process.terminate
 
-    def broken_terminate(self: Process) -> NoReturn:
+    def broken_terminate(self: Process) -> Never:
         original_terminate(self)
         raise OSError("whoops")
 

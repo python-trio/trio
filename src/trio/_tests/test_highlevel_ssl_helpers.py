@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import partial
-from typing import TYPE_CHECKING, NoReturn, cast
+from typing import TYPE_CHECKING, Never, cast
 
 import attrs
 import pytest
@@ -61,7 +61,7 @@ class FakeHostnameResolver(trio.abc.HostnameResolver):
         self,
         sockaddr: tuple[str, int] | tuple[str, int, int, int],
         flags: int,
-    ) -> NoReturn:  # pragma: no cover
+    ) -> Never:  # pragma: no cover
         raise NotImplementedError
 
 

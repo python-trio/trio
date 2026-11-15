@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import signal
-from typing import TYPE_CHECKING, NoReturn
+from typing import TYPE_CHECKING, Never
 
 import pytest
 
@@ -169,7 +169,7 @@ async def test_catch_signals_race_condition_on_exit() -> None:
 
     # Check exception chaining if there are multiple exception-raising
     # handlers
-    def raise_handler(signum: int, frame: FrameType | None) -> NoReturn:
+    def raise_handler(signum: int, frame: FrameType | None) -> Never:
         raise RuntimeError(signum)
 
     with _signal_handler({signal.SIGILL, signal.SIGFPE}, raise_handler):

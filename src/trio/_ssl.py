@@ -4,7 +4,15 @@ import contextlib
 import operator as _operator
 import ssl as _stdlib_ssl
 from enum import Enum as _Enum
-from typing import TYPE_CHECKING, Any, ClassVar, Final as TFinal, Generic, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Final as TFinal,
+    Generic,
+    TypeVar,
+    TypeVarTuple,
+)
 
 import trio
 
@@ -16,8 +24,6 @@ from .abc import Listener, Stream
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
-
-    from typing_extensions import TypeVarTuple, Unpack
 
     Ts = TypeVarTuple("Ts")
 
@@ -229,7 +235,7 @@ class _Once:
     def __init__(
         self,
         afn: Callable[[*Ts], Awaitable[object]],
-        *args: Unpack[Ts],
+        *args: *Ts,
     ) -> None:
         self._afn = afn
         self._args = args
@@ -468,7 +474,7 @@ class SSLStream(Stream, Generic[T_Stream]):
     async def _retry(
         self,
         fn: Callable[[*Ts], T],
-        *args: Unpack[Ts],
+        *args: *Ts,
         ignore_want_read: bool = False,
         is_handshake: bool = False,
     ) -> T | None:

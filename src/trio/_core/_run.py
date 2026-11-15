@@ -18,8 +18,10 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Final,
-    NoReturn,
+    Never,
     Protocol,
+    Self,
+    TypeVarTuple,
     cast,
     overload,
 )
@@ -57,10 +59,6 @@ from ._traps import (
     wait_task_rescheduled,
 )
 
-if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup
-
-
 if TYPE_CHECKING:
     import contextvars
     import types
@@ -75,7 +73,7 @@ if TYPE_CHECKING:
 
     # for some strange reason Sphinx works with outcome.Outcome, but not Outcome, in
     # start_guest_run. Same with types.FrameType in iter_await_frames
-    from typing_extensions import Self, TypeVar, TypeVarTuple, Unpack
+    from typing_extensions import TypeVar
 
     PosArgT = TypeVarTuple("PosArgT")
     StatusT = TypeVar("StatusT", default=None)
@@ -156,7 +154,7 @@ def _count_context_run_tb_frames() -> int:
 
     """
 
-    def function_with_unique_name_xyzzy() -> NoReturn:
+    def function_with_unique_name_xyzzy() -> Never:
         try:
             1 / 0  # noqa: B018  # We need a ZeroDivisionError to fire
         except ZeroDivisionError:
@@ -1126,7 +1124,7 @@ class NurseryManager:
     # make sure these raise errors in static analysis if called
     if not TYPE_CHECKING:
 
-        def __enter__(self) -> NoReturn:
+        def __enter__(self) -> Never:
             raise RuntimeError(
                 "use 'async with open_nursery(...)', not 'with open_nursery(...)'",
             )
@@ -1136,7 +1134,7 @@ class NurseryManager:
             exc_type: type[BaseException] | None,
             exc_value: BaseException | None,
             traceback: TracebackType | None,
-        ) -> NoReturn:  # pragma: no cover
+        ) -> Never:  # pragma: no cover
             raise AssertionError("Never called, but should be defined")
 
 
@@ -1339,8 +1337,8 @@ class Nursery(metaclass=NoPublicConstructor):
 
     def start_soon(
         self,
-        async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
-        *args: Unpack[PosArgT],
+        async_fn: Callable[[*PosArgT], Awaitable[object]],
+        *args: *PosArgT,
         name: object = None,
     ) -> None:
         """Creates a child task, scheduling ``await async_fn(*args)``.
@@ -1650,7 +1648,7 @@ class Task(metaclass=NoPublicConstructor):  # type: ignore[explicit-any]
 
         reason = self._cancel_status._scope._cancel_reason
 
-        def raise_cancel() -> NoReturn:
+        def raise_cancel() -> Never:
             if reason is None:
                 raise Cancelled._create(source="unknown", reason="misnesting")
             else:
@@ -1667,7 +1665,7 @@ class Task(metaclass=NoPublicConstructor):  # type: ignore[explicit-any]
         if self._abort_func is None:
             return
 
-        def raise_cancel() -> NoReturn:
+        def raise_cancel() -> Never:
             self._runner.ki_pending = False
             raise KeyboardInterrupt
 
@@ -1932,8 +1930,8 @@ class Runner:  # type: ignore[explicit-any]
 
     def spawn_impl(
         self,
-        async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
-        args: tuple[Unpack[PosArgT]],
+        async_fn: Callable[[*PosArgT], Awaitable[object]],
+        args: tuple[*PosArgT],
         nursery: Nursery | None,
         name: object,
         *,
@@ -2076,8 +2074,8 @@ class Runner:  # type: ignore[explicit-any]
     @_public
     def spawn_system_task(
         self,
-        async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
-        *args: Unpack[PosArgT],
+        async_fn: Callable[[*PosArgT], Awaitable[object]],
+        *args: *PosArgT,
         name: object = None,
         context: contextvars.Context | None = None,
     ) -> Task:
@@ -2143,8 +2141,8 @@ class Runner:  # type: ignore[explicit-any]
 
     async def init(
         self,
-        async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
-        args: tuple[Unpack[PosArgT]],
+        async_fn: Callable[[*PosArgT], Awaitable[object]],
+        args: tuple[*PosArgT],
     ) -> None:
         # run_sync_soon task runs here:
         async with open_nursery() as run_sync_soon_nursery:
@@ -2422,8 +2420,8 @@ def setup_runner(
 
 
 def run(
-    async_fn: Callable[[Unpack[PosArgT]], Awaitable[RetT]],
-    *args: Unpack[PosArgT],
+    async_fn: Callable[[*PosArgT], Awaitable[RetT]],
+    *args: *PosArgT,
     clock: Clock | None = None,
     instruments: Sequence[Instrument] = (),
     restrict_keyboard_interrupt_to_checkpoints: bool = False,
@@ -2712,8 +2710,8 @@ _MAX_TIMEOUT: Final = 24 * 60 * 60
 @enable_ki_protection
 def unrolled_run(
     runner: Runner,
-    async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
-    args: tuple[Unpack[PosArgT]],
+    async_fn: Callable[[*PosArgT], Awaitable[object]],
+    args: tuple[*PosArgT],
     host_uses_signal_set_wakeup_fd: bool = False,
 ) -> Generator[float, EventResult, None]:
     __tracebackhide__ = True

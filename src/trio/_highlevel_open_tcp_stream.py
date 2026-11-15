@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 from contextlib import contextmanager, suppress
 from typing import TYPE_CHECKING
 
@@ -12,9 +11,6 @@ if TYPE_CHECKING:
     from socket import AddressFamily, SocketKind
 
     from trio._socket import AddressFormat, _GetAddrInfoEntry
-
-if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup, ExceptionGroup
 
 
 # Implementation of RFC 6555 "Happy eyeballs"

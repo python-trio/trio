@@ -17,7 +17,7 @@ import struct
 import warnings
 import weakref
 from itertools import count
-from typing import TYPE_CHECKING, Generic, TypeAlias, TypeVar
+from typing import TYPE_CHECKING, Generic, Self, TypeAlias, TypeVar, TypeVarTuple
 from weakref import ReferenceType, WeakValueDictionary
 
 import attrs
@@ -32,7 +32,6 @@ if TYPE_CHECKING:
 
     # See DTLSEndpoint.__init__ for why this is imported here
     from OpenSSL import SSL  # noqa: TC004
-    from typing_extensions import Self, TypeVarTuple, Unpack
 
     from trio._socket import AddressFormat
     from trio.socket import SocketType
@@ -1272,8 +1271,8 @@ class DTLSEndpoint:
     async def serve(
         self,
         ssl_context: SSL.Context,
-        async_fn: Callable[[DTLSChannel, Unpack[PosArgsT]], Awaitable[object]],
-        *args: Unpack[PosArgsT],
+        async_fn: Callable[[DTLSChannel, *PosArgsT], Awaitable[object]],
+        *args: *PosArgsT,
         task_status: trio.TaskStatus[None] = trio.TASK_STATUS_IGNORED,
     ) -> None:
         """Listen for incoming connections, and spawn a handler for each using an

@@ -6,10 +6,7 @@ from collections.abc import AsyncGenerator, Callable  # noqa: TC003  # Needed fo
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from functools import wraps
 from math import inf
-from typing import (
-    TYPE_CHECKING,
-    Generic,
-)
+from typing import TYPE_CHECKING, Generic, ParamSpec, Self
 
 import attrs
 from outcome import Error, Value
@@ -25,13 +22,8 @@ from ._util import (
     raise_single_exception_from_group,
 )
 
-if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup
-
 if TYPE_CHECKING:
     from types import TracebackType
-
-    from typing_extensions import ParamSpec, Self
 
     P = ParamSpec("P")
 elif "sphinx.ext.autodoc" in sys.modules:
@@ -583,11 +575,10 @@ def as_safe_channel(
             except MultipleExceptionError:
                 # In case user has except* we make it possible for them to handle the
                 # exceptions.
-                if sys.version_info >= (3, 11):
-                    eg.add_note(
-                        "Encountered exception during cleanup of generator object, as "
-                        "well as exception in the contextmanager body - unable to unwrap."
-                    )
+                eg.add_note(
+                    "Encountered exception during cleanup of generator object, as "
+                    "well as exception in the contextmanager body - unable to unwrap."
+                )
 
                 raise eg from None
 

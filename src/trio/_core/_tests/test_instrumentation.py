@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, NoReturn
+from typing import TYPE_CHECKING, Never
 
 import attrs
 import pytest
@@ -184,7 +184,7 @@ def test_instruments_crash(caplog: pytest.LogCaptureFixture) -> None:
     record = []
 
     class BrokenInstrument(_abc.Instrument):
-        def task_scheduled(self, task: Task) -> NoReturn:
+        def task_scheduled(self, task: Task) -> Never:
             record.append("scheduled")
             raise ValueError("oops")
 
@@ -249,11 +249,11 @@ def test_instruments_monkeypatch() -> None:
 
 def test_instrument_that_raises_on_getattr() -> None:
     class EvilInstrument(_abc.Instrument):
-        def task_exited(self, task: Task) -> NoReturn:
+        def task_exited(self, task: Task) -> Never:
             raise AssertionError("this should never happen")  # pragma: no cover
 
         @property
-        def after_run(self) -> NoReturn:
+        def after_run(self) -> Never:
             raise ValueError("oops")
 
     async def main() -> None:

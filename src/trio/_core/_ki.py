@@ -3,7 +3,7 @@ from __future__ import annotations
 import signal
 import sys
 import weakref
-from typing import TYPE_CHECKING, Generic, Protocol, TypeGuard, TypeVar
+from typing import TYPE_CHECKING, Generic, Protocol, Self, TypeGuard, TypeVar
 
 import attrs
 
@@ -14,7 +14,6 @@ if TYPE_CHECKING:
     import types
     from collections.abc import Callable
 
-    from typing_extensions import Self
 # In ordinary single-threaded Python code, when you hit control-C, it raises
 # an exception and automatically does all the regular unwinding stuff.
 #

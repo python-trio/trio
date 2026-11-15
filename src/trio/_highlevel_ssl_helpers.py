@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import ssl
-from typing import TYPE_CHECKING, NoReturn, TypeVar
+from typing import TYPE_CHECKING, Never, TypeVar
 
 import trio
 
@@ -117,7 +117,7 @@ async def serve_ssl_over_tcp(
     task_status: trio.TaskStatus[
         list[trio.SSLListener[SocketStream]]
     ] = trio.TASK_STATUS_IGNORED,
-) -> NoReturn:
+) -> Never:
     """Listen for incoming TCP connections, and for each one start a task
     running ``handler(stream)``.
 

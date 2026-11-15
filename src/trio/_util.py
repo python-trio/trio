@@ -9,8 +9,9 @@ from collections.abc import Awaitable, Callable, Sequence
 from typing import (
     TYPE_CHECKING,
     Any,
-    NoReturn,
+    Never,
     TypeVar,
+    TypeVarTuple,
     final as std_final,
 )
 
@@ -24,13 +25,7 @@ T = TypeVar("T")
 RetT = TypeVar("RetT")
 
 if TYPE_CHECKING:
-    import sys
     from types import AsyncGeneratorType, TracebackType
-
-    from typing_extensions import TypeVarTuple, Unpack
-
-    if sys.version_info < (3, 11):
-        from exceptiongroup import BaseExceptionGroup
 
     PosArgsT = TypeVarTuple("PosArgsT")
 
@@ -57,9 +52,9 @@ def is_main_thread() -> bool:
 # errors for common mistakes. Returns coroutine object.
 ######
 def coroutine_or_error(
-    async_fn: Callable[[Unpack[PosArgsT]], Awaitable[RetT]],
-    *args: Unpack[PosArgsT],
-) -> collections.abc.Coroutine[object, NoReturn, RetT]:
+    async_fn: Callable[[*PosArgsT], Awaitable[RetT]],
+    *args: *PosArgsT,
+) -> collections.abc.Coroutine[object, Never, RetT]:
     def _return_value_looks_like_wrong_library(value: object) -> bool:
         # Returned by legacy @asyncio.coroutine functions, which includes
         # a surprising proportion of asyncio builtins.
@@ -228,7 +223,7 @@ def fixup_module_metadata(
             fix_one(objname, objname, obj)
 
 
-def _init_final_cls(cls: type[object]) -> NoReturn:
+def _init_final_cls(cls: type[object]) -> Never:
     """Raises an exception when a final class is subclassed."""
     raise TypeError(f"{cls.__module__}.{cls.__qualname__} does not support subclassing")
 
@@ -291,7 +286,7 @@ class NoPublicConstructor(ABCMeta):
         return super().__call__(*args, **kwargs)  # type: ignore
 
 
-def name_asyncgen(agen: AsyncGeneratorType[object, NoReturn]) -> str:
+def name_asyncgen(agen: AsyncGeneratorType[object, Never]) -> str:
     """Return the fully-qualified name of the async generator function
     that produced the async generator iterator *agen*.
     """
@@ -323,7 +318,7 @@ else:
     from functools import wraps  # noqa: F401  # this is re-exported
 
 
-def raise_saving_context(exc: BaseException) -> NoReturn:
+def raise_saving_context(exc: BaseException) -> Never:
     """This helper allows re-raising an exception without __context__ being set."""
     # cause does not need special handling, we simply avoid using `raise .. from ..`
     # __suppress_context__ also does not need handling, it's only set if modifying cause
@@ -343,7 +338,7 @@ class MultipleExceptionError(Exception):
 
 def raise_single_exception_from_group(
     eg: BaseExceptionGroup[BaseException],
-) -> NoReturn:
+) -> Never:
     """This function takes an exception group that is assumed to have at most
     one non-cancelled exception, which it reraises as a standalone exception.
 

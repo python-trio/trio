@@ -16,7 +16,7 @@ from contextlib import (
     suppress,
 )
 from math import inf, nan
-from typing import TYPE_CHECKING, NoReturn, TypeVar
+from typing import TYPE_CHECKING, Never, TypeVar
 from unittest import mock
 
 import outcome
@@ -49,9 +49,6 @@ if TYPE_CHECKING:
         Callable,
         Generator,
     )
-
-if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup, ExceptionGroup
 
 
 T = TypeVar("T")
@@ -95,7 +92,7 @@ def test_basic() -> None:
 
 
 def test_initial_task_error() -> None:
-    async def main(x: object) -> NoReturn:
+    async def main(x: object) -> Never:
         raise ValueError(x)
 
     with pytest.raises(ValueError, match=r"^17$") as excinfo:
@@ -140,7 +137,7 @@ async def test_nursery_main_block_error_basic() -> None:
 async def test_child_crash_basic() -> None:
     my_exc = ValueError("uh oh")
 
-    async def erroring() -> NoReturn:
+    async def erroring() -> Never:
         raise my_exc
 
     with pytest.RaisesGroup(pytest.RaisesExc(check=lambda e: e is my_exc)):
@@ -177,7 +174,7 @@ def test_task_crash_propagation() -> None:
             print("looper cancelled")
             looper_record.append("cancelled")
 
-    async def crasher() -> NoReturn:
+    async def crasher() -> Never:
         raise ValueError("argh")
 
     async def main() -> None:
@@ -194,10 +191,10 @@ def test_task_crash_propagation() -> None:
 def test_main_and_task_both_crash() -> None:
     # If main crashes and there's also a task crash, then we get both in an
     # ExceptionGroup
-    async def crasher() -> NoReturn:
+    async def crasher() -> Never:
         raise ValueError
 
-    async def main() -> NoReturn:
+    async def main() -> Never:
         async with _core.open_nursery() as nursery:
             nursery.start_soon(crasher)
             raise KeyError
@@ -207,7 +204,7 @@ def test_main_and_task_both_crash() -> None:
 
 
 def test_two_child_crashes() -> None:
-    async def crasher(etype: type[Exception]) -> NoReturn:
+    async def crasher(etype: type[Exception]) -> Never:
         raise etype
 
     async def main() -> None:
@@ -220,7 +217,7 @@ def test_two_child_crashes() -> None:
 
 
 async def test_child_crash_wakes_parent() -> None:
-    async def crasher() -> NoReturn:
+    async def crasher() -> Never:
         raise ValueError("this is a crash")
 
     with pytest.RaisesGroup(pytest.RaisesExc(ValueError, match="^this is a crash$")):
@@ -457,7 +454,7 @@ async def test_cancel_edge_cases() -> None:
 
 
 async def test_cancel_scope_exceptiongroup_filtering() -> None:
-    async def crasher() -> NoReturn:
+    async def crasher() -> Never:
         raise KeyError
 
     # This is outside the outer scope, so all the Cancelled
@@ -1084,7 +1081,7 @@ async def test_spawn_system_task() -> None:
 
 # intentionally make a system task crash
 def test_system_task_crash() -> None:
-    async def crasher() -> NoReturn:
+    async def crasher() -> Never:
         raise KeyError
 
     async def main() -> None:
@@ -1096,10 +1093,10 @@ def test_system_task_crash() -> None:
 
 
 def test_system_task_crash_ExceptionGroup() -> None:
-    async def crasher1() -> NoReturn:
+    async def crasher1() -> Never:
         raise KeyError
 
-    async def crasher2() -> NoReturn:
+    async def crasher2() -> Never:
         raise ValueError
 
     async def system_task() -> None:
@@ -1158,7 +1155,7 @@ def test_system_task_crash_plus_Cancelled() -> None:
 
 
 def test_system_task_crash_KeyboardInterrupt() -> None:
-    async def ki() -> NoReturn:
+    async def ki() -> Never:
         raise KeyboardInterrupt
 
     async def main() -> None:
@@ -1395,7 +1392,7 @@ async def test_exception_chaining_after_throw_to_inner() -> None:
 
 
 async def test_nursery_exception_chaining_doesnt_make_context_loops() -> None:
-    async def crasher() -> NoReturn:
+    async def crasher() -> Never:
         raise KeyError
 
     # the ExceptionGroup should not have the KeyError or ValueError as context
@@ -2195,7 +2192,7 @@ async def test_nursery_explicit_exception() -> None:
 
 
 async def test_nursery_stop_iteration() -> None:
-    async def fail() -> NoReturn:
+    async def fail() -> Never:
         raise ValueError
 
     with pytest.RaisesGroup(StopIteration, ValueError):
@@ -2262,7 +2259,7 @@ async def test_nursery_stop_async_iteration() -> None:
 
 
 async def test_traceback_frame_removal() -> None:
-    async def my_child_task() -> NoReturn:
+    async def my_child_task() -> Never:
         raise KeyError()
 
     def check_traceback(exc: KeyError) -> bool:
@@ -2614,7 +2611,7 @@ async def test_simple_cancel_scope_usage_doesnt_create_cyclic_garbage() -> None:
             cscope.cancel()
             await sleep_forever()
 
-    async def crasher() -> NoReturn:
+    async def crasher() -> Never:
         raise ValueError("this is a crash")
 
     old_flags = gc.get_debug()
@@ -2651,7 +2648,7 @@ async def test_cancel_scope_exit_doesnt_create_cyclic_garbage() -> None:
     # https://github.com/python-trio/trio/pull/2063
     gc.collect()
 
-    async def crasher() -> NoReturn:
+    async def crasher() -> Never:
         raise ValueError("this is a crash")
 
     old_flags = gc.get_debug()
@@ -2767,7 +2764,7 @@ def test_setting_strict_exception_groups(
     setting of strict_exception_groups.
     """
 
-    async def raise_error() -> NoReturn:
+    async def raise_error() -> Never:
         raise RuntimeError("test error")
 
     async def main() -> None:
@@ -2806,7 +2803,7 @@ async def test_nursery_collapse(strict: bool | None) -> None:
     depending on strict_exception_groups value when CancelledErrors are stripped from it.
     """
 
-    async def raise_error() -> NoReturn:
+    async def raise_error() -> Never:
         raise RuntimeError("test error")
 
     # mypy requires explicit type for conditional expression
@@ -2951,15 +2948,8 @@ async def test_internal_error_old_nursery_multiple_tasks() -> None:
     assert pytest.RaisesGroup(ValueError, ValueError).matches(excinfo.value.__cause__)
 
 
-if sys.version_info >= (3, 11):
-
-    def no_other_refs() -> list[object]:
-        return []
-
-else:
-
-    def no_other_refs() -> list[object]:
-        return [sys._getframe(1)]
+def no_other_refs() -> list[object]:
+    return []
 
 
 @pytest.mark.skipif(

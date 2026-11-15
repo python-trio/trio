@@ -3,7 +3,7 @@ from __future__ import annotations
 import signal
 from collections import OrderedDict
 from contextlib import contextmanager
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Self
 
 import trio
 
@@ -13,7 +13,6 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable, Generator, Iterable
     from types import FrameType
 
-    from typing_extensions import Self
 
 # Discussion of signal handling strategies:
 #

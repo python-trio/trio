@@ -4,7 +4,7 @@ import errno
 import logging
 import os
 from collections.abc import Awaitable, Callable
-from typing import Any, NoReturn, TypeVar
+from typing import Any, Never, TypeVar
 
 import trio
 
@@ -40,7 +40,7 @@ async def _serve_one_listener(
     listener: trio.abc.Listener[StreamT],
     handler_nursery: trio.Nursery,
     handler: Handler[StreamT],
-) -> NoReturn:
+) -> Never:
     async with listener:
         while True:
             try:
@@ -73,7 +73,7 @@ async def serve_listeners(  # type: ignore[explicit-any]
     *,
     handler_nursery: trio.Nursery | None = None,
     task_status: trio.TaskStatus[list[ListenerT]] = trio.TASK_STATUS_IGNORED,
-) -> NoReturn:
+) -> Never:
     r"""Listen for incoming connections on ``listeners``, and for each one
     start a task running ``handler(stream)``.
 

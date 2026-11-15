@@ -14,7 +14,7 @@ import ipaddress
 import os
 import socket
 import sys
-from typing import TYPE_CHECKING, Any, NoReturn, TypeAlias, overload
+from typing import TYPE_CHECKING, Any, Never, Self, TypeAlias, overload
 
 import attrs
 
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from socket import AddressFamily, SocketKind
     from types import TracebackType
 
-    from typing_extensions import Buffer, Self
+    from typing_extensions import Buffer
 
     from trio._socket import AddressFormat, _GetAddrInfoEntry
 
@@ -59,7 +59,7 @@ def _localhost_ip_for(family: int) -> IPAddress:  # pragma: no cover
     raise NotImplementedError("Unhandled ip address family")
 
 
-def _fake_err(code: int) -> NoReturn:
+def _fake_err(code: int) -> Never:
     raise OSError(code, os.strerror(code))
 
 
@@ -289,7 +289,7 @@ class FakeSocket(trio.socket.SocketType, metaclass=NoPublicConstructor):
         self._fake_net._bind(binding, self)
         self._binding = binding
 
-    async def connect(self, peer: object) -> NoReturn:
+    async def connect(self, peer: object) -> Never:
         raise NotImplementedError("FakeNet does not (yet) support connected sockets")
 
     async def _sendmsg(

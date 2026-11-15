@@ -15,6 +15,7 @@ from typing import (
     Protocol,
     TypeAlias,
     TypedDict,
+    Unpack,
     overload,
 )
 
@@ -33,8 +34,6 @@ from ._util import NoPublicConstructor, final
 if TYPE_CHECKING:
     import signal
     from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
-
-    from typing_extensions import Unpack
 
     from ._abc import ReceiveStream, SendStream
 
@@ -1120,17 +1119,11 @@ if TYPE_CHECKING:
 
         # TODO: once https://github.com/python/mypy/issues/18692 is
         #       fixed, move the `UnixRunProcessArgs` definition down.
-        if sys.version_info >= (3, 11):
-            UnixProcessArgs = UnixProcessArgs3_11
 
-            class UnixRunProcessArgs(UnixProcessArgs3_11, UnixRunProcessMixin):
-                """Arguments for run_process on Unix with 3.11+"""
+        UnixProcessArgs = UnixProcessArgs3_11
 
-        else:
-            UnixProcessArgs = UnixProcessArgs3_10
-
-            class UnixRunProcessArgs(UnixProcessArgs3_10, UnixRunProcessMixin):
-                """Arguments for run_process on Unix with 3.10+"""
+        class UnixRunProcessArgs(UnixProcessArgs3_11, UnixRunProcessMixin):
+            """Arguments for run_process on Unix with 3.11+"""
 
         @overload  # type: ignore[no-overload-impl]
         async def open_process(

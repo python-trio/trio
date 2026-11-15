@@ -8,7 +8,7 @@ import threading
 from contextlib import asynccontextmanager, contextmanager, suppress
 from functools import partial
 from ssl import SSLContext
-from typing import TYPE_CHECKING, Any, NoReturn, TypeAlias
+from typing import TYPE_CHECKING, Any, Never, TypeAlias
 
 import pytest
 
@@ -1022,7 +1022,7 @@ async def test_send_all_fails_in_the_middle(client_ctx: SSLContext) -> None:
         nursery.start_soon(client.do_handshake)
         nursery.start_soon(server.do_handshake)
 
-    async def bad_hook() -> NoReturn:
+    async def bad_hook() -> Never:
         raise KeyError
 
     client.transport_stream.send_stream.send_all_hook = bad_hook
@@ -1144,7 +1144,7 @@ async def test_ssl_only_closes_stream_once(client_ctx: SSLContext) -> None:
     client_orig_close_hook = client.transport_stream.send_stream.close_hook
     transport_close_count = 0
 
-    def close_hook() -> NoReturn:
+    def close_hook() -> Never:
         nonlocal transport_close_count
         assert client_orig_close_hook is not None
         client_orig_close_hook()
@@ -1200,7 +1200,7 @@ async def test_https_mode_eof_before_handshake(client_ctx: SSLContext) -> None:
 async def test_send_error_during_handshake(client_ctx: SSLContext) -> None:
     client, _server = ssl_memory_stream_pair(client_ctx)
 
-    async def bad_hook() -> NoReturn:
+    async def bad_hook() -> Never:
         raise KeyError
 
     client.transport_stream.send_stream.send_all_hook = bad_hook
@@ -1217,7 +1217,7 @@ async def test_send_error_during_handshake(client_ctx: SSLContext) -> None:
 async def test_receive_error_during_handshake(client_ctx: SSLContext) -> None:
     client, server = ssl_memory_stream_pair(client_ctx)
 
-    async def bad_hook() -> NoReturn:
+    async def bad_hook() -> Never:
         raise KeyError
 
     client.transport_stream.receive_stream.receive_some_hook = bad_hook

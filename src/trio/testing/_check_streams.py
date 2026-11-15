@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import random
-import sys
 from collections.abc import Awaitable, Callable, Generator
 from contextlib import contextmanager, suppress
 from typing import (
@@ -24,8 +23,6 @@ if TYPE_CHECKING:
 
     ArgsT = ParamSpec("ArgsT")
 
-if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup
 
 Res1 = TypeVar("Res1", bound=AsyncResource)
 Res2 = TypeVar("Res2", bound=AsyncResource)

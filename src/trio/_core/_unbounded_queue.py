@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import Generic, Self, TypeVar
 
 import attrs
 
@@ -9,9 +9,6 @@ from .._deprecate import deprecated
 from .._util import final
 
 T = TypeVar("T")
-
-if TYPE_CHECKING:
-    from typing_extensions import Self
 
 
 @attrs.frozen

@@ -3,7 +3,7 @@ from __future__ import annotations
 import threading
 from collections import deque
 from collections.abc import Callable
-from typing import TYPE_CHECKING, NoReturn
+from typing import TYPE_CHECKING, Never, TypeVarTuple
 
 import attrs
 
@@ -12,7 +12,6 @@ from .._util import NoPublicConstructor, final
 from ._wakeup_socketpair import WakeupSocketpair
 
 if TYPE_CHECKING:
-    from typing_extensions import TypeVarTuple, Unpack
 
     PosArgsT = TypeVarTuple("PosArgsT")
 
@@ -67,7 +66,7 @@ class EntryQueue:
 
                 async def kill_everything(  # noqa: RUF029  # await not used
                     exc: BaseException,
-                ) -> NoReturn:
+                ) -> Never:
                     raise exc
 
                 try:
@@ -129,8 +128,8 @@ class EntryQueue:
 
     def run_sync_soon(
         self,
-        sync_fn: Callable[[Unpack[PosArgsT]], object],
-        *args: Unpack[PosArgsT],
+        sync_fn: Callable[[*PosArgsT], object],
+        *args: *PosArgsT,
         idempotent: bool = False,
     ) -> None:
         with self.lock:
@@ -173,8 +172,8 @@ class TrioToken(metaclass=NoPublicConstructor):
 
     def run_sync_soon(
         self,
-        sync_fn: Callable[[Unpack[PosArgsT]], object],
-        *args: Unpack[PosArgsT],
+        sync_fn: Callable[[*PosArgsT], object],
+        *args: *PosArgsT,
         idempotent: bool = False,
     ) -> None:
         """Schedule a call to ``sync_fn(*args)`` to occur in the context of a

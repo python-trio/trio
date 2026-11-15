@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import sys
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, NoReturn
+from typing import TYPE_CHECKING, Never
 
 import trio
 
@@ -58,7 +58,7 @@ def move_on_after(
     )
 
 
-async def sleep_forever() -> NoReturn:
+async def sleep_forever() -> Never:
     """Pause execution of the current task forever (or until cancelled).
 
     Equivalent to calling ``await sleep(math.inf)``, except that if manually

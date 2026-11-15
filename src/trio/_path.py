@@ -13,6 +13,8 @@ from typing import (
     ClassVar,
     Concatenate,
     Literal,
+    ParamSpec,
+    Self,
     TypeVar,
     overload,
 )
@@ -32,7 +34,6 @@ if TYPE_CHECKING:
         OpenBinaryModeWriting,
         OpenTextMode,
     )
-    from typing_extensions import ParamSpec, Self
 
     P = ParamSpec("P")
 

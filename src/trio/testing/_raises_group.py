@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-import sys
 from abc import ABC, abstractmethod
 from re import Pattern
 from textwrap import indent
@@ -38,9 +37,6 @@ BaseExcT_1 = TypeVar("BaseExcT_1", bound=BaseException)
 BaseExcT_2 = TypeVar("BaseExcT_2", bound=BaseException)
 ExcT_1 = TypeVar("ExcT_1", bound=Exception)
 ExcT_2 = TypeVar("ExcT_2", bound=Exception)
-
-if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup, ExceptionGroup
 
 
 @final

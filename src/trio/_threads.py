@@ -6,7 +6,7 @@ import inspect
 import queue as stdlib_queue
 import threading
 from itertools import count
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar, TypeVarTuple
 
 import attrs
 import outcome
@@ -28,8 +28,6 @@ from ._util import coroutine_or_error
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Generator
-
-    from typing_extensions import TypeVarTuple, Unpack
 
     from trio._core._traps import RaiseCancelT
 
@@ -255,8 +253,8 @@ class RunSync(Generic[RetT]):  # type: ignore[explicit-any]
 
 @enable_ki_protection
 async def to_thread_run_sync(
-    sync_fn: Callable[[Unpack[Ts]], RetT],
-    *args: Unpack[Ts],
+    sync_fn: Callable[[*Ts], RetT],
+    *args: *Ts,
     thread_name: str | None = None,
     abandon_on_cancel: bool = False,
     limiter: CapacityLimiter | None = None,
@@ -529,8 +527,8 @@ def _send_message_to_trio(
 
 
 def from_thread_run(
-    afn: Callable[[Unpack[Ts]], Awaitable[RetT]],
-    *args: Unpack[Ts],
+    afn: Callable[[*Ts], Awaitable[RetT]],
+    *args: *Ts,
     trio_token: TrioToken | None = None,
 ) -> RetT:
     """Run the given async function in the parent Trio thread, blocking until it
@@ -573,8 +571,8 @@ def from_thread_run(
 
 
 def from_thread_run_sync(
-    fn: Callable[[Unpack[Ts]], RetT],
-    *args: Unpack[Ts],
+    fn: Callable[[*Ts], RetT],
+    *args: *Ts,
     trio_token: TrioToken | None = None,
 ) -> RetT:
     """Run the given sync function in the parent Trio thread, blocking until it

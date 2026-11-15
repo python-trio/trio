@@ -7,7 +7,7 @@ import time
 import warnings
 from contextlib import contextmanager
 from queue import Queue
-from typing import TYPE_CHECKING, NoReturn
+from typing import TYPE_CHECKING, Never
 
 import pytest
 
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 def test_thread_cache_basics() -> None:
     q: Queue[Outcome[object]] = Queue()
 
-    def fn() -> NoReturn:
+    def fn() -> Never:
         raise RuntimeError("hi")
 
     def deliver(outcome: Outcome[object]) -> None:
@@ -185,7 +185,7 @@ def test_raise_in_deliver(capfd: pytest.CaptureFixture[str]) -> None:
     def track_threads() -> None:
         seen_threads.add(threading.current_thread())
 
-    def deliver(_: object) -> NoReturn:
+    def deliver(_: object) -> Never:
         done.set()
         raise RuntimeError("don't do this")
 

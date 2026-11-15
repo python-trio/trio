@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import sys
 import types
 from typing import TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Coroutine, Generator
+    from collections.abc import AsyncGenerator
 import pytest
 
 import trio
@@ -27,9 +26,6 @@ from .._util import (
     raise_single_exception_from_group,
 )
 from ..testing import wait_all_tasks_blocked
-
-if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup, ExceptionGroup
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -107,20 +103,6 @@ def test_coroutine_or_error() -> None:
         with pytest.raises(TypeError) as excinfo:
             coroutine_or_error(f())  # type: ignore[arg-type, unused-coroutine]
         assert "expecting an async function" in str(excinfo.value)
-
-        import asyncio
-
-        if sys.version_info < (3, 11):
-
-            @asyncio.coroutine
-            def generator_based_coro() -> (
-                Generator[Coroutine[None, None, None], None, None]
-            ):  # pragma: no cover
-                yield from asyncio.sleep(1)
-
-            with pytest.raises(TypeError) as excinfo:
-                coroutine_or_error(generator_based_coro())  # type: ignore[arg-type, unused-coroutine]
-            assert "asyncio" in str(excinfo.value)
 
         with pytest.raises(TypeError) as excinfo:
             coroutine_or_error(create_asyncio_future_in_new_loop())  # type: ignore[arg-type, unused-coroutine]

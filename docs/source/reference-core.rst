@@ -773,45 +773,6 @@ If you want to reraise exceptions, or raise new ones, you can do so, but be awar
 exceptions raised in ``except*`` sections will be raised together in a new exception
 group.
 
-But what if you can't use Python 3.11, and therefore ``except*``, just yet?
-The same exceptiongroup_ library which backports `ExceptionGroup`  also lets
-you approximate this behavior with exception handler callbacks:
-
-.. code-block:: python
-
-    from exceptiongroup import catch
-
-    def handle_keyerrors(excgroup):
-        for exc in excgroup.exceptions:
-            ...  # handle each KeyError
-
-    def handle_indexerrors(excgroup):
-        for exc in excgroup.exceptions:
-            ...  # handle each IndexError
-
-    with catch({
-        KeyError: handle_keyerrors,
-        IndexError: handle_indexerrors
-    }):
-        async with trio.open_nursery() as nursery:
-            nursery.start_soon(broken1)
-            nursery.start_soon(broken2)
-
-The semantics for the handler functions are equal to ``except*`` blocks, except for
-setting local variables. If you need to set local variables, you need to declare them
-inside the handler function(s) with the ``nonlocal`` keyword:
-
-.. code-block:: python
-
-    def handle_keyerrors(excgroup):
-        nonlocal myflag
-        myflag = True
-
-    myflag = False
-    with catch({KeyError: handle_keyerrors}):
-        async with trio.open_nursery() as nursery:
-            nursery.start_soon(broken1)
-
 .. _handling_exception_groups:
 
 Designing for multiple errors
