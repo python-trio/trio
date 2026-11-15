@@ -3,7 +3,7 @@ from __future__ import annotations
 import threading
 from collections import deque
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Never, TypeVarTuple
+from typing import TYPE_CHECKING, Never, TypeVarTuple, Unpack
 
 import attrs
 
@@ -172,8 +172,8 @@ class TrioToken(metaclass=NoPublicConstructor):
 
     def run_sync_soon(
         self,
-        sync_fn: Callable[[*PosArgsT], object],
-        *args: *PosArgsT,
+        sync_fn: Callable[[Unpack[PosArgsT]], object],
+        *args: Unpack[PosArgsT],
         idempotent: bool = False,
     ) -> None:
         """Schedule a call to ``sync_fn(*args)`` to occur in the context of a
