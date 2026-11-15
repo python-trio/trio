@@ -1,6 +1,6 @@
 .. image:: https://img.shields.io/badge/chat-join%20now-blue.svg
-   :target: https://gitter.im/python-trio/general
-   :alt: Join chatroom
+   :target: https://trio.discourse.group
+   :alt: Join the discussion forum
 
 .. image:: https://img.shields.io/badge/forum-join%20now-blue.svg
    :target: https://trio.discourse.group
