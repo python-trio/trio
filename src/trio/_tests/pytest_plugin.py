@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import inspect
-from typing import Never
+from typing import NoReturn
 
 import pytest
 
@@ -53,7 +53,7 @@ def pytest_pyfunc_call(pyfuncitem: pytest.Function) -> None:
         pyfuncitem.obj = trio_test(pyfuncitem.obj)
 
 
-def maybe_ignore_import_error(error: ImportError) -> Never:
+def maybe_ignore_import_error(error: ImportError) -> NoReturn:
     if SKIP_OPTIONAL_IMPORTS or (SKIP_SSL_IMPORTS and error.name == "cryptography"):
         pytest.skip(error.msg, allow_module_level=True)
     else:  # pragma: no cover

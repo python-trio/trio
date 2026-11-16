@@ -6,7 +6,7 @@ import signal
 import sys
 import threading
 import weakref
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Never, TypeVar
 
 import outcome
 import pytest
@@ -33,7 +33,6 @@ if TYPE_CHECKING:
         Iterator,
     )
     from types import AsyncGeneratorType
-    from typing import Never
 
     from ..._core import Abort, RaiseCancelT
 

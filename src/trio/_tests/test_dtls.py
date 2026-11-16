@@ -3,7 +3,7 @@ from __future__ import annotations
 import random
 from contextlib import asynccontextmanager
 from itertools import count
-from typing import TYPE_CHECKING, Never
+from typing import TYPE_CHECKING, NoReturn
 
 import attrs
 import pytest
@@ -931,7 +931,7 @@ async def test_association_replaced_before_handshake_starts(
     fn.enable()
 
     # This test shouldn't send any packets
-    def route_packet(packet: UDPPacket) -> Never:  # pragma: no cover
+    def route_packet(packet: UDPPacket) -> NoReturn:  # pragma: no cover
         raise AssertionError()
 
     fn.route_packet = route_packet  # type: ignore[assignment]  # TODO add type annotations for FakeNet

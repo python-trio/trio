@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Never
+from typing import NoReturn
 
 import attrs
 import pytest
@@ -79,12 +79,12 @@ async def test_StapledStream_with_erroring_close() -> None:
     # Make sure that if one of the aclose methods errors out, then the other
     # one still gets called.
     class BrokenSendStream(RecordSendStream):
-        async def aclose(self) -> Never:
+        async def aclose(self) -> NoReturn:
             await super().aclose()
             raise ValueError("send error")
 
     class BrokenReceiveStream(RecordReceiveStream):
-        async def aclose(self) -> Never:
+        async def aclose(self) -> NoReturn:
             await super().aclose()
             raise ValueError("recv error")
 

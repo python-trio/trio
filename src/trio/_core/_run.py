@@ -18,7 +18,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Final,
-    Never,
+    NoReturn,
     Protocol,
     Self,
     TypeVarTuple,
@@ -155,7 +155,7 @@ def _count_context_run_tb_frames() -> int:
 
     """
 
-    def function_with_unique_name_xyzzy() -> Never:
+    def function_with_unique_name_xyzzy() -> NoReturn:
         try:
             1 / 0  # noqa: B018  # We need a ZeroDivisionError to fire
         except ZeroDivisionError:
@@ -1125,7 +1125,7 @@ class NurseryManager:
     # make sure these raise errors in static analysis if called
     if not TYPE_CHECKING:
 
-        def __enter__(self) -> Never:
+        def __enter__(self) -> NoReturn:
             raise RuntimeError(
                 "use 'async with open_nursery(...)', not 'with open_nursery(...)'",
             )
@@ -1135,7 +1135,7 @@ class NurseryManager:
             exc_type: type[BaseException] | None,
             exc_value: BaseException | None,
             traceback: TracebackType | None,
-        ) -> Never:  # pragma: no cover
+        ) -> NoReturn:  # pragma: no cover
             raise AssertionError("Never called, but should be defined")
 
 
@@ -1649,7 +1649,7 @@ class Task(metaclass=NoPublicConstructor):  # type: ignore[explicit-any]
 
         reason = self._cancel_status._scope._cancel_reason
 
-        def raise_cancel() -> Never:
+        def raise_cancel() -> NoReturn:
             if reason is None:
                 raise Cancelled._create(source="unknown", reason="misnesting")
             else:
@@ -1666,7 +1666,7 @@ class Task(metaclass=NoPublicConstructor):  # type: ignore[explicit-any]
         if self._abort_func is None:
             return
 
-        def raise_cancel() -> Never:
+        def raise_cancel() -> NoReturn:
             self._runner.ki_pending = False
             raise KeyboardInterrupt
 

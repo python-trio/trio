@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import enum
-from typing import TYPE_CHECKING, Never, NewType, Protocol, TypeAlias, cast
+from typing import TYPE_CHECKING, NewType, NoReturn, Protocol, TypeAlias, cast
 
 if TYPE_CHECKING:
     import cffi
@@ -294,7 +294,7 @@ def raise_winerror(
     *,
     filename: str | None = None,
     filename2: str | None = None,
-) -> Never:
+) -> NoReturn:
     # assert sys.platform == "win32"  # TODO: make this work in MyPy
     # ... in the meanwhile, ffi.getwinerror() is undefined on non-Windows, necessitating the type
     # ignores.

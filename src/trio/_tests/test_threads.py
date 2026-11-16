@@ -10,7 +10,7 @@ import weakref
 from functools import partial
 from typing import (
     TYPE_CHECKING,
-    Never,
+    NoReturn,
     TypeVar,
 )
 
@@ -87,7 +87,7 @@ async def test_do_in_trio_thread() -> None:
 
     await check_case(from_thread_run_sync, f1, ("got", 2), trio_token=token)
 
-    def f2(record: RecordType) -> Never:
+    def f2(record: RecordType) -> NoReturn:
         assert not _core.currently_ki_protected()
         record.append(("f", threading.current_thread()))
         raise ValueError
@@ -102,7 +102,7 @@ async def test_do_in_trio_thread() -> None:
 
     await check_case(from_thread_run, f3, ("got", 3), trio_token=token)
 
-    async def f4(record: RecordType) -> Never:
+    async def f4(record: RecordType) -> NoReturn:
         assert not _core.currently_ki_protected()
         await _core.checkpoint()
         record.append(("f", threading.current_thread()))
@@ -327,7 +327,7 @@ async def test_run_in_worker_thread() -> None:
     assert x == 1
     assert child_thread != trio_thread
 
-    def g() -> Never:
+    def g() -> NoReturn:
         raise ValueError(threading.current_thread())
 
     with pytest.raises(
@@ -583,7 +583,7 @@ async def test_run_in_worker_thread_limiter_error() -> None:
         async def acquire_on_behalf_of(self, borrower: Task) -> None:
             record.append("acquire")
 
-        def release_on_behalf_of(self, borrower: Task) -> Never:
+        def release_on_behalf_of(self, borrower: Task) -> NoReturn:
             record.append("release")
             raise ValueError("release on behalf")
 
@@ -608,7 +608,7 @@ async def test_run_in_worker_thread_fail_to_spawn(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # Test the unlikely but possible case where trying to spawn a thread fails
-    def bad_start(self: object, *args: object) -> Never:
+    def bad_start(self: object, *args: object) -> NoReturn:
         raise RuntimeError("the engines canna take it captain")
 
     monkeypatch.setattr(_core._thread_cache.ThreadCache, "start_thread_soon", bad_start)

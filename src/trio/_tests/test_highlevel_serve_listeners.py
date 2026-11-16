@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import errno
 from functools import partial
-from typing import TYPE_CHECKING, Never, cast
+from typing import TYPE_CHECKING, NoReturn, cast
 
 import attrs
 import pytest
@@ -113,7 +113,7 @@ async def test_serve_listeners_accept_unrecognized_error() -> None:
     for error in [KeyError(), OSError(errno.ECONNABORTED, "ECONNABORTED")]:
         listener = MemoryListener()
 
-        async def raise_error() -> Never:
+        async def raise_error() -> NoReturn:
             raise error  # noqa: B023  # Set from loop
 
         def check_error(e: BaseException) -> bool:
@@ -131,7 +131,7 @@ async def test_serve_listeners_accept_capacity_error(
 ) -> None:
     listener = MemoryListener()
 
-    async def raise_EMFILE() -> Never:
+    async def raise_EMFILE() -> NoReturn:
         raise OSError(errno.EMFILE, "out of file descriptors")
 
     listener.accept_hook = raise_EMFILE
@@ -161,7 +161,7 @@ async def test_serve_listeners_connection_nursery(autojump_clock: MockClock) -> 
     async def connection_watcher(
         *,
         task_status: TaskStatus[Nursery] = trio.TASK_STATUS_IGNORED,
-    ) -> Never:
+    ) -> NoReturn:
         async with trio.open_nursery() as nursery:
             task_status.started(nursery)
             await wait_all_tasks_blocked()

@@ -16,7 +16,7 @@ from functools import partial
 from math import inf
 from typing import (
     TYPE_CHECKING,
-    Never,
+    NoReturn,
     TypeAlias,
     TypeVar,
     cast,
@@ -123,7 +123,7 @@ def test_guest_trivial() -> None:
 
     assert trivial_guest_run(trio_return) == "ok"
 
-    async def trio_fail(in_host: InHost) -> Never:
+    async def trio_fail(in_host: InHost) -> NoReturn:
         raise KeyError("whoopsiedaisy")
 
     with pytest.raises(KeyError, match="whoopsiedaisy"):
@@ -178,7 +178,7 @@ def test_guest_is_initialized_when_start_returns() -> None:
     assert set(record) == {"system task ran", "main task ran", "run_sync_soon cb ran"}
 
     class BadClock(Clock):
-        def start_clock(self) -> Never:
+        def start_clock(self) -> NoReturn:
             raise ValueError("whoops")
 
         def current_time(self) -> float:
@@ -645,7 +645,7 @@ def test_guest_mode_ki() -> None:
     # Also check chaining in the case where KI is injected after main exits
     final_exc = KeyError("whoa")
 
-    async def trio_main_raising(in_host: InHost) -> Never:
+    async def trio_main_raising(in_host: InHost) -> NoReturn:
         in_host(partial(signal.raise_signal, signal.SIGINT))
         raise final_exc
 

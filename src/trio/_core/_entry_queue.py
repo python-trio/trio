@@ -3,7 +3,7 @@ from __future__ import annotations
 import threading
 from collections import deque
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Never, TypeVarTuple, Unpack
+from typing import TYPE_CHECKING, NoReturn, TypeVarTuple, Unpack
 
 import attrs
 
@@ -66,7 +66,7 @@ class EntryQueue:
 
                 async def kill_everything(  # noqa: RUF029  # await not used
                     exc: BaseException,
-                ) -> Never:
+                ) -> NoReturn:
                     raise exc
 
                 try:

@@ -10,6 +10,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Never,
+    NoReturn,
     TypeVar,
     TypeVarTuple,
     Unpack,
@@ -55,7 +56,7 @@ def is_main_thread() -> bool:
 def coroutine_or_error(
     async_fn: Callable[[Unpack[PosArgsT]], Awaitable[RetT]],
     *args: Unpack[PosArgsT],
-) -> collections.abc.Coroutine[object, Never, RetT]:
+) -> collections.abc.Coroutine[object, NoReturn, RetT]:
     def _return_value_looks_like_wrong_library(value: object) -> bool:
         # Returned by legacy @asyncio.coroutine functions, which includes
         # a surprising proportion of asyncio builtins.
@@ -224,7 +225,7 @@ def fixup_module_metadata(
             fix_one(objname, objname, obj)
 
 
-def _init_final_cls(cls: type[object]) -> Never:
+def _init_final_cls(cls: type[object]) -> NoReturn:
     """Raises an exception when a final class is subclassed."""
     raise TypeError(f"{cls.__module__}.{cls.__qualname__} does not support subclassing")
 
@@ -319,7 +320,7 @@ else:
     from functools import wraps  # noqa: F401  # this is re-exported
 
 
-def raise_saving_context(exc: BaseException) -> Never:
+def raise_saving_context(exc: BaseException) -> NoReturn:
     """This helper allows re-raising an exception without __context__ being set."""
     # cause does not need special handling, we simply avoid using `raise .. from ..`
     # __suppress_context__ also does not need handling, it's only set if modifying cause
@@ -339,7 +340,7 @@ class MultipleExceptionError(Exception):
 
 def raise_single_exception_from_group(
     eg: BaseExceptionGroup[BaseException],
-) -> Never:
+) -> NoReturn:
     """This function takes an exception group that is assumed to have at most
     one non-cancelled exception, which it reraises as a standalone exception.
 
