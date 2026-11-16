@@ -159,6 +159,7 @@ extend-ignore = [
 
     # conflicts with formatter (ruff recommends these be disabled)
     "missing-trailing-comma",                 # COM812
+    "non-pep646-unpack"                       # (UP044) ignoring it for now(See: https://github.com/python-trio/trio/pull/3594#issuecomment-6898086470)
 ]
 
 [tool.ruff.lint.per-file-ignores]

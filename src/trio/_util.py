@@ -12,6 +12,7 @@ from typing import (
     Never,
     TypeVar,
     TypeVarTuple,
+    Unpack,
     final as std_final,
 )
 
@@ -52,8 +53,8 @@ def is_main_thread() -> bool:
 # errors for common mistakes. Returns coroutine object.
 ######
 def coroutine_or_error(
-    async_fn: Callable[[*PosArgsT], Awaitable[RetT]],
-    *args: *PosArgsT,
+    async_fn: Callable[[Unpack[PosArgsT]], Awaitable[RetT]],
+    *args: Unpack[PosArgsT],
 ) -> collections.abc.Coroutine[object, Never, RetT]:
     def _return_value_looks_like_wrong_library(value: object) -> bool:
         # Returned by legacy @asyncio.coroutine functions, which includes

@@ -22,6 +22,7 @@ from typing import (
     Protocol,
     Self,
     TypeVarTuple,
+    Unpack,
     cast,
     overload,
 )
@@ -1337,8 +1338,8 @@ class Nursery(metaclass=NoPublicConstructor):
 
     def start_soon(
         self,
-        async_fn: Callable[[*PosArgT], Awaitable[object]],
-        *args: *PosArgT,
+        async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
+        *args: Unpack[PosArgT],
         name: object = None,
     ) -> None:
         """Creates a child task, scheduling ``await async_fn(*args)``.
@@ -1930,8 +1931,8 @@ class Runner:  # type: ignore[explicit-any]
 
     def spawn_impl(
         self,
-        async_fn: Callable[[*PosArgT], Awaitable[object]],
-        args: tuple[*PosArgT],
+        async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
+        args: tuple[Unpack[PosArgT]],
         nursery: Nursery | None,
         name: object,
         *,
@@ -2074,8 +2075,8 @@ class Runner:  # type: ignore[explicit-any]
     @_public
     def spawn_system_task(
         self,
-        async_fn: Callable[[*PosArgT], Awaitable[object]],
-        *args: *PosArgT,
+        async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
+        *args: Unpack[PosArgT],
         name: object = None,
         context: contextvars.Context | None = None,
     ) -> Task:
@@ -2141,8 +2142,8 @@ class Runner:  # type: ignore[explicit-any]
 
     async def init(
         self,
-        async_fn: Callable[[*PosArgT], Awaitable[object]],
-        args: tuple[*PosArgT],
+        async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
+        args: tuple[Unpack[PosArgT]],
     ) -> None:
         # run_sync_soon task runs here:
         async with open_nursery() as run_sync_soon_nursery:
@@ -2422,8 +2423,8 @@ def setup_runner(
 
 
 def run(
-    async_fn: Callable[[*PosArgT], Awaitable[RetT]],
-    *args: *PosArgT,
+    async_fn: Callable[[Unpack[PosArgT]], Awaitable[RetT]],
+    *args: Unpack[PosArgT],
     clock: Clock | None = None,
     instruments: Sequence[Instrument] = (),
     restrict_keyboard_interrupt_to_checkpoints: bool = False,
@@ -2712,8 +2713,8 @@ _MAX_TIMEOUT: Final = 24 * 60 * 60
 @enable_ki_protection
 def unrolled_run(
     runner: Runner,
-    async_fn: Callable[[*PosArgT], Awaitable[object]],
-    args: tuple[*PosArgT],
+    async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
+    args: tuple[Unpack[PosArgT]],
     host_uses_signal_set_wakeup_fd: bool = False,
 ) -> Generator[float, EventResult, None]:
     __tracebackhide__ = True

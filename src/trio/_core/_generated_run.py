@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
     import outcome
+    from typing_extensions import Unpack
 
     from .._abc import Clock
     from ._entry_queue import TrioToken
@@ -127,8 +128,8 @@ def reschedule(task: Task, next_send: outcome.Outcome[object] = _NO_SEND) -> Non
 
 @enable_ki_protection
 def spawn_system_task(
-    async_fn: Callable[[*PosArgT], Awaitable[object]],
-    *args: *PosArgT,
+    async_fn: Callable[[Unpack[PosArgT]], Awaitable[object]],
+    *args: Unpack[PosArgT],
     name: object = None,
     context: contextvars.Context | None = None,
 ) -> Task:

@@ -12,6 +12,7 @@ from typing import (
     Generic,
     TypeVar,
     TypeVarTuple,
+    Unpack,
 )
 
 import trio
@@ -234,8 +235,8 @@ class _Once:
 
     def __init__(
         self,
-        afn: Callable[[*Ts], Awaitable[object]],
-        *args: *Ts,
+        afn: Callable[[Unpack[Ts]], Awaitable[object]],
+        *args: Unpack[Ts],
     ) -> None:
         self._afn = afn
         self._args = args
@@ -473,8 +474,8 @@ class SSLStream(Stream, Generic[T_Stream]):
     # too.
     async def _retry(
         self,
-        fn: Callable[[*Ts], T],
-        *args: *Ts,
+        fn: Callable[[Unpack[Ts]], T],
+        *args: Unpack[Ts],
         ignore_want_read: bool = False,
         is_handshake: bool = False,
     ) -> T | None:

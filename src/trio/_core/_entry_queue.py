@@ -128,8 +128,8 @@ class EntryQueue:
 
     def run_sync_soon(
         self,
-        sync_fn: Callable[[*PosArgsT], object],
-        *args: *PosArgsT,
+        sync_fn: Callable[[Unpack[PosArgsT]], object],
+        *args: Unpack[PosArgsT],
         idempotent: bool = False,
     ) -> None:
         with self.lock:

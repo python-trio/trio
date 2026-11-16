@@ -18,7 +18,15 @@ import warnings
 import weakref
 from itertools import count
 from math import isnan
-from typing import TYPE_CHECKING, Generic, Self, TypeAlias, TypeVar, TypeVarTuple
+from typing import (
+    TYPE_CHECKING,
+    Generic,
+    Self,
+    TypeAlias,
+    TypeVar,
+    TypeVarTuple,
+    Unpack,
+)
 from weakref import ReferenceType, WeakValueDictionary
 
 import attrs
@@ -1274,8 +1282,8 @@ class DTLSEndpoint:
     async def serve(
         self,
         ssl_context: SSL.Context,
-        async_fn: Callable[[DTLSChannel, *PosArgsT], Awaitable[object]],
-        *args: *PosArgsT,
+        async_fn: Callable[[DTLSChannel, Unpack[PosArgsT]], Awaitable[object]],
+        *args: Unpack[PosArgsT],
         task_status: trio.TaskStatus[None] = trio.TASK_STATUS_IGNORED,
     ) -> None:
         """Listen for incoming connections, and spawn a handler for each using an
