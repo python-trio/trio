@@ -224,7 +224,7 @@ class NeedHandshakeError(Exception):
 
 
 class _Once:
-    __slots__ = ("_afn", "_args", "_done", "started")
+    __slots__ = ("_afn", "_args", "_done", "_failed", "started")
 
     def __init__(
         self,
@@ -234,21 +234,41 @@ class _Once:
         self._afn = afn
         self._args = args
         self.started = False
+        self._failed = False
         self._done = _sync.Event()
 
     async def ensure(self, *, checkpoint: bool) -> None:
         if not self.started:
             self.started = True
-            await self._afn(*self._args)
-            self._done.set()
-        elif not checkpoint and self._done.is_set():
+            try:
+                await self._afn(*self._args)
+            except BaseException:
+                # The operation failed or was cancelled. Wake up any waiters
+                # so they don't hang forever, and let them know the stream is
+                # unusable. We deliberately don't store the original exception:
+                # re-raising it in another task would mutate its traceback and
+                # could create a reference cycle (#3397).
+                self._failed = True
+                raise
+            finally:
+                self._done.set()
             return
-        else:
-            await self._done.wait()
+
+        if not checkpoint and self._done.is_set():
+            if self._failed:
+                raise trio.BrokenResourceError
+            return
+
+        await self._done.wait()
+        if self._failed:
+            raise trio.BrokenResourceError
 
     @property
     def done(self) -> bool:
-        return bool(self._done.is_set())
+        # Keep this meaning "the operation completed successfully", so that
+        # e.g. SSLStream's guarded attribute forwarders still raise
+        # NeedHandshakeError after a failed handshake.
+        return bool(self._done.is_set()) and not self._failed
 
 
 _State = _Enum("_State", ["OK", "BROKEN", "CLOSED"])

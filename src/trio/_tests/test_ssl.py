@@ -32,7 +32,7 @@ from .._core._tests.tutil import slow
 from .._highlevel_generic import aclose_forcefully
 from .._highlevel_open_tcp_stream import open_tcp_stream
 from .._highlevel_socket import SocketListener, SocketStream
-from .._ssl import NeedHandshakeError, SSLListener, SSLStream, _is_eof
+from .._ssl import NeedHandshakeError, SSLListener, SSLStream, _is_eof, _Once
 from .._util import ConflictDetector
 from ..testing import (
     Sequencer,
@@ -40,6 +40,7 @@ from ..testing import (
     check_two_way_stream,
     lockstep_stream_pair,
     memory_stream_pair,
+    wait_all_tasks_blocked,
 )
 
 if TYPE_CHECKING:
@@ -1235,6 +1236,123 @@ async def test_receive_error_during_handshake(client_ctx: SSLContext) -> None:
     with pytest.raises(BrokenResourceError):
         with assert_checkpoints():
             await client.do_handshake()
+
+
+async def test_concurrent_handshake_failure_wakes_waiter(
+    client_ctx: SSLContext,
+) -> None:
+    # Regression test for #3581: if the lazy handshake fails, a concurrent
+    # send_all/receive_some must not wait forever on _Once.
+    send, recv = memory_stream_pair()
+    stream = SSLStream(
+        send,
+        client_ctx,
+        server_hostname="trio-test-1.example.org",
+    )
+    outcomes: dict[str, BaseException] = {}
+
+    async def sender() -> None:
+        try:
+            await stream.send_all(b"hello")
+        except BaseException as exc:
+            outcomes["sender"] = exc
+
+    async def receiver() -> None:
+        try:
+            await stream.receive_some()
+        except BaseException as exc:
+            outcomes["receiver"] = exc
+
+    with trio.fail_after(2):
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(sender)
+            await wait_all_tasks_blocked()
+            nursery.start_soon(receiver)
+            await wait_all_tasks_blocked()
+            await recv.aclose()
+
+    assert isinstance(outcomes["sender"], BrokenResourceError)
+    assert isinstance(outcomes["receiver"], BrokenResourceError)
+
+
+async def test_concurrent_handshake_cancellation_wakes_waiter(
+    client_ctx: SSLContext,
+) -> None:
+    # Regression test for #3581: cancelling the task performing the handshake
+    # must wake a concurrent waiter instead of leaving it parked forever.
+    send, _recv = memory_stream_pair()
+    stream = SSLStream(
+        send,
+        client_ctx,
+        server_hostname="trio-test-1.example.org",
+    )
+    outcomes: dict[str, BaseException] = {}
+    handshake_scope = trio.CancelScope()
+
+    async def sender() -> None:
+        with handshake_scope:
+            try:
+                await stream.do_handshake()
+            except BaseException as exc:
+                outcomes["sender"] = exc
+                raise
+
+    async def receiver() -> None:
+        try:
+            await stream.receive_some()
+        except BaseException as exc:
+            outcomes["receiver"] = exc
+
+    with trio.fail_after(2):
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(sender)
+            await wait_all_tasks_blocked()
+            nursery.start_soon(receiver)
+            await wait_all_tasks_blocked()
+            handshake_scope.cancel()
+
+    assert isinstance(outcomes["sender"], trio.Cancelled)
+    assert isinstance(outcomes["receiver"], BrokenResourceError)
+
+
+async def test_concurrent_handshake_success(client_ctx: SSLContext) -> None:
+    # The fix for #3581 must not disturb the successful-handshake path, where
+    # multiple tasks wait on the same _Once and then all proceed.
+    client, server = ssl_memory_stream_pair(client_ctx)
+
+    with trio.fail_after(2):
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(client.do_handshake)
+            await wait_all_tasks_blocked()
+            nursery.start_soon(client.do_handshake)
+            await wait_all_tasks_blocked()
+            nursery.start_soon(server.do_handshake)
+
+    assert client.version() == server.version()
+    await client.send_all(b"hello")
+    assert await server.receive_some(5) == b"hello"
+
+
+async def test_once_failure_propagates_without_checkpoint() -> None:
+    # The checkpoint=False fast path must also report a failed operation rather
+    # than silently returning. It isn't reachable through SSLStream's public
+    # API once the stream is marked broken, so test it directly.
+    async def fail() -> None:
+        raise KeyError
+
+    once = _Once(fail)
+
+    with trio.fail_after(2):
+        with pytest.raises(KeyError):
+            await once.ensure(checkpoint=True)
+
+        with pytest.raises(BrokenResourceError):
+            await once.ensure(checkpoint=False)
+
+        with pytest.raises(BrokenResourceError):
+            await once.ensure(checkpoint=True)
+
+    assert not once.done
 
 
 def test_selected_alpn_protocol_before_handshake(client_ctx: SSLContext) -> None:

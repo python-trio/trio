@@ -1,0 +1,4 @@
+A concurrent task using :class:`trio.SSLStream` no longer hangs forever when the
+lazy handshake fails or when the task performing it is cancelled. The waiting
+task now raises :exc:`trio.BrokenResourceError`, like any later attempt to use
+the stream.
