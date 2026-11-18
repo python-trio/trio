@@ -1,0 +1,3 @@
+Documented how ``trio.wrap_file`` treats the file it wraps: closing the
+wrapped file also closes the original file, dropping the wrapped file does
+not close anything, and the original file stays usable while it is wrapped.

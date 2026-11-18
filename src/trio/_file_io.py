@@ -487,6 +487,12 @@ def wrap_file(file: FileT) -> AsyncIOWrapper[FileT]:
     """This wraps any file object in a wrapper that provides an asynchronous
     file object interface.
 
+    Closing the wrapped file also closes the file you passed in, so only
+    close the wrapped file when you are done with both. The wrapped file
+    has no destructor, so if you drop it without closing it, the file you
+    passed in stays open. You can keep using the file you passed in while
+    it is wrapped.
+
     Args:
         file: a :term:`file object`
 

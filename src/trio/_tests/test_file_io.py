@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import gc
 import importlib
 import io
 import os
 import re
+import weakref
 from typing import TYPE_CHECKING
 from unittest import mock
 from unittest.mock import sentinel
@@ -238,6 +240,32 @@ async def test_async_iter() -> None:
     result = [line async for line in async_file]
 
     assert result == expected
+
+
+async def test_wrap_file_close_and_gc() -> None:
+    # Closing the wrapped file also closes the sync file.
+    sync_file = io.StringIO("hello")
+    async_file = trio.wrap_file(sync_file)
+    await async_file.aclose()
+    assert sync_file.closed
+
+    # Dropping the wrapped file without closing it does not close the
+    # sync file, because AsyncIOWrapper has no destructor.
+    sync_file = io.StringIO("hello")
+    async_file = trio.wrap_file(sync_file)
+    ref = weakref.ref(async_file)
+    del async_file
+    gc.collect()
+    assert ref() is None
+    assert not sync_file.closed
+
+    # The sync file stays usable while it is wrapped.
+    sync_file.seek(0)
+    async_file = trio.wrap_file(sync_file)
+    assert await async_file.read() == "hello"
+    sync_file.seek(0)
+    assert sync_file.read() == "hello"
+    await async_file.aclose()
 
 
 async def test_aclose_cancelled(path: pathlib.Path) -> None:
