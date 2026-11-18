@@ -826,17 +826,31 @@ class CancelScope:
 
     @property
     def relative_deadline(self) -> float:
-        """Read-write, :class:`float`. The number of seconds remaining until this
-        scope's deadline, relative to the current time.
+        """Read-write, :class:`float`. The number of seconds until this
+        scope's deadline, counted from a starting point that depends on
+        whether the scope has been entered yet.
 
-        Defaults to :data:`math.inf` ("no deadline"). Must be non-negative.
+        Defaults to :data:`math.inf` ("no deadline"). Must be
+        non-negative and must not be NaN.
 
-        When modified
-        Before entering: sets the deadline relative to when the scope enters.
-        After entering: sets a new deadline relative to the current time.
+        Before the scope is entered, the countdown has not started yet.
+        Reading this attribute returns the value passed to the
+        constructor (or set since then), and the value does not change
+        as time passes. When the scope is entered, the deadline is set
+        to the entry time plus this value, so the countdown starts at
+        entry. Setting the attribute before entering changes the delay
+        that will be used at entry.
+
+        After the scope is entered, reading this attribute returns the
+        time left until the deadline, that is, the deadline minus the
+        current time, so the value counts down as time passes. Setting
+        it after entering moves the deadline to the current time plus
+        the new value.
 
         Raises:
-          RuntimeError: if trying to read or modify an unentered scope with an absolute deadline, i.e. when :attr:`is_relative` is ``False``.
+          RuntimeError: if you try to read or set this on a scope that
+            has not been entered yet and was created with an absolute
+            :attr:`deadline` instead of a relative one.
         """
         if self._has_been_entered:
             return self._deadline - current_time()
