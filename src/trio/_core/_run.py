@@ -21,6 +21,7 @@ from typing import (
     NoReturn,
     Protocol,
     Self,
+    TypeVar,
     TypeVarTuple,
     Unpack,
     cast,
@@ -74,15 +75,12 @@ if TYPE_CHECKING:
 
     # for some strange reason Sphinx works with outcome.Outcome, but not Outcome, in
     # start_guest_run. Same with types.FrameType in iter_await_frames
-    from typing_extensions import TypeVar
 
     PosArgT = TypeVarTuple("PosArgT")
     StatusT = TypeVar("StatusT", default=None)
     StatusT_contra = TypeVar("StatusT_contra", contravariant=True, default=None)
     BaseExcT = TypeVar("BaseExcT", bound=BaseException)
 else:
-    from typing import TypeVar
-
     StatusT = TypeVar("StatusT")
     StatusT_contra = TypeVar("StatusT_contra", contravariant=True)
 

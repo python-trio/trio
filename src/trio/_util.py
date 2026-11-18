@@ -58,8 +58,6 @@ def coroutine_or_error(
     *args: Unpack[PosArgsT],
 ) -> collections.abc.Coroutine[object, NoReturn, RetT]:
     def _return_value_looks_like_wrong_library(value: object) -> bool:
-        # Returned by legacy @asyncio.coroutine functions, which includes
-        # a surprising proportion of asyncio builtins.
         if isinstance(value, collections.abc.Generator):
             return True
         # The protocol for detecting an asyncio Future-like object

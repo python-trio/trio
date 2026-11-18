@@ -3,8 +3,6 @@ from __future__ import annotations
 import types
 from typing import TYPE_CHECKING, TypeVar
 
-if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator
 import pytest
 
 import trio
@@ -28,7 +26,7 @@ from .._util import (
 from ..testing import wait_all_tasks_blocked
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator
+    from collections.abc import AsyncGenerator, Generator
 
 T = TypeVar("T")
 
@@ -103,6 +101,14 @@ def test_coroutine_or_error() -> None:
         with pytest.raises(TypeError) as excinfo:
             coroutine_or_error(f())  # type: ignore[arg-type, unused-coroutine]
         assert "expecting an async function" in str(excinfo.value)
+
+        def gen() -> Generator[None, None, None]:  # pragma: no cover
+            yield
+
+        with pytest.raises(TypeError) as excinfo:
+            coroutine_or_error(gen())  # type: ignore[arg-type, unused-coroutine]
+        msg = "Trio was expecting an async function, but instead"
+        assert msg in str(excinfo.value)
 
         with pytest.raises(TypeError) as excinfo:
             coroutine_or_error(create_asyncio_future_in_new_loop())  # type: ignore[arg-type, unused-coroutine]

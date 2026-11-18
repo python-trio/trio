@@ -128,8 +128,6 @@ async def test_system_exits_in_exc_group(
     console = trio._repl.TrioInteractiveConsole()
     raw_input = build_raw_input(
         [
-            "import sys",
-            "",
             "raise BaseExceptionGroup('', [RuntimeError(), SystemExit()])",
             "print('AFTER BaseExceptionGroup')",
         ],
@@ -149,8 +147,6 @@ async def test_system_exits_in_nested_exc_group(
     console = trio._repl.TrioInteractiveConsole()
     raw_input = build_raw_input(
         [
-            "import sys",
-            "",
             "raise BaseExceptionGroup(",
             "  '', [BaseExceptionGroup('', [RuntimeError(), SystemExit()])])",
             "print('AFTER BaseExceptionGroup')",
