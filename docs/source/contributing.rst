@@ -147,6 +147,11 @@ in separate sections below:
   changes under that project's license. For most projects, that's dual
   MIT/Apache 2, except for cookiecutter-trio, which is CC0.
 
+* PR Description: we require that your PR description is not LLM
+  generated. It's alright if your description is extremely concise, but
+  we want you to take ownership of your work, in addition to trying to
+  fend off the current deluge of agent-driven PRs.
+
 
 .. _pull-request-scope:
 
