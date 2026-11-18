@@ -32,7 +32,7 @@ from .._core._tests.tutil import slow
 from .._highlevel_generic import aclose_forcefully
 from .._highlevel_open_tcp_stream import open_tcp_stream
 from .._highlevel_socket import SocketListener, SocketStream
-from .._ssl import NeedHandshakeError, SSLListener, SSLStream, _is_eof
+from .._ssl import NeedHandshakeError, SSLListener, SSLStream, _is_eof, _Once
 from .._util import ConflictDetector
 from ..testing import (
     Sequencer,
@@ -40,6 +40,7 @@ from ..testing import (
     check_two_way_stream,
     lockstep_stream_pair,
     memory_stream_pair,
+    wait_all_tasks_blocked,
 )
 
 if TYPE_CHECKING:
@@ -1235,6 +1236,100 @@ async def test_receive_error_during_handshake(client_ctx: SSLContext) -> None:
     with pytest.raises(BrokenResourceError):
         with assert_checkpoints():
             await client.do_handshake()
+
+
+async def test_handshake_failure_wakes_concurrent_waiters(
+    client_ctx: SSLContext,
+) -> None:
+    # gh-3581: if the task doing the lazy handshake fails, tasks waiting for
+    # that handshake to finish must be woken up instead of sleeping forever.
+    client, _server = ssl_memory_stream_pair(client_ctx)
+
+    fail_now = trio.Event()
+
+    async def bad_hook() -> NoReturn:
+        await fail_now.wait()
+        raise KeyError
+
+    client.transport_stream.receive_stream.receive_some_hook = bad_hook
+
+    async def handshaker() -> None:
+        with pytest.raises(KeyError):
+            await client.send_all(b"x")
+
+    async def expect_broken(afn: Callable[[], Awaitable[object]]) -> None:
+        with pytest.raises(BrokenResourceError):
+            await afn()
+
+    with trio.fail_after(5):
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(handshaker)
+            await wait_all_tasks_blocked()
+            nursery.start_soon(expect_broken, client.receive_some)
+            nursery.start_soon(expect_broken, client.do_handshake)
+            await wait_all_tasks_blocked()
+            fail_now.set()
+
+    # A failed handshake doesn't count as "done"
+    with pytest.raises(NeedHandshakeError):
+        client.selected_alpn_protocol()
+
+
+async def test_handshake_cancellation_wakes_concurrent_waiters(
+    client_ctx: SSLContext,
+) -> None:
+    # gh-3581: cancelling the task doing the lazy handshake must also wake up
+    # tasks waiting for that handshake to finish.
+    client, _server = ssl_memory_stream_pair(client_ctx)
+
+    handshake_scope = _core.CancelScope()
+
+    async def handshaker() -> None:
+        with handshake_scope:
+            await client.send_all(b"x")
+        assert handshake_scope.cancelled_caught
+
+    async def waiter() -> None:
+        with pytest.raises(BrokenResourceError):
+            await client.receive_some()
+
+    with trio.fail_after(5):
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(handshaker)
+            await wait_all_tasks_blocked()
+            nursery.start_soon(waiter)
+            await wait_all_tasks_blocked()
+            handshake_scope.cancel()
+
+    with pytest.raises(NeedHandshakeError):
+        client.selected_alpn_protocol()
+
+
+async def test_Once_failure() -> None:
+    # Directly exercise _Once, including the checkpoint=False fast path that
+    # SSLStream never reaches after a failure (it checks its own state first).
+    calls = 0
+
+    async def fail() -> NoReturn:
+        nonlocal calls
+        calls += 1
+        await trio.lowlevel.checkpoint()
+        raise KeyError
+
+    once = _Once(fail)
+    assert not once.done
+    with pytest.raises(KeyError):
+        await once.ensure(checkpoint=True)
+    assert once.started
+    assert not once.done
+
+    with trio.fail_after(5):
+        with pytest.raises(BrokenResourceError):
+            await once.ensure(checkpoint=False)
+        with pytest.raises(BrokenResourceError):
+            with assert_checkpoints():
+                await once.ensure(checkpoint=True)
+    assert calls == 1
 
 
 def test_selected_alpn_protocol_before_handshake(client_ctx: SSLContext) -> None:

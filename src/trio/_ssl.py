@@ -224,7 +224,7 @@ class NeedHandshakeError(Exception):
 
 
 class _Once:
-    __slots__ = ("_afn", "_args", "_done", "started")
+    __slots__ = ("_afn", "_args", "_done", "_failed", "started")
 
     def __init__(
         self,
@@ -234,21 +234,35 @@ class _Once:
         self._afn = afn
         self._args = args
         self.started = False
+        self._failed = False
         self._done = _sync.Event()
 
     async def ensure(self, *, checkpoint: bool) -> None:
         if not self.started:
             self.started = True
-            await self._afn(*self._args)
-            self._done.set()
+            try:
+                await self._afn(*self._args)
+            except BaseException:
+                # Wake up any tasks waiting on us, so they don't sleep forever.
+                # We deliberately don't store the exception to share it with
+                # them, to avoid reference cycles and mutated tracebacks.
+                self._failed = True
+                raise
+            finally:
+                self._done.set()
         elif not checkpoint and self._done.is_set():
+            if self._failed:
+                raise trio.BrokenResourceError
             return
         else:
             await self._done.wait()
+            if self._failed:
+                raise trio.BrokenResourceError
 
     @property
     def done(self) -> bool:
-        return bool(self._done.is_set())
+        """True only if the call completed successfully."""
+        return bool(self._done.is_set()) and not self._failed
 
 
 _State = _Enum("_State", ["OK", "BROKEN", "CLOSED"])
@@ -664,7 +678,8 @@ class SSLStream(Stream, Generic[T_Stream]):
         talking to them – then you can call this method.
 
         If the initial handshake is already in progress in another task, this
-        waits for it to complete and then returns.
+        waits for it to complete and then returns. If that handshake fails or
+        is cancelled, this raises :exc:`trio.BrokenResourceError`.
 
         If the initial handshake has already completed, this returns
         immediately without doing anything (except executing a checkpoint).
