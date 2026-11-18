@@ -46,6 +46,7 @@ from ._run import (
     current_task,
     current_time,
     current_trio_token,
+    hold_autojump,
     in_trio_run,
     in_trio_task,
     notify_closing,
