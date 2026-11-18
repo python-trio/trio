@@ -74,30 +74,16 @@ def has_docstring_at_runtime(name: str) -> bool:
             # on separate platforms. It might also be a decent idea to work the other way around,
             # a la test_static_tool_sees_class_members
             # darwin
-            "trio.lowlevel.current_kqueue",
-            "trio.lowlevel.monitor_kevent",
-            "trio.lowlevel.wait_kevent",
             "trio._core._io_kqueue._KqueueStatistics",
             # windows
             "trio._socket.SocketType.share",
             "trio._core._io_windows._WindowsStatistics",
             "trio._core._windows_cffi.Handle",
-            "trio.lowlevel.current_iocp",
-            "trio.lowlevel.monitor_completion_key",
-            "trio.lowlevel.readinto_overlapped",
-            "trio.lowlevel.register_with_iocp",
-            "trio.lowlevel.wait_overlapped",
-            "trio.lowlevel.write_overlapped",
-            "trio.lowlevel.WaitForSingleObject",
-            "trio.socket.fromshare",
             # linux
             # this test will fail on linux, but I don't develop on linux. So the next
             # person to do so is very welcome to open a pull request and populate with
             # objects
             # TODO: these are erroring on all platforms, why?
-            "trio._highlevel_generic.StapledStream.send_stream",
-            "trio._highlevel_generic.StapledStream.receive_stream",
-            "trio._ssl.SSLStream.transport_stream",
             "trio._file_io._HasFileNo",
             "trio._file_io._HasFileNo.fileno",
         ):
