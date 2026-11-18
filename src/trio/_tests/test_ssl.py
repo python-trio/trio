@@ -32,14 +32,16 @@ from .._core._tests.tutil import slow
 from .._highlevel_generic import aclose_forcefully
 from .._highlevel_open_tcp_stream import open_tcp_stream
 from .._highlevel_socket import SocketListener, SocketStream
-from .._ssl import NeedHandshakeError, SSLListener, SSLStream, _is_eof
+from .._ssl import NeedHandshakeError, SSLListener, SSLStream, _is_eof, _Once
 from .._util import ConflictDetector
 from ..testing import (
     Sequencer,
     assert_checkpoints,
+    assert_no_checkpoints,
     check_two_way_stream,
     lockstep_stream_pair,
     memory_stream_pair,
+    wait_all_tasks_blocked,
 )
 
 if TYPE_CHECKING:
@@ -1235,6 +1237,182 @@ async def test_receive_error_during_handshake(client_ctx: SSLContext) -> None:
     with pytest.raises(BrokenResourceError):
         with assert_checkpoints():
             await client.do_handshake()
+
+
+@pytest.mark.parametrize("https_compatible", [False, True])
+async def test_concurrent_handshake_failure_wakes_waiter(
+    https_compatible: bool,
+) -> None:
+    # Regression test for https://github.com/python-trio/trio/issues/3581:
+    # one task starts the lazy handshake and it fails while another task is
+    # waiting for that handshake. The waiter must get the failure instead of
+    # sleeping forever.
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    client_transport, server_transport = memory_stream_pair()
+    client = SSLStream(
+        client_transport,
+        ctx,
+        server_hostname="trio-test-1.example.org",
+        https_compatible=https_compatible,
+    )
+
+    outcomes: list[str] = []
+
+    async def sender() -> None:
+        with pytest.raises(BrokenResourceError):
+            await client.send_all(b"hello")
+        outcomes.append("sender")
+
+    async def receiver() -> None:
+        if https_compatible:
+            # EOF before the handshake is treated as a clean EOF, even when
+            # the handshake failed in another task.
+            assert await client.receive_some() == b""
+        else:
+            with pytest.raises(BrokenResourceError):
+                await client.receive_some()
+        outcomes.append("receiver")
+
+    with trio.fail_after(1):
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(sender)
+            await wait_all_tasks_blocked()
+            nursery.start_soon(receiver)
+            await wait_all_tasks_blocked()
+            # The peer goes away while the client is waiting for the
+            # ServerHello, so the handshake fails.
+            await server_transport.aclose()
+
+    assert sorted(outcomes) == ["receiver", "sender"]
+    # A failed handshake must not make the stream look handshaken.
+    with pytest.raises(NeedHandshakeError):
+        client.cipher()
+
+
+async def test_concurrent_handshake_cancellation_wakes_waiter() -> None:
+    # Regression test for https://github.com/python-trio/trio/issues/3581:
+    # cancelling the task performing the lazy handshake must wake up other
+    # tasks waiting for that handshake, and report the stream as broken
+    # instead of retrying a half-finished TLS handshake.
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    client_transport, _server_transport = memory_stream_pair()
+    client = SSLStream(
+        client_transport,
+        ctx,
+        server_hostname="trio-test-1.example.org",
+    )
+
+    outcomes: list[str] = []
+
+    async def handshaker(cancel_scope: CancelScope) -> None:
+        with cancel_scope:
+            await client.do_handshake()
+        outcomes.append("handshaker")
+
+    async def receiver() -> None:
+        with pytest.raises(BrokenResourceError):
+            await client.receive_some()
+        outcomes.append("receiver")
+
+    with trio.fail_after(1):
+        async with _core.open_nursery() as nursery:
+            cancel_scope = _core.CancelScope()
+            nursery.start_soon(handshaker, cancel_scope)
+            await wait_all_tasks_blocked()
+            nursery.start_soon(receiver)
+            await wait_all_tasks_blocked()
+            cancel_scope.cancel()
+
+    assert sorted(outcomes) == ["handshaker", "receiver"]
+    assert not client._handshook.done
+    # A later call sees a broken stream, not a resumed handshake.
+    with pytest.raises(BrokenResourceError):
+        await client.do_handshake()
+
+
+async def test_once_failure_is_reported_to_all_waiters() -> None:
+    # _Once is also called with checkpoint=False from send_all/receive_some,
+    # where the fast path must not report a failed attempt as a success.
+    fail_now = trio.Event()
+
+    async def afn() -> None:
+        await fail_now.wait()
+        raise KeyError("handshake failed")
+
+    once = _Once(afn)
+    outcomes: list[str] = []
+
+    async def starter() -> None:
+        with pytest.raises(KeyError, match="handshake failed"):
+            await once.ensure(checkpoint=False)
+        outcomes.append("starter")
+
+    async def waiter() -> None:
+        with pytest.raises(KeyError, match="handshake failed"):
+            await once.ensure(checkpoint=False)
+        outcomes.append("waiter")
+
+    with trio.fail_after(1):
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(starter)
+            await wait_all_tasks_blocked()
+            nursery.start_soon(waiter)
+            await wait_all_tasks_blocked()
+            fail_now.set()
+
+    assert sorted(outcomes) == ["starter", "waiter"]
+    assert not once.done
+    # Already settled, so the checkpoint=False path does not yield...
+    with pytest.raises(KeyError, match="handshake failed"), assert_no_checkpoints():
+        await once.ensure(checkpoint=False)
+
+
+@pytest.mark.parametrize("kind", ["uncopyable", "base_exception"])
+async def test_once_unexpected_failure_wakes_waiters(kind: str) -> None:
+    # Waiters must wake up even for failures that cannot (or should not) be
+    # copied and re-raised in another task.
+    class UncopyableError(Exception):
+        def __reduce__(self) -> NoReturn:
+            raise RuntimeError("cannot be copied")
+
+    class Interruption(BaseException):
+        pass
+
+    exc: BaseException = UncopyableError() if kind == "uncopyable" else Interruption()
+
+    fail_now = trio.Event()
+
+    async def afn() -> None:
+        await fail_now.wait()
+        raise exc
+
+    once = _Once(afn)
+    outcomes: list[str] = []
+
+    async def starter() -> None:
+        with pytest.raises(type(exc)):
+            await once.ensure(checkpoint=False)
+        outcomes.append("starter")
+
+    async def waiter() -> None:
+        with pytest.raises(BrokenResourceError):
+            await once.ensure(checkpoint=False)
+        outcomes.append("waiter")
+
+    with trio.fail_after(1):
+        async with _core.open_nursery() as nursery:
+            nursery.start_soon(starter)
+            await wait_all_tasks_blocked()
+            nursery.start_soon(waiter)
+            await wait_all_tasks_blocked()
+            fail_now.set()
+
+    assert sorted(outcomes) == ["starter", "waiter"]
+    assert not once.done
 
 
 def test_selected_alpn_protocol_before_handshake(client_ctx: SSLContext) -> None:
