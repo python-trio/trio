@@ -63,6 +63,11 @@ from ._highlevel_open_tcp_listeners import (
     serve_tcp as serve_tcp,
 )
 from ._highlevel_open_tcp_stream import open_tcp_stream as open_tcp_stream
+from ._highlevel_open_unix_listeners import (
+    UnixSocketListener as UnixSocketListener,
+    open_unix_listeners as open_unix_listeners,
+    serve_unix as serve_unix,
+)
 from ._highlevel_open_unix_stream import open_unix_socket as open_unix_socket
 from ._highlevel_serve_listeners import serve_listeners as serve_listeners
 from ._highlevel_socket import (
