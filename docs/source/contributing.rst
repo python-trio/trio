@@ -362,6 +362,49 @@ order of imports. To do so you can add ``# isort: split`` comments.
 For more information, please see `isort's docs <https://pycqa.github.io/isort/docs/configuration/action_comments.html>`__.
 
 
+.. _pull-request-attrs:
+
+Using attrs
+~~~~~~~~~~~
+
+Trio uses `attrs <https://www.attrs.org/>`__ for classes that mostly
+hold data, so we do not have to write ``__init__``, ``__repr__`` and
+``__eq__`` by hand. A few conventions have grown up around that use,
+and they can be confusing at first:
+
+* Attribute names usually start with an underscore, because they are
+  internal details. But the ``__init__`` argument should not have the
+  underscore: you write ``CancelScope(deadline=...)``, not
+  ``CancelScope(_deadline=...)``. attrs strips the underscore on its
+  own, but pyright does not understand that, so always spell the name
+  out with ``alias``, as in ``_deadline: float =
+  attrs.field(alias="deadline")``.
+
+* Use ``slots=False`` when the class needs a ``__dict__``. A slotted
+  class cannot have attributes set on it that are not declared as
+  fields. For example, ``NurseryManager`` only declares
+  ``strict_exception_groups``, but ``__aenter__`` also sets ``_scope``
+  and ``_nursery`` on it, so it needs ``slots=False``. If a class only
+  ever has its declared fields, leave slots on, which is the default.
+
+* Use ``eq=False`` for classes where comparing by value would be
+  wrong. Most Trio objects are compared by identity, and many are
+  used as dictionary keys or set members, for example ``Task``. The
+  attrs default would compare them by value and make them
+  unhashable, so mutable classes like ``CancelScope`` and ``Task``
+  pass ``eq=False`` to keep identity comparison and hashing.
+
+* Use ``@attrs.frozen`` for small value objects that should not
+  change after they are created, such as the ``*Statistics`` classes
+  returned by ``statistics()`` methods. Frozen classes cannot be
+  modified after creation, and they can be compared and hashed by
+  value.
+
+If you are unsure which one to use, look at a similar class in the
+codebase, or ask in your pull request. For the full details, see the
+`attrs documentation <https://www.attrs.org/en/stable/>`__.
+
+
 .. _pull-request-release-notes:
 
 Release notes
