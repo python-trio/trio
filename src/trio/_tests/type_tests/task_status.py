@@ -1,7 +1,8 @@
 """Check that started() can only be called for TaskStatus[None]."""
 
+from typing import assert_type
+
 from trio import TaskStatus
-from typing_extensions import assert_type
 
 
 def check_status(

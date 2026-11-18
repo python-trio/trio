@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import errno
 import socket as stdlib_socket
-import sys
 from socket import AddressFamily, SocketKind
 from typing import TYPE_CHECKING, Literal, cast, overload
 
@@ -21,9 +20,6 @@ from trio.testing import open_stream_to_socket_listener
 
 from .. import socket as tsocket
 from .._core._tests.tutil import binds_ipv6, slow
-
-if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

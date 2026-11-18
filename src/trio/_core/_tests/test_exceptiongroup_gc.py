@@ -13,9 +13,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from types import TracebackType
 
-if sys.version_info < (3, 11):
-    from exceptiongroup import ExceptionGroup
-
 
 def raiser1() -> NoReturn:
     raiser1_2()

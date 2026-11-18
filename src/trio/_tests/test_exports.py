@@ -416,7 +416,7 @@ def test_static_tool_sees_class_members(
         # using .remove() instead of .delete() to get an error in case they start not
         # being missing
 
-        if BaseException in class_.__mro__ and sys.version_info >= (3, 11):
+        if BaseException in class_.__mro__:
             extra.remove("__notes__")
 
         if tool == "mypy" and attrs.has(class_):
@@ -480,7 +480,7 @@ def test_static_tool_sees_class_members(
 
         # I have not researched why these are missing, should maybe create an issue
         # upstream with jedi
-        if tool == "jedi" and sys.version_info >= (3, 11):
+        if tool == "jedi":
             if class_ in (
                 trio.DTLSChannel,
                 trio.MemoryReceiveChannel,

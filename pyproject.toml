@@ -26,7 +26,6 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -35,7 +34,7 @@ classifiers = [
     "Topic :: System :: Networking",
     "Typing :: Typed",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     # attrs 19.2.0 adds `eq` option to decorators
     # attrs 20.1.0 adds @frozen
@@ -50,7 +49,6 @@ dependencies = [
     # cffi 1.14 fixes memory leak inside ffi.getwinerror()
     # cffi is required on Windows, except on PyPy where it is built-in
     "cffi>=1.14; os_name == 'nt' and implementation_name != 'pypy'",
-    "exceptiongroup; python_version < '3.11'",
 ]
 dynamic = ["version"]
 
@@ -161,6 +159,7 @@ extend-ignore = [
 
     # conflicts with formatter (ruff recommends these be disabled)
     "missing-trailing-comma",                 # COM812
+    "non-pep646-unpack"                       # (UP044) ignoring it for now(See: https://github.com/python-trio/trio/pull/3594#issuecomment-6898086470)
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -195,7 +194,7 @@ combine-as-imports = true
 fixture-parentheses = false
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 files = ["src/trio/", "docs/source/*.py"]
 
 # Be flexible about dependencies that don't have stubs yet (like pytest)
@@ -222,7 +221,7 @@ disallow_untyped_defs = true
 check_untyped_defs = true
 
 [tool.pyright]
-pythonVersion = "3.10"
+pythonVersion = "3.11"
 reportUnnecessaryTypeIgnoreComment = true
 typeCheckingMode = "strict"
 

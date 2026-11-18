@@ -11,7 +11,7 @@ from typing import (  # noqa: UP035
     TYPE_CHECKING,
     Any,
     Callable,
-    NoReturn,
+    Never,
     TypeAlias,
     cast,
 )
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
     from ._run import Task
 
-RaiseCancelT: TypeAlias = Callable[[], NoReturn]
+RaiseCancelT: TypeAlias = Callable[[], Never]
 
 
 # This class object is used as a singleton.

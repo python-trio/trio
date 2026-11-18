@@ -6,7 +6,7 @@ import inspect
 import queue as stdlib_queue
 import threading
 from itertools import count
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar, TypeVarTuple, Unpack
 
 import attrs
 import outcome
@@ -28,8 +28,6 @@ from ._util import coroutine_or_error
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Generator
-
-    from typing_extensions import TypeVarTuple, Unpack
 
     from trio._core._traps import RaiseCancelT
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import socket
-import sys
 from socket import AddressFamily, SocketKind
 from typing import TYPE_CHECKING, Literal
 
@@ -22,9 +21,6 @@ if TYPE_CHECKING:
 
     from trio._socket import _GetAddrInfoEntry
     from trio.testing import MockClock
-
-if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup
 
 
 def test_close_all() -> None:

@@ -2,14 +2,12 @@ from __future__ import annotations
 
 import socket
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Generic, Literal, TypeVar
+from typing import TYPE_CHECKING, Generic, Literal, Self, TypeVar
 
 import trio
 
 if TYPE_CHECKING:
     from types import TracebackType
-
-    from typing_extensions import Self
 
     # both of these introduce circular imports if outside a TYPE_CHECKING guard
     from ._socket import SocketType

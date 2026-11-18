@@ -14,7 +14,7 @@ import ipaddress
 import os
 import socket
 import sys
-from typing import TYPE_CHECKING, Any, NoReturn, TypeAlias, overload
+from typing import TYPE_CHECKING, Any, NoReturn, Self, TypeAlias, overload
 
 import attrs
 
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from socket import AddressFamily, SocketKind
     from types import TracebackType
 
-    from typing_extensions import Buffer, Self
+    from typing_extensions import Buffer
 
     from trio._socket import AddressFormat, _GetAddrInfoEntry
 

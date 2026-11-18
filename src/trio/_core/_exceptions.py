@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import partial
-from typing import TYPE_CHECKING, Literal, TypeAlias
+from typing import TYPE_CHECKING, Literal, Self, TypeAlias
 
 import attrs
 
@@ -10,7 +10,6 @@ from trio._util import NoPublicConstructor, final
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from typing_extensions import Self
 
 CancelReasonLiteral: TypeAlias = Literal[
     "KeyboardInterrupt",

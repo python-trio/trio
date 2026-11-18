@@ -5,7 +5,7 @@ import sys
 import weakref
 from math import inf
 from types import AsyncGeneratorType
-from typing import TYPE_CHECKING, NoReturn
+from typing import TYPE_CHECKING, Never
 
 import pytest
 
@@ -306,12 +306,12 @@ async def test_fallback_when_no_hook_claims_it(
 def test_delegation_to_existing_hooks() -> None:
     record = []
 
-    def my_firstiter(agen: AsyncGenerator[object, NoReturn]) -> None:
+    def my_firstiter(agen: AsyncGenerator[object, Never]) -> None:
         assert isinstance(agen, AsyncGeneratorType)
         assert agen.ag_frame is not None
         record.append("firstiter " + agen.ag_frame.f_locals["arg"])
 
-    def my_finalizer(agen: AsyncGenerator[object, NoReturn]) -> None:
+    def my_finalizer(agen: AsyncGenerator[object, Never]) -> None:
         assert isinstance(agen, AsyncGeneratorType)
         assert agen.ag_frame is not None
         record.append("finalizer " + agen.ag_frame.f_locals["arg"])

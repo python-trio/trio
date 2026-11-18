@@ -15,6 +15,7 @@ from typing import (
     Protocol,
     TypeAlias,
     TypedDict,
+    Unpack,
     overload,
 )
 
@@ -33,8 +34,6 @@ from ._util import NoPublicConstructor, final
 if TYPE_CHECKING:
     import signal
     from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
-
-    from typing_extensions import Unpack
 
     from ._abc import ReceiveStream, SendStream
 
@@ -1087,26 +1086,18 @@ if TYPE_CHECKING:
         # overloads. But might still be a problem for other static analyzers / docstring
         # readers (?)
 
-        class UnixProcessArgs3_10(GeneralProcessArgs, total=False):
+        class UnixProcessArgs(GeneralProcessArgs, total=False):
             """Arguments shared between all Unix runs."""
 
             preexec_fn: Callable[[], object] | None
             restore_signals: bool
             start_new_session: bool
             pass_fds: Sequence[int]
-
-            # 3.9+
             group: str | int | None
             extra_groups: Iterable[str | int] | None
             user: str | int | None
             umask: int
-
-            # 3.10+
             pipesize: int
-
-        class UnixProcessArgs3_11(UnixProcessArgs3_10, total=False):
-            """Arguments shared between all Unix runs on 3.11+."""
-
             process_group: int | None
 
         class UnixRunProcessMixin(TypedDict, total=False):
@@ -1120,17 +1111,9 @@ if TYPE_CHECKING:
 
         # TODO: once https://github.com/python/mypy/issues/18692 is
         #       fixed, move the `UnixRunProcessArgs` definition down.
-        if sys.version_info >= (3, 11):
-            UnixProcessArgs = UnixProcessArgs3_11
 
-            class UnixRunProcessArgs(UnixProcessArgs3_11, UnixRunProcessMixin):
-                """Arguments for run_process on Unix with 3.11+"""
-
-        else:
-            UnixProcessArgs = UnixProcessArgs3_10
-
-            class UnixRunProcessArgs(UnixProcessArgs3_10, UnixRunProcessMixin):
-                """Arguments for run_process on Unix with 3.10+"""
+        class UnixRunProcessArgs(UnixProcessArgs, UnixRunProcessMixin):
+            """Arguments for run_process on Unix"""
 
         @overload  # type: ignore[no-overload-impl]
         async def open_process(
