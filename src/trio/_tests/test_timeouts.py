@@ -268,9 +268,16 @@ async def test_invalid_access_unentered() -> None:
         cs.relative_deadline = 7
 
 
-@pytest.mark.xfail(reason="not implemented")
-async def test_fail_access_before_entering() -> None:  # pragma: no cover
+async def test_fail_access_before_entering() -> None:
     my_fail_at = fail_at(5)
-    assert my_fail_at.deadline  # type: ignore[attr-defined]
+    assert my_fail_at.deadline == 5
     my_fail_after = fail_after(5)
-    assert my_fail_after.relative_deadline  # type: ignore[attr-defined]
+    assert my_fail_after.relative_deadline == 5
+
+    # Attribute writes go to the wrapped scope as well, and take effect
+    # when the scope is entered.
+    my_fail_after.relative_deadline = 100
+    assert my_fail_after.relative_deadline == 100
+    with my_fail_after as scope:
+        assert scope.deadline > _core.current_time()
+    assert not my_fail_after.cancelled_caught

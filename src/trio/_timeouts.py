@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import math
 import sys
-from contextlib import contextmanager
 from typing import TYPE_CHECKING, NoReturn
 
 import trio
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from types import TracebackType
 
 
 def move_on_at(deadline: float, *, shield: bool = False) -> trio.CancelScope:
@@ -118,12 +117,56 @@ class TooSlowError(Exception):
     """
 
 
-@contextmanager
+class _FailScope:
+    """The object returned by :func:`fail_at` and :func:`fail_after`.
+
+    Wraps the underlying `~trio.CancelScope` so that its attributes (such
+    as ``deadline`` and ``relative_deadline``) can be inspected and
+    modified before the scope is entered, which a plain context manager
+    does not allow. Entering it enters the wrapped scope and returns the
+    scope itself; exiting raises `TooSlowError` if the scope caught a
+    cancellation, exactly as the previous generator-based implementation
+    did. All other attribute access is passed through to the wrapped
+    scope.
+    """
+
+    def __init__(self, scope: trio.CancelScope) -> None:
+        object.__setattr__(self, "_scope", scope)
+
+    def __enter__(self) -> trio.CancelScope:
+        return self._scope.__enter__()
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> bool:
+        suppressed = self._scope.__exit__(exc_type, exc_value, traceback)
+        if self._scope.cancelled_caught and (exc_type is None or suppressed):
+            raise TooSlowError
+        return suppressed
+
+    def __getattr__(self, name: str) -> object:
+        if name == "_scope":
+            raise AttributeError(name)
+        return getattr(self._scope, name)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if name == "_scope":
+            object.__setattr__(self, name, value)
+        else:
+            setattr(self._scope, name, value)
+
+    def __repr__(self) -> str:
+        return f"<fail scope wrapping {self._scope!r}>"
+
+
 def fail_at(
     deadline: float,
     *,
     shield: bool = False,
-) -> Generator[trio.CancelScope, None, None]:
+) -> _FailScope:
     """Creates a cancel scope with the given deadline, and raises an error if it
     is actually cancelled.
 
@@ -146,18 +189,14 @@ def fail_at(
       ValueError: if deadline is NaN.
 
     """
-    with move_on_at(deadline, shield=shield) as scope:
-        yield scope
-    if scope.cancelled_caught:
-        raise TooSlowError
+    return _FailScope(move_on_at(deadline, shield=shield))
 
 
-@contextmanager
 def fail_after(
     seconds: float,
     *,
     shield: bool = False,
-) -> Generator[trio.CancelScope, None, None]:
+) -> _FailScope:
     """Creates a cancel scope with the given timeout, and raises an error if
     it is actually cancelled.
 
@@ -181,10 +220,7 @@ def fail_after(
       ValueError: if *seconds* is less than zero or NaN.
 
     """
-    with move_on_after(seconds, shield=shield) as scope:
-        yield scope
-    if scope.cancelled_caught:
-        raise TooSlowError
+    return _FailScope(move_on_after(seconds, shield=shield))
 
 
 # Users don't need to know that fail_at & fail_after wraps move_on_at and move_on_after
@@ -194,4 +230,6 @@ if "sphinx.ext.autodoc" in sys.modules:
     import inspect
 
     for c in (fail_at, fail_after):
-        c.__signature__ = inspect.Signature.from_callable(c).replace(return_annotation=trio.CancelScope)  # type: ignore[union-attr]
+        c.__signature__ = inspect.Signature.from_callable(c).replace(
+            return_annotation=trio.CancelScope
+        )  # type: ignore[union-attr]

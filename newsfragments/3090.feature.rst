@@ -1,0 +1,5 @@
+``trio.fail_at`` and ``trio.fail_after`` now return an object wrapping the
+underlying `trio.CancelScope`, so its attributes (such as ``deadline`` and
+``relative_deadline``) can be inspected and modified before the scope is
+entered. Entering the object enters the wrapped scope and returns it, and
+exiting still raises `trio.TooSlowError` if the scope caught a cancellation.
