@@ -160,7 +160,7 @@ requests==2.34.2
     # via sphinx
 roman-numerals==4.1.0 ; python_full_version >= '3.11'
     # via sphinx
-ruff==0.17.5
+ruff==0.17.6
     # via -r test-requirements.in
 sniffio==1.3.1
     # via -r test-requirements.in
@@ -224,7 +224,7 @@ typing-extensions==4.16.0
     #   virtualenv
 urllib3==2.8.0
     # via requests
-uv==0.13.8
+uv==0.13.9
     # via -r test-requirements.in
 virtualenv==21.15.2
     # via pre-commit
