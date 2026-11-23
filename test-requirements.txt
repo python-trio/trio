@@ -134,9 +134,9 @@ pre-commit==4.6.2 ; python_full_version < '3.11'
     # via -r test-requirements.in
 pre-commit==4.7.0 ; python_full_version >= '3.11'
     # via -r test-requirements.in
-pycparser==3.11 ; (python_full_version < '3.11' and implementation_name != 'PyPy' and os_name == 'nt') or (python_full_version < '3.11' and implementation_name != 'PyPy' and platform_python_implementation != 'PyPy')
+pycparser==3.11 ; python_full_version < '3.11' and implementation_name != 'PyPy' and (os_name == 'nt' or platform_python_implementation != 'PyPy')
     # via cffi
-pycparser==3.12 ; (python_full_version >= '3.11' and implementation_name != 'PyPy' and os_name == 'nt') or (python_full_version >= '3.11' and implementation_name != 'PyPy' and platform_python_implementation != 'PyPy')
+pycparser==3.12 ; python_full_version >= '3.11' and implementation_name != 'PyPy' and (os_name == 'nt' or platform_python_implementation != 'PyPy')
     # via cffi
 pygments==2.21.0
     # via
