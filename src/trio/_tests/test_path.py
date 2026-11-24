@@ -154,6 +154,42 @@ async def test_async_methods_rewrap(method_name: str) -> None:
     assert str(result) == str(async_result)
 
 
+@pytest.mark.parametrize("other_is_trio_path", [False, True])
+async def test_samefile(other_is_trio_path: bool, tmp_path: pathlib.Path) -> None:
+    # `samefile` passes the *other* path to `samestat` without going through
+    # `__fspath__`, so a trio.Path argument used to hand over an un-awaited
+    # coroutine from our async `stat`.
+    this = tmp_path / "this"
+    this.write_text("contents")
+    hardlink = tmp_path / "hardlink"
+    os.link(this, hardlink)
+    different = tmp_path / "different"
+    different.write_text("contents")
+
+    def other(path: pathlib.Path) -> pathlib.Path | trio.Path:
+        return trio.Path(path) if other_is_trio_path else path
+
+    path = trio.Path(this)
+
+    assert await path.samefile(other(this))
+    assert await path.samefile(other(hardlink))
+    assert not await path.samefile(other(different))
+    # and the reverse direction, where `other_path` is the hardlink
+    assert await trio.Path(hardlink).samefile(other(this))
+
+
+@pytest.mark.parametrize("as_str", [False, True])
+async def test_samefile_mixed_pathlike(as_str: bool, tmp_path: pathlib.Path) -> None:
+    # str and non-Path os.PathLike objects keep working too
+    this = tmp_path / "this"
+    this.write_text("contents")
+
+    path = trio.Path(this)
+    argument: str | os.PathLike[str] = str(this) if as_str else pathlib.PurePath(this)
+
+    assert await path.samefile(argument)
+
+
 def test_forward_methods_rewrap(path: trio.Path, tmp_path: pathlib.Path) -> None:
     with_name = path.with_name("foo")
     with_suffix = path.with_suffix(".py")

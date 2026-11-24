@@ -1,0 +1,1 @@
+:meth:`trio.Path.samefile` no longer raises :exc:`AttributeError` when the path it is compared against is itself a :class:`trio.Path`.
