@@ -83,6 +83,10 @@ async def _waitid_system_task(pid: int, event: Event) -> None:
             pid,
             abandon_on_cancel=True,
             limiter=waitid_limiter,
+            # This thread only waits for the child to exit. Where the platform
+            # allows, that is an I/O wait, which does not hold the autojump
+            # clock either.
+            hold_autojump=False,
         )
     except OSError:
         # If waitid fails, waitpid will fail too, so it still makes

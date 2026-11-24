@@ -34,6 +34,7 @@ from .. import (
     sleep_forever,
 )
 from .._core._tests.tutil import skip_if_fbsd_pipes_broken, slow
+from .._subprocess_platform import wait_child_exiting
 from ..lowlevel import open_process
 from ..testing import MockClock, assert_no_checkpoints, wait_all_tasks_blocked
 
@@ -641,6 +642,44 @@ def test_waitid_eintr() -> None:
             sleeper.kill()
             sleeper.wait()
         signal.signal(signal.SIGALRM, old_sigalrm)
+
+
+@pytest.mark.skipif(
+    not wait_child_exiting.__module__.endswith("waitid"),
+    reason="needs the waitid backend",
+)
+async def test_autojump_clock_does_not_wait_for_waitid_thread(
+    autojump_clock: MockClock,
+) -> None:
+    # The thread that the waitid backend uses only waits for the child to
+    # exit. The autojump clock must not wait for it: a virtual-time timeout
+    # has to fire while the child is still running, as it does on backends
+    # where waiting for a child is an I/O wait.
+    proc = await open_process(SLEEP(3600))
+    try:
+        with move_on_after(5) as scope:
+            await wait_child_exiting(proc)
+        assert scope.cancelled_caught
+        assert proc.returncode is None
+    finally:
+        proc.kill()
+        await proc.wait()
+
+
+async def test_autojump_clock_does_not_wait_for_child(
+    autojump_clock: MockClock,
+) -> None:
+    # On every backend, a virtual-time timeout around a child process fires
+    # while the child is still running.
+    proc = await open_process(SLEEP(3600))
+    try:
+        with move_on_after(5) as scope:
+            await proc.wait()
+        assert scope.cancelled_caught
+        assert proc.returncode is None
+    finally:
+        proc.kill()
+        await proc.wait()
 
 
 async def test_custom_deliver_cancel() -> None:

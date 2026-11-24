@@ -1,0 +1,7 @@
+The autojump clock (`trio.testing.MockClock` with a finite
+``autojump_threshold``) no longer jumps virtual time ahead while a task is
+waiting for a thread started by `trio.to_thread.run_sync`, which made timeouts
+in concurrent tasks fire spuriously. A thread that waits until a task has
+slept in virtual time (for example on a `queue.Queue` that a task fills after
+a `trio.sleep`) must now be started with ``hold_autojump=False``, or it
+deadlocks.

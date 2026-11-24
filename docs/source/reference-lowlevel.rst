@@ -556,6 +556,8 @@ Low-level blocking
 .. autofunction:: wait_task_rescheduled
 .. autoclass:: Abort
 .. autofunction:: reschedule
+.. autofunction:: hold_autojump
+   :with:
 
 Here's an example lock class implemented using
 :func:`wait_task_rescheduled` directly. This implementation has a
