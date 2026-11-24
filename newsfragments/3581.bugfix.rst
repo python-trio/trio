@@ -1,0 +1,5 @@
+Fixed a hang in :class:`~trio.SSLStream` when a task was waiting for the
+lazy TLS handshake and the task performing that handshake failed or was
+cancelled. The waiting task now receives the handshake error (or
+:exc:`~trio.BrokenResourceError` if the handshake was cancelled) instead of
+blocking forever.
