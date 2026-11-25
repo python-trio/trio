@@ -638,6 +638,32 @@ async def test_as_safe_channel_multi_cancel() -> None:
     assert events == ["body cancel", "agen cancel"]
 
 
+async def test_as_safe_channel_cancelled_in_cleanup_keeps_context(
+    autojump_clock: trio.abc.Clock,
+) -> None:
+    error = ValueError("agen")
+
+    @as_safe_channel
+    async def agen() -> AsyncGenerator[None]:
+        try:
+            yield
+            raise error
+        finally:
+            # The timeout cancels the body and this task. The shield makes this task's
+            # Cancelled, which carries `error`, reach the nursery after the body's;
+            # unshielded, the order is random.
+            with trio.CancelScope(shield=True):
+                await trio.sleep(2)
+            await trio.lowlevel.checkpoint()
+
+    with trio.move_on_after(1):
+        with pytest.raises(trio.Cancelled) as excinfo:
+            async with agen() as recv_chan:
+                async for _ in recv_chan:  # pragma: no branch
+                    pass
+    assert excinfo.value.__context__ is error
+
+
 async def test_as_safe_channel_genexit_exception_group() -> None:
     @as_safe_channel
     async def agen() -> AsyncGenerator[None]:
