@@ -122,12 +122,27 @@ class Event:
 class _HasAcquireRelease(Protocol):
     """Only classes with acquire() and release() can use the mixin's implementations."""
 
-    async def acquire(self) -> object: ...
+    async def acquire(self) -> object:
+        """Acquire the resource (lock).
 
-    def release(self) -> object: ...
+        See docs for :class:`~trio.Lock` and :class:`~trio.StrictFIFOLock` for usage details.
+        """
+
+    def release(self) -> object:
+        """Release the resource (unlock).
+
+        See docs for :class:`~trio.Lock` and :class:`~trio.StrictFIFOLock` for usage details.
+        """
 
 
 class AsyncContextManagerMixin:
+    """An async context manager base class.
+
+    Should be used with the ``_HasAcquireRelease`` Protocol.
+    Calls ``await self.acquire()`` on entry and ``self.release()`` on exit,
+    adding :exc:`KeyboardInterrupt` protection support.
+    """
+
     @enable_ki_protection
     async def __aenter__(self: _HasAcquireRelease) -> None:
         await self.acquire()
