@@ -162,6 +162,12 @@ async def test_wait_basic(
     assert record == ["cancelled"]
 
 
+# The two real BusyResourceError texts from the three backends: epoll and
+# windows word it one way, kqueue another. Matching both asserts the message is
+# one of them rather than merely non-empty.
+BUSY_MESSAGE = r"already reading / writing this|multiple listeners for same ident"
+
+
 @read_socket_test
 async def test_double_read(socketpair: SocketPair, wait_readable: WaitSocket) -> None:
     a, _b = socketpair
@@ -170,7 +176,8 @@ async def test_double_read(socketpair: SocketPair, wait_readable: WaitSocket) ->
     async with _core.open_nursery() as nursery:
         nursery.start_soon(wait_readable, a)
         await wait_all_tasks_blocked()
-        with pytest.raises(_core.BusyResourceError):
+        # epoll and windows say one thing here, kqueue another, so match both.
+        with pytest.raises(_core.BusyResourceError, match=BUSY_MESSAGE):
             await wait_readable(a)
         nursery.cancel_scope.cancel()
 
@@ -184,7 +191,8 @@ async def test_double_write(socketpair: SocketPair, wait_writable: WaitSocket) -
     async with _core.open_nursery() as nursery:
         nursery.start_soon(wait_writable, a)
         await wait_all_tasks_blocked()
-        with pytest.raises(_core.BusyResourceError):
+        # epoll and windows say one thing here, kqueue another, so match both.
+        with pytest.raises(_core.BusyResourceError, match=BUSY_MESSAGE):
             await wait_writable(a)
         nursery.cancel_scope.cancel()
 
@@ -201,11 +209,15 @@ async def test_interrupted_by_close(
     a, _b = socketpair
 
     async def reader() -> None:
-        with pytest.raises(_core.ClosedResourceError):
+        with pytest.raises(
+            _core.ClosedResourceError, match="another task closed this "
+        ):
             await wait_readable(a)
 
     async def writer() -> None:
-        with pytest.raises(_core.ClosedResourceError):
+        with pytest.raises(
+            _core.ClosedResourceError, match="another task closed this "
+        ):
             await wait_writable(a)
 
     fill_socket(a)
