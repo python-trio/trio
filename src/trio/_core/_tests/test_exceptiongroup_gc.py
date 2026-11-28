@@ -87,12 +87,10 @@ def test_ExceptionGroup_catch_doesnt_create_cyclic_garbage() -> None:
 
     try:
         gc.set_debug(gc.DEBUG_SAVEALL)
-        with pytest.raises(ExceptionGroup) as excinfo:
+        with pytest.RaisesGroup(ValueError, KeyError):
             # covers ~~MultiErrorCatcher.__exit__ and~~ _concat_tb.copy_tb
             # TODO: is the above comment true anymore? as this no longer uses MultiError.catch
             raise make_multi()
-        for exc in excinfo.value.exceptions:
-            assert isinstance(exc, (ValueError, KeyError))
         gc.collect()
         assert not gc.garbage
     finally:
