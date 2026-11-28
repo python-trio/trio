@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 from typing import TYPE_CHECKING
 
 import pytest
@@ -9,9 +8,6 @@ import trio
 from trio import EndOfChannel, as_safe_channel, open_memory_channel
 
 from ..testing import assert_checkpoints, wait_all_tasks_blocked
-
-if sys.version_info < (3, 11):
-    from exceptiongroup import ExceptionGroup
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -534,7 +530,6 @@ async def test_as_safe_channel_genexit_finally() -> None:
                 assert i == 1
                 raise TypeError("iterator")
 
-    if sys.version_info >= (3, 11):
         assert g.value.__notes__ == [
             "Encountered exception during cleanup of generator object, as "
             "well as exception in the contextmanager body - unable to unwrap."

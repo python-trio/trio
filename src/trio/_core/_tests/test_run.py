@@ -50,9 +50,6 @@ if TYPE_CHECKING:
         Generator,
     )
 
-if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup, ExceptionGroup
-
 
 T = TypeVar("T")
 
@@ -2951,15 +2948,8 @@ async def test_internal_error_old_nursery_multiple_tasks() -> None:
     assert pytest.RaisesGroup(ValueError, ValueError).matches(excinfo.value.__cause__)
 
 
-if sys.version_info >= (3, 11):
-
-    def no_other_refs() -> list[object]:
-        return []
-
-else:
-
-    def no_other_refs() -> list[object]:
-        return [sys._getframe(1)]
+def no_other_refs() -> list[object]:
+    return []
 
 
 @pytest.mark.skipif(

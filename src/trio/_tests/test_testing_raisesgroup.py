@@ -10,9 +10,6 @@ import trio
 from trio.testing import _Matcher as Matcher, _RaisesGroup as RaisesGroup
 from trio.testing._raises_group import repr_callable
 
-if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup, ExceptionGroup
-
 
 def wrap_escape(s: str) -> str:
     return "^" + re.escape(s) + "$"

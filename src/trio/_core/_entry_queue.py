@@ -3,7 +3,7 @@ from __future__ import annotations
 import threading
 from collections import deque
 from collections.abc import Callable
-from typing import TYPE_CHECKING, NoReturn
+from typing import TYPE_CHECKING, NoReturn, TypeVarTuple, Unpack
 
 import attrs
 
@@ -12,7 +12,6 @@ from .._util import NoPublicConstructor, final
 from ._wakeup_socketpair import WakeupSocketpair
 
 if TYPE_CHECKING:
-    from typing_extensions import TypeVarTuple, Unpack
 
     PosArgsT = TypeVarTuple("PosArgsT")
 

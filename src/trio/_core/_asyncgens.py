@@ -4,7 +4,7 @@ import logging
 import sys
 import warnings
 import weakref
-from typing import TYPE_CHECKING, NoReturn, TypeVar
+from typing import TYPE_CHECKING, Never, TypeVar
 
 import attrs
 
@@ -23,8 +23,8 @@ if TYPE_CHECKING:
 
     _P = ParamSpec("_P")
 
-    _WEAK_ASYNC_GEN_SET = weakref.WeakSet[AsyncGeneratorType[object, NoReturn]]
-    _ASYNC_GEN_SET = set[AsyncGeneratorType[object, NoReturn]]
+    _WEAK_ASYNC_GEN_SET = weakref.WeakSet[AsyncGeneratorType[object, Never]]
+    _ASYNC_GEN_SET = set[AsyncGeneratorType[object, Never]]
 else:
     _WEAK_ASYNC_GEN_SET = weakref.WeakSet
     _ASYNC_GEN_SET = set
@@ -66,7 +66,7 @@ class AsyncGenerators:
     prev_hooks: sys._asyncgen_hooks = attrs.field(init=False)
 
     def install_hooks(self, runner: _run.Runner) -> None:
-        def firstiter(agen: AsyncGeneratorType[object, NoReturn]) -> None:
+        def firstiter(agen: AsyncGeneratorType[object, Never]) -> None:
             if hasattr(_run.GLOBAL_RUN_CONTEXT, "task"):
                 self.alive.add(agen)
             else:
@@ -81,7 +81,7 @@ class AsyncGenerators:
                     self.prev_hooks.firstiter(agen)
 
         def finalize_in_trio_context(
-            agen: AsyncGeneratorType[object, NoReturn],
+            agen: AsyncGeneratorType[object, Never],
             agen_name: str,
         ) -> None:
             try:
@@ -99,7 +99,7 @@ class AsyncGenerators:
                 self.trailing_needs_finalize.add(agen)
 
         @_core.enable_ki_protection
-        def finalizer(agen: AsyncGeneratorType[object, NoReturn]) -> None:
+        def finalizer(agen: AsyncGeneratorType[object, Never]) -> None:
             try:
                 self.foreign.remove(id(agen))
             except KeyError:
@@ -222,7 +222,7 @@ class AsyncGenerators:
 
     async def _finalize_one(
         self,
-        agen: AsyncGeneratorType[object, NoReturn],
+        agen: AsyncGeneratorType[object, Never],
         name: object,
     ) -> None:
         try:

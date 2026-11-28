@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import re
-import sys
 from abc import ABC, abstractmethod
 from re import Pattern
 from textwrap import indent
-from typing import TYPE_CHECKING, Generic, Literal, TypeGuard, cast, overload
+from typing import TYPE_CHECKING, Generic, Literal, TypeGuard, TypeVar, cast, overload
 
 from trio._util import final
 
@@ -18,7 +17,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
     from _pytest._code.code import ExceptionChainRepr, ReprExceptionInfo, Traceback
-    from typing_extensions import TypeVar
 
     # this conditional definition is because we want to allow a TypeVar default
     MatchE = TypeVar(
@@ -38,9 +36,6 @@ BaseExcT_1 = TypeVar("BaseExcT_1", bound=BaseException)
 BaseExcT_2 = TypeVar("BaseExcT_2", bound=BaseException)
 ExcT_1 = TypeVar("ExcT_1", bound=Exception)
 ExcT_2 = TypeVar("ExcT_2", bound=Exception)
-
-if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup, ExceptionGroup
 
 
 @final

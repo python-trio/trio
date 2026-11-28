@@ -168,18 +168,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.14t', '3.15', '3.15t']
+        python: ['3.11', '3.12', '3.13', '3.14', '3.14t', '3.15', '3.15t']
         arch: ['x86', 'x64']
         lsp: ['']
         lsp_extract_file: ['']
         extra_name: ['']
         include:
-          - python: '3.10'
+          - python: '3.11'
             arch: 'x64'
             lsp: 'https://raw.githubusercontent.com/python-trio/trio-ci-assets/master/komodia-based-vpn-setup.zip'
             lsp_extract_file: 'komodia-based-vpn-setup.exe'
             extra_name: ', with Komodia LSP'
-          - python: '3.10'
+          - python: '3.11'
             arch: 'x64'
             lsp: 'https://www.proxifier.com/download/legacy/ProxifierSetup342.exe'
             lsp_extract_file: ''
@@ -243,7 +243,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.11', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t', '3.15', '3.15t']
+        python: ['pypy-3.11', '3.11', '3.12', '3.13', '3.14', '3.14t', '3.15', '3.15t']
         check_formatting: ['0']
         no_test_requirements: ['0']
         extra_name: ['']
@@ -252,7 +252,7 @@ jobs:
             check_formatting: '1'
             extra_name: ', check formatting'
           # separate test run that doesn't install test-requirements.txt
-          - python: '3.10'
+          - python: '3.11'
             no_test_requirements: '1'
             extra_name: ', no test-requirements'
     continue-on-error: >-
@@ -288,7 +288,7 @@ jobs:
         if: matrix.check_formatting == '1'
         uses: actions/setup-python@v6
         with:
-          python-version: '3.10'
+          python-version: '3.11'
           cache: pip
           cache-dependency-path: test-requirements.txt
           allow-prereleases: true
@@ -321,7 +321,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.11', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t', '3.15', '3.15t']
+        python: ['pypy-3.11', '3.11', '3.12', '3.13', '3.14', '3.14t', '3.15', '3.15t']
     continue-on-error: >-
       ${{
         (
@@ -412,12 +412,10 @@ jobs:
         include:
           # Cython 2 supports 3.10 and 3.11 and Cython 3 supports all versions we do,
           # so test both the lowest and higher version for both
-          - python: '3.10'
-            cython: '<3'
           - python: '3.11'
             cython: '<3'
           # TODO: technically we should pin cython versions
-          - python: '3.10'
+          - python: '3.11'
             cython: '>=3'
           - python: '3.15'
             cython: '>=3'

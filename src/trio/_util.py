@@ -9,8 +9,11 @@ from collections.abc import Awaitable, Callable, Sequence
 from typing import (
     TYPE_CHECKING,
     Any,
+    Never,
     NoReturn,
     TypeVar,
+    TypeVarTuple,
+    Unpack,
     final as std_final,
 )
 
@@ -24,13 +27,7 @@ T = TypeVar("T")
 RetT = TypeVar("RetT")
 
 if TYPE_CHECKING:
-    import sys
     from types import AsyncGeneratorType, TracebackType
-
-    from typing_extensions import TypeVarTuple, Unpack
-
-    if sys.version_info < (3, 11):
-        from exceptiongroup import BaseExceptionGroup
 
     PosArgsT = TypeVarTuple("PosArgsT")
 
@@ -61,8 +58,6 @@ def coroutine_or_error(
     *args: Unpack[PosArgsT],
 ) -> collections.abc.Coroutine[object, NoReturn, RetT]:
     def _return_value_looks_like_wrong_library(value: object) -> bool:
-        # Returned by legacy @asyncio.coroutine functions, which includes
-        # a surprising proportion of asyncio builtins.
         if isinstance(value, collections.abc.Generator):
             return True
         # The protocol for detecting an asyncio Future-like object
@@ -291,7 +286,7 @@ class NoPublicConstructor(ABCMeta):
         return super().__call__(*args, **kwargs)  # type: ignore
 
 
-def name_asyncgen(agen: AsyncGeneratorType[object, NoReturn]) -> str:
+def name_asyncgen(agen: AsyncGeneratorType[object, Never]) -> str:
     """Return the fully-qualified name of the async generator function
     that produced the async generator iterator *agen*.
     """

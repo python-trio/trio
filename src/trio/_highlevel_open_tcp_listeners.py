@@ -12,9 +12,6 @@ from . import socket as tsocket
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
-if sys.version_info < (3, 11):
-    from exceptiongroup import ExceptionGroup
-
 
 # Default backlog size:
 #

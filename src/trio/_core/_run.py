@@ -20,6 +20,10 @@ from typing import (
     Final,
     NoReturn,
     Protocol,
+    Self,
+    TypeVar,
+    TypeVarTuple,
+    Unpack,
     cast,
     overload,
 )
@@ -57,10 +61,6 @@ from ._traps import (
     wait_task_rescheduled,
 )
 
-if sys.version_info < (3, 11):
-    from exceptiongroup import BaseExceptionGroup
-
-
 if TYPE_CHECKING:
     import contextvars
     import types
@@ -75,15 +75,12 @@ if TYPE_CHECKING:
 
     # for some strange reason Sphinx works with outcome.Outcome, but not Outcome, in
     # start_guest_run. Same with types.FrameType in iter_await_frames
-    from typing_extensions import Self, TypeVar, TypeVarTuple, Unpack
 
     PosArgT = TypeVarTuple("PosArgT")
     StatusT = TypeVar("StatusT", default=None)
     StatusT_contra = TypeVar("StatusT_contra", contravariant=True, default=None)
     BaseExcT = TypeVar("BaseExcT", bound=BaseException)
 else:
-    from typing import TypeVar
-
     StatusT = TypeVar("StatusT")
     StatusT_contra = TypeVar("StatusT_contra", contravariant=True)
 

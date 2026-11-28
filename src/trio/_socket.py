@@ -11,6 +11,8 @@ from typing import (
     Any,
     Concatenate,
     Literal,
+    ParamSpec,
+    Self,
     SupportsIndex,
     TypeAlias,
     TypeVar,
@@ -28,7 +30,7 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Iterable
     from types import TracebackType
 
-    from typing_extensions import Buffer, ParamSpec, Self
+    from typing_extensions import Buffer
 
     from ._abc import HostnameResolver, SocketFactory
 

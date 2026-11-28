@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, overload
+from typing import TYPE_CHECKING, assert_type, overload
 
 import trio
-from typing_extensions import assert_type
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
